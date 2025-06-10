@@ -27,7 +27,7 @@ const Index = () => {
           start_time_minutes
         `)
         .eq('date', today)
-        .order('unique_id');
+        .order('start_time_minutes');
 
       if (error) {
         console.error('Error fetching games:', error);
