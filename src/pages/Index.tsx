@@ -23,7 +23,8 @@ const Index = () => {
           away_era,
           home_whip,
           away_whip,
-          date
+          date,
+          start_time_minutes
         `)
         .eq('date', today)
         .order('unique_id');

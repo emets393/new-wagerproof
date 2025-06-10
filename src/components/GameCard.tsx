@@ -14,19 +14,42 @@ interface Game {
   home_whip: number;
   away_whip: number;
   date: string;
+  start_time_minutes?: number;
 }
 
 interface GameCardProps {
   game: Game;
 }
 
+const formatStartTime = (startTimeMinutes: number | undefined): string => {
+  if (!startTimeMinutes) return '';
+  
+  const hours = Math.floor(startTimeMinutes / 60);
+  const minutes = startTimeMinutes % 60;
+  
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+  const displayMinutes = minutes.toString().padStart(2, '0');
+  
+  return `${displayHours}:${displayMinutes} ${period}`;
+};
+
 const GameCard = ({ game }: GameCardProps) => {
+  const startTime = formatStartTime(game.start_time_minutes);
+
   return (
     <Card className="w-full hover:shadow-lg transition-shadow">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <TeamDisplay team={game.away_team} isHome={false} />
-          <div className="text-2xl font-bold text-muted-foreground">@</div>
+          <div className="flex flex-col items-center">
+            {startTime && (
+              <div className="text-sm font-semibold text-muted-foreground mb-1">
+                {startTime} EST
+              </div>
+            )}
+            <div className="text-2xl font-bold text-muted-foreground">@</div>
+          </div>
           <TeamDisplay team={game.home_team} isHome={true} />
         </div>
       </CardHeader>

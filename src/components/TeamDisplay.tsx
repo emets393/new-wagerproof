@@ -138,12 +138,12 @@ const TeamDisplay = ({ team, isHome }: TeamDisplayProps) => {
     
     // If both sources fail, show initials
     target.style.display = 'none';
-    target.parentElement!.innerHTML = `<span class="text-xs font-bold text-muted-foreground">${getTeamInitials(team)}</span>`;
+    target.parentElement!.innerHTML = `<span class="text-sm font-bold text-muted-foreground">${getTeamInitials(team)}</span>`;
   };
 
   return (
-    <div className={`flex flex-col items-center space-y-2 ${isHome ? 'text-right' : 'text-left'}`}>
-      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+    <div className={`flex flex-col items-center space-y-3 ${isHome ? 'text-right' : 'text-left'}`}>
+      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden">
         {logoUrl ? (
           <img 
             src={logoUrl} 
@@ -152,12 +152,12 @@ const TeamDisplay = ({ team, isHome }: TeamDisplayProps) => {
             onError={handleImageError}
           />
         ) : (
-          <span className="text-xs font-bold text-muted-foreground">
+          <span className="text-sm font-bold text-muted-foreground">
             {getTeamInitials(team)}
           </span>
         )}
       </div>
-      <div className="text-sm font-semibold text-center min-h-[2.5rem] flex items-center">
+      <div className="text-base font-semibold text-center min-h-[3rem] flex items-center">
         {team}
       </div>
     </div>
