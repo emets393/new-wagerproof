@@ -1,8 +1,8 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 
 interface PredictionsModalProps {
   isOpen: boolean;
@@ -84,95 +84,174 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-center">
+      <DialogContent className="max-w-lg font-inter bg-gradient-to-br from-background to-muted/20 border-border/50 shadow-2xl">
+        <DialogHeader className="text-center space-y-3 pb-2">
+          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
             Game Predictions
           </DialogTitle>
-          <p className="text-center text-muted-foreground">
-            {awayTeam} @ {homeTeam}
-          </p>
+          <div className="flex items-center justify-center space-x-2 text-muted-foreground">
+            <BarChart3 className="w-4 h-4" />
+            <p className="text-base font-medium">
+              {awayTeam} @ {homeTeam}
+            </p>
+          </div>
         </DialogHeader>
         
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-muted-foreground">Loading predictions...</div>
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-3">
+              <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
+              <div className="text-muted-foreground font-medium">Loading predictions...</div>
+            </div>
           </div>
         ) : predictions ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3">
-              <div className="border rounded-lg p-3">
-                <h4 className="font-semibold text-sm mb-2">Model Total</h4>
-                <p className="text-lg font-bold">{predictions.ou_prediction || 'N/A'}</p>
-              </div>
-              
-              <div className="border rounded-lg p-3">
-                <h4 className="font-semibold text-sm mb-2">Strong O/U Prediction</h4>
-                <p className="text-lg font-bold">{predictions.strong_ou_prediction || 'N/A'}</p>
-              </div>
-              
-              <div className="border rounded-lg p-3">
-                <h4 className="font-semibold text-sm mb-2">Circa Total Prediction</h4>
-                <p className="text-lg font-bold">{predictions.circa_total_prediction || 'N/A'}</p>
-              </div>
-              
-              <div className="border rounded-lg p-3">
-                <h4 className="font-semibold text-sm mb-2">Circa Prediction Strength</h4>
-                <p className="text-lg font-bold">{predictions.circa_total_prediction_strength || 'N/A'}</p>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-4">
+              {/* Prediction Cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300">
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1 uppercase tracking-wide">Model Total</h4>
+                  <p className="text-2xl font-bold text-foreground">{predictions.ou_prediction || 'N/A'}</p>
+                </div>
+                
+                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300">
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1 uppercase tracking-wide">Strong O/U</h4>
+                  <p className="text-2xl font-bold text-foreground">{predictions.strong_ou_prediction || 'N/A'}</p>
+                </div>
               </div>
 
-              <div className="border rounded-lg p-3">
-                <h4 className="font-semibold text-sm mb-3">O/U Handle Distribution</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>Under ({underPercentage.toFixed(1)}%)</span>
-                    <span>Over ({overPercentage.toFixed(1)}%)</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300">
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1 uppercase tracking-wide">Circa Total</h4>
+                  <p className="text-2xl font-bold text-foreground">{predictions.circa_total_prediction || 'N/A'}</p>
+                </div>
+                
+                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300">
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1 uppercase tracking-wide">Circa Strength</h4>
+                  <p className="text-2xl font-bold text-foreground">{predictions.circa_total_prediction_strength || 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* Handle Distribution Chart */}
+              <div className="bg-gradient-to-br from-card to-card/30 border border-border/50 rounded-xl p-6 shadow-lg backdrop-blur-sm">
+                <div className="flex items-center space-x-2 mb-4">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  <h4 className="font-bold text-lg text-foreground">O/U Handle Distribution</h4>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center space-x-2">
+                      <TrendingDown className="w-4 h-4 text-rose-500" />
+                      <span className="font-semibold text-sm text-rose-600">Under</span>
+                      <span className="font-bold text-lg text-rose-700">{underPercentage.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-lg text-emerald-700">{overPercentage.toFixed(1)}%</span>
+                      <span className="font-semibold text-sm text-emerald-600">Over</span>
+                      <TrendingUp className="w-4 h-4 text-emerald-500" />
+                    </div>
                   </div>
-                  <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden flex">
-                    <div 
-                      className="bg-red-500 h-full transition-all duration-300"
-                      style={{ width: `${underPercentage}%` }}
-                    />
-                    <div 
-                      className="bg-green-500 h-full transition-all duration-300"
-                      style={{ width: `${overPercentage}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs font-medium">
-                    <span className="text-red-600">Under</span>
-                    <span className="text-green-600">Over</span>
+                  
+                  <div className="relative">
+                    <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30">
+                      <div className="flex h-full">
+                        <div 
+                          className="bg-gradient-rose h-full transition-all duration-700 ease-out shadow-lg hover:shadow-rose-500/25 relative overflow-hidden"
+                          style={{ width: `${underPercentage}%` }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"></div>
+                        </div>
+                        <div 
+                          className="bg-gradient-emerald h-full transition-all duration-700 ease-out shadow-lg hover:shadow-emerald-500/25 relative overflow-hidden"
+                          style={{ width: `${overPercentage}%` }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"></div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Percentage labels inside bars */}
+                    {underPercentage > 15 && (
+                      <div 
+                        className="absolute top-1/2 transform -translate-y-1/2 left-2 text-white font-bold text-sm drop-shadow-lg"
+                      >
+                        {underPercentage.toFixed(0)}%
+                      </div>
+                    )}
+                    {overPercentage > 15 && (
+                      <div 
+                        className="absolute top-1/2 transform -translate-y-1/2 right-2 text-white font-bold text-sm drop-shadow-lg"
+                      >
+                        {overPercentage.toFixed(0)}%
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="border rounded-lg p-3">
-                <h4 className="font-semibold text-sm mb-3">O/U Bets Distribution</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>Under ({underBetsPercentage.toFixed(1)}%)</span>
-                    <span>Over ({overBetsPercentage.toFixed(1)}%)</span>
+              {/* Bets Distribution Chart */}
+              <div className="bg-gradient-to-br from-card to-card/30 border border-border/50 rounded-xl p-6 shadow-lg backdrop-blur-sm">
+                <div className="flex items-center space-x-2 mb-4">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  <h4 className="font-bold text-lg text-foreground">O/U Bets Distribution</h4>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center space-x-2">
+                      <TrendingDown className="w-4 h-4 text-rose-500" />
+                      <span className="font-semibold text-sm text-rose-600">Under</span>
+                      <span className="font-bold text-lg text-rose-700">{underBetsPercentage.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-lg text-emerald-700">{overBetsPercentage.toFixed(1)}%</span>
+                      <span className="font-semibold text-sm text-emerald-600">Over</span>
+                      <TrendingUp className="w-4 h-4 text-emerald-500" />
+                    </div>
                   </div>
-                  <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden flex">
-                    <div 
-                      className="bg-red-500 h-full transition-all duration-300"
-                      style={{ width: `${underBetsPercentage}%` }}
-                    />
-                    <div 
-                      className="bg-green-500 h-full transition-all duration-300"
-                      style={{ width: `${overBetsPercentage}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs font-medium">
-                    <span className="text-red-600">Under</span>
-                    <span className="text-green-600">Over</span>
+                  
+                  <div className="relative">
+                    <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30">
+                      <div className="flex h-full">
+                        <div 
+                          className="bg-gradient-rose h-full transition-all duration-700 ease-out shadow-lg hover:shadow-rose-500/25 relative overflow-hidden"
+                          style={{ width: `${underBetsPercentage}%` }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"></div>
+                        </div>
+                        <div 
+                          className="bg-gradient-emerald h-full transition-all duration-700 ease-out shadow-lg hover:shadow-emerald-500/25 relative overflow-hidden"
+                          style={{ width: `${overBetsPercentage}%` }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"></div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Percentage labels inside bars */}
+                    {underBetsPercentage > 15 && (
+                      <div 
+                        className="absolute top-1/2 transform -translate-y-1/2 left-2 text-white font-bold text-sm drop-shadow-lg"
+                      >
+                        {underBetsPercentage.toFixed(0)}%
+                      </div>
+                    )}
+                    {overBetsPercentage > 15 && (
+                      <div 
+                        className="absolute top-1/2 transform -translate-y-1/2 right-2 text-white font-bold text-sm drop-shadow-lg"
+                      >
+                        {overBetsPercentage.toFixed(0)}%
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            No predictions available for this game
+          <div className="text-center py-12">
+            <div className="text-muted-foreground text-lg font-medium">
+              No predictions available for this game
+            </div>
           </div>
         )}
       </DialogContent>
