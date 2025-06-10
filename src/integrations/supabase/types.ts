@@ -2863,6 +2863,8 @@ export type Database = {
           away_ml: number | null
           away_rl: number | null
           away_team: string | null
+          Bets_Away: number | null
+          Bets_Home: number | null
           circa_ml_prediction: string | null
           circa_ml_prediction_strength: string | null
           circa_rl_prediction: string | null
@@ -2871,6 +2873,8 @@ export type Database = {
           circa_total_prediction_strength: string | null
           created_at: string | null
           game_date: string | null
+          Handle_Away: number | null
+          Handle_Home: number | null
           home_ml: number | null
           home_rl: number | null
           home_team: string | null
@@ -2882,12 +2886,20 @@ export type Database = {
           ou_prediction: string | null
           ou_probability: number | null
           ou_tier_accuracy: number | null
+          RL_Bets_Away: number | null
+          RL_Bets_Home: number | null
+          RL_Handle_Away: number | null
+          RL_Handle_Home: number | null
           run_line_probability: number | null
           run_line_tier_accuracy: number | null
           runline_prediction: string | null
           strong_ml_prediction: string | null
           strong_ou_prediction: string | null
           strong_runline_prediction: string | null
+          Total_Over_Bets: number | null
+          Total_Over_Handle: number | null
+          Total_Under_Bets: number | null
+          Total_Under_Handle: number | null
           unique_id: string | null
         }
         Relationships: []

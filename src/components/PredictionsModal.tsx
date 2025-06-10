@@ -22,7 +22,9 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
           ou_prediction,
           strong_ou_prediction,
           circa_total_prediction,
-          circa_total_prediction_strength
+          circa_total_prediction_strength,
+          Total_Over_Handle,
+          Total_Under_Handle
         `)
         .eq('unique_id', uniqueId)
         .single();
@@ -36,6 +38,25 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     },
     enabled: isOpen,
   });
+
+  // Calculate percentages for the handle bar
+  const calculateHandlePercentages = () => {
+    if (!predictions?.Total_Over_Handle || !predictions?.Total_Under_Handle) {
+      return { overPercentage: 50, underPercentage: 50 };
+    }
+
+    const totalHandle = Number(predictions.Total_Over_Handle) + Number(predictions.Total_Under_Handle);
+    if (totalHandle === 0) {
+      return { overPercentage: 50, underPercentage: 50 };
+    }
+
+    const overPercentage = (Number(predictions.Total_Over_Handle) / totalHandle) * 100;
+    const underPercentage = (Number(predictions.Total_Under_Handle) / totalHandle) * 100;
+
+    return { overPercentage, underPercentage };
+  };
+
+  const { overPercentage, underPercentage } = calculateHandlePercentages();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -74,6 +95,30 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
               <div className="border rounded-lg p-3">
                 <h4 className="font-semibold text-sm mb-2">Circa Prediction Strength</h4>
                 <p className="text-lg font-bold">{predictions.circa_total_prediction_strength || 'N/A'}</p>
+              </div>
+
+              <div className="border rounded-lg p-3">
+                <h4 className="font-semibold text-sm mb-3">O/U Handle Distribution</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Under ({underPercentage.toFixed(1)}%)</span>
+                    <span>Over ({overPercentage.toFixed(1)}%)</span>
+                  </div>
+                  <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden flex">
+                    <div 
+                      className="bg-red-500 h-full transition-all duration-300"
+                      style={{ width: `${underPercentage}%` }}
+                    />
+                    <div 
+                      className="bg-green-500 h-full transition-all duration-300"
+                      style={{ width: `${overPercentage}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-red-600">Under</span>
+                    <span className="text-green-600">Over</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
