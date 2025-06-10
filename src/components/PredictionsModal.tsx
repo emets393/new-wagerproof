@@ -24,7 +24,9 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
           circa_total_prediction,
           circa_total_prediction_strength,
           Total_Over_Handle,
-          Total_Under_Handle
+          Total_Under_Handle,
+          Total_Over_Bets,
+          Total_Under_Bets
         `)
         .eq('unique_id', uniqueId)
         .single();
@@ -58,7 +60,27 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     return { overPercentage, underPercentage };
   };
 
+  // Calculate percentages for the bets bar
+  const calculateBetsPercentages = () => {
+    // Convert to numbers, treating null/undefined as 0
+    const overBets = Number(predictions?.Total_Over_Bets) || 0;
+    const underBets = Number(predictions?.Total_Under_Bets) || 0;
+    
+    const totalBets = overBets + underBets;
+    
+    // If no bets data at all, default to 50/50
+    if (totalBets === 0) {
+      return { overPercentage: 50, underPercentage: 50 };
+    }
+
+    const overPercentage = (overBets / totalBets) * 100;
+    const underPercentage = (underBets / totalBets) * 100;
+
+    return { overPercentage, underPercentage };
+  };
+
   const { overPercentage, underPercentage } = calculateHandlePercentages();
+  const { overPercentage: overBetsPercentage, underPercentage: underBetsPercentage } = calculateBetsPercentages();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -114,6 +136,30 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                     <div 
                       className="bg-green-500 h-full transition-all duration-300"
                       style={{ width: `${overPercentage}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-red-600">Under</span>
+                    <span className="text-green-600">Over</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-3">
+                <h4 className="font-semibold text-sm mb-3">O/U Bets Distribution</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Under ({underBetsPercentage.toFixed(1)}%)</span>
+                    <span>Over ({overBetsPercentage.toFixed(1)}%)</span>
+                  </div>
+                  <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden flex">
+                    <div 
+                      className="bg-red-500 h-full transition-all duration-300"
+                      style={{ width: `${underBetsPercentage}%` }}
+                    />
+                    <div 
+                      className="bg-green-500 h-full transition-all duration-300"
+                      style={{ width: `${overBetsPercentage}%` }}
                     />
                   </div>
                   <div className="flex justify-between text-xs font-medium">
