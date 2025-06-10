@@ -41,17 +41,19 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
 
   // Calculate percentages for the handle bar
   const calculateHandlePercentages = () => {
-    if (!predictions?.Total_Over_Handle || !predictions?.Total_Under_Handle) {
-      return { overPercentage: 50, underPercentage: 50 };
-    }
-
-    const totalHandle = Number(predictions.Total_Over_Handle) + Number(predictions.Total_Under_Handle);
+    // Convert to numbers, treating null/undefined as 0
+    const overHandle = Number(predictions?.Total_Over_Handle) || 0;
+    const underHandle = Number(predictions?.Total_Under_Handle) || 0;
+    
+    const totalHandle = overHandle + underHandle;
+    
+    // If no handle data at all, default to 50/50
     if (totalHandle === 0) {
       return { overPercentage: 50, underPercentage: 50 };
     }
 
-    const overPercentage = (Number(predictions.Total_Over_Handle) / totalHandle) * 100;
-    const underPercentage = (Number(predictions.Total_Under_Handle) / totalHandle) * 100;
+    const overPercentage = (overHandle / totalHandle) * 100;
+    const underPercentage = (underHandle / totalHandle) * 100;
 
     return { overPercentage, underPercentage };
   };
