@@ -5,63 +5,76 @@ interface TeamDisplayProps {
 }
 
 const TeamDisplay = ({ team, isHome }: TeamDisplayProps) => {
-  // Function to get team logo placeholder based on team name
+  // Function to get team logo URL based on team name
   const getTeamLogo = (teamName: string) => {
-    // For now, using a placeholder with team initials
-    const initials = teamName
+    const logoMap: { [key: string]: string } = {
+      'Arizona': 'https://loodibee.com/wp-content/uploads/mlb-arizona-diamondbacks-logo-300x300.png',
+      'Atlanta': 'https://loodibee.com/wp-content/uploads/mlb-atlanta-braves-logo-300x300.png',
+      'Baltimore': 'https://loodibee.com/wp-content/uploads/mlb-baltimore-orioles-logo-300x300.png',
+      'Boston': 'https://loodibee.com/wp-content/uploads/mlb-boston-red-sox-logo-300x300.png',
+      'Cubs': 'https://loodibee.com/wp-content/uploads/mlb-chicago-cubs-logo-300x300.png',
+      'White Sox': 'https://loodibee.com/wp-content/uploads/mlb-chicago-white-sox-logo-300x300.png',
+      'Cincinnati': 'https://loodibee.com/wp-content/uploads/mlb-cincinnati-reds-logo-300x300.png',
+      'Cleveland': 'https://loodibee.com/wp-content/uploads/mlb-cleveland-guardians-logo-300x300.png',
+      'Colorado': 'https://loodibee.com/wp-content/uploads/mlb-colorado-rockies-logo-300x300.png',
+      'Detroit': 'https://loodibee.com/wp-content/uploads/mlb-detroit-tigers-logo-300x300.png',
+      'Houston': 'https://loodibee.com/wp-content/uploads/mlb-houston-astros-logo-300x300.png',
+      'Kansas City': 'https://loodibee.com/wp-content/uploads/mlb-kansas-city-royals-logo-300x300.png',
+      'Angels': 'https://loodibee.com/wp-content/uploads/mlb-los-angeles-angels-logo-300x300.png',
+      'Dodgers': 'https://loodibee.com/wp-content/uploads/mlb-los-angeles-dodgers-logo-300x300.png',
+      'Miami': 'https://loodibee.com/wp-content/uploads/mlb-miami-marlins-logo-300×300.png',
+      'Milwaukee': 'https://loodibee.com/wp-content/uploads/mlb-milwaukee-brewers-logo-300x300.png',
+      'Minnesota': 'https://loodibee.com/wp-content/uploads/mlb-minnesota-twins-logo-300x300.png',
+      'Mets': 'https://loodibee.com/wp-content/uploads/mlb-new-york-mets-logo-300x300.png',
+      'Yankees': 'https://loodibee.com/wp-content/uploads/mlb-new-york-yankees-logo-300x300.png',
+      'Athletics': 'https://loodibee.com/wp-content/uploads/mlb-oakland-athletics-logo-300x300.png',
+      'Philadelphia': 'https://loodibee.com/wp-content/uploads/mlb-philadelphia-phillies-logo-300x300.png',
+      'Pittsburgh': 'https://loodibee.com/wp-content/uploads/mlb-pittsburgh-pirates-logo-300x300.png',
+      'San Diego': 'https://loodibee.com/wp-content/uploads/mlb-san-diego-padres-logo-300x300.png',
+      'San Francisco': 'https://loodibee.com/wp-content/uploads/mlb-san-francisco-giants-logo-300x300.png',
+      'Seattle': 'https://loodibee.com/wp-content/uploads/mlb-seattle-mariners-logo-300x300.png',
+      'ST Louis': 'https://loodibee.com/wp-content/uploads/mlb-st-louis-cardinals-logo-300x300.png',
+      'Tampa Bay': 'https://loodibee.com/wp-content/uploads/mlb-tampa-bay-rays-logo-300x300.png',
+      'Texas': 'https://loodibee.com/wp-content/uploads/mlb-texas-rangers-logo-300x300.png',
+      'Toronto': 'https://loodibee.com/wp-content/uploads/mlb-toronto-blue-jays-logo-300x300.png',
+      'Washington': 'https://loodibee.com/wp-content/uploads/mlb-washington-nationals-logo-300x300.png',
+    };
+
+    return logoMap[teamName];
+  };
+
+  // Fallback function for team initials if logo fails to load
+  const getTeamInitials = (teamName: string) => {
+    return teamName
       .split(' ')
       .map(word => word.charAt(0))
       .join('')
       .toUpperCase()
       .slice(0, 3);
-    
-    return initials;
   };
 
-  const getTeamColors = (teamName: string) => {
-    // Basic color scheme based on team name
-    const colorMap: { [key: string]: string } = {
-      'Angels': 'bg-red-500',
-      'Astros': 'bg-orange-500',
-      'Athletics': 'bg-green-500',
-      'Blue Jays': 'bg-blue-500',
-      'Braves': 'bg-red-600',
-      'Brewers': 'bg-blue-600',
-      'Cardinals': 'bg-red-700',
-      'Cubs': 'bg-blue-700',
-      'Diamondbacks': 'bg-purple-500',
-      'Dodgers': 'bg-blue-800',
-      'Giants': 'bg-orange-600',
-      'Guardians': 'bg-red-800',
-      'Mariners': 'bg-teal-500',
-      'Marlins': 'bg-cyan-500',
-      'Mets': 'bg-blue-500',
-      'Nationals': 'bg-red-500',
-      'Orioles': 'bg-orange-500',
-      'Padres': 'bg-yellow-600',
-      'Phillies': 'bg-red-600',
-      'Pirates': 'bg-yellow-500',
-      'Rangers': 'bg-blue-600',
-      'Rays': 'bg-blue-400',
-      'Red Sox': 'bg-red-700',
-      'Reds': 'bg-red-600',
-      'Rockies': 'bg-purple-600',
-      'Royals': 'bg-blue-500',
-      'Tigers': 'bg-orange-600',
-      'Twins': 'bg-red-500',
-      'White Sox': 'bg-gray-800',
-      'Yankees': 'bg-gray-700',
-    };
-
-    return colorMap[teamName] || 'bg-primary';
-  };
+  const logoUrl = getTeamLogo(team);
 
   return (
     <div className={`flex flex-col items-center space-y-2 ${isHome ? 'text-right' : 'text-left'}`}>
-      <div 
-        className={`w-12 h-12 rounded-full ${getTeamColors(team)} flex items-center justify-center text-white font-bold text-sm`}
-      >
-        {getTeamLogo(team)}
+      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+        {logoUrl ? (
+          <img 
+            src={logoUrl} 
+            alt={`${team} logo`} 
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              // Fallback to initials if image fails to load
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              target.parentElement!.innerHTML = `<span class="text-xs font-bold text-muted-foreground">${getTeamInitials(team)}</span>`;
+            }}
+          />
+        ) : (
+          <span className="text-xs font-bold text-muted-foreground">
+            {getTeamInitials(team)}
+          </span>
+        )}
       </div>
       <div className="text-sm font-semibold text-center min-h-[2.5rem] flex items-center">
         {team}
