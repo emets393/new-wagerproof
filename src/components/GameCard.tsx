@@ -1,0 +1,61 @@
+
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import TeamDisplay from "./TeamDisplay";
+import PitcherDisplay from "./PitcherDisplay";
+
+interface Game {
+  unique_id: string;
+  home_team: string;
+  away_team: string;
+  home_pitcher: string;
+  away_pitcher: string;
+  home_era: number;
+  away_era: number;
+  home_whip: number;
+  away_whip: number;
+  date: string;
+}
+
+interface GameCardProps {
+  game: Game;
+}
+
+const GameCard = ({ game }: GameCardProps) => {
+  return (
+    <Card className="w-full hover:shadow-lg transition-shadow">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <TeamDisplay team={game.away_team} isHome={false} />
+          <div className="text-2xl font-bold text-muted-foreground">@</div>
+          <TeamDisplay team={game.home_team} isHome={true} />
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        <div className="border-t pt-4">
+          <h3 className="text-sm font-semibold text-muted-foreground mb-3 text-center">
+            Starting Pitchers
+          </h3>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <PitcherDisplay
+              pitcher={game.away_pitcher}
+              era={game.away_era}
+              whip={game.away_whip}
+              label="Away"
+            />
+            
+            <PitcherDisplay
+              pitcher={game.home_pitcher}
+              era={game.home_era}
+              whip={game.home_whip}
+              label="Home"
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default GameCard;
