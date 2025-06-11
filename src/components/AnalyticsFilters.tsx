@@ -124,12 +124,12 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
           {/* Home Teams */}
           <div className="space-y-2">
             <Label>Home Teams</Label>
-            <Select onValueChange={(value) => addToFilter('homeTeams', value)}>
+            <Select onValueChange={(value) => value && addToFilter('homeTeams', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select home teams..." />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.homeTeams?.filter(team => !filters.homeTeams.includes(team)).map((team) => (
+                {filterOptions.homeTeams?.filter(team => team && !filters.homeTeams.includes(team)).map((team) => (
                   <SelectItem key={team} value={team}>{team}</SelectItem>
                 ))}
               </SelectContent>
@@ -154,12 +154,12 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
           {/* Away Teams */}
           <div className="space-y-2">
             <Label>Away Teams</Label>
-            <Select onValueChange={(value) => addToFilter('awayTeams', value)}>
+            <Select onValueChange={(value) => value && addToFilter('awayTeams', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select away teams..." />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.awayTeams?.filter(team => !filters.awayTeams.includes(team)).map((team) => (
+                {filterOptions.awayTeams?.filter(team => team && !filters.awayTeams.includes(team)).map((team) => (
                   <SelectItem key={team} value={team}>{team}</SelectItem>
                 ))}
               </SelectContent>
@@ -184,12 +184,12 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
           {/* Seasons */}
           <div className="space-y-2">
             <Label>Seasons</Label>
-            <Select onValueChange={(value) => addToFilter('seasons', parseInt(value))}>
+            <Select onValueChange={(value) => value && addToFilter('seasons', parseInt(value))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select seasons..." />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.seasons?.filter(season => !filters.seasons.includes(season)).map((season) => (
+                {filterOptions.seasons?.filter(season => season && !filters.seasons.includes(season)).map((season) => (
                   <SelectItem key={season} value={season.toString()}>{season}</SelectItem>
                 ))}
               </SelectContent>
@@ -235,12 +235,12 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
               {/* Months */}
               <div className="space-y-2">
                 <Label>Months</Label>
-                <Select onValueChange={(value) => addToFilter('months', parseInt(value))}>
+                <Select onValueChange={(value) => value && addToFilter('months', parseInt(value))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select months..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.months?.filter(month => !filters.months.includes(month)).map((month) => (
+                    {filterOptions.months?.filter(month => month && !filters.months.includes(month)).map((month) => (
                       <SelectItem key={month} value={month.toString()}>{month}</SelectItem>
                     ))}
                   </SelectContent>
@@ -265,12 +265,12 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
               {/* Home Handedness */}
               <div className="space-y-2">
                 <Label>Home Pitcher Hand</Label>
-                <Select onValueChange={(value) => addToFilter('homeHandedness', value)}>
+                <Select onValueChange={(value) => value && addToFilter('homeHandedness', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select handedness..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.homeHandedness?.filter(hand => !filters.homeHandedness.includes(hand)).map((hand) => (
+                    {filterOptions.homeHandedness?.filter(hand => hand && !filters.homeHandedness.includes(hand)).map((hand) => (
                       <SelectItem key={hand} value={hand}>{hand}</SelectItem>
                     ))}
                   </SelectContent>
@@ -295,12 +295,12 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
               {/* Away Handedness */}
               <div className="space-y-2">
                 <Label>Away Pitcher Hand</Label>
-                <Select onValueChange={(value) => addToFilter('awayHandedness', value)}>
+                <Select onValueChange={(value) => value && addToFilter('awayHandedness', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select handedness..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.awayHandedness?.filter(hand => !filters.awayHandedness.includes(hand)).map((hand) => (
+                    {filterOptions.awayHandedness?.filter(hand => hand && !filters.awayHandedness.includes(hand)).map((hand) => (
                       <SelectItem key={hand} value={hand}>{hand}</SelectItem>
                     ))}
                   </SelectContent>

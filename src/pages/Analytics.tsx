@@ -136,7 +136,7 @@ const Analytics = () => {
 
       console.log('Filter data fetched:', data?.length, 'records');
 
-      // Extract unique values for filters
+      // Extract unique values for filters, filtering out null/empty values
       const homeTeams = [...new Set(data?.map(d => d.home_team).filter(Boolean))].sort();
       const awayTeams = [...new Set(data?.map(d => d.away_team).filter(Boolean))].sort();
       const seasons = [...new Set(data?.map(d => d.season).filter(Boolean))].sort();
