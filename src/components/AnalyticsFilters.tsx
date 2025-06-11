@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,10 +19,10 @@ const AnalyticsFilters = ({ filters, onFiltersChange }: AnalyticsFiltersProps) =
   const [showAdvanced, setShowAdvanced] = useState(false);
   
   const teams = [
-    'Angels', 'Astros', 'Athletics', 'Blue Jays', 'Orioles', 'Red Sox', 'White Sox', 'Indians',
-    'Tigers', 'Royals', 'Twins', 'Yankees', 'Diamondbacks', 'Braves', 'Cubs', 'Reds',
-    'Rockies', 'Marlins', 'Brewers', 'Mets', 'Phillies', 'Pirates', 'Cardinals', 'Padres',
-    'Giants', 'Mariners', 'Rangers', 'Rays', 'Dodgers', 'Nationals'
+    'Angels', 'Houston', 'Athletics', 'Toronto', 'Baltimore', 'Boston', 'White Sox', 'Cleveland',
+    'Detroit', 'Kansas City', 'Minnesota', 'Yankees', 'Arizona', 'Atlanta', 'Cubs', 'Cincinnati',
+    'Colorado', 'Miami', 'Milwaukee', 'Mets', 'Philadelphia', 'Pittsburgh', 'Cardinals', 'San Diego',
+    'San Francisco', 'Seattle', 'Rangers', 'Tampa Bay', 'Dodgers', 'Washington'
   ];
 
   const updateFilters = (updates: Partial<AnalyticsFiltersType>) => {
