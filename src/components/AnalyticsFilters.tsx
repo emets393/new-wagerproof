@@ -96,36 +96,60 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
         return 'Right';
       case 1:
         return 'Left';
+      case 2:
+        return 'Switch';
       default:
-        return `Unknown (${value})`;
+        return `Other (${value})`;
     }
   };
 
-  // Helper function to safely filter options for SelectItem and ensure no empty strings
-  const getSafeFilterOptions = (options: any[], currentlySelected: any[]) => {
-    if (!options || !Array.isArray(options)) return [];
+  // Helper function to safely validate and filter options for SelectItem
+  const getValidSelectOptions = (options: any[], currentlySelected: any[]) => {
+    if (!Array.isArray(options)) {
+      console.log('Options is not an array:', options);
+      return [];
+    }
+    
     return options.filter(option => {
-      // Filter out null, undefined, empty strings, and invalid values
-      if (option === null || option === undefined) return false;
-      if (typeof option === 'string' && option.trim() === '') return false;
-      if (typeof option === 'number' && isNaN(option)) return false;
+      // Strict validation for SelectItem values
+      if (option === null || option === undefined) {
+        console.log('Filtering out null/undefined option:', option);
+        return false;
+      }
+      
+      // Convert to string and check if it's empty or just whitespace
+      const stringValue = String(option).trim();
+      if (stringValue === '' || stringValue === 'null' || stringValue === 'undefined') {
+        console.log('Filtering out empty/invalid string option:', option);
+        return false;
+      }
+      
+      // For numbers, ensure they're valid
+      if (typeof option === 'number' && (isNaN(option) || !isFinite(option))) {
+        console.log('Filtering out invalid number option:', option);
+        return false;
+      }
+      
       // Filter out already selected items
-      return !currentlySelected.includes(option);
+      if (currentlySelected.includes(option)) {
+        return false;
+      }
+      
+      return true;
     });
   };
 
-  // Check if we have any meaningful data to show filters
-  const hasFilterData = filterOptions && (
-    (filterOptions.homeTeams && filterOptions.homeTeams.length > 0) ||
-    (filterOptions.awayTeams && filterOptions.awayTeams.length > 0) ||
-    (filterOptions.seasons && filterOptions.seasons.length > 0)
+  // Check if we have meaningful filter data
+  const hasValidFilterData = filterOptions && (
+    (Array.isArray(filterOptions.homeTeams) && filterOptions.homeTeams.length > 0) ||
+    (Array.isArray(filterOptions.awayTeams) && filterOptions.awayTeams.length > 0) ||
+    (Array.isArray(filterOptions.seasons) && filterOptions.seasons.length > 0)
   );
 
-  console.log('Filter options received:', filterOptions);
-  console.log('Has filter data:', hasFilterData);
+  console.log('Filter options in component:', filterOptions);
+  console.log('Has valid filter data:', hasValidFilterData);
 
-  // If no data is available, show a message instead of broken filters
-  if (!hasFilterData) {
+  if (!hasValidFilterData) {
     return (
       <Card>
         <CardHeader>
@@ -136,8 +160,8 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-muted-foreground">
-            <p>No training data available for filtering.</p>
-            <p className="text-sm mt-2">Please ensure your database contains training data to use the analytics filters.</p>
+            <p>Loading filter options...</p>
+            <p className="text-sm mt-2">Please wait while we analyze your training data.</p>
           </div>
         </CardContent>
       </Card>
@@ -190,8 +214,10 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                   <SelectValue placeholder="Select home teams..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {getSafeFilterOptions(filterOptions.homeTeams, filters.homeTeams).map((team) => (
-                    <SelectItem key={`home-${team}`} value={String(team)}>{String(team)}</SelectItem>
+                  {getValidSelectOptions(filterOptions.homeTeams, filters.homeTeams).map((team) => (
+                    <SelectItem key={`home-${team}`} value={String(team)}>
+                      {String(team)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -227,8 +253,10 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                   <SelectValue placeholder="Select away teams..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {getSafeFilterOptions(filterOptions.awayTeams, filters.awayTeams).map((team) => (
-                    <SelectItem key={`away-${team}`} value={String(team)}>{String(team)}</SelectItem>
+                  {getValidSelectOptions(filterOptions.awayTeams, filters.awayTeams).map((team) => (
+                    <SelectItem key={`away-${team}`} value={String(team)}>
+                      {String(team)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -256,16 +284,19 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
               <Label>Seasons</Label>
               <Select onValueChange={(value) => {
                 console.log('Season selected:', value);
-                if (value && value.trim() !== '' && !isNaN(Number(value))) {
-                  addToFilter('seasons', parseInt(value));
+                const numValue = parseInt(value);
+                if (!isNaN(numValue)) {
+                  addToFilter('seasons', numValue);
                 }
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select seasons..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {getSafeFilterOptions(filterOptions.seasons, filters.seasons).map((season) => (
-                    <SelectItem key={`season-${season}`} value={String(season)}>{String(season)}</SelectItem>
+                  {getValidSelectOptions(filterOptions.seasons, filters.seasons).map((season) => (
+                    <SelectItem key={`season-${season}`} value={String(season)}>
+                      {String(season)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -313,16 +344,19 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 <div className="space-y-2">
                   <Label>Months</Label>
                   <Select onValueChange={(value) => {
-                    if (value && value.trim() !== '' && !isNaN(Number(value))) {
-                      addToFilter('months', parseInt(value));
+                    const numValue = parseInt(value);
+                    if (!isNaN(numValue)) {
+                      addToFilter('months', numValue);
                     }
                   }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select months..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {getSafeFilterOptions(filterOptions.months, filters.months).map((month) => (
-                        <SelectItem key={`month-${month}`} value={String(month)}>{String(month)}</SelectItem>
+                      {getValidSelectOptions(filterOptions.months, filters.months).map((month) => (
+                        <SelectItem key={`month-${month}`} value={String(month)}>
+                          {String(month)}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -349,16 +383,19 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 <div className="space-y-2">
                   <Label>Home Pitcher Hand</Label>
                   <Select onValueChange={(value) => {
-                    if (value && value.trim() !== '' && !isNaN(Number(value))) {
-                      addToFilter('homeHandedness', parseInt(value));
+                    const numValue = parseInt(value);
+                    if (!isNaN(numValue)) {
+                      addToFilter('homeHandedness', numValue);
                     }
                   }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select handedness..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {getSafeFilterOptions(filterOptions.homeHandedness, filters.homeHandedness).map((hand) => (
-                        <SelectItem key={`home-hand-${hand}`} value={String(hand)}>{getHandednessLabel(hand)}</SelectItem>
+                      {getValidSelectOptions(filterOptions.homeHandedness, filters.homeHandedness).map((hand) => (
+                        <SelectItem key={`home-hand-${hand}`} value={String(hand)}>
+                          {getHandednessLabel(hand)}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -385,16 +422,19 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 <div className="space-y-2">
                   <Label>Away Pitcher Hand</Label>
                   <Select onValueChange={(value) => {
-                    if (value && value.trim() !== '' && !isNaN(Number(value))) {
-                      addToFilter('awayHandedness', parseInt(value));
+                    const numValue = parseInt(value);
+                    if (!isNaN(numValue)) {
+                      addToFilter('awayHandedness', numValue);
                     }
                   }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select handedness..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {getSafeFilterOptions(filterOptions.awayHandedness, filters.awayHandedness).map((hand) => (
-                        <SelectItem key={`away-hand-${hand}`} value={String(hand)}>{getHandednessLabel(hand)}</SelectItem>
+                      {getValidSelectOptions(filterOptions.awayHandedness, filters.awayHandedness).map((hand) => (
+                        <SelectItem key={`away-hand-${hand}`} value={String(hand)}>
+                          {getHandednessLabel(hand)}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

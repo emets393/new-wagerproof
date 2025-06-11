@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,28 +105,30 @@ const Analytics = () => {
     }
   });
 
-  // First, let's test a simple query to see what data we actually have
+  // Test query to understand the data structure
   const { data: testData } = useQuery({
-    queryKey: ['test-training-data'],
+    queryKey: ['test-training-data-structure'],
     queryFn: async () => {
-      console.log('Testing simple query to training_data');
+      console.log('Testing training_data structure');
       const { data, error, count } = await supabase
         .from('training_data')
         .select('*', { count: 'exact' })
-        .limit(5);
+        .limit(3);
       
-      console.log('Test query result:', { data, error, count });
+      console.log('Sample training_data records:', data);
+      console.log('Total count:', count);
+      console.log('Error:', error);
+      
       return { data, error, count };
     },
   });
 
-  // Fetch filter options from training_data
+  // Get filter options from actual training_data structure
   const { data: filterOptions, isLoading: filtersLoading } = useQuery({
-    queryKey: ['training-data-filters'],
+    queryKey: ['training-data-filter-options'],
     queryFn: async () => {
       console.log('Fetching filter options from training_data');
       
-      // Get all unique values for filters
       const { data, error } = await supabase
         .from('training_data')
         .select(`
@@ -149,7 +151,7 @@ const Analytics = () => {
         throw error;
       }
 
-      console.log('Raw filter data:', data?.slice(0, 3));
+      console.log('Raw filter data sample:', data?.slice(0, 3));
 
       if (!data || data.length === 0) {
         console.log('No data found in training_data table');
@@ -167,41 +169,39 @@ const Analytics = () => {
         };
       }
 
-      // Extract unique values and filter out nulls/undefined/empty strings
-      const homeTeams = [...new Set(data.map(d => d.home_team).filter(x => x && String(x).trim()))] as string[];
-      const awayTeams = [...new Set(data.map(d => d.away_team).filter(x => x && String(x).trim()))] as string[];
-      const seasons = [...new Set(data.map(d => d.season).filter(x => x != null && !isNaN(Number(x))))] as number[];
-      const months = [...new Set(data.map(d => d.month).filter(x => x != null && !isNaN(Number(x))))] as number[];
-      const days = [...new Set(data.map(d => d.day).filter(x => x != null && !isNaN(Number(x))))] as number[];
-      const homePitchers = [...new Set(data.map(d => d.home_pitcher).filter(x => x && String(x).trim()))] as string[];
-      const awayPitchers = [...new Set(data.map(d => d.away_pitcher).filter(x => x && String(x).trim()))] as string[];
-      const homeHandedness = [...new Set(data.map(d => d.home_handedness).filter(x => x != null && !isNaN(Number(x))))] as number[];
-      const awayHandedness = [...new Set(data.map(d => d.away_handedness).filter(x => x != null && !isNaN(Number(x))))] as number[];
-      const seriesGameNumbers = [...new Set(data.map(d => d.series_game_number).filter(x => x != null && !isNaN(Number(x))))] as number[];
-
-      console.log('Processed filter options:', {
-        homeTeams: homeTeams.slice(0, 5),
-        awayTeams: awayTeams.slice(0, 5),
-        seasons,
-        months,
-        days
-      });
-
-      return {
-        homeTeams: homeTeams.sort(),
-        awayTeams: awayTeams.sort(),
-        seasons: seasons.sort(),
-        months: months.sort(),
-        days: days.sort(),
-        homePitchers: homePitchers.sort(),
-        awayPitchers: awayPitchers.sort(),
-        homeHandedness: homeHandedness.sort(),
-        awayHandedness: awayHandedness.sort(),
-        seriesGameNumbers: seriesGameNumbers.sort()
+      // Helper function to safely extract unique values
+      const getUniqueValues = (arr: any[], accessor: (item: any) => any, isNumeric = false) => {
+        const values = arr
+          .map(accessor)
+          .filter(x => {
+            if (x === null || x === undefined) return false;
+            if (isNumeric) return !isNaN(Number(x));
+            return String(x).trim() !== '';
+          });
+        
+        const unique = [...new Set(values)];
+        return isNumeric ? unique.map(Number).sort((a, b) => a - b) : unique.sort();
       };
+
+      const result = {
+        homeTeams: getUniqueValues(data, d => d.home_team),
+        awayTeams: getUniqueValues(data, d => d.away_team),
+        seasons: getUniqueValues(data, d => d.season, true),
+        months: getUniqueValues(data, d => d.month, true),
+        days: getUniqueValues(data, d => d.day, true),
+        homePitchers: getUniqueValues(data, d => d.home_pitcher),
+        awayPitchers: getUniqueValues(data, d => d.away_pitcher),
+        homeHandedness: getUniqueValues(data, d => d.home_handedness, true),
+        awayHandedness: getUniqueValues(data, d => d.away_handedness, true),
+        seriesGameNumbers: getUniqueValues(data, d => d.series_game_number, true)
+      };
+
+      console.log('Processed filter options:', result);
+      return result;
     },
   });
 
+  // Get analytics data with filters applied
   const { data: analyticsData, isLoading } = useQuery({
     queryKey: ['training-data-analytics', filters],
     queryFn: async () => {
@@ -211,7 +211,7 @@ const Analytics = () => {
         .from('training_data')
         .select('*');
 
-      // Apply filters only if they have values
+      // Apply filters
       if (filters.homeTeams.length > 0) {
         query = query.in('home_team', filters.homeTeams);
       }
@@ -315,7 +315,7 @@ const Analytics = () => {
         };
       }
 
-      // Calculate percentages
+      // Calculate statistics based on actual column names
       const totalGames = data.length;
       const homeWins = data.filter(game => game.ha_winner === 1).length;
       const awayWins = data.filter(game => game.ha_winner === 0).length;
@@ -324,12 +324,12 @@ const Analytics = () => {
       const homeRLCovers = data.filter(game => game.run_line_winner === 1).length;
       const awayRLCovers = data.filter(game => game.run_line_winner === 0).length;
 
-      // Calculate team breakdown
+      // Team breakdown calculation
       const teamStats = new Map();
       
       data.forEach(game => {
-        // Home team stats
-        if (game.home_team && typeof game.home_team === 'string') {
+        // Process home team
+        if (game.home_team && typeof game.home_team === 'string' && game.home_team.trim()) {
           if (!teamStats.has(game.home_team)) {
             teamStats.set(game.home_team, {
               team: game.home_team,
@@ -352,8 +352,8 @@ const Analytics = () => {
           if (game.ou_result === 0) homeTeamStat.unders++;
         }
 
-        // Away team stats
-        if (game.away_team && typeof game.away_team === 'string') {
+        // Process away team
+        if (game.away_team && typeof game.away_team === 'string' && game.away_team.trim()) {
           if (!teamStats.has(game.away_team)) {
             teamStats.set(game.away_team, {
               team: game.away_team,
