@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import TeamDisplay from "./TeamDisplay";
@@ -17,6 +18,11 @@ interface Game {
   away_whip: number;
   date: string;
   start_time_minutes?: number;
+  home_ml?: number;
+  away_ml?: number;
+  home_rl?: number;
+  away_rl?: number;
+  o_u_line?: number;
 }
 
 interface GameCardProps {
@@ -34,6 +40,16 @@ const formatStartTime = (startTimeMinutes: number | undefined): string => {
   const displayMinutes = minutes.toString().padStart(2, '0');
   
   return `${displayHours}:${displayMinutes} ${period}`;
+};
+
+const formatMoneyline = (ml: number | undefined): string => {
+  if (!ml) return 'N/A';
+  return ml > 0 ? `+${ml}` : ml.toString();
+};
+
+const formatRunline = (rl: number | undefined): string => {
+  if (!rl) return 'N/A';
+  return rl > 0 ? `+${rl}` : rl.toString();
 };
 
 const GameCard = ({ game }: GameCardProps) => {
@@ -59,6 +75,54 @@ const GameCard = ({ game }: GameCardProps) => {
         </CardHeader>
         
         <CardContent className="space-y-4">
+          {/* Betting Lines Section */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3 text-center">
+              Betting Lines
+            </h3>
+            
+            <div className="grid grid-cols-3 gap-4">
+              {/* Away Team Lines */}
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground mb-1">Away</div>
+                <div className="space-y-1">
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">ML:</span>
+                    <span className="font-medium ml-1">{formatMoneyline(game.away_ml)}</span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">RL:</span>
+                    <span className="font-medium ml-1">{formatRunline(game.away_rl)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* O/U Line */}
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground mb-1">Total</div>
+                <div className="text-lg font-bold text-foreground">
+                  {game.o_u_line || 'N/A'}
+                </div>
+              </div>
+              
+              {/* Home Team Lines */}
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground mb-1">Home</div>
+                <div className="space-y-1">
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">ML:</span>
+                    <span className="font-medium ml-1">{formatMoneyline(game.home_ml)}</span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">RL:</span>
+                    <span className="font-medium ml-1">{formatRunline(game.home_rl)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Starting Pitchers Section */}
           <div className="border-t pt-4">
             <h3 className="text-sm font-semibold text-muted-foreground mb-3 text-center">
               Starting Pitchers

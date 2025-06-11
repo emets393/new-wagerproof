@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 import TeamPredictionCard from "./TeamPredictionCard";
+import TotalPredictionCard from "./TotalPredictionCard";
 
 interface PredictionsModalProps {
   isOpen: boolean;
@@ -22,13 +23,16 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
         .from('latest_predictions_with_circa')
         .select(`
           ou_prediction,
-          strong_ou_prediction,
           moneyline_prediction,
           ml_tier_accuracy,
           runline_prediction,
           run_line_tier_accuracy,
-          circa_total_prediction,
-          circa_total_prediction_strength,
+          ou_tier_accuracy,
+          o_u_line,
+          home_ml,
+          away_ml,
+          home_rl,
+          away_rl,
           Total_Over_Handle,
           Total_Under_Handle,
           Total_Over_Bets,
@@ -61,7 +65,6 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
 
   // Calculate percentages for the handle bar
   const calculateHandlePercentages = () => {
-    // Convert to numbers, treating null/undefined as 0
     const overHandle = Number(predictions?.Total_Over_Handle) || 0;
     const underHandle = Number(predictions?.Total_Under_Handle) || 0;
     
@@ -79,7 +82,6 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
 
   // Calculate percentages for the bets bar
   const calculateBetsPercentages = () => {
-    // Convert to numbers, treating null/undefined as 0
     const overBets = Number(predictions?.Total_Over_Bets) || 0;
     const underBets = Number(predictions?.Total_Under_Bets) || 0;
     
@@ -97,6 +99,16 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
 
   const { overPercentage, underPercentage } = calculateHandlePercentages();
   const { overPercentage: overBetsPercentage, underPercentage: underBetsPercentage } = calculateBetsPercentages();
+
+  const formatMoneyline = (ml: number | undefined): string => {
+    if (!ml) return 'N/A';
+    return ml > 0 ? `+${ml}` : ml.toString();
+  };
+
+  const formatRunline = (rl: number | undefined): string => {
+    if (!rl) return 'N/A';
+    return rl > 0 ? `+${rl}` : rl.toString();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -122,57 +134,81 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
           </div>
         ) : predictions ? (
           <div className="space-y-6">
-            {/* Over/Under Predictions Section */}
-            <div className="grid grid-cols-1 gap-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300">
-                  <h4 className="font-semibold text-sm text-muted-foreground mb-1 uppercase tracking-wide">Model Total</h4>
-                  <p className="text-2xl font-bold text-foreground">{predictions.ou_prediction || 'N/A'}</p>
+            {/* Betting Lines Section */}
+            <div className="bg-gradient-to-br from-card to-card/30 border border-border/50 rounded-xl p-6 shadow-lg backdrop-blur-sm">
+              <h4 className="font-bold text-lg text-foreground mb-4 text-center">Betting Lines</h4>
+              
+              <div className="grid grid-cols-3 gap-6">
+                {/* Away Team Lines */}
+                <div className="text-center">
+                  <div className="text-sm font-semibold text-muted-foreground mb-3">{awayTeam}</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Moneyline:</span>
+                      <span className="font-semibold">{formatMoneyline(predictions.away_ml)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Run Line:</span>
+                      <span className="font-semibold">{formatRunline(predictions.away_rl)}</span>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300">
-                  <h4 className="font-semibold text-sm text-muted-foreground mb-1 uppercase tracking-wide">Strong O/U</h4>
-                  <p className="text-2xl font-bold text-foreground">{predictions.strong_ou_prediction || 'N/A'}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300">
-                  <h4 className="font-semibold text-sm text-muted-foreground mb-1 uppercase tracking-wide">Circa Total</h4>
-                  <p className="text-2xl font-bold text-foreground">{predictions.circa_total_prediction || 'N/A'}</p>
+                {/* O/U Line */}
+                <div className="text-center">
+                  <div className="text-sm font-semibold text-muted-foreground mb-3">Total</div>
+                  <div className="text-3xl font-bold text-foreground">
+                    {predictions.o_u_line || 'N/A'}
+                  </div>
                 </div>
                 
-                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300">
-                  <h4 className="font-semibold text-sm text-muted-foreground mb-1 uppercase tracking-wide">Circa Strength</h4>
-                  <p className="text-2xl font-bold text-foreground">{predictions.circa_total_prediction_strength || 'N/A'}</p>
+                {/* Home Team Lines */}
+                <div className="text-center">
+                  <div className="text-sm font-semibold text-muted-foreground mb-3">{homeTeam}</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Moneyline:</span>
+                      <span className="font-semibold">{formatMoneyline(predictions.home_ml)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Run Line:</span>
+                      <span className="font-semibold">{formatRunline(predictions.home_rl)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Moneyline and Runline Predictions */}
-            {(predictions.moneyline_prediction || predictions.runline_prediction) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {predictions.moneyline_prediction && (
-                  <TeamPredictionCard
-                    title="Moneyline Prediction"
-                    predictedTeam={predictions.moneyline_prediction}
-                    confidence={calculateConfidence(predictions.ml_tier_accuracy)}
-                    homeTeam={homeTeam}
-                    awayTeam={awayTeam}
-                  />
-                )}
-                
-                {predictions.runline_prediction && (
-                  <TeamPredictionCard
-                    title="Runline Prediction"
-                    predictedTeam={predictions.runline_prediction}
-                    confidence={calculateConfidence(predictions.run_line_tier_accuracy)}
-                    homeTeam={homeTeam}
-                    awayTeam={awayTeam}
-                  />
-                )}
-              </div>
-            )}
+            {/* Prediction Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {predictions.moneyline_prediction && (
+                <TeamPredictionCard
+                  title="Moneyline Prediction"
+                  predictedTeam={predictions.moneyline_prediction}
+                  confidence={calculateConfidence(predictions.ml_tier_accuracy)}
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                />
+              )}
+              
+              {predictions.runline_prediction && (
+                <TeamPredictionCard
+                  title="Runline Prediction"
+                  predictedTeam={predictions.runline_prediction}
+                  confidence={calculateConfidence(predictions.run_line_tier_accuracy)}
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                />
+              )}
+
+              {predictions.ou_prediction && predictions.o_u_line && (
+                <TotalPredictionCard
+                  prediction={predictions.ou_prediction}
+                  total={predictions.o_u_line}
+                  confidence={calculateConfidence(predictions.ou_tier_accuracy)}
+                />
+              )}
+            </div>
 
             {/* Handle Distribution Chart */}
             <div className="bg-gradient-to-br from-card to-card/30 border border-border/50 rounded-xl p-6 shadow-lg backdrop-blur-sm">

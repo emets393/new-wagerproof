@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +23,12 @@ const Index = () => {
           home_whip,
           away_whip,
           date,
-          start_time_minutes
+          start_time_minutes,
+          home_ml,
+          away_ml,
+          home_rl,
+          away_rl,
+          o_u_line
         `)
         .eq('date', today)
         .order('start_time_minutes');
