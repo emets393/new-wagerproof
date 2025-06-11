@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +32,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange }: AnalyticsFiltersProps) =
     let count = 0;
     if (filters.teams.length > 0) count++;
     if (filters.gameLocation !== 'all') count++;
+    if (filters.season !== 'all') count++;
     if (filters.dateRange.start || filters.dateRange.end) count++;
     if (filters.gameContext.divisionalOnly || filters.gameContext.leagueOnly || filters.gameContext.playoffOnly) count++;
     if (filters.performance.minStreak !== -10 || filters.performance.maxStreak !== 10) count++;
@@ -43,6 +43,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange }: AnalyticsFiltersProps) =
     onFiltersChange({
       teams: [],
       gameLocation: 'all',
+      season: 'all',
       dateRange: { start: '', end: '' },
       gameContext: { divisionalOnly: false, leagueOnly: false, playoffOnly: false },
       performance: { minStreak: -10, maxStreak: 10 }
@@ -80,7 +81,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange }: AnalyticsFiltersProps) =
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Always Visible Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Team Selection */}
           <div className="space-y-2">
             <Label>Teams</Label>
@@ -113,6 +114,22 @@ const AnalyticsFilters = ({ filters, onFiltersChange }: AnalyticsFiltersProps) =
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Season Selection */}
+          <div className="space-y-2">
+            <Label>Season</Label>
+            <Select value={filters.season} onValueChange={(value: string) => 
+              updateFilters({ season: value })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Seasons</SelectItem>
+                <SelectItem value="2025">2025 Season</SelectItem>
+                <SelectItem value="2024">2024 Season</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Game Location */}
