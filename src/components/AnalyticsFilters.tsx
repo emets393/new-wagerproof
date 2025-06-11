@@ -17,8 +17,8 @@ interface FilterOptions {
   days?: number[];
   homePitchers?: string[];
   awayPitchers?: string[];
-  homeHandedness?: string[];
-  awayHandedness?: string[];
+  homeHandedness?: number[];
+  awayHandedness?: number[];
   seriesGameNumbers?: number[];
 }
 
@@ -89,6 +89,18 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
     updateFilters({ [filterKey]: currentFilter.filter(item => item !== value) });
   };
 
+  // Helper function to get handedness label
+  const getHandednessLabel = (value: number) => {
+    switch (value) {
+      case 0:
+        return 'Right';
+      case 1:
+        return 'Left';
+      default:
+        return `Unknown (${value})`;
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -129,7 +141,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 <SelectValue placeholder="Select home teams..." />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.homeTeams?.filter(team => team && !filters.homeTeams.includes(team)).map((team) => (
+                {filterOptions.homeTeams?.filter(team => team && team.trim() !== '' && !filters.homeTeams.includes(team)).map((team) => (
                   <SelectItem key={team} value={team}>{team}</SelectItem>
                 ))}
               </SelectContent>
@@ -159,7 +171,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 <SelectValue placeholder="Select away teams..." />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.awayTeams?.filter(team => team && !filters.awayTeams.includes(team)).map((team) => (
+                {filterOptions.awayTeams?.filter(team => team && team.trim() !== '' && !filters.awayTeams.includes(team)).map((team) => (
                   <SelectItem key={team} value={team}>{team}</SelectItem>
                 ))}
               </SelectContent>
@@ -189,7 +201,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 <SelectValue placeholder="Select seasons..." />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.seasons?.filter(season => season && !filters.seasons.includes(season)).map((season) => (
+                {filterOptions.seasons?.filter(season => season !== null && season !== undefined && !filters.seasons.includes(season)).map((season) => (
                   <SelectItem key={season} value={season.toString()}>{season}</SelectItem>
                 ))}
               </SelectContent>
@@ -240,7 +252,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                     <SelectValue placeholder="Select months..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.months?.filter(month => month && !filters.months.includes(month)).map((month) => (
+                    {filterOptions.months?.filter(month => month !== null && month !== undefined && !filters.months.includes(month)).map((month) => (
                       <SelectItem key={month} value={month.toString()}>{month}</SelectItem>
                     ))}
                   </SelectContent>
@@ -265,13 +277,13 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
               {/* Home Handedness */}
               <div className="space-y-2">
                 <Label>Home Pitcher Hand</Label>
-                <Select onValueChange={(value) => value && addToFilter('homeHandedness', value)}>
+                <Select onValueChange={(value) => value && addToFilter('homeHandedness', parseInt(value))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select handedness..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.homeHandedness?.filter(hand => hand && !filters.homeHandedness.includes(hand)).map((hand) => (
-                      <SelectItem key={hand} value={hand}>{hand}</SelectItem>
+                    {filterOptions.homeHandedness?.filter(hand => hand !== null && hand !== undefined && !filters.homeHandedness.includes(hand)).map((hand) => (
+                      <SelectItem key={hand} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -279,7 +291,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                   <div className="flex flex-wrap gap-1">
                     {filters.homeHandedness.map((hand) => (
                       <Badge key={hand} variant="secondary" className="text-xs">
-                        {hand}
+                        {getHandednessLabel(hand)}
                         <button
                           onClick={() => removeFromFilter('homeHandedness', hand)}
                           className="ml-1 hover:text-destructive"
@@ -295,13 +307,13 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
               {/* Away Handedness */}
               <div className="space-y-2">
                 <Label>Away Pitcher Hand</Label>
-                <Select onValueChange={(value) => value && addToFilter('awayHandedness', value)}>
+                <Select onValueChange={(value) => value && addToFilter('awayHandedness', parseInt(value))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select handedness..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.awayHandedness?.filter(hand => hand && !filters.awayHandedness.includes(hand)).map((hand) => (
-                      <SelectItem key={hand} value={hand}>{hand}</SelectItem>
+                    {filterOptions.awayHandedness?.filter(hand => hand !== null && hand !== undefined && !filters.awayHandedness.includes(hand)).map((hand) => (
+                      <SelectItem key={hand} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -309,7 +321,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                   <div className="flex flex-wrap gap-1">
                     {filters.awayHandedness.map((hand) => (
                       <Badge key={hand} variant="secondary" className="text-xs">
-                        {hand}
+                        {getHandednessLabel(hand)}
                         <button
                           onClick={() => removeFromFilter('awayHandedness', hand)}
                           className="ml-1 hover:text-destructive"

@@ -18,8 +18,8 @@ export interface AnalyticsFilters {
   days: number[];
   homePitchers: string[];
   awayPitchers: string[];
-  homeHandedness: string[];
-  awayHandedness: string[];
+  homeHandedness: number[];
+  awayHandedness: number[];
   sameLeague: boolean | null;
   sameDivision: boolean | null;
   seriesGameNumbers: number[];
@@ -139,14 +139,14 @@ const Analytics = () => {
       // Extract unique values for filters, filtering out null/empty values
       const homeTeams = [...new Set(data?.map(d => d.home_team).filter(Boolean))].sort();
       const awayTeams = [...new Set(data?.map(d => d.away_team).filter(Boolean))].sort();
-      const seasons = [...new Set(data?.map(d => d.season).filter(Boolean))].sort();
-      const months = [...new Set(data?.map(d => d.month).filter(Boolean))].sort();
-      const days = [...new Set(data?.map(d => d.day).filter(Boolean))].sort();
+      const seasons = [...new Set(data?.map(d => d.season).filter(s => s !== null && s !== undefined))].sort();
+      const months = [...new Set(data?.map(d => d.month).filter(m => m !== null && m !== undefined))].sort();
+      const days = [...new Set(data?.map(d => d.day).filter(d => d !== null && d !== undefined))].sort();
       const homePitchers = [...new Set(data?.map(d => d.home_pitcher).filter(Boolean))].sort();
       const awayPitchers = [...new Set(data?.map(d => d.away_pitcher).filter(Boolean))].sort();
-      const homeHandedness = [...new Set(data?.map(d => d.home_handedness).filter(Boolean))].sort();
-      const awayHandedness = [...new Set(data?.map(d => d.away_handedness).filter(Boolean))].sort();
-      const seriesGameNumbers = [...new Set(data?.map(d => d.series_game_number).filter(Boolean))].sort();
+      const homeHandedness = [...new Set(data?.map(d => d.home_handedness).filter(h => h !== null && h !== undefined))].sort();
+      const awayHandedness = [...new Set(data?.map(d => d.away_handedness).filter(h => h !== null && h !== undefined))].sort();
+      const seriesGameNumbers = [...new Set(data?.map(d => d.series_game_number).filter(s => s !== null && s !== undefined))].sort();
 
       return {
         homeTeams,
