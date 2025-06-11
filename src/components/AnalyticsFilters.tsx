@@ -101,17 +101,45 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
     }
   };
 
-  // Helper function to safely filter options for SelectItem
+  // Helper function to safely filter options for SelectItem and ensure no empty strings
   const getSafeFilterOptions = (options: any[], currentlySelected: any[]) => {
     if (!options || !Array.isArray(options)) return [];
     return options.filter(option => {
-      // Filter out null, undefined, empty strings
+      // Filter out null, undefined, empty strings, and invalid values
       if (option === null || option === undefined) return false;
       if (typeof option === 'string' && option.trim() === '') return false;
+      if (typeof option === 'number' && isNaN(option)) return false;
       // Filter out already selected items
       return !currentlySelected.includes(option);
     });
   };
+
+  // Check if we have any data to show filters
+  const hasFilterData = filterOptions && (
+    (filterOptions.homeTeams && filterOptions.homeTeams.length > 0) ||
+    (filterOptions.awayTeams && filterOptions.awayTeams.length > 0) ||
+    (filterOptions.seasons && filterOptions.seasons.length > 0)
+  );
+
+  // If no data is available, show a message instead of broken filters
+  if (!hasFilterData) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5" />
+            <CardTitle>Filters</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No training data available for filtering.</p>
+            <p className="text-sm mt-2">Please ensure your database contains training data to use the analytics filters.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -146,94 +174,100 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
         {/* Main Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Home Teams */}
-          <div className="space-y-2">
-            <Label>Home Teams</Label>
-            <Select onValueChange={(value) => value && addToFilter('homeTeams', value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select home teams..." />
-              </SelectTrigger>
-              <SelectContent>
-                {getSafeFilterOptions(filterOptions.homeTeams || [], filters.homeTeams).map((team) => (
-                  <SelectItem key={`home-${team}`} value={team}>{team}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {filters.homeTeams.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {filters.homeTeams.map((team) => (
-                  <Badge key={`home-badge-${team}`} variant="secondary" className="text-xs">
-                    {team}
-                    <button
-                      onClick={() => removeFromFilter('homeTeams', team)}
-                      className="ml-1 hover:text-destructive"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          {filterOptions.homeTeams && filterOptions.homeTeams.length > 0 && (
+            <div className="space-y-2">
+              <Label>Home Teams</Label>
+              <Select onValueChange={(value) => value && addToFilter('homeTeams', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select home teams..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSafeFilterOptions(filterOptions.homeTeams, filters.homeTeams).map((team) => (
+                    <SelectItem key={`home-${team}`} value={team}>{team}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {filters.homeTeams.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {filters.homeTeams.map((team) => (
+                    <Badge key={`home-badge-${team}`} variant="secondary" className="text-xs">
+                      {team}
+                      <button
+                        onClick={() => removeFromFilter('homeTeams', team)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Away Teams */}
-          <div className="space-y-2">
-            <Label>Away Teams</Label>
-            <Select onValueChange={(value) => value && addToFilter('awayTeams', value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select away teams..." />
-              </SelectTrigger>
-              <SelectContent>
-                {getSafeFilterOptions(filterOptions.awayTeams || [], filters.awayTeams).map((team) => (
-                  <SelectItem key={`away-${team}`} value={team}>{team}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {filters.awayTeams.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {filters.awayTeams.map((team) => (
-                  <Badge key={`away-badge-${team}`} variant="secondary" className="text-xs">
-                    {team}
-                    <button
-                      onClick={() => removeFromFilter('awayTeams', team)}
-                      className="ml-1 hover:text-destructive"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          {filterOptions.awayTeams && filterOptions.awayTeams.length > 0 && (
+            <div className="space-y-2">
+              <Label>Away Teams</Label>
+              <Select onValueChange={(value) => value && addToFilter('awayTeams', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select away teams..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSafeFilterOptions(filterOptions.awayTeams, filters.awayTeams).map((team) => (
+                    <SelectItem key={`away-${team}`} value={team}>{team}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {filters.awayTeams.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {filters.awayTeams.map((team) => (
+                    <Badge key={`away-badge-${team}`} variant="secondary" className="text-xs">
+                      {team}
+                      <button
+                        onClick={() => removeFromFilter('awayTeams', team)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Seasons */}
-          <div className="space-y-2">
-            <Label>Seasons</Label>
-            <Select onValueChange={(value) => value && addToFilter('seasons', parseInt(value))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select seasons..." />
-              </SelectTrigger>
-              <SelectContent>
-                {getSafeFilterOptions(filterOptions.seasons || [], filters.seasons).map((season) => (
-                  <SelectItem key={`season-${season}`} value={season.toString()}>{season}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {filters.seasons.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {filters.seasons.map((season) => (
-                  <Badge key={`season-badge-${season}`} variant="secondary" className="text-xs">
-                    {season}
-                    <button
-                      onClick={() => removeFromFilter('seasons', season)}
-                      className="ml-1 hover:text-destructive"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          {filterOptions.seasons && filterOptions.seasons.length > 0 && (
+            <div className="space-y-2">
+              <Label>Seasons</Label>
+              <Select onValueChange={(value) => value && addToFilter('seasons', parseInt(value))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select seasons..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSafeFilterOptions(filterOptions.seasons, filters.seasons).map((season) => (
+                    <SelectItem key={`season-${season}`} value={season.toString()}>{season}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {filters.seasons.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {filters.seasons.map((season) => (
+                    <Badge key={`season-badge-${season}`} variant="secondary" className="text-xs">
+                      {season}
+                      <button
+                        onClick={() => removeFromFilter('seasons', season)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Same League */}
           <div className="space-y-2">
@@ -257,94 +291,100 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
           <div className="space-y-6 border-t pt-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Months */}
-              <div className="space-y-2">
-                <Label>Months</Label>
-                <Select onValueChange={(value) => value && addToFilter('months', parseInt(value))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select months..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getSafeFilterOptions(filterOptions.months || [], filters.months).map((month) => (
-                      <SelectItem key={`month-${month}`} value={month.toString()}>{month}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {filters.months.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {filters.months.map((month) => (
-                      <Badge key={`month-badge-${month}`} variant="secondary" className="text-xs">
-                        {month}
-                        <button
-                          onClick={() => removeFromFilter('months', month)}
-                          className="ml-1 hover:text-destructive"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {filterOptions.months && filterOptions.months.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Months</Label>
+                  <Select onValueChange={(value) => value && addToFilter('months', parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select months..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getSafeFilterOptions(filterOptions.months, filters.months).map((month) => (
+                        <SelectItem key={`month-${month}`} value={month.toString()}>{month}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {filters.months.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {filters.months.map((month) => (
+                        <Badge key={`month-badge-${month}`} variant="secondary" className="text-xs">
+                          {month}
+                          <button
+                            onClick={() => removeFromFilter('months', month)}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Home Handedness */}
-              <div className="space-y-2">
-                <Label>Home Pitcher Hand</Label>
-                <Select onValueChange={(value) => value && addToFilter('homeHandedness', parseInt(value))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select handedness..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getSafeFilterOptions(filterOptions.homeHandedness || [], filters.homeHandedness).map((hand) => (
-                      <SelectItem key={`home-hand-${hand}`} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {filters.homeHandedness.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {filters.homeHandedness.map((hand) => (
-                      <Badge key={`home-hand-badge-${hand}`} variant="secondary" className="text-xs">
-                        {getHandednessLabel(hand)}
-                        <button
-                          onClick={() => removeFromFilter('homeHandedness', hand)}
-                          className="ml-1 hover:text-destructive"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {filterOptions.homeHandedness && filterOptions.homeHandedness.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Home Pitcher Hand</Label>
+                  <Select onValueChange={(value) => value && addToFilter('homeHandedness', parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select handedness..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getSafeFilterOptions(filterOptions.homeHandedness, filters.homeHandedness).map((hand) => (
+                        <SelectItem key={`home-hand-${hand}`} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {filters.homeHandedness.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {filters.homeHandedness.map((hand) => (
+                        <Badge key={`home-hand-badge-${hand}`} variant="secondary" className="text-xs">
+                          {getHandednessLabel(hand)}
+                          <button
+                            onClick={() => removeFromFilter('homeHandedness', hand)}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Away Handedness */}
-              <div className="space-y-2">
-                <Label>Away Pitcher Hand</Label>
-                <Select onValueChange={(value) => value && addToFilter('awayHandedness', parseInt(value))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select handedness..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getSafeFilterOptions(filterOptions.awayHandedness || [], filters.awayHandedness).map((hand) => (
-                      <SelectItem key={`away-hand-${hand}`} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {filters.awayHandedness.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {filters.awayHandedness.map((hand) => (
-                      <Badge key={`away-hand-badge-${hand}`} variant="secondary" className="text-xs">
-                        {getHandednessLabel(hand)}
-                        <button
-                          onClick={() => removeFromFilter('awayHandedness', hand)}
-                          className="ml-1 hover:text-destructive"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {filterOptions.awayHandedness && filterOptions.awayHandedness.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Away Pitcher Hand</Label>
+                  <Select onValueChange={(value) => value && addToFilter('awayHandedness', parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select handedness..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getSafeFilterOptions(filterOptions.awayHandedness, filters.awayHandedness).map((hand) => (
+                        <SelectItem key={`away-hand-${hand}`} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {filters.awayHandedness.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {filters.awayHandedness.map((hand) => (
+                        <Badge key={`away-hand-badge-${hand}`} variant="secondary" className="text-xs">
+                          {getHandednessLabel(hand)}
+                          <button
+                            onClick={() => removeFromFilter('awayHandedness', hand)}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Range Filters */}
