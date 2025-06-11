@@ -13,6 +13,7 @@ import AnalyticsTable from "@/components/AnalyticsTable";
 export interface AnalyticsFilters {
   teams: string[];
   gameLocation: 'all' | 'home' | 'away';
+  season: string;
   dateRange: {
     start: string;
     end: string;
@@ -32,6 +33,7 @@ const Analytics = () => {
   const [filters, setFilters] = useState<AnalyticsFilters>({
     teams: [],
     gameLocation: 'all',
+    season: 'all',
     dateRange: {
       start: '',
       end: ''
@@ -52,41 +54,129 @@ const Analytics = () => {
     queryFn: async () => {
       console.log('Fetching analytics data with filters:', filters);
       
-      // For now, let's get sample data from one of the team tables
-      const { data, error } = await supabase
-        .from('angels_games')
+      // Get today's date for exclusion
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Start with base query - exclude today's games
+      let query = supabase
+        .from('training_data')
         .select('*')
-        .limit(100);
+        .lt('date', today);
+
+      // Apply season filter
+      if (filters.season !== 'all') {
+        query = query.eq('season', parseInt(filters.season));
+      }
+
+      // Apply date range filters
+      if (filters.dateRange.start) {
+        query = query.gte('date', filters.dateRange.start);
+      }
+      if (filters.dateRange.end) {
+        query = query.lte('date', filters.dateRange.end);
+      }
+
+      console.log('Executing query with filters');
+      
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching analytics data:', error);
         throw error;
       }
 
-      // Calculate sample stats
-      const totalGames = data.length;
-      const wins = data.filter(game => game.win_loss === 'W').length;
-      const overs = data.filter(game => game.ou_result === 1).length;
-      
-      return {
-        totalGames,
-        winPercentage: totalGames > 0 ? (wins / totalGames) * 100 : 0,
-        runlinePercentage: 65.4, // Sample data
-        overUnderPercentage: totalGames > 0 ? (overs / totalGames) * 100 : 0,
-        teamBreakdown: [
-          {
-            team: 'Angels',
-            games: totalGames,
-            winPct: totalGames > 0 ? (wins / totalGames) * 100 : 0,
-            runlinePct: 65.4,
-            overPct: totalGames > 0 ? (overs / totalGames) * 100 : 0
+      console.log('Raw data retrieved:', data?.length, 'games');
+
+      // Process the data to calculate team stats
+      const teamStats = new Map();
+      const overallStats = {
+        totalGames: 0,
+        totalWins: 0,
+        totalRlCovers: 0,
+        totalOvers: 0
+      };
+
+      data.forEach(game => {
+        // Process home team
+        const homeTeam = game.home_team;
+        const awayTeam = game.away_team;
+
+        // Apply team filter
+        const shouldIncludeHome = filters.teams.length === 0 || filters.teams.includes(homeTeam);
+        const shouldIncludeAway = filters.teams.length === 0 || filters.teams.includes(awayTeam);
+
+        // Apply location filter and process home team stats
+        if ((filters.gameLocation === 'all' || filters.gameLocation === 'home') && shouldIncludeHome) {
+          if (!teamStats.has(homeTeam)) {
+            teamStats.set(homeTeam, { games: 0, wins: 0, rlCovers: 0, overs: 0 });
           }
-        ]
+          const homeStats = teamStats.get(homeTeam);
+          homeStats.games++;
+          if (game.ha_winner === 1) homeStats.wins++;
+          if (game.run_line_winner === 1) homeStats.rlCovers++;
+          if (game.ou_result === 1) homeStats.overs++;
+
+          overallStats.totalGames++;
+          if (game.ha_winner === 1) overallStats.totalWins++;
+          if (game.run_line_winner === 1) overallStats.totalRlCovers++;
+          if (game.ou_result === 1) overallStats.totalOvers++;
+        }
+
+        // Apply location filter and process away team stats
+        if ((filters.gameLocation === 'all' || filters.gameLocation === 'away') && shouldIncludeAway) {
+          if (!teamStats.has(awayTeam)) {
+            teamStats.set(awayTeam, { games: 0, wins: 0, rlCovers: 0, overs: 0 });
+          }
+          const awayStats = teamStats.get(awayTeam);
+          awayStats.games++;
+          if (game.ha_winner === 0) awayStats.wins++;
+          if (game.run_line_winner === 0) awayStats.rlCovers++;
+          if (game.ou_result === 1) awayStats.overs++;
+
+          // Only count in overall if we didn't already count it for home team
+          if (filters.gameLocation === 'away' || !shouldIncludeHome) {
+            overallStats.totalGames++;
+            if (game.ha_winner === 0) overallStats.totalWins++;
+            if (game.run_line_winner === 0) overallStats.totalRlCovers++;
+            if (game.ou_result === 1) overallStats.totalOvers++;
+          }
+        }
+      });
+
+      // Convert team stats to array and calculate percentages
+      const teamBreakdown = Array.from(teamStats.entries()).map(([team, stats]) => ({
+        team,
+        games: stats.games,
+        winPct: stats.games > 0 ? (stats.wins / stats.games) * 100 : 0,
+        runlinePct: stats.games > 0 ? (stats.rlCovers / stats.games) * 100 : 0,
+        overPct: stats.games > 0 ? (stats.overs / stats.games) * 100 : 0
+      })).sort((a, b) => b.games - a.games);
+
+      // Calculate overall percentages
+      const winPercentage = overallStats.totalGames > 0 ? (overallStats.totalWins / overallStats.totalGames) * 100 : 0;
+      const runlinePercentage = overallStats.totalGames > 0 ? (overallStats.totalRlCovers / overallStats.totalGames) * 100 : 0;
+      const overUnderPercentage = overallStats.totalGames > 0 ? (overallStats.totalOvers / overallStats.totalGames) * 100 : 0;
+
+      console.log('Calculated stats:', {
+        totalGames: overallStats.totalGames,
+        winPercentage,
+        runlinePercentage,
+        overUnderPercentage,
+        teamCount: teamBreakdown.length
+      });
+
+      return {
+        totalGames: overallStats.totalGames,
+        winPercentage,
+        runlinePercentage,
+        overUnderPercentage,
+        teamBreakdown
       };
     },
   });
 
   const handleFiltersChange = (newFilters: AnalyticsFilters) => {
+    console.log('Filters changed:', newFilters);
     setFilters(newFilters);
   };
 
@@ -115,7 +205,11 @@ const Analytics = () => {
               </Link>
               <div>
                 <h1 className="text-2xl font-bold">MLB Analytics Dashboard</h1>
-                <p className="text-muted-foreground">Team performance analysis and betting insights</p>
+                <p className="text-muted-foreground">
+                  Team performance analysis and betting insights
+                  {filters.season !== 'all' && ` • ${filters.season} Season`}
+                  <span className="text-xs"> (Excludes today's games)</span>
+                </p>
               </div>
             </div>
           </div>
