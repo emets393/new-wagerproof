@@ -57,17 +57,18 @@ const Analytics = () => {
       
       const { data, error } = await supabase
         .from('training_data')
-        .select('home_team, away_team')
-        .limit(1000);
+        .select('home_team, away_team');
 
       if (error) {
         console.error('Error fetching team names:', error);
         throw error;
       }
 
+      console.log('Raw data for teams:', data?.length, 'games found');
+
       // Extract unique team names
       const teamSet = new Set<string>();
-      data.forEach(game => {
+      data?.forEach(game => {
         if (game.home_team) teamSet.add(game.home_team);
         if (game.away_team) teamSet.add(game.away_team);
       });
@@ -125,7 +126,7 @@ const Analytics = () => {
         totalOvers: 0
       };
 
-      data.forEach(game => {
+      data?.forEach(game => {
         // Process home team
         const homeTeam = game.home_team;
         const awayTeam = game.away_team;
