@@ -114,12 +114,15 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
     });
   };
 
-  // Check if we have any data to show filters
+  // Check if we have any meaningful data to show filters
   const hasFilterData = filterOptions && (
     (filterOptions.homeTeams && filterOptions.homeTeams.length > 0) ||
     (filterOptions.awayTeams && filterOptions.awayTeams.length > 0) ||
     (filterOptions.seasons && filterOptions.seasons.length > 0)
   );
+
+  console.log('Filter options received:', filterOptions);
+  console.log('Has filter data:', hasFilterData);
 
   // If no data is available, show a message instead of broken filters
   if (!hasFilterData) {
@@ -177,13 +180,18 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
           {filterOptions.homeTeams && filterOptions.homeTeams.length > 0 && (
             <div className="space-y-2">
               <Label>Home Teams</Label>
-              <Select onValueChange={(value) => value && addToFilter('homeTeams', value)}>
+              <Select onValueChange={(value) => {
+                console.log('Home team selected:', value);
+                if (value && value.trim() !== '') {
+                  addToFilter('homeTeams', value);
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select home teams..." />
                 </SelectTrigger>
                 <SelectContent>
                   {getSafeFilterOptions(filterOptions.homeTeams, filters.homeTeams).map((team) => (
-                    <SelectItem key={`home-${team}`} value={team}>{team}</SelectItem>
+                    <SelectItem key={`home-${team}`} value={String(team)}>{String(team)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -209,13 +217,18 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
           {filterOptions.awayTeams && filterOptions.awayTeams.length > 0 && (
             <div className="space-y-2">
               <Label>Away Teams</Label>
-              <Select onValueChange={(value) => value && addToFilter('awayTeams', value)}>
+              <Select onValueChange={(value) => {
+                console.log('Away team selected:', value);
+                if (value && value.trim() !== '') {
+                  addToFilter('awayTeams', value);
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select away teams..." />
                 </SelectTrigger>
                 <SelectContent>
                   {getSafeFilterOptions(filterOptions.awayTeams, filters.awayTeams).map((team) => (
-                    <SelectItem key={`away-${team}`} value={team}>{team}</SelectItem>
+                    <SelectItem key={`away-${team}`} value={String(team)}>{String(team)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -241,13 +254,18 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
           {filterOptions.seasons && filterOptions.seasons.length > 0 && (
             <div className="space-y-2">
               <Label>Seasons</Label>
-              <Select onValueChange={(value) => value && addToFilter('seasons', parseInt(value))}>
+              <Select onValueChange={(value) => {
+                console.log('Season selected:', value);
+                if (value && value.trim() !== '' && !isNaN(Number(value))) {
+                  addToFilter('seasons', parseInt(value));
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select seasons..." />
                 </SelectTrigger>
                 <SelectContent>
                   {getSafeFilterOptions(filterOptions.seasons, filters.seasons).map((season) => (
-                    <SelectItem key={`season-${season}`} value={season.toString()}>{season}</SelectItem>
+                    <SelectItem key={`season-${season}`} value={String(season)}>{String(season)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -294,13 +312,17 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
               {filterOptions.months && filterOptions.months.length > 0 && (
                 <div className="space-y-2">
                   <Label>Months</Label>
-                  <Select onValueChange={(value) => value && addToFilter('months', parseInt(value))}>
+                  <Select onValueChange={(value) => {
+                    if (value && value.trim() !== '' && !isNaN(Number(value))) {
+                      addToFilter('months', parseInt(value));
+                    }
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select months..." />
                     </SelectTrigger>
                     <SelectContent>
                       {getSafeFilterOptions(filterOptions.months, filters.months).map((month) => (
-                        <SelectItem key={`month-${month}`} value={month.toString()}>{month}</SelectItem>
+                        <SelectItem key={`month-${month}`} value={String(month)}>{String(month)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -326,13 +348,17 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
               {filterOptions.homeHandedness && filterOptions.homeHandedness.length > 0 && (
                 <div className="space-y-2">
                   <Label>Home Pitcher Hand</Label>
-                  <Select onValueChange={(value) => value && addToFilter('homeHandedness', parseInt(value))}>
+                  <Select onValueChange={(value) => {
+                    if (value && value.trim() !== '' && !isNaN(Number(value))) {
+                      addToFilter('homeHandedness', parseInt(value));
+                    }
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select handedness..." />
                     </SelectTrigger>
                     <SelectContent>
                       {getSafeFilterOptions(filterOptions.homeHandedness, filters.homeHandedness).map((hand) => (
-                        <SelectItem key={`home-hand-${hand}`} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
+                        <SelectItem key={`home-hand-${hand}`} value={String(hand)}>{getHandednessLabel(hand)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -358,13 +384,17 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
               {filterOptions.awayHandedness && filterOptions.awayHandedness.length > 0 && (
                 <div className="space-y-2">
                   <Label>Away Pitcher Hand</Label>
-                  <Select onValueChange={(value) => value && addToFilter('awayHandedness', parseInt(value))}>
+                  <Select onValueChange={(value) => {
+                    if (value && value.trim() !== '' && !isNaN(Number(value))) {
+                      addToFilter('awayHandedness', parseInt(value));
+                    }
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select handedness..." />
                     </SelectTrigger>
                     <SelectContent>
                       {getSafeFilterOptions(filterOptions.awayHandedness, filters.awayHandedness).map((hand) => (
-                        <SelectItem key={`away-hand-${hand}`} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
+                        <SelectItem key={`away-hand-${hand}`} value={String(hand)}>{getHandednessLabel(hand)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

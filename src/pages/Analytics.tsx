@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -104,21 +105,28 @@ const Analytics = () => {
     }
   });
 
+  // First, let's test a simple query to see what data we actually have
+  const { data: testData } = useQuery({
+    queryKey: ['test-training-data'],
+    queryFn: async () => {
+      console.log('Testing simple query to training_data');
+      const { data, error, count } = await supabase
+        .from('training_data')
+        .select('*', { count: 'exact' })
+        .limit(5);
+      
+      console.log('Test query result:', { data, error, count });
+      return { data, error, count };
+    },
+  });
+
   // Fetch filter options from training_data
   const { data: filterOptions, isLoading: filtersLoading } = useQuery({
     queryKey: ['training-data-filters'],
     queryFn: async () => {
       console.log('Fetching filter options from training_data');
       
-      // First, let's see what data exists
-      const { data: sampleData, error: sampleError } = await supabase
-        .from('training_data')
-        .select('*')
-        .limit(5);
-      
-      console.log('Sample training_data:', sampleData);
-      if (sampleError) console.error('Sample data error:', sampleError);
-
+      // Get all unique values for filters
       const { data, error } = await supabase
         .from('training_data')
         .select(`
@@ -141,9 +149,10 @@ const Analytics = () => {
         throw error;
       }
 
-      console.log('Filter data fetched:', data?.length, 'records');
+      console.log('Raw filter data:', data?.slice(0, 3));
 
       if (!data || data.length === 0) {
+        console.log('No data found in training_data table');
         return {
           homeTeams: [],
           awayTeams: [],
@@ -158,29 +167,37 @@ const Analytics = () => {
         };
       }
 
-      // Extract unique values for filters, filtering out null/empty values more carefully
-      const homeTeams = [...new Set(data.map(d => d.home_team).filter(team => team && typeof team === 'string' && team.trim() !== ''))].sort();
-      const awayTeams = [...new Set(data.map(d => d.away_team).filter(team => team && typeof team === 'string' && team.trim() !== ''))].sort();
-      const seasons = [...new Set(data.map(d => d.season).filter(s => s !== null && s !== undefined && typeof s === 'number'))].sort();
-      const months = [...new Set(data.map(d => d.month).filter(m => m !== null && m !== undefined && typeof m === 'number'))].sort();
-      const days = [...new Set(data.map(d => d.day).filter(d => d !== null && d !== undefined && typeof d === 'number'))].sort();
-      const homePitchers = [...new Set(data.map(d => d.home_pitcher).filter(p => p && typeof p === 'string' && p.trim() !== ''))].sort();
-      const awayPitchers = [...new Set(data.map(d => d.away_pitcher).filter(p => p && typeof p === 'string' && p.trim() !== ''))].sort();
-      const homeHandedness = [...new Set(data.map(d => d.home_handedness).filter(h => h !== null && h !== undefined && typeof h === 'number'))].sort();
-      const awayHandedness = [...new Set(data.map(d => d.away_handedness).filter(h => h !== null && h !== undefined && typeof h === 'number'))].sort();
-      const seriesGameNumbers = [...new Set(data.map(d => d.series_game_number).filter(s => s !== null && s !== undefined && typeof s === 'number'))].sort();
+      // Extract unique values and filter out nulls/undefined/empty strings
+      const homeTeams = [...new Set(data.map(d => d.home_team).filter(x => x && String(x).trim()))] as string[];
+      const awayTeams = [...new Set(data.map(d => d.away_team).filter(x => x && String(x).trim()))] as string[];
+      const seasons = [...new Set(data.map(d => d.season).filter(x => x != null && !isNaN(Number(x))))] as number[];
+      const months = [...new Set(data.map(d => d.month).filter(x => x != null && !isNaN(Number(x))))] as number[];
+      const days = [...new Set(data.map(d => d.day).filter(x => x != null && !isNaN(Number(x))))] as number[];
+      const homePitchers = [...new Set(data.map(d => d.home_pitcher).filter(x => x && String(x).trim()))] as string[];
+      const awayPitchers = [...new Set(data.map(d => d.away_pitcher).filter(x => x && String(x).trim()))] as string[];
+      const homeHandedness = [...new Set(data.map(d => d.home_handedness).filter(x => x != null && !isNaN(Number(x))))] as number[];
+      const awayHandedness = [...new Set(data.map(d => d.away_handedness).filter(x => x != null && !isNaN(Number(x))))] as number[];
+      const seriesGameNumbers = [...new Set(data.map(d => d.series_game_number).filter(x => x != null && !isNaN(Number(x))))] as number[];
 
-      return {
-        homeTeams,
-        awayTeams,
+      console.log('Processed filter options:', {
+        homeTeams: homeTeams.slice(0, 5),
+        awayTeams: awayTeams.slice(0, 5),
         seasons,
         months,
-        days,
-        homePitchers,
-        awayPitchers,
-        homeHandedness,
-        awayHandedness,
-        seriesGameNumbers
+        days
+      });
+
+      return {
+        homeTeams: homeTeams.sort(),
+        awayTeams: awayTeams.sort(),
+        seasons: seasons.sort(),
+        months: months.sort(),
+        days: days.sort(),
+        homePitchers: homePitchers.sort(),
+        awayPitchers: awayPitchers.sort(),
+        homeHandedness: homeHandedness.sort(),
+        awayHandedness: awayHandedness.sort(),
+        seriesGameNumbers: seriesGameNumbers.sort()
       };
     },
   });
@@ -393,6 +410,11 @@ const Analytics = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4">Loading Analytics...</h1>
+          {testData && (
+            <p className="text-muted-foreground">
+              Found {testData.count} records in training_data table
+            </p>
+          )}
         </div>
       </div>
     );
@@ -423,6 +445,14 @@ const Analytics = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Debug info */}
+        {testData && (
+          <div className="mb-4 p-4 bg-muted rounded-lg">
+            <p className="text-sm">Debug: Found {testData.count} total records in training_data</p>
+            {testData.error && <p className="text-sm text-red-500">Error: {testData.error.message}</p>}
+          </div>
+        )}
+
         {/* Filters */}
         <div className="mb-8">
           <AnalyticsFilters 
