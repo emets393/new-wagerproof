@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { ChevronDown, ChevronUp, Filter, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { AnalyticsFilters as AnalyticsFiltersType } from "@/pages/Analytics";
@@ -41,14 +40,8 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
     if (filters.awayTeams.length > 0) count++;
     if (filters.seasons.length > 0) count++;
     if (filters.months.length > 0) count++;
-    if (filters.days.length > 0) count++;
-    if (filters.homePitchers.length > 0) count++;
-    if (filters.awayPitchers.length > 0) count++;
-    if (filters.homeHandedness.length > 0) count++;
-    if (filters.awayHandedness.length > 0) count++;
     if (filters.sameLeague !== null) count++;
     if (filters.sameDivision !== null) count++;
-    if (filters.seriesGameNumbers.length > 0) count++;
     return count;
   };
 
@@ -89,44 +82,15 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
     updateFilters({ [filterKey]: currentFilter.filter(item => item !== value) });
   };
 
-  // Helper function to get handedness label
-  const getHandednessLabel = (value: number) => {
-    switch (value) {
-      case 0:
-        return 'Right';
-      case 1:
-        return 'Left';
-      case 2:
-        return 'Switch';
-      default:
-        return `Other (${value})`;
-    }
-  };
-
-  // Helper function to safely validate and filter options for SelectItem
+  // Helper function to safely validate options for SelectItem
   const getValidSelectOptions = (options: any[], currentlySelected: any[]) => {
     if (!Array.isArray(options)) {
-      console.log('Options is not an array:', options);
       return [];
     }
     
     return options.filter(option => {
-      // Strict validation for SelectItem values
-      if (option === null || option === undefined) {
-        console.log('Filtering out null/undefined option:', option);
-        return false;
-      }
-      
-      // Convert to string and check if it's empty or just whitespace
-      const stringValue = String(option).trim();
-      if (stringValue === '' || stringValue === 'null' || stringValue === 'undefined') {
-        console.log('Filtering out empty/invalid string option:', option);
-        return false;
-      }
-      
-      // For numbers, ensure they're valid
-      if (typeof option === 'number' && (isNaN(option) || !isFinite(option))) {
-        console.log('Filtering out invalid number option:', option);
+      // Filter out null, undefined, empty strings
+      if (option === null || option === undefined || option === '') {
         return false;
       }
       
@@ -139,17 +103,14 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
     });
   };
 
-  // Check if we have meaningful filter data
-  const hasValidFilterData = filterOptions && (
-    (Array.isArray(filterOptions.homeTeams) && filterOptions.homeTeams.length > 0) ||
-    (Array.isArray(filterOptions.awayTeams) && filterOptions.awayTeams.length > 0) ||
-    (Array.isArray(filterOptions.seasons) && filterOptions.seasons.length > 0)
+  // Check if we have any filter data
+  const hasFilterData = filterOptions && (
+    (filterOptions.homeTeams && filterOptions.homeTeams.length > 0) ||
+    (filterOptions.awayTeams && filterOptions.awayTeams.length > 0) ||
+    (filterOptions.seasons && filterOptions.seasons.length > 0)
   );
 
-  console.log('Filter options in component:', filterOptions);
-  console.log('Has valid filter data:', hasValidFilterData);
-
-  if (!hasValidFilterData) {
+  if (!hasFilterData) {
     return (
       <Card>
         <CardHeader>
@@ -205,7 +166,6 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
             <div className="space-y-2">
               <Label>Home Teams</Label>
               <Select onValueChange={(value) => {
-                console.log('Home team selected:', value);
                 if (value && value.trim() !== '') {
                   addToFilter('homeTeams', value);
                 }
@@ -244,7 +204,6 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
             <div className="space-y-2">
               <Label>Away Teams</Label>
               <Select onValueChange={(value) => {
-                console.log('Away team selected:', value);
                 if (value && value.trim() !== '') {
                   addToFilter('awayTeams', value);
                 }
@@ -283,7 +242,6 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
             <div className="space-y-2">
               <Label>Seasons</Label>
               <Select onValueChange={(value) => {
-                console.log('Season selected:', value);
                 const numValue = parseInt(value);
                 if (!isNaN(numValue)) {
                   addToFilter('seasons', numValue);
@@ -378,178 +336,20 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 </div>
               )}
 
-              {/* Home Handedness */}
-              {filterOptions.homeHandedness && filterOptions.homeHandedness.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Home Pitcher Hand</Label>
-                  <Select onValueChange={(value) => {
-                    const numValue = parseInt(value);
-                    if (!isNaN(numValue)) {
-                      addToFilter('homeHandedness', numValue);
-                    }
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select handedness..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getValidSelectOptions(filterOptions.homeHandedness, filters.homeHandedness).map((hand) => (
-                        <SelectItem key={`home-hand-${hand}`} value={String(hand)}>
-                          {getHandednessLabel(hand)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {filters.homeHandedness.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {filters.homeHandedness.map((hand) => (
-                        <Badge key={`home-hand-badge-${hand}`} variant="secondary" className="text-xs">
-                          {getHandednessLabel(hand)}
-                          <button
-                            onClick={() => removeFromFilter('homeHandedness', hand)}
-                            className="ml-1 hover:text-destructive"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Away Handedness */}
-              {filterOptions.awayHandedness && filterOptions.awayHandedness.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Away Pitcher Hand</Label>
-                  <Select onValueChange={(value) => {
-                    const numValue = parseInt(value);
-                    if (!isNaN(numValue)) {
-                      addToFilter('awayHandedness', numValue);
-                    }
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select handedness..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getValidSelectOptions(filterOptions.awayHandedness, filters.awayHandedness).map((hand) => (
-                        <SelectItem key={`away-hand-${hand}`} value={String(hand)}>
-                          {getHandednessLabel(hand)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {filters.awayHandedness.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {filters.awayHandedness.map((hand) => (
-                        <Badge key={`away-hand-badge-${hand}`} variant="secondary" className="text-xs">
-                          {getHandednessLabel(hand)}
-                          <button
-                            onClick={() => removeFromFilter('awayHandedness', hand)}
-                            className="ml-1 hover:text-destructive"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Range Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Home ERA Range */}
+              {/* Same Division */}
               <div className="space-y-2">
-                <Label>Home ERA Range</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="Min ERA"
-                    value={filters.homeEraRange.min || ''}
-                    onChange={(e) => updateFilters({ 
-                      homeEraRange: { 
-                        ...filters.homeEraRange, 
-                        min: e.target.value ? parseFloat(e.target.value) : null 
-                      } 
-                    })}
-                  />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="Max ERA"
-                    value={filters.homeEraRange.max || ''}
-                    onChange={(e) => updateFilters({ 
-                      homeEraRange: { 
-                        ...filters.homeEraRange, 
-                        max: e.target.value ? parseFloat(e.target.value) : null 
-                      } 
-                    })}
-                  />
-                </div>
-              </div>
-
-              {/* Away ERA Range */}
-              <div className="space-y-2">
-                <Label>Away ERA Range</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="Min ERA"
-                    value={filters.awayEraRange.min || ''}
-                    onChange={(e) => updateFilters({ 
-                      awayEraRange: { 
-                        ...filters.awayEraRange, 
-                        min: e.target.value ? parseFloat(e.target.value) : null 
-                      } 
-                    })}
-                  />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="Max ERA"
-                    value={filters.awayEraRange.max || ''}
-                    onChange={(e) => updateFilters({ 
-                      awayEraRange: { 
-                        ...filters.awayEraRange, 
-                        max: e.target.value ? parseFloat(e.target.value) : null 
-                      } 
-                    })}
-                  />
-                </div>
-              </div>
-
-              {/* O/U Line Range */}
-              <div className="space-y-2">
-                <Label>Over/Under Line Range</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    step="0.5"
-                    placeholder="Min Line"
-                    value={filters.ouLineRange.min || ''}
-                    onChange={(e) => updateFilters({ 
-                      ouLineRange: { 
-                        ...filters.ouLineRange, 
-                        min: e.target.value ? parseFloat(e.target.value) : null 
-                      } 
-                    })}
-                  />
-                  <Input
-                    type="number"
-                    step="0.5"
-                    placeholder="Max Line"
-                    value={filters.ouLineRange.max || ''}
-                    onChange={(e) => updateFilters({ 
-                      ouLineRange: { 
-                        ...filters.ouLineRange, 
-                        max: e.target.value ? parseFloat(e.target.value) : null 
-                      } 
-                    })}
-                  />
-                </div>
+                <Label>Same Division</Label>
+                <Select value={filters.sameDivision === null ? '' : filters.sameDivision.toString()} 
+                        onValueChange={(value) => updateFilters({ sameDivision: value === '' ? null : value === 'true' })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any</SelectItem>
+                    <SelectItem value="true">Same Division</SelectItem>
+                    <SelectItem value="false">Different Division</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

@@ -105,25 +105,37 @@ const Analytics = () => {
     }
   });
 
-  // Test query to understand the data structure
+  // Simple test query to check if we can access training_data
   const { data: testData } = useQuery({
-    queryKey: ['test-training-data-structure'],
+    queryKey: ['test-training-data-access'],
     queryFn: async () => {
-      console.log('Testing training_data structure');
-      const { data, error, count } = await supabase
-        .from('training_data')
-        .select('*', { count: 'exact' })
-        .limit(3);
+      console.log('Testing direct access to training_data');
       
-      console.log('Sample training_data records:', data);
-      console.log('Total count:', count);
-      console.log('Error:', error);
+      // Try different approaches to access the data
+      const approaches = [
+        // Approach 1: Direct select all
+        () => supabase.from('training_data').select('*').limit(5),
+        // Approach 2: Count query
+        () => supabase.from('training_data').select('*', { count: 'exact', head: true }),
+        // Approach 3: Select specific columns that we know exist
+        () => supabase.from('training_data').select('home_team, away_team, ha_winner').limit(5)
+      ];
       
-      return { data, error, count };
+      for (let i = 0; i < approaches.length; i++) {
+        console.log(`Trying approach ${i + 1}`);
+        const { data, error, count } = await approaches[i]();
+        console.log(`Approach ${i + 1} result:`, { data, error, count });
+        
+        if (!error && (data || count !== null)) {
+          return { data, error, count, approach: i + 1 };
+        }
+      }
+      
+      return { data: null, error: 'All approaches failed', count: 0, approach: 0 };
     },
   });
 
-  // Get filter options from actual training_data structure
+  // Get filter options only if we can access the data
   const { data: filterOptions, isLoading: filtersLoading } = useQuery({
     queryKey: ['training-data-filter-options'],
     queryFn: async () => {
@@ -131,30 +143,17 @@ const Analytics = () => {
       
       const { data, error } = await supabase
         .from('training_data')
-        .select(`
-          home_team,
-          away_team,
-          season,
-          month,
-          day,
-          home_pitcher,
-          away_pitcher,
-          home_handedness,
-          away_handedness,
-          same_league,
-          same_division,
-          series_game_number
-        `);
+        .select('home_team, away_team, season, month, day, home_pitcher, away_pitcher, home_handedness, away_handedness, series_game_number')
+        .limit(1000); // Limit for performance
 
       if (error) {
         console.error('Error fetching filter options:', error);
         throw error;
       }
 
-      console.log('Raw filter data sample:', data?.slice(0, 3));
+      console.log('Filter data sample:', data?.slice(0, 3));
 
       if (!data || data.length === 0) {
-        console.log('No data found in training_data table');
         return {
           homeTeams: [],
           awayTeams: [],
@@ -169,36 +168,34 @@ const Analytics = () => {
         };
       }
 
-      // Helper function to safely extract unique values
-      const getUniqueValues = (arr: any[], accessor: (item: any) => any, isNumeric = false) => {
-        const values = arr
-          .map(accessor)
-          .filter(x => {
-            if (x === null || x === undefined) return false;
-            if (isNumeric) return !isNaN(Number(x));
-            return String(x).trim() !== '';
-          });
+      // Extract unique values safely
+      const getUniqueValues = (field: string, isNumeric = false) => {
+        const values = data
+          .map(item => item[field])
+          .filter(val => val !== null && val !== undefined && val !== '')
+          .filter(val => isNumeric ? !isNaN(Number(val)) : true);
         
         const unique = [...new Set(values)];
         return isNumeric ? unique.map(Number).sort((a, b) => a - b) : unique.sort();
       };
 
       const result = {
-        homeTeams: getUniqueValues(data, d => d.home_team),
-        awayTeams: getUniqueValues(data, d => d.away_team),
-        seasons: getUniqueValues(data, d => d.season, true),
-        months: getUniqueValues(data, d => d.month, true),
-        days: getUniqueValues(data, d => d.day, true),
-        homePitchers: getUniqueValues(data, d => d.home_pitcher),
-        awayPitchers: getUniqueValues(data, d => d.away_pitcher),
-        homeHandedness: getUniqueValues(data, d => d.home_handedness, true),
-        awayHandedness: getUniqueValues(data, d => d.away_handedness, true),
-        seriesGameNumbers: getUniqueValues(data, d => d.series_game_number, true)
+        homeTeams: getUniqueValues('home_team'),
+        awayTeams: getUniqueValues('away_team'),
+        seasons: getUniqueValues('season', true),
+        months: getUniqueValues('month', true),
+        days: getUniqueValues('day', true),
+        homePitchers: getUniqueValues('home_pitcher'),
+        awayPitchers: getUniqueValues('away_pitcher'),
+        homeHandedness: getUniqueValues('home_handedness', true),
+        awayHandedness: getUniqueValues('away_handedness', true),
+        seriesGameNumbers: getUniqueValues('series_game_number', true)
       };
 
       console.log('Processed filter options:', result);
       return result;
     },
+    enabled: !!testData?.data, // Only run if test query succeeded
   });
 
   // Get analytics data with filters applied
@@ -207,11 +204,9 @@ const Analytics = () => {
     queryFn: async () => {
       console.log('Fetching analytics data with filters:', filters);
       
-      let query = supabase
-        .from('training_data')
-        .select('*');
+      let query = supabase.from('training_data').select('*');
 
-      // Apply filters
+      // Apply filters only if they have values
       if (filters.homeTeams.length > 0) {
         query = query.in('home_team', filters.homeTeams);
       }
@@ -223,74 +218,6 @@ const Analytics = () => {
       }
       if (filters.months.length > 0) {
         query = query.in('month', filters.months);
-      }
-      if (filters.days.length > 0) {
-        query = query.in('day', filters.days);
-      }
-      if (filters.homePitchers.length > 0) {
-        query = query.in('home_pitcher', filters.homePitchers);
-      }
-      if (filters.awayPitchers.length > 0) {
-        query = query.in('away_pitcher', filters.awayPitchers);
-      }
-      if (filters.homeHandedness.length > 0) {
-        query = query.in('home_handedness', filters.homeHandedness);
-      }
-      if (filters.awayHandedness.length > 0) {
-        query = query.in('away_handedness', filters.awayHandedness);
-      }
-      if (filters.sameLeague !== null) {
-        query = query.eq('same_league', filters.sameLeague ? 1 : 0);
-      }
-      if (filters.sameDivision !== null) {
-        query = query.eq('same_division', filters.sameDivision ? 1 : 0);
-      }
-      if (filters.seriesGameNumbers.length > 0) {
-        query = query.in('series_game_number', filters.seriesGameNumbers);
-      }
-
-      // Apply range filters
-      if (filters.homeEraRange.min !== null) {
-        query = query.gte('home_era', filters.homeEraRange.min);
-      }
-      if (filters.homeEraRange.max !== null) {
-        query = query.lte('home_era', filters.homeEraRange.max);
-      }
-      if (filters.awayEraRange.min !== null) {
-        query = query.gte('away_era', filters.awayEraRange.min);
-      }
-      if (filters.awayEraRange.max !== null) {
-        query = query.lte('away_era', filters.awayEraRange.max);
-      }
-      if (filters.homeWhipRange.min !== null) {
-        query = query.gte('home_whip', filters.homeWhipRange.min);
-      }
-      if (filters.homeWhipRange.max !== null) {
-        query = query.lte('home_whip', filters.homeWhipRange.max);
-      }
-      if (filters.awayWhipRange.min !== null) {
-        query = query.gte('away_whip', filters.awayWhipRange.min);
-      }
-      if (filters.awayWhipRange.max !== null) {
-        query = query.lte('away_whip', filters.awayWhipRange.max);
-      }
-      if (filters.homeWinPctRange.min !== null) {
-        query = query.gte('home_win_pct', filters.homeWinPctRange.min);
-      }
-      if (filters.homeWinPctRange.max !== null) {
-        query = query.lte('home_win_pct', filters.homeWinPctRange.max);
-      }
-      if (filters.awayWinPctRange.min !== null) {
-        query = query.gte('away_win_pct', filters.awayWinPctRange.min);
-      }
-      if (filters.awayWinPctRange.max !== null) {
-        query = query.lte('away_win_pct', filters.awayWinPctRange.max);
-      }
-      if (filters.ouLineRange.min !== null) {
-        query = query.gte('o_u_line', filters.ouLineRange.min);
-      }
-      if (filters.ouLineRange.max !== null) {
-        query = query.lte('o_u_line', filters.ouLineRange.max);
       }
 
       const { data, error } = await query;
@@ -315,7 +242,7 @@ const Analytics = () => {
         };
       }
 
-      // Calculate statistics based on actual column names
+      // Calculate statistics
       const totalGames = data.length;
       const homeWins = data.filter(game => game.ha_winner === 1).length;
       const awayWins = data.filter(game => game.ha_winner === 0).length;
@@ -324,15 +251,19 @@ const Analytics = () => {
       const homeRLCovers = data.filter(game => game.run_line_winner === 1).length;
       const awayRLCovers = data.filter(game => game.run_line_winner === 0).length;
 
-      // Team breakdown calculation
+      // Team breakdown
       const teamStats = new Map();
       
       data.forEach(game => {
-        // Process home team
-        if (game.home_team && typeof game.home_team === 'string' && game.home_team.trim()) {
-          if (!teamStats.has(game.home_team)) {
-            teamStats.set(game.home_team, {
-              team: game.home_team,
+        [
+          { team: game.home_team, isHome: true },
+          { team: game.away_team, isHome: false }
+        ].forEach(({ team, isHome }) => {
+          if (!team) return;
+          
+          if (!teamStats.has(team)) {
+            teamStats.set(team, {
+              team,
               homeGames: 0,
               awayGames: 0,
               homeWins: 0,
@@ -344,37 +275,21 @@ const Analytics = () => {
             });
           }
           
-          const homeTeamStat = teamStats.get(game.home_team);
-          homeTeamStat.homeGames++;
-          if (game.ha_winner === 1) homeTeamStat.homeWins++;
-          if (game.run_line_winner === 1) homeTeamStat.homeRLCovers++;
-          if (game.ou_result === 1) homeTeamStat.overs++;
-          if (game.ou_result === 0) homeTeamStat.unders++;
-        }
-
-        // Process away team
-        if (game.away_team && typeof game.away_team === 'string' && game.away_team.trim()) {
-          if (!teamStats.has(game.away_team)) {
-            teamStats.set(game.away_team, {
-              team: game.away_team,
-              homeGames: 0,
-              awayGames: 0,
-              homeWins: 0,
-              awayWins: 0,
-              homeRLCovers: 0,
-              awayRLCovers: 0,
-              overs: 0,
-              unders: 0
-            });
+          const stats = teamStats.get(team);
+          
+          if (isHome) {
+            stats.homeGames++;
+            if (game.ha_winner === 1) stats.homeWins++;
+            if (game.run_line_winner === 1) stats.homeRLCovers++;
+          } else {
+            stats.awayGames++;
+            if (game.ha_winner === 0) stats.awayWins++;
+            if (game.run_line_winner === 0) stats.awayRLCovers++;
           }
           
-          const awayTeamStat = teamStats.get(game.away_team);
-          awayTeamStat.awayGames++;
-          if (game.ha_winner === 0) awayTeamStat.awayWins++;
-          if (game.run_line_winner === 0) awayTeamStat.awayRLCovers++;
-          if (game.ou_result === 1) awayTeamStat.overs++;
-          if (game.ou_result === 0) awayTeamStat.unders++;
-        }
+          if (game.ou_result === 1) stats.overs++;
+          if (game.ou_result === 0) stats.unders++;
+        });
       });
 
       const teamBreakdown = Array.from(teamStats.values()).map(team => ({
@@ -398,6 +313,7 @@ const Analytics = () => {
         teamBreakdown
       };
     },
+    enabled: !!testData?.data, // Only run if test query succeeded
   });
 
   const handleFiltersChange = (newFilters: AnalyticsFilters) => {
@@ -411,9 +327,10 @@ const Analytics = () => {
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4">Loading Analytics...</h1>
           {testData && (
-            <p className="text-muted-foreground">
-              Found {testData.count} records in training_data table
-            </p>
+            <div className="text-muted-foreground">
+              <p>Test query approach {testData.approach} succeeded</p>
+              <p>Found {testData.count || testData.data?.length || 0} records</p>
+            </div>
           )}
         </div>
       </div>
@@ -448,8 +365,10 @@ const Analytics = () => {
         {/* Debug info */}
         {testData && (
           <div className="mb-4 p-4 bg-muted rounded-lg">
-            <p className="text-sm">Debug: Found {testData.count} total records in training_data</p>
-            {testData.error && <p className="text-sm text-red-500">Error: {testData.error.message}</p>}
+            <p className="text-sm">
+              Debug: Test approach {testData.approach} - Found {testData.count || testData.data?.length || 0} records
+            </p>
+            {testData.error && <p className="text-sm text-red-500">Error: {testData.error}</p>}
           </div>
         )}
 
