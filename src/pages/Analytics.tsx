@@ -11,125 +11,349 @@ import StatsCard from "@/components/StatsCard";
 import AnalyticsTable from "@/components/AnalyticsTable";
 
 export interface AnalyticsFilters {
-  teams: string[];
-  gameLocation: 'all' | 'home' | 'away';
-  season: string;
+  homeTeams: string[];
+  awayTeams: string[];
+  seasons: number[];
+  months: number[];
+  days: number[];
+  homePitchers: string[];
+  awayPitchers: string[];
+  homeHandedness: string[];
+  awayHandedness: string[];
+  sameLeague: boolean | null;
+  sameDivision: boolean | null;
+  seriesGameNumbers: number[];
   dateRange: {
     start: string;
     end: string;
   };
-  gameContext: {
-    divisionalOnly: boolean;
-    leagueOnly: boolean;
-    playoffOnly: boolean;
+  homeEraRange: {
+    min: number | null;
+    max: number | null;
   };
-  performance: {
-    minStreak: number;
-    maxStreak: number;
+  awayEraRange: {
+    min: number | null;
+    max: number | null;
+  };
+  homeWhipRange: {
+    min: number | null;
+    max: number | null;
+  };
+  awayWhipRange: {
+    min: number | null;
+    max: number | null;
+  };
+  homeWinPctRange: {
+    min: number | null;
+    max: number | null;
+  };
+  awayWinPctRange: {
+    min: number | null;
+    max: number | null;
+  };
+  ouLineRange: {
+    min: number | null;
+    max: number | null;
   };
 }
 
 const Analytics = () => {
   const [filters, setFilters] = useState<AnalyticsFilters>({
-    teams: [],
-    gameLocation: 'all',
-    season: 'all',
+    homeTeams: [],
+    awayTeams: [],
+    seasons: [],
+    months: [],
+    days: [],
+    homePitchers: [],
+    awayPitchers: [],
+    homeHandedness: [],
+    awayHandedness: [],
+    sameLeague: null,
+    sameDivision: null,
+    seriesGameNumbers: [],
     dateRange: {
       start: '',
       end: ''
     },
-    gameContext: {
-      divisionalOnly: false,
-      leagueOnly: false,
-      playoffOnly: false
+    homeEraRange: {
+      min: null,
+      max: null
     },
-    performance: {
-      minStreak: -10,
-      maxStreak: 10
+    awayEraRange: {
+      min: null,
+      max: null
+    },
+    homeWhipRange: {
+      min: null,
+      max: null
+    },
+    awayWhipRange: {
+      min: null,
+      max: null
+    },
+    homeWinPctRange: {
+      min: null,
+      max: null
+    },
+    awayWinPctRange: {
+      min: null,
+      max: null
+    },
+    ouLineRange: {
+      min: null,
+      max: null
     }
   });
 
-  // Fetch available team names from the individual team tables
-  const { data: availableTeams, isLoading: teamsLoading, error: teamsError } = useQuery({
-    queryKey: ['available-teams'],
+  // Fetch filter options from training_data
+  const { data: filterOptions, isLoading: filtersLoading } = useQuery({
+    queryKey: ['training-data-filters'],
     queryFn: async () => {
-      console.log('Fetching available team names from individual team tables');
+      console.log('Fetching filter options from training_data');
       
-      // Get team names from the MLB_Teams table which should have all team info
       const { data, error } = await supabase
-        .from('MLB_Teams')
-        .select('TeamRankingsName, full_name, short_name');
+        .from('training_data')
+        .select(`
+          home_team,
+          away_team,
+          season,
+          month,
+          day,
+          home_pitcher,
+          away_pitcher,
+          home_handedness,
+          away_handedness,
+          same_league,
+          same_division,
+          series_game_number
+        `)
+        .not('ou_result', 'is', null);
 
       if (error) {
-        console.error('Error fetching team names from MLB_Teams:', error);
-        
-        // Fallback: try to get teams from one of the game tables
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('angels_games')
-          .select('team')
-          .limit(1);
-          
-        if (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
-          throw error;
-        }
-        
-        // If we can access angels_games, we can build a list of known teams
-        const knownTeams = [
-          'Angels', 'Arizona', 'Athletics', 'Atlanta', 'Baltimore', 'Boston',
-          'Cincinnati', 'Cleveland', 'Colorado', 'Cubs', 'Detroit', 'Dodgers',
-          'Houston', 'Kansas City', 'Mets', 'Miami', 'Milwaukee', 'Minnesota',
-          'Philadelphia', 'Pittsburgh', 'San Diego', 'San Francisco', 'Seattle',
-          'ST Louis', 'Tampa Bay', 'Texas', 'Toronto', 'Washington', 'White Sox', 'Yankees'
-        ];
-        
-        console.log('Using fallback team list:', knownTeams);
-        return knownTeams;
+        console.error('Error fetching filter options:', error);
+        throw error;
       }
 
-      console.log('Raw data from MLB_Teams:', data?.length, 'teams found');
+      console.log('Filter data fetched:', data?.length, 'records');
 
-      // Use TeamRankingsName if available, otherwise use full_name or short_name
-      const teams = data?.map(team => 
-        team.TeamRankingsName || team.full_name || team.short_name
-      ).filter(Boolean).sort() || [];
+      // Extract unique values for filters
+      const homeTeams = [...new Set(data?.map(d => d.home_team).filter(Boolean))].sort();
+      const awayTeams = [...new Set(data?.map(d => d.away_team).filter(Boolean))].sort();
+      const seasons = [...new Set(data?.map(d => d.season).filter(Boolean))].sort();
+      const months = [...new Set(data?.map(d => d.month).filter(Boolean))].sort();
+      const days = [...new Set(data?.map(d => d.day).filter(Boolean))].sort();
+      const homePitchers = [...new Set(data?.map(d => d.home_pitcher).filter(Boolean))].sort();
+      const awayPitchers = [...new Set(data?.map(d => d.away_pitcher).filter(Boolean))].sort();
+      const homeHandedness = [...new Set(data?.map(d => d.home_handedness).filter(Boolean))].sort();
+      const awayHandedness = [...new Set(data?.map(d => d.away_handedness).filter(Boolean))].sort();
+      const seriesGameNumbers = [...new Set(data?.map(d => d.series_game_number).filter(Boolean))].sort();
 
-      console.log('Available teams from MLB_Teams:', teams);
-      return teams;
+      return {
+        homeTeams,
+        awayTeams,
+        seasons,
+        months,
+        days,
+        homePitchers,
+        awayPitchers,
+        homeHandedness,
+        awayHandedness,
+        seriesGameNumbers
+      };
     },
   });
 
   const { data: analyticsData, isLoading } = useQuery({
-    queryKey: ['analytics', filters],
+    queryKey: ['training-data-analytics', filters],
     queryFn: async () => {
       console.log('Fetching analytics data with filters:', filters);
       
-      // For now, let's try to get data from one of the team tables to test
-      const { data, error } = await supabase
-        .from('angels_games')
+      let query = supabase
+        .from('training_data')
         .select('*')
-        .limit(10);
+        .not('ou_result', 'is', null);
+
+      // Apply filters
+      if (filters.homeTeams.length > 0) {
+        query = query.in('home_team', filters.homeTeams);
+      }
+      if (filters.awayTeams.length > 0) {
+        query = query.in('away_team', filters.awayTeams);
+      }
+      if (filters.seasons.length > 0) {
+        query = query.in('season', filters.seasons);
+      }
+      if (filters.months.length > 0) {
+        query = query.in('month', filters.months);
+      }
+      if (filters.days.length > 0) {
+        query = query.in('day', filters.days);
+      }
+      if (filters.homePitchers.length > 0) {
+        query = query.in('home_pitcher', filters.homePitchers);
+      }
+      if (filters.awayPitchers.length > 0) {
+        query = query.in('away_pitcher', filters.awayPitchers);
+      }
+      if (filters.homeHandedness.length > 0) {
+        query = query.in('home_handedness', filters.homeHandedness);
+      }
+      if (filters.awayHandedness.length > 0) {
+        query = query.in('away_handedness', filters.awayHandedness);
+      }
+      if (filters.sameLeague !== null) {
+        query = query.eq('same_league', filters.sameLeague ? 1 : 0);
+      }
+      if (filters.sameDivision !== null) {
+        query = query.eq('same_division', filters.sameDivision ? 1 : 0);
+      }
+      if (filters.seriesGameNumbers.length > 0) {
+        query = query.in('series_game_number', filters.seriesGameNumbers);
+      }
+
+      // Apply range filters
+      if (filters.homeEraRange.min !== null) {
+        query = query.gte('home_era', filters.homeEraRange.min);
+      }
+      if (filters.homeEraRange.max !== null) {
+        query = query.lte('home_era', filters.homeEraRange.max);
+      }
+      if (filters.awayEraRange.min !== null) {
+        query = query.gte('away_era', filters.awayEraRange.min);
+      }
+      if (filters.awayEraRange.max !== null) {
+        query = query.lte('away_era', filters.awayEraRange.max);
+      }
+      if (filters.homeWhipRange.min !== null) {
+        query = query.gte('home_whip', filters.homeWhipRange.min);
+      }
+      if (filters.homeWhipRange.max !== null) {
+        query = query.lte('home_whip', filters.homeWhipRange.max);
+      }
+      if (filters.awayWhipRange.min !== null) {
+        query = query.gte('away_whip', filters.awayWhipRange.min);
+      }
+      if (filters.awayWhipRange.max !== null) {
+        query = query.lte('away_whip', filters.awayWhipRange.max);
+      }
+      if (filters.homeWinPctRange.min !== null) {
+        query = query.gte('home_win_pct', filters.homeWinPctRange.min);
+      }
+      if (filters.homeWinPctRange.max !== null) {
+        query = query.lte('home_win_pct', filters.homeWinPctRange.max);
+      }
+      if (filters.awayWinPctRange.min !== null) {
+        query = query.gte('away_win_pct', filters.awayWinPctRange.min);
+      }
+      if (filters.awayWinPctRange.max !== null) {
+        query = query.lte('away_win_pct', filters.awayWinPctRange.max);
+      }
+      if (filters.ouLineRange.min !== null) {
+        query = query.gte('o_u_line', filters.ouLineRange.min);
+      }
+      if (filters.ouLineRange.max !== null) {
+        query = query.lte('o_u_line', filters.ouLineRange.max);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching analytics data:', error);
         throw error;
       }
 
-      console.log('Sample data from angels_games:', data?.length, 'games');
+      console.log('Analytics data fetched:', data?.length, 'games');
 
-      // Return some basic stats for testing
+      if (!data || data.length === 0) {
+        return {
+          totalGames: 0,
+          homeWinPercentage: 0,
+          awayWinPercentage: 0,
+          overPercentage: 0,
+          underPercentage: 0,
+          homeRunlineCoverPercentage: 0,
+          awayRunlineCoverPercentage: 0,
+          teamBreakdown: []
+        };
+      }
+
+      // Calculate percentages
+      const totalGames = data.length;
+      const homeWins = data.filter(game => game.ha_winner === 1).length;
+      const awayWins = data.filter(game => game.ha_winner === 0).length;
+      const overs = data.filter(game => game.ou_result === 1).length;
+      const unders = data.filter(game => game.ou_result === 0).length;
+      const homeRLCovers = data.filter(game => game.run_line_winner === 1).length;
+      const awayRLCovers = data.filter(game => game.run_line_winner === 0).length;
+
+      // Calculate team breakdown
+      const teamStats = new Map();
+      
+      data.forEach(game => {
+        // Home team stats
+        if (!teamStats.has(game.home_team)) {
+          teamStats.set(game.home_team, {
+            team: game.home_team,
+            homeGames: 0,
+            awayGames: 0,
+            homeWins: 0,
+            awayWins: 0,
+            homeRLCovers: 0,
+            awayRLCovers: 0,
+            overs: 0,
+            unders: 0
+          });
+        }
+        
+        const homeTeamStat = teamStats.get(game.home_team);
+        homeTeamStat.homeGames++;
+        if (game.ha_winner === 1) homeTeamStat.homeWins++;
+        if (game.run_line_winner === 1) homeTeamStat.homeRLCovers++;
+        if (game.ou_result === 1) homeTeamStat.overs++;
+        if (game.ou_result === 0) homeTeamStat.unders++;
+
+        // Away team stats
+        if (!teamStats.has(game.away_team)) {
+          teamStats.set(game.away_team, {
+            team: game.away_team,
+            homeGames: 0,
+            awayGames: 0,
+            homeWins: 0,
+            awayWins: 0,
+            homeRLCovers: 0,
+            awayRLCovers: 0,
+            overs: 0,
+            unders: 0
+          });
+        }
+        
+        const awayTeamStat = teamStats.get(game.away_team);
+        awayTeamStat.awayGames++;
+        if (game.ha_winner === 0) awayTeamStat.awayWins++;
+        if (game.run_line_winner === 0) awayTeamStat.awayRLCovers++;
+        if (game.ou_result === 1) awayTeamStat.overs++;
+        if (game.ou_result === 0) awayTeamStat.unders++;
+      });
+
+      const teamBreakdown = Array.from(teamStats.values()).map(team => ({
+        team: team.team,
+        games: team.homeGames + team.awayGames,
+        homeWinPct: team.homeGames > 0 ? (team.homeWins / team.homeGames) * 100 : 0,
+        awayWinPct: team.awayGames > 0 ? (team.awayWins / team.awayGames) * 100 : 0,
+        homeRLPct: team.homeGames > 0 ? (team.homeRLCovers / team.homeGames) * 100 : 0,
+        awayRLPct: team.awayGames > 0 ? (team.awayRLCovers / team.awayGames) * 100 : 0,
+        overPct: (team.overs / (team.homeGames + team.awayGames)) * 100
+      })).sort((a, b) => b.games - a.games);
+
       return {
-        totalGames: data?.length || 0,
-        winPercentage: 50.0,
-        runlinePercentage: 48.5,
-        overUnderPercentage: 52.3,
-        teamBreakdown: [{
-          team: 'Angels',
-          games: data?.length || 0,
-          winPct: 50.0,
-          runlinePct: 48.5,
-          overPct: 52.3
-        }]
+        totalGames,
+        homeWinPercentage: (homeWins / totalGames) * 100,
+        awayWinPercentage: (awayWins / totalGames) * 100,
+        overPercentage: (overs / totalGames) * 100,
+        underPercentage: (unders / totalGames) * 100,
+        homeRunlineCoverPercentage: (homeRLCovers / totalGames) * 100,
+        awayRunlineCoverPercentage: (awayRLCovers / totalGames) * 100,
+        teamBreakdown
       };
     },
   });
@@ -139,7 +363,7 @@ const Analytics = () => {
     setFilters(newFilters);
   };
 
-  if (isLoading) {
+  if (isLoading || filtersLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -163,10 +387,9 @@ const Analytics = () => {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-2xl font-bold">MLB Analytics Dashboard</h1>
+                <h1 className="text-2xl font-bold">MLB Training Data Analytics</h1>
                 <p className="text-muted-foreground">
-                  Team performance analysis and betting insights
-                  {filters.season !== 'all' && ` • ${filters.season} Season`}
+                  Comprehensive analysis of historical game data and betting outcomes
                 </p>
               </div>
             </div>
@@ -175,68 +398,66 @@ const Analytics = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Debug Info */}
-        {teamsLoading && (
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
-            Loading teams...
-          </div>
-        )}
-        
-        {teamsError && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
-            Error loading teams: {teamsError.message}
-          </div>
-        )}
-
-        {availableTeams && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
-            Found {availableTeams.length} teams: {availableTeams.slice(0, 5).join(', ')}
-            {availableTeams.length > 5 && ` and ${availableTeams.length - 5} more...`}
-          </div>
-        )}
-
         {/* Filters */}
         <div className="mb-8">
           <AnalyticsFilters 
             filters={filters} 
             onFiltersChange={handleFiltersChange}
-            availableTeams={availableTeams || []}
+            filterOptions={filterOptions || {}}
           />
         </div>
 
         {/* Hero Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatsCard
-            title="Win Percentage"
-            value={`${analyticsData?.winPercentage.toFixed(1)}%`}
+            title="Home Win %"
+            value={`${analyticsData?.homeWinPercentage.toFixed(1)}%`}
             icon={Trophy}
             gradient="from-emerald-500 to-emerald-600"
             description={`${analyticsData?.totalGames} total games`}
           />
           <StatsCard
-            title="Runline Cover %"
-            value={`${analyticsData?.runlinePercentage.toFixed(1)}%`}
-            icon={TrendingUp}
+            title="Away Win %"
+            value={`${analyticsData?.awayWinPercentage.toFixed(1)}%`}
+            icon={Trophy}
             gradient="from-blue-500 to-blue-600"
-            description="Above/below spread"
+            description="Away team victories"
           />
           <StatsCard
-            title="Over/Under Hit Rate"
-            value={`${analyticsData?.overUnderPercentage.toFixed(1)}%`}
-            icon={BarChart3}
+            title="Over Hit Rate"
+            value={`${analyticsData?.overPercentage.toFixed(1)}%`}
+            icon={TrendingUp}
             gradient="from-purple-500 to-purple-600"
-            description="Total prediction accuracy"
+            description="Games going over total"
           />
           <StatsCard
-            title="Total Games"
-            value={analyticsData?.totalGames.toString() || "0"}
-            icon={Calendar}
+            title="Under Hit Rate"
+            value={`${analyticsData?.underPercentage.toFixed(1)}%`}
+            icon={BarChart3}
             gradient="from-orange-500 to-orange-600"
-            description="Matching your filters"
+            description="Games going under total"
           />
         </div>
 
-        {/* Analytics Table */}
+        {/* Additional Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <StatsCard
+            title="Home Runline Cover %"
+            value={`${analyticsData?.homeRunlineCoverPercentage.toFixed(1)}%`}
+            icon={Calendar}
+            gradient="from-green-500 to-green-600"
+            description="Home teams covering runline"
+          />
+          <StatsCard
+            title="Away Runline Cover %"
+            value={`${analyticsData?.awayRunlineCoverPercentage.toFixed(1)}%`}
+            icon={Calendar}
+            gradient="from-red-500 to-red-600"
+            description="Away teams covering runline"
+          />
+        </div>
+
+        {/* Team Breakdown Table */}
         <Card>
           <CardHeader>
             <CardTitle>Team Performance Breakdown</CardTitle>
