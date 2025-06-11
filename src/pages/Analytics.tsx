@@ -49,11 +49,11 @@ const Analytics = () => {
     }
   });
 
-  // Fetch available team names from the database
+  // Fetch available team names from the database - NO FILTERS
   const { data: availableTeams } = useQuery({
     queryKey: ['available-teams'],
     queryFn: async () => {
-      console.log('Fetching available team names from database');
+      console.log('Fetching available team names from database (no filters)');
       
       const { data, error } = await supabase
         .from('training_data')
@@ -84,21 +84,19 @@ const Analytics = () => {
     queryFn: async () => {
       console.log('Fetching analytics data with filters:', filters);
       
-      // Get today's date for exclusion
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Start with base query - exclude today's games
+      // Start with base query - NO automatic date filtering
       let query = supabase
         .from('training_data')
-        .select('*')
-        .lt('date', today);
+        .select('*');
 
-      // Apply season filter
+      // Apply ONLY user-selected filters
+      
+      // Apply season filter if selected
       if (filters.season !== 'all') {
         query = query.eq('season', parseInt(filters.season));
       }
 
-      // Apply date range filters
+      // Apply date range filters only if user specified them
       if (filters.dateRange.start) {
         query = query.gte('date', filters.dateRange.start);
       }
@@ -106,7 +104,7 @@ const Analytics = () => {
         query = query.lte('date', filters.dateRange.end);
       }
 
-      console.log('Executing query with filters');
+      console.log('Executing query with user-selected filters only');
       
       const { data, error } = await query;
 
@@ -238,7 +236,6 @@ const Analytics = () => {
                 <p className="text-muted-foreground">
                   Team performance analysis and betting insights
                   {filters.season !== 'all' && ` • ${filters.season} Season`}
-                  <span className="text-xs"> (Excludes today's games)</span>
                 </p>
               </div>
             </div>
