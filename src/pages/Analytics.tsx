@@ -50,7 +50,7 @@ const Analytics = () => {
   });
 
   // Fetch available team names from the database - NO FILTERS
-  const { data: availableTeams } = useQuery({
+  const { data: availableTeams, isLoading: teamsLoading, error: teamsError } = useQuery({
     queryKey: ['available-teams'],
     queryFn: async () => {
       console.log('Fetching available team names from database (no filters)');
@@ -94,14 +94,6 @@ const Analytics = () => {
       // Apply season filter if selected
       if (filters.season !== 'all') {
         query = query.eq('season', parseInt(filters.season));
-      }
-
-      // Apply date range filters only if user specified them
-      if (filters.dateRange.start) {
-        query = query.gte('date', filters.dateRange.start);
-      }
-      if (filters.dateRange.end) {
-        query = query.lte('date', filters.dateRange.end);
       }
 
       console.log('Executing query with user-selected filters only');
@@ -218,6 +210,10 @@ const Analytics = () => {
     );
   }
 
+  if (teamsError) {
+    console.error('Teams loading error:', teamsError);
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -244,6 +240,26 @@ const Analytics = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Debug Info */}
+        {teamsLoading && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
+            Loading teams...
+          </div>
+        )}
+        
+        {teamsError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
+            Error loading teams: {teamsError.message}
+          </div>
+        )}
+
+        {availableTeams && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
+            Found {availableTeams.length} teams: {availableTeams.slice(0, 5).join(', ')}
+            {availableTeams.length > 5 && ` and ${availableTeams.length - 5} more...`}
+          </div>
+        )}
+
         {/* Filters */}
         <div className="mb-8">
           <AnalyticsFilters 

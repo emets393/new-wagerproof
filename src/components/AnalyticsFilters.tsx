@@ -1,12 +1,9 @@
 
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { ChevronDown, ChevronUp, Filter, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { AnalyticsFilters as AnalyticsFiltersType } from "@/pages/Analytics";
@@ -29,9 +26,6 @@ const AnalyticsFilters = ({ filters, onFiltersChange, availableTeams }: Analytic
     if (filters.teams.length > 0) count++;
     if (filters.gameLocation !== 'all') count++;
     if (filters.season !== 'all') count++;
-    if (filters.dateRange.start || filters.dateRange.end) count++;
-    if (filters.gameContext.divisionalOnly || filters.gameContext.leagueOnly || filters.gameContext.playoffOnly) count++;
-    if (filters.performance.minStreak !== -10 || filters.performance.maxStreak !== 10) count++;
     return count;
   };
 
@@ -64,20 +58,12 @@ const AnalyticsFilters = ({ filters, onFiltersChange, availableTeams }: Analytic
                 Clear All
               </Button>
             )}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setShowAdvanced(!showAdvanced)}
-            >
-              Advanced
-              {showAdvanced ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-            </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Always Visible Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Main Filters - Teams, Season, Game Location */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Team Selection */}
           <div className="space-y-2">
             <Label>Teams</Label>
@@ -143,101 +129,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange, availableTeams }: Analytic
               </SelectContent>
             </Select>
           </div>
-
-          {/* Date Range */}
-          <div className="space-y-2">
-            <Label>Date Range</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                type="date"
-                value={filters.dateRange.start}
-                onChange={(e) => updateFilters({ 
-                  dateRange: { ...filters.dateRange, start: e.target.value }
-                })}
-                placeholder="Start date"
-              />
-              <Input
-                type="date"
-                value={filters.dateRange.end}
-                onChange={(e) => updateFilters({ 
-                  dateRange: { ...filters.dateRange, end: e.target.value }
-                })}
-                placeholder="End date"
-              />
-            </div>
-          </div>
         </div>
-
-        {/* Advanced Filters */}
-        {showAdvanced && (
-          <div className="border-t pt-6 space-y-6">
-            {/* Game Context */}
-            <div className="space-y-4">
-              <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Game Context</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="divisional"
-                    checked={filters.gameContext.divisionalOnly}
-                    onCheckedChange={(checked) => updateFilters({
-                      gameContext: { ...filters.gameContext, divisionalOnly: checked }
-                    })}
-                  />
-                  <Label htmlFor="divisional">Divisional Games Only</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="league"
-                    checked={filters.gameContext.leagueOnly}
-                    onCheckedChange={(checked) => updateFilters({
-                      gameContext: { ...filters.gameContext, leagueOnly: checked }
-                    })}
-                  />
-                  <Label htmlFor="league">Same League Only</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="playoff"
-                    checked={filters.gameContext.playoffOnly}
-                    onCheckedChange={(checked) => updateFilters({
-                      gameContext: { ...filters.gameContext, playoffOnly: checked }
-                    })}
-                  />
-                  <Label htmlFor="playoff">Playoff Games Only</Label>
-                </div>
-              </div>
-            </div>
-
-            {/* Performance Filters */}
-            <div className="space-y-4">
-              <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Team Performance</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Min Streak</Label>
-                  <Input
-                    type="number"
-                    value={filters.performance.minStreak}
-                    onChange={(e) => updateFilters({
-                      performance: { ...filters.performance, minStreak: parseInt(e.target.value) || -10 }
-                    })}
-                    placeholder="Minimum streak"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Max Streak</Label>
-                  <Input
-                    type="number"
-                    value={filters.performance.maxStreak}
-                    onChange={(e) => updateFilters({
-                      performance: { ...filters.performance, maxStreak: parseInt(e.target.value) || 10 }
-                    })}
-                    placeholder="Maximum streak"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
