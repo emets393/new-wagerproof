@@ -21,12 +21,13 @@ const PitcherDisplay = ({ pitcher, era, whip, label }: PitcherDisplayProps) => {
         {pitcher || 'TBD'}
       </div>
       
-      <div className="space-y-1 text-xs">
-        <div className="flex justify-between">
+      <div className="flex items-center justify-center gap-4 text-xs">
+        <div className="flex items-center gap-1">
           <span className="text-muted-foreground">ERA:</span>
           <span className="font-medium">{formatStat(era)}</span>
         </div>
-        <div className="flex justify-between">
+        <span className="text-muted-foreground">•</span>
+        <div className="flex items-center gap-1">
           <span className="text-muted-foreground">WHIP:</span>
           <span className="font-medium">{formatStat(whip)}</span>
         </div>
