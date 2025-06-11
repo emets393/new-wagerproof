@@ -1,6 +1,10 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { BarChart3 } from "lucide-react";
 import GameCard from "@/components/GameCard";
 
 const Index = () => {
@@ -69,7 +73,15 @@ const Index = () => {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Today's MLB Games</h1>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <h1 className="text-4xl font-bold">Today's MLB Games</h1>
+            <Link to="/analytics">
+              <Button variant="outline" className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Analytics Dashboard
+              </Button>
+            </Link>
+          </div>
           <p className="text-xl text-muted-foreground">
             {new Date().toLocaleDateString('en-US', { 
               weekday: 'long', 
