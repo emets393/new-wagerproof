@@ -101,6 +101,18 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
     }
   };
 
+  // Helper function to safely filter options for SelectItem
+  const getSafeFilterOptions = (options: any[], currentlySelected: any[]) => {
+    if (!options || !Array.isArray(options)) return [];
+    return options.filter(option => {
+      // Filter out null, undefined, empty strings
+      if (option === null || option === undefined) return false;
+      if (typeof option === 'string' && option.trim() === '') return false;
+      // Filter out already selected items
+      return !currentlySelected.includes(option);
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -141,15 +153,15 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 <SelectValue placeholder="Select home teams..." />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.homeTeams?.filter(team => team && team.trim() !== '' && !filters.homeTeams.includes(team)).map((team) => (
-                  <SelectItem key={team} value={team}>{team}</SelectItem>
+                {getSafeFilterOptions(filterOptions.homeTeams || [], filters.homeTeams).map((team) => (
+                  <SelectItem key={`home-${team}`} value={team}>{team}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {filters.homeTeams.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {filters.homeTeams.map((team) => (
-                  <Badge key={team} variant="secondary" className="text-xs">
+                  <Badge key={`home-badge-${team}`} variant="secondary" className="text-xs">
                     {team}
                     <button
                       onClick={() => removeFromFilter('homeTeams', team)}
@@ -171,15 +183,15 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 <SelectValue placeholder="Select away teams..." />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.awayTeams?.filter(team => team && team.trim() !== '' && !filters.awayTeams.includes(team)).map((team) => (
-                  <SelectItem key={team} value={team}>{team}</SelectItem>
+                {getSafeFilterOptions(filterOptions.awayTeams || [], filters.awayTeams).map((team) => (
+                  <SelectItem key={`away-${team}`} value={team}>{team}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {filters.awayTeams.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {filters.awayTeams.map((team) => (
-                  <Badge key={team} variant="secondary" className="text-xs">
+                  <Badge key={`away-badge-${team}`} variant="secondary" className="text-xs">
                     {team}
                     <button
                       onClick={() => removeFromFilter('awayTeams', team)}
@@ -201,15 +213,15 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                 <SelectValue placeholder="Select seasons..." />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.seasons?.filter(season => season !== null && season !== undefined && !filters.seasons.includes(season)).map((season) => (
-                  <SelectItem key={season} value={season.toString()}>{season}</SelectItem>
+                {getSafeFilterOptions(filterOptions.seasons || [], filters.seasons).map((season) => (
+                  <SelectItem key={`season-${season}`} value={season.toString()}>{season}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {filters.seasons.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {filters.seasons.map((season) => (
-                  <Badge key={season} variant="secondary" className="text-xs">
+                  <Badge key={`season-badge-${season}`} variant="secondary" className="text-xs">
                     {season}
                     <button
                       onClick={() => removeFromFilter('seasons', season)}
@@ -252,15 +264,15 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                     <SelectValue placeholder="Select months..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.months?.filter(month => month !== null && month !== undefined && !filters.months.includes(month)).map((month) => (
-                      <SelectItem key={month} value={month.toString()}>{month}</SelectItem>
+                    {getSafeFilterOptions(filterOptions.months || [], filters.months).map((month) => (
+                      <SelectItem key={`month-${month}`} value={month.toString()}>{month}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {filters.months.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {filters.months.map((month) => (
-                      <Badge key={month} variant="secondary" className="text-xs">
+                      <Badge key={`month-badge-${month}`} variant="secondary" className="text-xs">
                         {month}
                         <button
                           onClick={() => removeFromFilter('months', month)}
@@ -282,15 +294,15 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                     <SelectValue placeholder="Select handedness..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.homeHandedness?.filter(hand => hand !== null && hand !== undefined && !filters.homeHandedness.includes(hand)).map((hand) => (
-                      <SelectItem key={hand} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
+                    {getSafeFilterOptions(filterOptions.homeHandedness || [], filters.homeHandedness).map((hand) => (
+                      <SelectItem key={`home-hand-${hand}`} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {filters.homeHandedness.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {filters.homeHandedness.map((hand) => (
-                      <Badge key={hand} variant="secondary" className="text-xs">
+                      <Badge key={`home-hand-badge-${hand}`} variant="secondary" className="text-xs">
                         {getHandednessLabel(hand)}
                         <button
                           onClick={() => removeFromFilter('homeHandedness', hand)}
@@ -312,15 +324,15 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
                     <SelectValue placeholder="Select handedness..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.awayHandedness?.filter(hand => hand !== null && hand !== undefined && !filters.awayHandedness.includes(hand)).map((hand) => (
-                      <SelectItem key={hand} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
+                    {getSafeFilterOptions(filterOptions.awayHandedness || [], filters.awayHandedness).map((hand) => (
+                      <SelectItem key={`away-hand-${hand}`} value={hand.toString()}>{getHandednessLabel(hand)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {filters.awayHandedness.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {filters.awayHandedness.map((hand) => (
-                      <Badge key={hand} variant="secondary" className="text-xs">
+                      <Badge key={`away-hand-badge-${hand}`} variant="secondary" className="text-xs">
                         {getHandednessLabel(hand)}
                         <button
                           onClick={() => removeFromFilter('awayHandedness', hand)}

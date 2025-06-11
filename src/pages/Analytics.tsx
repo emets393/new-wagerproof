@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,6 +110,15 @@ const Analytics = () => {
     queryFn: async () => {
       console.log('Fetching filter options from training_data');
       
+      // First, let's see what data exists
+      const { data: sampleData, error: sampleError } = await supabase
+        .from('training_data')
+        .select('*')
+        .limit(5);
+      
+      console.log('Sample training_data:', sampleData);
+      if (sampleError) console.error('Sample data error:', sampleError);
+
       const { data, error } = await supabase
         .from('training_data')
         .select(`
@@ -126,8 +134,7 @@ const Analytics = () => {
           same_league,
           same_division,
           series_game_number
-        `)
-        .not('ou_result', 'is', null);
+        `);
 
       if (error) {
         console.error('Error fetching filter options:', error);
@@ -136,17 +143,32 @@ const Analytics = () => {
 
       console.log('Filter data fetched:', data?.length, 'records');
 
-      // Extract unique values for filters, filtering out null/empty values
-      const homeTeams = [...new Set(data?.map(d => d.home_team).filter(Boolean))].sort();
-      const awayTeams = [...new Set(data?.map(d => d.away_team).filter(Boolean))].sort();
-      const seasons = [...new Set(data?.map(d => d.season).filter(s => s !== null && s !== undefined))].sort();
-      const months = [...new Set(data?.map(d => d.month).filter(m => m !== null && m !== undefined))].sort();
-      const days = [...new Set(data?.map(d => d.day).filter(d => d !== null && d !== undefined))].sort();
-      const homePitchers = [...new Set(data?.map(d => d.home_pitcher).filter(Boolean))].sort();
-      const awayPitchers = [...new Set(data?.map(d => d.away_pitcher).filter(Boolean))].sort();
-      const homeHandedness = [...new Set(data?.map(d => d.home_handedness).filter(h => h !== null && h !== undefined))].sort();
-      const awayHandedness = [...new Set(data?.map(d => d.away_handedness).filter(h => h !== null && h !== undefined))].sort();
-      const seriesGameNumbers = [...new Set(data?.map(d => d.series_game_number).filter(s => s !== null && s !== undefined))].sort();
+      if (!data || data.length === 0) {
+        return {
+          homeTeams: [],
+          awayTeams: [],
+          seasons: [],
+          months: [],
+          days: [],
+          homePitchers: [],
+          awayPitchers: [],
+          homeHandedness: [],
+          awayHandedness: [],
+          seriesGameNumbers: []
+        };
+      }
+
+      // Extract unique values for filters, filtering out null/empty values more carefully
+      const homeTeams = [...new Set(data.map(d => d.home_team).filter(team => team && typeof team === 'string' && team.trim() !== ''))].sort();
+      const awayTeams = [...new Set(data.map(d => d.away_team).filter(team => team && typeof team === 'string' && team.trim() !== ''))].sort();
+      const seasons = [...new Set(data.map(d => d.season).filter(s => s !== null && s !== undefined && typeof s === 'number'))].sort();
+      const months = [...new Set(data.map(d => d.month).filter(m => m !== null && m !== undefined && typeof m === 'number'))].sort();
+      const days = [...new Set(data.map(d => d.day).filter(d => d !== null && d !== undefined && typeof d === 'number'))].sort();
+      const homePitchers = [...new Set(data.map(d => d.home_pitcher).filter(p => p && typeof p === 'string' && p.trim() !== ''))].sort();
+      const awayPitchers = [...new Set(data.map(d => d.away_pitcher).filter(p => p && typeof p === 'string' && p.trim() !== ''))].sort();
+      const homeHandedness = [...new Set(data.map(d => d.home_handedness).filter(h => h !== null && h !== undefined && typeof h === 'number'))].sort();
+      const awayHandedness = [...new Set(data.map(d => d.away_handedness).filter(h => h !== null && h !== undefined && typeof h === 'number'))].sort();
+      const seriesGameNumbers = [...new Set(data.map(d => d.series_game_number).filter(s => s !== null && s !== undefined && typeof s === 'number'))].sort();
 
       return {
         homeTeams,
@@ -170,10 +192,9 @@ const Analytics = () => {
       
       let query = supabase
         .from('training_data')
-        .select('*')
-        .not('ou_result', 'is', null);
+        .select('*');
 
-      // Apply filters
+      // Apply filters only if they have values
       if (filters.homeTeams.length > 0) {
         query = query.in('home_team', filters.homeTeams);
       }
@@ -291,48 +312,52 @@ const Analytics = () => {
       
       data.forEach(game => {
         // Home team stats
-        if (!teamStats.has(game.home_team)) {
-          teamStats.set(game.home_team, {
-            team: game.home_team,
-            homeGames: 0,
-            awayGames: 0,
-            homeWins: 0,
-            awayWins: 0,
-            homeRLCovers: 0,
-            awayRLCovers: 0,
-            overs: 0,
-            unders: 0
-          });
+        if (game.home_team && typeof game.home_team === 'string') {
+          if (!teamStats.has(game.home_team)) {
+            teamStats.set(game.home_team, {
+              team: game.home_team,
+              homeGames: 0,
+              awayGames: 0,
+              homeWins: 0,
+              awayWins: 0,
+              homeRLCovers: 0,
+              awayRLCovers: 0,
+              overs: 0,
+              unders: 0
+            });
+          }
+          
+          const homeTeamStat = teamStats.get(game.home_team);
+          homeTeamStat.homeGames++;
+          if (game.ha_winner === 1) homeTeamStat.homeWins++;
+          if (game.run_line_winner === 1) homeTeamStat.homeRLCovers++;
+          if (game.ou_result === 1) homeTeamStat.overs++;
+          if (game.ou_result === 0) homeTeamStat.unders++;
         }
-        
-        const homeTeamStat = teamStats.get(game.home_team);
-        homeTeamStat.homeGames++;
-        if (game.ha_winner === 1) homeTeamStat.homeWins++;
-        if (game.run_line_winner === 1) homeTeamStat.homeRLCovers++;
-        if (game.ou_result === 1) homeTeamStat.overs++;
-        if (game.ou_result === 0) homeTeamStat.unders++;
 
         // Away team stats
-        if (!teamStats.has(game.away_team)) {
-          teamStats.set(game.away_team, {
-            team: game.away_team,
-            homeGames: 0,
-            awayGames: 0,
-            homeWins: 0,
-            awayWins: 0,
-            homeRLCovers: 0,
-            awayRLCovers: 0,
-            overs: 0,
-            unders: 0
-          });
+        if (game.away_team && typeof game.away_team === 'string') {
+          if (!teamStats.has(game.away_team)) {
+            teamStats.set(game.away_team, {
+              team: game.away_team,
+              homeGames: 0,
+              awayGames: 0,
+              homeWins: 0,
+              awayWins: 0,
+              homeRLCovers: 0,
+              awayRLCovers: 0,
+              overs: 0,
+              unders: 0
+            });
+          }
+          
+          const awayTeamStat = teamStats.get(game.away_team);
+          awayTeamStat.awayGames++;
+          if (game.ha_winner === 0) awayTeamStat.awayWins++;
+          if (game.run_line_winner === 0) awayTeamStat.awayRLCovers++;
+          if (game.ou_result === 1) awayTeamStat.overs++;
+          if (game.ou_result === 0) awayTeamStat.unders++;
         }
-        
-        const awayTeamStat = teamStats.get(game.away_team);
-        awayTeamStat.awayGames++;
-        if (game.ha_winner === 0) awayTeamStat.awayWins++;
-        if (game.run_line_winner === 0) awayTeamStat.awayRLCovers++;
-        if (game.ou_result === 1) awayTeamStat.overs++;
-        if (game.ou_result === 0) awayTeamStat.unders++;
       });
 
       const teamBreakdown = Array.from(teamStats.values()).map(team => ({
@@ -347,12 +372,12 @@ const Analytics = () => {
 
       return {
         totalGames,
-        homeWinPercentage: (homeWins / totalGames) * 100,
-        awayWinPercentage: (awayWins / totalGames) * 100,
-        overPercentage: (overs / totalGames) * 100,
-        underPercentage: (unders / totalGames) * 100,
-        homeRunlineCoverPercentage: (homeRLCovers / totalGames) * 100,
-        awayRunlineCoverPercentage: (awayRLCovers / totalGames) * 100,
+        homeWinPercentage: totalGames > 0 ? (homeWins / totalGames) * 100 : 0,
+        awayWinPercentage: totalGames > 0 ? (awayWins / totalGames) * 100 : 0,
+        overPercentage: totalGames > 0 ? (overs / totalGames) * 100 : 0,
+        underPercentage: totalGames > 0 ? (unders / totalGames) * 100 : 0,
+        homeRunlineCoverPercentage: totalGames > 0 ? (homeRLCovers / totalGames) * 100 : 0,
+        awayRunlineCoverPercentage: totalGames > 0 ? (awayRLCovers / totalGames) * 100 : 0,
         teamBreakdown
       };
     },
