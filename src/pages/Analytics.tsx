@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +47,35 @@ const Analytics = () => {
       minStreak: -10,
       maxStreak: 10
     }
+  });
+
+  // Fetch available team names from the database
+  const { data: availableTeams } = useQuery({
+    queryKey: ['available-teams'],
+    queryFn: async () => {
+      console.log('Fetching available team names from database');
+      
+      const { data, error } = await supabase
+        .from('training_data')
+        .select('home_team, away_team')
+        .limit(1000);
+
+      if (error) {
+        console.error('Error fetching team names:', error);
+        throw error;
+      }
+
+      // Extract unique team names
+      const teamSet = new Set<string>();
+      data.forEach(game => {
+        if (game.home_team) teamSet.add(game.home_team);
+        if (game.away_team) teamSet.add(game.away_team);
+      });
+
+      const teams = Array.from(teamSet).sort();
+      console.log('Available teams:', teams);
+      return teams;
+    },
   });
 
   const { data: analyticsData, isLoading } = useQuery({
@@ -219,7 +248,11 @@ const Analytics = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Filters */}
         <div className="mb-8">
-          <AnalyticsFilters filters={filters} onFiltersChange={handleFiltersChange} />
+          <AnalyticsFilters 
+            filters={filters} 
+            onFiltersChange={handleFiltersChange}
+            availableTeams={availableTeams || []}
+          />
         </div>
 
         {/* Hero Stats Cards */}

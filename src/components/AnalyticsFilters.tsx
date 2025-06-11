@@ -1,4 +1,5 @@
 
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,17 +14,11 @@ import type { AnalyticsFilters as AnalyticsFiltersType } from "@/pages/Analytics
 interface AnalyticsFiltersProps {
   filters: AnalyticsFiltersType;
   onFiltersChange: (filters: AnalyticsFiltersType) => void;
+  availableTeams: string[];
 }
 
-const AnalyticsFilters = ({ filters, onFiltersChange }: AnalyticsFiltersProps) => {
+const AnalyticsFilters = ({ filters, onFiltersChange, availableTeams }: AnalyticsFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
-  
-  const teams = [
-    'Angels', 'Houston', 'Athletics', 'Toronto', 'Baltimore', 'Boston', 'White Sox', 'Cleveland',
-    'Detroit', 'Kansas City', 'Minnesota', 'Yankees', 'Arizona', 'Atlanta', 'Cubs', 'Cincinnati',
-    'Colorado', 'Miami', 'Milwaukee', 'Mets', 'Philadelphia', 'Pittsburgh', 'Cardinals', 'San Diego',
-    'San Francisco', 'Seattle', 'Rangers', 'Tampa Bay', 'Dodgers', 'Washington'
-  ];
 
   const updateFilters = (updates: Partial<AnalyticsFiltersType>) => {
     onFiltersChange({ ...filters, ...updates });
@@ -95,7 +90,7 @@ const AnalyticsFilters = ({ filters, onFiltersChange }: AnalyticsFiltersProps) =
                 <SelectValue placeholder="Select teams..." />
               </SelectTrigger>
               <SelectContent>
-                {teams.filter(team => !filters.teams.includes(team)).map((team) => (
+                {availableTeams.filter(team => !filters.teams.includes(team)).map((team) => (
                   <SelectItem key={team} value={team}>{team}</SelectItem>
                 ))}
               </SelectContent>
