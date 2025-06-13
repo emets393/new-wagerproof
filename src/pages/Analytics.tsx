@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,7 +72,18 @@ export default function Analytics() {
       
       if (!data || data.length === 0) {
         console.warn("No data found in training_data table");
-        return null;
+        return {
+          homeTeams: [],
+          awayTeams: [],
+          seasons: [],
+          months: [],
+          days: [],
+          homePitchers: [],
+          awayPitchers: [],
+          homeHandedness: [],
+          awayHandedness: [],
+          seriesGameNumbers: [],
+        };
       }
 
       const uniq = <T extends string | number>(arr: T[]) => Array.from(new Set(arr.filter(Boolean)));
@@ -164,19 +175,42 @@ export default function Analytics() {
       // Calculate stats based on available data
       const total_games = data.length;
       
-      // For win percentage, we need to check what fields are available
-      const wins = data.filter(game => game.home_win === 1 || game.away_win === 1).length;
-      const win_pct = total_games > 0 ? wins / total_games : 0;
+      // For win percentage, check if we have home_last_win and away_last_win
+      const home_wins = data.filter(game => game.home_last_win === 1).length;
+      const away_wins = data.filter(game => game.away_last_win === 1).length;
+      const total_wins = home_wins + away_wins;
+      const win_pct = total_games > 0 ? total_wins / total_games : 0;
       const loss_pct = 1 - win_pct;
       
-      // For over/under, check if ou_result exists
-      const overs = data.filter(game => game.ou_result === 1).length;
-      const unders = data.filter(game => game.ou_result === 0).length;
-      const over_pct = total_games > 0 ? overs / total_games : 0;
-      const under_pct = total_games > 0 ? unders / total_games : 0;
+      // For over/under, check if total_score vs o_u_line exists
+      let over_count = 0;
+      let under_count = 0;
       
-      // For runline, check if rl_result exists
-      const rl_wins = data.filter(game => game.rl_result === 1).length;
+      data.forEach(game => {
+        if (game.total_score && game.o_u_line) {
+          if (game.total_score > game.o_u_line) {
+            over_count++;
+          } else if (game.total_score < game.o_u_line) {
+            under_count++;
+          }
+        }
+      });
+      
+      const over_pct = total_games > 0 ? over_count / total_games : 0;
+      const under_pct = total_games > 0 ? under_count / total_games : 0;
+      
+      // For runline, calculate based on home_runs vs away_runs with spread
+      let rl_wins = 0;
+      
+      data.forEach(game => {
+        if (game.home_runs !== null && game.away_runs !== null && game.home_rl) {
+          const home_with_rl = game.home_runs + game.home_rl;
+          if (home_with_rl > game.away_runs) {
+            rl_wins++;
+          }
+        }
+      });
+      
       const runline_win_pct = total_games > 0 ? rl_wins / total_games : 0;
       const runline_loss_pct = 1 - runline_win_pct;
 
