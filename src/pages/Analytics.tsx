@@ -25,20 +25,46 @@ interface Filters {
   [key: string]: string;
 }
 
+interface TrainingDataRow {
+  ha_winner: number;
+  run_line_winner: number;
+  ou_result: number;
+  [key: string]: any;
+}
+
+interface StatsResult {
+  home_winner: string;
+  away_winner: string;
+  home_cover: string;
+  away_cover: string;
+  over: string;
+  under: string;
+}
+
 export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['training_data', appliedFilters],
-    queryFn: async () => {
+    queryFn: async (): Promise<TrainingDataRow[]> => {
       console.log('Fetching with applied filters:', appliedFilters);
       let query = supabase.from('training_data').select('*');
       
       Object.entries(appliedFilters).forEach(([key, value]) => {
         if (value !== '') {
           console.log(`Applying filter: ${key} = ${value}`);
-          query = query.eq(key, value);
+          
+          // Convert numeric values for numeric columns
+          if (numericFilters.includes(key)) {
+            const numericValue = parseFloat(value);
+            if (!isNaN(numericValue)) {
+              query = query.eq(key, numericValue);
+            }
+          } else {
+            // Text filters
+            query = query.eq(key, value);
+          }
         }
       });
       
@@ -49,14 +75,18 @@ export default function Analytics() {
         console.error('Supabase error:', error);
         throw new Error(error.message);
       }
-      return data || [];
+      return (data as TrainingDataRow[]) || [];
     },
   });
 
-  const calculatePercentages = (rows: any[]) => {
+  const calculatePercentages = (rows: TrainingDataRow[]): StatsResult | null => {
     const total = rows.length;
-    const count = (col: string, val: number) => rows.filter(r => r[col] === val).length;
-    return total === 0 ? null : {
+    if (total === 0) return null;
+    
+    const count = (col: keyof TrainingDataRow, val: number) => 
+      rows.filter(r => r[col] === val).length;
+    
+    return {
       home_winner: (count('ha_winner', 1) / total * 100).toFixed(1),
       away_winner: (count('ha_winner', 0) / total * 100).toFixed(1),
       home_cover: (count('run_line_winner', 1) / total * 100).toFixed(1),
