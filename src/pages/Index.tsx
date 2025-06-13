@@ -58,10 +58,10 @@ export default function AnalyticsDashboard() {
 
   useEffect(() => {
     const fetchTeams = async () => {
-      const { data: homeData } = await supabase.from('training_data').select('home_team').neq('home_team', '').then(res => res.data);
-      const { data: awayData } = await supabase.from('training_data').select('away_team').neq('away_team', '').then(res => res.data);
-      setHomeTeams(Array.from(new Set(homeData?.map(d => d.home_team))).sort());
-      setAwayTeams(Array.from(new Set(awayData?.map(d => d.away_team))).sort());
+  const { data: homeData } = await supabase.from('training_data').select('home_team').neq('home_team', '');
+  const { data: awayData } = await supabase.from('training_data').select('away_team').neq('away_team', '');
+  setHomeTeams(Array.from(new Set(homeData?.map(d => d.home_team))).sort());
+  setAwayTeams(Array.from(new Set(awayData?.map(d => d.away_team))).sort());
     };
     fetchTeams();
   }, []);
@@ -202,5 +202,6 @@ export default function AnalyticsDashboard() {
     </div>
   );
 }
+
 
 
