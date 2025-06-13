@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 const numericFilters = [
   "series_game_number", "series_home_wins", "series_away_wins", "series_overs", "series_unders",
@@ -21,24 +22,27 @@ const numericFilters = [
 const textFilters = ["home_team", "away_team", "home_pitcher", "away_pitcher"];
 
 export default function Analytics() {
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({});
 
   const { data, isLoading } = useQuery({
-    queryKey: ['training_data', filters],
+    queryKey: ['training_data', appliedFilters],
     queryFn: async () => {
       let query = supabase.from('training_data').select('*');
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== '') query = query.eq(key, value);
+      Object.entries(appliedFilters).forEach(([key, value]) => {
+        if (value !== '') {
+          query = query.eq(key, value);
+        }
       });
       const { data, error } = await query;
       if (error) throw new Error(error.message);
-      return data;
+      return data || [];
     },
   });
 
-  const calculatePercentages = (rows) => {
+  const calculatePercentages = (rows: any[]) => {
     const total = rows.length;
-    const count = (col, val) => rows.filter(r => r[col] === val).length;
+    const count = (col: string, val: number) => rows.filter(r => r[col] === val).length;
     return total === 0 ? null : {
       home_winner: (count('ha_winner', 1) / total * 100).toFixed(1),
       away_winner: (count('ha_winner', 0) / total * 100).toFixed(1),
@@ -51,8 +55,17 @@ export default function Analytics() {
 
   const stats = data ? calculatePercentages(data) : null;
 
-  const handleChange = (key, value) => {
+  const handleChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const applyFilters = () => {
+    setAppliedFilters(filters);
+  };
+
+  const clearFilters = () => {
+    setFilters({});
+    setAppliedFilters({});
   };
 
   return (
@@ -62,25 +75,32 @@ export default function Analytics() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {[...textFilters, ...numericFilters].map(key => (
           <div key={key} className="flex flex-col space-y-1">
-            <Label className="capitalize">{key.replaceAll('_', ' ')}</Label>
+            <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
             <Input
               type={numericFilters.includes(key) ? 'number' : 'text'}
               value={filters[key] || ''}
               onChange={(e) => handleChange(key, e.target.value)}
-              placeholder={key.replaceAll('_', ' ')}
+              placeholder={key.replace(/_/g, ' ')}
             />
           </div>
         ))}
       </div>
 
-      {isLoading && <p>Loading...</p>}
+      <div className="flex gap-4">
+        <Button onClick={applyFilters} disabled={isLoading}>
+          {isLoading ? 'Loading...' : 'Apply Filters'}
+        </Button>
+        <Button variant="outline" onClick={clearFilters}>
+          Clear Filters
+        </Button>
+      </div>
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {Object.entries(stats).map(([label, value]) => (
             <Card key={label}>
               <CardContent className="text-center p-4">
-                <p className="text-lg capitalize">{label.replaceAll('_', ' ')}</p>
+                <p className="text-lg capitalize">{label.replace(/_/g, ' ')}</p>
                 <p className="text-2xl font-semibold">{value}%</p>
               </CardContent>
             </Card>
