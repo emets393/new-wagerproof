@@ -21,21 +21,34 @@ const numericFilters = [
 
 const textFilters = ["home_team", "away_team", "home_pitcher", "away_pitcher"];
 
-export default function Analytics() {
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({});
+interface Filters {
+  [key: string]: string;
+}
 
-  const { data, isLoading } = useQuery({
+export default function Analytics() {
+  const [filters, setFilters] = useState<Filters>({});
+  const [appliedFilters, setAppliedFilters] = useState<Filters>({});
+
+  const { data, isLoading, error } = useQuery({
     queryKey: ['training_data', appliedFilters],
     queryFn: async () => {
+      console.log('Fetching with applied filters:', appliedFilters);
       let query = supabase.from('training_data').select('*');
+      
       Object.entries(appliedFilters).forEach(([key, value]) => {
         if (value !== '') {
+          console.log(`Applying filter: ${key} = ${value}`);
           query = query.eq(key, value);
         }
       });
+      
       const { data, error } = await query;
-      if (error) throw new Error(error.message);
+      console.log('Query result:', { data, error, count: data?.length });
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(error.message);
+      }
       return data || [];
     },
   });
@@ -60,6 +73,7 @@ export default function Analytics() {
   };
 
   const applyFilters = () => {
+    console.log('Applying filters:', filters);
     setAppliedFilters(filters);
   };
 
@@ -95,6 +109,18 @@ export default function Analytics() {
         </Button>
       </div>
 
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <strong>Error:</strong> {error.message}
+        </div>
+      )}
+
+      {data && (
+        <div className="mt-4">
+          <p className="text-sm text-gray-600">Total records found: {data.length}</p>
+        </div>
+      )}
+
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {Object.entries(stats).map(([label, value]) => (
@@ -108,9 +134,10 @@ export default function Analytics() {
         </div>
       )}
 
-      {data && (
-        <div className="mt-4">
-          <p className="text-sm text-gray-600">Total records: {data.length}</p>
+      {data && data.length === 0 && !isLoading && (
+        <div className="text-center py-8 text-gray-500">
+          <p>No records found with the current filters.</p>
+          <p className="text-sm mt-2">Try clearing filters or using different values.</p>
         </div>
       )}
     </div>
