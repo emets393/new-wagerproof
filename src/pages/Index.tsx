@@ -1,162 +1,143 @@
-// ✅ Final working version: Dropdowns + ilike + real filters
 
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@supabase/supabase-js';
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import GameCard from "@/components/GameCard";
 import { Button } from "@/components/ui/button";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Link } from "react-router-dom";
+import { BarChart3 } from "lucide-react";
 
-const supabase = createClient(
-  "https://gnjrklxotmbvnxbnnqgq.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-);
-
-const numericFilters = [/* your numeric keys (same as before) */];
-const textFilters = ["home_pitcher", "away_pitcher"];
-
-interface Filters {
-  [key: string]: string;
+interface TodaysGame {
+  unique_id: string;
+  home_team: string;
+  away_team: string;
+  home_pitcher: string;
+  away_pitcher: string;
+  home_era: number;
+  away_era: number;
+  home_whip: number;
+  away_whip: number;
+  date: string;
+  start_time_minutes?: number;
+  home_ml?: number;
+  away_ml?: number;
+  home_rl?: number;
+  away_rl?: number;
+  o_u_line?: number;
 }
 
-interface TrainingDataRow {
-  ha_winner: number;
-  run_line_winner: number;
-  ou_result: number;
-  [key: string]: any;
-}
+export default function Index() {
+  const today = new Date().toISOString().split('T')[0];
 
-export default function AnalyticsDashboard() {
-  const [filters, setFilters] = useState<Filters>({});
-  const [appliedFilters, setAppliedFilters] = useState<Filters>({});
-  const [homeTeams, setHomeTeams] = useState<string[]>([]);
-  const [awayTeams, setAwayTeams] = useState<string[]>([]);
+  const { data: games, isLoading, error } = useQuery({
+    queryKey: ['todays_games', today],
+    queryFn: async () => {
+      console.log('Fetching games for date:', today);
+      
+      const { data, error } = await supabase
+        .from('input_values_view')
+        .select(`
+          unique_id,
+          home_team,
+          away_team,
+          home_pitcher,
+          away_pitcher,
+          home_era,
+          away_era,
+          home_whip,
+          away_whip,
+          date,
+          start_time_minutes,
+          home_ml,
+          away_ml,
+          home_rl,
+          away_rl,
+          o_u_line
+        `)
+        .eq('date', today)
+        .order('start_time_minutes', { ascending: true });
 
-  useEffect(() => {
-    const fetchTeams = async () => {
-      const { data: homeData } = await supabase.from('training_data').select('home_team');
-      const { data: awayData } = await supabase.from('training_data').select('away_team');
-      setHomeTeams(Array.from(new Set(homeData?.map(r => r.home_team?.trim()).filter(Boolean))).sort());
-      setAwayTeams(Array.from(new Set(awayData?.map(r => r.away_team?.trim()).filter(Boolean))).sort());
-    };
-    fetchTeams();
-  }, []);
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['training_data', JSON.stringify(appliedFilters)],
-    queryFn: async (): Promise<TrainingDataRow[]> => {
-      let query = supabase.from('training_data').select('*');
-      let hasFilters = false;
-
-      for (const [key, value] of Object.entries(appliedFilters)) {
-        const val = value.trim();
-        if (!val) continue;
-        hasFilters = true;
-
-        if (numericFilters.includes(key)) {
-          const num = parseFloat(val);
-          if (!isNaN(num)) query = query.eq(key, num);
-        } else if (["home_team", "away_team"].includes(key)) {
-          query = query.ilike(key, val); // ✅ FIXED: case-insensitive matching
-        } else if (textFilters.includes(key)) {
-          query = query.ilike(key, `%${val}%`);
-        } else {
-          query = query.eq(key, val);
-        }
+      if (error) {
+        console.error('Error fetching games:', error);
+        throw new Error(error.message);
       }
 
-      const { data, error } = await query;
-      if (error) throw new Error(error.message);
-      return hasFilters ? data ?? [] : [];
+      console.log('Found games:', data?.length || 0);
+      return (data || []) as TodaysGame[];
     },
   });
 
-  const applyFilters = () => setAppliedFilters(filters);
-  const clearFilters = () => { setFilters({}); setAppliedFilters({}); };
-  const handleChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
+          <p className="text-muted-foreground">Loading today's games...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const calculatePercentages = (rows: TrainingDataRow[]) => {
-    const total = rows.length;
-    const count = (col: keyof TrainingDataRow, val: number) => rows.filter(r => r[col] === val).length;
-    return {
-      home_winner: ((count('ha_winner', 1) / total) * 100).toFixed(1),
-      away_winner: ((count('ha_winner', 0) / total) * 100).toFixed(1),
-      home_cover: ((count('run_line_winner', 1) / total) * 100).toFixed(1),
-      away_cover: ((count('run_line_winner', 0) / total) * 100).toFixed(1),
-      over: ((count('ou_result', 1) / total) * 100).toFixed(1),
-      under: ((count('ou_result', 0) / total) * 100).toFixed(1),
-    };
-  };
-
-  const stats = data ? calculatePercentages(data) : null;
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-red-600">Error loading games: {error.message}</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 grid gap-6">
-      <h1 className="text-2xl font-bold">MLB Betting Analytics</h1>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="flex flex-col space-y-1">
-          <Label>Home Team</Label>
-          <Select value={filters.home_team || ''} onValueChange={v => handleChange("home_team", v.trim())}>
-            <SelectTrigger><SelectValue placeholder="Select home team" /></SelectTrigger>
-            <SelectContent>
-              {homeTeams.map(team => (
-                <SelectItem key={team} value={team}>{team}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col space-y-1">
-          <Label>Away Team</Label>
-          <Select value={filters.away_team || ''} onValueChange={v => handleChange("away_team", v.trim())}>
-            <SelectTrigger><SelectValue placeholder="Select away team" /></SelectTrigger>
-            <SelectContent>
-              {awayTeams.map(team => (
-                <SelectItem key={team} value={team}>{team}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {[...textFilters, ...numericFilters].map(key => (
-          <div key={key} className="flex flex-col space-y-1">
-            <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
-            <Input
-              type={numericFilters.includes(key) ? "number" : "text"}
-              value={filters[key] || ""}
-              onChange={(e) => handleChange(key, e.target.value)}
-              placeholder={key.replace(/_/g, ' ')}
-            />
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              Today's MLB Games
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              {new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </p>
           </div>
-        ))}
-      </div>
-
-      <div className="flex gap-4">
-        <Button onClick={applyFilters} disabled={isLoading}>
-          {isLoading ? 'Loading...' : 'Apply Filters'}
-        </Button>
-        <Button variant="outline" onClick={clearFilters}>Clear</Button>
-      </div>
-
-      {data && <p className="text-sm mt-4">Total records found: {data.length}</p>}
-
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-          {Object.entries(stats).map(([label, value]) => (
-            <Card key={label}>
-              <CardContent className="text-center p-4">
-                <p className="capitalize">{label.replace(/_/g, ' ')}</p>
-                <p className="text-2xl font-bold">{value}%</p>
-              </CardContent>
-            </Card>
-          ))}
+          
+          <Link to="/analytics">
+            <Button variant="outline" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </Button>
+          </Link>
         </div>
-      )}
+
+        {/* Games Grid */}
+        {games && games.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {games.map((game) => (
+              <GameCard key={game.unique_id} game={game} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-muted-foreground text-lg">
+              No games scheduled for today
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Check back later or view our analytics page
+            </p>
+            <Link to="/analytics" className="mt-4 inline-block">
+              <Button>View Analytics</Button>
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

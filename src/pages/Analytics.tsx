@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { Home } from "lucide-react";
 
 const numericFilters = [
   "series_game_number", "series_home_wins", "series_away_wins", "series_overs", "series_unders",
@@ -21,19 +23,11 @@ const numericFilters = [
 
 const textFilters = ["home_team", "away_team", "home_pitcher", "away_pitcher"];
 
-type FilterValue = string | number;
-
 interface Filters {
-  [key: string]: FilterValue;
+  [key: string]: string;
 }
 
-// Simplified type for training data
-type TrainingDataRow = {
-  ha_winner: number;
-  run_line_winner: number;
-  ou_result: number;
-  [key: string]: any;
-};
+type TrainingDataRow = Record<string, any>;
 
 export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
@@ -68,7 +62,7 @@ export default function Analytics() {
         console.error('Supabase error:', error);
         throw new Error(error.message);
       }
-      return (data || []) as TrainingDataRow[];
+      return data || [];
     },
   });
 
@@ -76,7 +70,7 @@ export default function Analytics() {
     const total = rows.length;
     if (total === 0) return null;
     
-    const count = (col: keyof TrainingDataRow, val: number) => 
+    const count = (col: string, val: number) => 
       rows.filter(r => r[col] === val).length;
     
     return {
@@ -106,63 +100,79 @@ export default function Analytics() {
   };
 
   return (
-    <div className="p-6 grid gap-6">
-      <h1 className="text-2xl font-bold">MLB Betting Analytics</h1>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+            MLB Betting Analytics
+          </h1>
+          
+          <Link to="/">
+            <Button variant="outline" className="flex items-center gap-2">
+              <Home className="w-4 h-4" />
+              Today's Games
+            </Button>
+          </Link>
+        </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {[...textFilters, ...numericFilters].map(key => (
-          <div key={key} className="flex flex-col space-y-1">
-            <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
-            <Input
-              type={numericFilters.includes(key) ? 'number' : 'text'}
-              value={String(filters[key] || '')}
-              onChange={(e) => handleChange(key, e.target.value)}
-              placeholder={key.replace(/_/g, ' ')}
-            />
+        <div className="grid gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {[...textFilters, ...numericFilters].map(key => (
+              <div key={key} className="flex flex-col space-y-1">
+                <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
+                <Input
+                  type={numericFilters.includes(key) ? 'number' : 'text'}
+                  value={filters[key] || ''}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  placeholder={key.replace(/_/g, ' ')}
+                />
+              </div>
+            ))}
           </div>
-        ))}
+
+          <div className="flex gap-4">
+            <Button onClick={applyFilters} disabled={isLoading}>
+              {isLoading ? 'Loading...' : 'Apply Filters'}
+            </Button>
+            <Button variant="outline" onClick={clearFilters}>
+              Clear Filters
+            </Button>
+          </div>
+
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <strong>Error:</strong> {error.message}
+            </div>
+          )}
+
+          {data && (
+            <div className="mt-4">
+              <p className="text-sm text-gray-600">Total records found: {data.length}</p>
+            </div>
+          )}
+
+          {stats && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {Object.entries(stats).map(([label, value]) => (
+                <Card key={label}>
+                  <CardContent className="text-center p-4">
+                    <p className="text-lg capitalize">{label.replace(/_/g, ' ')}</p>
+                    <p className="text-2xl font-semibold">{value}%</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {data && data.length === 0 && !isLoading && (
+            <div className="text-center py-8 text-gray-500">
+              <p>No records found with the current filters.</p>
+              <p className="text-sm mt-2">Try clearing filters or using different values.</p>
+            </div>
+          )}
+        </div>
       </div>
-
-      <div className="flex gap-4">
-        <Button onClick={applyFilters} disabled={isLoading}>
-          {isLoading ? 'Loading...' : 'Apply Filters'}
-        </Button>
-        <Button variant="outline" onClick={clearFilters}>
-          Clear Filters
-        </Button>
-      </div>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <strong>Error:</strong> {error.message}
-        </div>
-      )}
-
-      {data && (
-        <div className="mt-4">
-          <p className="text-sm text-gray-600">Total records found: {data.length}</p>
-        </div>
-      )}
-
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {Object.entries(stats).map(([label, value]) => (
-            <Card key={label}>
-              <CardContent className="text-center p-4">
-                <p className="text-lg capitalize">{label.replace(/_/g, ' ')}</p>
-                <p className="text-2xl font-semibold">{value}%</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {data && data.length === 0 && !isLoading && (
-        <div className="text-center py-8 text-gray-500">
-          <p>No records found with the current filters.</p>
-          <p className="text-sm mt-2">Try clearing filters or using different values.</p>
-        </div>
-      )}
     </div>
   );
 }
