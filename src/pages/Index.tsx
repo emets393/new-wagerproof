@@ -1,4 +1,4 @@
-// ✅ Cleaned-up, TypeScript-safe MLB Analytics Dashboard
+// ✅ Cleaned-up, TypeScript-safe MLB Analytics Dashboard with Filtering Fixes
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -57,19 +57,27 @@ export default function AnalyticsDashboard() {
     queryKey: ['training_data', JSON.stringify(appliedFilters)],
     queryFn: async () => {
       let query = supabase.from('training_data').select('*');
+
+      let hasFilters = false;
+
       for (const [key, value] of Object.entries(appliedFilters)) {
-        if (value !== '') {
-          if (numericFilters.includes(key)) {
-            const numericValue = parseFloat(value);
-            if (!isNaN(numericValue)) query = query.eq(key, numericValue);
-          } else {
-            query = query.eq(key, value);
-          }
+        if (value.trim() === '') continue;
+
+        hasFilters = true;
+
+        if (numericFilters.includes(key)) {
+          const num = parseFloat(value);
+          if (!isNaN(num)) query = query.eq(key, num);
+        } else if (textFilters.includes(key)) {
+          query = query.ilike(key, `%${value}%`);
+        } else {
+          query = query.eq(key, value);
         }
       }
+
       const { data, error } = await query;
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return hasFilters ? data ?? [] : [];
     },
   });
 
@@ -154,3 +162,4 @@ export default function AnalyticsDashboard() {
     </div>
   );
 }
+
