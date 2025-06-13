@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
-import {
-  Card, CardContent,
-  Input, Label, Button,
-  Select, SelectTrigger, SelectValue, SelectContent, SelectItem
-} from "@/components/ui";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 const supabase = createClient(
   "https://gnjrklxotmbvnxbnnqgq.supabase.co",
@@ -160,5 +160,3 @@ export default function AnalyticsDashboard() {
     </div>
   );
 }
-
-

@@ -21,25 +21,19 @@ const numericFilters = [
 
 const textFilters = ["home_team", "away_team", "home_pitcher", "away_pitcher"];
 
+type FilterValue = string | number;
+
 interface Filters {
-  [key: string]: string;
+  [key: string]: FilterValue;
 }
 
-interface TrainingDataRow {
+// Simplified type for training data
+type TrainingDataRow = {
   ha_winner: number;
   run_line_winner: number;
   ou_result: number;
   [key: string]: any;
-}
-
-interface StatsResult {
-  home_winner: string;
-  away_winner: string;
-  home_cover: string;
-  away_cover: string;
-  over: string;
-  under: string;
-}
+};
 
 export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
@@ -47,23 +41,22 @@ export default function Analytics() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['training_data', appliedFilters],
-    queryFn: async (): Promise<TrainingDataRow[]> => {
+    queryFn: async () => {
       console.log('Fetching with applied filters:', appliedFilters);
       let query = supabase.from('training_data').select('*');
       
       Object.entries(appliedFilters).forEach(([key, value]) => {
-        if (value !== '') {
-          console.log(`Applying filter: ${key} = ${value}`);
+        const stringValue = String(value);
+        if (stringValue !== '' && stringValue !== 'undefined') {
+          console.log(`Applying filter: ${key} = ${stringValue}`);
           
-          // Convert numeric values for numeric columns
           if (numericFilters.includes(key)) {
-            const numericValue = parseFloat(value);
+            const numericValue = parseFloat(stringValue);
             if (!isNaN(numericValue)) {
               query = query.eq(key, numericValue);
             }
           } else {
-            // Text filters
-            query = query.eq(key, value);
+            query = query.eq(key, stringValue);
           }
         }
       });
@@ -75,11 +68,11 @@ export default function Analytics() {
         console.error('Supabase error:', error);
         throw new Error(error.message);
       }
-      return (data as TrainingDataRow[]) || [];
+      return (data || []) as TrainingDataRow[];
     },
   });
 
-  const calculatePercentages = (rows: TrainingDataRow[]): StatsResult | null => {
+  const calculatePercentages = (rows: TrainingDataRow[]) => {
     const total = rows.length;
     if (total === 0) return null;
     
@@ -122,7 +115,7 @@ export default function Analytics() {
             <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
             <Input
               type={numericFilters.includes(key) ? 'number' : 'text'}
-              value={filters[key] || ''}
+              value={String(filters[key] || '')}
               onChange={(e) => handleChange(key, e.target.value)}
               placeholder={key.replace(/_/g, ' ')}
             />
