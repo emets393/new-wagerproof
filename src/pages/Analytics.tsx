@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,95 +49,226 @@ interface Stats {
   under_pct: number;
 }
 
-// Your Supabase anon key and function URL
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ";
-const FUNCTION_URL = "https://gnjrklxotmbvnxbnnqgq.supabase.co/functions/v1/filter-stats";
-
 export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
-  const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
-  const [optionsLoading, setOptionsLoading] = useState(true);
-  const [optionsError, setOptionsError] = useState<string | null>(null);
 
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
-
-  // Fetch filter dropdown options once
-  useEffect(() => {
-    async function loadOptions() {
-      setOptionsLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("training_data")
-          .select(
-            `home_team,away_team,season,month,day,home_pitcher,away_pitcher,home_handedness,away_handedness,series_game_number`
-          )
-          .limit(1000);
-        if (error) throw error;
-        const uniq = <T extends string | number>(arr: T[]) => Array.from(new Set(arr));
-        setFilterOptions({
-          homeTeams: uniq(data.map(r => r.home_team).filter(Boolean) as string[]),
-          awayTeams: uniq(data.map(r => r.away_team).filter(Boolean) as string[]),
-          seasons: uniq(data.map(r => r.season!).filter(n => n != null)),
-          months: uniq(data.map(r => r.month!).filter(n => n != null)),
-          days: uniq(data.map(r => r.day!).filter(n => n != null)),
-          homePitchers: uniq(data.map(r => r.home_pitcher).filter(Boolean) as string[]),
-          awayPitchers: uniq(data.map(r => r.away_pitcher).filter(Boolean) as string[]),
-          homeHandedness: uniq(data.map(r => r.home_handedness!).filter(n => n != null)),
-          awayHandedness: uniq(data.map(r => r.away_handedness!).filter(n => n != null)),
-          seriesGameNumbers: uniq(data.map(r => r.series_game_number!).filter(n => n != null)),
-        });
-      } catch (e: any) {
-        setOptionsError(e.message);
-      } finally {
-        setOptionsLoading(false);
+  // Fetch filter dropdown options
+  const { data: filterOptions, isLoading: optionsLoading, error: optionsError } = useQuery({
+    queryKey: ['analytics-filter-options'],
+    queryFn: async () => {
+      console.log("Fetching filter options from training_data table...");
+      
+      const { data, error } = await supabase
+        .from("training_data")
+        .select("home_team,away_team,season,month,day,home_pitcher,away_pitcher,home_handedness,away_handedness,series_game_number")
+        .limit(1000);
+      
+      if (error) {
+        console.error("Error fetching filter options:", error);
+        throw error;
       }
-    }
-    loadOptions();
-  }, []);
-
-  // Fetch aggregated stats whenever filters change
-  useEffect(() => {
-    async function loadStats() {
-      setStatsLoading(true);
-      try {
-        const url = new URL(FUNCTION_URL);
-        Object.entries(filters).forEach(([key, val]) => {
-          if (val != null && val !== "") {
-            url.searchParams.set(key, String(val));
-          }
-        });
-        const res = await fetch(url.toString(), {
-          headers: {
-            Authorization: `Bearer ${ANON_KEY}`,
-            apikey: ANON_KEY,
-          },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = (await res.json()) as Stats;
-        setStats(json);
-      } catch (e: any) {
-        setStatsError(e.message);
-      } finally {
-        setStatsLoading(false);
+      
+      console.log("Raw filter data:", data?.slice(0, 5));
+      
+      if (!data || data.length === 0) {
+        console.warn("No data found in training_data table");
+        return null;
       }
-    }
-    loadStats();
-  }, [filters]);
 
-  // Loading / error states
+      const uniq = <T extends string | number>(arr: T[]) => Array.from(new Set(arr.filter(Boolean)));
+      
+      const options = {
+        homeTeams: uniq(data.map(r => r.home_team).filter(Boolean)),
+        awayTeams: uniq(data.map(r => r.away_team).filter(Boolean)),
+        seasons: uniq(data.map(r => r.season).filter(s => s != null)),
+        months: uniq(data.map(r => r.month).filter(m => m != null)),
+        days: uniq(data.map(r => r.day).filter(d => d != null)),
+        homePitchers: uniq(data.map(r => r.home_pitcher).filter(Boolean)),
+        awayPitchers: uniq(data.map(r => r.away_pitcher).filter(Boolean)),
+        homeHandedness: uniq(data.map(r => r.home_handedness).filter(h => h != null)),
+        awayHandedness: uniq(data.map(r => r.away_handedness).filter(h => h != null)),
+        seriesGameNumbers: uniq(data.map(r => r.series_game_number).filter(g => g != null)),
+      };
+      
+      console.log("Processed filter options:", {
+        homeTeamsCount: options.homeTeams.length,
+        awayTeamsCount: options.awayTeams.length,
+        seasonsCount: options.seasons.length
+      });
+      
+      return options;
+    }
+  });
+
+  // Fetch aggregated stats
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ['analytics-stats', filters],
+    queryFn: async () => {
+      console.log("Fetching stats with filters:", filters);
+      
+      let query = supabase.from("training_data").select("*");
+      
+      // Apply filters
+      if (filters.home_team) {
+        query = query.eq('home_team', filters.home_team);
+      }
+      if (filters.away_team) {
+        query = query.eq('away_team', filters.away_team);
+      }
+      if (filters.season) {
+        query = query.eq('season', filters.season);
+      }
+      if (filters.month) {
+        query = query.eq('month', filters.month);
+      }
+      if (filters.day) {
+        query = query.eq('day', filters.day);
+      }
+      if (filters.home_pitcher) {
+        query = query.eq('home_pitcher', filters.home_pitcher);
+      }
+      if (filters.away_pitcher) {
+        query = query.eq('away_pitcher', filters.away_pitcher);
+      }
+      if (filters.series_game_number) {
+        query = query.eq('series_game_number', filters.series_game_number);
+      }
+      if (filters.home_handedness !== undefined) {
+        query = query.eq('home_handedness', filters.home_handedness);
+      }
+      if (filters.away_handedness !== undefined) {
+        query = query.eq('away_handedness', filters.away_handedness);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error("Error fetching training data:", error);
+        throw error;
+      }
+      
+      console.log(`Found ${data?.length || 0} total records`);
+      
+      if (!data || data.length === 0) {
+        return {
+          total_games: 0,
+          win_pct: 0,
+          loss_pct: 0,
+          runline_win_pct: 0,
+          runline_loss_pct: 0,
+          over_pct: 0,
+          under_pct: 0,
+        };
+      }
+
+      // Calculate stats based on available data
+      const total_games = data.length;
+      
+      // For win percentage, we need to check what fields are available
+      const wins = data.filter(game => game.home_win === 1 || game.away_win === 1).length;
+      const win_pct = total_games > 0 ? wins / total_games : 0;
+      const loss_pct = 1 - win_pct;
+      
+      // For over/under, check if ou_result exists
+      const overs = data.filter(game => game.ou_result === 1).length;
+      const unders = data.filter(game => game.ou_result === 0).length;
+      const over_pct = total_games > 0 ? overs / total_games : 0;
+      const under_pct = total_games > 0 ? unders / total_games : 0;
+      
+      // For runline, check if rl_result exists
+      const rl_wins = data.filter(game => game.rl_result === 1).length;
+      const runline_win_pct = total_games > 0 ? rl_wins / total_games : 0;
+      const runline_loss_pct = 1 - runline_win_pct;
+
+      const calculatedStats = {
+        total_games,
+        win_pct,
+        loss_pct,
+        runline_win_pct,
+        runline_loss_pct,
+        over_pct,
+        under_pct,
+      };
+      
+      console.log("Calculated stats:", calculatedStats);
+      return calculatedStats;
+    }
+  });
+
+  // Loading state
   if (optionsLoading || statsLoading) {
-    return <div className="p-8 text-center">Loading…</div>;
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 border-b bg-card/50 px-6 py-4 backdrop-blur-sm">
+          <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back to Games
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold">MLB Training Data Analytics</h1>
+              <p className="text-muted-foreground">Loading analytics data...</p>
+            </div>
+          </div>
+        </div>
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <div className="text-center">Loading...</div>
+        </div>
+      </div>
+    );
   }
-  if (optionsError) {
-    return <div className="p-8 text-center text-red-500">Error: {optionsError}</div>;
+
+  // Error state
+  if (optionsError || statsError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 border-b bg-card/50 px-6 py-4 backdrop-blur-sm">
+          <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back to Games
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold">MLB Training Data Analytics</h1>
+              <p className="text-muted-foreground">Error loading data</p>
+            </div>
+          </div>
+        </div>
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <div className="text-center text-red-500">
+            <p>Error: {optionsError?.message || statsError?.message}</p>
+          </div>
+        </div>
+      </div>
+    );
   }
+
+  // No data state
   if (!filterOptions) {
-    return <div className="p-8 text-center">No filter options available</div>;
-  }
-  if (statsError) {
-    return <div className="p-8 text-center text-red-500">Error: {statsError}</div>;
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 border-b bg-card/50 px-6 py-4 backdrop-blur-sm">
+          <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back to Games
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold">MLB Training Data Analytics</h1>
+              <p className="text-muted-foreground">No training data available</p>
+            </div>
+          </div>
+        </div>
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <div className="text-center">
+            <p>No training data found. Please check your database setup.</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -155,21 +288,66 @@ export default function Analytics() {
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <AnalyticsFilters filters={filters} filterOptions={filterOptions} onFiltersChange={setFilters} />
-        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <StatsCard title="Total Games" value={stats!.total_games.toString()} icon={BarChart4} gradient="from-slate-500 to-slate-600" description="Games matching filters" />
-          <StatsCard title="Win %" value={`${(stats!.win_pct * 100).toFixed(1)}%`} icon={Trophy} gradient="from-emerald-500 to-emerald-600" description="Home/Away winner rate" />
-          <StatsCard title="Run-Line Win %" value={`${(stats!.runline_win_pct * 100).toFixed(1)}%`} icon={TrendingUp} gradient="from-indigo-500 to-indigo-600" description="Covering the run-line" />
-          <StatsCard title="Over %" value={`${(stats!.over_pct * 100).toFixed(1)}%`} icon={TrendingUp} gradient="from-purple-500 to-purple-600" description="Games over total" />
-          <StatsCard title="Loss %" value={`${(stats!.loss_pct * 100).toFixed(1)}%`} icon={Trophy} gradient="from-red-500 to-red-600" description="Opposite of win%" />
-          <StatsCard title="Run-Line Loss %" value={`${(stats!.runline_loss_pct * 100).toFixed(1)}%`} icon={TrendingUp} gradient="from-yellow-500 to-yellow-600" description="Opposite of RL win%" />
-          <StatsCard title="Under %" value={`${(stats!.under_pct * 100).toFixed(1)}%`} icon={BarChart3} gradient="from-orange-500 to-orange-600" description="Games under total" />
-        </div>
+        <AnalyticsFilters 
+          filters={filters} 
+          filterOptions={filterOptions} 
+          onFiltersChange={setFilters} 
+        />
+        
+        {stats && (
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <StatsCard 
+              title="Total Games" 
+              value={stats.total_games.toString()} 
+              icon={BarChart4} 
+              gradient="from-slate-500 to-slate-600" 
+              description="Games matching filters" 
+            />
+            <StatsCard 
+              title="Win %" 
+              value={`${(stats.win_pct * 100).toFixed(1)}%`} 
+              icon={Trophy} 
+              gradient="from-emerald-500 to-emerald-600" 
+              description="Home/Away winner rate" 
+            />
+            <StatsCard 
+              title="Run-Line Win %" 
+              value={`${(stats.runline_win_pct * 100).toFixed(1)}%`} 
+              icon={TrendingUp} 
+              gradient="from-indigo-500 to-indigo-600" 
+              description="Covering the run-line" 
+            />
+            <StatsCard 
+              title="Over %" 
+              value={`${(stats.over_pct * 100).toFixed(1)}%`} 
+              icon={TrendingUp} 
+              gradient="from-purple-500 to-purple-600" 
+              description="Games over total" 
+            />
+            <StatsCard 
+              title="Loss %" 
+              value={`${(stats.loss_pct * 100).toFixed(1)}%`} 
+              icon={Trophy} 
+              gradient="from-red-500 to-red-600" 
+              description="Opposite of win%" 
+            />
+            <StatsCard 
+              title="Run-Line Loss %" 
+              value={`${(stats.runline_loss_pct * 100).toFixed(1)}%`} 
+              icon={TrendingUp} 
+              gradient="from-yellow-500 to-yellow-600" 
+              description="Opposite of RL win%" 
+            />
+            <StatsCard 
+              title="Under %" 
+              value={`${(stats.under_pct * 100).toFixed(1)}%`} 
+              icon={BarChart3} 
+              gradient="from-orange-500 to-orange-600" 
+              description="Games under total" 
+            />
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-
-
-
