@@ -6,84 +6,58 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronUp, Filter, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { AnalyticsFilters as AnalyticsFiltersType } from "@/pages/Analytics";
+
+// Define filter interface locally
+interface Filters {
+  home_team?: string;
+  away_team?: string;
+  series_game_number?: number;
+  home_pitcher?: string;
+  away_pitcher?: string;
+  home_handedness?: number;
+  away_handedness?: number;
+  season?: number;
+  month?: number;
+  day?: number;
+  era_min?: number;
+}
 
 interface FilterOptions {
-  homeTeams?: string[];
-  awayTeams?: string[];
-  seasons?: number[];
-  months?: number[];
-  days?: number[];
-  homePitchers?: string[];
-  awayPitchers?: string[];
-  homeHandedness?: number[];
-  awayHandedness?: number[];
-  seriesGameNumbers?: number[];
+  homeTeams: string[];
+  awayTeams: string[];
+  seasons: number[];
+  months: number[];
+  days: number[];
+  homePitchers: string[];
+  awayPitchers: string[];
+  homeHandedness: number[];
+  awayHandedness: number[];
+  seriesGameNumbers: number[];
 }
 
 interface AnalyticsFiltersProps {
-  filters: AnalyticsFiltersType;
-  onFiltersChange: (filters: AnalyticsFiltersType) => void;
+  filters: Filters;
+  onFiltersChange: (filters: Filters) => void;
   filterOptions: FilterOptions;
 }
 
 const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: AnalyticsFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const updateFilters = (updates: Partial<AnalyticsFiltersType>) => {
+  const updateFilters = (updates: Partial<Filters>) => {
     onFiltersChange({ ...filters, ...updates });
   };
 
   const getActiveFilterCount = () => {
-    let count = 0;
-    if (filters.homeTeams.length > 0) count++;
-    if (filters.awayTeams.length > 0) count++;
-    if (filters.seasons.length > 0) count++;
-    if (filters.months.length > 0) count++;
-    if (filters.sameLeague !== null) count++;
-    if (filters.sameDivision !== null) count++;
-    return count;
+    return Object.values(filters).filter(value => value !== undefined && value !== null && value !== '').length;
   };
 
   const clearAllFilters = () => {
-    onFiltersChange({
-      homeTeams: [],
-      awayTeams: [],
-      seasons: [],
-      months: [],
-      days: [],
-      homePitchers: [],
-      awayPitchers: [],
-      homeHandedness: [],
-      awayHandedness: [],
-      sameLeague: null,
-      sameDivision: null,
-      seriesGameNumbers: [],
-      dateRange: { start: '', end: '' },
-      homeEraRange: { min: null, max: null },
-      awayEraRange: { min: null, max: null },
-      homeWhipRange: { min: null, max: null },
-      awayWhipRange: { min: null, max: null },
-      homeWinPctRange: { min: null, max: null },
-      awayWinPctRange: { min: null, max: null },
-      ouLineRange: { min: null, max: null }
-    });
-  };
-
-  const addToFilter = (filterKey: keyof AnalyticsFiltersType, value: string | number) => {
-    const currentFilter = filters[filterKey] as any[];
-    if (!currentFilter.includes(value)) {
-      updateFilters({ [filterKey]: [...currentFilter, value] });
-    }
-  };
-
-  const removeFromFilter = (filterKey: keyof AnalyticsFiltersType, value: string | number) => {
-    const currentFilter = filters[filterKey] as any[];
-    updateFilters({ [filterKey]: currentFilter.filter(item => item !== value) });
+    onFiltersChange({});
   };
 
   // Helper function to safely validate options for SelectItem
-  const getValidSelectOptions = (options: any[], currentlySelected: any[]) => {
+  const getValidSelectOptions = (options: any[]) => {
     if (!Array.isArray(options)) {
       return [];
     }
@@ -91,11 +65,6 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
     return options.filter(option => {
       // Filter out null, undefined, empty strings
       if (option === null || option === undefined || option === '') {
-        return false;
-      }
-      
-      // Filter out already selected items
-      if (currentlySelected.includes(option)) {
         return false;
       }
       
@@ -164,193 +133,168 @@ const AnalyticsFilters = ({ filters, onFiltersChange, filterOptions }: Analytics
           {/* Home Teams */}
           {filterOptions.homeTeams && filterOptions.homeTeams.length > 0 && (
             <div className="space-y-2">
-              <Label>Home Teams</Label>
-              <Select onValueChange={(value) => {
-                if (value && value.trim() !== '') {
-                  addToFilter('homeTeams', value);
-                }
-              }}>
+              <Label>Home Team</Label>
+              <Select 
+                value={filters.home_team || ""} 
+                onValueChange={(value) => updateFilters({ home_team: value || undefined })}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select home teams..." />
+                  <SelectValue placeholder="Select home team..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {getValidSelectOptions(filterOptions.homeTeams, filters.homeTeams).map((team) => (
+                  <SelectItem value="">Any</SelectItem>
+                  {getValidSelectOptions(filterOptions.homeTeams).map((team) => (
                     <SelectItem key={`home-${team}`} value={String(team)}>
                       {String(team)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {filters.homeTeams.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {filters.homeTeams.map((team) => (
-                    <Badge key={`home-badge-${team}`} variant="secondary" className="text-xs">
-                      {team}
-                      <button
-                        onClick={() => removeFromFilter('homeTeams', team)}
-                        className="ml-1 hover:text-destructive"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
           {/* Away Teams */}
           {filterOptions.awayTeams && filterOptions.awayTeams.length > 0 && (
             <div className="space-y-2">
-              <Label>Away Teams</Label>
-              <Select onValueChange={(value) => {
-                if (value && value.trim() !== '') {
-                  addToFilter('awayTeams', value);
-                }
-              }}>
+              <Label>Away Team</Label>
+              <Select 
+                value={filters.away_team || ""} 
+                onValueChange={(value) => updateFilters({ away_team: value || undefined })}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select away teams..." />
+                  <SelectValue placeholder="Select away team..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {getValidSelectOptions(filterOptions.awayTeams, filters.awayTeams).map((team) => (
+                  <SelectItem value="">Any</SelectItem>
+                  {getValidSelectOptions(filterOptions.awayTeams).map((team) => (
                     <SelectItem key={`away-${team}`} value={String(team)}>
                       {String(team)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {filters.awayTeams.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {filters.awayTeams.map((team) => (
-                    <Badge key={`away-badge-${team}`} variant="secondary" className="text-xs">
-                      {team}
-                      <button
-                        onClick={() => removeFromFilter('awayTeams', team)}
-                        className="ml-1 hover:text-destructive"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
           {/* Seasons */}
           {filterOptions.seasons && filterOptions.seasons.length > 0 && (
             <div className="space-y-2">
-              <Label>Seasons</Label>
-              <Select onValueChange={(value) => {
-                const numValue = parseInt(value);
-                if (!isNaN(numValue)) {
-                  addToFilter('seasons', numValue);
-                }
-              }}>
+              <Label>Season</Label>
+              <Select 
+                value={filters.season ? String(filters.season) : ""} 
+                onValueChange={(value) => updateFilters({ season: value ? parseInt(value) : undefined })}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select seasons..." />
+                  <SelectValue placeholder="Select season..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {getValidSelectOptions(filterOptions.seasons, filters.seasons).map((season) => (
+                  <SelectItem value="">Any</SelectItem>
+                  {getValidSelectOptions(filterOptions.seasons).map((season) => (
                     <SelectItem key={`season-${season}`} value={String(season)}>
                       {String(season)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {filters.seasons.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {filters.seasons.map((season) => (
-                    <Badge key={`season-badge-${season}`} variant="secondary" className="text-xs">
-                      {season}
-                      <button
-                        onClick={() => removeFromFilter('seasons', season)}
-                        className="ml-1 hover:text-destructive"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
-          {/* Same League */}
-          <div className="space-y-2">
-            <Label>Same League</Label>
-            <Select value={filters.sameLeague === null ? '' : filters.sameLeague.toString()} 
-                    onValueChange={(value) => updateFilters({ sameLeague: value === '' ? null : value === 'true' })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Any" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Any</SelectItem>
-                <SelectItem value="true">Same League</SelectItem>
-                <SelectItem value="false">Different League</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Months */}
+          {filterOptions.months && filterOptions.months.length > 0 && (
+            <div className="space-y-2">
+              <Label>Month</Label>
+              <Select 
+                value={filters.month ? String(filters.month) : ""} 
+                onValueChange={(value) => updateFilters({ month: value ? parseInt(value) : undefined })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select month..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Any</SelectItem>
+                  {getValidSelectOptions(filterOptions.months).map((month) => (
+                    <SelectItem key={`month-${month}`} value={String(month)}>
+                      {String(month)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Advanced Filters */}
         {showAdvanced && (
           <div className="space-y-6 border-t pt-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Months */}
-              {filterOptions.months && filterOptions.months.length > 0 && (
+              {/* Home Pitchers */}
+              {filterOptions.homePitchers && filterOptions.homePitchers.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Months</Label>
-                  <Select onValueChange={(value) => {
-                    const numValue = parseInt(value);
-                    if (!isNaN(numValue)) {
-                      addToFilter('months', numValue);
-                    }
-                  }}>
+                  <Label>Home Pitcher</Label>
+                  <Select 
+                    value={filters.home_pitcher || ""} 
+                    onValueChange={(value) => updateFilters({ home_pitcher: value || undefined })}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select months..." />
+                      <SelectValue placeholder="Select pitcher..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {getValidSelectOptions(filterOptions.months, filters.months).map((month) => (
-                        <SelectItem key={`month-${month}`} value={String(month)}>
-                          {String(month)}
+                      <SelectItem value="">Any</SelectItem>
+                      {getValidSelectOptions(filterOptions.homePitchers).map((pitcher) => (
+                        <SelectItem key={`home-pitcher-${pitcher}`} value={String(pitcher)}>
+                          {String(pitcher)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {filters.months.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {filters.months.map((month) => (
-                        <Badge key={`month-badge-${month}`} variant="secondary" className="text-xs">
-                          {month}
-                          <button
-                            onClick={() => removeFromFilter('months', month)}
-                            className="ml-1 hover:text-destructive"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 
-              {/* Same Division */}
-              <div className="space-y-2">
-                <Label>Same Division</Label>
-                <Select value={filters.sameDivision === null ? '' : filters.sameDivision.toString()} 
-                        onValueChange={(value) => updateFilters({ sameDivision: value === '' ? null : value === 'true' })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Any" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Any</SelectItem>
-                    <SelectItem value="true">Same Division</SelectItem>
-                    <SelectItem value="false">Different Division</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Away Pitchers */}
+              {filterOptions.awayPitchers && filterOptions.awayPitchers.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Away Pitcher</Label>
+                  <Select 
+                    value={filters.away_pitcher || ""} 
+                    onValueChange={(value) => updateFilters({ away_pitcher: value || undefined })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select pitcher..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Any</SelectItem>
+                      {getValidSelectOptions(filterOptions.awayPitchers).map((pitcher) => (
+                        <SelectItem key={`away-pitcher-${pitcher}`} value={String(pitcher)}>
+                          {String(pitcher)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Series Game Number */}
+              {filterOptions.seriesGameNumbers && filterOptions.seriesGameNumbers.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Series Game Number</Label>
+                  <Select 
+                    value={filters.series_game_number ? String(filters.series_game_number) : ""} 
+                    onValueChange={(value) => updateFilters({ series_game_number: value ? parseInt(value) : undefined })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select game..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Any</SelectItem>
+                      {getValidSelectOptions(filterOptions.seriesGameNumbers).map((gameNum) => (
+                        <SelectItem key={`game-${gameNum}`} value={String(gameNum)}>
+                          Game {String(gameNum)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
         )}
