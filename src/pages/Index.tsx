@@ -1,4 +1,4 @@
-// 🧠 MLB Analytics Dashboard - Full Filtering with Accurate Types
+// ✅ Cleaned-up, TypeScript-safe MLB Analytics Dashboard
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -22,14 +22,11 @@ const numericFilters = [
   "home_last_runs_allowed", "away_last_runs_allowed", "home_ops_last_3", "away_ops_last_3",
   "home_team_last_3", "away_team_last_3", "season", "month", "day",
   "home_whip", "home_era", "away_whip", "away_era",
-  "home_handedness", "away_handedness", "home_pitcher_id", "away_pitcher_id",
-  "home_score", "ou_result", "run_line_winner", "ha_winner",
-  "home_division_number", "away_division_number", "home_league_number", "away_league_number",
-  "start_time_minutes"
+  "home_handedness", "away_handedness"
 ];
 
 const textFilters = [
-  "home_team", "away_team", "home_pitcher", "away_pitcher", "unique_id", "unique_home_team_id", "unique_away_team_id", "data_source"
+  "home_team", "away_team", "home_pitcher", "away_pitcher"
 ];
 
 interface Filters {
@@ -56,11 +53,11 @@ export default function AnalyticsDashboard() {
   const [filters, setFilters] = useState<Filters>({});
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['training_data', appliedFilters],
-    queryFn: async (): Promise<TrainingDataRow[]> => {
+  const { data, isLoading, error } = useQuery<TrainingDataRow[]>({
+    queryKey: ['training_data', JSON.stringify(appliedFilters)],
+    queryFn: async () => {
       let query = supabase.from('training_data').select('*');
-      Object.entries(appliedFilters).forEach(([key, value]) => {
+      for (const [key, value] of Object.entries(appliedFilters)) {
         if (value !== '') {
           if (numericFilters.includes(key)) {
             const numericValue = parseFloat(value);
@@ -69,10 +66,10 @@ export default function AnalyticsDashboard() {
             query = query.eq(key, value);
           }
         }
-      });
+      }
       const { data, error } = await query;
       if (error) throw new Error(error.message);
-      return (data as TrainingDataRow[]) || [];
+      return data ?? [];
     },
   });
 
@@ -81,12 +78,12 @@ export default function AnalyticsDashboard() {
     if (total === 0) return null;
     const count = (col: keyof TrainingDataRow, val: number) => rows.filter(r => r[col] === val).length;
     return {
-      home_winner: (count('ha_winner', 1) / total * 100).toFixed(1),
-      away_winner: (count('ha_winner', 0) / total * 100).toFixed(1),
-      home_cover: (count('run_line_winner', 1) / total * 100).toFixed(1),
-      away_cover: (count('run_line_winner', 0) / total * 100).toFixed(1),
-      over: (count('ou_result', 1) / total * 100).toFixed(1),
-      under: (count('ou_result', 0) / total * 100).toFixed(1),
+      home_winner: ((count('ha_winner', 1) / total) * 100).toFixed(1),
+      away_winner: ((count('ha_winner', 0) / total) * 100).toFixed(1),
+      home_cover: ((count('run_line_winner', 1) / total) * 100).toFixed(1),
+      away_cover: ((count('run_line_winner', 0) / total) * 100).toFixed(1),
+      over: ((count('ou_result', 1) / total) * 100).toFixed(1),
+      under: ((count('ou_result', 0) / total) * 100).toFixed(1),
     };
   };
 
@@ -109,12 +106,12 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {[...textFilters, ...numericFilters].map(key => (
           <div key={key} className="flex flex-col space-y-1">
-            <Label className="capitalize">{key.replaceAll('_', ' ')}</Label>
+            <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
             <Input
               type={numericFilters.includes(key) ? 'number' : 'text'}
               value={filters[key] || ''}
               onChange={(e) => handleChange(key, e.target.value)}
-              placeholder={key.replaceAll('_', ' ')}
+              placeholder={key.replace(/_/g, ' ')}
             />
           </div>
         ))}
@@ -140,7 +137,7 @@ export default function AnalyticsDashboard() {
           {Object.entries(stats).map(([label, value]) => (
             <Card key={label}>
               <CardContent className="text-center p-4">
-                <p className="text-lg capitalize">{label.replaceAll('_', ' ')}</p>
+                <p className="text-lg capitalize">{label.replace(/_/g, ' ')}</p>
                 <p className="text-2xl font-semibold">{value}%</p>
               </CardContent>
             </Card>
