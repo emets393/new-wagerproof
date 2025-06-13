@@ -1,12 +1,13 @@
-// ✅ Cleaned-up, TypeScript-safe MLB Analytics Dashboard with Filtering Fixes
+// ✅ Cleaned-up, TypeScript-safe MLB Analytics Dashboard with Dropdowns for Team Names
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 const supabase = createClient(
   "https://gnjrklxotmbvnxbnnqgq.supabase.co",
@@ -26,7 +27,7 @@ const numericFilters = [
 ];
 
 const textFilters = [
-  "home_team", "away_team", "home_pitcher", "away_pitcher"
+  "home_pitcher", "away_pitcher"
 ];
 
 interface Filters {
@@ -52,29 +53,38 @@ interface StatsResult {
 export default function AnalyticsDashboard() {
   const [filters, setFilters] = useState<Filters>({});
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
+  const [homeTeams, setHomeTeams] = useState<string[]>([]);
+  const [awayTeams, setAwayTeams] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      const { data: homeData } = await supabase.from('training_data').select('home_team').neq('home_team', '').then(res => res.data);
+      const { data: awayData } = await supabase.from('training_data').select('away_team').neq('away_team', '').then(res => res.data);
+      setHomeTeams(Array.from(new Set(homeData?.map(d => d.home_team))).sort());
+      setAwayTeams(Array.from(new Set(awayData?.map(d => d.away_team))).sort());
+    };
+    fetchTeams();
+  }, []);
 
   const { data, isLoading, error } = useQuery<TrainingDataRow[]>({
     queryKey: ['training_data', JSON.stringify(appliedFilters)],
     queryFn: async () => {
       let query = supabase.from('training_data').select('*');
-
       let hasFilters = false;
-
       for (const [key, value] of Object.entries(appliedFilters)) {
         if (value.trim() === '') continue;
-
         hasFilters = true;
-
         if (numericFilters.includes(key)) {
           const num = parseFloat(value);
           if (!isNaN(num)) query = query.eq(key, num);
+        } else if (["home_team", "away_team"].includes(key)) {
+          query = query.eq(key, value);
         } else if (textFilters.includes(key)) {
           query = query.ilike(key, `%${value}%`);
         } else {
           query = query.eq(key, value);
         }
       }
-
       const { data, error } = await query;
       if (error) throw new Error(error.message);
       return hasFilters ? data ?? [] : [];
@@ -112,16 +122,46 @@ export default function AnalyticsDashboard() {
       <h1 className="text-2xl font-bold">MLB Betting Analytics</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="flex flex-col space-y-1">
+          <Label>Home Team</Label>
+          <Select value={filters.home_team || ''} onValueChange={value => handleChange('home_team', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select home team" />
+            </SelectTrigger>
+            <SelectContent>
+              {homeTeams.map(team => (
+                <SelectItem key={team} value={team}>{team}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col space-y-1">
+          <Label>Away Team</Label>
+          <Select value={filters.away_team || ''} onValueChange={value => handleChange('away_team', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select away team" />
+            </SelectTrigger>
+            <SelectContent>
+              {awayTeams.map(team => (
+                <SelectItem key={team} value={team}>{team}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {[...textFilters, ...numericFilters].map(key => (
-          <div key={key} className="flex flex-col space-y-1">
-            <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
-            <Input
-              type={numericFilters.includes(key) ? 'number' : 'text'}
-              value={filters[key] || ''}
-              onChange={(e) => handleChange(key, e.target.value)}
-              placeholder={key.replace(/_/g, ' ')}
-            />
-          </div>
+          !["home_team", "away_team"].includes(key) && (
+            <div key={key} className="flex flex-col space-y-1">
+              <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
+              <Input
+                type={numericFilters.includes(key) ? 'number' : 'text'}
+                value={filters[key] || ''}
+                onChange={(e) => handleChange(key, e.target.value)}
+                placeholder={key.replace(/_/g, ' ')}
+              />
+            </div>
+          )
         ))}
       </div>
 
@@ -161,5 +201,7 @@ export default function AnalyticsDashboard() {
       )}
     </div>
   );
+}
+
 }
 
