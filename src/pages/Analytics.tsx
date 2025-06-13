@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { ArrowLeft, Trophy, TrendingUp, BarChart3, BarChart4 } from "lucide-reac
 import AnalyticsFilters from "@/components/AnalyticsFilters";
 import StatsCard from "@/components/StatsCard";
 
-// Type for your filter state
+// Define your filter state shape
 interface Filters {
   home_team?: string;
   away_team?: string;
@@ -21,10 +20,9 @@ interface Filters {
   month?: number;
   day?: number;
   era_min?: number;
-  // add other filters here if needed
 }
 
-// Type for filter-options dropdown
+// Shape of dropdown options
 interface FilterOptions {
   homeTeams: string[];
   awayTeams: string[];
@@ -38,7 +36,7 @@ interface FilterOptions {
   seriesGameNumbers: number[];
 }
 
-// Type for the stats returned
+// Shape of the aggregated stats
 interface Stats {
   total_games: number;
   win_pct: number;
@@ -49,67 +47,96 @@ interface Stats {
   under_pct: number;
 }
 
-// Your Supabase anon key (for client-side reads)
+// Your Supabase anon key and function URL
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ";
 const FUNCTION_URL = "https://gnjrklxotmbvnxbnnqgq.supabase.co/functions/v1/filter-stats";
 
 export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
+  const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
 
-  // Fetch filter dropdown options
-  const { data: filterOptions, isLoading: loadingOptions } = useQuery<FilterOptions, Error>({
-    queryKey: ["filter-options"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("training_data")
-        .select(
-          `home_team,away_team,season,month,day,home_pitcher,away_pitcher,home_handedness,away_handedness,series_game_number`
-        )
-        .limit(1000);
-      if (error) throw error;
-      // extract unique values
-      const uniq = <T extends string | number>(arr: T[]) => Array.from(new Set(arr));
-      return {
-        homeTeams: uniq(data.map((r) => r.home_team).filter(Boolean) as string[]),
-        awayTeams: uniq(data.map((r) => r.away_team).filter(Boolean) as string[]),
-        seasons: uniq(data.map((r) => r.season).filter((n): n is number => n != null)),
-        months: uniq(data.map((r) => r.month).filter((n): n is number => n != null)),
-        days: uniq(data.map((r) => r.day).filter((n): n is number => n != null)),
-        homePitchers: uniq(data.map((r) => r.home_pitcher).filter(Boolean) as string[]),
-        awayPitchers: uniq(data.map((r) => r.away_pitcher).filter(Boolean) as string[]),
-        homeHandedness: uniq(data.map((r) => r.home_handedness).filter((n): n is number => n != null)),
-        awayHandedness: uniq(data.map((r) => r.away_handedness).filter((n): n is number => n != null)),
-        seriesGameNumbers: uniq(
-          data.map((r) => r.series_game_number).filter((n): n is number => n != null)
-        ),
-      };
-    },
-  });
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
-  // Fetch aggregated stats from your function
-  const { data: stats, isLoading: loadingStats, error: statsError } = useQuery<Stats, Error>({
-    queryKey: ["filter-stats", filters],
-    queryFn: async () => {
-      const url = new URL(FUNCTION_URL);
-      Object.entries(filters).forEach(([key, val]) => {
-        if (val !== undefined && val !== null && val !== "") {
-          url.searchParams.set(key, String(val));
-        }
-      });
-      const res = await fetch(url.toString(), {
-        headers: {
-          Authorization: `Bearer ${ANON_KEY}`,
-          apikey: ANON_KEY,
-        },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    },
-    keepPreviousData: true,
-  });
+  // Fetch filter dropdown options once
+  useEffect(() => {
+    async function loadOptions() {
+      setOptionsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("training_data")
+          .select(
+            `home_team,away_team,season,month,day,home_pitcher,away_pitcher,home_handedness,away_handedness,series_game_number`
+          )
+          .limit(1000);
+        if (error) throw error;
+        const uniq = <T extends string | number>(arr: T[]) => Array.from(new Set(arr));
+        setFilterOptions({
+          homeTeams: uniq(data.map(r => r.home_team).filter(Boolean) as string[]),
+          awayTeams: uniq(data.map(r => r.away_team).filter(Boolean) as string[]),
+          seasons: uniq(data.map(r => r.season!).filter(n => n != null)),
+          months: uniq(data.map(r => r.month!).filter(n => n != null)),
+          days: uniq(data.map(r => r.day!).filter(n => n != null)),
+          homePitchers: uniq(data.map(r => r.home_pitcher).filter(Boolean) as string[]),
+          awayPitchers: uniq(data.map(r => r.away_pitcher).filter(Boolean) as string[]),
+          homeHandedness: uniq(data.map(r => r.home_handedness!).filter(n => n != null)),
+          awayHandedness: uniq(data.map(r => r.away_handedness!).filter(n => n != null)),
+          seriesGameNumbers: uniq(data.map(r => r.series_game_number!).filter(n => n != null)),
+        });
+      } catch (e: any) {
+        setOptionsError(e.message);
+      } finally {
+        setOptionsLoading(false);
+      }
+    }
+    loadOptions();
+  }, []);
 
-  if (loadingOptions || loadingStats) return <div className="p-8 text-center">Loading…</div>;
-  if (statsError) return <div className="p-8 text-center text-red-500">Error: {statsError.message}</div>;
+  // Fetch aggregated stats whenever filters change
+  useEffect(() => {
+    async function loadStats() {
+      setStatsLoading(true);
+      try {
+        const url = new URL(FUNCTION_URL);
+        Object.entries(filters).forEach(([key, val]) => {
+          if (val != null && val !== "") {
+            url.searchParams.set(key, String(val));
+          }
+        });
+        const res = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${ANON_KEY}`,
+            apikey: ANON_KEY,
+          },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as Stats;
+        setStats(json);
+      } catch (e: any) {
+        setStatsError(e.message);
+      } finally {
+        setStatsLoading(false);
+      }
+    }
+    loadStats();
+  }, [filters]);
+
+  // Loading / error states
+  if (optionsLoading || statsLoading) {
+    return <div className="p-8 text-center">Loading…</div>;
+  }
+  if (optionsError) {
+    return <div className="p-8 text-center text-red-500">Error: {optionsError}</div>;
+  }
+  if (!filterOptions) {
+    return <div className="p-8 text-center">No filter options available</div>;
+  }
+  if (statsError) {
+    return <div className="p-8 text-center text-red-500">Error: {statsError}</div>;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -128,7 +155,7 @@ export default function Analytics() {
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <AnalyticsFilters filters={filters} filterOptions={filterOptions!} onFiltersChange={setFilters} />
+        <AnalyticsFilters filters={filters} filterOptions={filterOptions} onFiltersChange={setFilters} />
         <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard title="Total Games" value={stats!.total_games.toString()} icon={BarChart4} gradient="from-slate-500 to-slate-600" description="Games matching filters" />
           <StatsCard title="Win %" value={`${(stats!.win_pct * 100).toFixed(1)}%`} icon={Trophy} gradient="from-emerald-500 to-emerald-600" description="Home/Away winner rate" />
@@ -142,5 +169,6 @@ export default function Analytics() {
     </div>
   );
 }
+
 
 
