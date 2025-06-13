@@ -27,8 +27,6 @@ interface Filters {
   [key: string]: string;
 }
 
-type TrainingDataRow = Record<string, any>;
-
 export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
@@ -66,7 +64,7 @@ export default function Analytics() {
     },
   });
 
-  const calculatePercentages = (rows: TrainingDataRow[]) => {
+  const calculatePercentages = (rows: any[]) => {
     const total = rows.length;
     if (total === 0) return null;
     
