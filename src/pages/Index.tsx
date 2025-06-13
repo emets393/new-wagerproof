@@ -124,7 +124,7 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <div className="flex flex-col space-y-1">
           <Label>Home Team</Label>
-          <Select value={filters.home_team || ''} onValueChange={value => handleChange('home_team', value)}>
+          <Select value={filters.home_team || ''} onValueChange={(value) => handleChange('home_team', value.trim())}>
             <SelectTrigger>
               <SelectValue placeholder="Select home team" />
             </SelectTrigger>
@@ -138,7 +138,7 @@ export default function AnalyticsDashboard() {
 
         <div className="flex flex-col space-y-1">
           <Label>Away Team</Label>
-          <Select value={filters.away_team || ''} onValueChange={value => handleChange('away_team', value)}>
+          <Select value={filters.away_team || ''} onValueChange={(value) => handleChange('away_team', value.trim())}>
             <SelectTrigger>
               <SelectValue placeholder="Select away team" />
             </SelectTrigger>
@@ -202,6 +202,5 @@ export default function AnalyticsDashboard() {
     </div>
   );
 }
-
 
 
