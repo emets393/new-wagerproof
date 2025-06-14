@@ -1,13 +1,21 @@
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Home } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const numericFilters = [
   "series_game_number", "series_home_wins", "series_away_wins", "series_overs", "series_unders",
@@ -31,7 +39,7 @@ export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error }: UseQueryResult<any[], Error> = useQuery({
     queryKey: ['training_data', appliedFilters],
     queryFn: async () => {
       console.log('Fetching with applied filters:', appliedFilters);
@@ -161,6 +169,41 @@ export default function Analytics() {
                 </Card>
               ))}
             </div>
+          )}
+
+          {data && data.length > 0 && !isLoading && (
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle>Training Data Sample</CardTitle>
+                <CardDescription>A preview of the first 10 records matching your filters.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Home Team</TableHead>
+                        <TableHead>Away Team</TableHead>
+                        <TableHead className="text-center">Winner (ML)</TableHead>
+                        <TableHead className="text-center">Winner (RL)</TableHead>
+                        <TableHead className="text-center">O/U Result</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.slice(0, 10).map((row, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{row.home_team}</TableCell>
+                          <TableCell>{row.away_team}</TableCell>
+                          <TableCell className="text-center">{row.ha_winner === 1 ? 'Home' : 'Away'}</TableCell>
+                          <TableCell className="text-center">{row.run_line_winner === 1 ? 'Home' : 'Away'}</TableCell>
+                          <TableCell className="text-center">{row.ou_result === 1 ? 'Over' : 'Under'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {data && data.length === 0 && !isLoading && (
