@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,13 +35,22 @@ interface Filters {
   [key: string]: string;
 }
 
+interface TrainingDataRow {
+  ha_winner?: number;
+  run_line_winner?: number;
+  ou_result?: number;
+  home_team?: string;
+  away_team?: string;
+  [key: string]: any;
+}
+
 export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
 
-  const { data, isLoading, error }: UseQueryResult<any[], Error> = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['training_data', appliedFilters],
-    queryFn: async () => {
+    queryFn: async (): Promise<TrainingDataRow[]> => {
       console.log('Fetching with applied filters:', appliedFilters);
       let query = supabase.from('training_data').select('*');
       
@@ -68,11 +77,11 @@ export default function Analytics() {
         console.error('Supabase error:', error);
         throw new Error(error.message);
       }
-      return data || [];
+      return (data || []) as TrainingDataRow[];
     },
   });
 
-  const calculatePercentages = (rows: any[]) => {
+  const calculatePercentages = (rows: TrainingDataRow[]) => {
     const total = rows.length;
     if (total === 0) return null;
     
