@@ -30,10 +30,18 @@ interface Filters {
 }
 
 interface DataRow {
-  [key: string]: any;
   primary_win?: number;
   primary_runline_win?: number;
   ou_result?: number;
+  [key: string]: any;
+}
+
+interface StatsResult {
+  winPct: string;
+  runlinePct: string;
+  overPct: string;
+  underPct: string;
+  total: number;
 }
 
 export default function FilterableWinRates() {
@@ -45,14 +53,13 @@ export default function FilterableWinRates() {
     setFilters({ ...filters, [column]: value });
   };
 
-  const applyFilters = async () => {
+  const applyFilters = async (): Promise<void> => {
     setIsLoading(true);
     try {
       let query = supabase.from("training_data_team_view_enhanced").select("*");
       
       Object.entries(filters).forEach(([key, value]) => {
         if (value && value.trim() !== '') {
-          // Use ilike for text searches, eq for exact matches on numbers
           const trimmedValue = value.trim();
           if (!isNaN(Number(trimmedValue)) && trimmedValue !== '') {
             query = query.eq(key, Number(trimmedValue));
@@ -66,7 +73,8 @@ export default function FilterableWinRates() {
       if (error) {
         console.error('Error fetching data:', error);
       } else {
-        setResults(data || []);
+        console.log(`Retrieved ${data?.length || 0} total records for stats calculation`);
+        setResults((data as DataRow[]) || []);
       }
     } catch (error) {
       console.error('Error applying filters:', error);
@@ -75,7 +83,7 @@ export default function FilterableWinRates() {
     }
   };
 
-  const calculateStats = () => {
+  const calculateStats = (): StatsResult => {
     const total = results.length;
     const win = results.filter(r => r.primary_win === 1).length;
     const runline = results.filter(r => r.primary_runline_win === 1).length;

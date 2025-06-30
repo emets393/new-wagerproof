@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
@@ -44,44 +43,55 @@ interface TrainingDataRow {
   [key: string]: any;
 }
 
+interface PercentageStats {
+  home_winner: string;
+  away_winner: string;
+  home_cover: string;
+  away_cover: string;
+  over: string;
+  under: string;
+}
+
 export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
 
+  const queryFn = async (): Promise<TrainingDataRow[]> => {
+    console.log('Fetching with applied filters:', appliedFilters);
+    let query = supabase.from('training_data').select('*');
+    
+    Object.entries(appliedFilters).forEach(([key, value]) => {
+      const stringValue = String(value);
+      if (stringValue !== '' && stringValue !== 'undefined') {
+        console.log(`Applying filter: ${key} = ${stringValue}`);
+        
+        if (numericFilters.includes(key)) {
+          const numericValue = parseFloat(stringValue);
+          if (!isNaN(numericValue)) {
+            query = query.eq(key, numericValue);
+          }
+        } else {
+          query = query.eq(key, stringValue);
+        }
+      }
+    });
+    
+    const { data, error } = await query;
+    console.log('Query result:', { data, error, count: data?.length });
+    
+    if (error) {
+      console.error('Supabase error:', error);
+      throw new Error(error.message);
+    }
+    return (data as TrainingDataRow[]) || [];
+  };
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['training_data', appliedFilters],
-    queryFn: async (): Promise<TrainingDataRow[]> => {
-      console.log('Fetching with applied filters:', appliedFilters);
-      let query = supabase.from('training_data').select('*');
-      
-      Object.entries(appliedFilters).forEach(([key, value]) => {
-        const stringValue = String(value);
-        if (stringValue !== '' && stringValue !== 'undefined') {
-          console.log(`Applying filter: ${key} = ${stringValue}`);
-          
-          if (numericFilters.includes(key)) {
-            const numericValue = parseFloat(stringValue);
-            if (!isNaN(numericValue)) {
-              query = query.eq(key, numericValue);
-            }
-          } else {
-            query = query.eq(key, stringValue);
-          }
-        }
-      });
-      
-      const { data, error } = await query;
-      console.log('Query result:', { data, error, count: data?.length });
-      
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message);
-      }
-      return (data || []) as TrainingDataRow[];
-    },
+    queryFn,
   });
 
-  const calculatePercentages = (rows: TrainingDataRow[]) => {
+  const calculatePercentages = (rows: TrainingDataRow[]): PercentageStats | null => {
     const total = rows.length;
     if (total === 0) return null;
     
