@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -92,31 +91,34 @@ export default function FilterableWinRates() {
   const applyFilters = async (): Promise<void> => {
     setIsLoading(true);
     try {
-      // Fetch MLB teams data for logos
-      const { data: teamsData } = await supabase
-        .from("MLB_Teams")
-        .select("*") as { data: any[] | null };
+      // Fetch MLB teams data for logos - use explicit typing
+      const teamsQuery = supabase.from("MLB_Teams").select("*");
+      const { data: teamsData } = await teamsQuery;
       
       if (teamsData) {
         setMlbTeams(teamsData);
       }
 
-      // Build query with explicit typing to avoid TypeScript issues
-      let query = supabase.from("training_data_team_view_enhanced").select("*");
+      // Build query step by step to avoid deep type instantiation
+      const baseQuery = supabase.from("training_data_team_view_enhanced");
+      const selectQuery = baseQuery.select("*");
       
+      // Apply filters one by one
+      let filteredQuery = selectQuery;
       Object.entries(filters).forEach(([key, value]) => {
         if (value && value.trim() !== '') {
           const trimmedValue = value.trim();
           if (!isNaN(Number(trimmedValue)) && trimmedValue !== '') {
-            query = query.eq(key, Number(trimmedValue));
+            filteredQuery = filteredQuery.eq(key, Number(trimmedValue));
           } else {
-            query = query.ilike(key, `%${trimmedValue}%`);
+            filteredQuery = filteredQuery.ilike(key, `%${trimmedValue}%`);
           }
         }
       });
       
-      // Ensure we get ALL matching records, not just first 1000
-      const { data, error } = await query.limit(100000) as { data: any[] | null; error: any };
+      // Apply limit and execute with explicit typing
+      const finalQuery = filteredQuery.limit(100000);
+      const { data, error }: { data: any[] | null; error: any } = await finalQuery;
       
       if (error) {
         console.error('Error fetching data:', error);

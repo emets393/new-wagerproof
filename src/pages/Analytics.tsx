@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
@@ -59,8 +58,13 @@ export default function Analytics() {
 
   const queryFn = async (): Promise<TrainingDataRow[]> => {
     console.log('Fetching with applied filters:', appliedFilters);
-    let query = supabase.from('training_data').select('*');
     
+    // Build query step by step to avoid deep type instantiation
+    const baseQuery = supabase.from('training_data');
+    const selectQuery = baseQuery.select('*');
+    
+    // Apply filters one by one
+    let filteredQuery = selectQuery;
     Object.entries(appliedFilters).forEach(([key, value]) => {
       const stringValue = String(value);
       if (stringValue !== '' && stringValue !== 'undefined') {
@@ -69,16 +73,17 @@ export default function Analytics() {
         if (numericFilters.includes(key)) {
           const numericValue = parseFloat(stringValue);
           if (!isNaN(numericValue)) {
-            query = query.eq(key, numericValue);
+            filteredQuery = filteredQuery.eq(key, numericValue);
           }
         } else {
-          query = query.eq(key, stringValue);
+          filteredQuery = filteredQuery.eq(key, stringValue);
         }
       }
     });
     
-    // Ensure we get ALL matching records, not just first 1000
-    const { data, error } = await query.limit(100000) as { data: any[] | null; error: any };
+    // Apply limit and execute with explicit typing
+    const finalQuery = filteredQuery.limit(100000);
+    const { data, error }: { data: any[] | null; error: any } = await finalQuery;
     console.log('Query result:', { data, error, count: data?.length });
     
     if (error) {
