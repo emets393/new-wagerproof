@@ -12,6 +12,7 @@ export type Database = {
       angels_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -29,12 +30,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -52,12 +55,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -75,6 +80,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -84,6 +90,7 @@ export type Database = {
       arizona_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -101,12 +108,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -124,12 +133,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -147,6 +158,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -156,6 +168,7 @@ export type Database = {
       athletics_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -173,12 +186,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -196,12 +211,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -219,6 +236,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -228,6 +246,7 @@ export type Database = {
       atlanta_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -245,12 +264,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -268,12 +289,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -291,6 +314,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -300,6 +324,7 @@ export type Database = {
       baltimore_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -317,12 +342,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -340,12 +367,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -363,6 +392,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -372,6 +402,7 @@ export type Database = {
       boston_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -389,12 +420,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -412,12 +445,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -435,6 +470,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -444,6 +480,7 @@ export type Database = {
       cincinnati_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -461,12 +498,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -484,12 +523,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -507,6 +548,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -603,6 +645,7 @@ export type Database = {
       cleveland_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -620,12 +663,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -643,12 +688,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -666,6 +713,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -675,6 +723,7 @@ export type Database = {
       colorado_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -692,12 +741,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -715,12 +766,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -738,6 +791,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -747,6 +801,7 @@ export type Database = {
       cubs_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -764,12 +819,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -787,12 +844,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -810,6 +869,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -897,6 +957,7 @@ export type Database = {
       detroit_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -914,12 +975,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -937,12 +1000,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -960,6 +1025,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -969,6 +1035,7 @@ export type Database = {
       dodgers_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -986,12 +1053,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1009,12 +1078,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1032,6 +1103,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1110,6 +1182,7 @@ export type Database = {
       houston_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1127,12 +1200,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1150,12 +1225,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1173,6 +1250,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1182,6 +1260,7 @@ export type Database = {
       kansas_city_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1199,12 +1278,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1222,12 +1303,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1245,6 +1328,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1254,6 +1338,7 @@ export type Database = {
       mets_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1271,12 +1356,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1294,12 +1381,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1317,6 +1406,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1326,6 +1416,7 @@ export type Database = {
       miami_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1343,12 +1434,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1366,12 +1459,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1389,6 +1484,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1398,6 +1494,7 @@ export type Database = {
       milwaukee_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1415,12 +1512,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1438,12 +1537,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1461,6 +1562,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1470,6 +1572,7 @@ export type Database = {
       minnesota_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1487,12 +1590,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1510,12 +1615,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1533,6 +1640,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1543,7 +1651,9 @@ export type Database = {
         Row: {
           division_number: number | null
           full_name: string | null
+          latitude: number | null
           league_number: number | null
+          longitude: number | null
           short_name: string | null
           team_number: number | null
           TeamRankingsName: string | null
@@ -1551,7 +1661,9 @@ export type Database = {
         Insert: {
           division_number?: number | null
           full_name?: string | null
+          latitude?: number | null
           league_number?: number | null
+          longitude?: number | null
           short_name?: string | null
           team_number?: number | null
           TeamRankingsName?: string | null
@@ -1559,7 +1671,9 @@ export type Database = {
         Update: {
           division_number?: number | null
           full_name?: string | null
+          latitude?: number | null
           league_number?: number | null
+          longitude?: number | null
           short_name?: string | null
           team_number?: number | null
           TeamRankingsName?: string | null
@@ -1569,6 +1683,7 @@ export type Database = {
       philadelphia_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1586,12 +1701,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1609,12 +1726,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1632,6 +1751,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1713,6 +1833,7 @@ export type Database = {
       pittsburgh_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1730,12 +1851,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1753,12 +1876,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1776,6 +1901,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1785,6 +1911,7 @@ export type Database = {
       san_diego_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1802,12 +1929,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1825,12 +1954,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1848,6 +1979,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1857,6 +1989,7 @@ export type Database = {
       san_francisco_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1874,12 +2007,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1897,12 +2032,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1920,6 +2057,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -1929,6 +2067,7 @@ export type Database = {
       seattle_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -1946,12 +2085,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1969,12 +2110,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -1992,6 +2135,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -2001,6 +2145,7 @@ export type Database = {
       st_louis_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -2018,12 +2163,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2041,12 +2188,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2064,6 +2213,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -2073,6 +2223,7 @@ export type Database = {
       tampa_bay_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -2090,12 +2241,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2113,12 +2266,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2136,6 +2291,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -2190,6 +2346,7 @@ export type Database = {
       texas_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -2207,12 +2364,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2230,12 +2389,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2253,6 +2414,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -2262,6 +2424,7 @@ export type Database = {
       toronto_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -2279,12 +2442,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2302,12 +2467,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2325,6 +2492,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -2547,6 +2715,7 @@ export type Database = {
       washington_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -2564,12 +2733,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2587,12 +2758,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2610,6 +2783,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -2619,6 +2793,7 @@ export type Database = {
       white_sox_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -2636,12 +2811,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2659,12 +2836,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2682,6 +2861,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -2691,6 +2871,7 @@ export type Database = {
       yankees_games: {
         Row: {
           date: string | null
+          days_between_games: number | null
           excel_date: number | null
           is_playoff: boolean | null
           join_table_string: string | null
@@ -2708,12 +2889,14 @@ export type Database = {
           streak: number | null
           team: string | null
           team_score: number | null
+          travel_distance_miles: number | null
           unique_id: string
           was_home: boolean | null
           win_loss: string | null
         }
         Insert: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2731,12 +2914,14 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id: string
           was_home?: boolean | null
           win_loss?: string | null
         }
         Update: {
           date?: string | null
+          days_between_games?: number | null
           excel_date?: number | null
           is_playoff?: boolean | null
           join_table_string?: string | null
@@ -2754,6 +2939,7 @@ export type Database = {
           streak?: number | null
           team?: string | null
           team_score?: number | null
+          travel_distance_miles?: number | null
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
@@ -2900,6 +3086,152 @@ export type Database = {
           Total_Over_Handle: number | null
           Total_Under_Bets: number | null
           Total_Under_Handle: number | null
+          unique_id: string | null
+        }
+        Relationships: []
+      }
+      training_data_team_view: {
+        Row: {
+          data_source: string | null
+          date: string | null
+          day: number | null
+          is_home_team: boolean | null
+          month: number | null
+          o_u_line: number | null
+          opponent_division_number: number | null
+          opponent_era: number | null
+          opponent_handedness: number | null
+          opponent_last_runs: number | null
+          opponent_last_runs_allowed: number | null
+          opponent_last_win: number | null
+          opponent_league_number: number | null
+          opponent_ml: number | null
+          opponent_ml_bets: number | null
+          opponent_ml_handle: number | null
+          opponent_ops_last_3: number | null
+          opponent_pitcher: string | null
+          opponent_pitcher_id: number | null
+          opponent_rl: number | null
+          opponent_rl_bets: number | null
+          opponent_rl_handle: number | null
+          opponent_streak: number | null
+          opponent_team: string | null
+          opponent_team_last_3: number | null
+          opponent_team_number: number | null
+          opponent_unique_team_id: string | null
+          opponent_whip: number | null
+          opponent_win_pct: number | null
+          ou_bets_over: number | null
+          ou_handle_over: number | null
+          ou_result: number | null
+          primary_division_number: number | null
+          primary_era: number | null
+          primary_handedness: number | null
+          primary_last_runs: number | null
+          primary_last_runs_allowed: number | null
+          primary_last_win: number | null
+          primary_league_number: number | null
+          primary_ml: number | null
+          primary_ml_bets: number | null
+          primary_ml_handle: number | null
+          primary_ops_last_3: number | null
+          primary_pitcher: string | null
+          primary_pitcher_id: number | null
+          primary_rl: number | null
+          primary_rl_bets: number | null
+          primary_rl_handle: number | null
+          primary_runline_win: number | null
+          primary_streak: number | null
+          primary_team: string | null
+          primary_team_last_3: number | null
+          primary_team_number: number | null
+          primary_unique_team_id: string | null
+          primary_whip: number | null
+          primary_win: number | null
+          primary_win_pct: number | null
+          same_division: number | null
+          same_league: number | null
+          season: number | null
+          series_game_number: number | null
+          series_opponent_wins: number | null
+          series_overs: number | null
+          series_primary_wins: number | null
+          series_unders: number | null
+          start_time_minutes: number | null
+          unique_id: string | null
+        }
+        Relationships: []
+      }
+      training_data_team_view_enhanced: {
+        Row: {
+          data_source: string | null
+          date: string | null
+          day: number | null
+          is_home_team: boolean | null
+          month: number | null
+          o_u_line: number | null
+          opponent_division_number: number | null
+          opponent_era: number | null
+          opponent_handedness: number | null
+          opponent_last_runs: number | null
+          opponent_last_runs_allowed: number | null
+          opponent_last_win: number | null
+          opponent_league_number: number | null
+          opponent_ml: number | null
+          opponent_ml_bets: number | null
+          opponent_ml_handle: number | null
+          opponent_ops_last_3: number | null
+          opponent_pitcher: string | null
+          opponent_pitcher_id: number | null
+          opponent_rl: number | null
+          opponent_rl_bets: number | null
+          opponent_rl_handle: number | null
+          opponent_streak: number | null
+          opponent_team: string | null
+          opponent_team_last_3: number | null
+          opponent_team_number: number | null
+          opponent_unique_team_id: string | null
+          opponent_whip: number | null
+          opponent_win_pct: number | null
+          ou_bets_over: number | null
+          ou_handle_over: number | null
+          ou_result: number | null
+          primary_days_between_games: number | null
+          primary_division_number: number | null
+          primary_era: number | null
+          primary_handedness: number | null
+          primary_last_runs: number | null
+          primary_last_runs_allowed: number | null
+          primary_last_win: number | null
+          primary_league_number: number | null
+          primary_ml: number | null
+          primary_ml_bets: number | null
+          primary_ml_handle: number | null
+          primary_ops_last_3: number | null
+          primary_pitcher: string | null
+          primary_pitcher_id: number | null
+          primary_rl: number | null
+          primary_rl_bets: number | null
+          primary_rl_handle: number | null
+          primary_runline_win: number | null
+          primary_streak: number | null
+          primary_team: string | null
+          primary_team_last_3: number | null
+          primary_team_number: number | null
+          primary_travel_distance_miles: number | null
+          primary_unique_team_id: string | null
+          primary_whip: number | null
+          primary_win: number | null
+          primary_win_pct: number | null
+          same_division: number | null
+          same_league: number | null
+          season: number | null
+          series_game_number: number | null
+          series_opponent_wins: number | null
+          series_overs: number | null
+          series_primary_wins: number | null
+          series_unders: number | null
+          start_time_minutes: number | null
           unique_id: string | null
         }
         Relationships: []

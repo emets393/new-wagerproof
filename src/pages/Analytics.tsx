@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Home } from "lucide-react";
+import { Home, TrendingUp } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -114,12 +114,20 @@ export default function Analytics() {
             MLB Betting Analytics
           </h1>
           
-          <Link to="/">
-            <Button variant="outline" className="flex items-center gap-2">
-              <Home className="w-4 h-4" />
-              Today's Games
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/">
+              <Button variant="outline" className="flex items-center gap-2">
+                <Home className="w-4 h-4" />
+                Today's Games
+              </Button>
+            </Link>
+            <Link to="/win-rates">
+              <Button variant="outline" className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Win Rates
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="grid gap-6">
