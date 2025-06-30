@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import TeamDisplay from "./TeamDisplay";
+import { buildQueryString } from "@/utils/queryParams";
 
 const columns = [
   "season", "month", "day", "series_game_number", "o_u_line",
@@ -106,17 +106,20 @@ export default function FilterableWinRates() {
         return;
       }
 
-      console.log('Sending filters to edge function:', filters);
+      // Build query string from filters
+      const queryString = buildQueryString(filters);
+      const url = `https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data?${queryString}`;
+      
+      console.log('Sending GET request to:', url);
+      console.log('Filters being sent:', filters);
 
-      // Call the edge function for filtering with authentication headers
-      const response = await fetch('https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data', {
-        method: 'POST',
+      // Call the edge function for filtering with GET method and query parameters
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ`,
           'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ'
         },
-        body: JSON.stringify(filters),
       });
 
       console.log('Response status:', response.status);

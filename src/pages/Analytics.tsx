@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { buildQueryString } from "@/utils/queryParams";
 
 const numericFilters = [
   "series_game_number", "series_home_wins", "series_away_wins", "series_overs", "series_unders",
@@ -66,17 +66,20 @@ export default function Analytics() {
       return [];
     }
 
-    console.log('Sending filters to edge function:', appliedFilters);
+    // Build query string from filters
+    const queryString = buildQueryString(appliedFilters);
+    const url = `https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data?${queryString}`;
+    
+    console.log('Sending GET request to:', url);
+    console.log('Applied filters being sent:', appliedFilters);
 
-    // Call the edge function for filtering with authentication headers
-    const response = await fetch('https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data', {
-      method: 'POST',
+    // Call the edge function for filtering with GET method and query parameters
+    const response = await fetch(url, {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ`,
         'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ'
       },
-      body: JSON.stringify(appliedFilters),
     });
 
     console.log('Response status:', response.status);
