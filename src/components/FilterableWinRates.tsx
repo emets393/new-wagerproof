@@ -73,9 +73,16 @@ interface GameDisplay {
   ouLine: number;
 }
 
+interface MLBTeam {
+  short_name?: string;
+  full_name?: string;
+  [key: string]: any;
+}
+
 export default function FilterableWinRates() {
   const [filters, setFilters] = useState<Filters>({});
   const [results, setResults] = useState<DataRow[]>([]);
+  const [mlbTeams, setMlbTeams] = useState<MLBTeam[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleInputChange = (column: string, value: string) => {
@@ -85,6 +92,16 @@ export default function FilterableWinRates() {
   const applyFilters = async (): Promise<void> => {
     setIsLoading(true);
     try {
+      // Fetch MLB teams data for logos
+      const { data: teamsData } = await supabase
+        .from("MLB_Teams")
+        .select("*") as { data: any[] | null };
+      
+      if (teamsData) {
+        setMlbTeams(teamsData);
+      }
+
+      // Build query with explicit typing to avoid TypeScript issues
       let query = supabase.from("training_data_team_view_enhanced").select("*");
       
       Object.entries(filters).forEach(([key, value]) => {
@@ -98,12 +115,14 @@ export default function FilterableWinRates() {
         }
       });
       
-      const { data, error } = await query;
+      // Ensure we get ALL matching records, not just first 1000
+      const { data, error } = await query.limit(100000) as { data: any[] | null; error: any };
+      
       if (error) {
         console.error('Error fetching data:', error);
       } else {
         console.log(`Retrieved ${data?.length || 0} total records for stats calculation`);
-        setResults((data as any[]) || []);
+        setResults(data || []);
       }
     } catch (error) {
       console.error('Error applying filters:', error);
@@ -313,8 +332,12 @@ export default function FilterableWinRates() {
                   {gameDisplays.map((game, i) => (
                     <TableRow key={i}>
                       <TableCell>{game.date}</TableCell>
-                      <TableCell>{game.homeTeam}</TableCell>
-                      <TableCell>{game.awayTeam}</TableCell>
+                      <TableCell>
+                        <TeamDisplay team={game.homeTeam} isHome={true} />
+                      </TableCell>
+                      <TableCell>
+                        <TeamDisplay team={game.awayTeam} isHome={false} />
+                      </TableCell>
                       <TableCell className="text-center">{game.homeScore}</TableCell>
                       <TableCell className="text-center">{game.awayScore}</TableCell>
                       <TableCell className="text-center">{game.ouLine}</TableCell>

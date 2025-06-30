@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
@@ -76,14 +77,15 @@ export default function Analytics() {
       }
     });
     
-    const { data, error } = await query;
+    // Ensure we get ALL matching records, not just first 1000
+    const { data, error } = await query.limit(100000) as { data: any[] | null; error: any };
     console.log('Query result:', { data, error, count: data?.length });
     
     if (error) {
       console.error('Supabase error:', error);
       throw new Error(error.message);
     }
-    return (data as TrainingDataRow[]) || [];
+    return data || [];
   };
 
   const { data, isLoading, error } = useQuery({
