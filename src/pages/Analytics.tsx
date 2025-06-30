@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
@@ -59,17 +60,32 @@ export default function Analytics() {
   const queryFn = async (): Promise<TrainingDataRow[]> => {
     console.log('Fetching with applied filters:', appliedFilters);
     
-    // Call the edge function for filtering
+    // Handle empty filters gracefully
+    if (Object.keys(appliedFilters).length === 0 || Object.values(appliedFilters).every(value => !value || value.trim() === '')) {
+      console.log('No applied filters, returning empty array');
+      return [];
+    }
+
+    console.log('Sending filters to edge function:', appliedFilters);
+
+    // Call the edge function for filtering with authentication headers
     const response = await fetch('https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ`,
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ'
       },
       body: JSON.stringify(appliedFilters),
     });
 
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Edge function error:', errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
