@@ -9,6 +9,7 @@ import TeamDisplay from "./TeamDisplay";
 import { buildQueryString } from "@/utils/queryParams";
 import AdvancedNumericFilter from "./AdvancedNumericFilter";
 import FilterSummary from "./FilterSummary";
+import NumericRangeFilter from "./NumericRangeFilter";
 
 const columns = [
   "season", "month", "day", "series_game_number", "o_u_line",
@@ -231,25 +232,45 @@ export default function FilterableWinRates() {
     setResults([]);
   };
 
-  const getFieldRange = (field: string) => {
+  const getFieldConfig = (field: string) => {
     switch (field) {
-      case 'o_u_line': return { min: 6, max: 15, step: 0.5 };
-      case 'primary_ml': case 'opponent_ml': return { min: -300, max: 300, step: 5 };
-      case 'primary_rl': case 'opponent_rl': return { min: -2.5, max: 2.5, step: 0.5 };
-      case 'primary_win_pct': case 'opponent_win_pct': return { min: 0, max: 100, step: 1 };
+      case 'o_u_line': return { 
+        min: 6, max: 15, step: 0.5, 
+        formatValue: (v: number) => v.toFixed(1) 
+      };
+      case 'primary_ml': case 'opponent_ml': return { 
+        min: -500, max: 500, step: 10,
+        formatValue: (v: number) => v > 0 ? `+${v}` : v.toString()
+      };
+      case 'primary_rl': case 'opponent_rl': return { 
+        min: -3, max: 3, step: 0.5,
+        formatValue: (v: number) => v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1)
+      };
+      case 'primary_win_pct': case 'opponent_win_pct': return { 
+        min: 0, max: 100, step: 1,
+        formatValue: (v: number) => `${v}%`
+      };
       case 'season': return { min: 2020, max: 2025, step: 1 };
       case 'month': return { min: 1, max: 12, step: 1 };
       case 'day': return { min: 1, max: 31, step: 1 };
-      case 'primary_era': case 'opponent_era': return { min: 0, max: 8, step: 0.1 };
-      case 'primary_whip': case 'opponent_whip': return { min: 0.8, max: 2, step: 0.05 };
       case 'series_game_number': return { min: 1, max: 7, step: 1 };
+      case 'primary_era': case 'opponent_era': return { 
+        min: 0, max: 8, step: 0.1,
+        formatValue: (v: number) => v.toFixed(2)
+      };
+      case 'primary_whip': case 'opponent_whip': return { 
+        min: 0.8, max: 2, step: 0.05,
+        formatValue: (v: number) => v.toFixed(2)
+      };
       default: return { min: 0, max: 100, step: 1 };
     }
   };
 
   // Separate numeric and text columns
-  const numericColumns = columns.filter(col => 
-    !['primary_team', 'opponent_team', 'primary_pitcher', 'opponent_pitcher'].includes(col)
+  const priorityNumericColumns = ['o_u_line', 'series_game_number', 'month', 'day', 'primary_ml', 'opponent_ml', 'primary_win_pct', 'opponent_win_pct'];
+  const otherNumericColumns = columns.filter(col => 
+    !['primary_team', 'opponent_team', 'primary_pitcher', 'opponent_pitcher'].includes(col) &&
+    !priorityNumericColumns.includes(col)
   );
   const textColumns = ['primary_team', 'opponent_team', 'primary_pitcher', 'opponent_pitcher'];
 
@@ -262,23 +283,23 @@ export default function FilterableWinRates() {
         onClearAll={clearFilters}
       />
 
-      {/* Advanced Numeric Filters */}
+      {/* Priority Range Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Advanced Filters</CardTitle>
+          <CardTitle>Key Range Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
-            {numericColumns.slice(0, 15).map(col => {
-              const range = getFieldRange(col);
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {priorityNumericColumns.map(col => {
+              const config = getFieldConfig(col);
               return (
-                <AdvancedNumericFilter
+                <NumericRangeFilter
                   key={col}
                   label={col.replace(/_/g, ' ')}
                   field={col}
                   value={filters[col] || ''}
                   onChange={handleInputChange}
-                  {...range}
+                  {...config}
                 />
               );
             })}
@@ -307,31 +328,29 @@ export default function FilterableWinRates() {
         </CardContent>
       </Card>
 
-      {/* Additional Numeric Filters */}
-      {numericColumns.length > 15 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Additional Filters</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto">
-              {numericColumns.slice(15).map(col => {
-                const range = getFieldRange(col);
-                return (
-                  <AdvancedNumericFilter
-                    key={col}
-                    label={col.replace(/_/g, ' ')}
-                    field={col}
-                    value={filters[col] || ''}
-                    onChange={handleInputChange}
-                    {...range}
-                  />
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Additional Range Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Additional Range Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto">
+            {otherNumericColumns.map(col => {
+              const config = getFieldConfig(col);
+              return (
+                <NumericRangeFilter
+                  key={col}
+                  label={col.replace(/_/g, ' ')}
+                  field={col}
+                  value={filters[col] || ''}
+                  onChange={handleInputChange}
+                  {...config}
+                />
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex gap-2">
         <Button onClick={applyFilters} disabled={isLoading}>

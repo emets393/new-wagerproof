@@ -18,6 +18,7 @@ import {
 import { buildQueryString } from "@/utils/queryParams";
 import AdvancedNumericFilter from "@/components/AdvancedNumericFilter";
 import FilterSummary from "@/components/FilterSummary";
+import NumericRangeFilter from "@/components/NumericRangeFilter";
 
 const numericFilters = [
   "series_game_number", "series_home_wins", "series_away_wins", "series_overs", "series_unders",
@@ -145,20 +146,43 @@ export default function Analytics() {
     setAppliedFilters({});
   };
 
-  // Define ranges for different numeric fields
-  const getFieldRange = (field: string) => {
+  // Define ranges for different numeric fields with better formatting
+  const getFieldConfig = (field: string) => {
     switch (field) {
-      case 'o_u_line': return { min: 6, max: 15, step: 0.5 };
-      case 'home_ml': case 'away_ml': return { min: -300, max: 300, step: 5 };
-      case 'home_rl': case 'away_rl': return { min: -2.5, max: 2.5, step: 0.5 };
-      case 'home_win_pct': case 'away_win_pct': return { min: 0, max: 100, step: 1 };
+      case 'o_u_line': return { 
+        min: 6, max: 15, step: 0.5, 
+        formatValue: (v: number) => v.toFixed(1) 
+      };
+      case 'home_ml': case 'away_ml': return { 
+        min: -500, max: 500, step: 10,
+        formatValue: (v: number) => v > 0 ? `+${v}` : v.toString()
+      };
+      case 'home_rl': case 'away_rl': return { 
+        min: -3, max: 3, step: 0.5,
+        formatValue: (v: number) => v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1)
+      };
+      case 'home_win_pct': case 'away_win_pct': return { 
+        min: 0, max: 100, step: 1,
+        formatValue: (v: number) => `${v}%`
+      };
       case 'season': return { min: 2020, max: 2025, step: 1 };
       case 'month': return { min: 1, max: 12, step: 1 };
-      case 'home_era': case 'away_era': return { min: 0, max: 8, step: 0.1 };
-      case 'home_whip': case 'away_whip': return { min: 0.8, max: 2, step: 0.05 };
+      case 'series_game_number': return { min: 1, max: 7, step: 1 };
+      case 'home_era': case 'away_era': return { 
+        min: 0, max: 8, step: 0.1,
+        formatValue: (v: number) => v.toFixed(2)
+      };
+      case 'home_whip': case 'away_whip': return { 
+        min: 0.8, max: 2, step: 0.05,
+        formatValue: (v: number) => v.toFixed(2)
+      };
       default: return { min: 0, max: 100, step: 1 };
     }
   };
+
+  // Prioritize the most commonly used filters
+  const priorityFilters = ['o_u_line', 'series_game_number', 'month', 'home_ml', 'away_ml', 'home_win_pct', 'away_win_pct'];
+  const otherFilters = numericFilters.filter(f => !priorityFilters.includes(f));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
@@ -193,24 +217,24 @@ export default function Analytics() {
             onClearAll={clearFilters}
           />
 
-          {/* Advanced Numeric Filters */}
+          {/* Priority Range Filters */}
           <Card>
             <CardHeader>
-              <CardTitle>Advanced Filters</CardTitle>
-              <CardDescription>Use toggles and sliders for precise filtering</CardDescription>
+              <CardTitle>Key Range Filters</CardTitle>
+              <CardDescription>Most commonly used filters with range sliders</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {numericFilters.slice(0, 12).map(field => {
-                  const range = getFieldRange(field);
+                {priorityFilters.map(field => {
+                  const config = getFieldConfig(field);
                   return (
-                    <AdvancedNumericFilter
+                    <NumericRangeFilter
                       key={field}
                       label={field.replace(/_/g, ' ')}
                       field={field}
                       value={filters[field] || ''}
                       onChange={handleChange}
-                      {...range}
+                      {...config}
                     />
                   );
                 })}
@@ -240,31 +264,29 @@ export default function Analytics() {
             </CardContent>
           </Card>
 
-          {/* Additional Numeric Filters */}
-          {numericFilters.length > 12 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Additional Filters</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {numericFilters.slice(12).map(field => {
-                    const range = getFieldRange(field);
-                    return (
-                      <AdvancedNumericFilter
-                        key={field}
-                        label={field.replace(/_/g, ' ')}
-                        field={field}
-                        value={filters[field] || ''}
-                        onChange={handleChange}
-                        {...range}
-                      />
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Additional Range Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Additional Range Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {otherFilters.map(field => {
+                  const config = getFieldConfig(field);
+                  return (
+                    <NumericRangeFilter
+                      key={field}
+                      label={field.replace(/_/g, ' ')}
+                      field={field}
+                      value={filters[field] || ''}
+                      onChange={handleChange}
+                      {...config}
+                    />
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="flex gap-4">
             <Button onClick={applyFilters} disabled={isLoading}>
