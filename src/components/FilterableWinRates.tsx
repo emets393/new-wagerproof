@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import TeamDisplay from "./TeamDisplay";
 
 const columns = [
   "season", "month", "day", "series_game_number", "o_u_line",
@@ -22,7 +23,8 @@ const columns = [
   "opponent_streak", "primary_win", "primary_runline_win", "start_time_minutes",
   "same_division", "same_league", "series_primary_wins", "series_opponent_wins",
   "series_overs", "series_unders", "ou_handle_over", "ou_bets_over",
-  "is_home_team", "primary_days_between_games", "primary_travel_distance_miles"
+  "is_home_team", "primary_days_between_games", "primary_travel_distance_miles",
+  "primary_team_score", "opponent_team_score"
 ];
 
 interface Filters {
@@ -33,6 +35,15 @@ interface DataRow {
   primary_win?: number;
   primary_runline_win?: number;
   ou_result?: number;
+  primary_team?: string;
+  opponent_team?: string;
+  is_home_team?: boolean;
+  primary_team_score?: number;
+  opponent_team_score?: number;
+  day?: number;
+  month?: number;
+  season?: number;
+  o_u_line?: number;
   [key: string]: any;
 }
 
@@ -42,6 +53,24 @@ interface StatsResult {
   overPct: string;
   underPct: string;
   total: number;
+}
+
+interface TeamStats {
+  team: string;
+  winPct: string;
+  runlinePct: string;
+  overPct: string;
+  underPct: string;
+  total: number;
+}
+
+interface GameDisplay {
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  ouLine: number;
 }
 
 export default function FilterableWinRates() {
@@ -74,7 +103,7 @@ export default function FilterableWinRates() {
         console.error('Error fetching data:', error);
       } else {
         console.log(`Retrieved ${data?.length || 0} total records for stats calculation`);
-        setResults((data as DataRow[]) || []);
+        setResults((data as any[]) || []);
       }
     } catch (error) {
       console.error('Error applying filters:', error);
@@ -99,7 +128,64 @@ export default function FilterableWinRates() {
     };
   };
 
+  const isPitcherSelected = (): boolean => {
+    return !!(filters['primary_pitcher'] || filters['opponent_pitcher']);
+  };
+
+  const getTeamStats = (): TeamStats[] => {
+    const teamMap = new Map<string, DataRow[]>();
+    
+    // Group by primary team
+    results.forEach(row => {
+      if (row.primary_team) {
+        if (!teamMap.has(row.primary_team)) {
+          teamMap.set(row.primary_team, []);
+        }
+        teamMap.get(row.primary_team)!.push(row);
+      }
+    });
+
+    return Array.from(teamMap.entries()).map(([team, games]) => {
+      const total = games.length;
+      const win = games.filter(g => g.primary_win === 1).length;
+      const runline = games.filter(g => g.primary_runline_win === 1).length;
+      const over = games.filter(g => g.ou_result === 1).length;
+      const under = games.filter(g => g.ou_result === 0).length;
+
+      return {
+        team,
+        winPct: total ? (win / total * 100).toFixed(1) : "0",
+        runlinePct: total ? (runline / total * 100).toFixed(1) : "0",
+        overPct: total ? (over / total * 100).toFixed(1) : "0",
+        underPct: total ? (under / total * 100).toFixed(1) : "0",
+        total
+      };
+    }).sort((a, b) => b.total - a.total);
+  };
+
+  const getGameDisplays = (): GameDisplay[] => {
+    return results.slice(0, 50).map(row => {
+      const homeTeam = row.is_home_team ? row.primary_team : row.opponent_team;
+      const awayTeam = row.is_home_team ? row.opponent_team : row.primary_team;
+      const homeScore = row.is_home_team ? row.primary_team_score : row.opponent_team_score;
+      const awayScore = row.is_home_team ? row.opponent_team_score : row.primary_team_score;
+      
+      const date = `${row.month || 0}/${row.day || 0}/${row.season || 0}`;
+      
+      return {
+        date,
+        homeTeam: homeTeam || '',
+        awayTeam: awayTeam || '',
+        homeScore: homeScore || 0,
+        awayScore: awayScore || 0,
+        ouLine: row.o_u_line || 0
+      };
+    });
+  };
+
   const stats = calculateStats();
+  const teamStats = getTeamStats();
+  const gameDisplays = getGameDisplays();
 
   const clearFilters = () => {
     setFilters({});
@@ -159,28 +245,79 @@ export default function FilterableWinRates() {
         </Card>
       )}
 
-      {results.length > 0 && (
+      {results.length > 0 && !isPitcherSelected() && (
         <Card>
           <CardContent className="p-4">
+            <h3 className="text-lg font-semibold mb-4">Team Performance Summary</h3>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {columns.slice(0, 10).map(col => (
-                      <TableHead key={col} className="min-w-[120px]">
-                        {col.replace(/_/g, ' ')}
-                      </TableHead>
-                    ))}
+                    <TableHead>Team</TableHead>
+                    <TableHead className="text-center">Win Rate</TableHead>
+                    <TableHead className="text-center">Run Line Cover</TableHead>
+                    <TableHead className="text-center">Over Rate</TableHead>
+                    <TableHead className="text-center">Under Rate</TableHead>
+                    <TableHead className="text-center">Total Games</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {results.slice(0, 50).map((row, i) => (
+                  {teamStats.map((team) => (
+                    <TableRow key={team.team}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <TeamDisplay team={team.team} isHome={true} />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-green-600">
+                        {team.winPct}%
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-blue-600">
+                        {team.runlinePct}%
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-orange-600">
+                        {team.overPct}%
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-purple-600">
+                        {team.underPct}%
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        {team.total}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {results.length > 0 && isPitcherSelected() && (
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-lg font-semibold mb-4">Individual Games</h3>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Home Team</TableHead>
+                    <TableHead>Away Team</TableHead>
+                    <TableHead className="text-center">Home Score</TableHead>
+                    <TableHead className="text-center">Away Score</TableHead>
+                    <TableHead className="text-center">O/U Line</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {gameDisplays.map((game, i) => (
                     <TableRow key={i}>
-                      {columns.slice(0, 10).map(col => (
-                        <TableCell key={col} className="text-sm">
-                          {row[col]?.toString() || ''}
-                        </TableCell>
-                      ))}
+                      <TableCell>{game.date}</TableCell>
+                      <TableCell>{game.homeTeam}</TableCell>
+                      <TableCell>{game.awayTeam}</TableCell>
+                      <TableCell className="text-center">{game.homeScore}</TableCell>
+                      <TableCell className="text-center">{game.awayScore}</TableCell>
+                      <TableCell className="text-center">{game.ouLine}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

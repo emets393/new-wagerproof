@@ -3190,6 +3190,7 @@ export type Database = {
           opponent_team: string | null
           opponent_team_last_3: number | null
           opponent_team_number: number | null
+          opponent_team_score: number | null
           opponent_unique_team_id: string | null
           opponent_whip: number | null
           opponent_win_pct: number | null
@@ -3218,6 +3219,7 @@ export type Database = {
           primary_team: string | null
           primary_team_last_3: number | null
           primary_team_number: number | null
+          primary_team_score: number | null
           primary_travel_distance_miles: number | null
           primary_unique_team_id: string | null
           primary_whip: number | null
