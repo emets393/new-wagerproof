@@ -16,6 +16,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { buildQueryString } from "@/utils/queryParams";
+import AdvancedNumericFilter from "@/components/AdvancedNumericFilter";
+import FilterSummary from "@/components/FilterSummary";
 
 const numericFilters = [
   "series_game_number", "series_home_wins", "series_away_wins", "series_overs", "series_unders",
@@ -125,6 +127,14 @@ export default function Analytics() {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleClearFilter = (key: string) => {
+    setFilters(prev => {
+      const newFilters = { ...prev };
+      delete newFilters[key];
+      return newFilters;
+    });
+  };
+
   const applyFilters = () => {
     console.log('Applying filters:', filters);
     setAppliedFilters(filters);
@@ -133,6 +143,21 @@ export default function Analytics() {
   const clearFilters = () => {
     setFilters({});
     setAppliedFilters({});
+  };
+
+  // Define ranges for different numeric fields
+  const getFieldRange = (field: string) => {
+    switch (field) {
+      case 'o_u_line': return { min: 6, max: 15, step: 0.5 };
+      case 'home_ml': case 'away_ml': return { min: -300, max: 300, step: 5 };
+      case 'home_rl': case 'away_rl': return { min: -2.5, max: 2.5, step: 0.5 };
+      case 'home_win_pct': case 'away_win_pct': return { min: 0, max: 100, step: 1 };
+      case 'season': return { min: 2020, max: 2025, step: 1 };
+      case 'month': return { min: 1, max: 12, step: 1 };
+      case 'home_era': case 'away_era': return { min: 0, max: 8, step: 0.1 };
+      case 'home_whip': case 'away_whip': return { min: 0.8, max: 2, step: 0.05 };
+      default: return { min: 0, max: 100, step: 1 };
+    }
   };
 
   return (
@@ -161,26 +186,92 @@ export default function Analytics() {
         </div>
 
         <div className="grid gap-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {[...textFilters, ...numericFilters].map(key => (
-              <div key={key} className="flex flex-col space-y-1">
-                <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
-                <Input
-                  type={numericFilters.includes(key) ? 'number' : 'text'}
-                  value={filters[key] || ''}
-                  onChange={(e) => handleChange(key, e.target.value)}
-                  placeholder={key.replace(/_/g, ' ')}
-                />
+          {/* Filter Summary */}
+          <FilterSummary 
+            filters={filters}
+            onClearFilter={handleClearFilter}
+            onClearAll={clearFilters}
+          />
+
+          {/* Advanced Numeric Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Advanced Filters</CardTitle>
+              <CardDescription>Use toggles and sliders for precise filtering</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {numericFilters.slice(0, 12).map(field => {
+                  const range = getFieldRange(field);
+                  return (
+                    <AdvancedNumericFilter
+                      key={field}
+                      label={field.replace(/_/g, ' ')}
+                      field={field}
+                      value={filters[field] || ''}
+                      onChange={handleChange}
+                      {...range}
+                    />
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </CardContent>
+          </Card>
+
+          {/* Text Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Text Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {textFilters.map(key => (
+                  <div key={key} className="flex flex-col space-y-1">
+                    <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
+                    <Input
+                      type="text"
+                      value={filters[key] || ''}
+                      onChange={(e) => handleChange(key, e.target.value)}
+                      placeholder={key.replace(/_/g, ' ')}
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Additional Numeric Filters */}
+          {numericFilters.length > 12 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Filters</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {numericFilters.slice(12).map(field => {
+                    const range = getFieldRange(field);
+                    return (
+                      <AdvancedNumericFilter
+                        key={field}
+                        label={field.replace(/_/g, ' ')}
+                        field={field}
+                        value={filters[field] || ''}
+                        onChange={handleChange}
+                        {...range}
+                      />
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex gap-4">
             <Button onClick={applyFilters} disabled={isLoading}>
               {isLoading ? 'Loading...' : 'Apply Filters'}
             </Button>
             <Button variant="outline" onClick={clearFilters}>
-              Clear Filters
+              Clear All Filters
             </Button>
           </div>
 

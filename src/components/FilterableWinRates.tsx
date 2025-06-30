@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { supabase } from "@/integrations/supabase/client";
 import TeamDisplay from "./TeamDisplay";
 import { buildQueryString } from "@/utils/queryParams";
+import AdvancedNumericFilter from "./AdvancedNumericFilter";
+import FilterSummary from "./FilterSummary";
 
 const columns = [
   "season", "month", "day", "series_game_number", "o_u_line",
@@ -87,6 +89,12 @@ export default function FilterableWinRates() {
 
   const handleInputChange = (column: string, value: string) => {
     setFilters({ ...filters, [column]: value });
+  };
+
+  const handleClearFilter = (column: string) => {
+    const newFilters = { ...filters };
+    delete newFilters[column];
+    setFilters(newFilters);
   };
 
   const applyFilters = async (): Promise<void> => {
@@ -223,12 +231,69 @@ export default function FilterableWinRates() {
     setResults([]);
   };
 
+  const getFieldRange = (field: string) => {
+    switch (field) {
+      case 'o_u_line': return { min: 6, max: 15, step: 0.5 };
+      case 'primary_ml': case 'opponent_ml': return { min: -300, max: 300, step: 5 };
+      case 'primary_rl': case 'opponent_rl': return { min: -2.5, max: 2.5, step: 0.5 };
+      case 'primary_win_pct': case 'opponent_win_pct': return { min: 0, max: 100, step: 1 };
+      case 'season': return { min: 2020, max: 2025, step: 1 };
+      case 'month': return { min: 1, max: 12, step: 1 };
+      case 'day': return { min: 1, max: 31, step: 1 };
+      case 'primary_era': case 'opponent_era': return { min: 0, max: 8, step: 0.1 };
+      case 'primary_whip': case 'opponent_whip': return { min: 0.8, max: 2, step: 0.05 };
+      case 'series_game_number': return { min: 1, max: 7, step: 1 };
+      default: return { min: 0, max: 100, step: 1 };
+    }
+  };
+
+  // Separate numeric and text columns
+  const numericColumns = columns.filter(col => 
+    !['primary_team', 'opponent_team', 'primary_pitcher', 'opponent_pitcher'].includes(col)
+  );
+  const textColumns = ['primary_team', 'opponent_team', 'primary_pitcher', 'opponent_pitcher'];
+
   return (
     <div className="p-4 grid gap-4">
+      {/* Filter Summary */}
+      <FilterSummary 
+        filters={filters}
+        onClearFilter={handleClearFilter}
+        onClearAll={clearFilters}
+      />
+
+      {/* Advanced Numeric Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[500px] overflow-y-auto">
-            {columns.map(col => (
+        <CardHeader>
+          <CardTitle>Advanced Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
+            {numericColumns.slice(0, 15).map(col => {
+              const range = getFieldRange(col);
+              return (
+                <AdvancedNumericFilter
+                  key={col}
+                  label={col.replace(/_/g, ' ')}
+                  field={col}
+                  value={filters[col] || ''}
+                  onChange={handleInputChange}
+                  {...range}
+                />
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Text Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Text Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {textColumns.map(col => (
               <div key={col}>
                 <Label className="text-sm font-medium">{col.replace(/_/g, ' ')}</Label>
                 <Input 
@@ -239,16 +304,43 @@ export default function FilterableWinRates() {
               </div>
             ))}
           </div>
-          <div className="flex gap-2 mt-4">
-            <Button onClick={applyFilters} disabled={isLoading}>
-              {isLoading ? 'Loading...' : 'Apply Filters'}
-            </Button>
-            <Button variant="outline" onClick={clearFilters}>
-              Clear Filters
-            </Button>
-          </div>
         </CardContent>
       </Card>
+
+      {/* Additional Numeric Filters */}
+      {numericColumns.length > 15 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Additional Filters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto">
+              {numericColumns.slice(15).map(col => {
+                const range = getFieldRange(col);
+                return (
+                  <AdvancedNumericFilter
+                    key={col}
+                    label={col.replace(/_/g, ' ')}
+                    field={col}
+                    value={filters[col] || ''}
+                    onChange={handleInputChange}
+                    {...range}
+                  />
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex gap-2">
+        <Button onClick={applyFilters} disabled={isLoading}>
+          {isLoading ? 'Loading...' : 'Apply Filters'}
+        </Button>
+        <Button variant="outline" onClick={clearFilters}>
+          Clear All Filters
+        </Button>
+      </div>
 
       {results.length > 0 && (
         <Card>
