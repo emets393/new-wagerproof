@@ -59,37 +59,22 @@ export default function Analytics() {
   const queryFn = async (): Promise<TrainingDataRow[]> => {
     console.log('Fetching with applied filters:', appliedFilters);
     
-    // Build query step by step to avoid deep type instantiation
-    const baseQuery = supabase.from('training_data');
-    const selectQuery = baseQuery.select('*');
-    
-    // Apply filters one by one
-    let filteredQuery = selectQuery;
-    Object.entries(appliedFilters).forEach(([key, value]) => {
-      const stringValue = String(value);
-      if (stringValue !== '' && stringValue !== 'undefined') {
-        console.log(`Applying filter: ${key} = ${stringValue}`);
-        
-        if (numericFilters.includes(key)) {
-          const numericValue = parseFloat(stringValue);
-          if (!isNaN(numericValue)) {
-            filteredQuery = filteredQuery.eq(key, numericValue);
-          }
-        } else {
-          filteredQuery = filteredQuery.eq(key, stringValue);
-        }
-      }
+    // Call the edge function for filtering
+    const response = await fetch('https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(appliedFilters),
     });
-    
-    // Apply limit and execute with explicit typing
-    const finalQuery = filteredQuery.limit(100000);
-    const { data, error }: { data: any[] | null; error: any } = await finalQuery;
-    console.log('Query result:', { data, error, count: data?.length });
-    
-    if (error) {
-      console.error('Supabase error:', error);
-      throw new Error(error.message);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const data = await response.json();
+    console.log('Query result:', { data, count: data?.length });
+    
     return data || [];
   };
 

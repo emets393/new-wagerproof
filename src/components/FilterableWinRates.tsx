@@ -91,43 +91,32 @@ export default function FilterableWinRates() {
   const applyFilters = async (): Promise<void> => {
     setIsLoading(true);
     try {
-      // Fetch MLB teams data for logos - use explicit typing
-      const teamsQuery = supabase.from("MLB_Teams").select("*");
-      const { data: teamsData } = await teamsQuery;
+      // Fetch MLB teams data for logos (simple query)
+      const { data: teamsData } = await supabase.from("MLB_Teams").select("*");
       
       if (teamsData) {
         setMlbTeams(teamsData);
       }
 
-      // Build query step by step to avoid deep type instantiation
-      const baseQuery = supabase.from("training_data_team_view_enhanced");
-      const selectQuery = baseQuery.select("*");
-      
-      // Apply filters one by one
-      let filteredQuery = selectQuery;
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value && value.trim() !== '') {
-          const trimmedValue = value.trim();
-          if (!isNaN(Number(trimmedValue)) && trimmedValue !== '') {
-            filteredQuery = filteredQuery.eq(key, Number(trimmedValue));
-          } else {
-            filteredQuery = filteredQuery.ilike(key, `%${trimmedValue}%`);
-          }
-        }
+      // Call the edge function for filtering
+      const response = await fetch('https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(filters),
       });
-      
-      // Apply limit and execute with explicit typing
-      const finalQuery = filteredQuery.limit(100000);
-      const { data, error }: { data: any[] | null; error: any } = await finalQuery;
-      
-      if (error) {
-        console.error('Error fetching data:', error);
-      } else {
-        console.log(`Retrieved ${data?.length || 0} total records for stats calculation`);
-        setResults(data || []);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
+      console.log(`Retrieved ${data?.length || 0} total records for stats calculation`);
+      setResults(data || []);
     } catch (error) {
       console.error('Error applying filters:', error);
+      setResults([]);
     } finally {
       setIsLoading(false);
     }
