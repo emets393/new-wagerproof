@@ -18,8 +18,8 @@ export const buildQueryString = (filters: Record<string, string>): string => {
         const maxValue = filters[maxKey]?.trim();
         
         if (maxValue && maxValue !== '') {
-          // Both min and max exist - use between format
-          params.append(baseField, `between:${minValue}-${maxValue}`);
+          // Both min and max exist - use between format with comma
+          params.append(baseField, `between:${minValue},${maxValue}`);
         } else {
           // Only min exists - use gt format
           params.append(baseField, `gt:${minValue}`);
@@ -35,8 +35,8 @@ export const buildQueryString = (filters: Record<string, string>): string => {
         const minValue = filters[minKey]?.trim();
         
         if (minValue && minValue !== '') {
-          // Both min and max exist - use between format
-          params.append(baseField, `between:${minValue}-${maxValue}`);
+          // Both min and max exist - use between format with comma
+          params.append(baseField, `between:${minValue},${maxValue}`);
         } else {
           // Only max exists - use lt format
           params.append(baseField, `lt:${maxValue}`);
