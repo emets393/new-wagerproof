@@ -38,7 +38,7 @@ export default function SituationalFilters({ filters, onFilterChange }: Situatio
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Range Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Series Game Number */}
           <div className="space-y-3">
             <RangeSlider
@@ -64,36 +64,10 @@ export default function SituationalFilters({ filters, onFilterChange }: Situatio
               formatValue={(v) => v.toString()}
             />
           </div>
-
-          {/* Primary Last Win */}
-          <div className="space-y-3">
-            <RangeSlider
-              label="Primary Last Win"
-              value={getCurrentRange('primary_last_win', 0, 1)}
-              onValueChange={(value) => handleRangeChange('primary_last_win', value, 0, 1)}
-              min={0}
-              max={1}
-              step={1}
-              formatValue={(v) => v === 1 ? 'Won' : 'Lost'}
-            />
-          </div>
-
-          {/* Opponent Last Win */}
-          <div className="space-y-3">
-            <RangeSlider
-              label="Opponent Last Win"
-              value={getCurrentRange('opponent_last_win', 0, 1)}
-              onValueChange={(value) => handleRangeChange('opponent_last_win', value, 0, 1)}
-              min={0}
-              max={1}
-              step={1}
-              formatValue={(v) => v === 1 ? 'Won' : 'Lost'}
-            />
-          </div>
         </div>
 
-        {/* Boolean Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 border-t border-cyan-200">
+        {/* Boolean and Selection Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4 border-t border-cyan-200">
           {/* Same Division */}
           <div className="space-y-3">
             <Label className="text-sm font-medium text-cyan-700">Same Division</Label>
@@ -128,6 +102,44 @@ export default function SituationalFilters({ filters, onFilterChange }: Situatio
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="false" id="home_no" className="border-cyan-500 text-cyan-600" />
                 <Label htmlFor="home_no" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">No</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Primary Last Win */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-cyan-700">Primary Last Win</Label>
+            <RadioGroup
+              value={filters['primary_last_win'] || ''}
+              onValueChange={(value) => onFilterChange('primary_last_win', value)}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="1" id="primary_won" className="border-cyan-500 text-cyan-600" />
+                <Label htmlFor="primary_won" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">Won</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="0" id="primary_lost" className="border-cyan-500 text-cyan-600" />
+                <Label htmlFor="primary_lost" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">Lost</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Opponent Last Win */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-cyan-700">Opponent Last Win</Label>
+            <RadioGroup
+              value={filters['opponent_last_win'] || ''}
+              onValueChange={(value) => onFilterChange('opponent_last_win', value)}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="1" id="opponent_won" className="border-cyan-500 text-cyan-600" />
+                <Label htmlFor="opponent_won" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">Won</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="0" id="opponent_lost" className="border-cyan-500 text-cyan-600" />
+                <Label htmlFor="opponent_lost" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">Lost</Label>
               </div>
             </RadioGroup>
           </div>
