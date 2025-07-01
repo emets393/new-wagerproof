@@ -119,8 +119,9 @@ export default function FilterableWinRates() {
       const queryString = buildQueryString(filters);
       const url = `https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data?${queryString}`;
       
+      console.log('Original filters:', filters);
+      console.log('Converted query string:', queryString);
       console.log('Sending GET request to:', url);
-      console.log('Filters being sent:', filters);
 
       // Call the edge function for filtering with GET method and query parameters
       const response = await fetch(url, {
@@ -136,7 +137,8 @@ export default function FilterableWinRates() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Edge function error:', errorText);
+        console.error('Edge function error response:', errorText);
+        console.error('Request details:', { url, queryString, filters });
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
@@ -146,6 +148,7 @@ export default function FilterableWinRates() {
       setResults(data || []);
     } catch (error) {
       console.error('Error applying filters:', error);
+      console.error('Filter state at time of error:', filters);
       setResults([]);
     } finally {
       setIsLoading(false);

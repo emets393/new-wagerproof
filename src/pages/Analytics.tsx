@@ -73,8 +73,9 @@ export default function Analytics() {
     const queryString = buildQueryString(appliedFilters);
     const url = `https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data?${queryString}`;
     
+    console.log('Original applied filters:', appliedFilters);
+    console.log('Converted query string:', queryString);
     console.log('Sending GET request to:', url);
-    console.log('Applied filters being sent:', appliedFilters);
 
     // Call the edge function for filtering with GET method and query parameters
     const response = await fetch(url, {
@@ -90,7 +91,8 @@ export default function Analytics() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Edge function error:', errorText);
+      console.error('Edge function error response:', errorText);
+      console.error('Request details:', { url, queryString, appliedFilters });
       throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
 
