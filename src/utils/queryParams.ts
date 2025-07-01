@@ -1,4 +1,5 @@
 
+
 export const buildQueryString = (filters: Record<string, string>): string => {
   const params = new URLSearchParams();
   const processedFields = new Set<string>();
@@ -43,15 +44,12 @@ export const buildQueryString = (filters: Record<string, string>): string => {
         processedFields.add(baseField);
         
       } else {
-        // Handle existing operators and exact matches
-        if (trimmedValue.startsWith("lt:")) {
-          params.append(`${key}_lt`, trimmedValue.slice(3));
-        } else if (trimmedValue.startsWith("gt:")) {
-          params.append(`${key}_gt`, trimmedValue.slice(3));
-        } else if (trimmedValue.startsWith("between:")) {
-          const [min, max] = trimmedValue.slice(8).split("-");
-          params.append(`${key}_min`, min);
-          params.append(`${key}_max`, max);
+        // Handle existing operators and exact matches - PASS THEM THROUGH AS-IS
+        if (trimmedValue.startsWith("lt:") || 
+            trimmedValue.startsWith("gt:") || 
+            trimmedValue.startsWith("between:")) {
+          // Pass operator formats directly to the edge function
+          params.append(key, trimmedValue);
         } else {
           // Exact match
           params.append(key, trimmedValue);
@@ -62,3 +60,4 @@ export const buildQueryString = (filters: Record<string, string>): string => {
   
   return params.toString();
 };
+
