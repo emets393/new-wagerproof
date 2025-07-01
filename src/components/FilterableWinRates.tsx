@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import TeamDisplay from "./TeamDisplay";
 import { buildQueryString } from "@/utils/queryParams";
-import AdvancedNumericFilter from "./AdvancedNumericFilter";
 import FilterSummary from "./FilterSummary";
-import NumericRangeFilter from "./NumericRangeFilter";
 import BettingLinesFilters from "./BettingLinesFilters";
+import DateFilters from "./DateFilters";
+import SituationalFilters from "./SituationalFilters";
+import { Sparkles, Play } from "lucide-react";
 
 const columns = [
   "season", "month", "day", "series_game_number", "o_u_line",
@@ -93,12 +92,6 @@ export default function FilterableWinRates() {
     setFilters({ ...filters, [column]: value });
   };
 
-  const handleClearFilter = (column: string) => {
-    const newFilters = { ...filters };
-    delete newFilters[column];
-    setFilters(newFilters);
-  };
-
   const applyFilters = async (): Promise<void> => {
     setIsLoading(true);
     try {
@@ -128,8 +121,8 @@ export default function FilterableWinRates() {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ'
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54YmJucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54YmJucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ'
         },
       });
 
@@ -236,58 +229,14 @@ export default function FilterableWinRates() {
     setResults([]);
   };
 
-  const getFieldConfig = (field: string) => {
-    switch (field) {
-      case 'o_u_line': return { 
-        min: 6, max: 15, step: 0.5, 
-        formatValue: (v: number) => v.toFixed(1) 
-      };
-      case 'primary_ml': case 'opponent_ml': return { 
-        min: -500, max: 500, step: 10,
-        formatValue: (v: number) => v > 0 ? `+${v}` : v.toString()
-      };
-      case 'primary_rl': case 'opponent_rl': return { 
-        min: -3, max: 3, step: 0.5,
-        formatValue: (v: number) => v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1)
-      };
-      case 'primary_win_pct': case 'opponent_win_pct': return { 
-        min: 0, max: 100, step: 1,
-        formatValue: (v: number) => `${v}%`
-      };
-      case 'season': return { min: 2020, max: 2025, step: 1 };
-      case 'month': return { min: 1, max: 12, step: 1 };
-      case 'day': return { min: 1, max: 31, step: 1 };
-      case 'series_game_number': return { min: 1, max: 7, step: 1 };
-      case 'primary_era': case 'opponent_era': return { 
-        min: 0, max: 8, step: 0.1,
-        formatValue: (v: number) => v.toFixed(2)
-      };
-      case 'primary_whip': case 'opponent_whip': return { 
-        min: 0.8, max: 2, step: 0.05,
-        formatValue: (v: number) => v.toFixed(2)
-      };
-      default: return { min: 0, max: 100, step: 1 };
-    }
+  const handleClearFilter = (column: string) => {
+    const newFilters = { ...filters };
+    delete newFilters[column];
+    setFilters(newFilters);
   };
 
-  // Separate numeric and text columns
-  const bettingLineFields = [
-    'o_u_line', 'opponent_ml', 'primary_ml', 'primary_rl', 'primary_ml_handle',
-    'primary_ml_bets', 'primary_rl_handle', 'primary_rl_bets', 'opponent_rl',
-    'opponent_ml_handle', 'opponent_ml_bets', 'opponent_rl_handle', 
-    'opponent_rl_bets', 'ou_handle_over', 'ou_bets_over'
-  ];
-
-  const priorityNumericColumns = ['series_game_number', 'month', 'day', 'primary_win_pct', 'opponent_win_pct'];
-  const otherNumericColumns = columns.filter(col => 
-    !['primary_team', 'opponent_team', 'primary_pitcher', 'opponent_pitcher'].includes(col) &&
-    !priorityNumericColumns.includes(col) &&
-    !bettingLineFields.includes(col)
-  );
-  const textColumns = ['primary_team', 'opponent_team', 'primary_pitcher', 'opponent_pitcher'];
-
   return (
-    <div className="p-4 grid gap-4">
+    <div className="p-4 grid gap-6">
       {/* Filter Summary */}
       <FilterSummary 
         filters={filters}
@@ -295,124 +244,93 @@ export default function FilterableWinRates() {
         onClearAll={clearFilters}
       />
 
-      {/* Betting Lines Filters */}
-      <BettingLinesFilters 
-        filters={filters}
-        onFilterChange={handleInputChange}
-      />
+      {/* Three Filter Sections */}
+      <div className="grid gap-6">
+        <BettingLinesFilters 
+          filters={filters}
+          onFilterChange={handleInputChange}
+        />
+        
+        <DateFilters 
+          filters={filters}
+          onFilterChange={handleInputChange}
+        />
+        
+        <SituationalFilters 
+          filters={filters}
+          onFilterChange={handleInputChange}
+        />
+      </div>
 
-      {/* Priority Range Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Key Range Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {priorityNumericColumns.map(col => {
-              const config = getFieldConfig(col);
-              return (
-                <NumericRangeFilter
-                  key={col}
-                  label={col.replace(/_/g, ' ')}
-                  field={col}
-                  value={filters[col] || ''}
-                  onChange={handleInputChange}
-                  {...config}
-                />
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Text Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Text Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {textColumns.map(col => (
-              <div key={col}>
-                <Label className="text-sm font-medium">{col.replace(/_/g, ' ')}</Label>
-                <Input 
-                  value={filters[col] || ""} 
-                  onChange={e => handleInputChange(col, e.target.value)}
-                  placeholder={`Filter ${col}`}
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Additional Range Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Additional Range Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto">
-            {otherNumericColumns.map(col => {
-              const config = getFieldConfig(col);
-              return (
-                <NumericRangeFilter
-                  key={col}
-                  label={col.replace(/_/g, ' ')}
-                  field={col}
-                  value={filters[col] || ''}
-                  onChange={handleInputChange}
-                  {...config}
-                />
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex gap-2">
-        <Button onClick={applyFilters} disabled={isLoading}>
-          {isLoading ? 'Loading...' : 'Apply Filters'}
+      {/* Action Buttons */}
+      <div className="flex gap-3">
+        <Button 
+          onClick={applyFilters} 
+          disabled={isLoading}
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              Loading...
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4" />
+              Apply Filters
+            </>
+          )}
         </Button>
-        <Button variant="outline" onClick={clearFilters}>
-          Clear All Filters
+        <Button 
+          variant="outline" 
+          onClick={clearFilters}
+          className="border-2 border-gray-300 hover:border-purple-500 hover:text-purple-600 px-6 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+        >
+          <Sparkles className="w-4 h-4" />
+          Clear All
         </Button>
       </div>
 
+      {/* Results Summary */}
       {results.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold mb-4">Results Summary ({stats.total} records)</h3>
+        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-l-4 border-green-500">
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              Results Summary ({stats.total} records)
+            </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">{stats.winPct}%</p>
-                <p className="text-sm text-gray-600">Win Rate</p>
+              <div className="text-center p-4 bg-white/70 rounded-lg border border-green-200">
+                <p className="text-3xl font-bold text-green-600">{stats.winPct}%</p>
+                <p className="text-sm text-green-700 font-medium">Win Rate</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">{stats.runlinePct}%</p>
-                <p className="text-sm text-gray-600">Run Line Cover</p>
+              <div className="text-center p-4 bg-white/70 rounded-lg border border-blue-200">
+                <p className="text-3xl font-bold text-blue-600">{stats.runlinePct}%</p>
+                <p className="text-sm text-blue-700 font-medium">Run Line Cover</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-orange-600">{stats.overPct}%</p>
-                <p className="text-sm text-gray-600">Over Rate</p>
+              <div className="text-center p-4 bg-white/70 rounded-lg border border-orange-200">
+                <p className="text-3xl font-bold text-orange-600">{stats.overPct}%</p>
+                <p className="text-sm text-orange-700 font-medium">Over Rate</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">{stats.underPct}%</p>
-                <p className="text-sm text-gray-600">Under Rate</p>
+              <div className="text-center p-4 bg-white/70 rounded-lg border border-purple-200">
+                <p className="text-3xl font-bold text-purple-600">{stats.underPct}%</p>
+                <p className="text-sm text-purple-700 font-medium">Under Rate</p>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* Team Performance Summary */}
       {results.length > 0 && !isPitcherSelected() && (
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold mb-4">Team Performance Summary</h3>
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-blue-500">
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              Team Performance Summary
+            </h3>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="border-blue-200">
                     <TableHead>Team</TableHead>
                     <TableHead className="text-center">Win Rate</TableHead>
                     <TableHead className="text-center">Run Line Cover</TableHead>
@@ -423,7 +341,7 @@ export default function FilterableWinRates() {
                 </TableHeader>
                 <TableBody>
                   {teamStats.map((team) => (
-                    <TableRow key={team.team}>
+                    <TableRow key={team.team} className="hover:bg-blue-50/50 transition-colors">
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <TeamDisplay team={team.team} isHome={true} />
@@ -453,14 +371,17 @@ export default function FilterableWinRates() {
         </Card>
       )}
 
+      {/* Individual Games Table */}
       {results.length > 0 && isPitcherSelected() && (
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold mb-4">Individual Games</h3>
+        <Card className="bg-gradient-to-br from-amber-50 to-yellow-50 border-l-4 border-amber-500">
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
+              Individual Games
+            </h3>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="border-amber-200">
                     <TableHead>Date</TableHead>
                     <TableHead>Home Team</TableHead>
                     <TableHead>Away Team</TableHead>
@@ -471,7 +392,7 @@ export default function FilterableWinRates() {
                 </TableHeader>
                 <TableBody>
                   {gameDisplays.map((game, i) => (
-                    <TableRow key={i}>
+                    <TableRow key={i} className="hover:bg-amber-50/50 transition-colors">
                       <TableCell>{game.date}</TableCell>
                       <TableCell>
                         <TeamDisplay team={game.homeTeam} isHome={true} />
@@ -487,7 +408,7 @@ export default function FilterableWinRates() {
                 </TableBody>
               </Table>
               {results.length > 50 && (
-                <p className="text-sm text-gray-600 mt-2 text-center">
+                <p className="text-sm text-amber-600 mt-3 text-center font-medium">
                   Showing first 50 results out of {results.length} total records
                 </p>
               )}
@@ -496,10 +417,12 @@ export default function FilterableWinRates() {
         </Card>
       )}
 
+      {/* No Results Message */}
       {results.length === 0 && Object.keys(filters).some(key => filters[key]?.trim()) && !isLoading && (
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-gray-600">No results found with the current filters.</p>
+        <Card className="bg-gradient-to-br from-gray-50 to-slate-50 border-l-4 border-gray-400">
+          <CardContent className="p-6 text-center">
+            <p className="text-gray-600 font-medium">No results found with the current filters.</p>
+            <p className="text-sm text-gray-500 mt-2">Try adjusting your filter criteria.</p>
           </CardContent>
         </Card>
       )}

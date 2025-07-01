@@ -43,7 +43,8 @@ serve(async (req) => {
   const allFilters = [
     ...numericFiltersWithOperators,
     "primary_team", "primary_pitcher", "primary_handedness", "opponent_team",
-    "opponent_pitcher", "opponent_handedness", "same_division", "same_league", "is_home_team"
+    "opponent_pitcher", "opponent_handedness", "same_division", "same_league", "is_home_team",
+    "team_status"
   ];
 
   let query = supabase.from('training_data_team_view_enhanced').select('*').limit(100000);
@@ -54,6 +55,18 @@ serve(async (req) => {
     if (!val) continue;
 
     console.log(`Processing filter: ${key} = ${val}`);
+
+    // Handle special team_status filter for favored/underdog
+    if (key === 'team_status') {
+      if (val === 'favored') {
+        console.log('Applying favored filter: primary_ml < opponent_ml');
+        query = query.lt('primary_ml', 'opponent_ml');
+      } else if (val === 'underdog') {
+        console.log('Applying underdog filter: primary_ml > opponent_ml');
+        query = query.gt('primary_ml', 'opponent_ml');
+      }
+      continue;
+    }
 
     if (numericFiltersWithOperators.has(key)) {
       if (val.startsWith('gt:')) {
