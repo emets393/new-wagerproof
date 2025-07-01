@@ -57,7 +57,7 @@ export default function AdvancedNumericFilter({
   const handleRangeChange = (values: number[]) => {
     setRangeValue(values);
     if (mode === "between") {
-      onChange(field, `between:${values[0]}-${values[1]}`);
+      onChange(field, `between:${values[0]},${values[1]}`);
     }
   };
 
@@ -84,7 +84,7 @@ export default function AdvancedNumericFilter({
     if (val.startsWith("lt:")) return `< ${val.slice(3)}`;
     if (val.startsWith("gt:")) return `> ${val.slice(3)}`;
     if (val.startsWith("between:")) {
-      const [min, max] = val.slice(8).split("-");
+      const [min, max] = val.slice(8).split(",");
       return `${min} - ${max}`;
     }
     return val;

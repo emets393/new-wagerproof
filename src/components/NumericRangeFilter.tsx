@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,7 @@ export default function NumericRangeFilter({
   useEffect(() => {
     if (value && typeof value === 'string') {
       if (value.startsWith('between:')) {
-        const [minVal, maxVal] = value.slice(8).split('-').map(Number);
+        const [minVal, maxVal] = value.slice(8).split(',').map(Number);
         if (!isNaN(minVal) && !isNaN(maxVal)) {
           setRangeValue([minVal, maxVal]);
         }
@@ -58,7 +59,7 @@ export default function NumericRangeFilter({
     }
     // Otherwise, use between format
     else {
-      onChange(field, `between:${newValue[0]}-${newValue[1]}`);
+      onChange(field, `between:${newValue[0]},${newValue[1]}`);
     }
   };
 
@@ -74,7 +75,7 @@ export default function NumericRangeFilter({
     
     const val = value.toString();
     if (val.startsWith("between:")) {
-      const [minVal, maxVal] = val.slice(8).split("-");
+      const [minVal, maxVal] = val.slice(8).split(",");
       return `${formatValue(Number(minVal))} - ${formatValue(Number(maxVal))}`;
     }
     return formatValue(Number(val));
