@@ -4,6 +4,7 @@ import { RangeSlider } from "@/components/ui/range-slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Target } from "lucide-react";
+import TeamSelector from "./TeamSelector";
 
 interface SituationalFiltersProps {
   filters: Record<string, string>;
@@ -28,6 +29,20 @@ export default function SituationalFilters({ filters, onFilterChange }: Situatio
     return [defaultMin, defaultMax];
   };
 
+  const handleTeamsChange = (field: string, teams: string[]) => {
+    if (teams.length === 0) {
+      onFilterChange(field, '');
+    } else {
+      onFilterChange(field, teams.join(','));
+    }
+  };
+
+  const getSelectedTeams = (field: string): string[] => {
+    const filterValue = filters[field];
+    if (!filterValue) return [];
+    return filterValue.split(',').map(team => team.trim()).filter(team => team);
+  };
+
   return (
     <Card className="filter-section-situational">
       <CardHeader>
@@ -37,6 +52,22 @@ export default function SituationalFilters({ filters, onFilterChange }: Situatio
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Team Selection Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-4 border-b border-cyan-200">
+          <TeamSelector
+            label="Primary Team"
+            selectedTeams={getSelectedTeams('primary_team')}
+            onTeamsChange={(teams) => handleTeamsChange('primary_team', teams)}
+          />
+          
+          <TeamSelector
+            label="Opponent Team"
+            selectedTeams={getSelectedTeams('opponent_team')}
+            onTeamsChange={(teams) => handleTeamsChange('opponent_team', teams)}
+          />
+        </div>
+
+        {/* Range Filters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Series Game Number */}
           <div className="space-y-3">

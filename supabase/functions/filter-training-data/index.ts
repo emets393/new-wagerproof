@@ -92,6 +92,19 @@ serve(async (req) => {
       continue;
     }
 
+    // Handle multi-team selection for primary_team and opponent_team
+    if (key === 'primary_team' || key === 'opponent_team') {
+      if (val.includes(',')) {
+        const teams = val.split(',').map(team => team.trim()).filter(team => team);
+        console.log(`Applying multi-team filter for ${key}:`, teams);
+        query = query.in(key, teams);
+      } else {
+        console.log(`Applying single team filter: ${key} = ${val}`);
+        query = query.eq(key, val);
+      }
+      continue;
+    }
+
     // Handle boolean filters
     if (booleanFilters.has(key)) {
       const boolValue = val === 'true';

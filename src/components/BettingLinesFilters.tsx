@@ -88,43 +88,46 @@ export default function BettingLinesFilters({ filters, onFilterChange }: Betting
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* O/U Line Range Slider */}
-        {ouRange && (
-          <div className="space-y-3">
-            <RangeSlider
-              label="Over/Under Line"
-              value={getCurrentOuRange()}
-              onValueChange={handleOuLineChange}
-              min={ouRange.min}
-              max={ouRange.max}
-              step={0.5}
-              formatValue={(v) => v.toFixed(1)}
-              className="w-full"
-            />
-          </div>
-        )}
+        {/* Equal-sized grid for O/U Line and Team Status */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* O/U Line Range Slider - Now smaller */}
+          {ouRange && (
+            <div className="space-y-3">
+              <RangeSlider
+                label="Over/Under Line"
+                value={getCurrentOuRange()}
+                onValueChange={handleOuLineChange}
+                min={ouRange.min}
+                max={ouRange.max}
+                step={0.5}
+                formatValue={(v) => v.toFixed(1)}
+                className="w-full"
+              />
+            </div>
+          )}
 
-        {/* Favored/Underdog Selection */}
-        <div className="space-y-3">
-          <Label className="text-sm font-medium text-purple-700">Team Status</Label>
-          <RadioGroup
-            value={filters['team_status'] || ''}
-            onValueChange={(value) => onFilterChange('team_status', value)}
-            className="flex gap-6"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="favored" id="favored" className="border-purple-500 text-purple-600" />
-              <Label htmlFor="favored" className="text-sm font-medium cursor-pointer hover:text-purple-600 transition-colors">
-                Favored
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="underdog" id="underdog" className="border-purple-500 text-purple-600" />
-              <Label htmlFor="underdog" className="text-sm font-medium cursor-pointer hover:text-purple-600 transition-colors">
-                Underdog
-              </Label>
-            </div>
-          </RadioGroup>
+          {/* Team Status Selection - Now bigger */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-purple-700">Team Status</Label>
+            <RadioGroup
+              value={filters['team_status'] || ''}
+              onValueChange={(value) => onFilterChange('team_status', value)}
+              className="flex gap-6"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="favored" id="favored" className="border-purple-500 text-purple-600" />
+                <Label htmlFor="favored" className="text-sm font-medium cursor-pointer hover:text-purple-600 transition-colors">
+                  Favored
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="underdog" id="underdog" className="border-purple-500 text-purple-600" />
+                <Label htmlFor="underdog" className="text-sm font-medium cursor-pointer hover:text-purple-600 transition-colors">
+                  Underdog
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
         </div>
       </CardContent>
     </Card>

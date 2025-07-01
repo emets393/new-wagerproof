@@ -9,7 +9,7 @@ import FilterSummary from "./FilterSummary";
 import BettingLinesFilters from "./BettingLinesFilters";
 import DateFilters from "./DateFilters";
 import SituationalFilters from "./SituationalFilters";
-import { Sparkles, Play } from "lucide-react";
+import { Sparkles, Play, ChevronUp, ChevronDown } from "lucide-react";
 
 const columns = [
   "season", "month", "day", "series_game_number", "o_u_line",
@@ -50,14 +50,6 @@ interface DataRow {
   [key: string]: any;
 }
 
-interface StatsResult {
-  winPct: string;
-  runlinePct: string;
-  overPct: string;
-  underPct: string;
-  total: number;
-}
-
 interface TeamStats {
   team: string;
   winPct: string;
@@ -82,11 +74,16 @@ interface MLBTeam {
   [key: string]: any;
 }
 
+type SortColumn = 'team' | 'winPct' | 'runlinePct' | 'overPct' | 'underPct' | 'total';
+type SortDirection = 'asc' | 'desc';
+
 export default function FilterableWinRates() {
   const [filters, setFilters] = useState<Filters>({});
   const [results, setResults] = useState<DataRow[]>([]);
   const [mlbTeams, setMlbTeams] = useState<MLBTeam[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('total');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const handleInputChange = (column: string, value: string) => {
     setFilters({ ...filters, [column]: value });
@@ -133,24 +130,26 @@ export default function FilterableWinRates() {
     }
   };
 
-  const calculateStats = (): StatsResult => {
-    const total = results.length;
-    const win = results.filter(r => r.primary_win === 1).length;
-    const runline = results.filter(r => r.primary_runline_win === 1).length;
-    const over = results.filter(r => r.ou_result === 1).length;
-    const under = results.filter(r => r.ou_result === 0).length;
-    
-    return {
-      winPct: total ? (win / total * 100).toFixed(1) : "0",
-      runlinePct: total ? (runline / total * 100).toFixed(1) : "0",
-      overPct: total ? (over / total * 100).toFixed(1) : "0",
-      underPct: total ? (under / total * 100).toFixed(1) : "0",
-      total
-    };
-  };
-
   const isPitcherSelected = (): boolean => {
     return !!(filters['primary_pitcher'] || filters['opponent_pitcher']);
+  };
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) {
+      return <ChevronUp className="w-4 h-4 opacity-30" />;
+    }
+    return sortDirection === 'asc' ? 
+      <ChevronUp className="w-4 h-4" /> : 
+      <ChevronDown className="w-4 h-4" />;
   };
 
   const getTeamStats = (): TeamStats[] => {
@@ -166,7 +165,7 @@ export default function FilterableWinRates() {
       }
     });
 
-    return Array.from(teamMap.entries()).map(([team, games]) => {
+    const teamStats = Array.from(teamMap.entries()).map(([team, games]) => {
       const total = games.length;
       const win = games.filter(g => g.primary_win === 1).length;
       const runline = games.filter(g => g.primary_runline_win === 1).length;
@@ -181,7 +180,53 @@ export default function FilterableWinRates() {
         underPct: total ? (under / total * 100).toFixed(1) : "0",
         total
       };
-    }).sort((a, b) => b.total - a.total);
+    });
+
+    // Sort based on current sort column and direction
+    return teamStats.sort((a, b) => {
+      let aValue: number | string;
+      let bValue: number | string;
+
+      switch (sortColumn) {
+        case 'team':
+          aValue = a.team;
+          bValue = b.team;
+          break;
+        case 'winPct':
+          aValue = parseFloat(a.winPct);
+          bValue = parseFloat(b.winPct);
+          break;
+        case 'runlinePct':
+          aValue = parseFloat(a.runlinePct);
+          bValue = parseFloat(b.runlinePct);
+          break;
+        case 'overPct':
+          aValue = parseFloat(a.overPct);
+          bValue = parseFloat(b.overPct);
+          break;
+        case 'underPct':
+          aValue = parseFloat(a.underPct);
+          bValue = parseFloat(b.underPct);
+          break;
+        case 'total':
+          aValue = a.total;
+          bValue = b.total;
+          break;
+        default:
+          aValue = a.total;
+          bValue = b.total;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' ? 
+          aValue.localeCompare(bValue) : 
+          bValue.localeCompare(aValue);
+      } else {
+        return sortDirection === 'asc' ? 
+          (aValue as number) - (bValue as number) : 
+          (bValue as number) - (aValue as number);
+      }
+    });
   };
 
   const getGameDisplays = (): GameDisplay[] => {
@@ -204,7 +249,6 @@ export default function FilterableWinRates() {
     });
   };
 
-  const stats = calculateStats();
   const teamStats = getTeamStats();
   const gameDisplays = getGameDisplays();
 
@@ -275,52 +319,71 @@ export default function FilterableWinRates() {
         </Button>
       </div>
 
-      {/* Results Summary */}
-      {results.length > 0 && (
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-l-4 border-green-500">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              Results Summary ({stats.total} records)
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-white/70 rounded-lg border border-green-200">
-                <p className="text-3xl font-bold text-green-600">{stats.winPct}%</p>
-                <p className="text-sm text-green-700 font-medium">Win Rate</p>
-              </div>
-              <div className="text-center p-4 bg-white/70 rounded-lg border border-blue-200">
-                <p className="text-3xl font-bold text-blue-600">{stats.runlinePct}%</p>
-                <p className="text-sm text-blue-700 font-medium">Run Line Cover</p>
-              </div>
-              <div className="text-center p-4 bg-white/70 rounded-lg border border-orange-200">
-                <p className="text-3xl font-bold text-orange-600">{stats.overPct}%</p>
-                <p className="text-sm text-orange-700 font-medium">Over Rate</p>
-              </div>
-              <div className="text-center p-4 bg-white/70 rounded-lg border border-purple-200">
-                <p className="text-3xl font-bold text-purple-600">{stats.underPct}%</p>
-                <p className="text-sm text-purple-700 font-medium">Under Rate</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Team Performance Summary */}
+      {/* Team Performance Summary with Sorting */}
       {results.length > 0 && !isPitcherSelected() && (
         <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-blue-500">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Team Performance Summary
+              Team Performance Summary ({results.length} records)
             </h3>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-blue-200">
-                    <TableHead>Team</TableHead>
-                    <TableHead className="text-center">Win Rate</TableHead>
-                    <TableHead className="text-center">Run Line Cover</TableHead>
-                    <TableHead className="text-center">Over Rate</TableHead>
-                    <TableHead className="text-center">Under Rate</TableHead>
-                    <TableHead className="text-center">Total Games</TableHead>
+                    <TableHead>
+                      <Button 
+                        variant="ghost" 
+                        className="font-medium text-left p-0 h-auto hover:text-blue-600 transition-colors"
+                        onClick={() => handleSort('team')}
+                      >
+                        Team {getSortIcon('team')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        className="font-medium text-center p-0 h-auto hover:text-green-600 transition-colors"
+                        onClick={() => handleSort('winPct')}
+                      >
+                        Win Rate {getSortIcon('winPct')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        className="font-medium text-center p-0 h-auto hover:text-blue-600 transition-colors"
+                        onClick={() => handleSort('runlinePct')}
+                      >
+                        Run Line Cover {getSortIcon('runlinePct')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        className="font-medium text-center p-0 h-auto hover:text-orange-600 transition-colors"
+                        onClick={() => handleSort('overPct')}
+                      >
+                        Over Rate {getSortIcon('overPct')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        className="font-medium text-center p-0 h-auto hover:text-purple-600 transition-colors"
+                        onClick={() => handleSort('underPct')}
+                      >
+                        Under Rate {getSortIcon('underPct')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        className="font-medium text-center p-0 h-auto hover:text-gray-600 transition-colors"
+                        onClick={() => handleSort('total')}
+                      >
+                        Total Games {getSortIcon('total')}
+                      </Button>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
