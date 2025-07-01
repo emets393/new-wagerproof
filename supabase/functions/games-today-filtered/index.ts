@@ -35,13 +35,29 @@ serve(async (req) => {
 
   console.log('Games today edge function received filters:', filters);
   
-  const today = new Date().toISOString().split('T')[0];
-  console.log('Today date for filtering:', today);
+  // Get today's date in YYYY-MM-DD format
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  console.log('Today date for filtering:', todayStr);
   
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
+
+  // First, let's check if there are ANY games today
+  console.log('Checking for any games today...');
+  const { data: allTodaysGames, error: checkError } = await supabase
+    .from('training_data_team_view_enhanced')
+    .select('date, primary_team, opponent_team')
+    .eq('date', todayStr)
+    .limit(5);
+  
+  if (checkError) {
+    console.error('Error checking for today\'s games:', checkError);
+  } else {
+    console.log(`Found ${allTodaysGames?.length || 0} total games today (sample):`, allTodaysGames);
+  }
 
   const numericFiltersWithOperators = new Set([
     "season", "month", "day", "series_game_number", "o_u_line", "primary_ml", "primary_rl",
@@ -68,7 +84,7 @@ serve(async (req) => {
   ];
 
   // Build query for today's games
-  let todaysQuery = supabase.from('training_data_team_view_enhanced').select('*').eq('date', today);
+  let todaysQuery = supabase.from('training_data_team_view_enhanced').select('*').eq('date', todayStr);
   
   // Apply the same filters to today's games query
   for (const key of allFilters) {
@@ -171,7 +187,7 @@ serve(async (req) => {
   // Now get historical data for these teams with the same filters (excluding today)
   let historicalQuery = supabase.from('training_data_team_view_enhanced')
     .select('*')
-    .lt('date', today)
+    .lt('date', todayStr)
     .limit(100000);
 
   // Filter for teams playing today
