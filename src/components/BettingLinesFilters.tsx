@@ -89,8 +89,8 @@ export default function BettingLinesFilters({ filters, onFilterChange }: Betting
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Equal-sized grid for O/U Line and Team Status */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* O/U Line Range Slider - Now smaller */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* O/U Line Range Slider */}
           {ouRange && (
             <div className="space-y-3">
               <RangeSlider
@@ -106,23 +106,37 @@ export default function BettingLinesFilters({ filters, onFilterChange }: Betting
             </div>
           )}
 
-          {/* Team Status Selection - Now bigger */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-purple-700">Team Status</Label>
+          {/* Team Status Selection - Made bigger */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold text-purple-700">Team Status</Label>
             <RadioGroup
               value={filters['team_status'] || ''}
               onValueChange={(value) => onFilterChange('team_status', value)}
-              className="flex gap-6"
+              className="flex gap-8"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="favored" id="favored" className="border-purple-500 text-purple-600" />
-                <Label htmlFor="favored" className="text-sm font-medium cursor-pointer hover:text-purple-600 transition-colors">
+              <div className="flex items-center space-x-3">
+                <RadioGroupItem 
+                  value="favored" 
+                  id="favored" 
+                  className="border-purple-500 text-purple-600 w-5 h-5" 
+                />
+                <Label 
+                  htmlFor="favored" 
+                  className="text-base font-semibold cursor-pointer hover:text-purple-600 transition-colors"
+                >
                   Favored
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="underdog" id="underdog" className="border-purple-500 text-purple-600" />
-                <Label htmlFor="underdog" className="text-sm font-medium cursor-pointer hover:text-purple-600 transition-colors">
+              <div className="flex items-center space-x-3">
+                <RadioGroupItem 
+                  value="underdog" 
+                  id="underdog" 
+                  className="border-purple-500 text-purple-600 w-5 h-5" 
+                />
+                <Label 
+                  htmlFor="underdog" 
+                  className="text-base font-semibold cursor-pointer hover:text-purple-600 transition-colors"
+                >
                   Underdog
                 </Label>
               </div>
