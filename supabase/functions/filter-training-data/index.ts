@@ -14,9 +14,30 @@ serve(async (req) => {
     });
   }
 
-  const url = new URL(req.url);
-  const params = Object.fromEntries(url.searchParams.entries());
-  console.log('Edge function received parameters:', params);
+  // Get filters from request body for POST requests
+  let filters: Record<string, string> = {};
+  
+  if (req.method === 'POST') {
+    try {
+      const body = await req.json();
+      filters = body.filters || {};
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+  } else {
+    // Fallback to query parameters for GET requests
+    const url = new URL(req.url);
+    filters = Object.fromEntries(url.searchParams.entries());
+  }
+
+  console.log('Edge function received filters:', filters);
   
   const today = new Date().toISOString().split('T')[0];
   console.log('Today date for filtering:', today);
@@ -54,7 +75,7 @@ serve(async (req) => {
   console.log('Starting with base query');
 
   for (const key of allFilters) {
-    const val = params[key];
+    const val = filters[key];
     if (!val) continue;
 
     console.log(`Processing filter: ${key} = ${val}`);

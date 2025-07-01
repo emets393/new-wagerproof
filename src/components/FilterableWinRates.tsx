@@ -109,34 +109,18 @@ export default function FilterableWinRates() {
         return;
       }
 
-      // Build query string from filters
-      const queryString = buildQueryString(filters);
-      const url = `https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data?${queryString}`;
-      
-      console.log('Original filters:', filters);
-      console.log('Converted query string:', queryString);
-      console.log('Sending GET request to:', url);
+      console.log('Sending filters to edge function:', filters);
 
-      // Call the edge function for filtering with GET method and query parameters
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54YmJucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54YmJucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ'
-        },
+      // Call the edge function using Supabase client's invoke method
+      const { data, error } = await supabase.functions.invoke('filter-training-data', {
+        body: { filters }
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Edge function error response:', errorText);
-        console.error('Request details:', { url, queryString, filters });
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
       }
 
-      const data = await response.json();
       console.log('Response data:', { data, count: data?.length });
       console.log(`Retrieved ${data?.length || 0} total records for stats calculation`);
       setResults(data || []);
