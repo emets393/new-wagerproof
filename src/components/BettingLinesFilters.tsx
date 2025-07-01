@@ -44,7 +44,9 @@ export default function BettingLinesFilters({ filters, onFilterChange }: Betting
     const fetchFieldRanges = async () => {
       try {
         console.log('Fetching field ranges...');
-        const { data, error } = await supabase.functions.invoke('get-field-ranges');
+        const { data, error } = await supabase.functions.invoke('get-field-ranges', {
+          method: 'POST'
+        });
         
         if (error) {
           console.error('Error fetching field ranges:', error);

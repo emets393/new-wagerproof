@@ -9,7 +9,7 @@ serve(async (req) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS'
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
       }
     });
   }
@@ -34,13 +34,15 @@ serve(async (req) => {
     for (const field of bettingFields) {
       console.log(`Fetching range for field: ${field}`);
       
-      const { data, error } = await supabase
+      // Get min value
+      const { data: minData, error: minError } = await supabase
         .from('training_data_team_view_enhanced')
         .select(`${field}`)
         .not(field, 'is', null)
         .order(field, { ascending: true })
         .limit(1);
 
+      // Get max value
       const { data: maxData, error: maxError } = await supabase
         .from('training_data_team_view_enhanced')
         .select(`${field}`)
@@ -48,13 +50,13 @@ serve(async (req) => {
         .order(field, { ascending: false })
         .limit(1);
 
-      if (error || maxError) {
-        console.error(`Error fetching range for ${field}:`, error || maxError);
+      if (minError || maxError) {
+        console.error(`Error fetching range for ${field}:`, minError || maxError);
         continue;
       }
 
-      if (data && data.length > 0 && maxData && maxData.length > 0) {
-        const minVal = Number(data[0][field]);
+      if (minData && minData.length > 0 && maxData && maxData.length > 0) {
+        const minVal = Number(minData[0][field]);
         const maxVal = Number(maxData[0][field]);
         
         if (!isNaN(minVal) && !isNaN(maxVal)) {
