@@ -10,6 +10,7 @@ import { buildQueryString } from "@/utils/queryParams";
 import AdvancedNumericFilter from "./AdvancedNumericFilter";
 import FilterSummary from "./FilterSummary";
 import NumericRangeFilter from "./NumericRangeFilter";
+import BettingLinesFilters from "./BettingLinesFilters";
 
 const columns = [
   "season", "month", "day", "series_game_number", "o_u_line",
@@ -270,10 +271,18 @@ export default function FilterableWinRates() {
   };
 
   // Separate numeric and text columns
-  const priorityNumericColumns = ['o_u_line', 'series_game_number', 'month', 'day', 'primary_ml', 'opponent_ml', 'primary_win_pct', 'opponent_win_pct'];
+  const bettingLineFields = [
+    'o_u_line', 'opponent_ml', 'primary_ml', 'primary_rl', 'primary_ml_handle',
+    'primary_ml_bets', 'primary_rl_handle', 'primary_rl_bets', 'opponent_rl',
+    'opponent_ml_handle', 'opponent_ml_bets', 'opponent_rl_handle', 
+    'opponent_rl_bets', 'ou_handle_over', 'ou_bets_over'
+  ];
+
+  const priorityNumericColumns = ['series_game_number', 'month', 'day', 'primary_win_pct', 'opponent_win_pct'];
   const otherNumericColumns = columns.filter(col => 
     !['primary_team', 'opponent_team', 'primary_pitcher', 'opponent_pitcher'].includes(col) &&
-    !priorityNumericColumns.includes(col)
+    !priorityNumericColumns.includes(col) &&
+    !bettingLineFields.includes(col)
   );
   const textColumns = ['primary_team', 'opponent_team', 'primary_pitcher', 'opponent_pitcher'];
 
@@ -284,6 +293,12 @@ export default function FilterableWinRates() {
         filters={filters}
         onClearFilter={handleClearFilter}
         onClearAll={clearFilters}
+      />
+
+      {/* Betting Lines Filters */}
+      <BettingLinesFilters 
+        filters={filters}
+        onFilterChange={handleInputChange}
       />
 
       {/* Priority Range Filters */}
