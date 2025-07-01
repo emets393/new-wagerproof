@@ -84,23 +84,12 @@ serve(async (req) => {
     if (key === 'team_status') {
       if (val === 'favored') {
         console.log('Applying favored filter: primary_ml < opponent_ml');
-        query = query.lt('primary_ml', 'opponent_ml');
+        // Use raw SQL for column comparison
+        query = query.filter('primary_ml', 'lt', 'opponent_ml');
       } else if (val === 'underdog') {
         console.log('Applying underdog filter: primary_ml > opponent_ml');
-        query = query.gt('primary_ml', 'opponent_ml');
-      }
-      continue;
-    }
-
-    // Handle multi-team selection for primary_team and opponent_team
-    if (key === 'primary_team' || key === 'opponent_team') {
-      if (val.includes(',')) {
-        const teams = val.split(',').map(team => team.trim()).filter(team => team);
-        console.log(`Applying multi-team filter for ${key}:`, teams);
-        query = query.in(key, teams);
-      } else {
-        console.log(`Applying single team filter: ${key} = ${val}`);
-        query = query.eq(key, val);
+        // Use raw SQL for column comparison  
+        query = query.filter('primary_ml', 'gt', 'opponent_ml');
       }
       continue;
     }
