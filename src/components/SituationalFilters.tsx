@@ -102,11 +102,11 @@ export default function SituationalFilters({ filters, onFilterChange }: Situatio
               className="flex gap-4"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="true" id="same_div_yes" className="border-cyan-500 text-cyan-600" />
+                <RadioGroupItem value="1" id="same_div_yes" className="border-cyan-500 text-cyan-600" />
                 <Label htmlFor="same_div_yes" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">Yes</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="false" id="same_div_no" className="border-cyan-500 text-cyan-600" />
+                <RadioGroupItem value="0" id="same_div_no" className="border-cyan-500 text-cyan-600" />
                 <Label htmlFor="same_div_no" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">No</Label>
               </div>
             </RadioGroup>
@@ -140,11 +140,11 @@ export default function SituationalFilters({ filters, onFilterChange }: Situatio
               className="flex gap-4"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="L" id="primary_left" className="border-cyan-500 text-cyan-600" />
+                <RadioGroupItem value="2" id="primary_left" className="border-cyan-500 text-cyan-600" />
                 <Label htmlFor="primary_left" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">L</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="R" id="primary_right" className="border-cyan-500 text-cyan-600" />
+                <RadioGroupItem value="1" id="primary_right" className="border-cyan-500 text-cyan-600" />
                 <Label htmlFor="primary_right" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">R</Label>
               </div>
             </RadioGroup>
@@ -159,11 +159,11 @@ export default function SituationalFilters({ filters, onFilterChange }: Situatio
               className="flex gap-4"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="L" id="opponent_left" className="border-cyan-500 text-cyan-600" />
+                <RadioGroupItem value="2" id="opponent_left" className="border-cyan-500 text-cyan-600" />
                 <Label htmlFor="opponent_left" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">L</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="R" id="opponent_right" className="border-cyan-500 text-cyan-600" />
+                <RadioGroupItem value="1" id="opponent_right" className="border-cyan-500 text-cyan-600" />
                 <Label htmlFor="opponent_right" className="text-sm cursor-pointer hover:text-cyan-600 transition-colors">R</Label>
               </div>
             </RadioGroup>

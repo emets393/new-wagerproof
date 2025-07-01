@@ -37,14 +37,17 @@ serve(async (req) => {
     "opponent_era", "opponent_division_number", "opponent_league_number", "opponent_streak",
     "start_time_minutes", "series_primary_wins", "series_opponent_wins", "series_overs",
     "series_unders", "ou_handle_over", "ou_bets_over", "primary_days_between_games",
-    "primary_travel_distance_miles"
+    "primary_travel_distance_miles", "same_division", "primary_handedness", "opponent_handedness"
+  ]);
+
+  const booleanFilters = new Set([
+    "is_home_team", "same_league"
   ]);
 
   const allFilters = [
     ...numericFiltersWithOperators,
-    "primary_team", "primary_pitcher", "primary_handedness", "opponent_team",
-    "opponent_pitcher", "opponent_handedness", "same_division", "same_league", "is_home_team",
-    "team_status"
+    ...booleanFilters,
+    "primary_team", "primary_pitcher", "opponent_team", "opponent_pitcher", "team_status"
   ];
 
   let query = supabase.from('training_data_team_view_enhanced').select('*').limit(100000);
@@ -65,6 +68,14 @@ serve(async (req) => {
         console.log('Applying underdog filter: primary_ml > opponent_ml');
         query = query.gt('primary_ml', 'opponent_ml');
       }
+      continue;
+    }
+
+    // Handle boolean filters
+    if (booleanFilters.has(key)) {
+      const boolValue = val === 'true';
+      console.log(`Applying boolean filter: ${key} = ${boolValue}`);
+      query = query.eq(key, boolValue);
       continue;
     }
 
