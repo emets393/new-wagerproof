@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import GameCard from "@/components/GameCard";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { BarChart3, TrendingUp } from "lucide-react";
+import { BarChart3, TrendingUp, Settings } from "lucide-react";
 
 interface TodaysGame {
   unique_id: string;
@@ -121,6 +121,12 @@ export default function Index() {
                 Win Rates
               </Button>
             </Link>
+            <Link to="/custom-models">
+              <Button variant="outline" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Custom Models
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -145,6 +151,9 @@ export default function Index() {
               </Link>
               <Link to="/win-rates">
                 <Button variant="outline">View Win Rates</Button>
+              </Link>
+              <Link to="/custom-models">
+                <Button variant="outline">View Custom Models</Button>
               </Link>
             </div>
           </div>
