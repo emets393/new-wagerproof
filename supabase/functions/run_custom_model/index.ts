@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
@@ -191,7 +190,7 @@ serve(async (req) => {
     console.log(`Loaded ${trainingData?.length || 0} training records`);
 
     const allTrendMatches: TrendMatch[] = [];
-    const allTodayMatches: TodayMatch[] = [];
+    let topTrendMatches: TrendMatch[] = [];
 
     if (trainingData && trainingData.length > 0) {
       // Generate feature combinations to analyze
@@ -311,58 +310,59 @@ serve(async (req) => {
         return scoreB - scoreA;
       });
 
-      // Take top 20 patterns to avoid overwhelming the user
-      const topTrendMatches = allTrendMatches.slice(0, 20);
+      // Take top 15 patterns - these are the ones we'll return AND use for matching
+      topTrendMatches = allTrendMatches.slice(0, 15);
 
-      console.log(`Generated ${topTrendMatches.length} trend matches from ${allTrendMatches.length} total patterns`);
+      console.log(`Selected top ${topTrendMatches.length} trend matches from ${allTrendMatches.length} total patterns`);
+    }
 
-      // Get today's games that match our patterns
-      const today = new Date().toISOString().split('T')[0];
-      const { data: todaysGames, error: todayError } = await supabase
-        .from('input_values_team_format_view')
-        .select('*')
-        .eq('date', today);
+    // Get today's games and match them ONLY against the top patterns
+    const allTodayMatches: TodayMatch[] = [];
+    const today = new Date().toISOString().split('T')[0];
+    const { data: todaysGames, error: todayError } = await supabase
+      .from('input_values_team_format_view')
+      .select('*')
+      .eq('date', today);
 
-      if (!todayError && todaysGames) {
-        console.log(`Found ${todaysGames.length} games for today`);
-        
-        // Check each game against each trend pattern
-        for (const game of todaysGames) {
-          for (const trend of topTrendMatches) {
-            const gameBinnedFeatures = trend.features.map(feature => {
-              const value = game[feature];
-              return binValue(feature, value);
+    if (!todayError && todaysGames && topTrendMatches.length > 0) {
+      console.log(`Found ${todaysGames.length} games for today`);
+      
+      // Check each game against each TOP trend pattern only
+      for (const game of todaysGames) {
+        for (const trend of topTrendMatches) {
+          const gameBinnedFeatures = trend.features.map(feature => {
+            const value = game[feature];
+            return binValue(feature, value);
+          });
+          
+          const gameCombo = gameBinnedFeatures.join('|');
+
+          // Check if this combination matches the trend
+          if (gameCombo === trend.combo) {
+            allTodayMatches.push({
+              unique_id: game.unique_id || 'unknown',
+              primary_team: game.primary_team || 'Unknown',
+              opponent_team: game.opponent_team || 'Unknown',
+              is_home_team: game.is_home_team || false,
+              combo: gameCombo,
+              win_pct: trend.win_pct,
+              opponent_win_pct: trend.opponent_win_pct,
+              games: trend.games,
+              feature_count: trend.feature_count,
+              features: trend.features
             });
-            
-            const gameCombo = gameBinnedFeatures.join('|');
-
-            // Check if this combination matches the trend
-            if (gameCombo === trend.combo) {
-              allTodayMatches.push({
-                unique_id: game.unique_id || 'unknown',
-                primary_team: game.primary_team || 'Unknown',
-                opponent_team: game.opponent_team || 'Unknown',
-                is_home_team: game.is_home_team || false,
-                combo: gameCombo,
-                win_pct: trend.win_pct,
-                opponent_win_pct: trend.opponent_win_pct,
-                games: trend.games,
-                feature_count: trend.feature_count,
-                features: trend.features
-              });
-              break; // Only match each game once to avoid duplicates
-            }
+            break; // Only match each game once to avoid duplicates
           }
         }
       }
     }
 
-    console.log(`Found ${allTrendMatches.length} trend matches and ${allTodayMatches.length} today matches`);
+    console.log(`Found ${topTrendMatches.length} trend matches and ${allTodayMatches.length} today matches`);
     console.log('Final memory usage:', Deno.memoryUsage());
 
     const response = {
       model_id: modelData.model_id,
-      trend_matches: allTrendMatches.slice(0, 15), // Top 15 patterns
+      trend_matches: topTrendMatches, // Return the top 15 patterns
       today_matches: allTodayMatches,
       target: target // Include target for frontend logic
     };
