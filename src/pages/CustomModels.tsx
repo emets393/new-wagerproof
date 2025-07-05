@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -51,12 +50,31 @@ const CustomModels = () => {
   const { toast } = useToast()
 
   const availableFeatures = [
-    'primary_era', 'opponent_era', 'primary_win_pct', 'opponent_win_pct',
-    'primary_rl', 'o_u_line', 'primary_ops', 'opponent_ops',
-    'primary_streak', 'opponent_streak', 'primary_last_runs', 'opponent_last_runs',
-    'primary_handle', 'opponent_handle', 'primary_bets', 'opponent_bets',
-    'primary_handedness', 'opponent_handedness', 'same_league', 'same_division',
-    'primary_last_win', 'opponent_last_win', 'primary_last_3', 'opponent_last_3'
+    // Pitching Stats
+    'primary_era', 'opponent_era', 'primary_whip', 'opponent_whip',
+    
+    // Team Performance
+    'primary_win_pct', 'opponent_win_pct', 'primary_streak', 'opponent_streak',
+    'primary_last_win', 'opponent_last_win', 'primary_last_3', 'opponent_last_3',
+    
+    // Recent Performance
+    'primary_last_runs', 'opponent_last_runs', 'primary_ops_last_3', 'opponent_ops_last_3',
+    'primary_team_last_3', 'opponent_team_last_3',
+    
+    // Betting Lines & Handle
+    'primary_rl', 'o_u_line', 'primary_handle', 'opponent_handle',
+    'primary_ml_handle', 'opponent_ml_handle', 'primary_rl_handle', 'opponent_rl_handle',
+    
+    // Betting Volume
+    'primary_bets', 'opponent_bets', 'primary_ml_bets', 'opponent_ml_bets',
+    'primary_rl_bets', 'opponent_rl_bets', 'ou_handle_over', 'ou_bets_over',
+    
+    // Advanced Stats
+    'primary_ops', 'opponent_ops', 'primary_handedness', 'opponent_handedness',
+    
+    // Series & Context
+    'same_league', 'same_division', 'series_primary_wins', 'series_opponent_wins',
+    'series_overs', 'series_unders'
   ];
 
   const targetVariables = [
