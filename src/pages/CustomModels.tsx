@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { BarChart3 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from '@/integrations/supabase/client';
+import { useSearchParams } from 'react-router-dom';
 
 import SavePatternButton from '@/components/SavePatternButton';
 import { Link } from 'react-router-dom';
@@ -43,12 +44,49 @@ interface ModelResults {
 }
 
 const CustomModels = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [modelName, setModelName] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [targetVariable, setTargetVariable] = useState('');
   const [results, setResults] = useState<ModelResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast()
+
+  // Load state from URL parameters on component mount
+  useEffect(() => {
+    const urlModelName = searchParams.get('modelName');
+    const urlFeatures = searchParams.get('features');
+    const urlTarget = searchParams.get('target');
+    const urlResults = searchParams.get('results');
+
+    if (urlModelName) setModelName(urlModelName);
+    if (urlFeatures) {
+      try {
+        setSelectedFeatures(JSON.parse(decodeURIComponent(urlFeatures)));
+      } catch (e) {
+        console.error('Failed to parse features from URL:', e);
+      }
+    }
+    if (urlTarget) setTargetVariable(urlTarget);
+    if (urlResults) {
+      try {
+        setResults(JSON.parse(decodeURIComponent(urlResults)));
+      } catch (e) {
+        console.error('Failed to parse results from URL:', e);
+      }
+    }
+  }, [searchParams]);
+
+  // Update URL parameters when state changes
+  const updateUrlParams = (name: string, features: string[], target: string, modelResults: ModelResults | null) => {
+    const params = new URLSearchParams();
+    if (name) params.set('modelName', name);
+    if (features.length > 0) params.set('features', encodeURIComponent(JSON.stringify(features)));
+    if (target) params.set('target', target);
+    if (modelResults) params.set('results', encodeURIComponent(JSON.stringify(modelResults)));
+    
+    setSearchParams(params);
+  };
 
   const availableFeatures = [
     // Pitching Stats
@@ -85,11 +123,22 @@ const CustomModels = () => {
   ];
 
   const handleFeatureChange = (feature: string) => {
-    setSelectedFeatures(prev =>
-      prev.includes(feature)
-        ? prev.filter(f => f !== feature)
-        : [...prev, feature]
-    );
+    const newFeatures = selectedFeatures.includes(feature)
+      ? selectedFeatures.filter(f => f !== feature)
+      : [...selectedFeatures, feature];
+    
+    setSelectedFeatures(newFeatures);
+    updateUrlParams(modelName, newFeatures, targetVariable, results);
+  };
+
+  const handleModelNameChange = (newName: string) => {
+    setModelName(newName);
+    updateUrlParams(newName, selectedFeatures, targetVariable, results);
+  };
+
+  const handleTargetChange = (newTarget: string) => {
+    setTargetVariable(newTarget);
+    updateUrlParams(modelName, selectedFeatures, newTarget, results);
   };
 
   const handleSubmit = async () => {
@@ -137,6 +186,7 @@ const CustomModels = () => {
       }
 
       setResults(data);
+      updateUrlParams(modelName, selectedFeatures, targetVariable, data);
     } catch (error: any) {
       console.error('Error running custom model:', error);
       toast({
@@ -178,7 +228,7 @@ const CustomModels = () => {
                 id="model-name"
                 placeholder="Enter model name"
                 value={modelName}
-                onChange={(e) => setModelName(e.target.value)}
+                onChange={(e) => handleModelNameChange(e.target.value)}
               />
             </div>
 
@@ -200,7 +250,7 @@ const CustomModels = () => {
 
             <div>
               <Label>Target Variable</Label>
-              <Select value={targetVariable} onValueChange={setTargetVariable}>
+              <Select value={targetVariable} onValueChange={handleTargetChange}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select target variable" />
                 </SelectTrigger>
