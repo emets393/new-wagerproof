@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
@@ -237,11 +236,14 @@ serve(async (req) => {
         }
       }
 
-      // Create trend matches (combinations with 30+ games and >55% win rate)
+      // Create trend matches with enhanced filtering logic
       for (const [combo, data] of comboMap.entries()) {
         if (data.total >= 30) {
           const winPct = data.wins / data.total;
-          if (winPct >= 0.55) { // Only include patterns with meaningful edge
+          
+          // Enhanced filtering: include patterns with strong predictive power in either direction
+          // For all targets: include if winPct >= 0.55 OR winPct <= 0.45
+          if (winPct >= 0.55 || winPct <= 0.45) {
             trendMatches.push({
               combo,
               games: data.total,
@@ -254,8 +256,8 @@ serve(async (req) => {
 
       // Sort by win percentage and sample size
       trendMatches.sort((a, b) => {
-        const scoreA = a.win_pct * Math.log(a.games);
-        const scoreB = b.win_pct * Math.log(b.games);
+        const scoreA = Math.max(a.win_pct, a.opponent_win_pct) * Math.log(a.games);
+        const scoreB = Math.max(b.win_pct, b.opponent_win_pct) * Math.log(b.games);
         return scoreB - scoreA;
       });
 

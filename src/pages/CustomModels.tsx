@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, TrendingUp, Target, Settings } from "lucide-react";
+import { Loader2, TrendingUp, Target, Settings, ChevronUp, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TrendMatch {
@@ -86,12 +86,20 @@ const groupedFeatures = featureOptions.reduce((groups, feature) => {
   return groups;
 }, {} as Record<string, typeof featureOptions>);
 
+type TrendSortColumn = 'primary' | 'opponent' | 'games';
+type TodaySortColumn = 'matchup' | 'model' | 'winner' | 'percentage' | 'games';
+type SortDirection = 'asc' | 'desc';
+
 export default function CustomModels() {
   const [modelName, setModelName] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [target, setTarget] = useState('');
   const [isBuilding, setIsBuilding] = useState(false);
   const [results, setResults] = useState<ModelResults | null>(null);
+  const [trendSortColumn, setTrendSortColumn] = useState<TrendSortColumn>('games');
+  const [trendSortDirection, setTrendSortDirection] = useState<SortDirection>('desc');
+  const [todaySortColumn, setTodaySortColumn] = useState<TodaySortColumn>('percentage');
+  const [todaySortDirection, setTodaySortDirection] = useState<SortDirection>('desc');
   const { toast } = useToast();
 
   const handleFeatureToggle = (featureId: string) => {
@@ -100,6 +108,105 @@ export default function CustomModels() {
         ? prev.filter(id => id !== featureId)
         : [...prev, featureId]
     );
+  };
+
+  const handleTrendSort = (column: TrendSortColumn) => {
+    if (trendSortColumn === column) {
+      setTrendSortDirection(trendSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setTrendSortColumn(column);
+      setTrendSortDirection('desc');
+    }
+  };
+
+  const handleTodaySort = (column: TodaySortColumn) => {
+    if (todaySortColumn === column) {
+      setTodaySortDirection(todaySortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setTodaySortColumn(column);
+      setTodaySortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (currentColumn: string, targetColumn: string, direction: SortDirection) => {
+    if (currentColumn !== targetColumn) {
+      return <ChevronUp className="w-4 h-4 opacity-30" />;
+    }
+    return direction === 'asc' ? 
+      <ChevronUp className="w-4 h-4" /> : 
+      <ChevronDown className="w-4 h-4" />;
+  };
+
+  const sortTrendMatches = (matches: TrendMatch[]) => {
+    return [...matches].sort((a, b) => {
+      let aValue: number;
+      let bValue: number;
+
+      switch (trendSortColumn) {
+        case 'primary':
+          aValue = a.win_pct;
+          bValue = b.win_pct;
+          break;
+        case 'opponent':
+          aValue = a.opponent_win_pct;
+          bValue = b.opponent_win_pct;
+          break;
+        case 'games':
+          aValue = a.games;
+          bValue = b.games;
+          break;
+        default:
+          aValue = a.games;
+          bValue = b.games;
+      }
+
+      return trendSortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+  };
+
+  const sortTodayMatches = (matches: TodayMatch[]) => {
+    return [...matches].sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+
+      switch (todaySortColumn) {
+        case 'matchup':
+          aValue = formatMatchup(a);
+          bValue = formatMatchup(b);
+          break;
+        case 'model':
+          const aModelIndex = results?.trend_matches.findIndex(trend => trend.combo === a.combo) ?? -1;
+          const bModelIndex = results?.trend_matches.findIndex(trend => trend.combo === b.combo) ?? -1;
+          aValue = aModelIndex + 1;
+          bValue = bModelIndex + 1;
+          break;
+        case 'winner':
+          aValue = getProjectedWinner(a, results?.target || '');
+          bValue = getProjectedWinner(b, results?.target || '');
+          break;
+        case 'percentage':
+          aValue = getProjectedWinPercentage(a);
+          bValue = getProjectedWinPercentage(b);
+          break;
+        case 'games':
+          aValue = a.games;
+          bValue = b.games;
+          break;
+        default:
+          aValue = getProjectedWinPercentage(a);
+          bValue = getProjectedWinPercentage(b);
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return todaySortDirection === 'asc' ? 
+          aValue.localeCompare(bValue) : 
+          bValue.localeCompare(aValue);
+      } else {
+        return todaySortDirection === 'asc' ? 
+          (aValue as number) - (bValue as number) : 
+          (bValue as number) - (aValue as number);
+      }
+    });
   };
 
   const getColumnHeaders = (targetType: string) => {
@@ -313,7 +420,7 @@ export default function CustomModels() {
                     Trend Patterns ({results.trend_matches.length})
                   </CardTitle>
                   <CardDescription>
-                    Historical patterns with 30+ games and 55%+ win rate
+                    Historical patterns with 30+ games and strong predictive edge
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -321,16 +428,44 @@ export default function CustomModels() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          {getColumnHeaders(results.target).map((header, index) => (
-                            <TableHead key={index}>{header}</TableHead>
-                          ))}
+                          <TableHead>Model #</TableHead>
+                          <TableHead>
+                            <Button
+                              variant="ghost"
+                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                              onClick={() => handleTrendSort('primary')}
+                            >
+                              {getColumnHeaders(results.target)[1]}
+                              {getSortIcon(trendSortColumn, 'primary', trendSortDirection)}
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button
+                              variant="ghost"
+                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                              onClick={() => handleTrendSort('opponent')}
+                            >
+                              {getColumnHeaders(results.target)[2]}
+                              {getSortIcon(trendSortColumn, 'opponent', trendSortDirection)}
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button
+                              variant="ghost"
+                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                              onClick={() => handleTrendSort('games')}
+                            >
+                              {getColumnHeaders(results.target)[3]}
+                              {getSortIcon(trendSortColumn, 'games', trendSortDirection)}
+                            </Button>
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {results.trend_matches.map((trend, index) => (
+                        {sortTrendMatches(results.trend_matches).map((trend, index) => (
                           <TableRow key={index}>
                             <TableCell className="font-semibold">
-                              {index + 1}
+                              {results.trend_matches.indexOf(trend) + 1}
                             </TableCell>
                             <TableCell className="font-semibold">
                               {(trend.win_pct * 100).toFixed(1)}%
@@ -360,13 +495,60 @@ export default function CustomModels() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          {getTodayHeaders(results.target).map((header, index) => (
-                            <TableHead key={index}>{header}</TableHead>
-                          ))}
+                          <TableHead>
+                            <Button
+                              variant="ghost"
+                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                              onClick={() => handleTodaySort('matchup')}
+                            >
+                              Matchup
+                              {getSortIcon(todaySortColumn, 'matchup', todaySortDirection)}
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button
+                              variant="ghost"
+                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                              onClick={() => handleTodaySort('model')}
+                            >
+                              Model #
+                              {getSortIcon(todaySortColumn, 'model', todaySortDirection)}
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button
+                              variant="ghost"
+                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                              onClick={() => handleTodaySort('winner')}
+                            >
+                              Projected Winner
+                              {getSortIcon(todaySortColumn, 'winner', todaySortDirection)}
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button
+                              variant="ghost"
+                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                              onClick={() => handleTodaySort('percentage')}
+                            >
+                              Win %
+                              {getSortIcon(todaySortColumn, 'percentage', todaySortDirection)}
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button
+                              variant="ghost"
+                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                              onClick={() => handleTodaySort('games')}
+                            >
+                              # of Games
+                              {getSortIcon(todaySortColumn, 'games', todaySortDirection)}
+                            </Button>
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {results.today_matches.map((match, index) => {
+                        {sortTodayMatches(results.today_matches).map((match, index) => {
                           const matchingModelIndex = results.trend_matches.findIndex(
                             trend => trend.combo === match.combo
                           ) + 1;
