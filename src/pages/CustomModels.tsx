@@ -329,8 +329,13 @@ const CustomModels = () => {
                     <p className="text-sm text-gray-600">Trend Patterns</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-green-600">{results.today_matches.length}</p>
-                    <p className="text-sm text-gray-600">Today's Matches</p>
+                    <p className="text-2xl font-bold text-green-600">{Object.keys(
+                      results.today_matches.reduce((acc: any, match) => {
+                        acc[match.unique_id] = true;
+                        return acc;
+                      }, {})
+                    ).length}</p>
+                    <p className="text-sm text-gray-600">Today's Games</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-purple-600">{selectedFeatures.length}</p>
@@ -421,7 +426,7 @@ const CustomModels = () => {
               </Card>
             )}
 
-            {/* Today's Matches */}
+            {/* Today's Matches - Fixed to show only unique games */}
             {results.today_matches.length > 0 && (
               <Card>
                 <CardHeader>
@@ -432,63 +437,44 @@ const CustomModels = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {/* Group matches by game */}
+                    {/* Group matches by unique_id to eliminate duplicates */}
                     {Object.entries(
                       results.today_matches.reduce((acc: any, match) => {
-                        const key = `${match.primary_team}-vs-${match.opponent_team}`;
-                        if (!acc[key]) {
-                          acc[key] = [];
+                        if (!acc[match.unique_id]) {
+                          acc[match.unique_id] = {
+                            matches: [],
+                            gameInfo: null
+                          };
                         }
-                        acc[key].push(match);
+                        acc[match.unique_id].matches.push(match);
+                        
+                        // Use the first match for game info display
+                        if (!acc[match.unique_id].gameInfo) {
+                          acc[match.unique_id].gameInfo = {
+                            primary_team: match.primary_team,
+                            opponent_team: match.opponent_team,
+                            unique_id: match.unique_id
+                          };
+                        }
                         return acc;
                       }, {})
-                    ).map(([gameKey, matches]: [string, any]) => {
-                      const firstMatch = matches[0];
-                      const avgWinPct = matches.reduce((sum: number, m: any) => sum + m.win_pct, 0) / matches.length;
-                      const avgOpponentWinPct = matches.reduce((sum: number, m: any) => sum + m.opponent_win_pct, 0) / matches.length;
-                      
-                      // Create URL with model results and target
-                      const gameAnalysisUrl = `/game-analysis/${firstMatch.unique_id}?` + 
-                        `modelResults=${encodeURIComponent(JSON.stringify(matches))}&` +
-                        `target=${encodeURIComponent(results.target)}&` +
-                        `primaryTeam=${encodeURIComponent(firstMatch.primary_team)}&` +
-                        `opponentTeam=${encodeURIComponent(firstMatch.opponent_team)}`;
+                    ).map(([uniqueId, gameGroup]: [string, any]) => {
+                      const matches = gameGroup.matches;
+                      const gameInfo = gameGroup.gameInfo;
                       
                       return (
-                        <div key={gameKey} className="border rounded-lg p-4 hover:bg-gray-50">
+                        <div key={uniqueId} className="border rounded-lg p-4 hover:bg-gray-50">
                           <div className="flex justify-between items-start mb-3">
                             <div>
                               <h3 className="font-semibold text-lg">
-                                {firstMatch.primary_team} vs {firstMatch.opponent_team}
+                                {gameInfo.primary_team} vs {gameInfo.opponent_team}
                               </h3>
                               <p className="text-sm text-gray-600">
                                 {matches.length} matching model{matches.length > 1 ? 's' : ''}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="text-right">
-                                <div className="grid grid-cols-2 gap-2 mb-1">
-                                  <div className="text-center">
-                                    <p className={`font-semibold text-sm ${
-                                      avgWinPct > 0.6 ? 'text-green-600' : 
-                                      avgWinPct < 0.4 ? 'text-red-600' : 'text-yellow-600'
-                                    }`}>
-                                      {(avgWinPct * 100).toFixed(1)}%
-                                    </p>
-                                    <p className="text-xs text-gray-600">{targetLabels.primaryShort}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className={`font-semibold text-sm ${
-                                      avgOpponentWinPct > 0.6 ? 'text-green-600' : 
-                                      avgOpponentWinPct < 0.4 ? 'text-red-600' : 'text-yellow-600'
-                                    }`}>
-                                      {(avgOpponentWinPct * 100).toFixed(1)}%
-                                    </p>
-                                    <p className="text-xs text-gray-600">{targetLabels.opponentShort}</p>
-                                  </div>
-                                </div>
-                              </div>
-                              <Link to={gameAnalysisUrl} className="ml-2">
+                              <Link to={`/game-analysis/${uniqueId}?target=${encodeURIComponent(results.target)}`}>
                                 <Button variant="outline" size="sm">
                                   <ExternalLink className="h-3 w-3 mr-1" />
                                   Analyze
@@ -500,20 +486,10 @@ const CustomModels = () => {
                           <div className="space-y-2">
                             {matches.map((match: any, idx: number) => (
                               <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
-                                <span>Model #{idx + 1}: {match.feature_count} features, {match.games} games</span>
-                                <div className="flex gap-4">
-                                  <span className={`font-medium ${
-                                    match.win_pct > 0.6 ? 'text-green-600' : 
-                                    match.win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
-                                  }`}>
-                                    {targetLabels.primaryShort}: {(match.win_pct * 100).toFixed(1)}%
-                                  </span>
-                                  <span className={`font-medium ${
-                                    match.opponent_win_pct > 0.6 ? 'text-green-600' : 
-                                    match.opponent_win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
-                                  }`}>
-                                    {targetLabels.opponentShort}: {(match.opponent_win_pct * 100).toFixed(1)}%
-                                  </span>
+                                <span>Model #{idx + 1}</span>
+                                <div className="flex gap-4 text-gray-600">
+                                  <span>{match.feature_count} features</span>
+                                  <span>{match.games} games</span>
                                 </div>
                               </div>
                             ))}
