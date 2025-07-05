@@ -396,6 +396,13 @@ const CustomModels = () => {
                       const firstMatch = matches[0];
                       const avgWinPct = matches.reduce((sum: number, m: any) => sum + m.win_pct, 0) / matches.length;
                       
+                      // Create URL with model results and target
+                      const gameAnalysisUrl = `/game-analysis/${firstMatch.unique_id}?` + 
+                        `modelResults=${encodeURIComponent(JSON.stringify(matches))}&` +
+                        `target=${encodeURIComponent(results.target)}&` +
+                        `primaryTeam=${encodeURIComponent(firstMatch.primary_team)}&` +
+                        `opponentTeam=${encodeURIComponent(firstMatch.opponent_team)}`;
+                      
                       return (
                         <div key={gameKey} className="border rounded-lg p-4 hover:bg-gray-50">
                           <div className="flex justify-between items-start mb-3">
@@ -417,10 +424,7 @@ const CustomModels = () => {
                                 </p>
                                 <p className="text-xs text-gray-600">Avg Win Rate</p>
                               </div>
-                              <Link 
-                                to={`/game-analysis/${firstMatch.unique_id}`}
-                                className="ml-2"
-                              >
+                              <Link to={gameAnalysisUrl} className="ml-2">
                                 <Button variant="outline" size="sm">
                                   <ExternalLink className="h-3 w-3 mr-1" />
                                   Analyze
