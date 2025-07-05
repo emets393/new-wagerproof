@@ -69,3 +69,6 @@ verify_jwt = false
 
 [functions.run_custom_model]
 verify_jwt = false
+
+[functions.get-game-analysis-data]
+verify_jwt = false

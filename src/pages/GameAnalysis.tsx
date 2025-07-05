@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, TrendingUp, Users, Target } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Users, Target, Trophy } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GameMatch {
   unique_id: string;
@@ -18,6 +19,8 @@ interface GameMatch {
   games: number;
   feature_count: number;
   features: string[];
+  model_name?: string;
+  confidence?: number;
 }
 
 interface GameAnalysisData {
@@ -34,6 +37,7 @@ interface GameAnalysisData {
     opponent_percentage: number;
     confidence: number;
     models: number;
+    team_winner_prediction?: string;
   };
 }
 
@@ -46,73 +50,45 @@ const GameAnalysis: React.FC = () => {
 
   useEffect(() => {
     if (gameId) {
-      loadGameAnalysisFromParams();
+      loadGameAnalysisData();
     }
   }, [gameId, searchParams]);
 
-  const loadGameAnalysisFromParams = () => {
+  const loadGameAnalysisData = async () => {
     setIsLoading(true);
-    console.log('Loading game analysis from URL params...');
-    console.log('Game ID:', gameId);
-    console.log('Search params:', searchParams.toString());
+    console.log('Loading game analysis data for:', gameId);
     
     try {
-      const modelResultsParam = searchParams.get('modelResults');
-      const targetParam = searchParams.get('target');
-      const primaryTeamParam = searchParams.get('primaryTeam');
-      const opponentTeamParam = searchParams.get('opponentTeam');
-
-      console.log('URL Parameters:', {
-        modelResults: modelResultsParam ? 'Present' : 'Missing',
-        target: targetParam,
-        primaryTeam: primaryTeamParam,
-        opponentTeam: opponentTeamParam
-      });
-
-      if (!modelResultsParam || !targetParam || !primaryTeamParam || !opponentTeamParam) {
-        console.error('Missing required URL parameters');
-        setAnalysisData(null);
-        setIsLoading(false);
-        return;
-      }
-
-      const matches: GameMatch[] = JSON.parse(decodeURIComponent(modelResultsParam));
-      console.log('Parsed matches:', matches.length);
+      const target = searchParams.get('target');
       
-      if (matches.length === 0) {
-        console.error('No matches found in model results');
+      if (!target) {
+        console.error('Missing target parameter');
         setAnalysisData(null);
         setIsLoading(false);
         return;
       }
 
-      // Calculate consensus
-      const avgWinRate = matches.reduce((sum, match) => sum + match.win_pct, 0) / matches.length;
-      const avgOpponentWinRate = matches.reduce((sum, match) => sum + match.opponent_win_pct, 0) / matches.length;
-      const confidence = Math.abs(avgWinRate - 0.5) * 200; // Convert to 0-100 scale
-
-      const gameInfo = {
-        unique_id: gameId!,
-        primary_team: decodeURIComponent(primaryTeamParam),
-        opponent_team: decodeURIComponent(opponentTeamParam),
-        is_home_team: matches[0]?.is_home_team || false
-      };
-
-      console.log('Analysis data created successfully');
-      setAnalysisData({
-        game_info: gameInfo,
-        matches,
-        target: decodeURIComponent(targetParam),
-        consensus: {
-          primary_percentage: avgWinRate,
-          opponent_percentage: avgOpponentWinRate,
-          confidence: Math.round(confidence),
-          models: matches.length
+      console.log('Calling get-game-analysis-data with:', { unique_id: gameId, target });
+      
+      const { data, error } = await supabase.functions.invoke('get-game-analysis-data', {
+        body: {
+          unique_id: gameId,
+          target: target
         }
       });
 
+      if (error) {
+        console.error('Edge function error:', error);
+        setAnalysisData(null);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Received analysis data:', data);
+      setAnalysisData(data);
+
     } catch (error) {
-      console.error('Error parsing game analysis data:', error);
+      console.error('Error loading game analysis data:', error);
       setAnalysisData(null);
     } finally {
       setIsLoading(false);
@@ -199,7 +175,7 @@ const GameAnalysis: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-blue-600">{analysisData.matches.length}</p>
-              <p className="text-sm text-gray-600">Matching Models</p>
+              <p className="text-sm text-gray-600">Contributing Models</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-green-600">
@@ -217,12 +193,34 @@ const GameAnalysis: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Team Winner Prediction */}
+      {analysisData.consensus.team_winner_prediction && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5" />
+              Prediction Winner
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center">
+              <p className="text-4xl font-bold text-green-600 mb-2">
+                {analysisData.consensus.team_winner_prediction}
+              </p>
+              <p className="text-lg text-gray-600">
+                Consensus Winner ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Prediction Summary */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            Prediction Summary
+            Weighted Consensus Summary
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -234,7 +232,7 @@ const GameAnalysis: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span>Probability</span>
+                  <span>Weighted Probability</span>
                   <span>{(analysisData.consensus.primary_percentage * 100).toFixed(1)}%</span>
                 </div>
                 <Progress value={analysisData.consensus.primary_percentage * 100} className="h-2" />
@@ -248,7 +246,7 @@ const GameAnalysis: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span>Probability</span>
+                  <span>Weighted Probability</span>
                   <span>{(analysisData.consensus.opponent_percentage * 100).toFixed(1)}%</span>
                 </div>
                 <Progress value={analysisData.consensus.opponent_percentage * 100} className="h-2" />
@@ -258,8 +256,8 @@ const GameAnalysis: React.FC = () => {
           
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600">
-              <strong>Confidence Level:</strong> {analysisData.consensus.confidence}% 
-              (based on deviation from 50/50 odds)
+              <strong>Model Agreement:</strong> {analysisData.consensus.confidence}% 
+              (based on consistency across {analysisData.consensus.models} model{analysisData.consensus.models > 1 ? 's' : ''})
             </p>
           </div>
         </CardContent>
@@ -270,7 +268,7 @@ const GameAnalysis: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Individual Model Predictions
+            Contributing Model Predictions
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -280,10 +278,11 @@ const GameAnalysis: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <Badge className={getBadgeColor(analysisData.target)}>
-                      Model #{index + 1}
+                      {match.model_name || `Model #${index + 1}`}
                     </Badge>
                     <p className="text-sm text-gray-600 mt-1">
                       {match.feature_count} features • {match.games} games
+                      {match.confidence && ` • ${Math.round(match.confidence * 100)}% tier accuracy`}
                     </p>
                   </div>
                   <div className="text-right">
