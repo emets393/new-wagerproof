@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,27 +40,28 @@ const featureOptions = [
   { id: "opponent_last_runs", label: "Opponent Last Runs", category: "Recent Performance" },
   { id: "primary_last_runs_allowed", label: "Primary Last Runs Allowed", category: "Recent Performance" },
   { id: "opponent_last_runs_allowed", label: "Opponent Last Runs Allowed", category: "Recent Performance" },
-  { id: "primary_ml", label: "Primary Moneyline", category: "Betting Lines" },
-  { id: "opponent_ml", label: "Opponent Moneyline", category: "Betting Lines" },
-  { id: "primary_rl", label: "Primary Run Line", category: "Betting Lines" },
-  { id: "opponent_rl", label: "Opponent Run Line", category: "Betting Lines" },
-  { id: "primary_ml_handle", label: "Primary ML Handle", category: "Betting Volume" },
-  { id: "opponent_ml_handle", label: "Opponent ML Handle", category: "Betting Volume" },
-  { id: "primary_ml_bets", label: "Primary ML Bets", category: "Betting Volume" },
-  { id: "opponent_ml_bets", label: "Opponent ML Bets", category: "Betting Volume" },
-  { id: "primary_team_last_3", label: "Primary Team Last 3", category: "Team Stats" },
-  { id: "opponent_team_last_3", label: "Opponent Team Last 3", category: "Team Stats" },
-  { id: "primary_ops_last_3", label: "Primary OPS Last 3", category: "Team Stats" },
-  { id: "opponent_ops_last_3", label: "Opponent OPS Last 3", category: "Team Stats" },
   { id: "primary_last_win", label: "Primary Last Win", category: "Recent Performance" },
   { id: "opponent_last_win", label: "Opponent Last Win", category: "Recent Performance" },
   { id: "primary_streak", label: "Primary Streak", category: "Recent Performance" },
   { id: "opponent_streak", label: "Opponent Streak", category: "Recent Performance" },
-  { id: "primary_win_pct", label: "Primary Win %", category: "Season Stats" },
-  { id: "opponent_win_pct", label: "Opponent Win %", category: "Season Stats" },
+  { id: "primary_rl", label: "Primary Run Line", category: "Betting Lines" },
   { id: "o_u_line", label: "Over/Under Line", category: "Betting Lines" },
+  { id: "primary_ml_handle", label: "Primary ML Handle", category: "Betting Volume" },
+  { id: "opponent_ml_handle", label: "Opponent ML Handle", category: "Betting Volume" },
+  { id: "primary_ml_bets", label: "Primary ML Bets", category: "Betting Volume" },
+  { id: "opponent_ml_bets", label: "Opponent ML Bets", category: "Betting Volume" },
+  { id: "primary_rl_handle", label: "Primary RL Handle", category: "Betting Volume" },
+  { id: "opponent_rl_handle", label: "Opponent RL Handle", category: "Betting Volume" },
+  { id: "primary_rl_bets", label: "Primary RL Bets", category: "Betting Volume" },
+  { id: "opponent_rl_bets", label: "Opponent RL Bets", category: "Betting Volume" },
   { id: "ou_handle_over", label: "Over Handle", category: "Betting Volume" },
   { id: "ou_bets_over", label: "Over Bets", category: "Betting Volume" },
+  { id: "primary_team_last_3", label: "Primary Team Last 3", category: "Team Stats" },
+  { id: "opponent_team_last_3", label: "Opponent Team Last 3", category: "Team Stats" },
+  { id: "primary_ops_last_3", label: "Primary OPS Last 3", category: "Team Stats" },
+  { id: "opponent_ops_last_3", label: "Opponent OPS Last 3", category: "Team Stats" },
+  { id: "primary_win_pct", label: "Primary Win %", category: "Season Stats" },
+  { id: "opponent_win_pct", label: "Opponent Win %", category: "Season Stats" },
   { id: "same_league", label: "Same League", category: "Matchup Context" },
   { id: "same_division", label: "Same Division", category: "Matchup Context" },
   { id: "primary_handedness", label: "Primary Handedness", category: "Matchup Context" },
@@ -69,9 +69,9 @@ const featureOptions = [
 ];
 
 const targetOptions = [
-  { label: "Moneyline", value: "primary_win" },
-  { label: "Run Line", value: "primary_runline_win" },
-  { label: "Over/Under", value: "ou_result" }
+  { label: "Moneyline", value: "moneyline" },
+  { label: "Run Line", value: "runline" },
+  { label: "Over/Under", value: "over_under" }
 ];
 
 const groupedFeatures = featureOptions.reduce((groups, feature) => {
