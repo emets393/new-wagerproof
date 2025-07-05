@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { BarChart3 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast"
+import { supabase } from '@/integrations/supabase/client';
 
 import SavePatternButton from '@/components/SavePatternButton';
 import { Link } from 'react-router-dom';
@@ -123,24 +124,18 @@ const CustomModels = () => {
     setResults(null);
 
     try {
-      const response = await fetch('/functions/v1/run_custom_model', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('run_custom_model', {
+        body: {
           model_name: modelName,
           selected_features: selectedFeatures,
           target: targetVariable
-        })
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to run model');
+      if (error) {
+        throw new Error(error.message || 'Failed to run model');
       }
 
-      const data = await response.json();
       setResults(data);
     } catch (error: any) {
       console.error('Error running custom model:', error);

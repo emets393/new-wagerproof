@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,19 +55,17 @@ const GameAnalysis: React.FC = () => {
       const today = new Date().toISOString().split('T')[0];
       
       // Get all models that match this game today
-      const response = await fetch('/functions/v1/run_custom_model', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data: result, error } = await supabase.functions.invoke('run_custom_model', {
+        body: {
           model_name: 'Game Analysis',
           selected_features: ['primary_era', 'opponent_era', 'primary_win_pct', 'opponent_win_pct'], // Basic features for analysis
           target: 'moneyline'
-        })
+        }
       });
 
-      const result = await response.json();
+      if (error) {
+        throw new Error(error.message || 'Failed to load game analysis');
+      }
       
       // Find all matches for this specific game
       const gameMatches = result.today_matches?.filter((match: GameMatch) => 
