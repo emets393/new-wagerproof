@@ -12,6 +12,8 @@ interface TrendMatch {
   games: number;
   win_pct: number;
   opponent_win_pct: number;
+  feature_count: number;
+  features: string[];
 }
 
 interface TodayMatch {
@@ -23,6 +25,15 @@ interface TodayMatch {
   win_pct: number;
   opponent_win_pct: number;
   games: number;
+  feature_count: number;
+  features: string[];
+}
+
+interface ModelResults {
+  model_id: string;
+  trend_matches: TrendMatch[];
+  today_matches: TodayMatch[];
+  target: string;
 }
 
 // Map clean target names to actual database columns
@@ -105,6 +116,30 @@ function binValue(feature: string, value: any): string {
   return String(value);
 }
 
+// Generate combinations of features
+function generateCombinations<T>(arr: T[], size: number): T[][] {
+  if (size === 0) return [[]];
+  if (size > arr.length) return [];
+  
+  const result: T[][] = [];
+  
+  function backtrack(start: number, current: T[]) {
+    if (current.length === size) {
+      result.push([...current]);
+      return;
+    }
+    
+    for (let i = start; i < arr.length; i++) {
+      current.push(arr[i]);
+      backtrack(i + 1, current);
+      current.pop();
+    }
+  }
+  
+  backtrack(0, []);
+  return result;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -155,96 +190,131 @@ serve(async (req) => {
 
     console.log(`Loaded ${trainingData?.length || 0} training records`);
 
-    const trendMatches: TrendMatch[] = [];
-    const todayMatches: TodayMatch[] = [];
+    const allTrendMatches: TrendMatch[] = [];
+    const allTodayMatches: TodayMatch[] = [];
 
     if (trainingData && trainingData.length > 0) {
-      // OPTIMIZED: Use Map with just win/loss counts, no game storage
-      const comboMap = new Map<string, { wins: number; total: number }>();
-
-      // Process training data in optimized way
-      let processedCount = 0;
-      for (const row of trainingData) {
-        if (!row) continue;
-        
-        processedCount++;
-        if (processedCount % 1000 === 0) {
-          console.log(`Processed ${processedCount} records, memory:`, Deno.memoryUsage());
-        }
-
-        // Create binned feature combination
-        const binnedFeatures = selected_features.map(feature => {
-          const value = row[feature];
-          return binValue(feature, value);
+      // Generate feature combinations to analyze
+      const featureCombinations: Array<{ features: string[], size: number }> = [];
+      
+      // Always include the full feature set
+      featureCombinations.push({ 
+        features: selected_features, 
+        size: selected_features.length 
+      });
+      
+      // Add 5-feature combinations if we have 6+ features
+      if (selected_features.length >= 6) {
+        const fiveFeatureCombos = generateCombinations(selected_features, 5);
+        // Limit to prevent memory issues - take top 20 combinations
+        const limitedFiveCombos = fiveFeatureCombos.slice(0, 20);
+        limitedFiveCombos.forEach(combo => {
+          featureCombinations.push({ features: combo, size: 5 });
         });
+        console.log(`Added ${limitedFiveCombos.length} five-feature combinations`);
+      }
+      
+      // Add 4-feature combinations if we have 5+ features
+      if (selected_features.length >= 5) {
+        const fourFeatureCombos = generateCombinations(selected_features, 4);
+        // Limit to prevent memory issues - take top 30 combinations
+        const limitedFourCombos = fourFeatureCombos.slice(0, 30);
+        limitedFourCombos.forEach(combo => {
+          featureCombinations.push({ features: combo, size: 4 });
+        });
+        console.log(`Added ${limitedFourCombos.length} four-feature combinations`);
+      }
 
-        const combo = binnedFeatures.join('|');
+      console.log(`Total feature combinations to analyze: ${featureCombinations.length}`);
 
-        // Initialize or get existing combo data
-        if (!comboMap.has(combo)) {
-          comboMap.set(combo, { wins: 0, total: 0 });
-        }
-
-        const entry = comboMap.get(combo)!;
-        entry.total++;
-
-        // Determine if this was a win based on target outcome
-        let isWin = false;
-        const outcome = row[targetColumn];
+      // Process each feature combination
+      for (const { features, size } of featureCombinations) {
+        console.log(`Processing ${size}-feature combination:`, features);
         
-        if (targetColumn === 'primary_win') {
-          isWin = outcome === 1 || outcome === true;
-        } else if (targetColumn === 'primary_runline_win') {
-          isWin = outcome === 1 || outcome === true;
-        } else if (targetColumn === 'ou_result') {
-          isWin = outcome === 1 || outcome === true; // 1 for over, 0 for under
-        }
+        // OPTIMIZED: Use Map with just win/loss counts
+        const comboMap = new Map<string, { wins: number; total: number }>();
 
-        if (isWin) {
-          entry.wins++;
-        }
-
-        // OPTIMIZED: Early filtering - if combo reaches minimum threshold and shows no promise, continue
-        if (entry.total >= 10) {
-          const currentWinPct = entry.wins / entry.total;
-          // Skip combos that are clearly not valuable early on
-          if (currentWinPct > 0.35 && currentWinPct < 0.65 && entry.total >= 20) {
-            // This combo is trending toward mediocre - but we still need to count it
-            continue;
-          }
-        }
-      }
-
-      console.log(`Processed all ${processedCount} records. Found ${comboMap.size} unique combinations`);
-      console.log('Memory usage after processing:', Deno.memoryUsage());
-
-      // Create trend matches with enhanced filtering logic
-      for (const [combo, data] of comboMap.entries()) {
-        // Apply minimum games threshold
-        if (data.total >= 30) {
-          const winPct = data.wins / data.total;
+        // Process training data
+        let processedCount = 0;
+        for (const row of trainingData) {
+          if (!row) continue;
           
-          // Enhanced filtering: include patterns with strong predictive power in either direction
-          // For all targets: include if winPct >= 0.55 OR winPct <= 0.45
-          if (winPct >= 0.55 || winPct <= 0.45) {
-            trendMatches.push({
-              combo,
-              games: data.total,
-              win_pct: winPct,
-              opponent_win_pct: 1 - winPct
-            });
+          processedCount++;
+
+          // Create binned feature combination for this specific feature set
+          const binnedFeatures = features.map(feature => {
+            const value = row[feature];
+            return binValue(feature, value);
+          });
+
+          const combo = binnedFeatures.join('|');
+
+          // Initialize or get existing combo data
+          if (!comboMap.has(combo)) {
+            comboMap.set(combo, { wins: 0, total: 0 });
+          }
+
+          const entry = comboMap.get(combo)!;
+          entry.total++;
+
+          // Determine if this was a win based on target outcome
+          let isWin = false;
+          const outcome = row[targetColumn];
+          
+          if (targetColumn === 'primary_win') {
+            isWin = outcome === 1 || outcome === true;
+          } else if (targetColumn === 'primary_runline_win') {
+            isWin = outcome === 1 || outcome === true;
+          } else if (targetColumn === 'ou_result') {
+            isWin = outcome === 1 || outcome === true; // 1 for over, 0 for under
+          }
+
+          if (isWin) {
+            entry.wins++;
           }
         }
+
+        // Create trend matches for this feature combination
+        for (const [combo, data] of comboMap.entries()) {
+          // Apply minimum games threshold (adjust based on feature count)
+          const minGames = size >= 5 ? 25 : 30; // Slightly lower threshold for more complex combinations
+          
+          if (data.total >= minGames) {
+            const winPct = data.wins / data.total;
+            
+            // Enhanced filtering: include patterns with strong predictive power
+            if (winPct >= 0.55 || winPct <= 0.45) {
+              allTrendMatches.push({
+                combo,
+                games: data.total,
+                win_pct: winPct,
+                opponent_win_pct: 1 - winPct,
+                feature_count: size,
+                features: features
+              });
+            }
+          }
+        }
+
+        // Check memory usage after each combination
+        const memUsage = Deno.memoryUsage();
+        console.log(`Memory after ${size}-feature combo:`, { 
+          heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024), 
+          external: Math.round(memUsage.external / 1024 / 1024) 
+        });
       }
 
-      // Sort by predictive strength and sample size
-      trendMatches.sort((a, b) => {
-        const scoreA = Math.max(a.win_pct, a.opponent_win_pct) * Math.log(a.games);
-        const scoreB = Math.max(b.win_pct, b.opponent_win_pct) * Math.log(b.games);
+      // Sort all trend matches by predictive strength and sample size
+      allTrendMatches.sort((a, b) => {
+        const scoreA = Math.max(a.win_pct, a.opponent_win_pct) * Math.log(a.games) * (a.feature_count / 10); // Slight bonus for more features
+        const scoreB = Math.max(b.win_pct, b.opponent_win_pct) * Math.log(b.games) * (b.feature_count / 10);
         return scoreB - scoreA;
       });
 
-      console.log(`Generated ${trendMatches.length} trend matches`);
+      // Take top 20 patterns to avoid overwhelming the user
+      const topTrendMatches = allTrendMatches.slice(0, 20);
+
+      console.log(`Generated ${topTrendMatches.length} trend matches from ${allTrendMatches.length} total patterns`);
 
       // Get today's games that match our patterns
       const today = new Date().toISOString().split('T')[0];
@@ -256,39 +326,44 @@ serve(async (req) => {
       if (!todayError && todaysGames) {
         console.log(`Found ${todaysGames.length} games for today`);
         
+        // Check each game against each trend pattern
         for (const game of todaysGames) {
-          const gameBinnedFeatures = selected_features.map(feature => {
-            const value = game[feature];
-            return binValue(feature, value);
-          });
-          
-          const gameCombo = gameBinnedFeatures.join('|');
-
-          // Check if this combination matches any of our successful trends
-          const matchingTrend = trendMatches.find(trend => trend.combo === gameCombo);
-          if (matchingTrend) {
-            todayMatches.push({
-              unique_id: game.unique_id || 'unknown',
-              primary_team: game.primary_team || 'Unknown',
-              opponent_team: game.opponent_team || 'Unknown',
-              is_home_team: game.is_home_team || false,
-              combo: gameCombo,
-              win_pct: matchingTrend.win_pct,
-              opponent_win_pct: matchingTrend.opponent_win_pct,
-              games: matchingTrend.games
+          for (const trend of topTrendMatches) {
+            const gameBinnedFeatures = trend.features.map(feature => {
+              const value = game[feature];
+              return binValue(feature, value);
             });
+            
+            const gameCombo = gameBinnedFeatures.join('|');
+
+            // Check if this combination matches the trend
+            if (gameCombo === trend.combo) {
+              allTodayMatches.push({
+                unique_id: game.unique_id || 'unknown',
+                primary_team: game.primary_team || 'Unknown',
+                opponent_team: game.opponent_team || 'Unknown',
+                is_home_team: game.is_home_team || false,
+                combo: gameCombo,
+                win_pct: trend.win_pct,
+                opponent_win_pct: trend.opponent_win_pct,
+                games: trend.games,
+                feature_count: trend.feature_count,
+                features: trend.features
+              });
+              break; // Only match each game once to avoid duplicates
+            }
           }
         }
       }
     }
 
-    console.log(`Found ${trendMatches.length} trend matches and ${todayMatches.length} today matches`);
+    console.log(`Found ${allTrendMatches.length} trend matches and ${allTodayMatches.length} today matches`);
     console.log('Final memory usage:', Deno.memoryUsage());
 
     const response = {
       model_id: modelData.model_id,
-      trend_matches: trendMatches.slice(0, 15), // Top 15 patterns
-      today_matches: todayMatches,
+      trend_matches: allTrendMatches.slice(0, 15), // Top 15 patterns
+      today_matches: allTodayMatches,
       target: target // Include target for frontend logic
     };
 

@@ -7,14 +7,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, TrendingUp, Target, Settings, ChevronUp, ChevronDown } from "lucide-react";
+import { Loader2, TrendingUp, Target, Settings, ChevronUp, ChevronDown, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TrendMatch {
   combo: string;
   games: number;
   win_pct: number;
   opponent_win_pct: number;
+  feature_count: number;
+  features: string[];
 }
 
 interface TodayMatch {
@@ -26,6 +29,8 @@ interface TodayMatch {
   win_pct: number;
   opponent_win_pct: number;
   games: number;
+  feature_count: number;
+  features: string[];
 }
 
 interface ModelResults {
@@ -212,13 +217,13 @@ export default function CustomModels() {
   const getColumnHeaders = (targetType: string) => {
     switch (targetType) {
       case 'moneyline':
-        return ['Model #', 'Primary Win %', 'Opponent Win %', '# of Games'];
+        return ['Model #', 'Features', 'Primary Win %', 'Opponent Win %', '# of Games'];
       case 'runline':
-        return ['Model #', 'Primary Cover %', 'Opponent Cover %', '# of Games'];
+        return ['Model #', 'Features', 'Primary Cover %', 'Opponent Cover %', '# of Games'];
       case 'over_under':
-        return ['Model #', 'Over %', 'Under %', '# of Games'];
+        return ['Model #', 'Features', 'Over %', 'Under %', '# of Games'];
       default:
-        return ['Model #', 'Primary %', 'Opponent %', '# of Games'];
+        return ['Model #', 'Features', 'Primary %', 'Opponent %', '# of Games'];
     }
   };
 
@@ -226,12 +231,20 @@ export default function CustomModels() {
     switch (targetType) {
       case 'moneyline':
       case 'runline':
-        return ['Matchup', 'Model #', 'Projected Winner', 'Win %', '# of Games'];
+        return ['Matchup', 'Model #', 'Features', 'Projected Winner', 'Win %', '# of Games'];
       case 'over_under':
-        return ['Matchup', 'Model #', 'Projected Winner', 'Win %', '# of Games'];
+        return ['Matchup', 'Model #', 'Features', 'Projected Winner', 'Win %', '# of Games'];
       default:
-        return ['Matchup', 'Model #', 'Projected Winner', 'Win %', '# of Games'];
+        return ['Matchup', 'Model #', 'Features', 'Projected Winner', 'Win %', '# of Games'];
     }
+  };
+
+  const formatFeatures = (features: string[]) => {
+    const featureLabels = features.map(featureId => {
+      const feature = featureOptions.find(f => f.id === featureId);
+      return feature ? feature.label.replace(/^(Primary|Opponent)\s+/, '') : featureId;
+    });
+    return featureLabels.slice(0, 3).join(', ') + (featureLabels.length > 3 ? '...' : '');
   };
 
   const formatMatchup = (match: TodayMatch) => {
@@ -309,277 +322,327 @@ export default function CustomModels() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            Custom Model Builder
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Create your own predictive models by selecting features and target outcomes
-          </p>
-        </div>
+    <TooltipProvider>
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+        <div className="container mx-auto px-4 py-8">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              Custom Model Builder
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Create your own predictive models by selecting features and target outcomes
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Model Configuration */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Model Configuration
-              </CardTitle>
-              <CardDescription>
-                Configure your custom prediction model
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="model-name">Model Name</Label>
-                <Input
-                  id="model-name"
-                  placeholder="Enter a name for your model"
-                  value={modelName}
-                  onChange={(e) => setModelName(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Target Prediction</Label>
-                <Select value={target} onValueChange={setTarget}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select what to predict" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {targetOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-4">
-                <Label>Select Features ({selectedFeatures.length} selected)</Label>
-                <div className="max-h-80 overflow-y-auto space-y-4 border rounded-lg p-4">
-                  {Object.entries(groupedFeatures).map(([category, features]) => (
-                    <div key={category} className="space-y-2">
-                      <h4 className="font-medium text-sm text-muted-foreground border-b pb-1">
-                        {category}
-                      </h4>
-                      <div className="grid grid-cols-1 gap-2">
-                        {features.map(feature => (
-                          <div key={feature.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={feature.id}
-                              checked={selectedFeatures.includes(feature.id)}
-                              onCheckedChange={() => handleFeatureToggle(feature.id)}
-                            />
-                            <Label 
-                              htmlFor={feature.id} 
-                              className="text-sm font-normal cursor-pointer"
-                            >
-                              {feature.label}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Model Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  Model Configuration
+                </CardTitle>
+                <CardDescription>
+                  Configure your custom prediction model
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="model-name">Model Name</Label>
+                  <Input
+                    id="model-name"
+                    placeholder="Enter a name for your model"
+                    value={modelName}
+                    onChange={(e) => setModelName(e.target.value)}
+                  />
                 </div>
-              </div>
 
-              <Button 
-                onClick={handleBuildModel} 
-                disabled={isBuilding}
-                className="w-full"
-              >
-                {isBuilding ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Building Model...
-                  </>
-                ) : (
-                  <>
-                    <Target className="w-4 h-4 mr-2" />
-                    Build Model
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+                <div className="space-y-2">
+                  <Label>Target Prediction</Label>
+                  <Select value={target} onValueChange={setTarget}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select what to predict" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {targetOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Results */}
-          {results && (
-            <div className="space-y-6">
-              {/* Trend Patterns */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
-                    Trend Patterns ({results.trend_matches.length})
-                  </CardTitle>
-                  <CardDescription>
-                    Historical patterns with 30+ games and strong predictive edge
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-64 overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Model #</TableHead>
-                          <TableHead>
-                            <Button
-                              variant="ghost"
-                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                              onClick={() => handleTrendSort('primary')}
-                            >
-                              {getColumnHeaders(results.target)[1]}
-                              {getSortIcon(trendSortColumn, 'primary', trendSortDirection)}
-                            </Button>
-                          </TableHead>
-                          <TableHead>
-                            <Button
-                              variant="ghost"
-                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                              onClick={() => handleTrendSort('opponent')}
-                            >
-                              {getColumnHeaders(results.target)[2]}
-                              {getSortIcon(trendSortColumn, 'opponent', trendSortDirection)}
-                            </Button>
-                          </TableHead>
-                          <TableHead>
-                            <Button
-                              variant="ghost"
-                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                              onClick={() => handleTrendSort('games')}
-                            >
-                              {getColumnHeaders(results.target)[3]}
-                              {getSortIcon(trendSortColumn, 'games', trendSortDirection)}
-                            </Button>
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sortTrendMatches(results.trend_matches).map((trend, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-semibold">
-                              {results.trend_matches.indexOf(trend) + 1}
-                            </TableCell>
-                            <TableCell className="font-semibold">
-                              {(trend.win_pct * 100).toFixed(1)}%
-                            </TableCell>
-                            <TableCell className="font-semibold">
-                              {(trend.opponent_win_pct * 100).toFixed(1)}%
-                            </TableCell>
-                            <TableCell>{trend.games}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                <div className="space-y-4">
+                  <Label>Select Features ({selectedFeatures.length} selected)</Label>
+                  <div className="max-h-80 overflow-y-auto space-y-4 border rounded-lg p-4">
+                    {Object.entries(groupedFeatures).map(([category, features]) => (
+                      <div key={category} className="space-y-2">
+                        <h4 className="font-medium text-sm text-muted-foreground border-b pb-1">
+                          {category}
+                        </h4>
+                        <div className="grid grid-cols-1 gap-2">
+                          {features.map(feature => (
+                            <div key={feature.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={feature.id}
+                                checked={selectedFeatures.includes(feature.id)}
+                                onCheckedChange={() => handleFeatureToggle(feature.id)}
+                              />
+                              <Label 
+                                htmlFor={feature.id} 
+                                className="text-sm font-normal cursor-pointer"
+                              >
+                                {feature.label}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Today's Matches */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Today's Matching Games ({results.today_matches.length})</CardTitle>
-                  <CardDescription>
-                    Games today that match your trend patterns
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-64 overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>
-                            <Button
-                              variant="ghost"
-                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                              onClick={() => handleTodaySort('matchup')}
-                            >
-                              Matchup
-                              {getSortIcon(todaySortColumn, 'matchup', todaySortDirection)}
-                            </Button>
-                          </TableHead>
-                          <TableHead>
-                            <Button
-                              variant="ghost"
-                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                              onClick={() => handleTodaySort('model')}
-                            >
-                              Model #
-                              {getSortIcon(todaySortColumn, 'model', todaySortDirection)}
-                            </Button>
-                          </TableHead>
-                          <TableHead>
-                            <Button
-                              variant="ghost"
-                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                              onClick={() => handleTodaySort('winner')}
-                            >
-                              Projected Winner
-                              {getSortIcon(todaySortColumn, 'winner', todaySortDirection)}
-                            </Button>
-                          </TableHead>
-                          <TableHead>
-                            <Button
-                              variant="ghost"
-                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                              onClick={() => handleTodaySort('percentage')}
-                            >
-                              Win %
-                              {getSortIcon(todaySortColumn, 'percentage', todaySortDirection)}
-                            </Button>
-                          </TableHead>
-                          <TableHead>
-                            <Button
-                              variant="ghost"
-                              className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                              onClick={() => handleTodaySort('games')}
-                            >
-                              # of Games
-                              {getSortIcon(todaySortColumn, 'games', todaySortDirection)}
-                            </Button>
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sortTodayMatches(results.today_matches).map((match, index) => {
-                          const matchingModelIndex = results.trend_matches.findIndex(
-                            trend => trend.combo === match.combo
-                          ) + 1;
-                          
-                          return (
+                <Button 
+                  onClick={handleBuildModel} 
+                  disabled={isBuilding}
+                  className="w-full"
+                >
+                  {isBuilding ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Building Model...
+                    </>
+                  ) : (
+                    <>
+                      <Target className="w-4 h-4 mr-2" />
+                      Build Model
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Results */}
+            {results && (
+              <div className="space-y-6">
+                {/* Trend Patterns */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5" />
+                      Trend Patterns ({results.trend_matches.length})
+                    </CardTitle>
+                    <CardDescription>
+                      Historical patterns with 25+ games and strong predictive edge (includes 4-5 feature subsets)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-64 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Model #</TableHead>
+                            <TableHead>Features</TableHead>
+                            <TableHead>
+                              <Button
+                                variant="ghost"
+                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                                onClick={() => handleTrendSort('primary')}
+                              >
+                                {getColumnHeaders(results.target)[2]}
+                                {getSortIcon(trendSortColumn, 'primary', trendSortDirection)}
+                              </Button>
+                            </TableHead>
+                            <TableHead>
+                              <Button
+                                variant="ghost"
+                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                                onClick={() => handleTrendSort('opponent')}
+                              >
+                                {getColumnHeaders(results.target)[3]}
+                                {getSortIcon(trendSortColumn, 'opponent', trendSortDirection)}
+                              </Button>
+                            </TableHead>
+                            <TableHead>
+                              <Button
+                                variant="ghost"
+                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                                onClick={() => handleTrendSort('games')}
+                              >
+                                {getColumnHeaders(results.target)[4]}
+                                {getSortIcon(trendSortColumn, 'games', trendSortDirection)}
+                              </Button>
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sortTrendMatches(results.trend_matches).map((trend, index) => (
                             <TableRow key={index}>
                               <TableCell className="font-semibold">
-                                {formatMatchup(match)}
+                                {results.trend_matches.indexOf(trend) + 1}
+                              </TableCell>
+                              <TableCell>
+                                <Tooltip>
+                                  <TooltipTrigger className="flex items-center gap-1 cursor-help">
+                                    <span className="text-xs bg-muted px-2 py-1 rounded">
+                                      {trend.feature_count}f
+                                    </span>
+                                    <Info className="w-3 h-3 text-muted-foreground" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <div className="max-w-xs">
+                                      <p className="font-semibold mb-1">{trend.feature_count} Features:</p>
+                                      {trend.features.map(featureId => {
+                                        const feature = featureOptions.find(f => f.id === featureId);
+                                        return (
+                                          <p key={featureId} className="text-xs">
+                                            • {feature?.label || featureId}
+                                          </p>
+                                        );
+                                      })}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
                               </TableCell>
                               <TableCell className="font-semibold">
-                                {matchingModelIndex}
+                                {(trend.win_pct * 100).toFixed(1)}%
                               </TableCell>
                               <TableCell className="font-semibold">
-                                {getProjectedWinner(match, results.target)}
+                                {(trend.opponent_win_pct * 100).toFixed(1)}%
                               </TableCell>
-                              <TableCell className="font-semibold">
-                                {(getProjectedWinPercentage(match) * 100).toFixed(1)}%
-                              </TableCell>
-                              <TableCell>{match.games}</TableCell>
+                              <TableCell>{trend.games}</TableCell>
                             </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Today's Matches */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Today's Matching Games ({results.today_matches.length})</CardTitle>
+                    <CardDescription>
+                      Games today that match your trend patterns
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-64 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>
+                              <Button
+                                variant="ghost"
+                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                                onClick={() => handleTodaySort('matchup')}
+                              >
+                                Matchup
+                                {getSortIcon(todaySortColumn, 'matchup', todaySortDirection)}
+                              </Button>
+                            </TableHead>
+                            <TableHead>
+                              <Button
+                                variant="ghost"
+                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                                onClick={() => handleTodaySort('model')}
+                              >
+                                Model #
+                                {getSortIcon(todaySortColumn, 'model', todaySortDirection)}
+                              </Button>
+                            </TableHead>
+                            <TableHead>Features</TableHead>
+                            <TableHead>
+                              <Button
+                                variant="ghost"
+                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                                onClick={() => handleTodaySort('winner')}
+                              >
+                                Projected Winner
+                                {getSortIcon(todaySortColumn, 'winner', todaySortDirection)}
+                              </Button>
+                            </TableHead>
+                            <TableHead>
+                              <Button
+                                variant="ghost"
+                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                                onClick={() => handleTodaySort('percentage')}
+                              >
+                                Win %
+                                {getSortIcon(todaySortColumn, 'percentage', todaySortDirection)}
+                              </Button>
+                            </TableHead>
+                            <TableHead>
+                              <Button
+                                variant="ghost"
+                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
+                                onClick={() => handleTodaySort('games')}
+                              >
+                                # of Games
+                                {getSortIcon(todaySortColumn, 'games', todaySortDirection)}
+                              </Button>
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sortTodayMatches(results.today_matches).map((match, index) => {
+                            const matchingModelIndex = results.trend_matches.findIndex(
+                              trend => trend.combo === match.combo
+                            ) + 1;
+                            
+                            return (
+                              <TableRow key={index}>
+                                <TableCell className="font-semibold">
+                                  {formatMatchup(match)}
+                                </TableCell>
+                                <TableCell className="font-semibold">
+                                  {matchingModelIndex}
+                                </TableCell>
+                                <TableCell>
+                                  <Tooltip>
+                                    <TooltipTrigger className="flex items-center gap-1 cursor-help">
+                                      <span className="text-xs bg-muted px-2 py-1 rounded">
+                                        {match.feature_count}f
+                                      </span>
+                                      <Info className="w-3 h-3 text-muted-foreground" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <div className="max-w-xs">
+                                        <p className="font-semibold mb-1">{match.feature_count} Features:</p>
+                                        {match.features.map(featureId => {
+                                          const feature = featureOptions.find(f => f.id === featureId);
+                                          return (
+                                            <p key={featureId} className="text-xs">
+                                              • {feature?.label || featureId}
+                                            </p>
+                                          );
+                                        })}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TableCell>
+                                <TableCell className="font-semibold">
+                                  {getProjectedWinner(match, results.target)}
+                                </TableCell>
+                                <TableCell className="font-semibold">
+                                  {(getProjectedWinPercentage(match) * 100).toFixed(1)}%
+                                </TableCell>
+                                <TableCell>{match.games}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
