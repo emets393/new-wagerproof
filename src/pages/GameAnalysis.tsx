@@ -52,11 +52,22 @@ const GameAnalysis: React.FC = () => {
 
   const loadGameAnalysisFromParams = () => {
     setIsLoading(true);
+    console.log('Loading game analysis from URL params...');
+    console.log('Game ID:', gameId);
+    console.log('Search params:', searchParams.toString());
+    
     try {
       const modelResultsParam = searchParams.get('modelResults');
       const targetParam = searchParams.get('target');
       const primaryTeamParam = searchParams.get('primaryTeam');
       const opponentTeamParam = searchParams.get('opponentTeam');
+
+      console.log('URL Parameters:', {
+        modelResults: modelResultsParam ? 'Present' : 'Missing',
+        target: targetParam,
+        primaryTeam: primaryTeamParam,
+        opponentTeam: opponentTeamParam
+      });
 
       if (!modelResultsParam || !targetParam || !primaryTeamParam || !opponentTeamParam) {
         console.error('Missing required URL parameters');
@@ -66,8 +77,10 @@ const GameAnalysis: React.FC = () => {
       }
 
       const matches: GameMatch[] = JSON.parse(decodeURIComponent(modelResultsParam));
+      console.log('Parsed matches:', matches.length);
       
       if (matches.length === 0) {
+        console.error('No matches found in model results');
         setAnalysisData(null);
         setIsLoading(false);
         return;
@@ -85,6 +98,7 @@ const GameAnalysis: React.FC = () => {
         is_home_team: matches[0]?.is_home_team || false
       };
 
+      console.log('Analysis data created successfully');
       setAnalysisData({
         game_info: gameInfo,
         matches,

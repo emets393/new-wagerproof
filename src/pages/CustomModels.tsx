@@ -52,6 +52,44 @@ const CustomModels = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast()
 
+  // Helper function to get target-specific labels
+  const getTargetLabels = (target: string) => {
+    switch (target) {
+      case 'over_under':
+        return {
+          primaryRate: 'Over Rate',
+          opponentRate: 'Under Rate',
+          primaryShort: 'Over %',
+          opponentShort: 'Under %',
+          avgLabel: 'Avg Over Rate'
+        };
+      case 'runline':
+        return {
+          primaryRate: 'Cover Rate',
+          opponentRate: 'No Cover Rate',
+          primaryShort: 'Cover %',
+          opponentShort: 'No Cover %',
+          avgLabel: 'Avg Cover Rate'
+        };
+      case 'moneyline':
+        return {
+          primaryRate: 'Win Rate',
+          opponentRate: 'Loss Rate',
+          primaryShort: 'Win %',
+          opponentShort: 'Loss %',
+          avgLabel: 'Avg Win Rate'
+        };
+      default:
+        return {
+          primaryRate: 'Win Rate',
+          opponentRate: 'Loss Rate',
+          primaryShort: 'Win %',
+          opponentShort: 'Loss %',
+          avgLabel: 'Avg Win Rate'
+        };
+    }
+  };
+
   // Load state from URL parameters on component mount
   useEffect(() => {
     const urlModelName = searchParams.get('modelName');
@@ -199,6 +237,9 @@ const CustomModels = () => {
     }
   };
 
+  // Get target-specific labels for current target
+  const targetLabels = getTargetLabels(targetVariable);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       {/* Header Section */}
@@ -317,7 +358,8 @@ const CustomModels = () => {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left p-2">Win %</th>
+                          <th className="text-left p-2">{targetLabels.primaryShort}</th>
+                          <th className="text-left p-2">{targetLabels.opponentShort}</th>
                           <th className="text-left p-2">Games</th>
                           <th className="text-left p-2">Features</th>
                           <th className="text-left p-2">Pattern</th>
@@ -333,6 +375,14 @@ const CustomModels = () => {
                                 match.win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
                               }`}>
                                 {(match.win_pct * 100).toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              <span className={`font-medium ${
+                                match.opponent_win_pct > 0.6 ? 'text-green-600' : 
+                                match.opponent_win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                              }`}>
+                                {(match.opponent_win_pct * 100).toFixed(1)}%
                               </span>
                             </td>
                             <td className="p-2">{match.games}</td>
@@ -395,6 +445,7 @@ const CustomModels = () => {
                     ).map(([gameKey, matches]: [string, any]) => {
                       const firstMatch = matches[0];
                       const avgWinPct = matches.reduce((sum: number, m: any) => sum + m.win_pct, 0) / matches.length;
+                      const avgOpponentWinPct = matches.reduce((sum: number, m: any) => sum + m.opponent_win_pct, 0) / matches.length;
                       
                       // Create URL with model results and target
                       const gameAnalysisUrl = `/game-analysis/${firstMatch.unique_id}?` + 
@@ -416,13 +467,26 @@ const CustomModels = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="text-right">
-                                <p className={`font-semibold ${
-                                  avgWinPct > 0.6 ? 'text-green-600' : 
-                                  avgWinPct < 0.4 ? 'text-red-600' : 'text-yellow-600'
-                                }`}>
-                                  {(avgWinPct * 100).toFixed(1)}%
-                                </p>
-                                <p className="text-xs text-gray-600">Avg Win Rate</p>
+                                <div className="grid grid-cols-2 gap-2 mb-1">
+                                  <div className="text-center">
+                                    <p className={`font-semibold text-sm ${
+                                      avgWinPct > 0.6 ? 'text-green-600' : 
+                                      avgWinPct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                                    }`}>
+                                      {(avgWinPct * 100).toFixed(1)}%
+                                    </p>
+                                    <p className="text-xs text-gray-600">{targetLabels.primaryShort}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className={`font-semibold text-sm ${
+                                      avgOpponentWinPct > 0.6 ? 'text-green-600' : 
+                                      avgOpponentWinPct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                                    }`}>
+                                      {(avgOpponentWinPct * 100).toFixed(1)}%
+                                    </p>
+                                    <p className="text-xs text-gray-600">{targetLabels.opponentShort}</p>
+                                  </div>
+                                </div>
                               </div>
                               <Link to={gameAnalysisUrl} className="ml-2">
                                 <Button variant="outline" size="sm">
@@ -437,12 +501,20 @@ const CustomModels = () => {
                             {matches.map((match: any, idx: number) => (
                               <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
                                 <span>Model #{idx + 1}: {match.feature_count} features, {match.games} games</span>
-                                <span className={`font-medium ${
-                                  match.win_pct > 0.6 ? 'text-green-600' : 
-                                  match.win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
-                                }`}>
-                                  {(match.win_pct * 100).toFixed(1)}%
-                                </span>
+                                <div className="flex gap-4">
+                                  <span className={`font-medium ${
+                                    match.win_pct > 0.6 ? 'text-green-600' : 
+                                    match.win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                                  }`}>
+                                    {targetLabels.primaryShort}: {(match.win_pct * 100).toFixed(1)}%
+                                  </span>
+                                  <span className={`font-medium ${
+                                    match.opponent_win_pct > 0.6 ? 'text-green-600' : 
+                                    match.opponent_win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                                  }`}>
+                                    {targetLabels.opponentShort}: {(match.opponent_win_pct * 100).toFixed(1)}%
+                                  </span>
+                                </div>
                               </div>
                             ))}
                           </div>
