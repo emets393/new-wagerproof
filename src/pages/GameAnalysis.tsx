@@ -140,7 +140,10 @@ const GameAnalysis: React.FC = () => {
           <CardContent className="p-6 text-center">
             <p className="text-gray-600">No analysis data found for this game.</p>
             <p className="text-sm text-gray-500 mt-2">
-              Make sure to navigate here from the Custom Models page with valid results.
+              Game ID: {gameId} | Target: {searchParams.get('target')}
+            </p>
+            <p className="text-sm text-gray-400 mt-2">
+              The analysis function may be temporarily unavailable. Please try again later.
             </p>
           </CardContent>
         </Card>
