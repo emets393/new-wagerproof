@@ -1704,6 +1704,47 @@ export type Database = {
         }
         Relationships: []
       }
+      pattern_daily_matches: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_home_game: boolean
+          match_date: string
+          opponent_team: string
+          primary_team: string
+          saved_pattern_id: string | null
+          unique_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_home_game: boolean
+          match_date: string
+          opponent_team: string
+          primary_team: string
+          saved_pattern_id?: string | null
+          unique_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_home_game?: boolean
+          match_date?: string
+          opponent_team?: string
+          primary_team?: string
+          saved_pattern_id?: string | null
+          unique_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pattern_daily_matches_saved_pattern_id_fkey"
+            columns: ["saved_pattern_id"]
+            isOneToOne: false
+            referencedRelation: "saved_trend_patterns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       philadelphia_games: {
         Row: {
           date: string | null
@@ -2085,6 +2126,51 @@ export type Database = {
           unique_id?: string
           was_home?: boolean | null
           win_loss?: string | null
+        }
+        Relationships: []
+      }
+      saved_trend_patterns: {
+        Row: {
+          combo: string
+          created_at: string | null
+          feature_count: number
+          features: string[]
+          games: number
+          id: string
+          opponent_win_pct: number
+          pattern_name: string
+          target: string
+          updated_at: string | null
+          user_id: string | null
+          win_pct: number
+        }
+        Insert: {
+          combo: string
+          created_at?: string | null
+          feature_count: number
+          features: string[]
+          games: number
+          id?: string
+          opponent_win_pct: number
+          pattern_name: string
+          target: string
+          updated_at?: string | null
+          user_id?: string | null
+          win_pct: number
+        }
+        Update: {
+          combo?: string
+          created_at?: string | null
+          feature_count?: number
+          features?: string[]
+          games?: number
+          id?: string
+          opponent_win_pct?: number
+          pattern_name?: string
+          target?: string
+          updated_at?: string | null
+          user_id?: string | null
+          win_pct?: number
         }
         Relationships: []
       }

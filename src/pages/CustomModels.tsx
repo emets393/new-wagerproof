@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, TrendingUp, Target, Settings, ChevronUp, ChevronDown, Info } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BarChart3 } from 'lucide-react';
+import { useToast } from "@/components/ui/use-toast"
+
+import SavePatternButton from '@/components/SavePatternButton';
+import { Link } from 'react-router-dom';
+import { ExternalLink } from 'lucide-react';
 
 interface TrendMatch {
   combo: string;
@@ -40,609 +40,366 @@ interface ModelResults {
   target: string;
 }
 
-const featureOptions = [
-  { id: "primary_era", label: "Primary Team ERA", category: "Pitching" },
-  { id: "opponent_era", label: "Opponent ERA", category: "Pitching" },
-  { id: "primary_whip", label: "Primary Team WHIP", category: "Pitching" },
-  { id: "opponent_whip", label: "Opponent WHIP", category: "Pitching" },
-  { id: "primary_last_runs", label: "Primary Last Runs", category: "Recent Performance" },
-  { id: "opponent_last_runs", label: "Opponent Last Runs", category: "Recent Performance" },
-  { id: "primary_last_runs_allowed", label: "Primary Last Runs Allowed", category: "Recent Performance" },
-  { id: "opponent_last_runs_allowed", label: "Opponent Last Runs Allowed", category: "Recent Performance" },
-  { id: "primary_last_win", label: "Primary Last Win", category: "Recent Performance" },
-  { id: "opponent_last_win", label: "Opponent Last Win", category: "Recent Performance" },
-  { id: "primary_streak", label: "Primary Streak", category: "Recent Performance" },
-  { id: "opponent_streak", label: "Opponent Streak", category: "Recent Performance" },
-  { id: "primary_rl", label: "Primary Run Line", category: "Betting Lines" },
-  { id: "o_u_line", label: "Over/Under Line", category: "Betting Lines" },
-  { id: "primary_ml_handle", label: "Primary ML Handle", category: "Betting Volume" },
-  { id: "opponent_ml_handle", label: "Opponent ML Handle", category: "Betting Volume" },
-  { id: "primary_ml_bets", label: "Primary ML Bets", category: "Betting Volume" },
-  { id: "opponent_ml_bets", label: "Opponent ML Bets", category: "Betting Volume" },
-  { id: "primary_rl_handle", label: "Primary RL Handle", category: "Betting Volume" },
-  { id: "opponent_rl_handle", label: "Opponent RL Handle", category: "Betting Volume" },
-  { id: "primary_rl_bets", label: "Primary RL Bets", category: "Betting Volume" },
-  { id: "opponent_rl_bets", label: "Opponent RL Bets", category: "Betting Volume" },
-  { id: "ou_handle_over", label: "Over Handle", category: "Betting Volume" },
-  { id: "ou_bets_over", label: "Over Bets", category: "Betting Volume" },
-  { id: "primary_team_last_3", label: "Primary Team Last 3", category: "Team Stats" },
-  { id: "opponent_team_last_3", label: "Opponent Team Last 3", category: "Team Stats" },
-  { id: "primary_ops_last_3", label: "Primary OPS Last 3", category: "Team Stats" },
-  { id: "opponent_ops_last_3", label: "Opponent OPS Last 3", category: "Team Stats" },
-  { id: "primary_win_pct", label: "Primary Win %", category: "Season Stats" },
-  { id: "opponent_win_pct", label: "Opponent Win %", category: "Season Stats" },
-  { id: "same_league", label: "Same League", category: "Matchup Context" },
-  { id: "same_division", label: "Same Division", category: "Matchup Context" },
-  { id: "primary_handedness", label: "Primary Handedness", category: "Matchup Context" },
-  { id: "opponent_handedness", label: "Opponent Handedness", category: "Matchup Context" },
-];
-
-const targetOptions = [
-  { label: "Moneyline", value: "moneyline" },
-  { label: "Run Line", value: "runline" },
-  { label: "Over/Under", value: "over_under" }
-];
-
-const groupedFeatures = featureOptions.reduce((groups, feature) => {
-  if (!groups[feature.category]) {
-    groups[feature.category] = [];
-  }
-  groups[feature.category].push(feature);
-  return groups;
-}, {} as Record<string, typeof featureOptions>);
-
-type TrendSortColumn = 'primary' | 'opponent' | 'games';
-type TodaySortColumn = 'matchup' | 'model' | 'winner' | 'percentage' | 'games';
-type SortDirection = 'asc' | 'desc';
-
-export default function CustomModels() {
+const CustomModels = () => {
   const [modelName, setModelName] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
-  const [target, setTarget] = useState('');
-  const [isBuilding, setIsBuilding] = useState(false);
+  const [targetVariable, setTargetVariable] = useState('');
   const [results, setResults] = useState<ModelResults | null>(null);
-  const [trendSortColumn, setTrendSortColumn] = useState<TrendSortColumn>('games');
-  const [trendSortDirection, setTrendSortDirection] = useState<SortDirection>('desc');
-  const [todaySortColumn, setTodaySortColumn] = useState<TodaySortColumn>('percentage');
-  const [todaySortDirection, setTodaySortDirection] = useState<SortDirection>('desc');
-  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast()
 
-  const handleFeatureToggle = (featureId: string) => {
-    setSelectedFeatures(prev => 
-      prev.includes(featureId) 
-        ? prev.filter(id => id !== featureId)
-        : [...prev, featureId]
+  const availableFeatures = [
+    'primary_era', 'opponent_era', 'primary_win_pct', 'opponent_win_pct',
+    'primary_rl', 'o_u_line', 'primary_ops', 'opponent_ops',
+    'primary_streak', 'opponent_streak', 'primary_last_runs', 'opponent_last_runs',
+    'primary_handle', 'opponent_handle', 'primary_bets', 'opponent_bets',
+    'primary_handedness', 'opponent_handedness', 'same_league', 'same_division',
+    'primary_last_win', 'opponent_last_win', 'primary_last_3', 'opponent_last_3'
+  ];
+
+  const targetVariables = [
+    'moneyline',
+    'runline',
+    'over_under'
+  ];
+
+  const handleFeatureChange = (feature: string) => {
+    setSelectedFeatures(prev =>
+      prev.includes(feature)
+        ? prev.filter(f => f !== feature)
+        : [...prev, feature]
     );
   };
 
-  const handleTrendSort = (column: TrendSortColumn) => {
-    if (trendSortColumn === column) {
-      setTrendSortDirection(trendSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setTrendSortColumn(column);
-      setTrendSortDirection('desc');
-    }
-  };
-
-  const handleTodaySort = (column: TodaySortColumn) => {
-    if (todaySortColumn === column) {
-      setTodaySortDirection(todaySortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setTodaySortColumn(column);
-      setTodaySortDirection('desc');
-    }
-  };
-
-  const getSortIcon = (currentColumn: string, targetColumn: string, direction: SortDirection) => {
-    if (currentColumn !== targetColumn) {
-      return <ChevronUp className="w-4 h-4 opacity-30" />;
-    }
-    return direction === 'asc' ? 
-      <ChevronUp className="w-4 h-4" /> : 
-      <ChevronDown className="w-4 h-4" />;
-  };
-
-  const sortTrendMatches = (matches: TrendMatch[]) => {
-    return [...matches].sort((a, b) => {
-      let aValue: number;
-      let bValue: number;
-
-      switch (trendSortColumn) {
-        case 'primary':
-          aValue = a.win_pct;
-          bValue = b.win_pct;
-          break;
-        case 'opponent':
-          aValue = a.opponent_win_pct;
-          bValue = b.opponent_win_pct;
-          break;
-        case 'games':
-          aValue = a.games;
-          bValue = b.games;
-          break;
-        default:
-          aValue = a.games;
-          bValue = b.games;
-      }
-
-      return trendSortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-    });
-  };
-
-  const sortTodayMatches = (matches: TodayMatch[]) => {
-    return [...matches].sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
-
-      switch (todaySortColumn) {
-        case 'matchup':
-          aValue = formatMatchup(a);
-          bValue = formatMatchup(b);
-          break;
-        case 'model':
-          const aModelIndex = results?.trend_matches.findIndex(trend => trend.combo === a.combo) ?? -1;
-          const bModelIndex = results?.trend_matches.findIndex(trend => trend.combo === b.combo) ?? -1;
-          aValue = aModelIndex + 1;
-          bValue = bModelIndex + 1;
-          break;
-        case 'winner':
-          aValue = getProjectedWinner(a, results?.target || '');
-          bValue = getProjectedWinner(b, results?.target || '');
-          break;
-        case 'percentage':
-          aValue = getProjectedWinPercentage(a);
-          bValue = getProjectedWinPercentage(b);
-          break;
-        case 'games':
-          aValue = a.games;
-          bValue = b.games;
-          break;
-        default:
-          aValue = getProjectedWinPercentage(a);
-          bValue = getProjectedWinPercentage(b);
-      }
-
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return todaySortDirection === 'asc' ? 
-          aValue.localeCompare(bValue) : 
-          bValue.localeCompare(aValue);
-      } else {
-        return todaySortDirection === 'asc' ? 
-          (aValue as number) - (bValue as number) : 
-          (bValue as number) - (aValue as number);
-      }
-    });
-  };
-
-  const getColumnHeaders = (targetType: string) => {
-    switch (targetType) {
-      case 'moneyline':
-        return ['Model #', 'Features', 'Primary Win %', 'Opponent Win %', '# of Games'];
-      case 'runline':
-        return ['Model #', 'Features', 'Primary Cover %', 'Opponent Cover %', '# of Games'];
-      case 'over_under':
-        return ['Model #', 'Features', 'Over %', 'Under %', '# of Games'];
-      default:
-        return ['Model #', 'Features', 'Primary %', 'Opponent %', '# of Games'];
-    }
-  };
-
-  const getTodayHeaders = (targetType: string) => {
-    switch (targetType) {
-      case 'moneyline':
-      case 'runline':
-        return ['Matchup', 'Model #', 'Features', 'Projected Winner', 'Win %', '# of Games'];
-      case 'over_under':
-        return ['Matchup', 'Model #', 'Features', 'Projected Winner', 'Win %', '# of Games'];
-      default:
-        return ['Matchup', 'Model #', 'Features', 'Projected Winner', 'Win %', '# of Games'];
-    }
-  };
-
-  const formatFeatures = (features: string[]) => {
-    const featureLabels = features.map(featureId => {
-      const feature = featureOptions.find(f => f.id === featureId);
-      return feature ? feature.label.replace(/^(Primary|Opponent)\s+/, '') : featureId;
-    });
-    return featureLabels.slice(0, 3).join(', ') + (featureLabels.length > 3 ? '...' : '');
-  };
-
-  const formatMatchup = (match: TodayMatch) => {
-    return match.is_home_team 
-      ? `${match.opponent_team} at ${match.primary_team}`
-      : `${match.primary_team} at ${match.opponent_team}`;
-  };
-
-  const getProjectedWinner = (match: TodayMatch, targetType: string) => {
-    if (targetType === 'over_under') {
-      return match.win_pct > match.opponent_win_pct ? 'Over' : 'Under';
-    }
-    return match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
-  };
-
-  const getProjectedWinPercentage = (match: TodayMatch) => {
-    return Math.max(match.win_pct, match.opponent_win_pct);
-  };
-
-  const handleBuildModel = async () => {
+  const handleSubmit = async () => {
     if (!modelName.trim()) {
       toast({
-        title: "Missing Model Name",
+        title: "Model name required",
         description: "Please enter a name for your model.",
         variant: "destructive"
-      });
+      })
       return;
     }
 
-    if (selectedFeatures.length < 2) {
-      toast({
-        title: "Not Enough Features",
-        description: "Please select at least 2 features for your model.",
+    if (selectedFeatures.length < 3) {
+       toast({
+        title: "Minimum features required",
+        description: "Please select at least 3 features for your model.",
         variant: "destructive"
-      });
+      })
       return;
     }
 
-    if (!target) {
-      toast({
-        title: "Missing Target",
-        description: "Please select a target prediction type.",
+    if (!targetVariable) {
+       toast({
+        title: "Target variable required",
+        description: "Please select a target variable.",
         variant: "destructive"
-      });
+      })
       return;
     }
 
-    setIsBuilding(true);
+    setIsLoading(true);
+    setResults(null);
+
     try {
-      const { data, error } = await supabase.functions.invoke('run_custom_model', {
-        body: {
+      const response = await fetch('/functions/v1/run_custom_model', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           model_name: modelName,
           selected_features: selectedFeatures,
-          target: target
-        }
+          target: targetVariable
+        })
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to run model');
+      }
 
+      const data = await response.json();
       setResults(data);
+    } catch (error: any) {
+      console.error('Error running custom model:', error);
       toast({
-        title: "Model Built Successfully!",
-        description: `Found ${data.trend_matches.length} trend patterns and ${data.today_matches.length} matching games today.`
-      });
-    } catch (error) {
-      console.error('Error building model:', error);
-      toast({
-        title: "Error Building Model",
-        description: error.message || "Failed to build the custom model. Please try again.",
+        title: "Error running model",
+        description: error.message || "An unexpected error occurred.",
         variant: "destructive"
-      });
+      })
     } finally {
-      setIsBuilding(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
-        <div className="container mx-auto px-4 py-8">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              Custom Model Builder
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Create your own predictive models by selecting features and target outcomes
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      {/* Header Section */}
+      <div className="container max-w-7xl mx-auto py-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4">
+          Custom Model Builder
+        </h1>
+        <p className="text-gray-600">
+          Create and run custom models to identify trend patterns and gain
+          insights from historical data.
+        </p>
+      </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Model Configuration */}
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Model Building Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Build Your Model</CardTitle>
+            <p className="text-sm text-gray-600">
+              Define your model parameters and select features to analyze.
+            </p>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div>
+              <Label htmlFor="model-name">Model Name</Label>
+              <Input
+                id="model-name"
+                placeholder="Enter model name"
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Select Features</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                {availableFeatures.map((feature) => (
+                  <Button
+                    key={feature}
+                    variant={selectedFeatures.includes(feature) ? 'default' : 'outline'}
+                    onClick={() => handleFeatureChange(feature)}
+                    className="text-sm"
+                  >
+                    {feature}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label>Target Variable</Label>
+              <Select value={targetVariable} onValueChange={setTargetVariable}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select target variable" />
+                </SelectTrigger>
+                <SelectContent>
+                  {targetVariables.map((variable) => (
+                    <SelectItem key={variable} value={variable}>
+                      {variable}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button onClick={handleSubmit} disabled={isLoading}>
+              {isLoading ? 'Running Model...' : 'Run Model'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Results Section */}
+        {results && (
+          <div className="space-y-6">
+            {/* Model Summary */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  Model Configuration
+                  <BarChart3 className="h-5 w-5" />
+                  Model Results Summary
                 </CardTitle>
-                <CardDescription>
-                  Configure your custom prediction model
-                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="model-name">Model Name</Label>
-                  <Input
-                    id="model-name"
-                    placeholder="Enter a name for your model"
-                    value={modelName}
-                    onChange={(e) => setModelName(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Target Prediction</Label>
-                  <Select value={target} onValueChange={setTarget}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select what to predict" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {targetOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-4">
-                  <Label>Select Features ({selectedFeatures.length} selected)</Label>
-                  <div className="max-h-80 overflow-y-auto space-y-4 border rounded-lg p-4">
-                    {Object.entries(groupedFeatures).map(([category, features]) => (
-                      <div key={category} className="space-y-2">
-                        <h4 className="font-medium text-sm text-muted-foreground border-b pb-1">
-                          {category}
-                        </h4>
-                        <div className="grid grid-cols-1 gap-2">
-                          {features.map(feature => (
-                            <div key={feature.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={feature.id}
-                                checked={selectedFeatures.includes(feature.id)}
-                                onCheckedChange={() => handleFeatureToggle(feature.id)}
-                              />
-                              <Label 
-                                htmlFor={feature.id} 
-                                className="text-sm font-normal cursor-pointer"
-                              >
-                                {feature.label}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-600">{results.trend_matches.length}</p>
+                    <p className="text-sm text-gray-600">Trend Patterns</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600">{results.today_matches.length}</p>
+                    <p className="text-sm text-gray-600">Today's Matches</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-600">{selectedFeatures.length}</p>
+                    <p className="text-sm text-gray-600">Features Used</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-orange-600">{results.target}</p>
+                    <p className="text-sm text-gray-600">Target Variable</p>
                   </div>
                 </div>
-
-                <Button 
-                  onClick={handleBuildModel} 
-                  disabled={isBuilding}
-                  className="w-full"
-                >
-                  {isBuilding ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Building Model...
-                    </>
-                  ) : (
-                    <>
-                      <Target className="w-4 h-4 mr-2" />
-                      Build Model
-                    </>
-                  )}
-                </Button>
               </CardContent>
             </Card>
 
-            {/* Results */}
-            {results && (
-              <div className="space-y-6">
-                {/* Trend Patterns */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5" />
-                      Trend Patterns ({results.trend_matches.length})
-                    </CardTitle>
-                    <CardDescription>
-                      Historical patterns with 25+ games and strong predictive edge (includes 4-5 feature subsets)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-64 overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Model #</TableHead>
-                            <TableHead>Features</TableHead>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                                onClick={() => handleTrendSort('primary')}
-                              >
-                                {getColumnHeaders(results.target)[2]}
-                                {getSortIcon(trendSortColumn, 'primary', trendSortDirection)}
-                              </Button>
-                            </TableHead>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                                onClick={() => handleTrendSort('opponent')}
-                              >
-                                {getColumnHeaders(results.target)[3]}
-                                {getSortIcon(trendSortColumn, 'opponent', trendSortDirection)}
-                              </Button>
-                            </TableHead>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                                onClick={() => handleTrendSort('games')}
-                              >
-                                {getColumnHeaders(results.target)[4]}
-                                {getSortIcon(trendSortColumn, 'games', trendSortDirection)}
-                              </Button>
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {sortTrendMatches(results.trend_matches).map((trend, index) => (
-                            <TableRow key={index}>
-                              <TableCell className="font-semibold">
-                                {results.trend_matches.indexOf(trend) + 1}
-                              </TableCell>
-                              <TableCell>
-                                <Tooltip>
-                                  <TooltipTrigger className="flex items-center gap-1 cursor-help">
-                                    <span className="text-xs bg-muted px-2 py-1 rounded">
-                                      {trend.feature_count}f
-                                    </span>
-                                    <Info className="w-3 h-3 text-muted-foreground" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <div className="max-w-xs">
-                                      <p className="font-semibold mb-1">{trend.feature_count} Features:</p>
-                                      {trend.features.map(featureId => {
-                                        const feature = featureOptions.find(f => f.id === featureId);
-                                        return (
-                                          <p key={featureId} className="text-xs">
-                                            • {feature?.label || featureId}
-                                          </p>
-                                        );
-                                      })}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TableCell>
-                              <TableCell className="font-semibold">
-                                {(trend.win_pct * 100).toFixed(1)}%
-                              </TableCell>
-                              <TableCell className="font-semibold">
-                                {(trend.opponent_win_pct * 100).toFixed(1)}%
-                              </TableCell>
-                              <TableCell>{trend.games}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* Trend Patterns */}
+            {results.trend_matches.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Trend Patterns</CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Strongest predictive patterns found in historical data
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2">Win %</th>
+                          <th className="text-left p-2">Games</th>
+                          <th className="text-left p-2">Features</th>
+                          <th className="text-left p-2">Pattern</th>
+                          <th className="text-left p-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {results.trend_matches.map((match, index) => (
+                          <tr key={index} className="border-b hover:bg-gray-50">
+                            <td className="p-2">
+                              <span className={`font-medium ${
+                                match.win_pct > 0.6 ? 'text-green-600' : 
+                                match.win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                              }`}>
+                                {(match.win_pct * 100).toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="p-2">{match.games}</td>
+                            <td className="p-2">{match.feature_count}</td>
+                            <td className="p-2">
+                              <div className="flex flex-wrap gap-1 max-w-md">
+                                {match.combo.split('|').slice(0, 3).map((feature, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                    {feature}
+                                  </Badge>
+                                ))}
+                                {match.combo.split('|').length > 3 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    +{match.combo.split('|').length - 3} more
+                                  </Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-2">
+                              <SavePatternButton
+                                combo={match.combo}
+                                features={match.features}
+                                winPct={match.win_pct}
+                                opponentWinPct={match.opponent_win_pct}
+                                games={match.games}
+                                featureCount={match.feature_count}
+                                target={results.target}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-                {/* Today's Matches */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Today's Matching Games ({results.today_matches.length})</CardTitle>
-                    <CardDescription>
-                      Games today that match your trend patterns
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-64 overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                                onClick={() => handleTodaySort('matchup')}
+            {/* Today's Matches */}
+            {results.today_matches.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Today's Matching Games</CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Games that match your model's predictive patterns
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Group matches by game */}
+                    {Object.entries(
+                      results.today_matches.reduce((acc: any, match) => {
+                        const key = `${match.primary_team}-vs-${match.opponent_team}`;
+                        if (!acc[key]) {
+                          acc[key] = [];
+                        }
+                        acc[key].push(match);
+                        return acc;
+                      }, {})
+                    ).map(([gameKey, matches]: [string, any]) => {
+                      const firstMatch = matches[0];
+                      const avgWinPct = matches.reduce((sum: number, m: any) => sum + m.win_pct, 0) / matches.length;
+                      
+                      return (
+                        <div key={gameKey} className="border rounded-lg p-4 hover:bg-gray-50">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h3 className="font-semibold text-lg">
+                                {firstMatch.primary_team} vs {firstMatch.opponent_team}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {matches.length} matching model{matches.length > 1 ? 's' : ''}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-right">
+                                <p className={`font-semibold ${
+                                  avgWinPct > 0.6 ? 'text-green-600' : 
+                                  avgWinPct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                                }`}>
+                                  {(avgWinPct * 100).toFixed(1)}%
+                                </p>
+                                <p className="text-xs text-gray-600">Avg Win Rate</p>
+                              </div>
+                              <Link 
+                                to={`/game-analysis/${firstMatch.unique_id}`}
+                                className="ml-2"
                               >
-                                Matchup
-                                {getSortIcon(todaySortColumn, 'matchup', todaySortDirection)}
-                              </Button>
-                            </TableHead>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                                onClick={() => handleTodaySort('model')}
-                              >
-                                Model #
-                                {getSortIcon(todaySortColumn, 'model', todaySortDirection)}
-                              </Button>
-                            </TableHead>
-                            <TableHead>Features</TableHead>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                                onClick={() => handleTodaySort('winner')}
-                              >
-                                Projected Winner
-                                {getSortIcon(todaySortColumn, 'winner', todaySortDirection)}
-                              </Button>
-                            </TableHead>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                                onClick={() => handleTodaySort('percentage')}
-                              >
-                                Win %
-                                {getSortIcon(todaySortColumn, 'percentage', todaySortDirection)}
-                              </Button>
-                            </TableHead>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                className="font-medium text-left p-0 h-auto hover:text-primary transition-colors flex items-center gap-1"
-                                onClick={() => handleTodaySort('games')}
-                              >
-                                # of Games
-                                {getSortIcon(todaySortColumn, 'games', todaySortDirection)}
-                              </Button>
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {sortTodayMatches(results.today_matches).map((match, index) => {
-                            const matchingModelIndex = results.trend_matches.findIndex(
-                              trend => trend.combo === match.combo
-                            ) + 1;
-                            
-                            return (
-                              <TableRow key={index}>
-                                <TableCell className="font-semibold">
-                                  {formatMatchup(match)}
-                                </TableCell>
-                                <TableCell className="font-semibold">
-                                  {matchingModelIndex}
-                                </TableCell>
-                                <TableCell>
-                                  <Tooltip>
-                                    <TooltipTrigger className="flex items-center gap-1 cursor-help">
-                                      <span className="text-xs bg-muted px-2 py-1 rounded">
-                                        {match.feature_count}f
-                                      </span>
-                                      <Info className="w-3 h-3 text-muted-foreground" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <div className="max-w-xs">
-                                        <p className="font-semibold mb-1">{match.feature_count} Features:</p>
-                                        {match.features.map(featureId => {
-                                          const feature = featureOptions.find(f => f.id === featureId);
-                                          return (
-                                            <p key={featureId} className="text-xs">
-                                              • {feature?.label || featureId}
-                                            </p>
-                                          );
-                                        })}
-                                      </div>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TableCell>
-                                <TableCell className="font-semibold">
-                                  {getProjectedWinner(match, results.target)}
-                                </TableCell>
-                                <TableCell className="font-semibold">
-                                  {(getProjectedWinPercentage(match) * 100).toFixed(1)}%
-                                </TableCell>
-                                <TableCell>{match.games}</TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                                <Button variant="outline" size="sm">
+                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  Analyze
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {matches.map((match: any, idx: number) => (
+                              <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
+                                <span>Model #{idx + 1}: {match.feature_count} features, {match.games} games</span>
+                                <span className={`font-medium ${
+                                  match.win_pct > 0.6 ? 'text-green-600' : 
+                                  match.win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                                }`}>
+                                  {(match.win_pct * 100).toFixed(1)}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {results.trend_matches.length === 0 && results.today_matches.length === 0 && (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <p className="text-gray-600">No significant patterns found with the selected features.</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Try adjusting your feature selection or target variable.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </div>
-        </div>
+        )}
       </div>
-    </TooltipProvider>
+    </div>
   );
-}
+};
+
+export default CustomModels;

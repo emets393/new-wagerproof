@@ -4,11 +4,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { navItems } from "./nav-items";
 import Index from "./pages/Index";
-import Analytics from "./pages/Analytics";
-import WinRates from "./pages/WinRates";
-import CustomModels from "./pages/CustomModels";
-import NotFound from "./pages/NotFound";
+import SavedPatterns from "./pages/SavedPatterns";
+import GameAnalysis from "./pages/GameAnalysis";
 
 const queryClient = new QueryClient();
 
@@ -20,11 +19,11 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/win-rates" element={<WinRates />} />
-          <Route path="/custom-models" element={<CustomModels />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
+          <Route path="/saved-patterns" element={<SavedPatterns />} />
+          <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
+          {navItems.map(({ to, page }) => (
+            <Route key={to} path={to} element={page} />
+          ))}
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
