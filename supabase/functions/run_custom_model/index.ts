@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
@@ -118,6 +119,7 @@ serve(async (req) => {
     const { model_name, selected_features, target } = await req.json();
     
     console.log('Building custom model:', { model_name, selected_features, target });
+    console.log('Memory usage before processing:', Deno.memoryUsage());
 
     // Map the clean target name to database column
     const targetColumn = getTargetColumn(target);
@@ -157,14 +159,18 @@ serve(async (req) => {
     const todayMatches: TodayMatch[] = [];
 
     if (trainingData && trainingData.length > 0) {
-      // Create combination maps for analysis
-      const comboMap = new Map<string, { wins: number; total: number; games: any[] }>();
-      const fourFeatureMap = new Map<string, { wins: number; total: number }>();
-      const fiveFeatureMap = new Map<string, { wins: number; total: number }>();
+      // OPTIMIZED: Use Map with just win/loss counts, no game storage
+      const comboMap = new Map<string, { wins: number; total: number }>();
 
-      // Process training data
+      // Process training data in optimized way
+      let processedCount = 0;
       for (const row of trainingData) {
         if (!row) continue;
+        
+        processedCount++;
+        if (processedCount % 1000 === 0) {
+          console.log(`Processed ${processedCount} records, memory:`, Deno.memoryUsage());
+        }
 
         // Create binned feature combination
         const binnedFeatures = selected_features.map(feature => {
@@ -173,29 +179,14 @@ serve(async (req) => {
         });
 
         const combo = binnedFeatures.join('|');
-        
-        // Also create 4-feature and 5-feature combinations for deeper analysis
-        if (selected_features.length >= 4) {
-          const fourFeatureCombo = binnedFeatures.slice(0, 4).join('|');
-          if (!fourFeatureMap.has(fourFeatureCombo)) {
-            fourFeatureMap.set(fourFeatureCombo, { wins: 0, total: 0 });
-          }
-        }
-        
-        if (selected_features.length >= 5) {
-          const fiveFeatureCombo = binnedFeatures.slice(0, 5).join('|');
-          if (!fiveFeatureMap.has(fiveFeatureCombo)) {
-            fiveFeatureMap.set(fiveFeatureCombo, { wins: 0, total: 0 });
-          }
-        }
 
+        // Initialize or get existing combo data
         if (!comboMap.has(combo)) {
-          comboMap.set(combo, { wins: 0, total: 0, games: [] });
+          comboMap.set(combo, { wins: 0, total: 0 });
         }
 
         const entry = comboMap.get(combo)!;
         entry.total++;
-        entry.games.push(row);
 
         // Determine if this was a win based on target outcome
         let isWin = false;
@@ -211,33 +202,25 @@ serve(async (req) => {
 
         if (isWin) {
           entry.wins++;
-          
-          // Update 4-feature and 5-feature maps
-          if (selected_features.length >= 4) {
-            const fourFeatureCombo = binnedFeatures.slice(0, 4).join('|');
-            fourFeatureMap.get(fourFeatureCombo)!.wins++;
-          }
-          
-          if (selected_features.length >= 5) {
-            const fiveFeatureCombo = binnedFeatures.slice(0, 5).join('|');
-            fiveFeatureMap.get(fiveFeatureCombo)!.wins++;
-          }
         }
-        
-        // Update totals for sub-combinations
-        if (selected_features.length >= 4) {
-          const fourFeatureCombo = binnedFeatures.slice(0, 4).join('|');
-          fourFeatureMap.get(fourFeatureCombo)!.total++;
-        }
-        
-        if (selected_features.length >= 5) {
-          const fiveFeatureCombo = binnedFeatures.slice(0, 5).join('|');
-          fiveFeatureMap.get(fiveFeatureCombo)!.total++;
+
+        // OPTIMIZED: Early filtering - if combo reaches minimum threshold and shows no promise, continue
+        if (entry.total >= 10) {
+          const currentWinPct = entry.wins / entry.total;
+          // Skip combos that are clearly not valuable early on
+          if (currentWinPct > 0.35 && currentWinPct < 0.65 && entry.total >= 20) {
+            // This combo is trending toward mediocre - but we still need to count it
+            continue;
+          }
         }
       }
 
+      console.log(`Processed all ${processedCount} records. Found ${comboMap.size} unique combinations`);
+      console.log('Memory usage after processing:', Deno.memoryUsage());
+
       // Create trend matches with enhanced filtering logic
       for (const [combo, data] of comboMap.entries()) {
+        // Apply minimum games threshold
         if (data.total >= 30) {
           const winPct = data.wins / data.total;
           
@@ -254,12 +237,14 @@ serve(async (req) => {
         }
       }
 
-      // Sort by win percentage and sample size
+      // Sort by predictive strength and sample size
       trendMatches.sort((a, b) => {
         const scoreA = Math.max(a.win_pct, a.opponent_win_pct) * Math.log(a.games);
         const scoreB = Math.max(b.win_pct, b.opponent_win_pct) * Math.log(b.games);
         return scoreB - scoreA;
       });
+
+      console.log(`Generated ${trendMatches.length} trend matches`);
 
       // Get today's games that match our patterns
       const today = new Date().toISOString().split('T')[0];
@@ -298,6 +283,7 @@ serve(async (req) => {
     }
 
     console.log(`Found ${trendMatches.length} trend matches and ${todayMatches.length} today matches`);
+    console.log('Final memory usage:', Deno.memoryUsage());
 
     const response = {
       model_id: modelData.model_id,
