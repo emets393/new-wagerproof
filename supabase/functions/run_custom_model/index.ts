@@ -11,14 +11,17 @@ interface TrendMatch {
   combo: string;
   games: number;
   win_pct: number;
+  opponent_win_pct: number;
 }
 
 interface TodayMatch {
   unique_id: string;
   primary_team: string;
   opponent_team: string;
+  is_home_team: boolean;
   combo: string;
   win_pct: number;
+  opponent_win_pct: number;
   games: number;
 }
 
@@ -70,7 +73,7 @@ function binValue(feature: string, value: any): string {
   // Run line spread (primary_rl) - indicates favorite/underdog
   if (feature === 'primary_rl') {
     if (isNaN(numValue)) return 'null';
-    return numValue < -1.0 ? 'big_favorite' : numValue < 0 ? 'favorite' : 'underdog';
+    return numValue < 0 ? 'favorite' : 'underdog';
   }
   
   // Over/Under line
@@ -234,15 +237,16 @@ serve(async (req) => {
         }
       }
 
-      // Create trend matches (combinations with 15+ games and >55% win rate)
+      // Create trend matches (combinations with 30+ games and >55% win rate)
       for (const [combo, data] of comboMap.entries()) {
-        if (data.total >= 15) {
+        if (data.total >= 30) {
           const winPct = data.wins / data.total;
           if (winPct >= 0.55) { // Only include patterns with meaningful edge
             trendMatches.push({
               combo,
               games: data.total,
-              win_pct: winPct
+              win_pct: winPct,
+              opponent_win_pct: 1 - winPct
             });
           }
         }
@@ -280,8 +284,10 @@ serve(async (req) => {
               unique_id: game.unique_id || 'unknown',
               primary_team: game.primary_team || 'Unknown',
               opponent_team: game.opponent_team || 'Unknown',
+              is_home_team: game.is_home_team || false,
               combo: gameCombo,
               win_pct: matchingTrend.win_pct,
+              opponent_win_pct: matchingTrend.opponent_win_pct,
               games: matchingTrend.games
             });
           }
@@ -293,8 +299,9 @@ serve(async (req) => {
 
     const response = {
       model_id: modelData.model_id,
-      trend_matches: trendMatches.slice(0, 50), // Top 50 patterns
-      today_matches: todayMatches
+      trend_matches: trendMatches.slice(0, 15), // Top 15 patterns
+      today_matches: todayMatches,
+      target: target // Include target for frontend logic
     };
 
     return new Response(JSON.stringify(response), {

@@ -14,14 +14,17 @@ interface TrendMatch {
   combo: string;
   games: number;
   win_pct: number;
+  opponent_win_pct: number;
 }
 
 interface TodayMatch {
   unique_id: string;
   primary_team: string;
   opponent_team: string;
+  is_home_team: boolean;
   combo: string;
   win_pct: number;
+  opponent_win_pct: number;
   games: number;
 }
 
@@ -29,6 +32,7 @@ interface ModelResults {
   model_id: string;
   trend_matches: TrendMatch[];
   today_matches: TodayMatch[];
+  target: string;
 }
 
 const featureOptions = [
@@ -96,6 +100,48 @@ export default function CustomModels() {
         ? prev.filter(id => id !== featureId)
         : [...prev, featureId]
     );
+  };
+
+  const getColumnHeaders = (targetType: string) => {
+    switch (targetType) {
+      case 'moneyline':
+        return ['Model #', 'Primary Win %', 'Opponent Win %', '# of Games'];
+      case 'runline':
+        return ['Model #', 'Primary Cover %', 'Opponent Cover %', '# of Games'];
+      case 'over_under':
+        return ['Model #', 'Over %', 'Under %', '# of Games'];
+      default:
+        return ['Model #', 'Primary %', 'Opponent %', '# of Games'];
+    }
+  };
+
+  const getTodayHeaders = (targetType: string) => {
+    switch (targetType) {
+      case 'moneyline':
+      case 'runline':
+        return ['Matchup', 'Model #', 'Projected Winner', 'Win %', '# of Games'];
+      case 'over_under':
+        return ['Matchup', 'Model #', 'Projected Winner', 'Win %', '# of Games'];
+      default:
+        return ['Matchup', 'Model #', 'Projected Winner', 'Win %', '# of Games'];
+    }
+  };
+
+  const formatMatchup = (match: TodayMatch) => {
+    return match.is_home_team 
+      ? `${match.opponent_team} at ${match.primary_team}`
+      : `${match.primary_team} at ${match.opponent_team}`;
+  };
+
+  const getProjectedWinner = (match: TodayMatch, targetType: string) => {
+    if (targetType === 'over_under') {
+      return match.win_pct > match.opponent_win_pct ? 'Over' : 'Under';
+    }
+    return match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
+  };
+
+  const getProjectedWinPercentage = (match: TodayMatch) => {
+    return Math.max(match.win_pct, match.opponent_win_pct);
   };
 
   const handleBuildModel = async () => {
@@ -259,7 +305,7 @@ export default function CustomModels() {
           {/* Results */}
           {results && (
             <div className="space-y-6">
-              {/* Trend Matches */}
+              {/* Trend Patterns */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -267,7 +313,7 @@ export default function CustomModels() {
                     Trend Patterns ({results.trend_matches.length})
                   </CardTitle>
                   <CardDescription>
-                    Historical patterns with 15+ games
+                    Historical patterns with 30+ games and 55%+ win rate
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -275,19 +321,22 @@ export default function CustomModels() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Pattern</TableHead>
-                          <TableHead>Win %</TableHead>
-                          <TableHead>Games</TableHead>
+                          {getColumnHeaders(results.target).map((header, index) => (
+                            <TableHead key={index}>{header}</TableHead>
+                          ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {results.trend_matches.map((trend, index) => (
                           <TableRow key={index}>
-                            <TableCell className="font-mono text-xs">
-                              {trend.combo.replace(/\|/g, ' | ')}
+                            <TableCell className="font-semibold">
+                              {index + 1}
                             </TableCell>
                             <TableCell className="font-semibold">
                               {(trend.win_pct * 100).toFixed(1)}%
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {(trend.opponent_win_pct * 100).toFixed(1)}%
                             </TableCell>
                             <TableCell>{trend.games}</TableCell>
                           </TableRow>
@@ -311,27 +360,35 @@ export default function CustomModels() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Matchup</TableHead>
-                          <TableHead>Pattern</TableHead>
-                          <TableHead>Win %</TableHead>
-                          <TableHead>Games</TableHead>
+                          {getTodayHeaders(results.target).map((header, index) => (
+                            <TableHead key={index}>{header}</TableHead>
+                          ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {results.today_matches.map((match, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-semibold">
-                              {match.primary_team} vs {match.opponent_team}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {match.combo.replace(/\|/g, ' | ')}
-                            </TableCell>
-                            <TableCell className="font-semibold">
-                              {(match.win_pct * 100).toFixed(1)}%
-                            </TableCell>
-                            <TableCell>{match.games}</TableCell>
-                          </TableRow>
-                        ))}
+                        {results.today_matches.map((match, index) => {
+                          const matchingModelIndex = results.trend_matches.findIndex(
+                            trend => trend.combo === match.combo
+                          ) + 1;
+                          
+                          return (
+                            <TableRow key={index}>
+                              <TableCell className="font-semibold">
+                                {formatMatchup(match)}
+                              </TableCell>
+                              <TableCell className="font-semibold">
+                                {matchingModelIndex}
+                              </TableCell>
+                              <TableCell className="font-semibold">
+                                {getProjectedWinner(match, results.target)}
+                              </TableCell>
+                              <TableCell className="font-semibold">
+                                {(getProjectedWinPercentage(match) * 100).toFixed(1)}%
+                              </TableCell>
+                              <TableCell>{match.games}</TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
