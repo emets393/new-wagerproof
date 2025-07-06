@@ -84,11 +84,56 @@ Deno.serve(async (req) => {
       }];
     }
 
-    // Calculate weighted consensus
-    const totalGames = modelPredictions.reduce((sum, model) => sum + model.games, 0);
-    const weightedPrimaryWinPct = modelPredictions.reduce((sum, model) => 
-      sum + (model.win_pct * model.games / totalGames), 0
-    );
+    // Group models by similar patterns to detect complementary perspectives
+    const modelGroups = new Map();
+    
+    modelPredictions.forEach(model => {
+      // Create a key based on features and pattern similarity
+      const featureKey = model.features.sort().join(',');
+      
+      if (!modelGroups.has(featureKey)) {
+        modelGroups.set(featureKey, []);
+      }
+      modelGroups.get(featureKey).push(model);
+    });
+
+    // Calculate intelligent consensus from grouped models
+    let totalWeightedPrediction = 0;
+    let totalWeight = 0;
+    
+    modelGroups.forEach(group => {
+      if (group.length === 2) {
+        // Likely complementary perspectives - use the stronger prediction
+        const model1 = group[0];
+        const model2 = group[1];
+        
+        // Check if they're complementary (win_pct + opponent_win_pct ≈ 1)
+        const isComplementary = Math.abs((model1.win_pct + model2.win_pct) - 1.0) < 0.1;
+        
+        if (isComplementary) {
+          // Use the model with higher confidence/games as the primary perspective
+          const primaryModel = model1.games >= model2.games ? model1 : model2;
+          const weight = primaryModel.games;
+          
+          totalWeightedPrediction += primaryModel.win_pct * weight;
+          totalWeight += weight;
+        } else {
+          // Not complementary, treat as separate models
+          group.forEach(model => {
+            totalWeightedPrediction += model.win_pct * model.games;
+            totalWeight += model.games;
+          });
+        }
+      } else {
+        // Single model or multiple non-complementary models
+        group.forEach(model => {
+          totalWeightedPrediction += model.win_pct * model.games;
+          totalWeight += model.games;
+        });
+      }
+    });
+
+    const weightedPrimaryWinPct = totalWeight > 0 ? totalWeightedPrediction / totalWeight : 0.5;
     const weightedOpponentWinPct = 1 - weightedPrimaryWinPct;
 
     // Determine team winner prediction
