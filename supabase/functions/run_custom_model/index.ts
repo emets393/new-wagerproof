@@ -50,10 +50,16 @@ function binValue(feature: string, value: any): string {
   // Convert to number if it's a string representation of a number
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   
-  // ERA and WHIP (pitching stats) - lower is better
-  if (feature.includes('era') || feature.includes('whip')) {
+  // ERA (pitching stats) - lower is better
+  if (feature.includes('era')) {
     if (isNaN(numValue)) return 'null';
     return numValue < 3.5 ? 'good' : numValue < 4.5 ? 'average' : 'poor';
+  }
+  
+  // WHIP (pitching stats) - lower is better, different thresholds than ERA
+  if (feature.includes('whip')) {
+    if (isNaN(numValue)) return 'null';
+    return numValue < 1.2 ? 'good' : numValue < 1.4 ? 'average' : 'poor';
   }
   
   // Win percentage - standard ranges
@@ -92,11 +98,12 @@ function binValue(feature: string, value: any): string {
     return numValue < 8.5 ? 'low' : numValue > 9.5 ? 'high' : 'medium';
   }
   
-  // Betting volume (handles and bets) - log scale binning
+  // Betting volume (handles and bets) - these appear to be percentages (0.61 = 61%)
   if (feature.includes('handle') || feature.includes('bets')) {
     if (isNaN(numValue) || numValue <= 0) return 'minimal';
-    if (numValue < 1000) return 'low';
-    if (numValue < 10000) return 'medium';
+    // Treat as percentages: 0.0-1.0 range
+    if (numValue < 0.3) return 'low';
+    if (numValue < 0.6) return 'medium';
     return 'high';
   }
   
