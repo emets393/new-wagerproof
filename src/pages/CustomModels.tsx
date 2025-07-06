@@ -474,7 +474,7 @@ const CustomModels = () => {
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Link to={`/game-analysis/${uniqueId}?target=${encodeURIComponent(results.target)}`}>
+                              <Link to={`/game-analysis/${uniqueId}?target=${encodeURIComponent(results.target)}&models=${encodeURIComponent(JSON.stringify(matches))}`}>
                                 <Button variant="outline" size="sm">
                                   <ExternalLink className="h-3 w-3 mr-1" />
                                   Analyze

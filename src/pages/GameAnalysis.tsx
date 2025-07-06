@@ -60,6 +60,7 @@ const GameAnalysis: React.FC = () => {
     
     try {
       const target = searchParams.get('target');
+      const modelsParam = searchParams.get('models');
       
       if (!target) {
         console.error('Missing target parameter');
@@ -68,12 +69,22 @@ const GameAnalysis: React.FC = () => {
         return;
       }
 
-      console.log('Calling get-game-analysis-data with:', { unique_id: gameId, target });
+      let models = null;
+      if (modelsParam) {
+        try {
+          models = JSON.parse(decodeURIComponent(modelsParam));
+        } catch (e) {
+          console.error('Failed to parse models parameter:', e);
+        }
+      }
+
+      console.log('Calling get-game-analysis-data with:', { unique_id: gameId, target, models });
       
       const { data, error } = await supabase.functions.invoke('get-game-analysis-data', {
         body: {
           unique_id: gameId,
-          target: target
+          target: target,
+          models: models
         }
       });
 

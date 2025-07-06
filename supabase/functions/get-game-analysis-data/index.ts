@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { unique_id, target } = await req.json();
+    const { unique_id, target, models } = await req.json();
     
     if (!unique_id || !target) {
       return new Response(
@@ -39,15 +39,33 @@ Deno.serve(async (req) => {
       );
     }
 
-    // For now, we'll simulate having multiple models by using the existing prediction data
-    // In a real implementation, you would query multiple sources of predictions
-    const mockModelPredictions = [
-      {
+    // Use real model data if provided, otherwise fall back to single prediction
+    let modelPredictions = [];
+    
+    if (models && Array.isArray(models) && models.length > 0) {
+      // Use the actual model matches passed from Custom Models
+      modelPredictions = models.map((model, index) => ({
+        unique_id: model.unique_id,
+        primary_team: model.primary_team,
+        opponent_team: model.opponent_team,
+        is_home_team: model.is_home_team,
+        combo: model.combo,
+        win_pct: model.win_pct,
+        opponent_win_pct: model.opponent_win_pct,
+        games: model.games,
+        feature_count: model.feature_count,
+        features: model.features,
+        model_name: `Custom Model #${index + 1}`,
+        confidence: 0.7 // Default confidence since this isn't in the model data
+      }));
+    } else {
+      // Fallback to single prediction from database
+      modelPredictions = [{
         unique_id: unique_id,
         primary_team: gameData.home_team,
         opponent_team: gameData.away_team,
         is_home_team: true,
-        combo: "model_1_combo",
+        combo: "base_model_combo",
         win_pct: target === 'moneyline' 
           ? (gameData.ml_probability || 0.5)
           : target === 'runline' 
@@ -63,33 +81,12 @@ Deno.serve(async (req) => {
         features: ["primary_era", "opponent_era", "primary_win_pct", "opponent_win_pct", "primary_streak", "opponent_streak", "primary_whip", "opponent_whip"],
         model_name: "Base Model",
         confidence: gameData.ml_tier_accuracy || 0.7
-      }
-    ];
-
-    // Add a second mock model with slightly different predictions
-    if (Math.random() > 0.3) { // 70% chance of having a second model
-      const variation = (Math.random() - 0.5) * 0.2; // ±10% variation
-      const baseWinPct = mockModelPredictions[0].win_pct;
-      
-      mockModelPredictions.push({
-        unique_id: unique_id,
-        primary_team: gameData.home_team,
-        opponent_team: gameData.away_team,
-        is_home_team: true,
-        combo: "model_2_combo",
-        win_pct: Math.max(0.1, Math.min(0.9, baseWinPct + variation)),
-        opponent_win_pct: Math.max(0.1, Math.min(0.9, 1 - (baseWinPct + variation))),
-        games: 180,
-        feature_count: 12,
-        features: ["primary_era", "opponent_era", "primary_win_pct", "opponent_win_pct", "primary_streak", "opponent_streak", "primary_whip", "opponent_whip", "primary_ops", "opponent_ops", "same_division", "series_game_number"],
-        model_name: "Advanced Model",
-        confidence: (gameData.ml_tier_accuracy || 0.7) + (Math.random() - 0.5) * 0.2
-      });
+      }];
     }
 
     // Calculate weighted consensus
-    const totalGames = mockModelPredictions.reduce((sum, model) => sum + model.games, 0);
-    const weightedPrimaryWinPct = mockModelPredictions.reduce((sum, model) => 
+    const totalGames = modelPredictions.reduce((sum, model) => sum + model.games, 0);
+    const weightedPrimaryWinPct = modelPredictions.reduce((sum, model) => 
       sum + (model.win_pct * model.games / totalGames), 0
     );
     const weightedOpponentWinPct = 1 - weightedPrimaryWinPct;
@@ -100,10 +97,10 @@ Deno.serve(async (req) => {
       : gameData.away_team;
 
     // Calculate model agreement confidence
-    const avgWinPct = mockModelPredictions.reduce((sum, model) => sum + model.win_pct, 0) / mockModelPredictions.length;
-    const variance = mockModelPredictions.reduce((sum, model) => 
+    const avgWinPct = modelPredictions.reduce((sum, model) => sum + model.win_pct, 0) / modelPredictions.length;
+    const variance = modelPredictions.reduce((sum, model) => 
       sum + Math.pow(model.win_pct - avgWinPct, 2), 0
-    ) / mockModelPredictions.length;
+    ) / modelPredictions.length;
     const agreement = Math.max(0, 1 - (variance * 4)); // Scale variance to 0-1 range
     const modelAgreementConfidence = Math.round(agreement * 100);
 
@@ -114,13 +111,13 @@ Deno.serve(async (req) => {
         opponent_team: gameData.away_team,
         is_home_team: true
       },
-      matches: mockModelPredictions,
+      matches: modelPredictions,
       target: target,
       consensus: {
         primary_percentage: weightedPrimaryWinPct,
         opponent_percentage: weightedOpponentWinPct,
         confidence: modelAgreementConfidence,
-        models: mockModelPredictions.length,
+        models: modelPredictions.length,
         team_winner_prediction: teamWinnerPrediction
       }
     };
