@@ -4,9 +4,9 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, TrendingUp, Users, Target, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import ConfidenceChart from '@/components/ConfidenceChart';
 
 interface GameMatch {
   unique_id: string;
@@ -121,6 +121,42 @@ const GameAnalysis: React.FC = () => {
     }
   };
 
+  const getTeamLogo = (teamName: string) => {
+    const espnLogoMap: { [key: string]: string } = {
+      'Arizona': 'https://a.espncdn.com/i/teamlogos/mlb/500/ari.png',
+      'Atlanta': 'https://a.espncdn.com/i/teamlogos/mlb/500/atl.png',
+      'Baltimore': 'https://a.espncdn.com/i/teamlogos/mlb/500/bal.png',
+      'Boston': 'https://a.espncdn.com/i/teamlogos/mlb/500/bos.png',
+      'Cubs': 'https://a.espncdn.com/i/teamlogos/mlb/500/chc.png',
+      'White Sox': 'https://a.espncdn.com/i/teamlogos/mlb/500/cws.png',
+      'Cincinnati': 'https://a.espncdn.com/i/teamlogos/mlb/500/cin.png',
+      'Cleveland': 'https://a.espncdn.com/i/teamlogos/mlb/500/cle.png',
+      'Colorado': 'https://a.espncdn.com/i/teamlogos/mlb/500/col.png',
+      'Detroit': 'https://a.espncdn.com/i/teamlogos/mlb/500/det.png',
+      'Houston': 'https://a.espncdn.com/i/teamlogos/mlb/500/hou.png',
+      'Kansas City': 'https://a.espncdn.com/i/teamlogos/mlb/500/kc.png',
+      'Angels': 'https://a.espncdn.com/i/teamlogos/mlb/500/laa.png',
+      'Dodgers': 'https://a.espncdn.com/i/teamlogos/mlb/500/lad.png',
+      'Miami': 'https://a.espncdn.com/i/teamlogos/mlb/500/mia.png',
+      'Milwaukee': 'https://a.espncdn.com/i/teamlogos/mlb/500/mil.png',
+      'Minnesota': 'https://a.espncdn.com/i/teamlogos/mlb/500/min.png',
+      'Mets': 'https://a.espncdn.com/i/teamlogos/mlb/500/nym.png',
+      'Yankees': 'https://a.espncdn.com/i/teamlogos/mlb/500/nyy.png',
+      'Athletics': 'https://a.espncdn.com/i/teamlogos/mlb/500/oak.png',
+      'Philadelphia': 'https://a.espncdn.com/i/teamlogos/mlb/500/phi.png',
+      'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/mlb/500/pit.png',
+      'San Diego': 'https://a.espncdn.com/i/teamlogos/mlb/500/sd.png',
+      'San Francisco': 'https://a.espncdn.com/i/teamlogos/mlb/500/sf.png',
+      'Seattle': 'https://a.espncdn.com/i/teamlogos/mlb/500/sea.png',
+      'ST Louis': 'https://a.espncdn.com/i/teamlogos/mlb/500/stl.png',
+      'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/mlb/500/tb.png',
+      'Texas': 'https://a.espncdn.com/i/teamlogos/mlb/500/tex.png',
+      'Toronto': 'https://a.espncdn.com/i/teamlogos/mlb/500/tor.png',
+      'Washington': 'https://a.espncdn.com/i/teamlogos/mlb/500/wsh.png',
+    };
+    return espnLogoMap[teamName];
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -175,16 +211,10 @@ const GameAnalysis: React.FC = () => {
           </Badge>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-blue-600">{analysisData.matches.length}</p>
               <p className="text-sm text-gray-600">Contributing Models</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">
-                {Math.round(analysisData.consensus.primary_percentage * 100)}%
-              </p>
-              <p className="text-sm text-gray-600">{targetLabels.primary} Rate</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-purple-600">
@@ -206,13 +236,28 @@ const GameAnalysis: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center">
-              <p className="text-4xl font-bold text-green-600 mb-2">
-                {analysisData.consensus.team_winner_prediction}
-              </p>
-              <p className="text-lg text-gray-600">
-                Consensus Winner ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
-              </p>
+            <div className="flex flex-col items-center space-y-4">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                {getTeamLogo(analysisData.consensus.team_winner_prediction) ? (
+                  <img 
+                    src={getTeamLogo(analysisData.consensus.team_winner_prediction)} 
+                    alt={`${analysisData.consensus.team_winner_prediction} logo`} 
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <span className="text-lg font-bold text-muted-foreground">
+                    {analysisData.consensus.team_winner_prediction.slice(0, 3).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-bold text-green-600 mb-2">
+                  {analysisData.consensus.team_winner_prediction}
+                </p>
+                <p className="text-lg text-gray-600">
+                  Consensus Winner ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -228,32 +273,28 @@ const GameAnalysis: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <h3 className="font-medium">{analysisData.game_info.primary_team} ({targetLabels.primary})</h3>
+            <div className="flex flex-col items-center space-y-3">
+              <div className="flex justify-between items-center w-full">
+                <h3 className="font-medium">{analysisData.game_info.primary_team}</h3>
                 <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
               </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Weighted Probability</span>
-                  <span>{(analysisData.consensus.primary_percentage * 100).toFixed(1)}%</span>
-                </div>
-                <Progress value={analysisData.consensus.primary_percentage * 100} className="h-2" />
-              </div>
+              <ConfidenceChart 
+                confidence={analysisData.consensus.primary_percentage * 100}
+                teamColors={['#10b981', '#e5e7eb']}
+              />
+              <p className="text-sm text-gray-600">Weighted Win Probability</p>
             </div>
             
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <h3 className="font-medium">{analysisData.game_info.opponent_team} ({targetLabels.opponent})</h3>
+            <div className="flex flex-col items-center space-y-3">
+              <div className="flex justify-between items-center w-full">
+                <h3 className="font-medium">{analysisData.game_info.opponent_team}</h3>
                 <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
               </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Weighted Probability</span>
-                  <span>{(analysisData.consensus.opponent_percentage * 100).toFixed(1)}%</span>
-                </div>
-                <Progress value={analysisData.consensus.opponent_percentage * 100} className="h-2" />
-              </div>
+              <ConfidenceChart 
+                confidence={analysisData.consensus.opponent_percentage * 100}
+                teamColors={['#10b981', '#e5e7eb']}
+              />
+              <p className="text-sm text-gray-600">Weighted Win Probability</p>
             </div>
           </div>
           
@@ -285,22 +326,21 @@ const GameAnalysis: React.FC = () => {
                     </Badge>
                     <p className="text-sm text-gray-600 mt-1">
                       {match.feature_count} features • {match.games} games
-                      {match.confidence && ` • ${Math.round(match.confidence * 100)}% tier accuracy`}
                     </p>
                   </div>
                   <div className="text-right">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="font-semibold text-lg text-green-600">
+                        <p className={`font-semibold text-lg ${match.win_pct > match.opponent_win_pct ? 'text-green-600' : 'text-red-600'}`}>
                           {(match.win_pct * 100).toFixed(1)}%
                         </p>
-                        <p className="text-xs text-gray-600">{targetLabels.primary}</p>
+                        <p className="text-xs text-gray-600">{analysisData.game_info.primary_team} Win %</p>
                       </div>
                       <div>
-                        <p className="font-semibold text-lg text-red-600">
+                        <p className={`font-semibold text-lg ${match.opponent_win_pct > match.win_pct ? 'text-green-600' : 'text-red-600'}`}>
                           {(match.opponent_win_pct * 100).toFixed(1)}%
                         </p>
-                        <p className="text-xs text-gray-600">{targetLabels.opponent}</p>
+                        <p className="text-xs text-gray-600">{analysisData.game_info.opponent_team} Win %</p>
                       </div>
                     </div>
                   </div>
