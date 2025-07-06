@@ -184,17 +184,19 @@ serve(async (req) => {
 
     console.log('Model saved:', modelData);
 
-    // Get training data from the team format view
-    const { data: trainingData, error: trainingError } = await supabase
+    // Get training data from the team format view - only home team perspective to avoid duplicates
+    const { data: rawTrainingData, error: trainingError } = await supabase
       .from('training_data_team_view')
-      .select('*');
+      .select('*')
+      .eq('is_home_team', true); // Only get home team perspective to avoid duplicate inverse patterns
 
     if (trainingError) {
       console.error('Error fetching training data:', trainingError);
       throw new Error(`Failed to fetch training data: ${trainingError.message}`);
     }
 
-    console.log(`Loaded ${trainingData?.length || 0} training records`);
+    const trainingData = rawTrainingData;
+    console.log(`Loaded ${trainingData?.length || 0} training records (home team perspective only)`);
 
     const allTrendMatches: TrendMatch[] = [];
     let topTrendMatches: TrendMatch[] = [];
