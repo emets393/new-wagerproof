@@ -327,8 +327,10 @@ serve(async (req) => {
     if (!todayError && todaysGames && topTrendMatches.length > 0) {
       console.log(`Found ${todaysGames.length} games for today`);
       
-      // Check each game against each TOP trend pattern only
+      // Check each game perspective independently against trend patterns
       for (const game of todaysGames) {
+        let foundMatch = false;
+        
         for (const trend of topTrendMatches) {
           const gameBinnedFeatures = trend.features.map(feature => {
             const value = game[feature];
@@ -337,7 +339,7 @@ serve(async (req) => {
           
           const gameCombo = gameBinnedFeatures.join('|');
 
-          // Check if this combination matches the trend
+          // Check if this exact combination matches the trend pattern
           if (gameCombo === trend.combo) {
             allTodayMatches.push({
               unique_id: game.unique_id || 'unknown',
@@ -351,8 +353,14 @@ serve(async (req) => {
               feature_count: trend.feature_count,
               features: trend.features
             });
-            break; // Only match each game once to avoid duplicates
+            foundMatch = true;
+            break; // Only match each game perspective once per pattern
           }
+        }
+        
+        // Log when a game perspective doesn't match any patterns
+        if (!foundMatch) {
+          console.log(`No pattern match found for ${game.primary_team} vs ${game.opponent_team} (${game.is_home_team ? 'home' : 'away'})`);
         }
       }
     }
