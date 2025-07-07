@@ -29,6 +29,11 @@ interface GameAnalysisData {
     primary_team: string;
     opponent_team: string;
     is_home_team: boolean;
+    o_u_line?: number;
+    home_ml?: number;
+    away_ml?: number;
+    home_rl?: number;
+    away_rl?: number;
   };
   matches: GameMatch[];
   target: string;
@@ -168,6 +173,39 @@ const GameAnalysis: React.FC = () => {
     return espnLogoMap[teamName];
   };
 
+  // Helper to get betting line for prediction
+  const getBettingLine = () => {
+    if (!analysisData || !analysisData.consensus.team_winner_prediction) return '';
+    
+    const { target } = analysisData;
+    const { team_winner_prediction } = analysisData.consensus;
+    const { home_ml, away_ml, home_rl, away_rl } = analysisData.game_info;
+    
+    if (target === 'moneyline') {
+      const isHomeTeamWinner = team_winner_prediction === analysisData.game_info.primary_team;
+      const line = isHomeTeamWinner ? home_ml : away_ml;
+      return line ? ` (${line > 0 ? '+' : ''}${line})` : '';
+    }
+    
+    if (target === 'runline') {
+      const isHomeTeamWinner = team_winner_prediction === analysisData.game_info.primary_team;
+      const line = isHomeTeamWinner ? home_rl : away_rl;
+      return line ? ` (${line > 0 ? '+' : ''}${line})` : '';
+    }
+    
+    return '';
+  };
+
+  // Helper to get over/under prediction with line
+  const getOverUnderPrediction = () => {
+    if (!analysisData) return { label: '', display: '' };
+    const isOver = analysisData.consensus.primary_percentage > analysisData.consensus.opponent_percentage;
+    const ouLine = analysisData.game_info.o_u_line;
+    const label = isOver ? 'Over' : 'Under';
+    const display = ouLine ? `${label} (${ouLine})` : label;
+    return { label, display };
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -237,36 +275,56 @@ const GameAnalysis: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Team Winner Prediction */}
+      {/* Prediction */}
       {analysisData.consensus.team_winner_prediction && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5" />
-              Prediction Winner
+              {analysisData.target === 'over_under' ? 'Prediction' : 'Prediction Winner'}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center space-y-4">
               <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                {getTeamLogo(analysisData.consensus.team_winner_prediction) ? (
-                  <img 
-                    src={getTeamLogo(analysisData.consensus.team_winner_prediction)} 
-                    alt={`${analysisData.consensus.team_winner_prediction} logo`} 
-                    className="w-full h-full object-contain"
-                  />
+                {analysisData.target === 'over_under' ? (
+                  <div className="text-center">
+                    {analysisData.consensus.primary_percentage > analysisData.consensus.opponent_percentage ? (
+                      <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-12 h-12 text-red-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m0 0l-7-7m7 7l7-7" />
+                      </svg>
+                    )}
+                  </div>
                 ) : (
-                  <span className="text-lg font-bold text-muted-foreground">
-                    {analysisData.consensus.team_winner_prediction.slice(0, 3).toUpperCase()}
-                  </span>
+                  getTeamLogo(analysisData.consensus.team_winner_prediction) ? (
+                    <img 
+                      src={getTeamLogo(analysisData.consensus.team_winner_prediction)} 
+                      alt={`${analysisData.consensus.team_winner_prediction} logo`} 
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-lg font-bold text-muted-foreground">
+                      {analysisData.consensus.team_winner_prediction.slice(0, 3).toUpperCase()}
+                    </span>
+                  )
                 )}
               </div>
               <div className="text-center">
-                <p className="text-4xl font-bold text-green-600 mb-2">
-                  {analysisData.consensus.team_winner_prediction}
+                <p className={`text-4xl font-bold mb-2 ${
+                  analysisData.target === 'over_under'
+                    ? (analysisData.consensus.primary_percentage > analysisData.consensus.opponent_percentage ? 'text-green-600' : 'text-red-600')
+                    : 'text-green-600'
+                }`}>
+                  {analysisData.target === 'over_under'
+                    ? getOverUnderPrediction().display
+                    : `${analysisData.consensus.team_winner_prediction}${getBettingLine()}`}
                 </p>
                 <p className="text-lg text-gray-600">
-                  Consensus Winner ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
+                  {analysisData.target === 'over_under' ? 'Consensus Prediction' : 'Consensus Winner'} ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
                 </p>
               </div>
             </div>

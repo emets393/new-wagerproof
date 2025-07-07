@@ -39,6 +39,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Get betting lines from input_values_team_format_view
+    let o_u_line = null;
+    let home_ml = null;
+    let away_ml = null;
+    let home_rl = null;
+    let away_rl = null;
+    
+    const { data: bettingData, error: bettingError } = await supabase
+      .from('input_values_team_format_view')
+      .select('o_u_line, primary_ml, opponent_ml, primary_rl, opponent_rl')
+      .eq('unique_id', unique_id)
+      .single();
+    
+    if (!bettingError && bettingData) {
+      o_u_line = bettingData.o_u_line;
+      // Since primary_team is home_team, primary_ml is home_ml
+      home_ml = bettingData.primary_ml;
+      away_ml = bettingData.opponent_ml;
+      home_rl = bettingData.primary_rl;
+      away_rl = bettingData.opponent_rl;
+    }
+
     // Use real model data if provided, otherwise fall back to single prediction
     let modelPredictions = [];
     
@@ -154,7 +176,12 @@ Deno.serve(async (req) => {
         unique_id: unique_id,
         primary_team: gameData.home_team,
         opponent_team: gameData.away_team,
-        is_home_team: true
+        is_home_team: true,
+        o_u_line: o_u_line,
+        home_ml: home_ml,
+        away_ml: away_ml,
+        home_rl: home_rl,
+        away_rl: away_rl
       },
       matches: modelPredictions,
       target: target,
