@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +20,7 @@ interface GameMatch {
   features: string[];
   model_name?: string;
   confidence?: number;
+  o_u_line?: number;
 }
 
 interface GameAnalysisData {
@@ -29,6 +29,7 @@ interface GameAnalysisData {
     primary_team: string;
     opponent_team: string;
     is_home_team: boolean;
+    o_u_line?: number;
   };
   matches: GameMatch[];
   target: string;
@@ -168,6 +169,50 @@ const GameAnalysis: React.FC = () => {
     return espnLogoMap[teamName];
   };
 
+  // Helper to get over/under prediction and color
+  const getOverUnderPrediction = () => {
+    if (!analysisData) return { label: '', color: '', arrow: null };
+    const isOver = analysisData.consensus.primary_percentage > analysisData.consensus.opponent_percentage;
+    return {
+      label: isOver ? 'Over' : 'Under',
+      color: isOver ? 'text-green-600' : 'text-red-600',
+      arrow: isOver ? (
+        <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7" />
+        </svg>
+      ) : (
+        <svg className="w-12 h-12 text-red-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m0 0l-7-7m7 7l7-7" />
+        </svg>
+      )
+    };
+  };
+
+  // Helper to get the O/U line for the main prediction, matching by unique_id
+  const getOULine = () => {
+    if (!analysisData) return null;
+    // Try to find the match for the current game
+    const match = analysisData.matches?.find(
+      m => m.unique_id === analysisData.game_info.unique_id
+    );
+    if (match && typeof match.o_u_line !== 'undefined' && match.o_u_line !== null) {
+      return match.o_u_line;
+    }
+    // Fallback to game_info.o_u_line
+    if (typeof analysisData.game_info.o_u_line !== 'undefined' && analysisData.game_info.o_u_line !== null) {
+      return analysisData.game_info.o_u_line;
+    }
+    return null;
+  };
+
+  // Debug logging for o_u_line
+  if (analysisData) {
+    console.log("analysisData.game_info.o_u_line:", analysisData?.game_info?.o_u_line);
+    console.log("analysisData.matches:", analysisData?.matches);
+    const matchOULine = analysisData?.matches?.find(m => m.unique_id === analysisData?.game_info?.unique_id)?.o_u_line;
+    console.log("Current match o_u_line:", matchOULine);
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -237,36 +282,44 @@ const GameAnalysis: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Team Winner Prediction */}
+      {/* Prediction Winner */}
       {analysisData.consensus.team_winner_prediction && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5" />
-              Prediction Winner
+              {analysisData.target === 'over_under' ? 'Prediction' : 'Prediction Winner'}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center space-y-4">
               <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                {getTeamLogo(analysisData.consensus.team_winner_prediction) ? (
-                  <img 
-                    src={getTeamLogo(analysisData.consensus.team_winner_prediction)} 
-                    alt={`${analysisData.consensus.team_winner_prediction} logo`} 
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <span className="text-lg font-bold text-muted-foreground">
-                    {analysisData.consensus.team_winner_prediction.slice(0, 3).toUpperCase()}
-                  </span>
-                )}
+                {analysisData.target === 'over_under'
+                  ? getOverUnderPrediction().arrow
+                  : (getTeamLogo(analysisData.consensus.team_winner_prediction) ? (
+                      <img 
+                        src={getTeamLogo(analysisData.consensus.team_winner_prediction)} 
+                        alt={`${analysisData.consensus.team_winner_prediction} logo`} 
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-lg font-bold text-muted-foreground">
+                        {analysisData.consensus.team_winner_prediction.slice(0, 3).toUpperCase()}
+                      </span>
+                    ))}
               </div>
               <div className="text-center">
-                <p className="text-4xl font-bold text-green-600 mb-2">
-                  {analysisData.consensus.team_winner_prediction}
+                <p className={`text-4xl font-bold mb-2 ${
+                  analysisData.target === 'over_under'
+                    ? getOverUnderPrediction().color
+                    : 'text-green-600'
+                }`}>
+                  {analysisData.target === 'over_under'
+                    ? `${getOverUnderPrediction().label}${getOULine() !== null ? ` (${getOULine()})` : ''}`
+                    : analysisData.consensus.team_winner_prediction}
                 </p>
                 <p className="text-lg text-gray-600">
-                  Consensus Winner ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
+                  {analysisData.target === 'over_under' ? 'Consensus Prediction' : 'Consensus Winner'} ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
                 </p>
               </div>
             </div>
@@ -285,27 +338,31 @@ const GameAnalysis: React.FC = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex flex-col items-center space-y-3">
-              <div className="flex justify-between items-center w-full">
-                <h3 className="font-medium">{analysisData.game_info.primary_team}</h3>
-                <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
-              </div>
+              <h3 className="font-medium text-center w-full">
+                {analysisData.target === 'over_under' ? 'Over' : analysisData.game_info.primary_team}
+              </h3>
               <ConfidenceChart 
                 confidence={analysisData.consensus.primary_percentage * 100}
                 teamColors={['#10b981', '#e5e7eb']}
               />
-              <p className="text-sm text-gray-600">Weighted Win Probability</p>
+              <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
+              <p className="text-sm text-gray-600 text-center w-full">
+                {analysisData.target === 'over_under' ? 'Weighted Over Probability' : 'Weighted Win Probability'}
+              </p>
             </div>
             
             <div className="flex flex-col items-center space-y-3">
-              <div className="flex justify-between items-center w-full">
-                <h3 className="font-medium">{analysisData.game_info.opponent_team}</h3>
-                <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
-              </div>
+              <h3 className="font-medium text-center w-full">
+                {analysisData.target === 'over_under' ? 'Under' : analysisData.game_info.opponent_team}
+              </h3>
               <ConfidenceChart 
                 confidence={analysisData.consensus.opponent_percentage * 100}
                 teamColors={['#10b981', '#e5e7eb']}
               />
-              <p className="text-sm text-gray-600">Weighted Win Probability</p>
+              <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
+              <p className="text-sm text-gray-600 text-center w-full">
+                {analysisData.target === 'over_under' ? 'Weighted Under Probability' : 'Weighted Win Probability'}
+              </p>
             </div>
           </div>
           
@@ -345,13 +402,17 @@ const GameAnalysis: React.FC = () => {
                         <p className={`font-semibold text-lg ${match.win_pct > match.opponent_win_pct ? 'text-green-600' : 'text-red-600'}`}>
                           {(match.win_pct * 100).toFixed(1)}%
                         </p>
-                        <p className="text-xs text-gray-600">{analysisData.game_info.primary_team} Win %</p>
+                        <p className="text-xs text-gray-600">
+                          {analysisData.target === 'over_under' ? 'Over %' : `${analysisData.game_info.primary_team} Win %`}
+                        </p>
                       </div>
                       <div>
                         <p className={`font-semibold text-lg ${match.opponent_win_pct > match.win_pct ? 'text-green-600' : 'text-red-600'}`}>
                           {(match.opponent_win_pct * 100).toFixed(1)}%
                         </p>
-                        <p className="text-xs text-gray-600">{analysisData.game_info.opponent_team} Win %</p>
+                        <p className="text-xs text-gray-600">
+                          {analysisData.target === 'over_under' ? 'Under %' : `${analysisData.game_info.opponent_team} Win %`}
+                        </p>
                       </div>
                     </div>
                   </div>

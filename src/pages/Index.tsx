@@ -32,6 +32,19 @@ export default function Index() {
     queryFn: async () => {
       console.log('Fetching games for date:', today);
       
+      // First, let's check what dates are available in the database
+      const { data: allDates, error: dateError } = await supabase
+        .from('input_values_view')
+        .select('date')
+        .order('date', { ascending: false })
+        .limit(10);
+      
+      if (dateError) {
+        console.error('Error fetching dates:', dateError);
+      } else {
+        console.log('Available dates in database:', allDates?.map(d => d.date));
+      }
+      
       const { data, error } = await supabase
         .from('input_values_view')
         .select(`
@@ -60,7 +73,10 @@ export default function Index() {
         throw new Error(error.message);
       }
 
-      console.log('Found games:', data?.length || 0);
+      console.log('Found games for today:', data?.length || 0);
+      if (data && data.length > 0) {
+        console.log('Sample game:', data[0]);
+      }
       return (data || []) as TodaysGame[];
     },
   });
@@ -129,6 +145,8 @@ export default function Index() {
             </Link>
           </div>
         </div>
+
+
 
         {/* Games Grid */}
         {games && games.length > 0 ? (

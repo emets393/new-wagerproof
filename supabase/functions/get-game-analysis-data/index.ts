@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
@@ -37,6 +36,17 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Game not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Get o_u_line from input_values_team_format_view
+    let o_u_line = null;
+    const { data: ouData, error: ouError } = await supabase
+      .from('input_values_team_format_view')
+      .select('o_u_line')
+      .eq('unique_id', unique_id)
+      .single();
+    if (!ouError && ouData && typeof ouData.o_u_line !== 'undefined') {
+      o_u_line = ouData.o_u_line;
     }
 
     // Use real model data if provided, otherwise fall back to single prediction
@@ -154,7 +164,8 @@ Deno.serve(async (req) => {
         unique_id: unique_id,
         primary_team: gameData.home_team,
         opponent_team: gameData.away_team,
-        is_home_team: true
+        is_home_team: true,
+        o_u_line: o_u_line
       },
       matches: modelPredictions,
       target: target,
