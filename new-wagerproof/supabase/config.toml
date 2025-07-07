@@ -1,0 +1,74 @@
+
+project_id = "gnjrklxotmbvnxbnnqgq"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[graphql]
+enabled = true
+port = 54329
+path = "/graphql/v1"
+max_depth = 30
+max_rows = 1000
+enable_console = true
+poll_interval = 1000
+
+[db]
+enabled = true
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1:54321"
+openai_api_key = "env(OPENAI_API_KEY)"
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+[storage]
+enabled = true
+port = 54327
+image_transformation = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+port = 54328
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["https://127.0.0.1:3000"]
+jwt_expiry = 3600
+enable_signup = true
+enable_email_confirmations = false
+enable_email_autoconfirm = true
+enable_phone_confirmations = false
+enable_phone_autoconfirm = true
+
+[edge_runtime]
+enabled = true
+port = 54329
+inspector_port = 8083
+
+[functions.filter-training-data]
+verify_jwt = false
+
+[functions.games-today-filtered]
+verify_jwt = false
+
+[functions.get-field-ranges]
+verify_jwt = false
+
+[functions.run_custom_model]
+verify_jwt = false
+
+[functions.get-game-analysis-data]
+verify_jwt = false
