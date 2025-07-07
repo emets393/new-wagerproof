@@ -107,62 +107,49 @@ Deno.serve(async (req) => {
       }];
     }
 
-    // Group models by similar patterns to detect complementary perspectives
-    const modelGroups = new Map();
+    // Calculate team-specific win probabilities
+    // Group models by the actual team they're predicting for
+    const teamPredictions = new Map();
     
     modelPredictions.forEach(model => {
-      // Create a key based on features and pattern similarity
-      const featureKey = model.features.sort().join(',');
+      const teamName = model.primary_team;
       
-      if (!modelGroups.has(featureKey)) {
-        modelGroups.set(featureKey, []);
+      if (!teamPredictions.has(teamName)) {
+        teamPredictions.set(teamName, { totalWeightedWinPct: 0, totalWeight: 0, models: [] });
       }
-      modelGroups.get(featureKey).push(model);
+      
+      const teamData = teamPredictions.get(teamName);
+      teamData.totalWeightedWinPct += model.win_pct * model.games;
+      teamData.totalWeight += model.games;
+      teamData.models.push(model);
     });
 
-    // Calculate intelligent consensus from grouped models
-    let totalWeightedPrediction = 0;
-    let totalWeight = 0;
+    // Calculate final win probabilities for each team
+    const teamWinProbabilities = new Map();
+    teamPredictions.forEach((data, teamName) => {
+      const winProbability = data.totalWeight > 0 ? data.totalWeightedWinPct / data.totalWeight : 0.5;
+      teamWinProbabilities.set(teamName, winProbability);
+    });
+
+    // Determine the winning team based on highest win probability
+    let teamWinnerPrediction = gameData.home_team;
+    let highestWinPct = 0;
     
-    modelGroups.forEach(group => {
-      if (group.length === 2) {
-        // Likely complementary perspectives - use the stronger prediction
-        const model1 = group[0];
-        const model2 = group[1];
-        
-        // Check if they're complementary (win_pct + opponent_win_pct ≈ 1)
-        const isComplementary = Math.abs((model1.win_pct + model2.win_pct) - 1.0) < 0.1;
-        
-        if (isComplementary) {
-          // Use the model with higher confidence/games as the primary perspective
-          const primaryModel = model1.games >= model2.games ? model1 : model2;
-          const weight = primaryModel.games;
-          
-          totalWeightedPrediction += primaryModel.win_pct * weight;
-          totalWeight += weight;
-        } else {
-          // Not complementary, treat as separate models
-          group.forEach(model => {
-            totalWeightedPrediction += model.win_pct * model.games;
-            totalWeight += model.games;
-          });
-        }
-      } else {
-        // Single model or multiple non-complementary models
-        group.forEach(model => {
-          totalWeightedPrediction += model.win_pct * model.games;
-          totalWeight += model.games;
-        });
+    teamWinProbabilities.forEach((winPct, teamName) => {
+      if (winPct > highestWinPct) {
+        highestWinPct = winPct;
+        teamWinnerPrediction = teamName;
       }
     });
 
-    const weightedPrimaryWinPct = totalWeight > 0 ? totalWeightedPrediction / totalWeight : 0.5;
+    // Calculate consensus percentages for display (primary vs opponent perspective)
+    const homeTeamWinPct = teamWinProbabilities.get(gameData.home_team) || 0.5;
+    const awayTeamWinPct = teamWinProbabilities.get(gameData.away_team) || 0.5;
+    
+    // Normalize so they add up to 1
+    const totalWinPct = homeTeamWinPct + awayTeamWinPct;
+    const weightedPrimaryWinPct = totalWinPct > 0 ? homeTeamWinPct / totalWinPct : 0.5;
     const weightedOpponentWinPct = 1 - weightedPrimaryWinPct;
-
-    // Determine team winner prediction
-    const teamWinnerPrediction = weightedPrimaryWinPct > weightedOpponentWinPct 
-      ? gameData.home_team 
-      : gameData.away_team;
 
     // Calculate model agreement confidence
     const avgWinPct = modelPredictions.reduce((sum, model) => sum + model.win_pct, 0) / modelPredictions.length;
