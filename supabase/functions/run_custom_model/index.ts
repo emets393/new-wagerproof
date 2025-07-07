@@ -186,18 +186,26 @@ serve(async (req) => {
 
     console.log('Model saved:', modelData);
 
-    // Get training data from the team format view - both perspectives for richer patterns
+    // Get training data from the team format view - filter to one perspective per game
     const { data: rawTrainingData, error: trainingError } = await supabase
       .from('training_data_team_view')
-      .select('*'); // Get all perspectives for dual-perspective training
+      .select('*');
 
     if (trainingError) {
       console.error('Error fetching training data:', trainingError);
       throw new Error(`Failed to fetch training data: ${trainingError.message}`);
     }
 
-    const trainingData = rawTrainingData;
-    console.log(`Loaded ${trainingData?.length || 0} training records (both perspectives)`);
+    // Filter to only include one perspective per unique game to eliminate double-counting
+    const seenGames = new Set<string>();
+    const trainingData = rawTrainingData?.filter(row => {
+      if (!row.unique_id) return false;
+      if (seenGames.has(row.unique_id)) return false;
+      seenGames.add(row.unique_id);
+      return true;
+    }) || [];
+    
+    console.log(`Loaded ${trainingData.length} training records (one perspective per game, filtered from ${rawTrainingData?.length || 0} total)`);
 
     const allTrendMatches: TrendMatch[] = [];
     let topTrendMatches: TrendMatch[] = [];
