@@ -30,6 +30,10 @@ interface GameAnalysisData {
     opponent_team: string;
     is_home_team: boolean;
     o_u_line?: number;
+    home_ml?: number;
+    away_ml?: number;
+    home_rl?: number;
+    away_rl?: number;
   };
   matches: GameMatch[];
   target: string;
@@ -205,6 +209,30 @@ const GameAnalysis: React.FC = () => {
     return null;
   };
 
+  // Helper to get the moneyline for the predicted winner
+  const getMoneyline = () => {
+    if (!analysisData || !analysisData.consensus.team_winner_prediction) return null;
+    const { team_winner_prediction } = analysisData.consensus;
+    const { home_ml, away_ml, primary_team } = analysisData.game_info;
+    
+    // If predicted winner is the home team, return home_ml, otherwise away_ml
+    const isHomeTeamWinner = team_winner_prediction === primary_team;
+    const line = isHomeTeamWinner ? home_ml : away_ml;
+    return line ? (line > 0 ? `+${line}` : `${line}`) : null;
+  };
+
+  // Helper to get the runline for the predicted winner
+  const getRunline = () => {
+    if (!analysisData || !analysisData.consensus.team_winner_prediction) return null;
+    const { team_winner_prediction } = analysisData.consensus;
+    const { home_rl, away_rl, primary_team } = analysisData.game_info;
+    
+    // If predicted winner is the home team, return home_rl, otherwise away_rl
+    const isHomeTeamWinner = team_winner_prediction === primary_team;
+    const line = isHomeTeamWinner ? home_rl : away_rl;
+    return line ? (line > 0 ? `+${line}` : `${line}`) : null;
+  };
+
   // Debug logging for o_u_line
   if (analysisData) {
     console.log("analysisData.game_info.o_u_line:", analysisData?.game_info?.o_u_line);
@@ -309,15 +337,19 @@ const GameAnalysis: React.FC = () => {
                     ))}
               </div>
               <div className="text-center">
-                <p className={`text-4xl font-bold mb-2 ${
-                  analysisData.target === 'over_under'
-                    ? getOverUnderPrediction().color
-                    : 'text-green-600'
-                }`}>
-                  {analysisData.target === 'over_under'
-                    ? `${getOverUnderPrediction().label}${getOULine() !== null ? ` (${getOULine()})` : ''}`
-                    : analysisData.consensus.team_winner_prediction}
-                </p>
+                 <p className={`text-4xl font-bold mb-2 ${
+                   analysisData.target === 'over_under'
+                     ? getOverUnderPrediction().color
+                     : 'text-green-600'
+                 }`}>
+                   {analysisData.target === 'over_under'
+                     ? `${getOverUnderPrediction().label}${getOULine() !== null ? ` (${getOULine()})` : ''}`
+                     : analysisData.target === 'moneyline'
+                       ? `${analysisData.consensus.team_winner_prediction}${getMoneyline() ? ` (${getMoneyline()})` : ''}`
+                       : analysisData.target === 'runline'
+                         ? `${analysisData.consensus.team_winner_prediction}${getRunline() ? ` (${getRunline()})` : ''}`
+                         : analysisData.consensus.team_winner_prediction}
+                 </p>
                 <p className="text-lg text-gray-600">
                   {analysisData.target === 'over_under' ? 'Consensus Prediction' : 'Consensus Winner'} ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
                 </p>
