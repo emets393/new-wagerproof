@@ -25,12 +25,29 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get game info from the combined predictions view
+    // Get all game info including betting lines from input_values_view (same as Today's Games)
     const { data: gameData, error: gameError } = await supabase
-      .from('latest_predictions_today')
-      .select('*')
+      .from('input_values_view')
+      .select(`
+        unique_id,
+        home_team,
+        away_team,
+        home_pitcher,
+        away_pitcher,
+        home_era,
+        away_era,
+        home_whip,
+        away_whip,
+        date,
+        start_time_minutes,
+        home_ml,
+        away_ml,
+        home_rl,
+        away_rl,
+        o_u_line
+      `)
       .eq('unique_id', unique_id)
-      .single();
+      .maybeSingle();
 
     if (gameError || !gameData) {
       return new Response(
@@ -39,41 +56,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get betting lines from input_values_view (same as Today's Games)
-    let o_u_line = null;
-    let home_ml = null;
-    let away_ml = null;
-    let home_rl = null;
-    let away_rl = null;
-    
-    console.log('Querying betting lines from input_values_view for unique_id:', unique_id);
-    
-    const { data: bettingData, error: bettingError } = await supabase
-      .from('input_values_view')
-      .select('o_u_line, home_ml, away_ml, home_rl, away_rl')
-      .eq('unique_id', unique_id)
-      .maybeSingle();
-    
-    console.log('Betting lines query result:');
-    console.log('- Error:', bettingError);
-    console.log('- Data:', bettingData);
-    
-    if (!bettingError && bettingData) {
-      o_u_line = bettingData.o_u_line;
-      home_ml = bettingData.home_ml;
-      away_ml = bettingData.away_ml;
-      home_rl = bettingData.home_rl;
-      away_rl = bettingData.away_rl;
-      
-      console.log('Betting lines successfully extracted:');
-      console.log('- O/U Line:', o_u_line);
-      console.log('- Home ML:', home_ml);
-      console.log('- Away ML:', away_ml);
-      console.log('- Home RL:', home_rl);
-      console.log('- Away RL:', away_rl);
-    } else {
-      console.log('Failed to get betting lines:', bettingError);
-    }
+    console.log('Game data retrieved:', gameData);
+    console.log('Betting lines from game data:');
+    console.log('- O/U Line:', gameData.o_u_line);
+    console.log('- Home ML:', gameData.home_ml);
+    console.log('- Away ML:', gameData.away_ml);
+    console.log('- Home RL:', gameData.home_rl);
+    console.log('- Away RL:', gameData.away_rl);
 
     // Use real model data if provided, otherwise fall back to single prediction
     let modelPredictions = [];
@@ -173,11 +162,11 @@ Deno.serve(async (req) => {
     const modelAgreementConfidence = Math.round(agreement * 100);
 
     console.log('Final betting lines being returned:');
-    console.log('- O/U Line:', o_u_line);
-    console.log('- Home ML:', home_ml);
-    console.log('- Away ML:', away_ml);
-    console.log('- Home RL:', home_rl);
-    console.log('- Away RL:', away_rl);
+    console.log('- O/U Line:', gameData.o_u_line);
+    console.log('- Home ML:', gameData.home_ml);
+    console.log('- Away ML:', gameData.away_ml);
+    console.log('- Home RL:', gameData.home_rl);
+    console.log('- Away RL:', gameData.away_rl);
 
     const analysisData = {
       game_info: {
@@ -185,11 +174,11 @@ Deno.serve(async (req) => {
         primary_team: gameData.home_team,
         opponent_team: gameData.away_team,
         is_home_team: true,
-        o_u_line: o_u_line,
-        home_ml: home_ml,
-        away_ml: away_ml,
-        home_rl: home_rl,
-        away_rl: away_rl
+        o_u_line: gameData.o_u_line,
+        home_ml: gameData.home_ml,
+        away_ml: gameData.away_ml,
+        home_rl: gameData.home_rl,
+        away_rl: gameData.away_rl
       },
       matches: modelPredictions,
       target: target,
