@@ -259,9 +259,10 @@ serve(async (req) => {
 
           const combo = binnedFeatures.join('|');
           
-          // Determine perspective based on whether this row represents primary or opponent view
-          const perspective = row.is_home_team ? 'primary' : 'opponent';
-          const comboMap = perspective === 'primary' ? primaryComboMap : opponentComboMap;
+          // Always treat rows as 'primary' perspective - each team's data represents their own performance
+          // This allows both teams to be evaluated against historical primary team patterns
+          const perspective = 'primary';
+          const comboMap = primaryComboMap;
 
           // Initialize or get existing combo data
           if (!comboMap.has(combo)) {
@@ -309,26 +310,8 @@ serve(async (req) => {
           }
         }
 
-        // Create trend matches for opponent perspective
-        for (const [combo, data] of opponentComboMap.entries()) {
-          const minGames = size >= 5 ? 25 : 30;
-          
-          if (data.total >= minGames) {
-            const winPct = data.wins / data.total;
-            
-            if (winPct >= 0.55 || winPct <= 0.45) {
-              allTrendMatches.push({
-                combo,
-                games: data.total,
-                win_pct: winPct,
-                opponent_win_pct: 1 - winPct,
-                feature_count: size,
-                features: features,
-                perspective: 'opponent'
-              });
-            }
-          }
-        }
+        // Note: We no longer create separate opponent perspective patterns
+        // since we're treating all training data as primary perspective patterns
 
         // Check memory usage after each combination
         const memUsage = Deno.memoryUsage();
@@ -362,15 +345,15 @@ serve(async (req) => {
     if (!todayError && todaysGames && topTrendMatches.length > 0) {
       console.log(`Found ${todaysGames.length} games for today`);
       
-      // Check each game perspective independently against trend patterns
+      // Check each game against trend patterns - both teams get evaluated as 'primary'
       for (const game of todaysGames) {
         let foundMatch = false;
         
-        // Determine the perspective of this game
-        const gamePerspective = game.is_home_team ? 'primary' : 'opponent';
+        // Always treat games as 'primary' perspective for matching
+        const gamePerspective = 'primary';
         
         for (const trend of topTrendMatches) {
-          // Only match within the same perspective to prevent inverse predictions
+          // Match against primary perspective patterns (all patterns are now primary)
           if (trend.perspective !== gamePerspective) {
             continue;
           }
@@ -402,9 +385,9 @@ serve(async (req) => {
           }
         }
         
-        // Log when a game perspective doesn't match any patterns
+        // Log when a game doesn't match any patterns
         if (!foundMatch) {
-          console.log(`No pattern match found for ${game.primary_team} vs ${game.opponent_team} (${game.is_home_team ? 'home' : 'away'}) perspective: ${gamePerspective}`);
+          console.log(`No pattern match found for ${game.primary_team} vs ${game.opponent_team} (team: ${game.primary_team})`);
         }
       }
     }
