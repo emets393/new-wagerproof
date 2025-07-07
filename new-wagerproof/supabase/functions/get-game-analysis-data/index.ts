@@ -50,6 +50,7 @@ Deno.serve(async (req) => {
       .from('input_values_team_format_view')
       .select('o_u_line, primary_ml, opponent_ml, primary_rl, opponent_rl')
       .eq('unique_id', unique_id)
+      .eq('is_home_team', true)
       .single();
     
     if (!bettingError && bettingData) {
