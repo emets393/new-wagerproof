@@ -56,13 +56,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Game data retrieved:', gameData);
+    console.log('=== GAME DATA QUERY RESULT ===');
+    console.log('Game data retrieved successfully:', !!gameData);
+    console.log('Full game data object:', JSON.stringify(gameData, null, 2));
     console.log('Betting lines from game data:');
-    console.log('- O/U Line:', gameData.o_u_line);
-    console.log('- Home ML:', gameData.home_ml);
-    console.log('- Away ML:', gameData.away_ml);
-    console.log('- Home RL:', gameData.home_rl);
-    console.log('- Away RL:', gameData.away_rl);
+    console.log('- O/U Line:', gameData.o_u_line, typeof gameData.o_u_line);
+    console.log('- Home ML:', gameData.home_ml, typeof gameData.home_ml);
+    console.log('- Away ML:', gameData.away_ml, typeof gameData.away_ml);
+    console.log('- Home RL:', gameData.home_rl, typeof gameData.home_rl);
+    console.log('- Away RL:', gameData.away_rl, typeof gameData.away_rl);
+    console.log('=== END GAME DATA RESULT ===');
 
     // Use real model data if provided, otherwise fall back to single prediction
     let modelPredictions = [];
