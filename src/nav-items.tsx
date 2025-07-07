@@ -1,7 +1,6 @@
-
 import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark } from "lucide-react";
 import Index from "./pages/Index";
-import Analytics from "./pages/Analytics";
+// import Analytics from "./pages/Analytics"; // Deleted
 import WinRates from "./pages/WinRates";
 import CustomModels from "./pages/CustomModels";
 import NotFound from "./pages/NotFound";
@@ -15,12 +14,6 @@ export const navItems = [
     to: "/",
     icon: <HomeIcon className="h-4 w-4" />,
     page: <Index />,
-  },
-  {
-    title: "Analytics",
-    to: "/analytics",
-    icon: <BarChart3 className="h-4 w-4" />,
-    page: <Analytics />,
   },
   {
     title: "Win Rates",

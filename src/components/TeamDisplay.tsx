@@ -1,4 +1,3 @@
-
 interface TeamDisplayProps {
   team: string;
   isHome: boolean;
@@ -143,7 +142,7 @@ const TeamDisplay = ({ team, isHome }: TeamDisplayProps) => {
 
   return (
     <div className={`flex flex-col items-center space-y-3 ${isHome ? 'text-right' : 'text-left'}`}>
-      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+      <div className="w-16 h-16 rounded-full bg-white shadow-md border-2 border-primary flex items-center justify-center overflow-hidden p-2">
         {logoUrl ? (
           <img 
             src={logoUrl} 

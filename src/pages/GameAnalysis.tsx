@@ -321,7 +321,7 @@ const GameAnalysis: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center space-y-4">
-              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+              <div className="w-20 h-20 rounded-full bg-white shadow-md border-2 border-primary flex items-center justify-center overflow-hidden p-2">
                 {analysisData.target === 'over_under'
                   ? getOverUnderPrediction().arrow
                   : (getTeamLogo(analysisData.consensus.team_winner_prediction) ? (
@@ -337,7 +337,7 @@ const GameAnalysis: React.FC = () => {
                     ))}
               </div>
               <div className="text-center">
-                 <p className={`text-4xl font-bold mb-2 ${
+                 <p className={`text-2xl font-bold mb-2 ${
                    analysisData.target === 'over_under'
                      ? getOverUnderPrediction().color
                      : 'text-green-600'

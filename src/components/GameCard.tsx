@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import TeamDisplay from "./TeamDisplay";
@@ -58,8 +57,8 @@ const GameCard = ({ game }: GameCardProps) => {
 
   return (
     <>
-      <Card className="w-full hover:shadow-lg transition-shadow">
-        <CardHeader className="pb-4">
+      <Card className="w-full hover:shadow-lg transition-shadow overflow-hidden">
+        <CardHeader className="pb-4 bg-gradient-to-r from-info/20 via-info/15 to-info/10 border-b border-info/30">
           <div className="flex items-center justify-between">
             <TeamDisplay team={game.away_team} isHome={false} />
             <div className="flex flex-col items-center">
@@ -152,7 +151,7 @@ const GameCard = ({ game }: GameCardProps) => {
             className="w-full"
             variant="outline"
           >
-            View Predictions
+            View Game Overview
           </Button>
         </CardFooter>
       </Card>

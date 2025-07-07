@@ -1,4 +1,3 @@
-
 import ConfidenceChart from './ConfidenceChart';
 
 interface TeamPredictionCardProps {
@@ -101,7 +100,7 @@ const TeamPredictionCard = ({ title, predictedTeam, confidence, homeTeam, awayTe
       
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+          <div className="w-12 h-12 rounded-full bg-white shadow-md border-2 border-primary flex items-center justify-center overflow-hidden p-1">
             {logoUrl ? (
               <img 
                 src={logoUrl} 

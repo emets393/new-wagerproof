@@ -106,15 +106,15 @@ export default function Index() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold text-accent drop-shadow-lg">
               Today's MLB Games
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="text-white/80 mt-2">
               {new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -126,27 +126,25 @@ export default function Index() {
           
           <div className="flex gap-2">
             <Link to="/analytics">
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button variant="outline" className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20">
                 <BarChart3 className="w-4 h-4" />
                 Analytics
               </Button>
             </Link>
             <Link to="/win-rates">
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button variant="outline" className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20">
                 <TrendingUp className="w-4 h-4" />
                 Win Rates
               </Button>
             </Link>
             <Link to="/custom-models">
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button variant="outline" className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20">
                 <Settings className="w-4 h-4" />
                 Custom Models
               </Button>
             </Link>
           </div>
         </div>
-
-
 
         {/* Games Grid */}
         {games && games.length > 0 ? (

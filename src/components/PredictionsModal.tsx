@@ -1,4 +1,3 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -51,6 +50,25 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     enabled: isOpen,
   });
 
+  // Fetch moneyline handle and bets from circa_lines
+  const normalizedId = uniqueId.replace(/\+/g, ' ');
+  const { data: moneylineData } = useQuery({
+    queryKey: ["circa_lines", uniqueId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("circa_lines")
+        .select("Handle_Home, Handle_Away, Bets_Home, Bets_Away, RL_Handle_Home, RL_Handle_Away, RL_Bets_Home, RL_Bets_Away")
+        .eq("unique_id", normalizedId)
+        .single();
+      if (error) {
+        console.error("Error fetching circa_lines:", error);
+        return null;
+      }
+      return data;
+    },
+    enabled: isOpen,
+  });
+
   // Helper function to calculate confidence percentage
   const calculateConfidence = (tierAccuracy: number | null): number => {
     if (!tierAccuracy) return 50;
@@ -97,8 +115,43 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     return { overPercentage, underPercentage };
   };
 
-  const { overPercentage, underPercentage } = calculateHandlePercentages();
-  const { overPercentage: overBetsPercentage, underPercentage: underBetsPercentage } = calculateBetsPercentages();
+  // Calculate percentages for Moneyline Handle
+  const calculateMLHandlePercentages = () => {
+    const home = Number(moneylineData?.Handle_Home) || 0;
+    const away = Number(moneylineData?.Handle_Away) || 0;
+    const total = home + away;
+    if (total === 0) return { homePct: 50, awayPct: 50 };
+    return { homePct: (home / total) * 100, awayPct: (away / total) * 100 };
+  };
+  // Calculate percentages for Moneyline Bets
+  const calculateMLBetsPercentages = () => {
+    const home = Number(moneylineData?.Bets_Home) || 0;
+    const away = Number(moneylineData?.Bets_Away) || 0;
+    const total = home + away;
+    if (total === 0) return { homePct: 50, awayPct: 50 };
+    return { homePct: (home / total) * 100, awayPct: (away / total) * 100 };
+  };
+  const { homePct: mlHandleHomePct, awayPct: mlHandleAwayPct } = calculateMLHandlePercentages();
+  const { homePct: mlBetsHomePct, awayPct: mlBetsAwayPct } = calculateMLBetsPercentages();
+
+  // Calculate percentages for Runline Handle
+  const calculateRLHandlePercentages = () => {
+    const home = Number(moneylineData?.RL_Handle_Home) || 0;
+    const away = Number(moneylineData?.RL_Handle_Away) || 0;
+    const total = home + away;
+    if (total === 0) return { homePct: 50, awayPct: 50 };
+    return { homePct: (home / total) * 100, awayPct: (away / total) * 100 };
+  };
+  // Calculate percentages for Runline Bets
+  const calculateRLBetsPercentages = () => {
+    const home = Number(moneylineData?.RL_Bets_Home) || 0;
+    const away = Number(moneylineData?.RL_Bets_Away) || 0;
+    const total = home + away;
+    if (total === 0) return { homePct: 50, awayPct: 50 };
+    return { homePct: (home / total) * 100, awayPct: (away / total) * 100 };
+  };
+  const { homePct: rlHandleHomePct, awayPct: rlHandleAwayPct } = calculateRLHandlePercentages();
+  const { homePct: rlBetsHomePct, awayPct: rlBetsAwayPct } = calculateRLBetsPercentages();
 
   const formatMoneyline = (ml: number | undefined): string => {
     if (!ml) return 'N/A';
@@ -110,13 +163,47 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     return rl > 0 ? `+${rl}` : rl.toString();
   };
 
+  // Helper to get team logo URL
+  const getTeamLogo = (teamName: string) => {
+    const espnLogoMap: { [key: string]: string } = {
+      'Arizona': 'https://a.espncdn.com/i/teamlogos/mlb/500/ari.png',
+      'Atlanta': 'https://a.espncdn.com/i/teamlogos/mlb/500/atl.png',
+      'Baltimore': 'https://a.espncdn.com/i/teamlogos/mlb/500/bal.png',
+      'Boston': 'https://a.espncdn.com/i/teamlogos/mlb/500/bos.png',
+      'Cubs': 'https://a.espncdn.com/i/teamlogos/mlb/500/chc.png',
+      'White Sox': 'https://a.espncdn.com/i/teamlogos/mlb/500/cws.png',
+      'Cincinnati': 'https://a.espncdn.com/i/teamlogos/mlb/500/cin.png',
+      'Cleveland': 'https://a.espncdn.com/i/teamlogos/mlb/500/cle.png',
+      'Colorado': 'https://a.espncdn.com/i/teamlogos/mlb/500/col.png',
+      'Detroit': 'https://a.espncdn.com/i/teamlogos/mlb/500/det.png',
+      'Houston': 'https://a.espncdn.com/i/teamlogos/mlb/500/hou.png',
+      'Kansas City': 'https://a.espncdn.com/i/teamlogos/mlb/500/kc.png',
+      'Angels': 'https://a.espncdn.com/i/teamlogos/mlb/500/laa.png',
+      'Dodgers': 'https://a.espncdn.com/i/teamlogos/mlb/500/lad.png',
+      'Miami': 'https://a.espncdn.com/i/teamlogos/mlb/500/mia.png',
+      'Milwaukee': 'https://a.espncdn.com/i/teamlogos/mlb/500/mil.png',
+      'Minnesota': 'https://a.espncdn.com/i/teamlogos/mlb/500/min.png',
+      'Mets': 'https://a.espncdn.com/i/teamlogos/mlb/500/nym.png',
+      'Yankees': 'https://a.espncdn.com/i/teamlogos/mlb/500/nyy.png',
+      'Athletics': 'https://a.espncdn.com/i/teamlogos/mlb/500/oak.png',
+      'Philadelphia': 'https://a.espncdn.com/i/teamlogos/mlb/500/phi.png',
+      'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/mlb/500/pit.png',
+      'San Diego': 'https://a.espncdn.com/i/teamlogos/mlb/500/sd.png',
+      'San Francisco': 'https://a.espncdn.com/i/teamlogos/mlb/500/sf.png',
+      'Seattle': 'https://a.espncdn.com/i/teamlogos/mlb/500/sea.png',
+      'ST Louis': 'https://a.espncdn.com/i/teamlogos/mlb/500/stl.png',
+      'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/mlb/500/tb.png',
+      'Texas': 'https://a.espncdn.com/i/teamlogos/mlb/500/tex.png',
+      'Toronto': 'https://a.espncdn.com/i/teamlogos/mlb/500/tor.png',
+      'Washington': 'https://a.espncdn.com/i/teamlogos/mlb/500/wsh.png',
+    };
+    return espnLogoMap[teamName];
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl font-inter bg-gradient-to-br from-background to-muted/20 border-border/50 shadow-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="text-center space-y-3 pb-2">
-          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            Game Predictions
-          </DialogTitle>
+        <DialogHeader className="text-center space-y-2 pb-2">
           <div className="flex items-center justify-center space-x-2 text-muted-foreground">
             <BarChart3 className="w-4 h-4" />
             <p className="text-base font-medium">
@@ -126,206 +213,148 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
         </DialogHeader>
         
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-8">
             <div className="text-center space-y-3">
               <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
               <div className="text-muted-foreground font-medium">Loading predictions...</div>
             </div>
           </div>
         ) : predictions ? (
-          <div className="space-y-6">
-            {/* Betting Lines Section */}
-            <div className="bg-gradient-to-br from-card to-card/30 border border-border/50 rounded-xl p-6 shadow-lg backdrop-blur-sm">
-              <h4 className="font-bold text-lg text-foreground mb-4 text-center">Betting Lines</h4>
-              
-              <div className="grid grid-cols-3 gap-6">
-                {/* Away Team Lines */}
-                <div className="text-center">
-                  <div className="text-sm font-semibold text-muted-foreground mb-3">{awayTeam}</div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Moneyline:</span>
-                      <span className="font-semibold">{formatMoneyline(predictions.away_ml)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Run Line:</span>
-                      <span className="font-semibold">{formatRunline(predictions.away_rl)}</span>
-                    </div>
+          <div className="space-y-4">
+            {/* Public Betting Distribution Header */}
+            <h3 className="text-xl font-bold text-center mb-3">Public Betting Distribution</h3>
+
+            {/* O/U Distribution Card */}
+            <div className="bg-gradient-to-br from-card to-accent/10 border-2 border-accent rounded-2xl p-4 shadow-xl backdrop-blur-sm flex flex-col mb-4">
+              <div className="text-lg font-bold text-left w-full mb-3 text-primary drop-shadow-sm gradient-text-betting">O/U</div>
+              {/* Handle Sub-header */}
+              <div className="text-base font-semibold text-center mb-2">Handle</div>
+              {/* O/U Handle Distribution Chart */}
+              <div className="flex items-center mb-4 w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm text-emerald-600">Over</span>
+                  <span className="font-bold text-lg text-emerald-700">{calculateHandlePercentages().overPercentage.toFixed(1)}%</span>
+                </div>
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                    <div className="bg-gradient-emerald h-full" style={{ width: `${calculateHandlePercentages().overPercentage}%` }} />
+                    <div className="bg-gradient-rose h-full" style={{ width: `${calculateHandlePercentages().underPercentage}%` }} />
                   </div>
                 </div>
-                
-                {/* O/U Line */}
-                <div className="text-center">
-                  <div className="text-sm font-semibold text-muted-foreground mb-3">Total</div>
-                  <div className="text-3xl font-bold text-foreground">
-                    {predictions.o_u_line || 'N/A'}
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg text-rose-700">{calculateHandlePercentages().underPercentage.toFixed(1)}%</span>
+                  <span className="font-semibold text-sm text-rose-600">Under</span>
+                </div>
+              </div>
+              {/* Bets Sub-header */}
+              <div className="text-base font-semibold text-center mb-2">Bets</div>
+              {/* O/U Bets Distribution Chart */}
+              <div className="flex items-center mb-1 w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm text-emerald-600">Over</span>
+                  <span className="font-bold text-lg text-emerald-700">{calculateBetsPercentages().overPercentage.toFixed(1)}%</span>
+                </div>
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                    <div className="bg-gradient-emerald h-full" style={{ width: `${calculateBetsPercentages().overPercentage}%` }} />
+                    <div className="bg-gradient-rose h-full" style={{ width: `${calculateBetsPercentages().underPercentage}%` }} />
                   </div>
                 </div>
-                
-                {/* Home Team Lines */}
-                <div className="text-center">
-                  <div className="text-sm font-semibold text-muted-foreground mb-3">{homeTeam}</div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Moneyline:</span>
-                      <span className="font-semibold">{formatMoneyline(predictions.home_ml)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Run Line:</span>
-                      <span className="font-semibold">{formatRunline(predictions.home_rl)}</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg text-rose-700">{calculateBetsPercentages().underPercentage.toFixed(1)}%</span>
+                  <span className="font-semibold text-sm text-rose-600">Under</span>
                 </div>
               </div>
             </div>
 
-            {/* Prediction Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {predictions.moneyline_prediction && (
-                <TeamPredictionCard
-                  title="Moneyline Prediction"
-                  predictedTeam={predictions.moneyline_prediction}
-                  confidence={calculateConfidence(predictions.ml_tier_accuracy)}
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
-                />
-              )}
-              
-              {predictions.runline_prediction && (
-                <TeamPredictionCard
-                  title="Runline Prediction"
-                  predictedTeam={predictions.runline_prediction}
-                  confidence={calculateConfidence(predictions.run_line_tier_accuracy)}
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
-                />
-              )}
-
-              {predictions.ou_prediction && predictions.o_u_line && (
-                <TotalPredictionCard
-                  prediction={predictions.ou_prediction}
-                  total={predictions.o_u_line}
-                  confidence={calculateConfidence(predictions.ou_tier_accuracy)}
-                />
-              )}
-            </div>
-
-            {/* Handle Distribution Chart */}
-            <div className="bg-gradient-to-br from-card to-card/30 border border-border/50 rounded-xl p-6 shadow-lg backdrop-blur-sm">
-              <div className="flex items-center space-x-2 mb-4">
-                <TrendingUp className="w-5 h-5 text-primary" />
-                <h4 className="font-bold text-lg text-foreground">O/U Handle Distribution</h4>
-              </div>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-2">
-                    <TrendingDown className="w-4 h-4 text-rose-500" />
-                    <span className="font-semibold text-sm text-rose-600">Under</span>
-                    <span className="font-bold text-lg text-rose-700">{underPercentage.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-lg text-emerald-700">{overPercentage.toFixed(1)}%</span>
-                    <span className="font-semibold text-sm text-emerald-600">Over</span>
-                    <TrendingUp className="w-4 h-4 text-emerald-500" />
+            {/* Moneyline Distribution Card */}
+            <div className="bg-gradient-to-br from-card to-primary/10 border-2 border-primary rounded-2xl p-4 shadow-xl backdrop-blur-sm flex flex-col mb-4">
+              <div className="text-lg font-bold text-left w-full mb-3 text-primary drop-shadow-sm gradient-text-betting">Moneyline</div>
+              {/* Handle Sub-header */}
+              <div className="text-base font-semibold text-center mb-2">Handle</div>
+              {/* Moneyline Handle Distribution Chart */}
+              <div className="flex items-center mb-4 w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                  <span className="font-bold text-lg text-emerald-700">{mlHandleHomePct.toFixed(1)}%</span>
+                </div>
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                    <div className="bg-gradient-emerald h-full" style={{ width: `${mlHandleHomePct}%` }} />
+                    <div className="bg-gradient-rose h-full" style={{ width: `${mlHandleAwayPct}%` }} />
                   </div>
                 </div>
-                
-                <div className="relative">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30">
-                    <div className="flex h-full">
-                      <div 
-                        className="bg-gradient-rose h-full transition-all duration-700 ease-out shadow-lg hover:shadow-rose-500/25 relative overflow-hidden"
-                        style={{ width: `${underPercentage}%` }}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"></div>
-                      </div>
-                      <div 
-                        className="bg-gradient-emerald h-full transition-all duration-700 ease-out shadow-lg hover:shadow-emerald-500/25 relative overflow-hidden"
-                        style={{ width: `${overPercentage}%` }}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"></div>
-                      </div>
-                    </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg text-rose-700">{mlHandleAwayPct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                </div>
+              </div>
+              {/* Bets Sub-header */}
+              <div className="text-base font-semibold text-center mb-2">Bets</div>
+              {/* Moneyline Bets Distribution Chart */}
+              <div className="flex items-center mb-1 w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                  <span className="font-bold text-lg text-emerald-700">{mlBetsHomePct.toFixed(1)}%</span>
+                </div>
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                    <div className="bg-gradient-emerald h-full" style={{ width: `${mlBetsHomePct}%` }} />
+                    <div className="bg-gradient-rose h-full" style={{ width: `${mlBetsAwayPct}%` }} />
                   </div>
-                  
-                  {/* Percentage labels inside bars */}
-                  {underPercentage > 15 && (
-                    <div 
-                      className="absolute top-1/2 transform -translate-y-1/2 left-2 text-white font-bold text-sm drop-shadow-lg"
-                    >
-                      {underPercentage.toFixed(0)}%
-                    </div>
-                  )}
-                  {overPercentage > 15 && (
-                    <div 
-                      className="absolute top-1/2 transform -translate-y-1/2 right-2 text-white font-bold text-sm drop-shadow-lg"
-                    >
-                      {overPercentage.toFixed(0)}%
-                    </div>
-                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg text-rose-700">{mlBetsAwayPct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>
             </div>
 
-            {/* Bets Distribution Chart */}
-            <div className="bg-gradient-to-br from-card to-card/30 border border-border/50 rounded-xl p-6 shadow-lg backdrop-blur-sm">
-              <div className="flex items-center space-x-2 mb-4">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                <h4 className="font-bold text-lg text-foreground">O/U Bets Distribution</h4>
-              </div>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-2">
-                    <TrendingDown className="w-4 h-4 text-rose-500" />
-                    <span className="font-semibold text-sm text-rose-600">Under</span>
-                    <span className="font-bold text-lg text-rose-700">{underBetsPercentage.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-lg text-emerald-700">{overBetsPercentage.toFixed(1)}%</span>
-                    <span className="font-semibold text-sm text-emerald-600">Over</span>
-                    <TrendingUp className="w-4 h-4 text-emerald-500" />
+            {/* Runline Distribution Card */}
+            <div className="bg-gradient-to-br from-card to-success/10 border-2 border-success rounded-2xl p-4 shadow-xl backdrop-blur-sm flex flex-col mb-4">
+              <div className="text-lg font-bold text-left w-full mb-3 text-success drop-shadow-sm gradient-text-betting">Runline</div>
+              {/* Handle Sub-header */}
+              <div className="text-base font-semibold text-center mb-2">Handle</div>
+              {/* Runline Handle Distribution Chart */}
+              <div className="flex items-center mb-4 w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                  <span className="font-bold text-lg text-emerald-700">{rlHandleHomePct.toFixed(1)}%</span>
+                </div>
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                    <div className="bg-gradient-emerald h-full" style={{ width: `${rlHandleHomePct}%` }} />
+                    <div className="bg-gradient-rose h-full" style={{ width: `${rlHandleAwayPct}%` }} />
                   </div>
                 </div>
-                
-                <div className="relative">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30">
-                    <div className="flex h-full">
-                      <div 
-                        className="bg-gradient-rose h-full transition-all duration-700 ease-out shadow-lg hover:shadow-rose-500/25 relative overflow-hidden"
-                        style={{ width: `${underBetsPercentage}%` }}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"></div>
-                      </div>
-                      <div 
-                        className="bg-gradient-emerald h-full transition-all duration-700 ease-out shadow-lg hover:shadow-emerald-500/25 relative overflow-hidden"
-                        style={{ width: `${overBetsPercentage}%` }}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"></div>
-                      </div>
-                    </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg text-rose-700">{rlHandleAwayPct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                </div>
+              </div>
+              {/* Bets Sub-header */}
+              <div className="text-base font-semibold text-center mb-2">Bets</div>
+              {/* Runline Bets Distribution Chart */}
+              <div className="flex items-center mb-1 w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                  <span className="font-bold text-lg text-emerald-700">{rlBetsHomePct.toFixed(1)}%</span>
+                </div>
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                    <div className="bg-gradient-emerald h-full" style={{ width: `${rlBetsHomePct}%` }} />
+                    <div className="bg-gradient-rose h-full" style={{ width: `${rlBetsAwayPct}%` }} />
                   </div>
-                  
-                  {/* Percentage labels inside bars */}
-                  {underBetsPercentage > 15 && (
-                    <div 
-                      className="absolute top-1/2 transform -translate-y-1/2 left-2 text-white font-bold text-sm drop-shadow-lg"
-                    >
-                      {underBetsPercentage.toFixed(0)}%
-                    </div>
-                  )}
-                  {overBetsPercentage > 15 && (
-                    <div 
-                      className="absolute top-1/2 transform -translate-y-1/2 right-2 text-white font-bold text-sm drop-shadow-lg"
-                    >
-                      {overBetsPercentage.toFixed(0)}%
-                    </div>
-                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg text-rose-700">{rlBetsAwayPct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-12">
+          <div className="text-center py-8">
             <div className="text-muted-foreground text-lg font-medium">
               No predictions available for this game
             </div>
