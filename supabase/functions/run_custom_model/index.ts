@@ -13,6 +13,7 @@ interface TrendMatch {
   opponent_win_pct: number;
   feature_count: number;
   features: string[];
+  perspective: string; // 'primary' or 'opponent'
 }
 
 interface TodayMatch {
@@ -26,6 +27,7 @@ interface TodayMatch {
   games: number;
   feature_count: number;
   features: string[];
+  perspective: string; // 'primary' or 'opponent'
 }
 
 interface ModelResults {
@@ -184,11 +186,10 @@ serve(async (req) => {
 
     console.log('Model saved:', modelData);
 
-    // Get training data from the team format view - only home team perspective to avoid duplicates
+    // Get training data from the team format view - both perspectives for richer patterns
     const { data: rawTrainingData, error: trainingError } = await supabase
       .from('training_data_team_view')
-      .select('*')
-      .eq('is_home_team', true); // Only get home team perspective to avoid duplicate inverse patterns
+      .select('*'); // Get all perspectives for dual-perspective training
 
     if (trainingError) {
       console.error('Error fetching training data:', trainingError);
@@ -196,7 +197,7 @@ serve(async (req) => {
     }
 
     const trainingData = rawTrainingData;
-    console.log(`Loaded ${trainingData?.length || 0} training records (home team perspective only)`);
+    console.log(`Loaded ${trainingData?.length || 0} training records (both perspectives)`);
 
     const allTrendMatches: TrendMatch[] = [];
     let topTrendMatches: TrendMatch[] = [];
@@ -239,8 +240,9 @@ serve(async (req) => {
       for (const { features, size } of featureCombinations) {
         console.log(`Processing ${size}-feature combination:`, features);
         
-        // OPTIMIZED: Use Map with just win/loss counts
-        const comboMap = new Map<string, { wins: number; total: number }>();
+        // Separate maps for each perspective to prevent inverse pattern matching
+        const primaryComboMap = new Map<string, { wins: number; total: number }>();
+        const opponentComboMap = new Map<string, { wins: number; total: number }>();
 
         // Process training data
         let processedCount = 0;
@@ -256,6 +258,10 @@ serve(async (req) => {
           });
 
           const combo = binnedFeatures.join('|');
+          
+          // Determine perspective based on whether this row represents primary or opponent view
+          const perspective = row.is_home_team ? 'primary' : 'opponent';
+          const comboMap = perspective === 'primary' ? primaryComboMap : opponentComboMap;
 
           // Initialize or get existing combo data
           if (!comboMap.has(combo)) {
@@ -282,15 +288,13 @@ serve(async (req) => {
           }
         }
 
-        // Create trend matches for this feature combination
-        for (const [combo, data] of comboMap.entries()) {
-          // Apply minimum games threshold (adjust based on feature count)
-          const minGames = size >= 5 ? 25 : 30; // Slightly lower threshold for more complex combinations
+        // Create trend matches for primary perspective
+        for (const [combo, data] of primaryComboMap.entries()) {
+          const minGames = size >= 5 ? 25 : 30;
           
           if (data.total >= minGames) {
             const winPct = data.wins / data.total;
             
-            // Enhanced filtering: include patterns with strong predictive power
             if (winPct >= 0.55 || winPct <= 0.45) {
               allTrendMatches.push({
                 combo,
@@ -298,7 +302,29 @@ serve(async (req) => {
                 win_pct: winPct,
                 opponent_win_pct: 1 - winPct,
                 feature_count: size,
-                features: features
+                features: features,
+                perspective: 'primary'
+              });
+            }
+          }
+        }
+
+        // Create trend matches for opponent perspective
+        for (const [combo, data] of opponentComboMap.entries()) {
+          const minGames = size >= 5 ? 25 : 30;
+          
+          if (data.total >= minGames) {
+            const winPct = data.wins / data.total;
+            
+            if (winPct >= 0.55 || winPct <= 0.45) {
+              allTrendMatches.push({
+                combo,
+                games: data.total,
+                win_pct: winPct,
+                opponent_win_pct: 1 - winPct,
+                feature_count: size,
+                features: features,
+                perspective: 'opponent'
               });
             }
           }
@@ -340,7 +366,15 @@ serve(async (req) => {
       for (const game of todaysGames) {
         let foundMatch = false;
         
+        // Determine the perspective of this game
+        const gamePerspective = game.is_home_team ? 'primary' : 'opponent';
+        
         for (const trend of topTrendMatches) {
+          // Only match within the same perspective to prevent inverse predictions
+          if (trend.perspective !== gamePerspective) {
+            continue;
+          }
+          
           const gameBinnedFeatures = trend.features.map(feature => {
             const value = game[feature];
             return binValue(feature, value);
@@ -360,7 +394,8 @@ serve(async (req) => {
               opponent_win_pct: trend.opponent_win_pct,
               games: trend.games,
               feature_count: trend.feature_count,
-              features: trend.features
+              features: trend.features,
+              perspective: trend.perspective
             });
             foundMatch = true;
             break; // Only match each game perspective once per pattern
@@ -369,7 +404,7 @@ serve(async (req) => {
         
         // Log when a game perspective doesn't match any patterns
         if (!foundMatch) {
-          console.log(`No pattern match found for ${game.primary_team} vs ${game.opponent_team} (${game.is_home_team ? 'home' : 'away'})`);
+          console.log(`No pattern match found for ${game.primary_team} vs ${game.opponent_team} (${game.is_home_team ? 'home' : 'away'}) perspective: ${gamePerspective}`);
         }
       }
     }
