@@ -343,51 +343,73 @@ serve(async (req) => {
       .eq('date', today);
 
     if (!todayError && todaysGames && topTrendMatches.length > 0) {
-      console.log(`Found ${todaysGames.length} games for today`);
+      console.log(`Found ${todaysGames.length} rows for today's games`);
       
-      // Check each game against trend patterns - both teams get evaluated as 'primary'
+      // Group games by unique_id to prevent duplicate inverse matches
+      const groupedGames = new Map<string, any[]>();
+      
       for (const game of todaysGames) {
-        let foundMatch = false;
+        const uniqueId = game.unique_id;
+        if (!groupedGames.has(uniqueId)) {
+          groupedGames.set(uniqueId, []);
+        }
+        groupedGames.get(uniqueId)!.push(game);
+      }
+      
+      console.log(`Grouped into ${groupedGames.size} unique games`);
+      
+      // Process each unique game (avoiding inverse duplicates)
+      for (const [uniqueId, gameVariants] of groupedGames.entries()) {
+        let gameMatchFound = false;
         
-        // Always treat games as 'primary' perspective for matching
-        const gamePerspective = 'primary';
+        // Track patterns already matched for this unique game to avoid duplicates
+        const matchedCombos = new Set<string>();
         
-        for (const trend of topTrendMatches) {
-          // Match against primary perspective patterns (all patterns are now primary)
-          if (trend.perspective !== gamePerspective) {
-            continue;
-          }
-          
-          const gameBinnedFeatures = trend.features.map(feature => {
-            const value = game[feature];
-            return binValue(feature, value);
-          });
-          
-          const gameCombo = gameBinnedFeatures.join('|');
-
-          // Check if this exact combination matches the trend pattern
-          if (gameCombo === trend.combo) {
-            allTodayMatches.push({
-              unique_id: game.unique_id || 'unknown',
-              primary_team: game.primary_team || 'Unknown',
-              opponent_team: game.opponent_team || 'Unknown',
-              is_home_team: game.is_home_team || false,
-              combo: gameCombo,
-              win_pct: trend.win_pct,
-              opponent_win_pct: trend.opponent_win_pct,
-              games: trend.games,
-              feature_count: trend.feature_count,
-              features: trend.features,
-              perspective: trend.perspective
+        for (const game of gameVariants) {
+          for (const trend of topTrendMatches) {
+            // Only match against primary perspective patterns
+            if (trend.perspective !== 'primary') {
+              continue;
+            }
+            
+            const gameBinnedFeatures = trend.features.map(feature => {
+              const value = game[feature];
+              return binValue(feature, value);
             });
-            foundMatch = true;
-            break; // Only match each game perspective once per pattern
+            
+            const gameCombo = gameBinnedFeatures.join('|');
+            
+            // Skip if we already matched this combo for this unique game
+            if (matchedCombos.has(gameCombo)) {
+              continue;
+            }
+
+            // Check if this exact combination matches the trend pattern
+            if (gameCombo === trend.combo) {
+              allTodayMatches.push({
+                unique_id: game.unique_id || 'unknown',
+                primary_team: game.primary_team || 'Unknown',
+                opponent_team: game.opponent_team || 'Unknown',
+                is_home_team: game.is_home_team || false,
+                combo: gameCombo,
+                win_pct: trend.win_pct,
+                opponent_win_pct: trend.opponent_win_pct,
+                games: trend.games,
+                feature_count: trend.feature_count,
+                features: trend.features,
+                perspective: trend.perspective
+              });
+              
+              matchedCombos.add(gameCombo);
+              gameMatchFound = true;
+            }
           }
         }
         
-        // Log when a game doesn't match any patterns
-        if (!foundMatch) {
-          console.log(`No pattern match found for ${game.primary_team} vs ${game.opponent_team} (team: ${game.primary_team})`);
+        // Log when a unique game doesn't match any patterns
+        if (!gameMatchFound) {
+          const firstVariant = gameVariants[0];
+          console.log(`No pattern match found for unique game: ${firstVariant.unique_id}`);
         }
       }
     }
