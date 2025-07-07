@@ -24,30 +24,59 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get game info from the combined predictions view
-    const { data: gameData, error: gameError } = await supabase
-      .from('latest_predictions_today')
-      .select('*')
+    console.log('=== STARTING GAME DATA QUERY ===');
+    console.log('Querying for unique_id:', unique_id);
+    
+    // Get all game info including betting lines from input_values_view (same as Today's Games)
+    const { data: gameRows, error: gameError } = await supabase
+      .from('input_values_view')
+      .select(`
+        unique_id,
+        home_team,
+        away_team,
+        home_pitcher,
+        away_pitcher,
+        home_era,
+        away_era,
+        home_whip,
+        away_whip,
+        date,
+        start_time_minutes,
+        home_ml,
+        away_ml,
+        home_rl,
+        away_rl,
+        o_u_line
+      `)
       .eq('unique_id', unique_id)
-      .single();
+      .limit(1);
 
+    console.log('Query result - gameRows:', gameRows);
+    console.log('Query error:', gameError);
+    
+    // Handle the array response from .limit(1)
+    const gameData = Array.isArray(gameRows) && gameRows.length > 0 ? gameRows[0] : null;
+    
     if (gameError || !gameData) {
+      console.log('=== GAME NOT FOUND ===');
+      console.log('Error:', gameError);
+      console.log('Game data:', gameData);
       return new Response(
-        JSON.stringify({ error: 'Game not found' }),
+        JSON.stringify({ error: 'Game not found', debug: { gameError, gameData, unique_id } }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get o_u_line from input_values_team_format_view
-    let o_u_line = null;
-    const { data: ouData, error: ouError } = await supabase
-      .from('input_values_team_format_view')
-      .select('o_u_line')
-      .eq('unique_id', unique_id)
-      .single();
-    if (!ouError && ouData && typeof ouData.o_u_line !== 'undefined') {
-      o_u_line = ouData.o_u_line;
-    }
+    console.log('=== GAME DATA QUERY RESULT ===');
+    console.log('Game data retrieved successfully:', !!gameData);
+    console.log('Full game data object:', JSON.stringify(gameData, null, 2));
+    console.log('Betting lines from game data:');
+    console.log('- O/U Line:', gameData.o_u_line, typeof gameData.o_u_line);
+    console.log('- Home ML:', gameData.home_ml, typeof gameData.home_ml);
+    console.log('- Away ML:', gameData.away_ml, typeof gameData.away_ml);
+    console.log('- Home RL:', gameData.home_rl, typeof gameData.home_rl);
+    console.log('- Away RL:', gameData.away_rl, typeof gameData.away_rl);
+    console.log('=== END GAME DATA RESULT ===');
 
     // Use real model data if provided, otherwise fall back to single prediction
     let modelPredictions = [];
@@ -159,13 +188,24 @@ Deno.serve(async (req) => {
     const agreement = Math.max(0, 1 - (variance * 4)); // Scale variance to 0-1 range
     const modelAgreementConfidence = Math.round(agreement * 100);
 
+    console.log('Final betting lines being returned:');
+    console.log('- O/U Line:', gameData.o_u_line);
+    console.log('- Home ML:', gameData.home_ml);
+    console.log('- Away ML:', gameData.away_ml);
+    console.log('- Home RL:', gameData.home_rl);
+    console.log('- Away RL:', gameData.away_rl);
+
     const analysisData = {
       game_info: {
         unique_id: unique_id,
         primary_team: gameData.home_team,
         opponent_team: gameData.away_team,
         is_home_team: true,
-        o_u_line: o_u_line
+        o_u_line: gameData.o_u_line,
+        home_ml: gameData.home_ml,
+        away_ml: gameData.away_ml,
+        home_rl: gameData.home_rl,
+        away_rl: gameData.away_rl
       },
       matches: modelPredictions,
       target: target,
