@@ -188,6 +188,13 @@ Deno.serve(async (req) => {
     const agreement = Math.max(0, 1 - (variance * 4)); // Scale variance to 0-1 range
     const modelAgreementConfidence = Math.round(agreement * 100);
 
+    console.log('Final betting lines being returned:');
+    console.log('- O/U Line:', o_u_line);
+    console.log('- Home ML:', home_ml);
+    console.log('- Away ML:', away_ml);
+    console.log('- Home RL:', home_rl);
+    console.log('- Away RL:', away_rl);
+
     const analysisData = {
       game_info: {
         unique_id: unique_id,
