@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       .from('input_values_view')
       .select('o_u_line, home_ml, away_ml, home_rl, away_rl')
       .eq('unique_id', unique_id)
-      .single();
+      .maybeSingle();
     
     console.log('Betting lines query result:');
     console.log('- Error:', bettingError);
