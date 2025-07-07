@@ -39,56 +39,40 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get betting lines from input_values_team_format_view
+    // Get betting lines from input_values_view (same as Today's Games)
     let o_u_line = null;
     let home_ml = null;
     let away_ml = null;
     let home_rl = null;
     let away_rl = null;
     
-    console.log('Querying betting data for unique_id:', unique_id);
+    console.log('Querying betting lines from input_values_view for unique_id:', unique_id);
     
     const { data: bettingData, error: bettingError } = await supabase
-      .from('input_values_team_format_view')
-      .select('o_u_line, primary_ml, opponent_ml, primary_rl, opponent_rl')
+      .from('input_values_view')
+      .select('o_u_line, home_ml, away_ml, home_rl, away_rl')
       .eq('unique_id', unique_id)
-      .eq('is_home_team', true)
       .single();
     
-    console.log('Betting data query result:');
+    console.log('Betting lines query result:');
     console.log('- Error:', bettingError);
     console.log('- Data:', bettingData);
     
-    if (bettingError) {
-      console.error('Betting data query failed:', bettingError);
-      // Try without the is_home_team filter to see if there's any data at all
-      const { data: allBettingData, error: allBettingError } = await supabase
-        .from('input_values_team_format_view')
-        .select('*')
-        .eq('unique_id', unique_id);
-      
-      console.log('All betting data for this unique_id:');
-      console.log('- Error:', allBettingError);
-      console.log('- Data:', allBettingData);
-      console.log('- Count:', allBettingData?.length || 0);
-    }
-    
     if (!bettingError && bettingData) {
       o_u_line = bettingData.o_u_line;
-      // Since primary_team is home_team, primary_ml is home_ml
-      home_ml = bettingData.primary_ml;
-      away_ml = bettingData.opponent_ml;
-      home_rl = bettingData.primary_rl;
-      away_rl = bettingData.opponent_rl;
+      home_ml = bettingData.home_ml;
+      away_ml = bettingData.away_ml;
+      home_rl = bettingData.home_rl;
+      away_rl = bettingData.away_rl;
       
-      console.log('Betting lines extracted:');
+      console.log('Betting lines successfully extracted:');
       console.log('- O/U Line:', o_u_line);
       console.log('- Home ML:', home_ml);
       console.log('- Away ML:', away_ml);
       console.log('- Home RL:', home_rl);
       console.log('- Away RL:', away_rl);
     } else {
-      console.log('No betting data found or error occurred');
+      console.log('Failed to get betting lines:', bettingError);
     }
 
     // Use real model data if provided, otherwise fall back to single prediction
