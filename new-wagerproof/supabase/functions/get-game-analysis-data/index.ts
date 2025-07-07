@@ -25,8 +25,11 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    console.log('=== STARTING GAME DATA QUERY ===');
+    console.log('Querying for unique_id:', unique_id);
+    
     // Get all game info including betting lines from input_values_view (same as Today's Games)
-    const { data: gameData, error: gameError } = await supabase
+    const { data: gameRows, error: gameError } = await supabase
       .from('input_values_view')
       .select(`
         unique_id,
@@ -47,11 +50,20 @@ Deno.serve(async (req) => {
         o_u_line
       `)
       .eq('unique_id', unique_id)
-      .maybeSingle();
+      .limit(1);
 
+    console.log('Query result - gameRows:', gameRows);
+    console.log('Query error:', gameError);
+    
+    // Handle the array response from .limit(1)
+    const gameData = Array.isArray(gameRows) && gameRows.length > 0 ? gameRows[0] : null;
+    
     if (gameError || !gameData) {
+      console.log('=== GAME NOT FOUND ===');
+      console.log('Error:', gameError);
+      console.log('Game data:', gameData);
       return new Response(
-        JSON.stringify({ error: 'Game not found' }),
+        JSON.stringify({ error: 'Game not found', debug: { gameError, gameData, unique_id } }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
