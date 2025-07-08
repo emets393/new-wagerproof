@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { Trash2, RefreshCw, Eye, Calendar } from 'lucide-react';
+import { Trash2, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
+import PatternMatchCard from '@/components/PatternMatchCard';
 
 interface SavedPattern {
   id: string;
@@ -30,6 +31,17 @@ interface PatternMatch {
   is_home_game: boolean;
   win_pct: number;
   target: string;
+  predictions?: {
+    moneyline_prediction?: string;
+    ml_probability?: number;
+    runline_prediction?: string;
+    run_line_probability?: number;
+    ou_prediction?: string;
+    ou_probability?: number;
+    home_team?: string;
+    away_team?: string;
+    o_u_line?: number;
+  };
 }
 
 const SavedPatterns: React.FC = () => {
@@ -189,36 +201,6 @@ const SavedPatterns: React.FC = () => {
         </Button>
       </div>
 
-      {/* Today's Matches */}
-      {todayMatches.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Today's Matches ({todayMatches.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {todayMatches.map((match, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div>
-                    <p className="font-medium">
-                      {match.primary_team} vs {match.opponent_team}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Pattern: {match.pattern_name} • Win Rate: {(match.win_pct * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                  <Badge className={getTargetBadgeColor(match.target)}>
-                    {match.target}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Saved Patterns */}
       <div className="grid gap-4">
@@ -291,6 +273,24 @@ const SavedPatterns: React.FC = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* Today's Matches for this Pattern */}
+                {todayMatches.filter(m => m.pattern_id === pattern.id).length > 0 && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-3 font-medium">Today's Matches:</p>
+                    <div className="space-y-3">
+                      {todayMatches
+                        .filter(m => m.pattern_id === pattern.id)
+                        .map((match, index) => (
+                          <PatternMatchCard
+                            key={index}
+                            match={match}
+                            target={pattern.target}
+                          />
+                        ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))
