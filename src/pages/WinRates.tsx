@@ -1,8 +1,5 @@
 
 import FilterableWinRates from "@/components/FilterableWinRates";
-import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import { Home } from "lucide-react";
 
 export default function WinRates() {
   return (
@@ -14,12 +11,7 @@ export default function WinRates() {
             Win Rate Analysis
           </h1>
           
-          <Link to="/">
-            <Button variant="outline" className="flex items-center gap-2">
-              <Home className="w-4 h-4" />
-              Today's Games
-            </Button>
-          </Link>
+
         </div>
 
         <FilterableWinRates />

@@ -2,8 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import GameCard from "@/components/GameCard";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import { BarChart3, TrendingUp, Settings } from "lucide-react";
 
 interface TodaysGame {
   unique_id: string;
@@ -127,26 +125,7 @@ export default function Index() {
             </p>
           </div>
           
-          <div className="flex gap-2">
-            <Link to="/analytics">
-              <Button variant="outline" className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20">
-                <BarChart3 className="w-4 h-4" />
-                Analytics
-              </Button>
-            </Link>
-            <Link to="/win-rates">
-              <Button variant="outline" className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20">
-                <TrendingUp className="w-4 h-4" />
-                Win Rates
-              </Button>
-            </Link>
-            <Link to="/custom-models">
-              <Button variant="outline" className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20">
-                <Settings className="w-4 h-4" />
-                Custom Models
-              </Button>
-            </Link>
-          </div>
+
         </div>
 
         {/* Games Grid */}
@@ -164,17 +143,7 @@ export default function Index() {
             <p className="text-sm text-muted-foreground mt-2">
               Check back later or view our analytics page
             </p>
-            <div className="flex gap-2 mt-4 justify-center">
-              <Link to="/analytics">
-                <Button>View Analytics</Button>
-              </Link>
-              <Link to="/win-rates">
-                <Button variant="outline">View Win Rates</Button>
-              </Link>
-              <Link to="/custom-models">
-                <Button variant="outline">View Custom Models</Button>
-              </Link>
-            </div>
+
           </div>
         )}
       </div>

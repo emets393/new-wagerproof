@@ -294,14 +294,14 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
             {/* Team Logos with Game Number in between */}
             <div className="flex items-center justify-center gap-8 mb-2">
               <div className="flex flex-col items-center">
-                <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-24 h-24 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-24 h-24 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 <span className="mt-2 text-base font-semibold">{awayTeam}</span>
               </div>
               <div className="flex flex-col items-center min-w-[80px]">
-                <span className="text-lg font-bold text-accent">Game {gameStats?.series_game_number ?? "-"}</span>
+                <span className="text-lg font-bold text-primary">Game {gameStats?.series_game_number ?? "-"}</span>
               </div>
               <div className="flex flex-col items-center">
-                <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-24 h-24 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-24 h-24 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 <span className="mt-2 text-base font-semibold">{homeTeam}</span>
               </div>
             </div>
@@ -350,7 +350,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
               {/* O/U Handle Distribution Chart */}
               <div className="flex items-center mb-6 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg text-emerald-700">{calculateHandlePercentages().underPercentage.toFixed(1)}%</span>
+                  <span className="font-bold text-lg text-rose-700">{calculateHandlePercentages().underPercentage.toFixed(1)}%</span>
                   <span className="font-semibold text-sm text-rose-600">Under</span>
                 </div>
                 <div className="flex-1 mx-2">
@@ -369,7 +369,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
               {/* O/U Bets Distribution Chart */}
               <div className="flex items-center mb-2 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg text-emerald-700">{calculateBetsPercentages().underPercentage.toFixed(1)}%</span>
+                  <span className="font-bold text-lg text-rose-700">{calculateBetsPercentages().underPercentage.toFixed(1)}%</span>
                   <span className="font-semibold text-sm text-rose-600">Under</span>
                 </div>
                 <div className="flex-1 mx-2">
@@ -393,7 +393,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
               {/* Moneyline Handle Distribution Chart */}
               <div className="flex items-center mb-6 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                   <span className="font-bold text-lg" style={{ color: awayBarColor }}>{mlHandleAwayPct.toFixed(1)}%</span>
                 </div>
                 <div className="flex-1 mx-2">
@@ -404,7 +404,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg" style={{ color: homeBarColor }}>{mlHandleHomePct.toFixed(1)}%</span>
-                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>
               {/* Bets Sub-header */}
@@ -412,7 +412,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
               {/* Moneyline Bets Distribution Chart */}
               <div className="flex items-center mb-2 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                   <span className="font-bold text-lg" style={{ color: awayBarColor }}>{mlBetsAwayPct.toFixed(1)}%</span>
                 </div>
                 <div className="flex-1 mx-2">
@@ -423,7 +423,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg" style={{ color: homeBarColor }}>{mlBetsHomePct.toFixed(1)}%</span>
-                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>
             </div>
@@ -436,7 +436,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
               {/* Runline Handle Distribution Chart */}
               <div className="flex items-center mb-6 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                   <span className="font-bold text-lg" style={{ color: awayBarColor }}>{rlHandleAwayPct.toFixed(1)}%</span>
                 </div>
                 <div className="flex-1 mx-2">
@@ -447,7 +447,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg" style={{ color: homeBarColor }}>{rlHandleHomePct.toFixed(1)}%</span>
-                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>
               {/* Bets Sub-header */}
@@ -455,7 +455,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
               {/* Runline Bets Distribution Chart */}
               <div className="flex items-center mb-2 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                   <span className="font-bold text-lg" style={{ color: awayBarColor }}>{rlBetsAwayPct.toFixed(1)}%</span>
                 </div>
                 <div className="flex-1 mx-2">
@@ -466,7 +466,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg" style={{ color: homeBarColor }}>{rlBetsHomePct.toFixed(1)}%</span>
-                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>
             </div>
