@@ -241,7 +241,24 @@ const CustomModels = () => {
   const targetLabels = getTargetLabels(targetVariable);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 relative">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+          {/* Animated Analytics Graphic */}
+          <div className="mb-6 flex flex-col items-center">
+            <div className="flex gap-2 mb-2">
+              <div className="w-3 h-10 bg-accent animate-bounce rounded-md" style={{ animationDelay: '0s' }}></div>
+              <div className="w-3 h-16 bg-primary animate-bounce rounded-md" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-3 h-8 bg-accent animate-bounce rounded-md" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-3 h-14 bg-primary animate-bounce rounded-md" style={{ animationDelay: '0.3s' }}></div>
+              <div className="w-3 h-12 bg-accent animate-bounce rounded-md" style={{ animationDelay: '0.4s' }}></div>
+            </div>
+            <span className="text-accent font-bold text-xl mt-2 drop-shadow">Analyzing Trends...</span>
+          </div>
+        </div>
+      )}
+
       {/* Header Section */}
       <div className="container max-w-7xl mx-auto py-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-4">
@@ -281,7 +298,9 @@ const CustomModels = () => {
                     key={feature}
                     variant={selectedFeatures.includes(feature) ? 'default' : 'outline'}
                     onClick={() => handleFeatureChange(feature)}
-                    className="text-sm"
+                    className={selectedFeatures.includes(feature)
+                      ? 'bg-primary/80 text-white font-bold border-primary hover:bg-primary transition-colors text-sm'
+                      : 'border-gray-300 text-gray-700 bg-background hover:bg-gray-200 text-sm'}
                   >
                     {feature}
                   </Button>
@@ -305,7 +324,11 @@ const CustomModels = () => {
               </Select>
             </div>
 
-            <Button onClick={handleSubmit} disabled={isLoading}>
+            <Button
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="bg-accent text-primary font-bold hover:bg-accent/90 transition-colors"
+            >
               {isLoading ? 'Running Model...' : 'Run Model'}
             </Button>
           </CardContent>
@@ -317,19 +340,19 @@ const CustomModels = () => {
             {/* Model Summary */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-blue-900 font-extrabold">
+                  <BarChart3 className="h-5 w-5 text-blue-900" />
                   Model Results Summary
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600">{results.trend_matches.length}</p>
+                    <p className="text-2xl font-extrabold text-blue-900 drop-shadow-sm">{results.trend_matches.length}</p>
                     <p className="text-sm text-gray-600">Trend Patterns</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-green-600">{Object.keys(
+                    <p className="text-2xl font-extrabold text-blue-900 drop-shadow-sm">{Object.keys(
                       results.today_matches.reduce((acc: any, match) => {
                         acc[match.unique_id] = true;
                         return acc;
@@ -338,11 +361,11 @@ const CustomModels = () => {
                     <p className="text-sm text-gray-600">Today's Games</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600">{selectedFeatures.length}</p>
+                    <p className="text-2xl font-extrabold text-blue-900 drop-shadow-sm">{selectedFeatures.length}</p>
                     <p className="text-sm text-gray-600">Features Used</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-orange-600">{results.target}</p>
+                    <p className="text-2xl font-extrabold text-blue-900 drop-shadow-sm uppercase">{results.target}</p>
                     <p className="text-sm text-gray-600">Target Variable</p>
                   </div>
                 </div>

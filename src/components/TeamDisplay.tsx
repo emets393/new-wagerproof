@@ -1,9 +1,10 @@
 interface TeamDisplayProps {
   team: string;
   isHome: boolean;
+  showName?: boolean;
 }
 
-const TeamDisplay = ({ team, isHome }: TeamDisplayProps) => {
+const TeamDisplay = ({ team, isHome, showName = true }: TeamDisplayProps) => {
   // Function to get team logo URL based on team name
   const getTeamLogo = (teamName: string) => {
     // ESPN logo URLs are more reliable
@@ -156,9 +157,11 @@ const TeamDisplay = ({ team, isHome }: TeamDisplayProps) => {
           </span>
         )}
       </div>
-      <div className="text-base font-semibold text-center min-h-[3rem] flex items-center">
-        {team}
-      </div>
+      {showName && (
+        <div className="text-base font-semibold text-center min-h-[3rem] flex items-center">
+          {team}
+        </div>
+      )}
     </div>
   );
 };

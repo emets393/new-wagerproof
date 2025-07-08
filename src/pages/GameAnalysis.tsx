@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, TrendingUp, Users, Target, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ConfidenceChart from '@/components/ConfidenceChart';
+import PublicBettingDistribution from '@/components/PublicBettingDistribution';
 
 interface GameMatch {
   unique_id: string;
@@ -274,197 +275,219 @@ const GameAnalysis: React.FC = () => {
   const targetLabels = getTargetDisplayNames(analysisData.target);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button onClick={() => navigate(-1)} variant="outline">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <h1 className="text-3xl font-bold">Game Analysis</h1>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 py-8">
+      {/* Accent Bar */}
+      <div className="w-full h-3 bg-accent mb-4 rounded-b-xl shadow-lg" />
+      <div className="container mx-auto p-6 space-y-6 bg-white/90 rounded-2xl shadow-xl border border-primary/20">
+        <div className="flex items-center gap-4">
+          <Button onClick={() => navigate(-1)} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-3xl font-bold">Game Analysis</h1>
+        </div>
 
-      {/* Game Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            {analysisData.game_info.primary_team} vs {analysisData.game_info.opponent_team}
-          </CardTitle>
-          <Badge className={getBadgeColor(analysisData.target)}>
-            Target: {analysisData.target}
-          </Badge>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">{analysisData.matches.length}</p>
-              <p className="text-sm text-gray-600">Contributing Models</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">
-                {Math.round(analysisData.matches.reduce((sum, match) => sum + match.games, 0) / analysisData.matches.length)}
-              </p>
-              <p className="text-sm text-gray-600">Avg Sample Size</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Prediction Winner */}
-      {analysisData.consensus.team_winner_prediction && (
+        {/* Game Info */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5" />
-              {analysisData.target === 'over_under' ? 'Prediction' : 'Prediction Winner'}
+              <Target className="h-5 w-5" />
+              {analysisData.game_info.primary_team} vs {analysisData.game_info.opponent_team}
             </CardTitle>
+            <Badge className={getBadgeColor(analysisData.target)}>
+              Target: {analysisData.target}
+            </Badge>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center space-y-4">
-              <div className="w-20 h-20 rounded-full bg-white shadow-md border-2 border-primary flex items-center justify-center overflow-hidden p-2">
-                {analysisData.target === 'over_under'
-                  ? getOverUnderPrediction().arrow
-                  : (getTeamLogo(analysisData.consensus.team_winner_prediction) ? (
-                      <img 
-                        src={getTeamLogo(analysisData.consensus.team_winner_prediction)} 
-                        alt={`${analysisData.consensus.team_winner_prediction} logo`} 
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <span className="text-lg font-bold text-muted-foreground">
-                        {analysisData.consensus.team_winner_prediction.slice(0, 3).toUpperCase()}
-                      </span>
-                    ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-900">{analysisData.matches.length}</p>
+                <p className="text-sm text-gray-600">Contributing Models</p>
               </div>
               <div className="text-center">
-                 <p className={`text-2xl font-bold mb-2 ${
-                   analysisData.target === 'over_under'
-                     ? getOverUnderPrediction().color
-                     : 'text-green-600'
-                 }`}>
-                   {analysisData.target === 'over_under'
-                     ? `${getOverUnderPrediction().label}${getOULine() !== null ? ` (${getOULine()})` : ''}`
-                     : analysisData.target === 'moneyline'
-                       ? `${analysisData.consensus.team_winner_prediction}${getMoneyline() ? ` (${getMoneyline()})` : ''}`
-                       : analysisData.target === 'runline'
-                         ? `${analysisData.consensus.team_winner_prediction}${getRunline() ? ` (${getRunline()})` : ''}`
-                         : analysisData.consensus.team_winner_prediction}
-                 </p>
-                <p className="text-lg text-gray-600">
-                  {analysisData.target === 'over_under' ? 'Consensus Prediction' : 'Consensus Winner'} ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
+                <p className="text-2xl font-bold text-blue-900">
+                  {Math.round(analysisData.matches.reduce((sum, match) => sum + match.games, 0) / analysisData.matches.length)}
                 </p>
+                <p className="text-sm text-gray-600">Avg Sample Size</p>
               </div>
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Prediction Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Weighted Consensus Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex flex-col items-center space-y-3">
-              <h3 className="font-medium text-center w-full">
-                {analysisData.target === 'over_under' ? 'Over' : analysisData.game_info.primary_team}
-              </h3>
-              <ConfidenceChart 
-                confidence={analysisData.consensus.primary_percentage * 100}
-                teamColors={['#10b981', '#e5e7eb']}
-              />
-              <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
-              <p className="text-sm text-gray-600 text-center w-full">
-                {analysisData.target === 'over_under' ? 'Weighted Over Probability' : 'Weighted Win Probability'}
-              </p>
+        {/* Prediction Winner */}
+        {analysisData.consensus.team_winner_prediction && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                {analysisData.target === 'over_under' ? 'Prediction' : 'Prediction Winner'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-20 h-20 rounded-full bg-white shadow-md border-2 border-primary flex items-center justify-center overflow-hidden p-2">
+                  {analysisData.target === 'over_under'
+                    ? getOverUnderPrediction().arrow
+                    : (getTeamLogo(analysisData.consensus.team_winner_prediction) ? (
+                        <img 
+                          src={getTeamLogo(analysisData.consensus.team_winner_prediction)} 
+                          alt={`${analysisData.consensus.team_winner_prediction} logo`} 
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-lg font-bold text-muted-foreground">
+                          {analysisData.consensus.team_winner_prediction.slice(0, 3).toUpperCase()}
+                        </span>
+                      ))}
+                </div>
+                <div className="text-center">
+                   <p className={`text-2xl font-bold mb-2 ${
+                     analysisData.target === 'over_under'
+                       ? getOverUnderPrediction().color
+                       : 'text-green-600'
+                   }`}>
+                     {analysisData.target === 'over_under'
+                       ? `${getOverUnderPrediction().label}${getOULine() !== null ? ` (${getOULine()})` : ''}`
+                       : analysisData.target === 'moneyline'
+                         ? `${analysisData.consensus.team_winner_prediction}${getMoneyline() ? ` (${getMoneyline()})` : ''}`
+                         : analysisData.target === 'runline'
+                           ? `${analysisData.consensus.team_winner_prediction}${getRunline() ? ` (${getRunline()})` : ''}`
+                           : analysisData.consensus.team_winner_prediction}
+                   </p>
+                  <p className="text-lg text-gray-600">
+                    {analysisData.target === 'over_under' ? 'Consensus Prediction' : 'Consensus Winner'} ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Prediction Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Weighted Consensus Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex flex-col items-center space-y-3">
+                <h3 className="font-medium text-center w-full">
+                  {analysisData.target === 'over_under' ? 'Over' : analysisData.game_info.primary_team}
+                </h3>
+                <ConfidenceChart 
+                  confidence={analysisData.consensus.primary_percentage * 100}
+                  teamColors={['#10b981', '#e5e7eb']}
+                />
+                <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
+                <p className="text-sm text-gray-600 text-center w-full">
+                  {analysisData.target === 'over_under' ? 'Weighted Over Probability' : 'Weighted Win Probability'}
+                </p>
+              </div>
+              
+              <div className="flex flex-col items-center space-y-3">
+                <h3 className="font-medium text-center w-full">
+                  {analysisData.target === 'over_under' ? 'Under' : analysisData.game_info.opponent_team}
+                </h3>
+                <ConfidenceChart 
+                  confidence={analysisData.consensus.opponent_percentage * 100}
+                  teamColors={['#10b981', '#e5e7eb']}
+                />
+                <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
+                <p className="text-sm text-gray-600 text-center w-full">
+                  {analysisData.target === 'over_under' ? 'Weighted Under Probability' : 'Weighted Win Probability'}
+                </p>
+              </div>
             </div>
             
-            <div className="flex flex-col items-center space-y-3">
-              <h3 className="font-medium text-center w-full">
-                {analysisData.target === 'over_under' ? 'Under' : analysisData.game_info.opponent_team}
-              </h3>
-              <ConfidenceChart 
-                confidence={analysisData.consensus.opponent_percentage * 100}
-                teamColors={['#10b981', '#e5e7eb']}
-              />
-              <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
-              <p className="text-sm text-gray-600 text-center w-full">
-                {analysisData.target === 'over_under' ? 'Weighted Under Probability' : 'Weighted Win Probability'}
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <strong>Model Agreement:</strong> {analysisData.consensus.confidence}% 
+                (based on consistency across {analysisData.consensus.models} model{analysisData.consensus.models > 1 ? 's' : ''})
               </p>
             </div>
-          </div>
-          
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600">
-              <strong>Model Agreement:</strong> {analysisData.consensus.confidence}% 
-              (based on consistency across {analysisData.consensus.models} model{analysisData.consensus.models > 1 ? 's' : ''})
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Individual Models */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Contributing Model Predictions
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {analysisData.matches.map((match, index) => (
-              <div key={index} className="border rounded-lg p-4 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <Badge className={getBadgeColor(analysisData.target)}>
-                      {match.model_name || `Model #${index + 1}`}
-                    </Badge>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {match.feature_count} features • {match.games} games
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className={`font-semibold text-lg ${match.win_pct > match.opponent_win_pct ? 'text-green-600' : 'text-red-600'}`}>
-                          {(match.win_pct * 100).toFixed(1)}%
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          {analysisData.target === 'over_under' ? 'Over %' : `${analysisData.game_info.primary_team} Win %`}
-                        </p>
-                      </div>
-                      <div>
-                        <p className={`font-semibold text-lg ${match.opponent_win_pct > match.win_pct ? 'text-green-600' : 'text-red-600'}`}>
-                          {(match.opponent_win_pct * 100).toFixed(1)}%
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          {analysisData.target === 'over_under' ? 'Under %' : `${analysisData.game_info.opponent_team} Win %`}
-                        </p>
+        {/* Individual Models */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Contributing Model Predictions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {analysisData.matches.map((match, index) => (
+                <div key={index} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <Badge className={getBadgeColor(analysisData.target)}>
+                        {match.model_name || `Model #${index + 1}`}
+                      </Badge>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {match.feature_count} features • {match.games} games
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className={`font-semibold text-lg ${match.win_pct > match.opponent_win_pct ? 'text-green-600' : 'text-red-600'}`}>
+                            {(match.win_pct * 100).toFixed(1)}%
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {analysisData.target === 'over_under' ? 'Over %' : `${analysisData.game_info.primary_team} Win %`}
+                          </p>
+                        </div>
+                        <div>
+                          <p className={`font-semibold text-lg ${match.opponent_win_pct > match.win_pct ? 'text-green-600' : 'text-red-600'}`}>
+                            {(match.opponent_win_pct * 100).toFixed(1)}%
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {analysisData.target === 'over_under' ? 'Under %' : `${analysisData.game_info.opponent_team} Win %`}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Features Used:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {match.features.map((feature, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs">
-                        {feature}
-                      </Badge>
-                    ))}
+                  
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2">Features Used:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {match.features.map((feature, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {feature}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Public Betting Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Public Betting Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PublicBettingDistribution
+              uniqueId={analysisData.game_info.unique_id}
+              homeTeam={analysisData.game_info.primary_team}
+              awayTeam={analysisData.game_info.opponent_team}
+              target={analysisData.target}
+            />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

@@ -1,5 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import TeamDisplay from '@/components/TeamDisplay';
 
 interface PatternMatchProps {
   match: {
@@ -12,11 +14,18 @@ interface PatternMatchProps {
     win_pct: number;
     opponent_win_pct: number;
     target: string;
+    // Betting line data
+    o_u_line?: number;
+    home_ml?: number;
+    away_ml?: number;
+    home_rl?: number;
+    away_rl?: number;
   };
   target: string;
+  onViewMatchingGames?: () => void;
 }
 
-const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target }) => {
+const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMatchingGames }) => {
   const getTargetBadgeColor = (target: string) => {
     switch (target) {
       case 'moneyline': return 'bg-blue-100 text-blue-800';
@@ -33,6 +42,24 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target }) => {
     } else {
       return match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
     }
+  };
+
+  // Get betting line for the prediction
+  const getBettingLine = () => {
+    if (target === 'over_under') {
+      return match.o_u_line ? ` ${match.o_u_line}` : '';
+    } else if (target === 'moneyline') {
+      const predictedTeam = match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
+      const isHomeTeam = predictedTeam === match.primary_team;
+      const line = isHomeTeam ? match.home_ml : match.away_ml;
+      return line ? ` (${line > 0 ? '+' : ''}${line})` : '';
+    } else if (target === 'runline') {
+      const predictedTeam = match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
+      const isHomeTeam = predictedTeam === match.primary_team;
+      const line = isHomeTeam ? match.home_rl : match.away_rl;
+      return line ? ` (${line > 0 ? '+' : ''}${line})` : '';
+    }
+    return '';
   };
 
   const getConfidence = () => {
@@ -65,10 +92,24 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target }) => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">This pattern predicts:</p>
-            <p className="font-semibold text-lg text-foreground">
-              {target === 'over_under' ? prediction : prediction}
-              {target === 'over_under' && ' 8.5'} {/* TODO: Get actual O/U line */}
-            </p>
+            <div className="flex items-center gap-2">
+              {target !== 'over_under' && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <TeamDisplay 
+                      team={prediction} 
+                      isHome={prediction === match.primary_team ? match.is_home_game : !match.is_home_game}
+                      showName={false}
+                    />
+                    <span className="font-semibold text-lg text-foreground">{prediction}</span>
+                  </div>
+                </>
+              )}
+              {target === 'over_under' && (
+                <span className="font-semibold text-lg text-foreground">{prediction}</span>
+              )}
+              <span className="font-semibold text-lg text-foreground">{getBettingLine()}</span>
+            </div>
           </div>
           <div className="text-right">
             <p className="text-sm text-muted-foreground">Confidence</p>
@@ -78,6 +119,17 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target }) => {
           </div>
         </div>
       </div>
+
+      {/* View Matching Games Button */}
+      {onViewMatchingGames && (
+        <Button 
+          onClick={onViewMatchingGames}
+          className="w-full font-semibold text-base bg-primary text-white hover:bg-primary/90 transition-colors"
+          variant="default"
+        >
+          View Matching Games
+        </Button>
+      )}
     </div>
   );
 };

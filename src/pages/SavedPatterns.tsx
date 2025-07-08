@@ -1,13 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { Trash2, RefreshCw } from 'lucide-react';
+import { Trash2, RefreshCw, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import PatternMatchCard from '@/components/PatternMatchCard';
+import TeamDisplay from '@/components/TeamDisplay';
 
 interface SavedPattern {
   id: string;
@@ -32,6 +32,12 @@ interface PatternMatch {
   win_pct: number;
   opponent_win_pct: number;
   target: string;
+  // Betting line data
+  o_u_line?: number;
+  home_ml?: number;
+  away_ml?: number;
+  home_rl?: number;
+  away_rl?: number;
 }
 
 const SavedPatterns: React.FC = () => {
@@ -39,6 +45,8 @@ const SavedPatterns: React.FC = () => {
   const [todayMatches, setTodayMatches] = useState<PatternMatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
+  const [expandedPatterns, setExpandedPatterns] = useState<Set<string>>(new Set());
+  const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const { toast } = useToast();
 
   const loadSavedPatterns = async () => {
@@ -149,6 +157,21 @@ const SavedPatterns: React.FC = () => {
     }
   };
 
+  const toggleExpanded = (patternId: string) => {
+    const newExpanded = new Set(expandedPatterns);
+    if (newExpanded.has(patternId)) {
+      newExpanded.delete(patternId);
+    } else {
+      newExpanded.add(patternId);
+    }
+    setExpandedPatterns(newExpanded);
+  };
+
+  const filteredPatterns = savedPatterns.filter(pattern => {
+    if (selectedFilter === 'all') return true;
+    return pattern.target === selectedFilter;
+  });
+
   useEffect(() => {
     const initializePage = async () => {
       setIsLoading(true);
@@ -160,14 +183,6 @@ const SavedPatterns: React.FC = () => {
     initializePage();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">Loading saved patterns...</div>
-      </div>
-    );
-  }
-
   const getTargetBadgeColor = (target: string) => {
     switch (target) {
       case 'moneyline': return 'bg-blue-100 text-blue-800';
@@ -177,125 +192,210 @@ const SavedPatterns: React.FC = () => {
     }
   };
 
-  return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Saved Trend Patterns</h1>
-        <Button
-          onClick={checkTodayMatches}
-          disabled={isChecking}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
-          {isChecking ? 'Checking...' : 'Check Today\'s Matches'}
-        </Button>
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary/90 to-primary/80">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
+          <p className="text-muted-foreground">Loading saved patterns...</p>
+        </div>
       </div>
+    );
+  }
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-accent drop-shadow-lg">Saved Trend Patterns</h1>
+            <p className="text-white/80 mt-2 text-lg">Monitor your favorite trends and see if they match today's games.</p>
+          </div>
+          <Button
+            onClick={checkTodayMatches}
+            disabled={isChecking}
+            className="flex items-center gap-2 bg-primary text-white hover:bg-primary/90 shadow-lg"
+          >
+            <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+            {isChecking ? 'Checking...' : 'Check Today\'s Matches'}
+          </Button>
+        </div>
 
-      {/* Saved Patterns */}
-      <div className="grid gap-4">
-        {savedPatterns.length === 0 ? (
-          <Card>
+        {/* Filter Section */}
+        <div className="mb-6">
+          <div className="flex items-center gap-4">
+            <Filter className="h-5 w-5 text-accent" />
+            <div className="flex gap-2">
+              <Button
+                variant={selectedFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter('all')}
+                className={selectedFilter === 'all' ? 'bg-accent text-primary font-bold' : 'border-accent text-accent bg-background hover:bg-accent/10'}
+              >
+                All ({savedPatterns.length})
+              </Button>
+              <Button
+                variant={selectedFilter === 'moneyline' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter('moneyline')}
+                className={selectedFilter === 'moneyline' ? 'bg-accent text-primary font-bold' : 'border-accent text-accent bg-background hover:bg-accent/10'}
+              >
+                Moneyline ({savedPatterns.filter(p => p.target === 'moneyline').length})
+              </Button>
+              <Button
+                variant={selectedFilter === 'runline' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter('runline')}
+                className={selectedFilter === 'runline' ? 'bg-accent text-primary font-bold' : 'border-accent text-accent bg-background hover:bg-accent/10'}
+              >
+                Runline ({savedPatterns.filter(p => p.target === 'runline').length})
+              </Button>
+              <Button
+                variant={selectedFilter === 'over_under' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter('over_under')}
+                className={selectedFilter === 'over_under' ? 'bg-accent text-primary font-bold' : 'border-accent text-accent bg-background hover:bg-accent/10'}
+              >
+                O/U ({savedPatterns.filter(p => p.target === 'over_under').length})
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Saved Patterns List */}
+        {filteredPatterns.length === 0 ? (
+          <Card className="bg-card/80 border border-border/60 shadow-lg">
             <CardContent className="p-6 text-center">
-              <p className="text-gray-600">No saved patterns yet.</p>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-muted-foreground">
+                {selectedFilter === 'all' ? 'No saved patterns yet.' : `No ${selectedFilter} patterns found.`}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
                 Save patterns from the Custom Models page to monitor them for daily matches.
               </p>
             </CardContent>
           </Card>
         ) : (
-          savedPatterns.map((pattern) => (
-            <Card key={pattern.id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{pattern.pattern_name}</CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Saved on {format(new Date(pattern.created_at), 'MMM dd, yyyy')}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge className={getTargetBadgeColor(pattern.target)}>
-                      {pattern.target}
-                    </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deletePattern(pattern.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {pattern.target === 'over_under' ? 'Over %' : 
-                       pattern.target === 'runline' ? 'Primary Cover %' : 'Primary Win %'}
-                    </p>
-                    <p className="font-semibold text-green-600">
-                      {(pattern.win_pct * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {pattern.target === 'over_under' ? 'Under %' : 
-                       pattern.target === 'runline' ? 'Opponent Cover %' : 'Opponent Win %'}
-                    </p>
-                    <p className="font-semibold text-red-600">
-                      {(pattern.opponent_win_pct * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Games</p>
-                    <p className="font-semibold">{pattern.games}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Features</p>
-                    <p className="font-semibold">{pattern.feature_count}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Today's Matches</p>
-                    <p className="font-semibold text-blue-600">
-                      {todayMatches.filter(m => m.pattern_id === pattern.id).length}
-                    </p>
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Features:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {pattern.features.map((feature, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {feature}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Today's Matches for this Pattern */}
-                {todayMatches.filter(m => m.pattern_id === pattern.id).length > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-3 font-medium">Today's Matches:</p>
-                    <div className="space-y-3">
-                      {todayMatches
-                        .filter(m => m.pattern_id === pattern.id)
-                        .map((match, index) => (
-                          <PatternMatchCard
-                            key={index}
-                            match={match}
-                            target={pattern.target}
-                          />
-                        ))}
+          <div className="space-y-6">
+            {filteredPatterns.map((pattern) => {
+              const patternMatches = todayMatches.filter(m => m.pattern_id === pattern.id);
+              const hasMatches = patternMatches.length > 0;
+              const isExpanded = expandedPatterns.has(pattern.id);
+              
+              return (
+                <Card key={pattern.id} className="hover:shadow-xl transition-shadow overflow-hidden border border-border/60 bg-card/80">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-info/20 via-info/15 to-info/10 border-b border-info/30">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg text-blue-900 font-bold">{pattern.pattern_name}</CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Saved on {format(new Date(pattern.created_at), 'MMM dd, yyyy')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={getTargetBadgeColor(pattern.target)}>
+                          {pattern.target}
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deletePattern(pattern.id)}
+                          className="text-red-600 hover:text-red-700 border-none bg-transparent"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {pattern.target === 'over_under' ? 'Over %' : 
+                          pattern.target === 'runline' ? 'Primary Cover %' : 'Primary Win %'}
+                        </p>
+                        <p className="font-semibold text-green-600">
+                          {(pattern.win_pct * 100).toFixed(1)}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {pattern.target === 'over_under' ? 'Under %' : 
+                          pattern.target === 'runline' ? 'Opponent Cover %' : 'Opponent Win %'}
+                        </p>
+                        <p className="font-semibold text-red-600">
+                          {(pattern.opponent_win_pct * 100).toFixed(1)}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Games</p>
+                        <p className="font-semibold text-foreground">{pattern.games}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Features</p>
+                        <p className="font-semibold text-foreground">{pattern.feature_count}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Today's Matches</p>
+                        <p className="font-semibold text-primary">
+                          {patternMatches.length}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Features:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {pattern.features.map((feature, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {feature}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Today's Matches for this Pattern */}
+                    {hasMatches && (
+                      <div className="border-t pt-4">
+                        {!isExpanded ? (
+                          <Button
+                            onClick={() => toggleExpanded(pattern.id)}
+                            className="w-full font-semibold text-base bg-primary text-white hover:bg-primary/90 transition-colors"
+                            variant="default"
+                          >
+                            View Matching Games
+                          </Button>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-sm text-muted-foreground font-medium">Today's Matches:</p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleExpanded(pattern.id)}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                Hide Matching Games
+                              </Button>
+                            </div>
+                            <div className="space-y-3">
+                              {patternMatches.map((match, index) => (
+                                <PatternMatchCard
+                                  key={index}
+                                  match={match}
+                                  target={pattern.target}
+                                />
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

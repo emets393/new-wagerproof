@@ -142,6 +142,23 @@ serve(async (req) => {
         const gameCombo = gameBinnedFeatures.join('|');
 
         if (gameCombo === pattern.combo) {
+          // Fetch latest betting lines from circa_lines
+          let circaLines = null;
+          try {
+            const { data: lines, error: linesError } = await supabase
+              .from('circa_lines')
+              .select('o_u_line, Money_Home, Money_Away, RL_Home, RL_Away')
+              .eq('unique_id', game.unique_id)
+              .order('import_time', { ascending: false })
+              .limit(1)
+              .single();
+            if (!linesError && lines) {
+              circaLines = lines;
+            }
+          } catch (e) {
+            circaLines = null;
+          }
+
           allMatches.push({
             pattern_id: pattern.id,
             pattern_name: pattern.pattern_name,
@@ -152,7 +169,13 @@ serve(async (req) => {
             win_pct: pattern.win_pct,
             opponent_win_pct: pattern.opponent_win_pct,
             games: pattern.games,
-            target: pattern.target
+            target: pattern.target,
+            // Use circa_lines if available, otherwise fallback to view fields
+            o_u_line: circaLines?.o_u_line ?? game.o_u_line,
+            home_ml: game.is_home_team ? (circaLines?.Money_Home ?? game.primary_ml) : (circaLines?.Money_Away ?? game.opponent_ml),
+            away_ml: game.is_home_team ? (circaLines?.Money_Away ?? game.opponent_ml) : (circaLines?.Money_Home ?? game.primary_ml),
+            home_rl: game.is_home_team ? (circaLines?.RL_Home ?? game.primary_rl) : (circaLines?.RL_Away ?? game.opponent_rl),
+            away_rl: game.is_home_team ? (circaLines?.RL_Away ?? game.opponent_rl) : (circaLines?.RL_Home ?? game.primary_rl)
           });
 
           // Insert into pattern_daily_matches table
