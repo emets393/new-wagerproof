@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -35,9 +34,9 @@ serve(async (req) => {
 
   console.log('Games today edge function received filters:', filters);
   
-  // Get today's date in YYYY-MM-DD format
+  // Get today's date in YYYY-MM-DD format using local timezone instead of UTC
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = today.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format in local timezone
   console.log('Today date for filtering:', todayStr);
   
   const supabase = createClient(

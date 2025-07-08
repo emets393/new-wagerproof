@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
@@ -97,8 +96,8 @@ serve(async (req) => {
       });
     }
 
-    // Get today's games
-    const today = new Date().toISOString().split('T')[0];
+    // Get today's games using local timezone instead of UTC
+    const today = new Date().toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format in local timezone
     const { data: todaysGames, error: todayError } = await supabase
       .from('input_values_team_format_view')
       .select('*')

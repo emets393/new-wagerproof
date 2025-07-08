@@ -15,53 +15,38 @@ interface PredictionsModalProps {
 }
 
 const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: PredictionsModalProps) => {
-  const { data: predictions, isLoading } = useQuery({
-    queryKey: ['predictions', uniqueId],
+  // Fetch moneyline handle and bets from circa_lines (only table we need now)
+  const normalizedId = uniqueId.replace(/\+/g, ' ');
+  const { data: moneylineData, isLoading } = useQuery({
+    queryKey: ["circa_lines", uniqueId],
     queryFn: async () => {
+      console.log('Fetching circa_lines data for unique_id:', normalizedId);
       const { data, error } = await supabase
-        .from('latest_predictions_with_circa')
-        .select(`
-          ou_prediction,
-          moneyline_prediction,
-          ml_tier_accuracy,
-          runline_prediction,
-          run_line_tier_accuracy,
-          ou_tier_accuracy,
-          o_u_line,
-          home_ml,
-          away_ml,
-          home_rl,
-          away_rl,
-          Total_Over_Handle,
-          Total_Under_Handle,
-          Total_Over_Bets,
-          Total_Under_Bets
-        `)
-        .eq('unique_id', uniqueId)
+        .from("circa_lines")
+        .select("Handle_Home, Handle_Away, Bets_Home, Bets_Away, RL_Handle_Home, RL_Handle_Away, RL_Bets_Home, RL_Bets_Away, Total_Over_Handle, Total_Under_Handle, Total_Over_Bets, Total_Under_Bets")
+        .eq("unique_id", normalizedId)
         .single();
-
       if (error) {
-        console.error('Error fetching predictions:', error);
-        throw error;
+        console.error("Error fetching circa_lines:", error);
+        return null;
       }
-      
+      console.log('Circa_lines data found:', data);
       return data;
     },
     enabled: isOpen,
   });
 
-  // Fetch moneyline handle and bets from circa_lines
-  const normalizedId = uniqueId.replace(/\+/g, ' ');
-  const { data: moneylineData } = useQuery({
-    queryKey: ["circa_lines", uniqueId],
+  // Fetch game stats from input_values_view
+  const { data: gameStats, isLoading: isStatsLoading } = useQuery({
+    queryKey: ["game_stats", uniqueId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("circa_lines")
-        .select("Handle_Home, Handle_Away, Bets_Home, Bets_Away, RL_Handle_Home, RL_Handle_Away, RL_Bets_Home, RL_Bets_Away")
-        .eq("unique_id", normalizedId)
+        .from("input_values_view")
+        .select("*")
+        .eq("unique_id", uniqueId)
         .single();
       if (error) {
-        console.error("Error fetching circa_lines:", error);
+        console.error("Error fetching game stats:", error);
         return null;
       }
       return data;
@@ -81,10 +66,10 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     return tierAccuracy * 100;
   };
 
-  // Calculate percentages for the handle bar
+  // Calculate percentages for the O/U handle bar
   const calculateHandlePercentages = () => {
-    const overHandle = Number(predictions?.Total_Over_Handle) || 0;
-    const underHandle = Number(predictions?.Total_Under_Handle) || 0;
+    const overHandle = Number(moneylineData?.Total_Over_Handle) || 0;
+    const underHandle = Number(moneylineData?.Total_Under_Handle) || 0;
     
     const totalHandle = overHandle + underHandle;
     
@@ -98,10 +83,10 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     return { overPercentage, underPercentage };
   };
 
-  // Calculate percentages for the bets bar
+  // Calculate percentages for the O/U bets bar
   const calculateBetsPercentages = () => {
-    const overBets = Number(predictions?.Total_Over_Bets) || 0;
-    const underBets = Number(predictions?.Total_Under_Bets) || 0;
+    const overBets = Number(moneylineData?.Total_Over_Bets) || 0;
+    const underBets = Number(moneylineData?.Total_Under_Bets) || 0;
     
     const totalBets = overBets + underBets;
     
@@ -123,6 +108,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     if (total === 0) return { homePct: 50, awayPct: 50 };
     return { homePct: (home / total) * 100, awayPct: (away / total) * 100 };
   };
+
   // Calculate percentages for Moneyline Bets
   const calculateMLBetsPercentages = () => {
     const home = Number(moneylineData?.Bets_Home) || 0;
@@ -200,161 +186,293 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     return espnLogoMap[teamName];
   };
 
+  // Helper to get team colors (primary and secondary)
+  const getTeamColors = (teamName: string) => {
+    const teamColors: { [key: string]: { primary: string; secondary: string } } = {
+      'Arizona': { primary: '#A71931', secondary: '#E3D4AD' },
+      'Atlanta': { primary: '#CE1141', secondary: '#13274F' },
+      'Baltimore': { primary: '#DF4601', secondary: '#000000' },
+      'Boston': { primary: '#BD3039', secondary: '#0C2340' },
+      'Cubs': { primary: '#0E3386', secondary: '#CC3433' },
+      'White Sox': { primary: '#000000', secondary: '#C4CED4' },
+      'Cincinnati': { primary: '#C6011F', secondary: '#000000' },
+      'Cleveland': { primary: '#0C2340', secondary: '#E31937' },
+      'Colorado': { primary: '#33006F', secondary: '#C4CED4' },
+      'Detroit': { primary: '#0C2340', secondary: '#FA4616' },
+      'Houston': { primary: '#002D62', secondary: '#EB6E1F' },
+      'Kansas City': { primary: '#004687', secondary: '#C09A5B' },
+      'Angels': { primary: '#BA0021', secondary: '#003263' },
+      'Dodgers': { primary: '#005A9C', secondary: '#A5ACAF' },
+      'Miami': { primary: '#00A3E0', secondary: '#000000' },
+      'Milwaukee': { primary: '#12284B', secondary: '#FFC72C' },
+      'Minnesota': { primary: '#002B5C', secondary: '#D31145' },
+      'Mets': { primary: '#002D72', secondary: '#FF5910' },
+      'Yankees': { primary: '#0C2340', secondary: '#C4CED4' },
+      'Athletics': { primary: '#003831', secondary: '#EFB21E' },
+      'Philadelphia': { primary: '#E81828', secondary: '#002D72' },
+      'Pittsburgh': { primary: '#FDB827', secondary: '#000000' },
+      'San Diego': { primary: '#2F241D', secondary: '#FFC425' },
+      'San Francisco': { primary: '#FD5A1E', secondary: '#000000' },
+      'Seattle': { primary: '#0C2C56', secondary: '#005C5C' },
+      'ST Louis': { primary: '#C41E3A', secondary: '#0C2340' },
+      'Tampa Bay': { primary: '#092C5C', secondary: '#8FBCE6' },
+      'Texas': { primary: '#003278', secondary: '#C0111F' },
+      'Toronto': { primary: '#134A8E', secondary: '#E8291C' },
+      'Washington': { primary: '#AB0003', secondary: '#14225A' },
+    };
+    return teamColors[teamName] || { primary: '#10b981', secondary: '#e5e7eb' };
+  };
+
+  // Helper to convert hex to RGB
+  function hexToRgb(hex: string) {
+    const match = hex.replace('#', '').match(/.{1,2}/g);
+    if (!match) return [0, 0, 0];
+    return match.map(x => parseInt(x, 16));
+  }
+
+  // Helper to calculate color distance
+  function colorDistance(hex1: string, hex2: string) {
+    const [r1, g1, b1] = hexToRgb(hex1);
+    const [r2, g2, b2] = hexToRgb(hex2);
+    return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
+  }
+
+  // Get team colors and check similarity
+  const homeColors = getTeamColors(homeTeam);
+  const awayColors = getTeamColors(awayTeam);
+  const colorDist = colorDistance(homeColors.primary, awayColors.primary);
+  const SIMILARITY_THRESHOLD = 60; // tweak as needed
+
+  const homeBarColor = homeColors.primary;
+  const awayBarColor = colorDist < SIMILARITY_THRESHOLD ? awayColors.secondary : awayColors.primary;
+
+  // Helper to format stat values
+  const formatStat = (value, type) => {
+    if (value === null || value === undefined) return "-";
+    if (type === "pct") return Number(value).toFixed(3);
+    if (type === "last_game") return value === 1 ? <span className="text-green-600 font-semibold">Won</span> : value === 0 ? <span className="text-red-600 font-semibold">Loss</span> : value;
+    return value;
+  };
+
+  // Helper to determine which side gets the star icon
+  const Star = () => <span className="ml-1 text-green-600 text-base align-middle">★</span>;
+  const getStar = (row, awayVal, homeVal, side) => {
+    if (awayVal === null || homeVal === null || awayVal === undefined || homeVal === undefined) return null;
+    if (row.type === "last_game") return null;
+    if (row.label === "Opponent OB + Slug (Last 3)") {
+      if (Number(awayVal) < Number(homeVal) && side === "away") return <Star />;
+      if (Number(homeVal) < Number(awayVal) && side === "home") return <Star />;
+      return null;
+    }
+    if (row.type === "pct" || row.label === "Series Wins" || row.label === "Win Streak") {
+      if (Number(awayVal) > Number(homeVal) && side === "away") return <Star />;
+      if (Number(homeVal) > Number(awayVal) && side === "home") return <Star />;
+      return null;
+    }
+    return null;
+  };
+
+  // Custom display names and mapping (with Series Wins at the top)
+  const statRows = [
+    { label: "Series Wins", away: "series_away_wins", home: "series_home_wins", type: "int" },
+    { label: "OB + Slug (Last 3)", away: "away_team_last_3", home: "home_team_last_3", type: "pct" },
+    { label: "Opponent OB + Slug (Last 3)", away: "away_ops_last_3", home: "home_ops_last_3", type: "pct" },
+    { label: "Win %", away: "away_win_pct", home: "home_win_pct", type: "pct" },
+    { label: "Win Streak", away: "away_streak", home: "streak", type: "int" },
+    { label: "Last Game", away: "away_last_win", home: "home_last_win", type: "last_game" },
+  ];
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl font-inter bg-gradient-to-br from-background to-muted/20 border-border/50 shadow-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="text-center space-y-2 pb-2">
-          <div className="flex items-center justify-center space-x-2 text-muted-foreground">
-            <BarChart3 className="w-4 h-4" />
-            <p className="text-base font-medium">
-              {awayTeam} @ {homeTeam}
-            </p>
+        <DialogHeader className="text-center space-y-3 pb-2">
+          <div className="flex flex-col items-center justify-center">
+            {/* Divisional Game */}
+            {gameStats?.same_division === 1 && (
+              <div className="text-sm font-semibold text-primary mb-1">Divisional Game</div>
+            )}
+            {/* Team Logos with Game Number in between */}
+            <div className="flex items-center justify-center gap-8 mb-2">
+              <div className="flex flex-col items-center">
+                <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-24 h-24 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                <span className="mt-2 text-base font-semibold">{awayTeam}</span>
+              </div>
+              <div className="flex flex-col items-center min-w-[80px]">
+                <span className="text-lg font-bold text-accent">Game {gameStats?.series_game_number ?? "-"}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-24 h-24 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                <span className="mt-2 text-base font-semibold">{homeTeam}</span>
+              </div>
+            </div>
+            {/* Comparison Table */}
+            <div className="w-full flex justify-center">
+              <table className="w-auto border-collapse text-sm bg-background rounded-lg shadow">
+                <tbody>
+                  {statRows.map(row => {
+                    const awayVal = gameStats?.[row.away];
+                    const homeVal = gameStats?.[row.home];
+                    return (
+                      <tr key={row.label}>
+                        <td className="px-6 py-2 text-center font-medium">
+                          {formatStat(awayVal, row.type)}{getStar(row, awayVal, homeVal, "away")}
+                        </td>
+                        <td className="px-4 py-2 text-center text-muted-foreground whitespace-nowrap">{row.label}</td>
+                        <td className="px-6 py-2 text-center font-medium">
+                          {formatStat(homeVal, row.type)}{getStar(row, awayVal, homeVal, "home")}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </DialogHeader>
         
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-3">
               <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
-              <div className="text-muted-foreground font-medium">Loading predictions...</div>
+              <div className="text-muted-foreground font-medium">Loading Matchup...</div>
             </div>
           </div>
-        ) : predictions ? (
-          <div className="space-y-4">
+        ) : moneylineData ? (
+          <div className="space-y-6">
             {/* Public Betting Distribution Header */}
-            <h3 className="text-xl font-bold text-center mb-3">Public Betting Distribution</h3>
+            <h3 className="text-2xl font-bold text-center mb-2">Public Betting Distribution</h3>
 
             {/* O/U Distribution Card */}
-            <div className="bg-gradient-to-br from-card to-accent/10 border-2 border-accent rounded-2xl p-4 shadow-xl backdrop-blur-sm flex flex-col mb-4">
-              <div className="text-lg font-bold text-left w-full mb-3 text-primary drop-shadow-sm gradient-text-betting">O/U</div>
+            <div className="bg-gradient-to-br from-card to-accent/10 border-2 border-accent rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
+              <div className="text-xl font-bold text-left w-full mb-4 text-primary drop-shadow-sm gradient-text-betting">O/U</div>
               {/* Handle Sub-header */}
-              <div className="text-base font-semibold text-center mb-2">Handle</div>
+              <div className="text-lg font-semibold text-center mb-2">Handle</div>
               {/* O/U Handle Distribution Chart */}
-              <div className="flex items-center mb-4 w-full justify-between">
+              <div className="flex items-center mb-6 w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg text-emerald-700">{calculateHandlePercentages().underPercentage.toFixed(1)}%</span>
+                  <span className="font-semibold text-sm text-rose-600">Under</span>
+                </div>
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                    <div className="bg-gradient-rose h-full" style={{ width: `${calculateHandlePercentages().underPercentage}%` }} />
+                    <div className="bg-gradient-emerald h-full" style={{ width: `${calculateHandlePercentages().overPercentage}%` }} />
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm text-emerald-600">Over</span>
                   <span className="font-bold text-lg text-emerald-700">{calculateHandlePercentages().overPercentage.toFixed(1)}%</span>
                 </div>
-                <div className="flex-1 mx-2">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                    <div className="bg-gradient-emerald h-full" style={{ width: `${calculateHandlePercentages().overPercentage}%` }} />
-                    <div className="bg-gradient-rose h-full" style={{ width: `${calculateHandlePercentages().underPercentage}%` }} />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg text-rose-700">{calculateHandlePercentages().underPercentage.toFixed(1)}%</span>
-                  <span className="font-semibold text-sm text-rose-600">Under</span>
-                </div>
               </div>
               {/* Bets Sub-header */}
-              <div className="text-base font-semibold text-center mb-2">Bets</div>
+              <div className="text-lg font-semibold text-center mb-2">Bets</div>
               {/* O/U Bets Distribution Chart */}
-              <div className="flex items-center mb-1 w-full justify-between">
+              <div className="flex items-center mb-2 w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg text-emerald-700">{calculateBetsPercentages().underPercentage.toFixed(1)}%</span>
+                  <span className="font-semibold text-sm text-rose-600">Under</span>
+                </div>
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                    <div className="bg-gradient-rose h-full" style={{ width: `${calculateBetsPercentages().underPercentage}%` }} />
+                    <div className="bg-gradient-emerald h-full" style={{ width: `${calculateBetsPercentages().overPercentage}%` }} />
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm text-emerald-600">Over</span>
                   <span className="font-bold text-lg text-emerald-700">{calculateBetsPercentages().overPercentage.toFixed(1)}%</span>
-                </div>
-                <div className="flex-1 mx-2">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                    <div className="bg-gradient-emerald h-full" style={{ width: `${calculateBetsPercentages().overPercentage}%` }} />
-                    <div className="bg-gradient-rose h-full" style={{ width: `${calculateBetsPercentages().underPercentage}%` }} />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg text-rose-700">{calculateBetsPercentages().underPercentage.toFixed(1)}%</span>
-                  <span className="font-semibold text-sm text-rose-600">Under</span>
                 </div>
               </div>
             </div>
 
             {/* Moneyline Distribution Card */}
-            <div className="bg-gradient-to-br from-card to-primary/10 border-2 border-primary rounded-2xl p-4 shadow-xl backdrop-blur-sm flex flex-col mb-4">
-              <div className="text-lg font-bold text-left w-full mb-3 text-primary drop-shadow-sm gradient-text-betting">Moneyline</div>
+            <div className="bg-gradient-to-br from-card to-primary/10 border-2 border-primary rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
+              <div className="text-xl font-bold text-left w-full mb-4 text-primary drop-shadow-sm gradient-text-betting">Moneyline</div>
               {/* Handle Sub-header */}
-              <div className="text-base font-semibold text-center mb-2">Handle</div>
+              <div className="text-lg font-semibold text-center mb-2">Handle</div>
               {/* Moneyline Handle Distribution Chart */}
-              <div className="flex items-center mb-4 w-full justify-between">
+              <div className="flex items-center mb-6 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                  <span className="font-bold text-lg text-emerald-700">{mlHandleHomePct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <span className="font-bold text-lg" style={{ color: awayBarColor }}>{mlHandleAwayPct.toFixed(1)}%</span>
                 </div>
                 <div className="flex-1 mx-2">
                   <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                    <div className="bg-gradient-emerald h-full" style={{ width: `${mlHandleHomePct}%` }} />
-                    <div className="bg-gradient-rose h-full" style={{ width: `${mlHandleAwayPct}%` }} />
+                    <div className="h-full" style={{ width: `${mlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
+                    <div className="h-full" style={{ width: `${mlHandleHomePct}%`, backgroundColor: homeBarColor }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg text-rose-700">{mlHandleAwayPct.toFixed(1)}%</span>
-                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                  <span className="font-bold text-lg" style={{ color: homeBarColor }}>{mlHandleHomePct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
                 </div>
               </div>
               {/* Bets Sub-header */}
-              <div className="text-base font-semibold text-center mb-2">Bets</div>
+              <div className="text-lg font-semibold text-center mb-2">Bets</div>
               {/* Moneyline Bets Distribution Chart */}
-              <div className="flex items-center mb-1 w-full justify-between">
+              <div className="flex items-center mb-2 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                  <span className="font-bold text-lg text-emerald-700">{mlBetsHomePct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <span className="font-bold text-lg" style={{ color: awayBarColor }}>{mlBetsAwayPct.toFixed(1)}%</span>
                 </div>
                 <div className="flex-1 mx-2">
                   <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                    <div className="bg-gradient-emerald h-full" style={{ width: `${mlBetsHomePct}%` }} />
-                    <div className="bg-gradient-rose h-full" style={{ width: `${mlBetsAwayPct}%` }} />
+                    <div className="h-full" style={{ width: `${mlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
+                    <div className="h-full" style={{ width: `${mlBetsHomePct}%`, backgroundColor: homeBarColor }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg text-rose-700">{mlBetsAwayPct.toFixed(1)}%</span>
-                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                  <span className="font-bold text-lg" style={{ color: homeBarColor }}>{mlBetsHomePct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
                 </div>
               </div>
             </div>
 
             {/* Runline Distribution Card */}
-            <div className="bg-gradient-to-br from-card to-success/10 border-2 border-success rounded-2xl p-4 shadow-xl backdrop-blur-sm flex flex-col mb-4">
-              <div className="text-lg font-bold text-left w-full mb-3 text-success drop-shadow-sm gradient-text-betting">Runline</div>
+            <div className="bg-gradient-to-br from-card to-success/10 border-2 border-success rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
+              <div className="text-xl font-bold text-left w-full mb-4 text-success drop-shadow-sm gradient-text-betting">Runline</div>
               {/* Handle Sub-header */}
-              <div className="text-base font-semibold text-center mb-2">Handle</div>
+              <div className="text-lg font-semibold text-center mb-2">Handle</div>
               {/* Runline Handle Distribution Chart */}
-              <div className="flex items-center mb-4 w-full justify-between">
+              <div className="flex items-center mb-6 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                  <span className="font-bold text-lg text-emerald-700">{rlHandleHomePct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <span className="font-bold text-lg" style={{ color: awayBarColor }}>{rlHandleAwayPct.toFixed(1)}%</span>
                 </div>
                 <div className="flex-1 mx-2">
                   <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                    <div className="bg-gradient-emerald h-full" style={{ width: `${rlHandleHomePct}%` }} />
-                    <div className="bg-gradient-rose h-full" style={{ width: `${rlHandleAwayPct}%` }} />
+                    <div className="h-full" style={{ width: `${rlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
+                    <div className="h-full" style={{ width: `${rlHandleHomePct}%`, backgroundColor: homeBarColor }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg text-rose-700">{rlHandleAwayPct.toFixed(1)}%</span>
-                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                  <span className="font-bold text-lg" style={{ color: homeBarColor }}>{rlHandleHomePct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
                 </div>
               </div>
               {/* Bets Sub-header */}
-              <div className="text-base font-semibold text-center mb-2">Bets</div>
+              <div className="text-lg font-semibold text-center mb-2">Bets</div>
               {/* Runline Bets Distribution Chart */}
-              <div className="flex items-center mb-1 w-full justify-between">
+              <div className="flex items-center mb-2 w-full justify-between">
                 <div className="flex items-center gap-2">
-                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                  <span className="font-bold text-lg text-emerald-700">{rlBetsHomePct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
+                  <span className="font-bold text-lg" style={{ color: awayBarColor }}>{rlBetsAwayPct.toFixed(1)}%</span>
                 </div>
                 <div className="flex-1 mx-2">
                   <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                    <div className="bg-gradient-emerald h-full" style={{ width: `${rlBetsHomePct}%` }} />
-                    <div className="bg-gradient-rose h-full" style={{ width: `${rlBetsAwayPct}%` }} />
+                    <div className="h-full" style={{ width: `${rlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
+                    <div className="h-full" style={{ width: `${rlBetsHomePct}%`, backgroundColor: homeBarColor }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg text-rose-700">{rlBetsAwayPct.toFixed(1)}%</span>
-                  <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
+                  <span className="font-bold text-lg" style={{ color: homeBarColor }}>{rlBetsHomePct.toFixed(1)}%</span>
+                  <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-accent object-contain p-1" />
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-8">
+          <div className="text-center py-12">
             <div className="text-muted-foreground text-lg font-medium">
               No predictions available for this game
             </div>

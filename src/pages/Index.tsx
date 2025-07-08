@@ -25,12 +25,15 @@ interface TodaysGame {
 }
 
 export default function Index() {
-  const today = new Date().toISOString().split('T')[0];
+  // Use local timezone instead of UTC to prevent date issues around 8 PM
+  const today = new Date().toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format in local timezone
 
   const { data: games, isLoading, error } = useQuery({
     queryKey: ['todays_games', today],
     queryFn: async () => {
       console.log('Fetching games for date:', today);
+      console.log('Current local time:', new Date().toLocaleString());
+      console.log('Current UTC time:', new Date().toISOString());
       
       // First, let's check what dates are available in the database
       const { data: allDates, error: dateError } = await supabase

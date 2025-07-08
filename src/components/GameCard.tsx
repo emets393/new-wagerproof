@@ -148,10 +148,10 @@ const GameCard = ({ game }: GameCardProps) => {
         <CardFooter className="pt-0">
           <Button 
             onClick={() => setShowPredictions(true)}
-            className="w-full"
-            variant="outline"
+            className="w-full font-semibold text-base bg-primary text-white hover:bg-primary/90 transition-colors"
+            variant="default"
           >
-            View Game Overview
+            Matchup Overview
           </Button>
         </CardFooter>
       </Card>

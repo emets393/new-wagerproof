@@ -344,7 +344,7 @@ serve(async (req) => {
 
     // Get today's games and match them ONLY against the top patterns
     const allTodayMatches: TodayMatch[] = [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format in local timezone
     const { data: todaysGames, error: todayError } = await supabase
       .from('input_values_team_format_view')
       .select('*')
