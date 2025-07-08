@@ -142,13 +142,6 @@ serve(async (req) => {
         const gameCombo = gameBinnedFeatures.join('|');
 
         if (gameCombo === pattern.combo) {
-          // Fetch prediction data for this game
-          const { data: predictionData } = await supabase
-            .from('daily_combined_predictions')
-            .select('*')
-            .eq('unique_id', game.unique_id)
-            .single();
-
           allMatches.push({
             pattern_id: pattern.id,
             pattern_name: pattern.pattern_name,
@@ -159,8 +152,7 @@ serve(async (req) => {
             win_pct: pattern.win_pct,
             opponent_win_pct: pattern.opponent_win_pct,
             games: pattern.games,
-            target: pattern.target,
-            predictions: predictionData || null
+            target: pattern.target
           });
 
           // Insert into pattern_daily_matches table

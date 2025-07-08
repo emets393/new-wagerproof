@@ -30,18 +30,8 @@ interface PatternMatch {
   opponent_team: string;
   is_home_game: boolean;
   win_pct: number;
+  opponent_win_pct: number;
   target: string;
-  predictions?: {
-    moneyline_prediction?: string;
-    ml_probability?: number;
-    runline_prediction?: string;
-    run_line_probability?: number;
-    ou_prediction?: string;
-    ou_probability?: number;
-    home_team?: string;
-    away_team?: string;
-    o_u_line?: number;
-  };
 }
 
 const SavedPatterns: React.FC = () => {
@@ -240,11 +230,23 @@ const SavedPatterns: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Win Rate</p>
+                    <p className="text-sm text-gray-600">
+                      {pattern.target === 'over_under' ? 'Over %' : 
+                       pattern.target === 'runline' ? 'Primary Cover %' : 'Primary Win %'}
+                    </p>
                     <p className="font-semibold text-green-600">
                       {(pattern.win_pct * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {pattern.target === 'over_under' ? 'Under %' : 
+                       pattern.target === 'runline' ? 'Opponent Cover %' : 'Opponent Win %'}
+                    </p>
+                    <p className="font-semibold text-red-600">
+                      {(pattern.opponent_win_pct * 100).toFixed(1)}%
                     </p>
                   </div>
                   <div>
