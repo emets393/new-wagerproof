@@ -6,63 +6,82 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Reuse the binValue function from the main model
+// Smart binning function for different feature types - MUST match run_custom_model exactly
 function binValue(feature: string, value: any): string {
   if (value === null || value === undefined) return 'null';
   
+  // Convert to number if it's a string representation of a number
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   
-  if (feature.includes('era') || feature.includes('whip')) {
+  // ERA (pitching stats) - lower is better
+  if (feature.includes('era')) {
     if (isNaN(numValue)) return 'null';
     return numValue < 3.5 ? 'good' : numValue < 4.5 ? 'average' : 'poor';
   }
   
+  // WHIP (pitching stats) - lower is better, different thresholds than ERA
+  if (feature.includes('whip')) {
+    if (isNaN(numValue)) return 'null';
+    return numValue < 1.2 ? 'good' : numValue < 1.4 ? 'average' : 'poor';
+  }
+  
+  // Win percentage - standard ranges
   if (feature.includes('win_pct')) {
     if (isNaN(numValue)) return 'null';
     return numValue < 0.45 ? 'poor' : numValue < 0.55 ? 'average' : 'good';
   }
   
+  // OPS (offensive stats) - higher is better
   if (feature.includes('ops')) {
     if (isNaN(numValue)) return 'null';
     return numValue < 0.700 ? 'poor' : numValue < 0.800 ? 'average' : 'good';
   }
   
+  // Streaks - can be positive or negative
   if (feature.includes('streak')) {
     if (isNaN(numValue)) return 'null';
     return numValue < -2 ? 'cold' : numValue > 2 ? 'hot' : 'neutral';
   }
   
+  // Last runs scored/allowed
   if (feature.includes('last_runs')) {
     if (isNaN(numValue)) return 'null';
     return numValue < 3 ? 'low' : numValue > 6 ? 'high' : 'medium';
   }
   
+  // Run line spread (primary_rl) - indicates favorite/underdog
   if (feature === 'primary_rl') {
     if (isNaN(numValue)) return 'null';
     return numValue < 0 ? 'favorite' : 'underdog';
   }
   
+  // Over/Under line
   if (feature === 'o_u_line') {
     if (isNaN(numValue)) return 'null';
     return numValue < 8.5 ? 'low' : numValue > 9.5 ? 'high' : 'medium';
   }
   
+  // Betting volume (handles and bets) - these appear to be percentages (0.61 = 61%)
   if (feature.includes('handle') || feature.includes('bets')) {
     if (isNaN(numValue) || numValue <= 0) return 'minimal';
-    if (numValue < 1000) return 'low';
-    if (numValue < 10000) return 'medium';
+    // Treat as percentages: 0.0-1.0 range
+    if (numValue < 0.3) return 'low';
+    if (numValue < 0.6) return 'medium';
     return 'high';
   }
   
+  // Boolean fields (handedness, same_league, same_division, last_win)
   if (feature.includes('handedness') || feature.includes('same_') || feature.includes('last_win')) {
     return value ? 'yes' : 'no';
   }
   
+  // Team performance over last 3 games
   if (feature.includes('last_3')) {
     if (isNaN(numValue)) return 'null';
     return numValue < 0.333 ? 'poor' : numValue > 0.667 ? 'good' : 'average';
   }
   
+  // Default: convert to string
   return String(value);
 }
 
