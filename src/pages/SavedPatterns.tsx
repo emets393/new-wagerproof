@@ -80,22 +80,31 @@ const SavedPatterns: React.FC = () => {
       
       if (!user) return;
 
-      const response = await fetch('/functions/v1/check-saved-patterns', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({ userId: user.id })
+      const { data: result, error } = await supabase.functions.invoke('check-saved-patterns', {
+        body: { userId: user.id }
       });
 
-      const result = await response.json();
+      if (error) {
+        console.error('Error checking today matches:', error);
+        toast({
+          title: "Error checking matches",
+          description: error.message || "Please try again later.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       setTodayMatches(result.matches || []);
 
       if (result.matches?.length > 0) {
         toast({
           title: "Matches found!",
           description: `Found ${result.matches.length} games matching your saved patterns today.`
+        });
+      } else {
+        toast({
+          title: "No matches found",
+          description: "No games match your saved patterns today."
         });
       }
     } catch (error) {
