@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import GameCard from "@/components/GameCard";
 import { Button } from "@/components/ui/button";
+import { getTodayInET, getDateDebugInfo } from "@/utils/dateUtils";
 
 interface TodaysGame {
   unique_id: string;
@@ -23,15 +24,20 @@ interface TodaysGame {
 }
 
 export default function Index() {
-  // Use local timezone instead of UTC to prevent date issues around 8 PM
-  const today = new Date().toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format in local timezone
+  // Use Eastern Time consistently to prevent date issues around 8 PM
+  const today = getTodayInET();
 
   const { data: games, isLoading, error } = useQuery({
     queryKey: ['todays_games', today],
     queryFn: async () => {
-      console.log('Fetching games for date:', today);
-      console.log('Current local time:', new Date().toLocaleString());
-      console.log('Current UTC time:', new Date().toISOString());
+      const debugInfo = getDateDebugInfo();
+      console.log('=== DATE DEBUG INFO ===');
+      console.log('Fetching games for ET date:', today);
+      console.log('UTC Time:', debugInfo.utcTime);
+      console.log('Local Time:', debugInfo.localTime);
+      console.log('ET Date:', debugInfo.etDate);
+      console.log('ET DateTime:', debugInfo.etDateTime);
+      console.log('======================');
       
       // First, let's check what dates are available in the database
       const { data: allDates, error: dateError } = await supabase
