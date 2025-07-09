@@ -200,6 +200,15 @@ serve(async (req) => {
             circaLines = null;
           }
 
+          // Properly map betting lines based on actual home/away team status
+          const homeTeam = game.is_home_team ? game.primary_team : game.opponent_team;
+          const awayTeam = game.is_home_team ? game.opponent_team : game.primary_team;
+          
+          console.log(`Game ${game.unique_id}: ${awayTeam} @ ${homeTeam}`);
+          console.log(`Primary team: ${game.primary_team}, Is home: ${game.is_home_team}`);
+          console.log(`Home ML: ${circaLines?.Money_Home ?? (game.is_home_team ? game.primary_ml : game.opponent_ml)}`);
+          console.log(`Away ML: ${circaLines?.Money_Away ?? (game.is_home_team ? game.opponent_ml : game.primary_ml)}`);
+
           allMatches.push({
             pattern_id: pattern.id,
             pattern_name: pattern.pattern_name,
@@ -213,10 +222,11 @@ serve(async (req) => {
             target: pattern.target,
             // Use circa_lines if available, otherwise fallback to view fields
             o_u_line: circaLines?.o_u_line ?? game.o_u_line,
-            home_ml: game.is_home_team ? (circaLines?.Money_Home ?? game.primary_ml) : (circaLines?.Money_Away ?? game.opponent_ml),
-            away_ml: game.is_home_team ? (circaLines?.Money_Away ?? game.opponent_ml) : (circaLines?.Money_Home ?? game.primary_ml),
-            home_rl: game.is_home_team ? (circaLines?.RL_Home ?? game.primary_rl) : (circaLines?.RL_Away ?? game.opponent_rl),
-            away_rl: game.is_home_team ? (circaLines?.RL_Away ?? game.opponent_rl) : (circaLines?.RL_Home ?? game.primary_rl)
+            // Home team's lines (regardless of primary/opponent status)
+            home_ml: circaLines?.Money_Home ?? (game.is_home_team ? game.primary_ml : game.opponent_ml),
+            away_ml: circaLines?.Money_Away ?? (game.is_home_team ? game.opponent_ml : game.primary_ml),
+            home_rl: circaLines?.RL_Home ?? (game.is_home_team ? game.primary_rl : game.opponent_rl),
+            away_rl: circaLines?.RL_Away ?? (game.is_home_team ? game.opponent_rl : game.primary_rl)
           });
 
           // Insert into pattern_daily_matches table

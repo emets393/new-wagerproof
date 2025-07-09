@@ -50,13 +50,17 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
       return match.o_u_line ? ` ${match.o_u_line}` : '';
     } else if (target === 'moneyline') {
       const predictedTeam = match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
-      const isHomeTeam = predictedTeam === match.primary_team;
-      const line = isHomeTeam ? match.home_ml : match.away_ml;
+      // Determine if predicted team is actually the home team
+      const homeTeam = match.is_home_game ? match.primary_team : match.opponent_team;
+      const isPredictedTeamHome = predictedTeam === homeTeam;
+      const line = isPredictedTeamHome ? match.home_ml : match.away_ml;
       return line ? ` (${line > 0 ? '+' : ''}${line})` : '';
     } else if (target === 'runline') {
       const predictedTeam = match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
-      const isHomeTeam = predictedTeam === match.primary_team;
-      const line = isHomeTeam ? match.home_rl : match.away_rl;
+      // Determine if predicted team is actually the home team
+      const homeTeam = match.is_home_game ? match.primary_team : match.opponent_team;
+      const isPredictedTeamHome = predictedTeam === homeTeam;
+      const line = isPredictedTeamHome ? match.home_rl : match.away_rl;
       return line ? ` (${line > 0 ? '+' : ''}${line})` : '';
     }
     return '';
