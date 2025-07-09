@@ -570,106 +570,52 @@ export default function FilterableWinRates() {
         </Card>
       )}
 
-      {/* Team Performance Summary with Sorting */}
-      {gameRows.length > 0 && !isPitcherSelected() && (
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-blue-500">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              {gamesTodayMode 
-                ? `Historical Performance for Teams Playing Today (${gameRows.length} records)` 
-                : `Team Performance Summary (${gameRows.length} records)`}
-            </h3>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-blue-200">
-                    <TableHead>
-                      <Button 
-                        variant="ghost" 
-                        className="font-medium text-left p-0 h-auto hover:text-blue-600 transition-colors"
-                        onClick={() => handleSort('team')}
-                      >
-                        Team {getSortIcon('team')}
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <Button 
-                        variant="ghost" 
-                        className="font-medium text-center p-0 h-auto hover:text-green-600 transition-colors"
-                        onClick={() => handleSort('winPct')}
-                      >
-                        Win Rate {getSortIcon('winPct')}
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <Button 
-                        variant="ghost" 
-                        className="font-medium text-center p-0 h-auto hover:text-blue-600 transition-colors"
-                        onClick={() => handleSort('runlinePct')}
-                      >
-                        Run Line Cover {getSortIcon('runlinePct')}
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <Button 
-                        variant="ghost" 
-                        className="font-medium text-center p-0 h-auto hover:text-orange-600 transition-colors"
-                        onClick={() => handleSort('overPct')}
-                      >
-                        Over Rate {getSortIcon('overPct')}
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <Button 
-                        variant="ghost" 
-                        className="font-medium text-center p-0 h-auto hover:text-purple-600 transition-colors"
-                        onClick={() => handleSort('underPct')}
-                      >
-                        Under Rate {getSortIcon('underPct')}
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <Button 
-                        variant="ghost" 
-                        className="font-medium text-center p-0 h-auto hover:text-gray-600 transition-colors"
-                        onClick={() => handleSort('total')}
-                      >
-                        Total Games {getSortIcon('total')}
-                      </Button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {teamStats.map((team) => (
-                    <TableRow key={team.team} className="hover:bg-blue-50/50 transition-colors">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <TeamDisplay team={team.team} isHome={true} />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center font-semibold text-green-600">
-                        {team.winPct}%
-                      </TableCell>
-                      <TableCell className="text-center font-semibold text-blue-600">
-                        {team.runlinePct}%
-                      </TableCell>
-                      <TableCell className="text-center font-semibold text-orange-600">
-                        {team.overPct}%
-                      </TableCell>
-                      <TableCell className="text-center font-semibold text-purple-600">
-                        {team.underPct}%
-                      </TableCell>
-                      <TableCell className="text-center font-medium">
-                        {team.total}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+      {/* Overall Win Rate Summary */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Win Rate Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div>Loading...</div>
+          ) : error ? (
+            <div className="text-red-600">{error}</div>
+          ) : summary ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex flex-col items-center">
+                <span className="text-sm text-muted-foreground">Home Win %</span>
+                <span className="text-lg font-bold">{summary.homeWinPct !== undefined ? summary.homeWinPct.toFixed(1) + '%' : '-'}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-sm text-muted-foreground">Away Win %</span>
+                <span className="text-lg font-bold">{summary.awayWinPct !== undefined ? summary.awayWinPct.toFixed(1) + '%' : '-'}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-sm text-muted-foreground">Home Cover %</span>
+                <span className="text-lg font-bold">{summary.homeCoverPct !== undefined ? summary.homeCoverPct.toFixed(1) + '%' : '-'}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-sm text-muted-foreground">Away Cover %</span>
+                <span className="text-lg font-bold">{summary.awayCoverPct !== undefined ? summary.awayCoverPct.toFixed(1) + '%' : '-'}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-sm text-muted-foreground">Over %</span>
+                <span className="text-lg font-bold">{summary.overPct !== undefined ? summary.overPct.toFixed(1) + '%' : '-'}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-sm text-muted-foreground">Under %</span>
+                <span className="text-lg font-bold">{summary.underPct !== undefined ? summary.underPct.toFixed(1) + '%' : '-'}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-sm text-muted-foreground">Total Games</span>
+                <span className="text-lg font-bold">{summary.totalGames !== undefined ? summary.totalGames : '-'}</span>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <div>No data. Apply filters to see results.</div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Game Details */}
       <Card>
