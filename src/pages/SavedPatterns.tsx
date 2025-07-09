@@ -47,6 +47,7 @@ const SavedPatterns: React.FC = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [expandedPatterns, setExpandedPatterns] = useState<Set<string>>(new Set());
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
+  const [selectedGameFilter, setSelectedGameFilter] = useState<string>('all');
   const { toast } = useToast();
 
   const loadSavedPatterns = async () => {
@@ -167,9 +168,54 @@ const SavedPatterns: React.FC = () => {
     setExpandedPatterns(newExpanded);
   };
 
+  // Extract unique games with formatted names
+  const getUniqueGames = () => {
+    const gameMap = new Map<string, { display: string; count: number }>();
+    
+    todayMatches.forEach(match => {
+      if (!gameMap.has(match.unique_id)) {
+        // Format as "Away @ Home" based on is_home_game flag
+        const display = match.is_home_game 
+          ? `${match.opponent_team} @ ${match.primary_team}`
+          : `${match.primary_team} @ ${match.opponent_team}`;
+        gameMap.set(match.unique_id, { display, count: 0 });
+      }
+    });
+
+    // Count patterns that have matches for each game
+    savedPatterns.forEach(pattern => {
+      const patternMatches = todayMatches.filter(m => m.pattern_id === pattern.id);
+      patternMatches.forEach(match => {
+        const game = gameMap.get(match.unique_id);
+        if (game) {
+          game.count++;
+        }
+      });
+    });
+
+    return Array.from(gameMap.entries()).map(([unique_id, { display, count }]) => ({
+      unique_id,
+      display,
+      count
+    }));
+  };
+
+  const uniqueGames = getUniqueGames();
+
   const filteredPatterns = savedPatterns.filter(pattern => {
-    if (selectedFilter === 'all') return true;
-    return pattern.target === selectedFilter;
+    // Apply target filter
+    if (selectedFilter !== 'all' && pattern.target !== selectedFilter) {
+      return false;
+    }
+    
+    // Apply game filter
+    if (selectedGameFilter !== 'all') {
+      const patternMatches = todayMatches.filter(m => m.pattern_id === pattern.id);
+      const hasMatchForSelectedGame = patternMatches.some(m => m.unique_id === selectedGameFilter);
+      return hasMatchForSelectedGame;
+    }
+    
+    return true;
   });
 
   useEffect(() => {
@@ -223,9 +269,11 @@ const SavedPatterns: React.FC = () => {
         </div>
 
         {/* Filter Section */}
-        <div className="mb-6">
+        <div className="mb-6 space-y-4">
+          {/* Target Filter */}
           <div className="flex items-center gap-4">
             <Filter className="h-5 w-5 text-accent" />
+            <span className="text-accent font-medium">Target:</span>
             <div className="flex gap-2">
               <Button
                 variant={selectedFilter === 'all' ? 'default' : 'outline'}
@@ -261,6 +309,35 @@ const SavedPatterns: React.FC = () => {
               </Button>
             </div>
           </div>
+
+          {/* Game Filter */}
+          {uniqueGames.length > 0 && (
+            <div className="flex items-center gap-4">
+              <Filter className="h-5 w-5 text-accent" />
+              <span className="text-accent font-medium">Game:</span>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={selectedGameFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedGameFilter('all')}
+                  className={selectedGameFilter === 'all' ? 'bg-accent text-primary font-bold' : 'border-accent text-accent bg-background hover:bg-accent/10'}
+                >
+                  All Games
+                </Button>
+                {uniqueGames.map(game => (
+                  <Button
+                    key={game.unique_id}
+                    variant={selectedGameFilter === game.unique_id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedGameFilter(game.unique_id)}
+                    className={selectedGameFilter === game.unique_id ? 'bg-accent text-primary font-bold' : 'border-accent text-accent bg-background hover:bg-accent/10'}
+                  >
+                    {game.display} ({game.count})
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Saved Patterns List */}
@@ -379,13 +456,15 @@ const SavedPatterns: React.FC = () => {
                               </Button>
                             </div>
                             <div className="space-y-3">
-                              {patternMatches.map((match, index) => (
-                                <PatternMatchCard
-                                  key={index}
-                                  match={match}
-                                  target={pattern.target}
-                                />
-                              ))}
+                              {patternMatches
+                                .filter(match => selectedGameFilter === 'all' || match.unique_id === selectedGameFilter)
+                                .map((match, index) => (
+                                  <PatternMatchCard
+                                    key={index}
+                                    match={match}
+                                    target={pattern.target}
+                                  />
+                                ))}
                             </div>
                           </>
                         )}
