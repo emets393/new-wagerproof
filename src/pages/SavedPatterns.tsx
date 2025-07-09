@@ -386,24 +386,23 @@ const SavedPatterns: React.FC = () => {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          {pattern.target === 'over_under' ? 'Over %' : 
-                          pattern.target === 'runline' ? 'Primary Cover %' : 'Primary Win %'}
-                        </p>
-                        <p className="font-semibold text-green-600">
-                          {(pattern.win_pct * 100).toFixed(1)}%
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          {pattern.target === 'over_under' ? 'Under %' : 
-                          pattern.target === 'runline' ? 'Opponent Cover %' : 'Opponent Win %'}
-                        </p>
-                        <p className="font-semibold text-red-600">
-                          {(pattern.opponent_win_pct * 100).toFixed(1)}%
-                        </p>
-                      </div>
+                      {pattern.target === 'over_under' ? (
+                        <>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Over %</p>
+                            <p className="font-semibold text-green-600">{(pattern.win_pct * 100).toFixed(1)}%</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Under %</p>
+                            <p className="font-semibold text-red-600">{(pattern.opponent_win_pct * 100).toFixed(1)}%</p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="col-span-2">
+                          <p className="text-sm text-muted-foreground">Win %</p>
+                          <p className="font-semibold text-green-600">{(Math.max(pattern.win_pct, pattern.opponent_win_pct) * 100).toFixed(1)}%</p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm text-muted-foreground">Games</p>
                         <p className="font-semibold text-foreground">{pattern.games}</p>
@@ -411,12 +410,6 @@ const SavedPatterns: React.FC = () => {
                       <div>
                         <p className="text-sm text-muted-foreground">Features</p>
                         <p className="font-semibold text-foreground">{pattern.feature_count}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Today's Matches</p>
-                        <p className="font-semibold text-primary">
-                          {patternMatches.length}
-                        </p>
                       </div>
                     </div>
                     
@@ -444,17 +437,13 @@ const SavedPatterns: React.FC = () => {
                           </Button>
                         ) : (
                           <>
-                            <div className="flex items-center justify-between mb-3">
-                              <p className="text-sm text-muted-foreground font-medium">Today's Matches:</p>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleExpanded(pattern.id)}
-                                className="text-muted-foreground hover:text-foreground"
-                              >
-                                Hide Matching Games
-                              </Button>
-                            </div>
+                            <Button
+                              onClick={() => toggleExpanded(pattern.id)}
+                              className="w-full font-semibold text-base bg-primary text-white hover:bg-primary/90 transition-colors mb-3"
+                              variant="default"
+                            >
+                              Hide Matching Games
+                            </Button>
                             <div className="space-y-3">
                               {patternMatches
                                 .filter(match => selectedGameFilter === 'all' || match.unique_id === selectedGameFilter)

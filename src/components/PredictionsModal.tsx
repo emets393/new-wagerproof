@@ -237,14 +237,28 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
   }
 
-  // Get team colors and check similarity
+  // Get team colors and pick the most distinct pair
   const homeColors = getTeamColors(homeTeam);
   const awayColors = getTeamColors(awayTeam);
-  const colorDist = colorDistance(homeColors.primary, awayColors.primary);
-  const SIMILARITY_THRESHOLD = 60; // tweak as needed
-
-  const homeBarColor = homeColors.primary;
-  const awayBarColor = colorDist < SIMILARITY_THRESHOLD ? awayColors.secondary : awayColors.primary;
+  const colorPairs = [
+    { home: homeColors.primary, away: awayColors.primary },
+    { home: homeColors.primary, away: awayColors.secondary },
+    { home: homeColors.secondary, away: awayColors.primary },
+    { home: homeColors.secondary, away: awayColors.secondary },
+  ];
+  let maxDist = -1;
+  let bestPair = colorPairs[0];
+  colorPairs.forEach(pair => {
+    const dist = colorDistance(pair.home, pair.away);
+    if (dist > maxDist) {
+      maxDist = dist;
+      bestPair = pair;
+    }
+  });
+  const SIMILARITY_THRESHOLD = 60;
+  const homeBarColor = bestPair.home;
+  // If still too similar, use a neutral fallback for away
+  const awayBarColor = maxDist < SIMILARITY_THRESHOLD ? '#888888' : bestPair.away;
 
   // Helper to format stat values
   const formatStat = (value, type) => {

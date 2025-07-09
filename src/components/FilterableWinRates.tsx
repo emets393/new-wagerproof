@@ -11,23 +11,41 @@ import DateFilters from "./DateFilters";
 import SituationalFilters from "./SituationalFilters";
 import { Sparkles, Play, ChevronUp, ChevronDown, Calendar } from "lucide-react";
 
-const columns = [
-  "season", "month", "day", "series_game_number", "o_u_line",
-  "primary_team", "primary_ml", "primary_rl", "primary_ml_handle", "primary_ml_bets",
-  "primary_rl_handle", "primary_rl_bets", "primary_win_pct", "primary_last_win",
-  "primary_last_runs", "primary_last_runs_allowed", "primary_ops_last_3", "primary_team_last_3",
-  "primary_pitcher", "primary_pitcher_id", "primary_whip", "primary_era", "primary_handedness",
-  "primary_division_number", "primary_league_number", "primary_streak", "opponent_team",
-  "opponent_ml", "opponent_rl", "opponent_ml_handle", "opponent_ml_bets", "opponent_rl_handle",
-  "opponent_rl_bets", "opponent_win_pct", "opponent_last_win", "opponent_last_runs",
-  "opponent_last_runs_allowed", "opponent_ops_last_3", "opponent_team_last_3",
-  "opponent_pitcher", "opponent_pitcher_id", "opponent_whip", "opponent_era",
-  "opponent_handedness", "opponent_division_number", "opponent_league_number",
-  "opponent_streak", "primary_win", "primary_runline_win", "start_time_minutes",
-  "same_division", "same_league", "series_primary_wins", "series_opponent_wins",
-  "series_overs", "series_unders", "ou_handle_over", "ou_bets_over",
-  "is_home_team", "primary_days_between_games", "primary_travel_distance_miles",
-  "primary_team_score", "opponent_team_score"
+const SUMMARY_LABELS = [
+  { key: 'homeWinPct', label: 'Home Win %' },
+  { key: 'awayWinPct', label: 'Away Win %' },
+  { key: 'homeCoverPct', label: 'Home Cover %' },
+  { key: 'awayCoverPct', label: 'Away Cover %' },
+  { key: 'overPct', label: 'Over %' },
+  { key: 'underPct', label: 'Under %' },
+  { key: 'totalGames', label: 'Total Games' },
+];
+
+const GAME_COLUMNS = [
+  { key: 'date', label: 'Date' },
+  { key: 'home_team', label: 'Home Team' },
+  { key: 'away_team', label: 'Away Team' },
+  { key: 'home_pitcher', label: 'Home Pitcher' },
+  { key: 'home_era', label: 'Home ERA' },
+  { key: 'home_whip', label: 'Home WHIP' },
+  { key: 'away_pitcher', label: 'Away Pitcher' },
+  { key: 'away_era', label: 'Away ERA' },
+  { key: 'away_whip', label: 'Away WHIP' },
+  { key: 'home_score', label: 'Home Score' },
+  { key: 'away_score', label: 'Away Score' },
+  { key: 'o_u_line', label: 'O/U Line' },
+  { key: 'home_rl', label: 'Home RL' },
+  { key: 'away_rl', label: 'Away RL' },
+  { key: 'home_ml_handle', label: 'Home ML Handle' },
+  { key: 'away_ml_handle', label: 'Away ML Handle' },
+  { key: 'home_ml_bets', label: 'Home ML Bets' },
+  { key: 'away_ml_bets', label: 'Away ML Bets' },
+  { key: 'home_rl_handle', label: 'Home RL Handle' },
+  { key: 'away_rl_handle', label: 'Away RL Handle' },
+  { key: 'home_rl_bets', label: 'Home RL Bets' },
+  { key: 'away_rl_bets', label: 'Away RL Bets' },
+  { key: 'ou_handle_over', label: 'O/U Handle Over' },
+  { key: 'ou_bets_over', label: 'O/U Bets Over' },
 ];
 
 interface Filters {
@@ -77,11 +95,41 @@ interface MLBTeam {
 type SortColumn = 'team' | 'winPct' | 'runlinePct' | 'overPct' | 'underPct' | 'total';
 type SortDirection = 'asc' | 'desc';
 
+// Helper: PercentageBar component
+const PercentageBar = ({ value }: { value: number }) => {
+  let color = '#22c55e'; // green
+  if (value < 33.3) color = '#ef4444'; // red
+  else if (value < 66.6) color = '#f59e42'; // orange
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <div style={{
+        width: 48,
+        height: 10,
+        background: '#e5e7eb',
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginRight: 4,
+      }}>
+        <div style={{
+          width: `${Math.max(0, Math.min(100, value))}%`,
+          height: '100%',
+          background: color,
+          borderRadius: 4,
+          transition: 'width 0.3s',
+        }} />
+      </div>
+      <span style={{ minWidth: 36, display: 'inline-block', textAlign: 'right' }}>{value.toFixed(1)}%</span>
+    </div>
+  );
+};
+
 export default function FilterableWinRates() {
   const [filters, setFilters] = useState<Filters>({});
-  const [results, setResults] = useState<DataRow[]>([]);
-  const [mlbTeams, setMlbTeams] = useState<MLBTeam[]>([]);
+  const [summary, setSummary] = useState(null);
+  const [gameRows, setGameRows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [mlbTeams, setMlbTeams] = useState<MLBTeam[]>([]);
   const [sortColumn, setSortColumn] = useState<SortColumn>('total');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [gamesTodayMode, setGamesTodayMode] = useState(false);
@@ -92,43 +140,28 @@ export default function FilterableWinRates() {
     setFilters({ ...filters, [column]: value });
   };
 
-  const applyFilters = async (): Promise<void> => {
+  const applyFilters = async () => {
     setIsLoading(true);
-    setGamesTodayMode(false); // Reset to historical mode
+    setError(null);
     try {
-      // Fetch MLB teams data for logos (simple query)
-      const { data: teamsData } = await supabase.from("MLB_Teams").select("*");
-      
-      if (teamsData) {
-        setMlbTeams(teamsData);
-      }
-
-      // Handle empty filters gracefully
-      if (Object.keys(filters).length === 0 || Object.values(filters).every(value => !value || value.trim() === '')) {
-        console.log('No filters applied, skipping edge function request');
-        setResults([]);
-        return;
-      }
-
-      console.log('Sending filters to edge function:', filters);
-
-      // Call the edge function using Supabase client's invoke method
       const { data, error } = await supabase.functions.invoke('filter-training-data', {
         body: { filters }
       });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        throw error;
-      }
-
-      console.log('Response data:', { data, count: data?.length });
-      console.log(`Retrieved ${data?.length || 0} total records for stats calculation`);
-      setResults(data || []);
-    } catch (error) {
-      console.error('Error applying filters:', error);
-      console.error('Filter state at time of error:', filters);
-      setResults([]);
+      if (error) throw error;
+      
+      console.log('=== DEBUG: Backend response ===');
+      console.log('Summary:', data.summary);
+      console.log('GameRows count:', data.gameRows?.length || 0);
+      console.log('First 5 gameRows dates:', data.gameRows?.slice(0, 5).map(g => g.date));
+      console.log('Last 5 gameRows dates:', data.gameRows?.slice(-5).map(g => g.date));
+      console.log('Sample game object:', data.gameRows?.[0]);
+      
+      setSummary(data.summary);
+      setGameRows(data.gameRows);
+    } catch (err) {
+      setError('Failed to fetch win rate data.');
+      setSummary(null);
+      setGameRows([]);
     } finally {
       setIsLoading(false);
     }
@@ -148,7 +181,7 @@ export default function FilterableWinRates() {
       if (Object.keys(filters).length === 0 || Object.values(filters).every(value => !value || value.trim() === '')) {
         console.log('No filters applied, skipping games today request');
         setTodaysGames([]);
-        setResults([]);
+        setGameRows([]);
         setTeamsPlayingToday([]);
         setGamesTodayMode(true);
         return;
@@ -168,13 +201,13 @@ export default function FilterableWinRates() {
 
       console.log('Games today response:', data);
       setTodaysGames(data.todaysGames || []);
-      setResults(data.historicalData || []);
+      setGameRows(data.gameRows || []);
       setTeamsPlayingToday(data.teamsPlayingToday || []);
       setGamesTodayMode(true);
     } catch (error) {
       console.error('Error applying games today filters:', error);
       setTodaysGames([]);
-      setResults([]);
+      setGameRows([]);
       setTeamsPlayingToday([]);
       setGamesTodayMode(true);
     } finally {
@@ -208,7 +241,7 @@ export default function FilterableWinRates() {
     const teamMap = new Map<string, DataRow[]>();
     
     // Group by primary team
-    results.forEach(row => {
+    gameRows.forEach(row => {
       if (row.primary_team) {
         if (!teamMap.has(row.primary_team)) {
           teamMap.set(row.primary_team, []);
@@ -282,14 +315,12 @@ export default function FilterableWinRates() {
   };
 
   const getGameDisplays = (): GameDisplay[] => {
-    return results.slice(0, 50).map(row => {
+    return gameRows.slice(0, 50).map(row => {
       const homeTeam = row.is_home_team ? row.primary_team : row.opponent_team;
       const awayTeam = row.is_home_team ? row.opponent_team : row.primary_team;
       const homeScore = row.is_home_team ? row.primary_team_score : row.opponent_team_score;
       const awayScore = row.is_home_team ? row.opponent_team_score : row.primary_team_score;
-      
       const date = `${row.month || 0}/${row.day || 0}/${row.season || 0}`;
-      
       return {
         date,
         homeTeam: homeTeam || '',
@@ -305,9 +336,7 @@ export default function FilterableWinRates() {
     return todaysGames.map(row => {
       const homeTeam = row.is_home_team ? row.primary_team : row.opponent_team;
       const awayTeam = row.is_home_team ? row.opponent_team : row.primary_team;
-      
       const date = `${row.month || 0}/${row.day || 0}/${row.season || 0}`;
-      
       return {
         date,
         homeTeam: homeTeam || '',
@@ -319,13 +348,27 @@ export default function FilterableWinRates() {
     });
   };
 
+  // Sort and limit gameRows to 100 most recent by date
+  console.log('=== DEBUG: Before sorting ===');
+  console.log('Total gameRows:', gameRows.length);
+  console.log('First 5 gameRows dates:', gameRows.slice(0, 5).map(g => g.date));
+  console.log('Last 5 gameRows dates:', gameRows.slice(-5).map(g => g.date));
+  console.log('Sample game object:', gameRows[0]);
+  
+  const sortedGameRows = [...gameRows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 100);
+  
+  console.log('=== DEBUG: After sorting ===');
+  console.log('First 5 sortedGameRows dates:', sortedGameRows.slice(0, 5).map(g => g.date));
+  console.log('Last 5 sortedGameRows dates:', sortedGameRows.slice(-5).map(g => g.date));
+  console.log('Sample sorted game object:', sortedGameRows[0]);
+
   const teamStats = getTeamStats();
   const gameDisplays = getGameDisplays();
   const todaysGameDisplays = getTodaysGameDisplays();
 
   const clearFilters = () => {
     setFilters({});
-    setResults([]);
+    setGameRows([]);
     setTodaysGames([]);
     setTeamsPlayingToday([]);
     setGamesTodayMode(false);
@@ -335,6 +378,88 @@ export default function FilterableWinRates() {
     const newFilters = { ...filters };
     delete newFilters[column];
     setFilters(newFilters);
+  };
+
+  const formatPercentage = (value: number) => {
+    return value !== undefined && value !== null ? `${value.toFixed(1)}%` : '0.0%';
+  };
+
+  const calculateHandlePercentage = (handle: number, totalHandle: number) => {
+    if (!totalHandle || totalHandle === 0) return 0;
+    return (handle / totalHandle) * 100;
+  };
+
+  const calculateBetsPercentage = (bets: number, totalBets: number) => {
+    if (!totalBets || totalBets === 0) return 0;
+    return (bets / totalBets) * 100;
+  };
+
+  const renderGameRow = (game: any) => {
+    // Calculate totals for percentages
+    const totalMLHandle = (game.home_ml_handle || 0) + (game.away_ml_handle || 0);
+    const totalMLBets = (game.home_ml_bets || 0) + (game.away_ml_bets || 0);
+    const totalRLHandle = (game.home_rl_handle || 0) + (game.away_rl_handle || 0);
+    const totalRLBets = (game.home_rl_bets || 0) + (game.away_rl_bets || 0);
+    const totalOUHandle = game.ou_handle_over || 0;
+    const totalOUBets = game.ou_bets_over || 0;
+
+    // Over/Under percentages (ou_handle_over and ou_bets_over are decimals)
+    let overHandlePct = 0, underHandlePct = 0, overBetsPct = 0, underBetsPct = 0;
+    if (typeof game.ou_handle_over === 'number') {
+      overHandlePct = +(game.ou_handle_over * 100).toFixed(1);
+      underHandlePct = +(100.0 - overHandlePct).toFixed(1);
+    } else {
+      overHandlePct = 0;
+      underHandlePct = 0;
+    }
+    if (typeof game.ou_bets_over === 'number') {
+      overBetsPct = +(game.ou_bets_over * 100).toFixed(1);
+      underBetsPct = +(100.0 - overBetsPct).toFixed(1);
+    } else {
+      overBetsPct = 0;
+      underBetsPct = 0;
+    }
+
+    return (
+      <TableRow key={game.unique_id}>
+        <TableCell className="font-medium">{game.date}</TableCell>
+        <TableCell>{game.home_team}</TableCell>
+        <TableCell>{game.away_team}</TableCell>
+        <TableCell>
+          <div className="text-sm">{game.home_pitcher}</div>
+        </TableCell>
+        <TableCell>
+          <div className="text-sm">{game.away_pitcher}</div>
+        </TableCell>
+        <TableCell className="text-center">{game.home_score}</TableCell>
+        <TableCell className="text-center">{game.away_score}</TableCell>
+        <TableCell className="text-center">{game.o_u_line}</TableCell>
+        <TableCell>
+          <div className="text-xs space-y-1">
+            <div>H Handle: <PercentageBar value={calculateHandlePercentage(game.home_ml_handle, totalMLHandle)} /></div>
+            <div>A Bet: <PercentageBar value={calculateBetsPercentage(game.away_ml_bets, totalMLBets)} /></div>
+            <div>A Handle: <PercentageBar value={calculateHandlePercentage(game.away_ml_handle, totalMLHandle)} /></div>
+            <div>H Bet: <PercentageBar value={calculateBetsPercentage(game.home_ml_bets, totalMLBets)} /></div>
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="text-xs space-y-1">
+            <div>H Handle: <PercentageBar value={calculateHandlePercentage(game.home_rl_handle, totalRLHandle)} /></div>
+            <div>A Bet: <PercentageBar value={calculateBetsPercentage(game.away_rl_bets, totalRLBets)} /></div>
+            <div>A Handle: <PercentageBar value={calculateHandlePercentage(game.away_rl_handle, totalRLHandle)} /></div>
+            <div>H Bet: <PercentageBar value={calculateBetsPercentage(game.home_rl_bets, totalRLBets)} /></div>
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="text-xs space-y-1">
+            <div>O Handle: <PercentageBar value={overHandlePct} /></div>
+            <div>U Bet: <PercentageBar value={underBetsPct} /></div>
+            <div>U Handle: <PercentageBar value={underHandlePct} /></div>
+            <div>O Bet: <PercentageBar value={overBetsPct} /></div>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
   };
 
   return (
@@ -371,11 +496,8 @@ export default function FilterableWinRates() {
           disabled={isLoading}
           className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
         >
-          {isLoading && !gamesTodayMode ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              Loading...
-            </>
+          {isLoading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
           ) : (
             <>
               <Play className="w-4 h-4" />
@@ -390,10 +512,7 @@ export default function FilterableWinRates() {
           className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
         >
           {isLoading && gamesTodayMode ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              Loading...
-            </>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
           ) : (
             <>
               <Calendar className="w-4 h-4" />
@@ -452,13 +571,13 @@ export default function FilterableWinRates() {
       )}
 
       {/* Team Performance Summary with Sorting */}
-      {results.length > 0 && !isPitcherSelected() && (
+      {gameRows.length > 0 && !isPitcherSelected() && (
         <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-blue-500">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               {gamesTodayMode 
-                ? `Historical Performance for Teams Playing Today (${results.length} records)` 
-                : `Team Performance Summary (${results.length} records)`}
+                ? `Historical Performance for Teams Playing Today (${gameRows.length} records)` 
+                : `Team Performance Summary (${gameRows.length} records)`}
             </h3>
             <div className="overflow-x-auto">
               <Table>
@@ -552,66 +671,44 @@ export default function FilterableWinRates() {
         </Card>
       )}
 
-      {/* Individual Games Table */}
-      {results.length > 0 && isPitcherSelected() && (
-        <Card className="bg-gradient-to-br from-amber-50 to-yellow-50 border-l-4 border-amber-500">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
-              {gamesTodayMode ? 'Historical Games for Teams Playing Today' : 'Individual Games'}
-            </h3>
+      {/* Game Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Game Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div>Loading...</div>
+          ) : error ? (
+            <div className="text-red-600">{error}</div>
+          ) : gameRows.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-amber-200">
+                  <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Home Team</TableHead>
                     <TableHead>Away Team</TableHead>
+                    <TableHead>Home Pitcher</TableHead>
+                    <TableHead>Away Pitcher</TableHead>
                     <TableHead className="text-center">Home Score</TableHead>
                     <TableHead className="text-center">Away Score</TableHead>
                     <TableHead className="text-center">O/U Line</TableHead>
+                    <TableHead className="text-center">Moneyline</TableHead>
+                    <TableHead className="text-center">Runline</TableHead>
+                    <TableHead className="text-center">Over/Under</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {gameDisplays.map((game, i) => (
-                    <TableRow key={i} className="hover:bg-amber-50/50 transition-colors">
-                      <TableCell>{game.date}</TableCell>
-                      <TableCell>
-                        <TeamDisplay team={game.homeTeam} isHome={true} />
-                      </TableCell>
-                      <TableCell>
-                        <TeamDisplay team={game.awayTeam} isHome={false} />
-                      </TableCell>
-                      <TableCell className="text-center">{game.homeScore}</TableCell>
-                      <TableCell className="text-center">{game.awayScore}</TableCell>
-                      <TableCell className="text-center">{game.ouLine}</TableCell>
-                    </TableRow>
-                  ))}
+                  {sortedGameRows.map(renderGameRow)}
                 </TableBody>
               </Table>
-              {results.length > 50 && (
-                <p className="text-sm text-amber-600 mt-3 text-center font-medium">
-                  Showing first 50 results out of {results.length} total records
-                </p>
-              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* No Results Message */}
-      {((results.length === 0 && Object.keys(filters).some(key => filters[key]?.trim()) && !isLoading) || 
-        (gamesTodayMode && todaysGames.length === 0 && results.length === 0 && !isLoading)) && (
-        <Card className="bg-gradient-to-br from-gray-50 to-slate-50 border-l-4 border-gray-400">
-          <CardContent className="p-6 text-center">
-            <p className="text-gray-600 font-medium">
-              {gamesTodayMode 
-                ? "No games today match the current filters, or no historical data found for those teams." 
-                : "No results found with the current filters."}
-            </p>
-            <p className="text-sm text-gray-500 mt-2">Try adjusting your filter criteria.</p>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <div>No games found for these filters.</div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

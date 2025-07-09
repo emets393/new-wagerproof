@@ -86,9 +86,6 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
             {match.primary_team} {match.is_home_game ? 'vs' : '@'} {match.opponent_team}
           </p>
         </div>
-        <Badge className={getTargetBadgeColor(target)}>
-          {target}
-        </Badge>
       </div>
 
       {/* Pattern Prediction */}
@@ -114,12 +111,6 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
               )}
               <span className="font-semibold text-lg text-foreground">{getBettingLine()}</span>
             </div>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">Confidence</p>
-            <p className="font-semibold text-primary">
-              {confidence.toFixed(1)}%
-            </p>
           </div>
         </div>
       </div>

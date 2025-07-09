@@ -110,6 +110,21 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
     return teamColors[teamName] || { primary: '#666666', secondary: '#999999' };
   };
 
+  // Helper to get bar color based on percentage
+  const getBarColor = (percentage: number) => {
+    console.log(`getBarColor called with percentage: ${percentage}`);
+    if (percentage < 33.3) {
+      console.log(`Returning red for ${percentage}%`);
+      return '#ef4444'; // red
+    }
+    if (percentage < 66.6) {
+      console.log(`Returning orange for ${percentage}%`);
+      return '#f59e42'; // orange
+    }
+    console.log(`Returning green for ${percentage}%`);
+    return '#22c55e'; // green
+  };
+
   // Calculate percentages for the O/U handle bar
   const calculateHandlePercentages = () => {
     const overHandle = Number(moneylineData?.Total_Over_Handle) || 0;
@@ -199,14 +214,28 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
     return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
   }
 
-  // Get team colors and check similarity
+  // Get team colors and pick the most distinct pair
   const homeColors = getTeamColors(homeTeam);
   const awayColors = getTeamColors(awayTeam);
-  const colorDist = colorDistance(homeColors.primary, awayColors.primary);
-  const SIMILARITY_THRESHOLD = 60; // tweak as needed
-
-  const homeBarColor = homeColors.primary;
-  const awayBarColor = colorDist < SIMILARITY_THRESHOLD ? awayColors.secondary : awayColors.primary;
+  const colorPairs = [
+    { home: homeColors.primary, away: awayColors.primary },
+    { home: homeColors.primary, away: awayColors.secondary },
+    { home: homeColors.secondary, away: awayColors.primary },
+    { home: homeColors.secondary, away: awayColors.secondary },
+  ];
+  let maxDist = -1;
+  let bestPair = colorPairs[0];
+  colorPairs.forEach(pair => {
+    const dist = colorDistance(pair.home, pair.away);
+    if (dist > maxDist) {
+      maxDist = dist;
+      bestPair = pair;
+    }
+  });
+  const SIMILARITY_THRESHOLD = 60;
+  const homeBarColor = bestPair.home;
+  // If still too similar, use a neutral fallback for away
+  const awayBarColor = maxDist < SIMILARITY_THRESHOLD ? '#888888' : bestPair.away;
 
   if (isLoading) {
     return (
@@ -246,8 +275,8 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="bg-gradient-rose h-full" style={{ width: `${calculateHandlePercentages().underPercentage}%` }} />
-                  <div className="bg-gradient-emerald h-full" style={{ width: `${calculateHandlePercentages().overPercentage}%` }} />
+                  <div className="h-full" style={{ width: `${calculateHandlePercentages().underPercentage}%`, backgroundColor: getBarColor(calculateHandlePercentages().underPercentage) }} />
+                  <div className="h-full" style={{ width: `${calculateHandlePercentages().overPercentage}%`, backgroundColor: getBarColor(calculateHandlePercentages().overPercentage) }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -265,8 +294,8 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="bg-gradient-rose h-full" style={{ width: `${calculateBetsPercentages().underPercentage}%` }} />
-                  <div className="bg-gradient-emerald h-full" style={{ width: `${calculateBetsPercentages().overPercentage}%` }} />
+                  <div className="h-full" style={{ width: `${calculateBetsPercentages().underPercentage}%`, backgroundColor: getBarColor(calculateBetsPercentages().underPercentage) }} />
+                  <div className="h-full" style={{ width: `${calculateBetsPercentages().overPercentage}%`, backgroundColor: getBarColor(calculateBetsPercentages().overPercentage) }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -291,8 +320,8 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${mlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
-                  <div className="h-full" style={{ width: `${mlHandleHomePct}%`, backgroundColor: homeBarColor }} />
+                  <div className="h-full" style={{ width: `${mlHandleAwayPct}%`, backgroundColor: getBarColor(mlHandleAwayPct) }} />
+                  <div className="h-full" style={{ width: `${mlHandleHomePct}%`, backgroundColor: getBarColor(mlHandleHomePct) }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -310,8 +339,8 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${mlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
-                  <div className="h-full" style={{ width: `${mlBetsHomePct}%`, backgroundColor: homeBarColor }} />
+                  <div className="h-full" style={{ width: `${mlBetsAwayPct}%`, backgroundColor: getBarColor(mlBetsAwayPct) }} />
+                  <div className="h-full" style={{ width: `${mlBetsHomePct}%`, backgroundColor: getBarColor(mlBetsHomePct) }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -336,8 +365,8 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${rlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
-                  <div className="h-full" style={{ width: `${rlHandleHomePct}%`, backgroundColor: homeBarColor }} />
+                  <div className="h-full" style={{ width: `${rlHandleAwayPct}%`, backgroundColor: getBarColor(rlHandleAwayPct) }} />
+                  <div className="h-full" style={{ width: `${rlHandleHomePct}%`, backgroundColor: getBarColor(rlHandleHomePct) }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -355,8 +384,8 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${rlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
-                  <div className="h-full" style={{ width: `${rlBetsHomePct}%`, backgroundColor: homeBarColor }} />
+                  <div className="h-full" style={{ width: `${rlBetsAwayPct}%`, backgroundColor: getBarColor(rlBetsAwayPct) }} />
+                  <div className="h-full" style={{ width: `${rlBetsHomePct}%`, backgroundColor: getBarColor(rlBetsHomePct) }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">

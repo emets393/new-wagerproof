@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -39,8 +38,13 @@ serve(async (req) => {
 
   console.log('Edge function received filters:', filters);
   
-  const today = new Date().toISOString().split('T')[0];
-  console.log('Today date for filtering:', today);
+  // Get today's date in Eastern Time
+  const now = new Date();
+  const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+  const today = easternTime.toISOString().split('T')[0];
+  console.log(`Current UTC time: ${now.toISOString()}`);
+  console.log(`Current Eastern time: ${easternTime.toISOString()}`);
+  console.log(`Using 'today' as: ${today}`);
   
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -71,75 +75,91 @@ serve(async (req) => {
     "primary_team", "primary_pitcher", "opponent_team", "opponent_pitcher", "team_status"
   ];
 
-  let query = supabase.from('training_data_team_view_enhanced').select('*').limit(100000);
-  console.log('Starting with base query');
+  let query = supabase.from('training_data').select('*').order('date', { ascending: false });
+  console.log('Starting with base query (no limit)');
 
-  for (const key of allFilters) {
-    const val = filters[key];
-    if (!val) continue;
+  // NO DATE FILTER
 
-    console.log(`Processing filter: ${key} = ${val}`);
+  console.log('Executing query...');
+  let { data, error } = await query;
 
-    // Handle special team_status filter for favored/underdog
-    if (key === 'team_status') {
-      if (val === 'favored') {
-        console.log('Applying favored filter: primary_ml < opponent_ml');
-        // Use raw SQL for column comparison
-        query = query.filter('primary_ml', 'lt', 'opponent_ml');
-      } else if (val === 'underdog') {
-        console.log('Applying underdog filter: primary_ml > opponent_ml');
-        // Use raw SQL for column comparison  
-        query = query.filter('primary_ml', 'gt', 'opponent_ml');
-      }
-      continue;
+  // JS-side fallback: filter out any rows with ou_result === null
+  let allValid = [];
+  let mostRecent100 = [];
+  if (data) {
+    const before = data.length;
+    allValid = data.filter(row => row.ou_result !== null);
+    const after = allValid.length;
+    if (before !== after) {
+      console.log(`Filtered out ${before - after} rows with null ou_result in JS fallback.`);
     }
-
-    // Handle boolean filters
-    if (booleanFilters.has(key)) {
-      const boolValue = val === 'true';
-      console.log(`Applying boolean filter: ${key} = ${boolValue}`);
-      query = query.eq(key, boolValue);
-      continue;
+    // Take the 100 most recent valid games
+    mostRecent100 = allValid.slice(0, 100);
+    console.log(`Returning ${mostRecent100.length} most recent valid games for table.`);
+    // Log date ranges
+    if (allValid.length > 0) {
+      const allDates = allValid.map(row => row.date).filter(Boolean).sort();
+      console.log('ALL: Earliest date:', allDates[0]);
+      console.log('ALL: Latest date:', allDates[allDates.length - 1]);
+      console.log('ALL: Total valid games:', allValid.length);
     }
-
-    if (numericFiltersWithOperators.has(key)) {
-      if (val.startsWith('gt:')) {
-        const value = val.slice(3);
-        console.log(`Applying gt filter: ${key} > ${value}`);
-        query = query.gt(key, value);
-      } else if (val.startsWith('gte:')) {
-        const value = val.slice(4);
-        console.log(`Applying gte filter: ${key} >= ${value}`);
-        query = query.gte(key, value);
-      } else if (val.startsWith('lt:')) {
-        const value = val.slice(3);
-        console.log(`Applying lt filter: ${key} < ${value}`);
-        query = query.lt(key, value);
-      } else if (val.startsWith('lte:')) {
-        const value = val.slice(4);
-        console.log(`Applying lte filter: ${key} <= ${value}`);
-        query = query.lte(key, value);
-      } else if (val.startsWith('between:')) {
-        const [min, max] = val.slice(8).split(',');
-        console.log(`Applying between filter: ${key} between ${min} and ${max}`);
-        console.log(`Parsed min: "${min}", max: "${max}"`);
-        query = query.gte(key, min).lte(key, max);
-      } else {
-        console.log(`Applying eq filter: ${key} = ${val}`);
-        query = query.eq(key, val);
-      }
-    } else {
-      console.log(`Applying text eq filter: ${key} = ${val}`);
-      query = query.eq(key, val);
+    if (mostRecent100.length > 0) {
+      const tableDates = mostRecent100.map(row => row.date).filter(Boolean).sort();
+      console.log('TABLE: Earliest date:', tableDates[0]);
+      console.log('TABLE: Latest date:', tableDates[tableDates.length - 1]);
+      console.log('TABLE: Total games:', mostRecent100.length);
+      console.log('TABLE: First 10 dates:', mostRecent100.slice(0, 10).map(row => row.date));
     }
   }
 
-  // Exclude today's games
-  console.log(`Applying date filter: date < ${today}`);
-  query = query.lt('date', today);
+  // Calculate summary stats from allValid
+  const totalGames = allValid.length;
+  const homeWins = allValid.filter(game => game.ha_winner === 1).length;
+  const awayWins = allValid.filter(game => game.ha_winner === 0).length;
+  const homeCovers = allValid.filter(game => game.run_line_winner === 1).length;
+  const awayCovers = allValid.filter(game => game.run_line_winner === 0).length;
+  const overs = allValid.filter(game => game.ou_result === 1).length;
+  const unders = allValid.filter(game => game.ou_result === 0).length;
 
-  console.log('Executing query...');
-  const { data, error } = await query;
+  const overPct = totalGames > 0 ? +(overs / totalGames * 100).toFixed(1) : 0;
+  const underPct = +(100.0 - overPct).toFixed(1);
+  const homeWinPct = totalGames > 0 ? +(homeWins / totalGames * 100).toFixed(1) : 0;
+  const awayWinPct = +(100.0 - homeWinPct).toFixed(1);
+  const homeCoverPct = totalGames > 0 ? +(homeCovers / totalGames * 100).toFixed(1) : 0;
+  const awayCoverPct = +(100.0 - homeCoverPct).toFixed(1);
+  const summary = {
+    homeWinPct,
+    awayWinPct,
+    homeCoverPct,
+    awayCoverPct,
+    overPct,
+    underPct,
+    totalGames
+  };
+
+  // Select only the columns needed for the display table
+  const displayColumns = [
+    'date', 'home_team', 'away_team',
+    'home_pitcher', 'home_era', 'home_whip',
+    'away_pitcher', 'away_era', 'away_whip',
+    'home_score', 'away_score', 'o_u_line',
+    'home_rl', 'away_rl',
+    'home_ml_handle', 'away_ml_handle', 'home_ml_bets', 'away_ml_bets',
+    'home_rl_handle', 'away_rl_handle', 'home_rl_bets', 'away_rl_bets',
+    'ou_handle_over', 'ou_bets_over'
+  ];
+  const gameRows = mostRecent100.map(row => {
+    const obj = {};
+    displayColumns.forEach(col => { obj[col] = row[col]; });
+    return obj;
+  });
+
+  console.log(`Query completed successfully. Returned ${mostRecent100?.length || 0} records for table, ${allValid?.length || 0} for summary.`);
+
+  // Log some sample data if available
+  if (mostRecent100 && mostRecent100.length > 0) {
+    console.log('Sample record o_u_line values:', mostRecent100.slice(0, 3).map(r => r.o_u_line));
+  }
 
   const headers = {
     'Content-Type': 'application/json',
@@ -155,14 +175,7 @@ serve(async (req) => {
     });
   }
 
-  console.log(`Query completed successfully. Returned ${data?.length || 0} records`);
-  
-  // Log some sample data if available
-  if (data && data.length > 0) {
-    console.log('Sample record o_u_line values:', data.slice(0, 3).map(r => r.o_u_line));
-  }
-
-  return new Response(JSON.stringify(data), {
+  return new Response(JSON.stringify({ summary, gameRows }), {
     status: 200,
     headers
   });
