@@ -34,10 +34,13 @@ serve(async (req) => {
 
   console.log('Games today edge function received filters:', filters);
   
-  // Get today's date in YYYY-MM-DD format using local timezone instead of UTC
-  const today = new Date();
-  const todayStr = today.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format in local timezone
-  console.log('Today date for filtering:', todayStr);
+  // Get today's date in Eastern Time (ET) for consistent date handling
+  const now = new Date();
+  const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+  const todayStr = easternTime.toISOString().split('T')[0];
+  console.log('Today date for filtering (ET):', todayStr);
+  console.log('Current UTC time:', now.toISOString());
+  console.log('Current ET time:', easternTime.toISOString());
   
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -92,14 +95,14 @@ serve(async (req) => {
 
     console.log(`Processing filter for today's games: ${key} = ${val}`);
 
-    // Handle special team_status filter for favored/underdog
+    // Handle special team_status filter for home/away favored
     if (key === 'team_status') {
-      if (val === 'favored') {
-        console.log('Applying favored filter to today\'s games: primary_ml < opponent_ml');
-        todaysQuery = todaysQuery.filter('primary_ml', 'lt', 'opponent_ml');
-      } else if (val === 'underdog') {
-        console.log('Applying underdog filter to today\'s games: primary_ml > opponent_ml');
-        todaysQuery = todaysQuery.filter('primary_ml', 'gt', 'opponent_ml');
+      if (val === 'home_favored') {
+        console.log('Applying home favored filter to today\'s games: home_rl < 0');
+        todaysQuery = todaysQuery.filter('home_rl', 'lt', 0);
+      } else if (val === 'away_favored') {
+        console.log('Applying away favored filter to today\'s games: away_rl < 0');
+        todaysQuery = todaysQuery.filter('away_rl', 'lt', 0);
       }
       continue;
     }
@@ -133,6 +136,11 @@ serve(async (req) => {
         const [min, max] = val.slice(8).split(',');
         console.log(`Applying between filter to today's games: ${key} between ${min} and ${max}`);
         todaysQuery = todaysQuery.gte(key, min).lte(key, max);
+      } else if (key === 'season' && val.includes(',')) {
+        // Handle season multi-select (comma-separated values)
+        const seasons = val.split(',').map(s => s.trim());
+        console.log(`Applying season multi-select filter to today's games: ${seasons}`);
+        todaysQuery = todaysQuery.in(key, seasons);
       } else {
         console.log(`Applying eq filter to today's games: ${key} = ${val}`);
         todaysQuery = todaysQuery.eq(key, val);
@@ -205,12 +213,12 @@ serve(async (req) => {
     console.log(`Processing filter for historical data: ${key} = ${val}`);
 
     if (key === 'team_status') {
-      if (val === 'favored') {
-        console.log('Applying favored filter to historical data: primary_ml < opponent_ml');
-        historicalQuery = historicalQuery.filter('primary_ml', 'lt', 'opponent_ml');
-      } else if (val === 'underdog') {
-        console.log('Applying underdog filter to historical data: primary_ml > opponent_ml');
-        historicalQuery = historicalQuery.filter('primary_ml', 'gt', 'opponent_ml');
+      if (val === 'home_favored') {
+        console.log('Applying home favored filter to historical data: home_rl < 0');
+        historicalQuery = historicalQuery.filter('home_rl', 'lt', 0);
+      } else if (val === 'away_favored') {
+        console.log('Applying away favored filter to historical data: away_rl < 0');
+        historicalQuery = historicalQuery.filter('away_rl', 'lt', 0);
       }
       continue;
     }
@@ -238,6 +246,11 @@ serve(async (req) => {
       } else if (val.startsWith('between:')) {
         const [min, max] = val.slice(8).split(',');
         historicalQuery = historicalQuery.gte(key, min).lte(key, max);
+      } else if (key === 'season' && val.includes(',')) {
+        // Handle season multi-select (comma-separated values)
+        const seasons = val.split(',').map(s => s.trim());
+        console.log(`Applying season multi-select filter to historical data: ${seasons}`);
+        historicalQuery = historicalQuery.in(key, seasons);
       } else {
         historicalQuery = historicalQuery.eq(key, val);
       }

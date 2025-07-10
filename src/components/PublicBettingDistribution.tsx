@@ -94,7 +94,7 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
       'Milwaukee': { primary: '#12284B', secondary: '#FFC72C' },
       'Minnesota': { primary: '#002B5C', secondary: '#D31145' },
       'Mets': { primary: '#002D72', secondary: '#FF5910' },
-      'Yankees': { primary: '#003087', secondary: '#E4002C' },
+      'Yankees': { primary: '#003087', secondary: '#C4CED4' },
       'Athletics': { primary: '#003831', secondary: '#EFB21E' },
       'Philadelphia': { primary: '#E81828', secondary: '#284898' },
       'Pittsburgh': { primary: '#FDB827', secondary: '#27251F' },
@@ -200,42 +200,34 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
   const { homePct: rlHandleHomePct, awayPct: rlHandleAwayPct } = calculateRLHandlePercentages();
   const { homePct: rlBetsHomePct, awayPct: rlBetsAwayPct } = calculateRLBetsPercentages();
 
-  // Helper to convert hex to RGB
-  function hexToRgb(hex: string) {
+  // Get team colors
+  const homeColors = getTeamColors(homeTeam);
+  const awayColors = getTeamColors(awayTeam);
+
+  // Always use primary for home
+  let homeBarColor = homeColors.primary;
+  let awayBarColor = awayColors.primary;
+
+  // If primary colors are too close, use away secondary (unless that's also too close, then fallback)
+  const SIMILARITY_THRESHOLD = 60;
+  function hexToRgb(hex) {
     const match = hex.replace('#', '').match(/.{1,2}/g);
     if (!match) return [0, 0, 0];
     return match.map(x => parseInt(x, 16));
   }
-
-  // Helper to calculate color distance
-  function colorDistance(hex1: string, hex2: string) {
+  function colorDistance(hex1, hex2) {
     const [r1, g1, b1] = hexToRgb(hex1);
     const [r2, g2, b2] = hexToRgb(hex2);
     return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
   }
-
-  // Get team colors and pick the most distinct pair
-  const homeColors = getTeamColors(homeTeam);
-  const awayColors = getTeamColors(awayTeam);
-  const colorPairs = [
-    { home: homeColors.primary, away: awayColors.primary },
-    { home: homeColors.primary, away: awayColors.secondary },
-    { home: homeColors.secondary, away: awayColors.primary },
-    { home: homeColors.secondary, away: awayColors.secondary },
-  ];
-  let maxDist = -1;
-  let bestPair = colorPairs[0];
-  colorPairs.forEach(pair => {
-    const dist = colorDistance(pair.home, pair.away);
-    if (dist > maxDist) {
-      maxDist = dist;
-      bestPair = pair;
+  if (colorDistance(homeBarColor, awayBarColor) < SIMILARITY_THRESHOLD) {
+    // Try away secondary
+    if (colorDistance(homeBarColor, awayColors.secondary) >= SIMILARITY_THRESHOLD) {
+      awayBarColor = awayColors.secondary;
+    } else {
+      awayBarColor = '#888888'; // fallback neutral
     }
-  });
-  const SIMILARITY_THRESHOLD = 60;
-  const homeBarColor = bestPair.home;
-  // If still too similar, use a neutral fallback for away
-  const awayBarColor = maxDist < SIMILARITY_THRESHOLD ? '#888888' : bestPair.away;
+  }
 
   if (isLoading) {
     return (
@@ -270,18 +262,18 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             {/* O/U Handle Distribution Chart */}
             <div className="flex items-center mb-6 w-full justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-rose-700">{calculateHandlePercentages().underPercentage.toFixed(1)}%</span>
-                <span className="font-semibold text-sm text-rose-600">Under</span>
+                <span className="font-bold text-lg text-red-600">{calculateHandlePercentages().underPercentage.toFixed(1)}%</span>
+                <span className="font-semibold text-sm text-red-600">Under</span>
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${calculateHandlePercentages().underPercentage}%`, backgroundColor: getBarColor(calculateHandlePercentages().underPercentage) }} />
-                  <div className="h-full" style={{ width: `${calculateHandlePercentages().overPercentage}%`, backgroundColor: getBarColor(calculateHandlePercentages().overPercentage) }} />
+                  <div className="h-full bg-red-500" style={{ width: `${calculateHandlePercentages().underPercentage}%` }} />
+                  <div className="h-full bg-green-500" style={{ width: `${calculateHandlePercentages().overPercentage}%` }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-emerald-600">Over</span>
-                <span className="font-bold text-lg text-emerald-700">{calculateHandlePercentages().overPercentage.toFixed(1)}%</span>
+                <span className="font-semibold text-sm text-green-600">Over</span>
+                <span className="font-bold text-lg text-green-600">{calculateHandlePercentages().overPercentage.toFixed(1)}%</span>
               </div>
             </div>
             {/* Bets Sub-header */}
@@ -289,18 +281,18 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             {/* O/U Bets Distribution Chart */}
             <div className="flex items-center mb-2 w-full justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-rose-700">{calculateBetsPercentages().underPercentage.toFixed(1)}%</span>
-                <span className="font-semibold text-sm text-rose-600">Under</span>
+                <span className="font-bold text-lg text-red-600">{calculateBetsPercentages().underPercentage.toFixed(1)}%</span>
+                <span className="font-semibold text-sm text-red-600">Under</span>
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${calculateBetsPercentages().underPercentage}%`, backgroundColor: getBarColor(calculateBetsPercentages().underPercentage) }} />
-                  <div className="h-full" style={{ width: `${calculateBetsPercentages().overPercentage}%`, backgroundColor: getBarColor(calculateBetsPercentages().overPercentage) }} />
+                  <div className="h-full bg-red-500" style={{ width: `${calculateBetsPercentages().underPercentage}%` }} />
+                  <div className="h-full bg-green-500" style={{ width: `${calculateBetsPercentages().overPercentage}%` }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-emerald-600">Over</span>
-                <span className="font-bold text-lg text-emerald-700">{calculateBetsPercentages().overPercentage.toFixed(1)}%</span>
+                <span className="font-semibold text-sm text-green-600">Over</span>
+                <span className="font-bold text-lg text-green-600">{calculateBetsPercentages().overPercentage.toFixed(1)}%</span>
               </div>
             </div>
           </div>
@@ -316,16 +308,16 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             <div className="flex items-center mb-6 w-full justify-between">
               <div className="flex items-center gap-2">
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                <span className="font-bold text-lg" style={{ color: awayBarColor }}>{mlHandleAwayPct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${mlHandleAwayPct > mlHandleHomePct ? 'text-green-600' : 'text-red-600'}`}>{mlHandleAwayPct.toFixed(1)}%</span>
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${mlHandleAwayPct}%`, backgroundColor: getBarColor(mlHandleAwayPct) }} />
-                  <div className="h-full" style={{ width: `${mlHandleHomePct}%`, backgroundColor: getBarColor(mlHandleHomePct) }} />
+                  <div className="h-full" style={{ width: `${mlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
+                  <div className="h-full" style={{ width: `${mlHandleHomePct}%`, backgroundColor: homeBarColor }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg" style={{ color: homeBarColor }}>{mlHandleHomePct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${mlHandleHomePct > mlHandleAwayPct ? 'text-green-600' : 'text-red-600'}`}>{mlHandleHomePct.toFixed(1)}%</span>
                 <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
               </div>
             </div>
@@ -335,16 +327,16 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             <div className="flex items-center mb-2 w-full justify-between">
               <div className="flex items-center gap-2">
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                <span className="font-bold text-lg" style={{ color: awayBarColor }}>{mlBetsAwayPct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${mlBetsAwayPct > mlBetsHomePct ? 'text-green-600' : 'text-red-600'}`}>{mlBetsAwayPct.toFixed(1)}%</span>
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${mlBetsAwayPct}%`, backgroundColor: getBarColor(mlBetsAwayPct) }} />
-                  <div className="h-full" style={{ width: `${mlBetsHomePct}%`, backgroundColor: getBarColor(mlBetsHomePct) }} />
+                  <div className="h-full" style={{ width: `${mlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
+                  <div className="h-full" style={{ width: `${mlBetsHomePct}%`, backgroundColor: homeBarColor }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg" style={{ color: homeBarColor }}>{mlBetsHomePct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${mlBetsHomePct > mlBetsAwayPct ? 'text-green-600' : 'text-red-600'}`}>{mlBetsHomePct.toFixed(1)}%</span>
                 <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
               </div>
             </div>
@@ -361,16 +353,16 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             <div className="flex items-center mb-6 w-full justify-between">
               <div className="flex items-center gap-2">
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                <span className="font-bold text-lg" style={{ color: awayBarColor }}>{rlHandleAwayPct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${rlHandleAwayPct > rlHandleHomePct ? 'text-green-600' : 'text-red-600'}`}>{rlHandleAwayPct.toFixed(1)}%</span>
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${rlHandleAwayPct}%`, backgroundColor: getBarColor(rlHandleAwayPct) }} />
-                  <div className="h-full" style={{ width: `${rlHandleHomePct}%`, backgroundColor: getBarColor(rlHandleHomePct) }} />
+                  <div className="h-full" style={{ width: `${rlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
+                  <div className="h-full" style={{ width: `${rlHandleHomePct}%`, backgroundColor: homeBarColor }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg" style={{ color: homeBarColor }}>{rlHandleHomePct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${rlHandleHomePct > rlHandleAwayPct ? 'text-green-600' : 'text-red-600'}`}>{rlHandleHomePct.toFixed(1)}%</span>
                 <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
               </div>
             </div>
@@ -380,16 +372,16 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             <div className="flex items-center mb-2 w-full justify-between">
               <div className="flex items-center gap-2">
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                <span className="font-bold text-lg" style={{ color: awayBarColor }}>{rlBetsAwayPct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${rlBetsAwayPct > rlBetsHomePct ? 'text-green-600' : 'text-red-600'}`}>{rlBetsAwayPct.toFixed(1)}%</span>
               </div>
               <div className="flex-1 mx-2">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${rlBetsAwayPct}%`, backgroundColor: getBarColor(rlBetsAwayPct) }} />
-                  <div className="h-full" style={{ width: `${rlBetsHomePct}%`, backgroundColor: getBarColor(rlBetsHomePct) }} />
+                  <div className="h-full" style={{ width: `${rlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
+                  <div className="h-full" style={{ width: `${rlBetsHomePct}%`, backgroundColor: homeBarColor }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg" style={{ color: homeBarColor }}>{rlBetsHomePct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${rlBetsHomePct > rlBetsAwayPct ? 'text-green-600' : 'text-red-600'}`}>{rlBetsHomePct.toFixed(1)}%</span>
                 <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
               </div>
             </div>

@@ -1,15 +1,14 @@
-import { useState } from "react";
+console.log("Loaded TOP-LEVEL src/components/FilterableWinRates.tsx");
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import TeamDisplay from "./TeamDisplay";
-import { buildQueryString } from "@/utils/queryParams";
-import FilterSummary from "./FilterSummary";
-import BettingLinesFilters from "./BettingLinesFilters";
-import DateFilters from "./DateFilters";
-import SituationalFilters from "./SituationalFilters";
-import { Sparkles, Play, ChevronUp, ChevronDown, Calendar } from "lucide-react";
 
 const SUMMARY_LABELS = [
   { key: 'homeWinPct', label: 'Home Win %' },
@@ -48,530 +47,360 @@ const GAME_COLUMNS = [
   { key: 'ou_bets_over', label: 'O/U Bets Over' },
 ];
 
-interface Filters {
-  [key: string]: string;
-}
+const MONTHS = [
+  { value: 1, label: 'Jan' },
+  { value: 2, label: 'Feb' },
+  { value: 3, label: 'Mar' },
+  { value: 4, label: 'Apr' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'Jun' },
+  { value: 7, label: 'Jul' },
+  { value: 8, label: 'Aug' },
+  { value: 9, label: 'Sep' },
+  { value: 10, label: 'Oct' },
+  { value: 11, label: 'Nov' },
+  { value: 12, label: 'Dec' },
+];
 
-interface DataRow {
-  primary_win?: number;
-  primary_runline_win?: number;
-  ou_result?: number;
-  primary_team?: string;
-  opponent_team?: string;
-  is_home_team?: boolean;
-  primary_team_score?: number;
-  opponent_team_score?: number;
-  day?: number;
-  month?: number;
-  season?: number;
-  o_u_line?: number;
-  [key: string]: any;
-}
+const AVAILABLE_SEASONS = [2024, 2025]; // You can update this as needed
 
-interface TeamStats {
-  team: string;
-  winPct: string;
-  runlinePct: string;
-  overPct: string;
-  underPct: string;
-  total: number;
-}
+// Dropdown multi-select component
+const DropdownMultiSelect = ({ label, options, selected, setSelected }: {
+  label: string,
+  options: { value: number, label: string }[],
+  selected: number[],
+  setSelected: (vals: number[]) => void
+}) => {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-interface GameDisplay {
-  date: string;
-  homeTeam: string;
-  awayTeam: string;
-  homeScore: number;
-  awayScore: number;
-  ouLine: number;
-}
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
 
-interface MLBTeam {
-  short_name?: string;
-  full_name?: string;
-  [key: string]: any;
-}
+  const selectedLabels = options.filter(opt => selected.includes(opt.value)).map(opt => opt.label);
+  const allSelected = selected.length === options.length;
+  const displayLabel = allSelected ? label : selectedLabels.length > 0 ? selectedLabels.join(", ") : `Select ${label}`;
 
-type SortColumn = 'team' | 'winPct' | 'runlinePct' | 'overPct' | 'underPct' | 'total';
-type SortDirection = 'asc' | 'desc';
-
-// Helper: PercentageBar component
-const PercentageBar = ({ value }: { value: number }) => {
-  let color = '#22c55e'; // green
-  if (value < 33.3) color = '#ef4444'; // red
-  else if (value < 66.6) color = '#f59e42'; // orange
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <div style={{
-        width: 48,
-        height: 10,
-        background: '#e5e7eb',
-        borderRadius: 4,
-        overflow: 'hidden',
-        marginRight: 4,
-      }}>
-        <div style={{
-          width: `${Math.max(0, Math.min(100, value))}%`,
-          height: '100%',
-          background: color,
-          borderRadius: 4,
-          transition: 'width 0.3s',
-        }} />
-      </div>
-      <span style={{ minWidth: 36, display: 'inline-block', textAlign: 'right' }}>{value.toFixed(1)}%</span>
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        className="border rounded px-3 py-2 min-w-[120px] text-left bg-white shadow-sm hover:border-primary focus:outline-none"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className={selectedLabels.length === 0 ? "text-gray-400" : ""}>{displayLabel}</span>
+        <span className="float-right ml-2">▼</span>
+      </button>
+              {open && (
+          <div className="absolute z-10 mt-1 bg-white border rounded shadow-lg p-2 min-w-[140px] max-h-60 overflow-y-auto">
+            {/* Select All option */}
+            <label className="flex items-center gap-2 py-1 cursor-pointer border-b border-gray-200 pb-2 mb-1">
+              <input
+                type="checkbox"
+                checked={selected.length === options.length}
+                onChange={e => {
+                  if (e.target.checked) {
+                    setSelected(options.map(opt => opt.value));
+                  } else {
+                    setSelected([]);
+                  }
+                }}
+              />
+              <span className="font-medium text-gray-700">Select All</span>
+            </label>
+            {options.map(opt => (
+              <label key={opt.value} className="flex items-center gap-2 py-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt.value)}
+                  onChange={e => {
+                    if (e.target.checked) {
+                      setSelected([...selected, opt.value]);
+                    } else {
+                      setSelected(selected.filter(v => v !== opt.value));
+                    }
+                  }}
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
     </div>
   );
 };
 
 export default function FilterableWinRates() {
-  const [filters, setFilters] = useState<Filters>({});
   const [summary, setSummary] = useState(null);
   const [gameRows, setGameRows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [mlbTeams, setMlbTeams] = useState<MLBTeam[]>([]);
-  const [sortColumn, setSortColumn] = useState<SortColumn>('total');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [gamesTodayMode, setGamesTodayMode] = useState(false);
-  const [todaysGames, setTodaysGames] = useState<DataRow[]>([]);
-  const [teamsPlayingToday, setTeamsPlayingToday] = useState<string[]>([]);
+  const [selectedSeasons, setSelectedSeasons] = useState<number[]>([2024, 2025]);
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  const [ouLineRange, setOuLineRange] = useState<[number, number]>([6.5, 12.5]);
+  const [favoriteFilter, setFavoriteFilter] = useState<string>("all");
+  const [homePitcherHand, setHomePitcherHand] = useState<string>("all");
+  const [awayPitcherHand, setAwayPitcherHand] = useState<string>("all");
 
-  const handleInputChange = (column: string, value: string) => {
-    setFilters({ ...filters, [column]: value });
-  };
-
-  const applyFilters = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('filter-training-data', {
-        body: { filters }
-      });
-      if (error) throw error;
-      
-      console.log('=== DEBUG: Backend response ===');
-      console.log('Summary:', data.summary);
-      console.log('GameRows count:', data.gameRows?.length || 0);
-      console.log('First 5 gameRows dates:', data.gameRows?.slice(0, 5).map(g => g.date));
-      console.log('Last 5 gameRows dates:', data.gameRows?.slice(-5).map(g => g.date));
-      console.log('Sample game object:', data.gameRows?.[0]);
-      
-      setSummary(data.summary);
-      setGameRows(data.gameRows);
-    } catch (err) {
-      setError('Failed to fetch win rate data.');
-      setSummary(null);
-      setGameRows([]);
-    } finally {
-      setIsLoading(false);
+  // Helper to build filters object
+  const buildFilters = () => {
+    const filters: Record<string, string> = {};
+    if (selectedSeasons.length > 0) {
+      filters.season = selectedSeasons.join(',');
     }
-  };
-
-  const applyGamesTodayFilters = async (): Promise<void> => {
-    setIsLoading(true);
-    try {
-      // Fetch MLB teams data for logos (simple query)
-      const { data: teamsData } = await supabase.from("MLB_Teams").select("*");
-      
-      if (teamsData) {
-        setMlbTeams(teamsData);
-      }
-
-      // Handle empty filters gracefully
-      if (Object.keys(filters).length === 0 || Object.values(filters).every(value => !value || value.trim() === '')) {
-        console.log('No filters applied, skipping games today request');
-        setTodaysGames([]);
-        setGameRows([]);
-        setTeamsPlayingToday([]);
-        setGamesTodayMode(true);
-        return;
-      }
-
-      console.log('Sending filters to games today edge function:', filters);
-
-      // Call the games today edge function
-      const { data, error } = await supabase.functions.invoke('games-today-filtered', {
-        body: { filters }
-      });
-
-      if (error) {
-        console.error('Games today edge function error:', error);
-        throw error;
-      }
-
-      console.log('Games today response:', data);
-      setTodaysGames(data.todaysGames || []);
-      setGameRows(data.gameRows || []);
-      setTeamsPlayingToday(data.teamsPlayingToday || []);
-      setGamesTodayMode(true);
-    } catch (error) {
-      console.error('Error applying games today filters:', error);
-      setTodaysGames([]);
-      setGameRows([]);
-      setTeamsPlayingToday([]);
-      setGamesTodayMode(true);
-    } finally {
-      setIsLoading(false);
+    if (selectedMonths.length > 0) {
+      filters.month = selectedMonths.join(',');
     }
+    return filters;
   };
 
-  const isPitcherSelected = (): boolean => {
-    return !!(filters['primary_pitcher'] || filters['opponent_pitcher']);
-  };
+  // Fetch summary and game details when filters change
+  useEffect(() => {
+    console.log("Selected seasons:", selectedSeasons);
+    console.log("Selected months:", selectedMonths);
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const filters = {
+          season: selectedSeasons.length > 0 ? selectedSeasons.join(',') : undefined,
+          month: selectedMonths.length > 0 ? selectedMonths.join(',') : undefined,
+          ou_line_min: ouLineRange[0],
+          ou_line_max: ouLineRange[1],
+          team_status: favoriteFilter !== "all" ? favoriteFilter : undefined,
+          home_handedness: homePitcherHand !== "all" ? homePitcherHand : undefined,
+          away_handedness: awayPitcherHand !== "all" ? awayPitcherHand : undefined
+        };
 
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('desc');
-    }
-  };
+        console.log('Frontend: Sending filters to backend:', filters);
+        console.log('Frontend: O/U Line range:', ouLineRange);
 
-  const getSortIcon = (column: SortColumn) => {
-    if (sortColumn !== column) {
-      return <ChevronUp className="w-4 h-4 opacity-30" />;
-    }
-    return sortDirection === 'asc' ? 
-      <ChevronUp className="w-4 h-4" /> : 
-      <ChevronDown className="w-4 h-4" />;
-  };
+        const { data, error } = await supabase.functions.invoke('filter-training-data', {
+          body: { filters }
+        });
 
-  const getTeamStats = (): TeamStats[] => {
-    const teamMap = new Map<string, DataRow[]>();
-    
-    // Group by primary team
-    gameRows.forEach(row => {
-      if (row.primary_team) {
-        if (!teamMap.has(row.primary_team)) {
-          teamMap.set(row.primary_team, []);
+        if (error) {
+          throw error;
         }
-        teamMap.get(row.primary_team)!.push(row);
+
+        console.log('Frontend: Received data from backend:', data);
+        
+        // The backend returns { summary, gameRows }
+        if (data && data.summary && data.gameRows) {
+          setSummary(data.summary);
+          setGameRows(data.gameRows);
+        } else {
+          setSummary(null);
+          setGameRows([]);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setSummary(null);
+        setGameRows([]);
+      } finally {
+        setIsLoading(false);
       }
-    });
-
-    const teamStats = Array.from(teamMap.entries()).map(([team, games]) => {
-      const total = games.length;
-      const win = games.filter(g => g.primary_win === 1).length;
-      const runline = games.filter(g => g.primary_runline_win === 1).length;
-      const over = games.filter(g => g.ou_result === 1).length;
-      const under = games.filter(g => g.ou_result === 0).length;
-
-      return {
-        team,
-        winPct: total ? (win / total * 100).toFixed(1) : "0",
-        runlinePct: total ? (runline / total * 100).toFixed(1) : "0",
-        overPct: total ? (over / total * 100).toFixed(1) : "0",
-        underPct: total ? (under / total * 100).toFixed(1) : "0",
-        total
-      };
-    });
-
-    // Sort based on current sort column and direction
-    return teamStats.sort((a, b) => {
-      let aValue: number | string;
-      let bValue: number | string;
-
-      switch (sortColumn) {
-        case 'team':
-          aValue = a.team;
-          bValue = b.team;
-          break;
-        case 'winPct':
-          aValue = parseFloat(a.winPct);
-          bValue = parseFloat(b.winPct);
-          break;
-        case 'runlinePct':
-          aValue = parseFloat(a.runlinePct);
-          bValue = parseFloat(b.runlinePct);
-          break;
-        case 'overPct':
-          aValue = parseFloat(a.overPct);
-          bValue = parseFloat(b.overPct);
-          break;
-        case 'underPct':
-          aValue = parseFloat(a.underPct);
-          bValue = parseFloat(b.underPct);
-          break;
-        case 'total':
-          aValue = a.total;
-          bValue = b.total;
-          break;
-        default:
-          aValue = a.total;
-          bValue = b.total;
-      }
-
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortDirection === 'asc' ? 
-          aValue.localeCompare(bValue) : 
-          bValue.localeCompare(aValue);
-      } else {
-        return sortDirection === 'asc' ? 
-          (aValue as number) - (bValue as number) : 
-          (bValue as number) - (aValue as number);
-      }
-    });
-  };
-
-  const getGameDisplays = (): GameDisplay[] => {
-    return gameRows.slice(0, 50).map(row => {
-      const homeTeam = row.is_home_team ? row.primary_team : row.opponent_team;
-      const awayTeam = row.is_home_team ? row.opponent_team : row.primary_team;
-      const homeScore = row.is_home_team ? row.primary_team_score : row.opponent_team_score;
-      const awayScore = row.is_home_team ? row.opponent_team_score : row.primary_team_score;
-      const date = `${row.month || 0}/${row.day || 0}/${row.season || 0}`;
-      return {
-        date,
-        homeTeam: homeTeam || '',
-        awayTeam: awayTeam || '',
-        homeScore: homeScore || 0,
-        awayScore: awayScore || 0,
-        ouLine: row.o_u_line || 0
-      };
-    });
-  };
-
-  const getTodaysGameDisplays = (): GameDisplay[] => {
-    return todaysGames.map(row => {
-      const homeTeam = row.is_home_team ? row.primary_team : row.opponent_team;
-      const awayTeam = row.is_home_team ? row.opponent_team : row.primary_team;
-      const date = `${row.month || 0}/${row.day || 0}/${row.season || 0}`;
-      return {
-        date,
-        homeTeam: homeTeam || '',
-        awayTeam: awayTeam || '',
-        homeScore: 0, // No scores for future games
-        awayScore: 0, // No scores for future games
-        ouLine: row.o_u_line || 0
-      };
-    });
-  };
-
-  // Sort and limit gameRows to 100 most recent by date
-  console.log('=== DEBUG: Before sorting ===');
-  console.log('Total gameRows:', gameRows.length);
-  console.log('First 5 gameRows dates:', gameRows.slice(0, 5).map(g => g.date));
-  console.log('Last 5 gameRows dates:', gameRows.slice(-5).map(g => g.date));
-  console.log('Sample game object:', gameRows[0]);
-  
-  const sortedGameRows = [...gameRows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 100);
-  
-  console.log('=== DEBUG: After sorting ===');
-  console.log('First 5 sortedGameRows dates:', sortedGameRows.slice(0, 5).map(g => g.date));
-  console.log('Last 5 sortedGameRows dates:', sortedGameRows.slice(-5).map(g => g.date));
-  console.log('Sample sorted game object:', sortedGameRows[0]);
-
-  const teamStats = getTeamStats();
-  const gameDisplays = getGameDisplays();
-  const todaysGameDisplays = getTodaysGameDisplays();
-
-  const clearFilters = () => {
-    setFilters({});
-    setGameRows([]);
-    setTodaysGames([]);
-    setTeamsPlayingToday([]);
-    setGamesTodayMode(false);
-  };
-
-  const handleClearFilter = (column: string) => {
-    const newFilters = { ...filters };
-    delete newFilters[column];
-    setFilters(newFilters);
-  };
-
-  const formatPercentage = (value: number) => {
-    return value !== undefined && value !== null ? `${value.toFixed(1)}%` : '0.0%';
-  };
-
-  const calculateHandlePercentage = (handle: number, totalHandle: number) => {
-    if (!totalHandle || totalHandle === 0) return 0;
-    return (handle / totalHandle) * 100;
-  };
-
-  const calculateBetsPercentage = (bets: number, totalBets: number) => {
-    if (!totalBets || totalBets === 0) return 0;
-    return (bets / totalBets) * 100;
-  };
-
-  const renderGameRow = (game: any) => {
-    // Calculate totals for percentages
-    const totalMLHandle = (game.home_ml_handle || 0) + (game.away_ml_handle || 0);
-    const totalMLBets = (game.home_ml_bets || 0) + (game.away_ml_bets || 0);
-    const totalRLHandle = (game.home_rl_handle || 0) + (game.away_rl_handle || 0);
-    const totalRLBets = (game.home_rl_bets || 0) + (game.away_rl_bets || 0);
-    const totalOUHandle = game.ou_handle_over || 0;
-    const totalOUBets = game.ou_bets_over || 0;
-
-    // Over/Under percentages (ou_handle_over and ou_bets_over are decimals)
-    let overHandlePct = 0, underHandlePct = 0, overBetsPct = 0, underBetsPct = 0;
-    if (typeof game.ou_handle_over === 'number') {
-      overHandlePct = +(game.ou_handle_over * 100).toFixed(1);
-      underHandlePct = +(100.0 - overHandlePct).toFixed(1);
-    } else {
-      overHandlePct = 0;
-      underHandlePct = 0;
-    }
-    if (typeof game.ou_bets_over === 'number') {
-      overBetsPct = +(game.ou_bets_over * 100).toFixed(1);
-      underBetsPct = +(100.0 - overBetsPct).toFixed(1);
-    } else {
-      overBetsPct = 0;
-      underBetsPct = 0;
-    }
-
-    return (
-      <TableRow key={game.unique_id}>
-        <TableCell className="font-medium">{game.date}</TableCell>
-        <TableCell>{game.home_team}</TableCell>
-        <TableCell>{game.away_team}</TableCell>
-        <TableCell>
-          <div className="text-sm">{game.home_pitcher}</div>
-        </TableCell>
-        <TableCell>
-          <div className="text-sm">{game.away_pitcher}</div>
-        </TableCell>
-        <TableCell className="text-center">{game.home_score}</TableCell>
-        <TableCell className="text-center">{game.away_score}</TableCell>
-        <TableCell className="text-center">{game.o_u_line}</TableCell>
-        <TableCell>
-          <div className="text-xs space-y-1">
-            <div>H Handle: <PercentageBar value={calculateHandlePercentage(game.home_ml_handle, totalMLHandle)} /></div>
-            <div>A Bet: <PercentageBar value={calculateBetsPercentage(game.away_ml_bets, totalMLBets)} /></div>
-            <div>A Handle: <PercentageBar value={calculateHandlePercentage(game.away_ml_handle, totalMLHandle)} /></div>
-            <div>H Bet: <PercentageBar value={calculateBetsPercentage(game.home_ml_bets, totalMLBets)} /></div>
-          </div>
-        </TableCell>
-        <TableCell>
-          <div className="text-xs space-y-1">
-            <div>H Handle: <PercentageBar value={calculateHandlePercentage(game.home_rl_handle, totalRLHandle)} /></div>
-            <div>A Bet: <PercentageBar value={calculateBetsPercentage(game.away_rl_bets, totalRLBets)} /></div>
-            <div>A Handle: <PercentageBar value={calculateHandlePercentage(game.away_rl_handle, totalRLHandle)} /></div>
-            <div>H Bet: <PercentageBar value={calculateBetsPercentage(game.home_rl_bets, totalRLBets)} /></div>
-          </div>
-        </TableCell>
-        <TableCell>
-          <div className="text-xs space-y-1">
-            <div>O Handle: <PercentageBar value={overHandlePct} /></div>
-            <div>U Bet: <PercentageBar value={underBetsPct} /></div>
-            <div>U Handle: <PercentageBar value={underHandlePct} /></div>
-            <div>O Bet: <PercentageBar value={overBetsPct} /></div>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  };
+    };
+    fetchData();
+  }, [selectedSeasons, selectedMonths, ouLineRange, favoriteFilter, homePitcherHand, awayPitcherHand]);
 
   return (
-    <div className="p-4 grid gap-6">
-      {/* Filter Summary */}
-      <FilterSummary 
-        filters={filters}
-        onClearFilter={handleClearFilter}
-        onClearAll={clearFilters}
-      />
-
-      {/* Three Filter Sections */}
-      <div className="grid gap-6">
-        <BettingLinesFilters 
-          filters={filters}
-          onFilterChange={handleInputChange}
-        />
-        
-        <DateFilters 
-          filters={filters}
-          onFilterChange={handleInputChange}
-        />
-        
-        <SituationalFilters 
-          filters={filters}
-          onFilterChange={handleInputChange}
-        />
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-3 flex-wrap">
-        <Button 
-          onClick={applyFilters} 
-          disabled={isLoading}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
-        >
-          {isLoading ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-          ) : (
-            <>
-              <Play className="w-4 h-4" />
-              Historical Analysis
-            </>
-          )}
-        </Button>
-        
-        <Button 
-          onClick={applyGamesTodayFilters} 
-          disabled={isLoading}
-          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
-        >
-          {isLoading && gamesTodayMode ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-          ) : (
-            <>
-              <Calendar className="w-4 h-4" />
-              Games Today
-            </>
-          )}
-        </Button>
-        
-        <Button 
-          variant="outline" 
-          onClick={clearFilters}
-          className="border-2 border-gray-300 hover:border-purple-500 hover:text-purple-600 px-6 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
-        >
-          <Sparkles className="w-4 h-4" />
-          Clear All
-        </Button>
-      </div>
-
-      {/* Today's Games Section - only show in games today mode */}
-      {gamesTodayMode && (
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-l-4 border-green-500">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              Games Today Matching Filters ({todaysGames.length} games)
-            </h3>
-            {todaysGames.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-green-200">
-                      <TableHead>Home Team</TableHead>
-                      <TableHead>Away Team</TableHead>
-                      <TableHead className="text-center">O/U Line</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {todaysGameDisplays.map((game, i) => (
-                      <TableRow key={i} className="hover:bg-green-50/50 transition-colors">
-                        <TableCell>
-                          <TeamDisplay team={game.homeTeam} isHome={true} />
-                        </TableCell>
-                        <TableCell>
-                          <TeamDisplay team={game.awayTeam} isHome={false} />
-                        </TableCell>
-                        <TableCell className="text-center">{game.ouLine}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+    <div className="space-y-8">
+      {/* Filters UI */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-8">
+            <DropdownMultiSelect label="Season" options={AVAILABLE_SEASONS.map(s => ({ value: s, label: s.toString() }))} selected={selectedSeasons} setSelected={setSelectedSeasons} />
+            <DropdownMultiSelect label="Month" options={MONTHS} selected={selectedMonths} setSelected={setSelectedMonths} />
+            
+            {/* O/U Line Range Slider */}
+            <div className="space-y-2">
+              <div className="font-semibold">O/U Line Range</div>
+              <div className="w-64">
+                <Slider
+                  value={ouLineRange}
+                  onValueChange={(value: number[]) => setOuLineRange([value[0], value[1]] as [number, number])}
+                  max={20}
+                  min={0}
+                  step={0.5}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-sm text-gray-600 mt-1">
+                  <span>{ouLineRange[0]}</span>
+                  <span>{ouLineRange[1]}</span>
+                </div>
               </div>
-            ) : (
-              <p className="text-green-600 font-medium">No games today match the current filters.</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </div>
 
-      {/* Overall Win Rate Summary */}
-      <Card className="mb-6">
+            {/* Favorite Filter */}
+            <div className="space-y-2">
+              <div className="font-semibold">Team Favorite</div>
+              <RadioGroup value={favoriteFilter} onValueChange={setFavoriteFilter}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id="all" />
+                  <Label htmlFor="all">All Games</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="home_favored" id="home_favored" />
+                  <Label htmlFor="home_favored">Home Favorite</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="away_favored" id="away_favored" />
+                  <Label htmlFor="away_favored">Away Favorite</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Home Pitcher Hand */}
+            <div className="space-y-2">
+              <div className="font-semibold">Home Pitcher Hand</div>
+              <RadioGroup value={homePitcherHand} onValueChange={setHomePitcherHand}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id="home_all" />
+                  <Label htmlFor="home_all">All</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="right" id="home_right" />
+                  <Label htmlFor="home_right">Right</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="left" id="home_left" />
+                  <Label htmlFor="home_left">Left</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Away Pitcher Hand */}
+            <div className="space-y-2">
+              <div className="font-semibold">Away Pitcher Hand</div>
+              <RadioGroup value={awayPitcherHand} onValueChange={setAwayPitcherHand}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id="away_all" />
+                  <Label htmlFor="away_all">All</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="right" id="away_right" />
+                  <Label htmlFor="away_right">Right</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="left" id="away_left" />
+                  <Label htmlFor="away_left">Left</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filter Summary */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Active Filters</CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setSelectedSeasons([2024, 2025]);
+                setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+                setOuLineRange([6.5, 12.5]);
+                setFavoriteFilter("all");
+                setHomePitcherHand("all");
+                setAwayPitcherHand("all");
+              }}
+            >
+              Clear All Filters
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {/* Season Filter */}
+            {selectedSeasons.length > 0 && selectedSeasons.length < AVAILABLE_SEASONS.length && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Season: {selectedSeasons.join(", ")}
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  onClick={() => setSelectedSeasons([2024, 2025])}
+                />
+              </Badge>
+            )}
+
+            {/* Month Filter */}
+            {selectedMonths.length > 0 && selectedMonths.length < MONTHS.length && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Month: {selectedMonths.map(m => MONTHS.find(month => month.value === m)?.label).join(", ")}
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  onClick={() => setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
+                />
+              </Badge>
+            )}
+
+            {/* O/U Line Filter */}
+            {ouLineRange[0] !== 6.5 || ouLineRange[1] !== 12.5 ? (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                O/U Line: {ouLineRange[0]} - {ouLineRange[1]}
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  onClick={() => setOuLineRange([6.5, 12.5])}
+                />
+              </Badge>
+            ) : null}
+
+            {/* Favorite Filter */}
+            {favoriteFilter !== "all" && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                {favoriteFilter === "home_favored" ? "Home Favorite" : "Away Favorite"}
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  onClick={() => setFavoriteFilter("all")}
+                />
+              </Badge>
+            )}
+
+            {/* Home Pitcher Hand Filter */}
+            {homePitcherHand !== "all" && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Home Pitcher: {homePitcherHand === "right" ? "Right" : "Left"}
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  onClick={() => setHomePitcherHand("all")}
+                />
+              </Badge>
+            )}
+
+            {/* Away Pitcher Hand Filter */}
+            {awayPitcherHand !== "all" && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Away Pitcher: {awayPitcherHand === "right" ? "Right" : "Left"}
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  onClick={() => setAwayPitcherHand("all")}
+                />
+              </Badge>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Win Rate Summary */}
+      <Card>
         <CardHeader>
           <CardTitle>Win Rate Summary</CardTitle>
         </CardHeader>
@@ -579,44 +408,23 @@ export default function FilterableWinRates() {
           {isLoading ? (
             <div>Loading...</div>
           ) : error ? (
-            <div className="text-red-600">{error}</div>
+            <div className="text-red-500">{error}</div>
           ) : summary ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex flex-col items-center">
-                <span className="text-sm text-muted-foreground">Home Win %</span>
-                <span className="text-lg font-bold">{summary.homeWinPct !== undefined ? summary.homeWinPct.toFixed(1) + '%' : '-'}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-sm text-muted-foreground">Away Win %</span>
-                <span className="text-lg font-bold">{summary.awayWinPct !== undefined ? summary.awayWinPct.toFixed(1) + '%' : '-'}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-sm text-muted-foreground">Home Cover %</span>
-                <span className="text-lg font-bold">{summary.homeCoverPct !== undefined ? summary.homeCoverPct.toFixed(1) + '%' : '-'}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-sm text-muted-foreground">Away Cover %</span>
-                <span className="text-lg font-bold">{summary.awayCoverPct !== undefined ? summary.awayCoverPct.toFixed(1) + '%' : '-'}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-sm text-muted-foreground">Over %</span>
-                <span className="text-lg font-bold">{summary.overPct !== undefined ? summary.overPct.toFixed(1) + '%' : '-'}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-sm text-muted-foreground">Under %</span>
-                <span className="text-lg font-bold">{summary.underPct !== undefined ? summary.underPct.toFixed(1) + '%' : '-'}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-sm text-muted-foreground">Total Games</span>
-                <span className="text-lg font-bold">{summary.totalGames !== undefined ? summary.totalGames : '-'}</span>
-              </div>
+              {SUMMARY_LABELS.map(({ key, label }) => (
+                <div key={key} className="flex flex-col items-center">
+                  <span className="text-sm text-muted-foreground">{label}</span>
+                  <span className="text-lg font-bold">
+                    {summary[key] !== undefined ? summary[key] : '-'}
+                  </span>
+                </div>
+              ))}
             </div>
           ) : (
-            <div>No data. Apply filters to see results.</div>
+            <div>No summary data available.</div>
           )}
         </CardContent>
       </Card>
-
       {/* Game Details */}
       <Card>
         <CardHeader>
@@ -626,32 +434,30 @@ export default function FilterableWinRates() {
           {isLoading ? (
             <div>Loading...</div>
           ) : error ? (
-            <div className="text-red-600">{error}</div>
-          ) : gameRows.length > 0 ? (
+            <div className="text-red-500">{error}</div>
+          ) : gameRows && gameRows.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Home Team</TableHead>
-                    <TableHead>Away Team</TableHead>
-                    <TableHead>Home Pitcher</TableHead>
-                    <TableHead>Away Pitcher</TableHead>
-                    <TableHead className="text-center">Home Score</TableHead>
-                    <TableHead className="text-center">Away Score</TableHead>
-                    <TableHead className="text-center">O/U Line</TableHead>
-                    <TableHead className="text-center">Moneyline</TableHead>
-                    <TableHead className="text-center">Runline</TableHead>
-                    <TableHead className="text-center">Over/Under</TableHead>
+                    {GAME_COLUMNS.map(col => (
+                      <TableHead key={col.key}>{col.label}</TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedGameRows.map(renderGameRow)}
+                  {gameRows.map((row, idx) => (
+                    <TableRow key={idx}>
+                      {GAME_COLUMNS.map(col => (
+                        <TableCell key={col.key}>{row[col.key]}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
           ) : (
-            <div>No games found for these filters.</div>
+            <div>No game details available.</div>
           )}
         </CardContent>
       </Card>

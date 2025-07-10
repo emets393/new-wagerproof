@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -39,8 +38,15 @@ serve(async (req) => {
 
   console.log('Edge function received filters:', filters);
   
-  const today = new Date().toISOString().split('T')[0];
-  console.log('Today date for filtering:', today);
+  // Get today's date in Eastern Time (ET) for consistent date handling
+  const now = new Date();
+  const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+  const today = easternTime.toISOString().split('T')[0];
+  console.log('=== DATE DEBUG INFO ===');
+  console.log('Current UTC time:', now.toISOString());
+  console.log('Current ET time:', easternTime.toISOString());
+  console.log('Using today as:', today);
+  console.log('======================');
   
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -77,19 +83,16 @@ serve(async (req) => {
   for (const key of allFilters) {
     const val = filters[key];
     if (!val) continue;
-
     console.log(`Processing filter: ${key} = ${val}`);
 
-    // Handle special team_status filter for favored/underdog
+    // Handle special team_status filter for home/away favored
     if (key === 'team_status') {
-      if (val === 'favored') {
-        console.log('Applying favored filter: primary_ml < opponent_ml');
-        // Use raw SQL for column comparison
-        query = query.filter('primary_ml', 'lt', 'opponent_ml');
-      } else if (val === 'underdog') {
-        console.log('Applying underdog filter: primary_ml > opponent_ml');
-        // Use raw SQL for column comparison  
-        query = query.filter('primary_ml', 'gt', 'opponent_ml');
+      if (val === 'home_favored') {
+        console.log('Applying home favored filter: home_rl < 0');
+        query = query.filter('home_rl', 'lt', 0);
+      } else if (val === 'away_favored') {
+        console.log('Applying away favored filter: away_rl < 0');
+        query = query.filter('away_rl', 'lt', 0);
       }
       continue;
     }
@@ -99,6 +102,14 @@ serve(async (req) => {
       const boolValue = val === 'true';
       console.log(`Applying boolean filter: ${key} = ${boolValue}`);
       query = query.eq(key, boolValue);
+      continue;
+    }
+
+    // Handle multi-select for season and month
+    if ((key === 'season' || key === 'month') && val.includes(',')) {
+      const values = val.split(',').map(v => v.trim());
+      console.log(`Applying multi-select filter: ${key} in`, values);
+      query = query.in(key, values);
       continue;
     }
 
@@ -122,8 +133,10 @@ serve(async (req) => {
       } else if (val.startsWith('between:')) {
         const [min, max] = val.slice(8).split(',');
         console.log(`Applying between filter: ${key} between ${min} and ${max}`);
-        console.log(`Parsed min: "${min}", max: "${max}"`);
         query = query.gte(key, min).lte(key, max);
+      } else if (key === 'season' && val.includes(',')) {
+        // Already handled above
+        continue;
       } else {
         console.log(`Applying eq filter: ${key} = ${val}`);
         query = query.eq(key, val);
@@ -138,8 +151,12 @@ serve(async (req) => {
   console.log(`Applying date filter: date < ${today}`);
   query = query.lt('date', today);
 
+  // HARD FILTER for testing: only return games where season = 2025
+  query = query.eq('season', 2025);
+
   console.log('Executing query...');
-  const { data, error } = await query;
+  let { data, error } = await query;
+  console.log('Query executed. Number of rows returned:', data ? data.length : 0);
 
   const headers = {
     'Content-Type': 'application/json',

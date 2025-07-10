@@ -38,13 +38,15 @@ serve(async (req) => {
 
   console.log('Edge function received filters:', filters);
   
-  // Get today's date in Eastern Time
+  // Get today's date in Eastern Time (ET) for consistent date handling
   const now = new Date();
   const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
   const today = easternTime.toISOString().split('T')[0];
-  console.log(`Current UTC time: ${now.toISOString()}`);
-  console.log(`Current Eastern time: ${easternTime.toISOString()}`);
-  console.log(`Using 'today' as: ${today}`);
+  console.log('=== DATE DEBUG INFO ===');
+  console.log('Current UTC time:', now.toISOString());
+  console.log('Current ET time:', easternTime.toISOString());
+  console.log('Using today as:', today);
+  console.log('======================');
   
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -72,13 +74,107 @@ serve(async (req) => {
   const allFilters = [
     ...numericFiltersWithOperators,
     ...booleanFilters,
-    "primary_team", "primary_pitcher", "opponent_team", "opponent_pitcher", "team_status"
+    "primary_team", "primary_pitcher", "opponent_team", "opponent_pitcher", "team_status",
+    "ou_line_min", "ou_line_max", "home_handedness", "away_handedness"
   ];
 
   let query = supabase.from('training_data').select('*').order('date', { ascending: false });
   console.log('Starting with base query (no limit)');
 
-  // NO DATE FILTER
+  // Apply filters to the query
+  for (const key of allFilters) {
+    const val = filters[key];
+    if (!val) continue;
+
+    console.log(`Processing filter: ${key} = ${val}`);
+
+    // Handle special team_status filter for home/away favored
+    if (key === 'team_status') {
+      if (val === 'home_favored') {
+        console.log('Applying home favored filter: home_rl < 0');
+        query = query.filter('home_rl', 'lt', 0);
+      } else if (val === 'away_favored') {
+        console.log('Applying away favored filter: away_rl < 0');
+        query = query.filter('away_rl', 'lt', 0);
+      }
+      continue;
+    }
+
+    // Handle boolean filters
+    if (booleanFilters.has(key)) {
+      const boolValue = val === 'true';
+      console.log(`Applying boolean filter: ${key} = ${boolValue}`);
+      query = query.eq(key, boolValue);
+      continue;
+    }
+
+    // Handle multi-select for season and month
+    if ((key === 'season' || key === 'month') && val.includes(',')) {
+      const values = val.split(',').map(v => v.trim());
+      console.log(`Applying multi-select filter: ${key} in`, values);
+      query = query.in(key, values);
+      continue;
+    }
+
+    // Handle O/U line range filter
+    if (key === 'ou_line_min') {
+      console.log(`Applying O/U line min filter: o_u_line >= ${val}`);
+      query = query.gte('o_u_line', parseFloat(val));
+      continue;
+    }
+    if (key === 'ou_line_max') {
+      console.log(`Applying O/U line max filter: o_u_line <= ${val}`);
+      query = query.lte('o_u_line', parseFloat(val));
+      continue;
+    }
+
+    // Handle pitcher handedness filters
+    if (key === 'home_handedness') {
+      const handednessValue = val === 'right' ? 1 : 2;
+      console.log(`Applying home handedness filter: home_handedness = ${handednessValue} (${val})`);
+      query = query.eq('home_handedness', handednessValue);
+      continue;
+    }
+    if (key === 'away_handedness') {
+      const handednessValue = val === 'right' ? 1 : 2;
+      console.log(`Applying away handedness filter: away_handedness = ${handednessValue} (${val})`);
+      query = query.eq('away_handedness', handednessValue);
+      continue;
+    }
+
+    if (numericFiltersWithOperators.has(key)) {
+      if (val.startsWith('gt:')) {
+        const value = val.slice(3);
+        console.log(`Applying gt filter: ${key} > ${value}`);
+        query = query.gt(key, value);
+      } else if (val.startsWith('gte:')) {
+        const value = val.slice(4);
+        console.log(`Applying gte filter: ${key} >= ${value}`);
+        query = query.gte(key, value);
+      } else if (val.startsWith('lt:')) {
+        const value = val.slice(3);
+        console.log(`Applying lt filter: ${key} < ${value}`);
+        query = query.lt(key, value);
+      } else if (val.startsWith('lte:')) {
+        const value = val.slice(4);
+        console.log(`Applying lte filter: ${key} <= ${value}`);
+        query = query.lte(key, value);
+      } else if (val.startsWith('between:')) {
+        const [min, max] = val.slice(8).split(',');
+        console.log(`Applying between filter: ${key} between ${min} and ${max}`);
+        query = query.gte(key, min).lte(key, max);
+      } else if (key === 'season' && val.includes(',')) {
+        // Already handled above
+        continue;
+      } else {
+        console.log(`Applying eq filter: ${key} = ${val}`);
+        query = query.eq(key, val);
+      }
+    } else {
+      console.log(`Applying text eq filter: ${key} = ${val}`);
+      query = query.eq(key, val);
+    }
+  }
 
   console.log('Executing query...');
   let { data, error } = await query;

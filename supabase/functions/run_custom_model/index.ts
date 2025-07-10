@@ -344,7 +344,13 @@ serve(async (req) => {
 
     // Get today's games and match them ONLY against the top patterns
     const allTodayMatches: TodayMatch[] = [];
-    const today = new Date().toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format in local timezone
+    // Get today's date in Eastern Time (ET) for consistent date handling
+    const now = new Date();
+    const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+    const today = easternTime.toISOString().split('T')[0];
+    console.log('Fetching games for ET date:', today);
+    console.log('Current UTC time:', now.toISOString());
+    console.log('Current ET time:', easternTime.toISOString());
     const { data: todaysGames, error: todayError } = await supabase
       .from('input_values_team_format_view')
       .select('*')

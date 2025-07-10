@@ -1,5 +1,4 @@
-
-import FilterableWinRates from "@/components/FilterableWinRates";
+import FilterableWinRates from "../../components/FilterableWinRates";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Home } from "lucide-react";

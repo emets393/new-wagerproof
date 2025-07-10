@@ -97,8 +97,13 @@ serve(async (req) => {
       });
     }
 
-    // Get today's games
-    const today = new Date().toISOString().split('T')[0];
+    // Get today's games using Eastern Time (ET) for consistent date handling
+    const now = new Date();
+    const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+    const today = easternTime.toISOString().split('T')[0];
+    console.log('Fetching games for ET date:', today);
+    console.log('Current UTC time:', now.toISOString());
+    console.log('Current ET time:', easternTime.toISOString());
     const { data: todaysGames, error: todayError } = await supabase
       .from('input_values_team_format_view')
       .select('*')

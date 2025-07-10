@@ -154,6 +154,12 @@ serve(async (req) => {
     // Get today's games using Eastern Time consistently
     const today = getTodayInET();
     console.log('Fetching games for ET date:', today);
+    const dateDebugInfo = getDateDebugInfo();
+    console.log('=== EDGE FUNCTION DATE DEBUG INFO ===');
+    console.log('UTC Time:', dateDebugInfo.utcTime);
+    console.log('ET Date:', dateDebugInfo.etDate);
+    console.log('ET DateTime:', dateDebugInfo.etDateTime);
+    console.log('=====================================');
     
     const { data: todaysGames, error: todayError } = await supabase
       .from('input_values_team_format_view')

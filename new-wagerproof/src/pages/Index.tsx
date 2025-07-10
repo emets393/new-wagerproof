@@ -25,12 +25,19 @@ interface TodaysGame {
 }
 
 export default function Index() {
-  const today = new Date().toISOString().split('T')[0];
+  // Use Eastern Time consistently to prevent date issues around 8 PM
+  const now = new Date();
+  const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+  const today = easternTime.toISOString().split('T')[0];
 
   const { data: games, isLoading, error } = useQuery({
     queryKey: ['todays_games', today],
     queryFn: async () => {
-      console.log('Fetching games for date:', today);
+      console.log('=== FRONTEND DATE DEBUG INFO ===');
+      console.log('Fetching games for ET date:', today);
+      console.log('Current UTC time:', now.toISOString());
+      console.log('Current ET time:', easternTime.toISOString());
+      console.log('===============================');
       
       const { data, error } = await supabase
         .from('input_values_view')
