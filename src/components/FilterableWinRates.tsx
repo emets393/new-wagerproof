@@ -219,18 +219,21 @@ export default function FilterableWinRates() {
   return (
     <div className="space-y-8">
       {/* Filters UI */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
+      <Card className="bg-white border border-info/20 shadow-lg">
+        <CardHeader className="pb-6 bg-gradient-to-r from-info/20 via-info/10 to-info/5 border-b border-info/30">
+          <CardTitle className="text-xl font-bold text-accent flex items-center gap-3">
+            <div className="w-2 h-6 bg-accent rounded-full"></div>
+            Filter Options
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-8">
+          <div className="flex flex-col md:flex-row gap-8 text-foreground">
             <DropdownMultiSelect label="Season" options={AVAILABLE_SEASONS.map(s => ({ value: s, label: s.toString() }))} selected={selectedSeasons} setSelected={setSelectedSeasons} />
             <DropdownMultiSelect label="Month" options={MONTHS} selected={selectedMonths} setSelected={setSelectedMonths} />
             
             {/* O/U Line Range Slider */}
-            <div className="space-y-2">
-              <div className="font-semibold">O/U Line Range</div>
+            <div className="space-y-3">
+              <div className="font-semibold text-foreground">O/U Line Range</div>
               <div className="w-64">
                 <Slider
                   value={ouLineRange}
@@ -240,66 +243,66 @@ export default function FilterableWinRates() {
                   step={0.5}
                   className="w-full"
                 />
-                <div className="flex justify-between text-sm text-gray-600 mt-1">
-                  <span>{ouLineRange[0]}</span>
-                  <span>{ouLineRange[1]}</span>
+                <div className="flex justify-between text-sm text-muted-foreground mt-2">
+                  <span className="bg-muted px-2 py-1 rounded">{ouLineRange[0]}</span>
+                  <span className="bg-muted px-2 py-1 rounded">{ouLineRange[1]}</span>
                 </div>
               </div>
             </div>
 
             {/* Favorite Filter */}
-            <div className="space-y-2">
-              <div className="font-semibold">Team Favorite</div>
+            <div className="space-y-3">
+              <div className="font-semibold text-foreground">Team Favorite</div>
               <RadioGroup value={favoriteFilter} onValueChange={setFavoriteFilter}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all" id="all" />
-                  <Label htmlFor="all">All Games</Label>
+                  <Label htmlFor="all" className="text-sm">All Games</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="home_favored" id="home_favored" />
-                  <Label htmlFor="home_favored">Home Favorite</Label>
+                  <Label htmlFor="home_favored" className="text-sm">Home Favorite</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="away_favored" id="away_favored" />
-                  <Label htmlFor="away_favored">Away Favorite</Label>
+                  <Label htmlFor="away_favored" className="text-sm">Away Favorite</Label>
                 </div>
               </RadioGroup>
             </div>
 
             {/* Home Pitcher Hand */}
-            <div className="space-y-2">
-              <div className="font-semibold">Home Pitcher Hand</div>
+            <div className="space-y-3">
+              <div className="font-semibold text-foreground">Home Pitcher Hand</div>
               <RadioGroup value={homePitcherHand} onValueChange={setHomePitcherHand}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all" id="home_all" />
-                  <Label htmlFor="home_all">All</Label>
+                  <Label htmlFor="home_all" className="text-sm">All</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="right" id="home_right" />
-                  <Label htmlFor="home_right">Right</Label>
+                  <Label htmlFor="home_right" className="text-sm">Right</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="left" id="home_left" />
-                  <Label htmlFor="home_left">Left</Label>
+                  <Label htmlFor="home_left" className="text-sm">Left</Label>
                 </div>
               </RadioGroup>
             </div>
 
             {/* Away Pitcher Hand */}
-            <div className="space-y-2">
-              <div className="font-semibold">Away Pitcher Hand</div>
+            <div className="space-y-3">
+              <div className="font-semibold text-foreground">Away Pitcher Hand</div>
               <RadioGroup value={awayPitcherHand} onValueChange={setAwayPitcherHand}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all" id="away_all" />
-                  <Label htmlFor="away_all">All</Label>
+                  <Label htmlFor="away_all" className="text-sm">All</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="right" id="away_right" />
-                  <Label htmlFor="away_right">Right</Label>
+                  <Label htmlFor="away_right" className="text-sm">Right</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="left" id="away_left" />
-                  <Label htmlFor="away_left">Left</Label>
+                  <Label htmlFor="away_left" className="text-sm">Left</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -308,13 +311,17 @@ export default function FilterableWinRates() {
       </Card>
 
       {/* Filter Summary */}
-      <Card>
-        <CardHeader>
+      <Card className="bg-white border border-info/20 shadow-lg">
+        <CardHeader className="pb-4 bg-gradient-to-r from-info/20 via-info/10 to-info/5 border-b border-info/30">
           <div className="flex justify-between items-center">
-            <CardTitle>Active Filters</CardTitle>
+            <CardTitle className="text-lg font-bold text-accent flex items-center gap-3">
+              <div className="w-2 h-5 bg-accent rounded-full"></div>
+              Active Filters
+            </CardTitle>
             <Button 
               variant="outline" 
               size="sm"
+              className="border-accent/40 text-accent hover:bg-accent/10"
               onClick={() => {
                 setSelectedSeasons([2024, 2025]);
                 setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
@@ -329,13 +336,13 @@ export default function FilterableWinRates() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {/* Season Filter */}
             {selectedSeasons.length > 0 && selectedSeasons.length < AVAILABLE_SEASONS.length && (
-              <Badge variant="secondary" className="flex items-center gap-1">
+              <Badge variant="secondary" className="flex items-center gap-2 bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200">
                 Season: {selectedSeasons.join(", ")}
                 <X 
-                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  className="h-3 w-3 cursor-pointer hover:text-blue-600" 
                   onClick={() => setSelectedSeasons([2024, 2025])}
                 />
               </Badge>
@@ -343,10 +350,10 @@ export default function FilterableWinRates() {
 
             {/* Month Filter */}
             {selectedMonths.length > 0 && selectedMonths.length < MONTHS.length && (
-              <Badge variant="secondary" className="flex items-center gap-1">
+              <Badge variant="secondary" className="flex items-center gap-2 bg-green-100 text-green-800 border-green-200 hover:bg-green-200">
                 Month: {selectedMonths.map(m => MONTHS.find(month => month.value === m)?.label).join(", ")}
                 <X 
-                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  className="h-3 w-3 cursor-pointer hover:text-green-600" 
                   onClick={() => setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
                 />
               </Badge>
@@ -354,10 +361,10 @@ export default function FilterableWinRates() {
 
             {/* O/U Line Filter */}
             {ouLineRange[0] !== 6.5 || ouLineRange[1] !== 12.5 ? (
-              <Badge variant="secondary" className="flex items-center gap-1">
+              <Badge variant="secondary" className="flex items-center gap-2 bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200">
                 O/U Line: {ouLineRange[0]} - {ouLineRange[1]}
                 <X 
-                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  className="h-3 w-3 cursor-pointer hover:text-purple-600" 
                   onClick={() => setOuLineRange([6.5, 12.5])}
                 />
               </Badge>
@@ -365,10 +372,10 @@ export default function FilterableWinRates() {
 
             {/* Favorite Filter */}
             {favoriteFilter !== "all" && (
-              <Badge variant="secondary" className="flex items-center gap-1">
+              <Badge variant="secondary" className="flex items-center gap-2 bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200">
                 {favoriteFilter === "home_favored" ? "Home Favorite" : "Away Favorite"}
                 <X 
-                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  className="h-3 w-3 cursor-pointer hover:text-orange-600" 
                   onClick={() => setFavoriteFilter("all")}
                 />
               </Badge>
@@ -376,10 +383,10 @@ export default function FilterableWinRates() {
 
             {/* Home Pitcher Hand Filter */}
             {homePitcherHand !== "all" && (
-              <Badge variant="secondary" className="flex items-center gap-1">
+              <Badge variant="secondary" className="flex items-center gap-2 bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200">
                 Home Pitcher: {homePitcherHand === "right" ? "Right" : "Left"}
                 <X 
-                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  className="h-3 w-3 cursor-pointer hover:text-amber-600" 
                   onClick={() => setHomePitcherHand("all")}
                 />
               </Badge>
@@ -387,10 +394,10 @@ export default function FilterableWinRates() {
 
             {/* Away Pitcher Hand Filter */}
             {awayPitcherHand !== "all" && (
-              <Badge variant="secondary" className="flex items-center gap-1">
+              <Badge variant="secondary" className="flex items-center gap-2 bg-red-100 text-red-800 border-red-200 hover:bg-red-200">
                 Away Pitcher: {awayPitcherHand === "right" ? "Right" : "Left"}
                 <X 
-                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  className="h-3 w-3 cursor-pointer hover:text-red-600" 
                   onClick={() => setAwayPitcherHand("all")}
                 />
               </Badge>
@@ -400,64 +407,186 @@ export default function FilterableWinRates() {
       </Card>
 
       {/* Win Rate Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Win Rate Summary</CardTitle>
+      <Card className="bg-white border border-info/20 shadow-xl">
+        <CardHeader className="pb-6 bg-gradient-to-r from-info/20 via-info/10 to-info/5 border-b border-info/30">
+          <CardTitle className="text-2xl font-bold text-accent flex items-center gap-3">
+            <div className="w-2 h-8 bg-accent rounded-full"></div>
+            Win Rate Summary
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div>Loading...</div>
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto"></div>
+                <div className="text-accent font-medium">Loading win rate data...</div>
+              </div>
+            </div>
           ) : error ? (
-            <div className="text-red-500">{error}</div>
+            <div className="text-center py-8">
+              <div className="text-red-500 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="font-semibold">Error Loading Data</div>
+                <div className="text-sm mt-1">{error}</div>
+              </div>
+            </div>
           ) : summary ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {SUMMARY_LABELS.map(({ key, label }) => (
-                <div key={key} className="flex flex-col items-center">
-                  <span className="text-sm text-muted-foreground">{label}</span>
-                  <span className="text-lg font-bold">
-                    {summary[key] !== undefined ? summary[key] : '-'}
-                  </span>
+            <div className="space-y-8">
+              {/* Main Stats Grid */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Home Win % */}
+                <div className="bg-white border border-info/20 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
+                  <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Home Win %</div>
+                  <div className="text-3xl font-bold text-foreground mb-1">
+                    {summary.homeWinPct !== undefined ? `${summary.homeWinPct}%` : '-'}
+                  </div>
+                  <div className="w-16 h-1 bg-accent rounded-full mx-auto"></div>
                 </div>
-              ))}
+
+                {/* Away Win % */}
+                <div className="bg-white border border-info/20 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
+                  <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Away Win %</div>
+                  <div className="text-3xl font-bold text-foreground mb-1">
+                    {summary.awayWinPct !== undefined ? `${summary.awayWinPct}%` : '-'}
+                  </div>
+                  <div className="w-16 h-1 bg-accent rounded-full mx-auto"></div>
+                </div>
+
+                {/* Home Cover % */}
+                <div className="bg-white border border-info/20 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
+                  <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Home Cover %</div>
+                  <div className="text-3xl font-bold text-foreground mb-1">
+                    {summary.homeCoverPct !== undefined ? `${summary.homeCoverPct}%` : '-'}
+                  </div>
+                  <div className="w-16 h-1 bg-accent rounded-full mx-auto"></div>
+                </div>
+
+                {/* Away Cover % */}
+                <div className="bg-white border border-info/20 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
+                  <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Away Cover %</div>
+                  <div className="text-3xl font-bold text-foreground mb-1">
+                    {summary.awayCoverPct !== undefined ? `${summary.awayCoverPct}%` : '-'}
+                  </div>
+                  <div className="w-16 h-1 bg-accent rounded-full mx-auto"></div>
+                </div>
+              </div>
+
+              {/* Over/Under Section */}
+              <div className="bg-white border border-info/20 rounded-xl p-6">
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-semibold text-accent mb-2">Over/Under Performance</h3>
+                  <div className="w-24 h-0.5 bg-accent rounded-full mx-auto"></div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-8">
+                  {/* Over % */}
+                  <div className="text-center">
+                    <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-3">Over %</div>
+                    <div className="text-4xl font-bold text-foreground mb-3">
+                      {summary.overPct !== undefined ? `${summary.overPct}%` : '-'}
+                    </div>
+                    <div className="w-full bg-accent/30 rounded-full h-3">
+                      <div 
+                        className="bg-accent h-3 rounded-full transition-all duration-1000 ease-out"
+                        style={{ width: `${summary.overPct || 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Under % */}
+                  <div className="text-center">
+                    <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-3">Under %</div>
+                    <div className="text-4xl font-bold text-foreground mb-3">
+                      {summary.underPct !== undefined ? `${summary.underPct}%` : '-'}
+                    </div>
+                    <div className="w-full bg-accent/30 rounded-full h-3">
+                      <div 
+                        className="bg-accent h-3 rounded-full transition-all duration-1000 ease-out"
+                        style={{ width: `${summary.underPct || 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Games */}
+              <div className="bg-white border border-info/20 rounded-xl p-6 text-center">
+                <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Total Games Analyzed</div>
+                <div className="text-5xl font-bold text-foreground mb-2">
+                  {summary.totalGames !== undefined ? summary.totalGames.toLocaleString() : '-'}
+                </div>
+                <div className="text-muted-foreground text-sm">Based on your current filters</div>
+              </div>
             </div>
           ) : (
-            <div>No summary data available.</div>
+            <div className="text-center py-12">
+              <div className="text-muted-foreground bg-muted/50 border border-muted rounded-lg p-6">
+                <div className="text-lg font-semibold mb-2">No Summary Data Available</div>
+                <div className="text-sm">Try adjusting your filters to see win rate statistics</div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
       {/* Game Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Game Details</CardTitle>
+      <Card className="bg-white border border-info/20 shadow-lg">
+        <CardHeader className="pb-6 bg-gradient-to-r from-info/20 via-info/10 to-info/5 border-b border-info/30">
+          <CardTitle className="text-xl font-bold text-accent flex items-center gap-3">
+            <div className="w-2 h-6 bg-accent rounded-full"></div>
+            Game Details
+            <Badge variant="outline" className="ml-auto text-xs border-accent text-accent bg-white/80">
+              {gameRows?.length || 0} games
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div>Loading...</div>
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto"></div>
+                <div className="text-accent font-medium">Loading game details...</div>
+              </div>
+            </div>
           ) : error ? (
-            <div className="text-red-500">{error}</div>
+            <div className="text-center py-8">
+              <div className="text-red-500 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="font-semibold">Error Loading Game Details</div>
+                <div className="text-sm mt-1">{error}</div>
+              </div>
+            </div>
           ) : gameRows && gameRows.length > 0 ? (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {GAME_COLUMNS.map(col => (
-                      <TableHead key={col.key}>{col.label}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {gameRows.map((row, idx) => (
-                    <TableRow key={idx}>
+              <div className="rounded-lg border border-info/10 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-info/10">
                       {GAME_COLUMNS.map(col => (
-                        <TableCell key={col.key}>{row[col.key]}</TableCell>
+                        <TableHead key={col.key} className="font-semibold text-muted-foreground text-xs uppercase tracking-wide border-b border-info/20">
+                          {col.label}
+                        </TableHead>
                       ))}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {gameRows.map((row, idx) => (
+                      <TableRow key={idx} className="hover:bg-info/5 transition-colors">
+                        {GAME_COLUMNS.map(col => (
+                          <TableCell key={col.key} className="text-sm py-3 text-foreground border-b border-info/10">
+                            {row[col.key] !== null && row[col.key] !== undefined ? row[col.key] : '-'}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           ) : (
-            <div>No game details available.</div>
+            <div className="text-center py-12">
+              <div className="text-muted-foreground bg-muted/50 border border-muted rounded-lg p-6">
+                <div className="text-lg font-semibold mb-2">No Game Details Available</div>
+                <div className="text-sm">Try adjusting your filters to see game data</div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
