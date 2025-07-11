@@ -189,8 +189,8 @@ serve(async (req) => {
     if (before !== after) {
       console.log(`Filtered out ${before - after} rows with null ou_result in JS fallback.`);
     }
-    // Take the 100 most recent valid games
-    mostRecent100 = allValid.slice(0, 100);
+    // Take the 25 most recent valid games
+    mostRecent100 = allValid.slice(0, 25);
     console.log(`Returning ${mostRecent100.length} most recent valid games for table.`);
     // Log date ranges
     if (allValid.length > 0) {

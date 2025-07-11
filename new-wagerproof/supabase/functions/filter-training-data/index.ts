@@ -151,12 +151,87 @@ serve(async (req) => {
   console.log(`Applying date filter: date < ${today}`);
   query = query.lt('date', today);
 
-  // HARD FILTER for testing: only return games where season = 2025
-  query = query.eq('season', 2025);
-
   console.log('Executing query...');
   let { data, error } = await query;
   console.log('Query executed. Number of rows returned:', data ? data.length : 0);
+
+  // JS-side fallback: filter out any rows with ou_result === null
+  let allValid = [];
+  let mostRecent25 = [];
+  if (data) {
+    const before = data.length;
+    allValid = data.filter(row => row.ou_result !== null);
+    const after = allValid.length;
+    if (before !== after) {
+      console.log(`Filtered out ${before - after} rows with null ou_result in JS fallback.`);
+    }
+    // Take the 25 most recent valid games
+    mostRecent25 = allValid.slice(0, 25);
+    console.log(`Returning ${mostRecent25.length} most recent valid games for table.`);
+    // Log date ranges
+    if (allValid.length > 0) {
+      const allDates = allValid.map(row => row.date).filter(Boolean).sort();
+      console.log('ALL: Earliest date:', allDates[0]);
+      console.log('ALL: Latest date:', allDates[allValid.length - 1]);
+      console.log('ALL: Total valid games:', allValid.length);
+    }
+    if (mostRecent25.length > 0) {
+      const tableDates = mostRecent25.map(row => row.date).filter(Boolean).sort();
+      console.log('TABLE: Earliest date:', tableDates[0]);
+      console.log('TABLE: Latest date:', tableDates[mostRecent25.length - 1]);
+      console.log('TABLE: Total games:', mostRecent25.length);
+      console.log('TABLE: First 10 dates:', mostRecent25.slice(0, 10).map(row => row.date));
+    }
+  }
+
+  // Calculate summary stats from allValid
+  const totalGames = allValid.length;
+  const homeWins = allValid.filter(game => game.ha_winner === 1).length;
+  const awayWins = allValid.filter(game => game.ha_winner === 0).length;
+  const homeCovers = allValid.filter(game => game.run_line_winner === 1).length;
+  const awayCovers = allValid.filter(game => game.run_line_winner === 0).length;
+  const overs = allValid.filter(game => game.ou_result === 1).length;
+  const unders = allValid.filter(game => game.ou_result === 0).length;
+
+  const overPct = totalGames > 0 ? +(overs / totalGames * 100).toFixed(1) : 0;
+  const underPct = +(100.0 - overPct).toFixed(1);
+  const homeWinPct = totalGames > 0 ? +(homeWins / totalGames * 100).toFixed(1) : 0;
+  const awayWinPct = +(100.0 - homeWinPct).toFixed(1);
+  const homeCoverPct = totalGames > 0 ? +(homeCovers / totalGames * 100).toFixed(1) : 0;
+  const awayCoverPct = +(100.0 - homeCoverPct).toFixed(1);
+  const summary = {
+    homeWinPct,
+    awayWinPct,
+    homeCoverPct,
+    awayCoverPct,
+    overPct,
+    underPct,
+    totalGames
+  };
+
+  // Select only the columns needed for the display table
+  const displayColumns = [
+    'date', 'home_team', 'away_team',
+    'home_pitcher', 'home_era', 'home_whip',
+    'away_pitcher', 'away_era', 'away_whip',
+    'home_score', 'away_score', 'o_u_line',
+    'home_rl', 'away_rl',
+    'home_ml_handle', 'away_ml_handle', 'home_ml_bets', 'away_ml_bets',
+    'home_rl_handle', 'away_rl_handle', 'home_rl_bets', 'away_rl_bets',
+    'ou_handle_over', 'ou_bets_over'
+  ];
+  const gameRows = mostRecent25.map(row => {
+    const obj = {};
+    displayColumns.forEach(col => { obj[col] = row[col]; });
+    return obj;
+  });
+
+  console.log(`Query completed successfully. Returned ${mostRecent25?.length || 0} records for table, ${allValid?.length || 0} for summary.`);
+
+  // Log some sample data if available
+  if (mostRecent25 && mostRecent25.length > 0) {
+    console.log('Sample record o_u_line values:', mostRecent25.slice(0, 3).map(r => r.o_u_line));
+  }
 
   const headers = {
     'Content-Type': 'application/json',
@@ -172,14 +247,7 @@ serve(async (req) => {
     });
   }
 
-  console.log(`Query completed successfully. Returned ${data?.length || 0} records`);
-  
-  // Log some sample data if available
-  if (data && data.length > 0) {
-    console.log('Sample record o_u_line values:', data.slice(0, 3).map(r => r.o_u_line));
-  }
-
-  return new Response(JSON.stringify(data), {
+  return new Response(JSON.stringify({ summary, gameRows }), {
     status: 200,
     headers
   });
