@@ -9,6 +9,7 @@ import { X } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 const SUMMARY_LABELS = [
   { key: 'homeWinPct', label: 'Home Win %' },
@@ -142,6 +143,119 @@ const DropdownMultiSelect = ({ label, options, selected, setSelected }: {
   );
 };
 
+// Doughnut Chart Component
+const DoughnutChart = ({ data, colors, size = 120 }: { 
+  data: { name: string; value: number }[], 
+  colors: string[], 
+  size?: number 
+}) => {
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          {/* 3D Effect - Bottom shadow layer */}
+          <Pie
+            data={data}
+            cx="50%"
+            cy="52%"
+            innerRadius={size * 0.25}
+            outerRadius={size * 0.45}
+            startAngle={90}
+            endAngle={450}
+            dataKey="value"
+            stroke="none"
+            fill="rgba(0,0,0,0.2)"
+          >
+            {data.map((entry, index) => (
+              <Cell key={`shadow-${index}`} fill="rgba(0,0,0,0.2)" />
+            ))}
+          </Pie>
+          
+          {/* Main chart */}
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={size * 0.25}
+            outerRadius={size * 0.45}
+            startAngle={90}
+            endAngle={450}
+            dataKey="value"
+            stroke="none"
+            strokeWidth={2}
+          >
+            {data.map((entry, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={colors[index % colors.length]}
+                stroke={colors[index % colors.length]}
+                strokeWidth={2}
+                className="drop-shadow-lg"
+              />
+            ))}
+          </Pie>
+          
+          {/* 3D Effect - Highlight layer */}
+          <Pie
+            data={data}
+            cx="50%"
+            cy="48%"
+            innerRadius={size * 0.25}
+            outerRadius={size * 0.45}
+            startAngle={90}
+            endAngle={450}
+            dataKey="value"
+            stroke="none"
+            fill="rgba(255,255,255,0.3)"
+          >
+            {data.map((entry, index) => (
+              <Cell key={`highlight-${index}`} fill="rgba(255,255,255,0.3)" />
+            ))}
+          </Pie>
+          
+          {/* Inner ring for 3D effect */}
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={size * 0.2}
+            outerRadius={size * 0.25}
+            startAngle={90}
+            endAngle={450}
+            dataKey="value"
+            stroke="none"
+            fill="rgba(0,0,0,0.1)"
+          >
+            {data.map((entry, index) => (
+              <Cell key={`inner-${index}`} fill="rgba(0,0,0,0.1)" />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+// Legend Component for Doughnut Charts
+const ChartLegend = ({ data, colors }: { 
+  data: { name: string; value: number }[], 
+  colors: string[] 
+}) => {
+  return (
+    <div className="flex justify-center gap-4 mt-2">
+      {data.map((item, index) => (
+        <div key={item.name} className="flex items-center gap-2">
+          <div 
+            className="w-3 h-3 rounded-full" 
+            style={{ backgroundColor: colors[index % colors.length] }}
+          ></div>
+          <span className="text-xs text-muted-foreground">{item.name}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function FilterableWinRates() {
   const [summary, setSummary] = useState(null);
   const [gameRows, setGameRows] = useState([]);
@@ -219,10 +333,10 @@ export default function FilterableWinRates() {
   return (
     <div className="space-y-8">
       {/* Filters UI */}
-      <Card className="bg-white border border-info/20 shadow-lg">
-        <CardHeader className="pb-6 bg-gradient-to-r from-info/20 via-info/10 to-info/5 border-b border-info/30">
-          <CardTitle className="text-xl font-bold text-accent flex items-center gap-3">
-            <div className="w-2 h-6 bg-accent rounded-full"></div>
+      <Card className="bg-white border-2 border-primary shadow-lg">
+        <CardHeader className="pb-6 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/5 border-b border-primary/30">
+          <CardTitle className="text-xl font-bold text-primary flex items-center gap-3">
+            <div className="w-2 h-6 bg-primary rounded-full"></div>
             Filter Options
           </CardTitle>
         </CardHeader>
@@ -244,8 +358,8 @@ export default function FilterableWinRates() {
                   className="w-full"
                 />
                 <div className="flex justify-between text-sm text-muted-foreground mt-2">
-                  <span className="bg-muted px-2 py-1 rounded">{ouLineRange[0]}</span>
-                  <span className="bg-muted px-2 py-1 rounded">{ouLineRange[1]}</span>
+                  <span>{ouLineRange[0]}</span>
+                  <span>{ouLineRange[1]}</span>
                 </div>
               </div>
             </div>
@@ -311,17 +425,17 @@ export default function FilterableWinRates() {
       </Card>
 
       {/* Filter Summary */}
-      <Card className="bg-white border border-info/20 shadow-lg">
-        <CardHeader className="pb-4 bg-gradient-to-r from-info/20 via-info/10 to-info/5 border-b border-info/30">
+      <Card className="bg-white border-2 border-primary shadow-lg">
+        <CardHeader className="pb-4 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/5 border-b border-primary/30">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-lg font-bold text-accent flex items-center gap-3">
-              <div className="w-2 h-5 bg-accent rounded-full"></div>
+            <CardTitle className="text-lg font-bold text-primary flex items-center gap-3">
+              <div className="w-2 h-5 bg-primary rounded-full"></div>
               Active Filters
             </CardTitle>
             <Button 
               variant="outline" 
               size="sm"
-              className="border-accent/40 text-accent hover:bg-accent/10"
+              className="border-primary/40 text-primary hover:bg-primary/10"
               onClick={() => {
                 setSelectedSeasons([2024, 2025]);
                 setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
@@ -407,10 +521,10 @@ export default function FilterableWinRates() {
       </Card>
 
       {/* Win Rate Summary */}
-      <Card className="bg-white border border-info/20 shadow-xl">
-        <CardHeader className="pb-6 bg-gradient-to-r from-info/20 via-info/10 to-info/5 border-b border-info/30">
-          <CardTitle className="text-2xl font-bold text-accent flex items-center gap-3">
-            <div className="w-2 h-8 bg-accent rounded-full"></div>
+      <Card className="bg-white border-2 border-primary shadow-xl">
+        <CardHeader className="pb-6 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/5 border-b border-primary/30">
+          <CardTitle className="text-2xl font-bold text-primary flex items-center gap-3">
+            <div className="w-2 h-8 bg-primary rounded-full"></div>
             Win Rate Summary
           </CardTitle>
         </CardHeader>
@@ -418,8 +532,8 @@ export default function FilterableWinRates() {
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center space-y-4">
-                <div className="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto"></div>
-                <div className="text-accent font-medium">Loading win rate data...</div>
+                <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
+                <div className="text-primary font-medium">Loading win rate data...</div>
               </div>
             </div>
           ) : error ? (
@@ -431,86 +545,133 @@ export default function FilterableWinRates() {
             </div>
           ) : summary ? (
             <div className="space-y-8">
-              {/* Main Stats Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Home Win % */}
-                <div className="bg-white border border-info/20 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
-                  <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Home Win %</div>
-                  <div className="text-3xl font-bold text-foreground mb-1">
-                    {summary.homeWinPct !== undefined ? `${summary.homeWinPct}%` : '-'}
-                  </div>
-                  <div className="w-16 h-1 bg-accent rounded-full mx-auto"></div>
-                </div>
-
-                {/* Away Win % */}
-                <div className="bg-white border border-info/20 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
-                  <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Away Win %</div>
-                  <div className="text-3xl font-bold text-foreground mb-1">
-                    {summary.awayWinPct !== undefined ? `${summary.awayWinPct}%` : '-'}
-                  </div>
-                  <div className="w-16 h-1 bg-accent rounded-full mx-auto"></div>
-                </div>
-
-                {/* Home Cover % */}
-                <div className="bg-white border border-info/20 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
-                  <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Home Cover %</div>
-                  <div className="text-3xl font-bold text-foreground mb-1">
-                    {summary.homeCoverPct !== undefined ? `${summary.homeCoverPct}%` : '-'}
-                  </div>
-                  <div className="w-16 h-1 bg-accent rounded-full mx-auto"></div>
-                </div>
-
-                {/* Away Cover % */}
-                <div className="bg-white border border-info/20 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:scale-105">
-                  <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Away Cover %</div>
-                  <div className="text-3xl font-bold text-foreground mb-1">
-                    {summary.awayCoverPct !== undefined ? `${summary.awayCoverPct}%` : '-'}
-                  </div>
-                  <div className="w-16 h-1 bg-accent rounded-full mx-auto"></div>
-                </div>
-              </div>
-
-              {/* Over/Under Section */}
-              <div className="bg-white border border-info/20 rounded-xl p-6">
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold text-accent mb-2">Over/Under Performance</h3>
-                  <div className="w-24 h-0.5 bg-accent rounded-full mx-auto"></div>
+              {/* All Doughnut Charts in One Card */}
+              <div className="bg-white border-2 border-primary rounded-xl p-6">
+                <div className="text-center mb-8">
+                  <h3 className="text-2xl font-bold text-primary mb-2">Performance Analytics</h3>
+                  <div className="w-32 h-1 bg-primary rounded-full mx-auto"></div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-8">
-                  {/* Over % */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Win/Loss Performance */}
                   <div className="text-center">
-                    <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-3">Over %</div>
-                    <div className="text-4xl font-bold text-foreground mb-3">
-                      {summary.overPct !== undefined ? `${summary.overPct}%` : '-'}
+                    <div className="text-primary text-lg font-semibold mb-4">Win/Loss Performance</div>
+                    <div className="flex justify-center mb-4">
+                      <div className="relative">
+                        <DoughnutChart 
+                          data={[
+                            { name: 'Home Win', value: summary.homeWinPct || 0 },
+                            { name: 'Away Win', value: summary.awayWinPct || 0 }
+                          ]}
+                          colors={['#10b981', '#3b82f6']}
+                          size={140}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-accent/30 rounded-full h-3">
-                      <div 
-                        className="bg-accent h-3 rounded-full transition-all duration-1000 ease-out"
-                        style={{ width: `${summary.overPct || 0}%` }}
-                      ></div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="text-primary font-semibold">Home Win</div>
+                        <div className="text-xl font-bold text-foreground">
+                          {summary.homeWinPct !== undefined ? `${summary.homeWinPct}%` : '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-primary font-semibold">Away Win</div>
+                        <div className="text-xl font-bold text-foreground">
+                          {summary.awayWinPct !== undefined ? `${summary.awayWinPct}%` : '-'}
+                        </div>
+                      </div>
                     </div>
+                    <ChartLegend 
+                      data={[
+                        { name: 'Home Win', value: summary.homeWinPct || 0 },
+                        { name: 'Away Win', value: summary.awayWinPct || 0 }
+                      ]}
+                      colors={['#10b981', '#3b82f6']}
+                    />
                   </div>
 
-                  {/* Under % */}
+                  {/* Cover Performance */}
                   <div className="text-center">
-                    <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-3">Under %</div>
-                    <div className="text-4xl font-bold text-foreground mb-3">
-                      {summary.underPct !== undefined ? `${summary.underPct}%` : '-'}
+                    <div className="text-primary text-lg font-semibold mb-4">Cover Performance</div>
+                    <div className="flex justify-center mb-4">
+                      <div className="relative">
+                        <DoughnutChart 
+                          data={[
+                            { name: 'Home Cover', value: summary.homeCoverPct || 0 },
+                            { name: 'Away Cover', value: summary.awayCoverPct || 0 }
+                          ]}
+                          colors={['#f59e0b', '#8b5cf6']}
+                          size={140}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-accent/30 rounded-full h-3">
-                      <div 
-                        className="bg-accent h-3 rounded-full transition-all duration-1000 ease-out"
-                        style={{ width: `${summary.underPct || 0}%` }}
-                      ></div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="text-primary font-semibold">Home Cover</div>
+                        <div className="text-xl font-bold text-foreground">
+                          {summary.homeCoverPct !== undefined ? `${summary.homeCoverPct}%` : '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-primary font-semibold">Away Cover</div>
+                        <div className="text-xl font-bold text-foreground">
+                          {summary.awayCoverPct !== undefined ? `${summary.awayCoverPct}%` : '-'}
+                        </div>
+                      </div>
                     </div>
+                    <ChartLegend 
+                      data={[
+                        { name: 'Home Cover', value: summary.homeCoverPct || 0 },
+                        { name: 'Away Cover', value: summary.awayCoverPct || 0 }
+                      ]}
+                      colors={['#f59e0b', '#8b5cf6']}
+                    />
+                  </div>
+
+                  {/* Over/Under Performance */}
+                  <div className="text-center">
+                    <div className="text-primary text-lg font-semibold mb-4">Over/Under Performance</div>
+                    <div className="flex justify-center mb-4">
+                      <div className="relative">
+                        <DoughnutChart 
+                          data={[
+                            { name: 'Over', value: summary.overPct || 0 },
+                            { name: 'Under', value: summary.underPct || 0 }
+                          ]}
+                          colors={['#ef4444', '#06b6d4']}
+                          size={140}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="text-primary font-semibold">Over</div>
+                        <div className="text-xl font-bold text-foreground">
+                          {summary.overPct !== undefined ? `${summary.overPct}%` : '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-primary font-semibold">Under</div>
+                        <div className="text-xl font-bold text-foreground">
+                          {summary.underPct !== undefined ? `${summary.underPct}%` : '-'}
+                        </div>
+                      </div>
+                    </div>
+                    <ChartLegend 
+                      data={[
+                        { name: 'Over', value: summary.overPct || 0 },
+                        { name: 'Under', value: summary.underPct || 0 }
+                      ]}
+                      colors={['#ef4444', '#06b6d4']}
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Total Games */}
-              <div className="bg-white border border-info/20 rounded-xl p-6 text-center">
-                <div className="text-accent text-sm font-semibold uppercase tracking-wide mb-2">Total Games Analyzed</div>
+              <div className="bg-white border-2 border-primary rounded-xl p-6 text-center">
+                <div className="text-primary text-sm font-semibold uppercase tracking-wide mb-2">Total Games Analyzed</div>
                 <div className="text-5xl font-bold text-foreground mb-2">
                   {summary.totalGames !== undefined ? summary.totalGames.toLocaleString() : '-'}
                 </div>
@@ -528,12 +689,12 @@ export default function FilterableWinRates() {
         </CardContent>
       </Card>
       {/* Game Details */}
-      <Card className="bg-white border border-info/20 shadow-lg">
-        <CardHeader className="pb-6 bg-gradient-to-r from-info/20 via-info/10 to-info/5 border-b border-info/30">
-          <CardTitle className="text-xl font-bold text-accent flex items-center gap-3">
-            <div className="w-2 h-6 bg-accent rounded-full"></div>
+      <Card className="bg-white border-2 border-primary shadow-lg">
+        <CardHeader className="pb-6 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/5 border-b border-primary/30">
+          <CardTitle className="text-xl font-bold text-primary flex items-center gap-3">
+            <div className="w-2 h-6 bg-primary rounded-full"></div>
             Game Details
-            <Badge variant="outline" className="ml-auto text-xs border-accent text-accent bg-white/80">
+            <Badge variant="outline" className="ml-auto text-xs border-primary text-primary bg-white/80">
               {gameRows?.length || 0} games
             </Badge>
           </CardTitle>
@@ -542,8 +703,8 @@ export default function FilterableWinRates() {
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center space-y-4">
-                <div className="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto"></div>
-                <div className="text-accent font-medium">Loading game details...</div>
+                <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
+                <div className="text-primary font-medium">Loading game details...</div>
               </div>
             </div>
           ) : error ? (
@@ -555,12 +716,12 @@ export default function FilterableWinRates() {
             </div>
           ) : gameRows && gameRows.length > 0 ? (
             <div className="overflow-x-auto">
-              <div className="rounded-lg border border-info/10 overflow-hidden">
+              <div className="rounded-lg border border-primary/20 overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-info/10">
+                    <TableRow className="bg-primary/10">
                       {GAME_COLUMNS.map(col => (
-                        <TableHead key={col.key} className="font-semibold text-muted-foreground text-xs uppercase tracking-wide border-b border-info/20">
+                        <TableHead key={col.key} className="font-semibold text-muted-foreground text-xs uppercase tracking-wide border-b border-primary/20">
                           {col.label}
                         </TableHead>
                       ))}
@@ -568,9 +729,9 @@ export default function FilterableWinRates() {
                   </TableHeader>
                   <TableBody>
                     {gameRows.map((row, idx) => (
-                      <TableRow key={idx} className="hover:bg-info/5 transition-colors">
+                      <TableRow key={idx} className="hover:bg-primary/5 transition-colors">
                         {GAME_COLUMNS.map(col => (
-                          <TableCell key={col.key} className="text-sm py-3 text-foreground border-b border-info/10">
+                          <TableCell key={col.key} className="text-sm py-3 text-foreground border-b border-primary/10">
                             {row[col.key] !== null && row[col.key] !== undefined ? row[col.key] : '-'}
                           </TableCell>
                         ))}
