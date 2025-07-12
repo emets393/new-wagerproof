@@ -13,6 +13,7 @@ import { useSearchParams } from 'react-router-dom';
 import SavePatternButton from '@/components/SavePatternButton';
 import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface TrendMatch {
   combo: string;
@@ -51,44 +52,49 @@ const CustomModels = () => {
   const [results, setResults] = useState<ModelResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast()
+  const [explainPatternIndex, setExplainPatternIndex] = useState<number | null>(null);
+  const [openInfoIndex, setOpenInfoIndex] = useState<number | null>(null);
 
-  // Helper function to get target-specific labels
-  const getTargetLabels = (target: string) => {
-    switch (target) {
-      case 'over_under':
-        return {
-          primaryRate: 'Over Rate',
-          opponentRate: 'Under Rate',
-          primaryShort: 'Over %',
-          opponentShort: 'Under %',
-          avgLabel: 'Avg Over Rate'
-        };
-      case 'runline':
-        return {
-          primaryRate: 'Cover Rate',
-          opponentRate: 'No Cover Rate',
-          primaryShort: 'Cover %',
-          opponentShort: 'No Cover %',
-          avgLabel: 'Avg Cover Rate'
-        };
-      case 'moneyline':
-        return {
-          primaryRate: 'Win Rate',
-          opponentRate: 'Loss Rate',
-          primaryShort: 'Win %',
-          opponentShort: 'Loss %',
-          avgLabel: 'Avg Win Rate'
-        };
-      default:
-        return {
-          primaryRate: 'Win Rate',
-          opponentRate: 'Loss Rate',
-          primaryShort: 'Win %',
-          opponentShort: 'Loss %',
-          avgLabel: 'Avg Win Rate'
-        };
-    }
-  };
+  const featureConfig = [
+    { key: 'primary_era', supabaseColumn: 'primary_era', displayName: 'Primary Pitcher ERA', blurb: 'ERA (Earned Run Average) of the primary team\'s starting pitcher.' },
+    { key: 'opponent_era', supabaseColumn: 'opponent_era', displayName: 'Opponent Pitcher ERA', blurb: 'ERA of the opponent\'s starting pitcher.' },
+    { key: 'primary_whip', supabaseColumn: 'primary_whip', displayName: 'Primary Pitcher WHIP', blurb: 'WHIP (Walks + Hits per Inning Pitched) for the primary team\'s starter.' },
+    { key: 'opponent_whip', supabaseColumn: 'opponent_whip', displayName: 'Opponent Pitcher WHIP', blurb: 'WHIP for the opponent\'s starting pitcher.' },
+    { key: 'primary_win_pct', supabaseColumn: 'primary_win_pct', displayName: 'Primary Team Win %', blurb: 'Win percentage for the primary team.' },
+    { key: 'opponent_win_pct', supabaseColumn: 'opponent_win_pct', displayName: 'Opponent Team Win %', blurb: 'Win percentage for the opponent team.' },
+    { key: 'primary_streak', supabaseColumn: 'primary_streak', displayName: 'Primary Team Win Streak', blurb: 'Number of consecutive wins or losses for the primary team.' },
+    { key: 'opponent_streak', supabaseColumn: 'opponent_streak', displayName: 'Opponent Team Win Streak', blurb: 'Number of consecutive wins or losses for the opponent team.' },
+    { key: 'primary_last_win', supabaseColumn: 'primary_last_win', displayName: 'Primary Last Game Result', blurb: 'Whether the primary team won their last game.' },
+    { key: 'opponent_last_win', supabaseColumn: 'opponent_last_win', displayName: 'Opponent Last Game Result', blurb: 'Whether the opponent team won their last game.' },
+    { key: 'primary_last_runs', supabaseColumn: 'primary_last_runs', displayName: 'Primary Runs Last Game', blurb: 'Runs scored by the primary team in their last game.' },
+    { key: 'opponent_last_runs', supabaseColumn: 'opponent_last_runs', displayName: 'Opponent Last Runs Scored', blurb: 'Runs scored by the opponent in their last game.' },
+    { key: 'primary_ops_last_3', supabaseColumn: 'primary_ops_last_3', displayName: 'Primary OPS % allowed (Last 3 gms)', blurb: 'On-base + slugging % in the last 3 games for the primary team.' },
+    { key: 'opponent_ops_last_3', supabaseColumn: 'opponent_ops_last_3', displayName: 'Opponent OPS % allowed (Last 3 gms)', blurb: 'On-base + slugging % in the last 3 games for the opponent team.' },
+    { key: 'primary_team_last_3', supabaseColumn: 'primary_team_last_3', displayName: 'Primary Team OPS % (Last 3 gms)', blurb: 'Win/Loss record in the last 3 games for the primary team.' },
+    { key: 'opponent_team_last_3', supabaseColumn: 'opponent_team_last_3', displayName: 'Opponent Team OPS % (Last 3 gms)', blurb: 'Win/Loss record in the last 3 games for the opponent.' },
+    { key: 'primary_rl', supabaseColumn: 'primary_rl', displayName: 'Favorite/Underdog', blurb: 'Which team is favored/underdog.' },
+    { key: 'o_u_line', supabaseColumn: 'o_u_line', displayName: 'Over/Under Line', blurb: 'Total expected runs set by the sportsbook.' },
+    { key: 'primary_ml_handle', supabaseColumn: 'primary_ml_handle', displayName: 'Primary ML Handle', blurb: '% of money wagered on the primary team\'s moneyline.' },
+    { key: 'opponent_ml_handle', supabaseColumn: 'opponent_ml_handle', displayName: 'Opponent ML Handle', blurb: '% of money wagered on the opponent team\'s moneyline.' },
+    { key: 'primary_rl_handle', supabaseColumn: 'primary_rl_handle', displayName: 'Primary RL Handle', blurb: 'Money wagered on the primary team\'s run line.' },
+    { key: 'opponent_rl_handle', supabaseColumn: 'opponent_rl_handle', displayName: 'Opponent RL Handle', blurb: 'Money wagered on the opponent team\'s run line.' },
+    { key: 'primary_ml_bets', supabaseColumn: 'primary_ml_bets', displayName: 'Primary ML Bets', blurb: '% of moneyline bets on the primary team.' },
+    { key: 'opponent_ml_bets', supabaseColumn: 'opponent_ml_bets', displayName: 'Opponent ML Bets', blurb: '% of moneyline bets on the opponent team.' },
+    { key: 'primary_rl_bets', supabaseColumn: 'primary_rl_bets', displayName: 'Primary RL Bets', blurb: '% of run line bets on the primary team.' },
+    { key: 'opponent_rl_bets', supabaseColumn: 'opponent_rl_bets', displayName: 'Opponent RL Bets', blurb: '% of run line bets on the opponent team.' },
+    { key: 'ou_handle_over', supabaseColumn: 'ou_handle_over', displayName: 'Over/Under Handle', blurb: '% of money wagered on the Over for total runs.' },
+    { key: 'ou_bets_over', supabaseColumn: 'ou_bets_over', displayName: 'Over Under Bets', blurb: '% of bets on the Over for total runs.' },
+    { key: 'primary_ops', supabaseColumn: 'primary_ops', displayName: 'Primary Team OPS', blurb: 'Season OPS (On-base + Slugging) for the primary team.' },
+    { key: 'opponent_ops', supabaseColumn: 'opponent_ops', displayName: 'Opponent Team OPS', blurb: 'Season OPS for the opponent team.' },
+    { key: 'primary_handedness', supabaseColumn: 'primary_handedness', displayName: 'Primary Pitcher Handedness', blurb: 'Left-handed or right-handed primary pitcher.' },
+    { key: 'opponent_handedness', supabaseColumn: 'opponent_handedness', displayName: 'Opponent Pitcher Handedness', blurb: 'Left-handed or right-handed opponent pitcher.' },
+    { key: 'same_league', supabaseColumn: 'same_league', displayName: 'Same League Matchup', blurb: 'Whether both teams are in the same league.' },
+    { key: 'same_division', supabaseColumn: 'same_division', displayName: 'Same Division Matchup', blurb: 'Whether both teams are in the same division.' },
+    { key: 'series_primary_wins', supabaseColumn: 'series_primary_wins', displayName: 'Primary Series Wins', blurb: 'Games won by the primary team in this series.' },
+    { key: 'series_opponent_wins', supabaseColumn: 'series_opponent_wins', displayName: 'Opponent Series Wins', blurb: 'Games won by the opponent team in this series.' },
+    { key: 'series_overs', supabaseColumn: 'series_overs', displayName: 'Series Over Hits', blurb: 'Games in this series that hit the Over.' },
+    { key: 'series_unders', supabaseColumn: 'series_unders', displayName: 'Series Under Hits', blurb: 'Games in this series that hit the Under.' },
+  ];
 
   // Load state from URL parameters on component mount
   useEffect(() => {
@@ -126,33 +132,7 @@ const CustomModels = () => {
     setSearchParams(params);
   };
 
-  const availableFeatures = [
-    // Pitching Stats
-    'primary_era', 'opponent_era', 'primary_whip', 'opponent_whip',
-    
-    // Team Performance
-    'primary_win_pct', 'opponent_win_pct', 'primary_streak', 'opponent_streak',
-    'primary_last_win', 'opponent_last_win', 'primary_last_3', 'opponent_last_3',
-    
-    // Recent Performance
-    'primary_last_runs', 'opponent_last_runs', 'primary_ops_last_3', 'opponent_ops_last_3',
-    'primary_team_last_3', 'opponent_team_last_3',
-    
-    // Betting Lines & Handle
-    'primary_rl', 'o_u_line', 'primary_handle', 'opponent_handle',
-    'primary_ml_handle', 'opponent_ml_handle', 'primary_rl_handle', 'opponent_rl_handle',
-    
-    // Betting Volume
-    'primary_bets', 'opponent_bets', 'primary_ml_bets', 'opponent_ml_bets',
-    'primary_rl_bets', 'opponent_rl_bets', 'ou_handle_over', 'ou_bets_over',
-    
-    // Advanced Stats
-    'primary_ops', 'opponent_ops', 'primary_handedness', 'opponent_handedness',
-    
-    // Series & Context
-    'same_league', 'same_division', 'series_primary_wins', 'series_opponent_wins',
-    'series_overs', 'series_unders'
-  ];
+  const availableFeatures = featureConfig.map(f => f.key);
 
   const targetVariables = [
     'moneyline',
@@ -237,8 +217,106 @@ const CustomModels = () => {
     }
   };
 
-  // Get target-specific labels for current target
+  // Restore getTargetLabels for table headers
+  const getTargetLabels = (target: string) => {
+    switch (target) {
+      case 'over_under':
+        return {
+          primaryRate: 'Over Rate',
+          opponentRate: 'Under Rate',
+          primaryShort: 'Over %',
+          opponentShort: 'Under %',
+          avgLabel: 'Avg Over Rate'
+        };
+      case 'runline':
+        return {
+          primaryRate: 'Cover Rate',
+          opponentRate: 'No Cover Rate',
+          primaryShort: 'Cover %',
+          opponentShort: 'No Cover %',
+          avgLabel: 'Avg Cover Rate'
+        };
+      case 'moneyline':
+        return {
+          primaryRate: 'Win Rate',
+          opponentRate: 'Loss Rate',
+          primaryShort: 'Win %',
+          opponentShort: 'Loss %',
+          avgLabel: 'Avg Win Rate'
+        };
+      default:
+        return {
+          primaryRate: 'Win Rate',
+          opponentRate: 'Loss Rate',
+          primaryShort: 'Win %',
+          opponentShort: 'Loss %',
+          avgLabel: 'Avg Win Rate'
+        };
+    }
+  };
+
+  // Use targetLabels for table headers
   const targetLabels = getTargetLabels(targetVariable);
+
+  function describePattern(features: string[], combo: string) {
+    const bins = combo.split('|');
+    const phrases = features.map((feature, i) => {
+      const value = bins[i];
+      // Example mappings for common features
+      if (feature === 'primary_pitcher_era') {
+        if (value === 'good') return 'a primary pitcher with a good ERA';
+        if (value === 'average') return 'a primary pitcher with an average ERA';
+        if (value === 'poor') return 'a primary pitcher with a poor ERA';
+      }
+      if (feature === 'primary_team_last_win') {
+        return value === 'yes' ? 'a primary team who won their last game' : 'a primary team who lost their last game';
+      }
+      if (feature === 'opponent_last_win') {
+        return value === 'yes' ? 'an opponent who won their last game' : 'an opponent who lost their last game';
+      }
+      if (feature === 'primary_team_streak') {
+        if (value === 'hot') return 'a primary team on a hot streak';
+        if (value === 'neutral') return 'a primary team on a neutral streak';
+        if (value === 'cold') return 'a primary team on a cold streak';
+      }
+      if (feature === 'opponent_team_streak') {
+        if (value === 'hot') return 'an opponent on a hot streak';
+        if (value === 'neutral') return 'an opponent on a neutral streak';
+        if (value === 'cold') return 'an opponent on a cold streak';
+      }
+      if (feature === 'primary_pitcher_whip') {
+        if (value === 'good') return 'a primary pitcher with a good WHIP';
+        if (value === 'average') return 'a primary pitcher with an average WHIP';
+        if (value === 'poor') return 'a primary pitcher with a poor WHIP';
+      }
+      if (feature === 'primary_team_win_pct') {
+        if (value === 'good') return 'a primary team with a high win percentage';
+        if (value === 'average') return 'a primary team with an average win percentage';
+        if (value === 'poor') return 'a primary team with a low win percentage';
+      }
+      if (feature === 'opponent_team_win_pct') {
+        if (value === 'good') return 'an opponent with a high win percentage';
+        if (value === 'average') return 'an opponent with an average win percentage';
+        if (value === 'poor') return 'an opponent with a low win percentage';
+      }
+      if (feature === 'primary_team_last_runs') {
+        if (value === 'high') return 'a primary team that scored a lot of runs recently';
+        if (value === 'medium') return 'a primary team that scored a moderate number of runs recently';
+        if (value === 'low') return 'a primary team that scored few runs recently';
+      }
+      if (feature === 'opponent_team_last_runs') {
+        if (value === 'high') return 'an opponent that scored a lot of runs recently';
+        if (value === 'medium') return 'an opponent that scored a moderate number of runs recently';
+        if (value === 'low') return 'an opponent that scored few runs recently';
+      }
+      // Default fallback
+      return `${feature.replace(/_/g, ' ')}: ${value}`;
+    });
+    if (phrases.length === 0) return '';
+    if (phrases.length === 1) return `This pattern looks for ${phrases[0]}.`;
+    if (phrases.length === 2) return `This pattern looks for ${phrases[0]} and ${phrases[1]}.`;
+    return `This pattern looks for ${phrases.slice(0, -1).join(', ')}, and ${phrases[phrases.length - 1]}.`;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 relative">
@@ -281,29 +359,48 @@ const CustomModels = () => {
           </CardHeader>
           <CardContent className="grid gap-4">
             <div>
-              <Label htmlFor="model-name">Model Name</Label>
-              <Input
-                id="model-name"
-                placeholder="Enter model name"
-                value={modelName}
-                onChange={(e) => handleModelNameChange(e.target.value)}
-              />
-            </div>
-
-            <div>
               <Label>Select Features</Label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                {availableFeatures.map((feature) => (
-                  <Button
-                    key={feature}
-                    variant={selectedFeatures.includes(feature) ? 'default' : 'outline'}
-                    onClick={() => handleFeatureChange(feature)}
-                    className={selectedFeatures.includes(feature)
-                      ? 'bg-primary/80 text-white font-bold border-primary hover:bg-primary transition-colors text-sm'
-                      : 'border-gray-300 text-gray-700 bg-background hover:bg-gray-200 text-sm'}
-                  >
-                    {feature}
-                  </Button>
+                {featureConfig.map((feature, idx) => (
+                  <div key={feature.key} className="relative flex items-center w-full max-w-xs min-w-[180px]">
+                    <Button
+                      variant={selectedFeatures.includes(feature.key) ? 'default' : 'outline'}
+                      onClick={() => handleFeatureChange(feature.key)}
+                      className={
+                        (selectedFeatures.includes(feature.key)
+                          ? 'bg-primary/80 text-white font-bold border-primary hover:bg-primary transition-colors text-sm'
+                          : 'border-gray-300 text-gray-700 bg-background hover:bg-gray-200 text-sm') +
+                        ' w-full min-w-[140px] max-w-xs px-2 py-2 justify-start text-left'
+                      }
+                    >
+                      {feature.displayName}
+                    </Button>
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 z-10 cursor-pointer p-0 w-6 h-6 flex items-center justify-center rounded-full bg-white shadow-md border border-gray-200 hover:bg-blue-100 focus:outline-none"
+                      onClick={() => setOpenInfoIndex(openInfoIndex === idx ? null : idx)}
+                      aria-label={`Info about ${feature.displayName}`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-black">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="#fff" />
+                        <rect x="11" y="10" width="2" height="6" rx="1" fill="currentColor" />
+                        <circle cx="12" cy="7.5" r="1.2" fill="currentColor" />
+                      </svg>
+                    </button>
+                    {openInfoIndex === idx && (
+                      <div className="absolute z-50 left-1/2 top-full mt-2 w-64 -translate-x-1/2 bg-white border border-gray-300 rounded shadow-lg p-3 text-sm text-gray-800" style={{ minWidth: '200px' }}>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold">{feature.displayName}</span>
+                          <button className="text-gray-400 hover:text-gray-600" onClick={() => setOpenInfoIndex(null)} aria-label="Close info">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div>{feature.blurb}</div>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -386,17 +483,19 @@ const CustomModels = () => {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b">
+                          <th className="text-left p-2">#</th>
                           <th className="text-left p-2">{targetLabels.primaryShort}</th>
                           <th className="text-left p-2">{targetLabels.opponentShort}</th>
                           <th className="text-left p-2">Games</th>
                           <th className="text-left p-2">Features</th>
-                          <th className="text-left p-2">Pattern</th>
+                          <th className="text-left p-2">Explain</th>
                           <th className="text-left p-2">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {results.trend_matches.map((match, index) => (
                           <tr key={index} className="border-b hover:bg-gray-50">
+                            <td className="p-2 font-bold text-blue-900">{index + 1}</td>
                             <td className="p-2">
                               <span className={`font-medium ${
                                 match.win_pct > 0.6 ? 'text-green-600' : 
@@ -416,18 +515,9 @@ const CustomModels = () => {
                             <td className="p-2">{match.games}</td>
                             <td className="p-2">{match.feature_count}</td>
                             <td className="p-2">
-                              <div className="flex flex-wrap gap-1 max-w-md">
-                                {match.combo.split('|').slice(0, 3).map((feature, idx) => (
-                                  <Badge key={idx} variant="secondary" className="text-xs">
-                                    {feature}
-                                  </Badge>
-                                ))}
-                                {match.combo.split('|').length > 3 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    +{match.combo.split('|').length - 3} more
-                                  </Badge>
-                                )}
-                              </div>
+                              <Button variant="outline" size="sm" onClick={() => setExplainPatternIndex(index)}>
+                                Explain
+                              </Button>
                             </td>
                             <td className="p-2">
                               <SavePatternButton
@@ -507,15 +597,31 @@ const CustomModels = () => {
                           </div>
                           
                           <div className="space-y-2">
-                            {matches.map((match: any, idx: number) => (
-                              <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
-                                <span>Model #{idx + 1}</span>
-                                <div className="flex gap-4 text-gray-600">
-                                  <span>{match.feature_count} features</span>
-                                  <span>{match.games} games</span>
+                            {matches.map((match: any, idx: number) => {
+                              // Find the index of the matching trend pattern
+                              const patternIndex = results.trend_matches.findIndex(
+                                (tm) =>
+                                  tm.combo === match.combo &&
+                                  tm.win_pct === match.win_pct &&
+                                  tm.opponent_win_pct === match.opponent_win_pct &&
+                                  tm.games === match.games &&
+                                  tm.feature_count === match.feature_count
+                              );
+                              // Calculate highest win percentage
+                              const highestWinPct = Math.max(match.win_pct, match.opponent_win_pct);
+                              return (
+                                <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
+                                  <span className="font-semibold text-blue-900">
+                                    {patternIndex !== -1 ? `Trend Pattern #${patternIndex + 1}` : 'Pattern'}
+                                  </span>
+                                  <div className="flex gap-4 text-gray-600 items-center">
+                                    <span className="font-bold text-green-700">{(highestWinPct * 100).toFixed(1)}% <span className="font-normal text-gray-600">Win %</span></span>
+                                    <span>{match.feature_count} features</span>
+                                    <span>{match.games} games</span>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -538,6 +644,25 @@ const CustomModels = () => {
           </div>
         )}
       </div>
+
+      {/* Pattern Explanation Modal */}
+      <Dialog open={explainPatternIndex !== null} onOpenChange={() => setExplainPatternIndex(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pattern Explanation</DialogTitle>
+          </DialogHeader>
+          <DialogDescription>
+            {explainPatternIndex !== null && (
+              <div className="text-base text-gray-800">
+                {describePattern(
+                  results.trend_matches[explainPatternIndex].features,
+                  results.trend_matches[explainPatternIndex].combo
+                )}
+              </div>
+            )}
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
