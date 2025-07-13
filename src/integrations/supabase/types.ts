@@ -1637,8 +1637,15 @@ export type Database = {
           id: string
           is_home_game: boolean
           match_date: string
+          opponent_ml: number | null
+          opponent_rl: number | null
           opponent_team: string
+          ou_result: number | null
+          primary_ml: number | null
+          primary_rl: number | null
+          primary_runline_win: number | null
           primary_team: string
+          primary_win: number | null
           saved_pattern_id: string | null
           unique_id: string
         }
@@ -1647,8 +1654,15 @@ export type Database = {
           id?: string
           is_home_game: boolean
           match_date: string
+          opponent_ml?: number | null
+          opponent_rl?: number | null
           opponent_team: string
+          ou_result?: number | null
+          primary_ml?: number | null
+          primary_rl?: number | null
+          primary_runline_win?: number | null
           primary_team: string
+          primary_win?: number | null
           saved_pattern_id?: string | null
           unique_id: string
         }
@@ -1657,8 +1671,15 @@ export type Database = {
           id?: string
           is_home_game?: boolean
           match_date?: string
+          opponent_ml?: number | null
+          opponent_rl?: number | null
           opponent_team?: string
+          ou_result?: number | null
+          primary_ml?: number | null
+          primary_rl?: number | null
+          primary_runline_win?: number | null
           primary_team?: string
+          primary_win?: number | null
           saved_pattern_id?: string | null
           unique_id?: string
         }
@@ -1667,6 +1688,53 @@ export type Database = {
             foreignKeyName: "pattern_daily_matches_saved_pattern_id_fkey"
             columns: ["saved_pattern_id"]
             isOneToOne: false
+            referencedRelation: "saved_trend_patterns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pattern_roi: {
+        Row: {
+          id: string
+          saved_pattern_id: string
+          total_games: number
+          wins: number
+          losses: number
+          total_bet_amount: number
+          total_payout: number
+          roi_percentage: number
+          last_updated: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          saved_pattern_id: string
+          total_games?: number
+          wins?: number
+          losses?: number
+          total_bet_amount?: number
+          total_payout?: number
+          roi_percentage?: number
+          last_updated?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          saved_pattern_id?: string
+          total_games?: number
+          wins?: number
+          losses?: number
+          total_bet_amount?: number
+          total_payout?: number
+          roi_percentage?: number
+          last_updated?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pattern_roi_saved_pattern_id_fkey"
+            columns: ["saved_pattern_id"]
+            isOneToOne: true
             referencedRelation: "saved_trend_patterns"
             referencedColumns: ["id"]
           },

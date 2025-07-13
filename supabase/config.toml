@@ -55,3 +55,6 @@ verify_jwt = false
 
 [functions.check-saved-patterns]
 verify_jwt = false
+
+[functions.calculate-pattern-roi]
+verify_jwt = false

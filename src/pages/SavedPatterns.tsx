@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { Trash2, RefreshCw, Filter } from 'lucide-react';
+import { Trash2, RefreshCw, Filter, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import PatternMatchCard from '@/components/PatternMatchCard';
 import TeamDisplay from '@/components/TeamDisplay';
@@ -20,6 +20,13 @@ interface SavedPattern {
   games: number;
   feature_count: number;
   created_at: string;
+  roi?: {
+    roi_percentage: number;
+    total_games: number;
+    wins: number;
+    losses: number;
+    last_updated: string;
+  };
 }
 
 interface PatternMatch {
@@ -32,12 +39,6 @@ interface PatternMatch {
   win_pct: number;
   opponent_win_pct: number;
   target: string;
-  // Betting line data
-  o_u_line?: number;
-  home_ml?: number;
-  away_ml?: number;
-  home_rl?: number;
-  away_rl?: number;
 }
 
 const SavedPatterns: React.FC = () => {
@@ -45,6 +46,7 @@ const SavedPatterns: React.FC = () => {
   const [todayMatches, setTodayMatches] = useState<PatternMatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
+  const [isCalculatingROI, setIsCalculatingROI] = useState(false);
   const [expandedPatterns, setExpandedPatterns] = useState<Set<string>>(new Set());
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [selectedGameFilter, setSelectedGameFilter] = useState<string>('all');
@@ -63,17 +65,40 @@ const SavedPatterns: React.FC = () => {
         return;
       }
 
-      const { data, error } = await supabase
+      // Get saved patterns with ROI data
+      const { data: patterns, error: patternsError } = await supabase
         .from('saved_trend_patterns')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
+      if (patternsError) {
+        throw patternsError;
       }
 
-      setSavedPatterns(data || []);
+      // Get ROI data for each pattern
+      const patternsWithROI = await Promise.all(
+        (patterns || []).map(async (pattern) => {
+          const { data: roiData, error: roiError } = await supabase
+            .from('pattern_roi')
+            .select('roi_percentage, total_games, wins, losses, last_updated')
+            .eq('saved_pattern_id', pattern.id)
+            .maybeSingle();
+
+          return {
+            ...pattern,
+            roi: roiData ? {
+              roi_percentage: roiData.roi_percentage,
+              total_games: roiData.total_games,
+              wins: roiData.wins,
+              losses: roiData.losses,
+              last_updated: roiData.last_updated
+            } : undefined
+          };
+        })
+      );
+
+      setSavedPatterns(patternsWithROI);
     } catch (error) {
       console.error('Error loading saved patterns:', error);
       toast({
@@ -91,31 +116,22 @@ const SavedPatterns: React.FC = () => {
       
       if (!user) return;
 
-      const { data: result, error } = await supabase.functions.invoke('check-saved-patterns', {
-        body: { userId: user.id }
+      const response = await fetch('https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/check-saved-patterns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({ userId: user.id })
       });
 
-      if (error) {
-        console.error('Error checking today matches:', error);
-        toast({
-          title: "Error checking matches",
-          description: error.message || "Please try again later.",
-          variant: "destructive"
-        });
-        return;
-      }
-
+      const result = await response.json();
       setTodayMatches(result.matches || []);
 
       if (result.matches?.length > 0) {
         toast({
           title: "Matches found!",
           description: `Found ${result.matches.length} games matching your saved patterns today.`
-        });
-      } else {
-        toast({
-          title: "No matches found",
-          description: "No games match your saved patterns today."
         });
       }
     } catch (error) {
@@ -168,55 +184,72 @@ const SavedPatterns: React.FC = () => {
     setExpandedPatterns(newExpanded);
   };
 
-  // Extract unique games with formatted names
   const getUniqueGames = () => {
-    const gameMap = new Map<string, { display: string; count: number }>();
+    const gameMap = new Map<string, { unique_id: string; display: string; count: number }>();
     
     todayMatches.forEach(match => {
-      if (!gameMap.has(match.unique_id)) {
-        // Format as "Away @ Home" based on is_home_game flag
-        const display = match.is_home_game 
-          ? `${match.opponent_team} @ ${match.primary_team}`
-          : `${match.primary_team} @ ${match.opponent_team}`;
-        gameMap.set(match.unique_id, { display, count: 0 });
+      const key = match.unique_id;
+      if (gameMap.has(key)) {
+        gameMap.get(key)!.count++;
+      } else {
+        gameMap.set(key, {
+          unique_id: key,
+          display: `${match.primary_team} vs ${match.opponent_team}`,
+          count: 1
+        });
       }
     });
-
-    // Count patterns that have matches for each game
-    savedPatterns.forEach(pattern => {
-      const patternMatches = todayMatches.filter(m => m.pattern_id === pattern.id);
-      patternMatches.forEach(match => {
-        const game = gameMap.get(match.unique_id);
-        if (game) {
-          game.count++;
-        }
-      });
-    });
-
-    return Array.from(gameMap.entries()).map(([unique_id, { display, count }]) => ({
-      unique_id,
-      display,
-      count
-    }));
+    
+    return Array.from(gameMap.values()).sort((a, b) => b.count - a.count);
   };
 
-  const uniqueGames = getUniqueGames();
+  const calculateAllROI = async () => {
+    setIsCalculatingROI(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to calculate ROI.",
+          variant: "destructive"
+        });
+        return;
+      }
 
-  const filteredPatterns = savedPatterns.filter(pattern => {
-    // Apply target filter
-    if (selectedFilter !== 'all' && pattern.target !== selectedFilter) {
-      return false;
+      // Call the ROI calculation function
+      const response = await fetch('https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/calculate-pattern-roi', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      // Reload patterns to get updated ROI data
+      await loadSavedPatterns();
+
+      toast({
+        title: "ROI calculation completed",
+        description: `Calculated ROI for ${result.processed_patterns} patterns.`
+      });
+    } catch (error) {
+      console.error('Error calculating ROI:', error);
+      toast({
+        title: "Error calculating ROI",
+        description: error.message || "Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCalculatingROI(false);
     }
-    
-    // Apply game filter
-    if (selectedGameFilter !== 'all') {
-      const patternMatches = todayMatches.filter(m => m.pattern_id === pattern.id);
-      const hasMatchForSelectedGame = patternMatches.some(m => m.unique_id === selectedGameFilter);
-      return hasMatchForSelectedGame;
-    }
-    
-    return true;
-  });
+  };
 
   useEffect(() => {
     const initializePage = async () => {
@@ -238,12 +271,31 @@ const SavedPatterns: React.FC = () => {
     }
   };
 
+  const filteredPatterns = savedPatterns.filter(pattern => {
+    // Filter by target
+    if (selectedFilter !== 'all' && pattern.target !== selectedFilter) {
+      return false;
+    }
+    // Filter by game
+    if (selectedGameFilter !== 'all') {
+      // Only show patterns that have a match for the selected game
+      return todayMatches.some(
+        match => match.pattern_id === pattern.id && match.unique_id === selectedGameFilter
+      );
+    }
+    return true;
+  });
+
+  const uniqueGames = getUniqueGames();
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary/90 to-primary/80">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
-          <p className="text-muted-foreground">Loading saved patterns...</p>
+      <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80">
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto"></div>
+            <p className="text-white/80 mt-4">Loading saved patterns...</p>
+          </div>
         </div>
       </div>
     );
@@ -258,23 +310,33 @@ const SavedPatterns: React.FC = () => {
             <h1 className="text-4xl font-bold text-accent drop-shadow-lg">Saved Trend Patterns</h1>
             <p className="text-white/80 mt-2 text-lg">Monitor your favorite trends and see if they match today's games.</p>
           </div>
-          <Button
-            onClick={checkTodayMatches}
-            disabled={isChecking}
-            className="flex items-center gap-2 bg-primary text-white hover:bg-primary/90 shadow-lg"
-          >
-            <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
-            {isChecking ? 'Checking...' : 'Check Today\'s Matches'}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={calculateAllROI}
+              disabled={isCalculatingROI}
+              className="flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 shadow-lg"
+            >
+              <TrendingUp className={`h-4 w-4 ${isCalculatingROI ? 'animate-spin' : ''}`} />
+              {isCalculatingROI ? 'Calculating...' : 'Calculate ROI'}
+            </Button>
+            <Button
+              onClick={checkTodayMatches}
+              disabled={isChecking}
+              className="flex items-center gap-2 bg-primary text-white hover:bg-primary/90 shadow-lg"
+            >
+              <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+              {isChecking ? 'Checking...' : 'Check Today\'s Matches'}
+            </Button>
+          </div>
         </div>
 
         {/* Filter Section */}
-        <div className="mb-6 space-y-4">
+        <div className="space-y-4 mb-8">
           {/* Target Filter */}
           <div className="flex items-center gap-4">
             <Filter className="h-5 w-5 text-accent" />
             <span className="text-accent font-medium">Target:</span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant={selectedFilter === 'all' ? 'default' : 'outline'}
                 size="sm"
@@ -385,7 +447,7 @@ const SavedPatterns: React.FC = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                       {pattern.target === 'over_under' ? (
                         <>
                           <div>
@@ -410,6 +472,20 @@ const SavedPatterns: React.FC = () => {
                       <div>
                         <p className="text-sm text-muted-foreground">Features</p>
                         <p className="font-semibold text-foreground">{pattern.feature_count}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">ROI</p>
+                        {pattern.roi ? (
+                          <p className={`font-semibold ${pattern.roi.roi_percentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {pattern.roi.roi_percentage >= 0 ? '+' : ''}{pattern.roi.roi_percentage.toFixed(1)}%
+                          </p>
+                        ) : (
+                          <p className="text-muted-foreground text-sm">No Games Yet</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">ROI Games</p>
+                        <p className="font-semibold text-foreground">{pattern.roi?.total_games || 0}</p>
                       </div>
                     </div>
                     
@@ -470,4 +546,4 @@ const SavedPatterns: React.FC = () => {
   );
 };
 
-export default SavedPatterns;
+export default SavedPatterns; 

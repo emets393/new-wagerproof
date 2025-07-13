@@ -235,6 +235,15 @@ serve(async (req) => {
             away_rl: circaLines?.RL_Away ?? (game.is_home_team ? game.opponent_rl : game.primary_rl)
           });
 
+          // Get game data from training_data_team_view for the new columns
+          const { data: gameData } = await supabase
+            .from('training_data_team_view')
+            .select('primary_ml, primary_rl, opponent_ml, opponent_rl, ou_result, primary_win, primary_runline_win')
+            .eq('unique_id', game.unique_id)
+            .eq('primary_team', game.primary_team)
+            .eq('opponent_team', game.opponent_team)
+            .single();
+
           // Insert into pattern_daily_matches table
           await supabase
             .from('pattern_daily_matches')
@@ -244,7 +253,14 @@ serve(async (req) => {
               unique_id: game.unique_id,
               primary_team: game.primary_team || 'Unknown',
               opponent_team: game.opponent_team || 'Unknown',
-              is_home_game: game.is_home_team || false
+              is_home_game: game.is_home_team || false,
+              primary_ml: gameData?.primary_ml || null,
+              primary_rl: gameData?.primary_rl || null,
+              opponent_ml: gameData?.opponent_ml || null,
+              opponent_rl: gameData?.opponent_rl || null,
+              ou_result: gameData?.ou_result || null,
+              primary_win: gameData?.primary_win || null,
+              primary_runline_win: gameData?.primary_runline_win || null
             });
         }
       }
