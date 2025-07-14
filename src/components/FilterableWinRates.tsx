@@ -143,6 +143,180 @@ const DropdownMultiSelect = ({ label, options, selected, setSelected }: {
   );
 };
 
+// Betting Filters Dropdown Component
+const BettingFiltersDropdown = ({ 
+  isOpen, 
+  onToggle, 
+  ouLineRange,
+  setOuLineRange,
+  ouHandleRange, 
+  setOuHandleRange, 
+  ouBetsRange, 
+  setOuBetsRange,
+  homeMlHandleRange,
+  setHomeMlHandleRange,
+  homeMlBetsRange,
+  setHomeMlBetsRange,
+  homeRlHandleRange,
+  setHomeRlHandleRange,
+  homeRlBetsRange,
+  setHomeRlBetsRange
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+  ouLineRange: [number, number];
+  setOuLineRange: (range: [number, number]) => void;
+  ouHandleRange: [number, number];
+  setOuHandleRange: (range: [number, number]) => void;
+  ouBetsRange: [number, number];
+  setOuBetsRange: (range: [number, number]) => void;
+  homeMlHandleRange: [number, number];
+  setHomeMlHandleRange: (range: [number, number]) => void;
+  homeMlBetsRange: [number, number];
+  setHomeMlBetsRange: (range: [number, number]) => void;
+  homeRlHandleRange: [number, number];
+  setHomeRlHandleRange: (range: [number, number]) => void;
+  homeRlBetsRange: [number, number];
+  setHomeRlBetsRange: (range: [number, number]) => void;
+}) => {
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        className="border rounded px-3 py-2 min-w-[140px] text-left bg-white shadow-sm hover:border-primary focus:outline-none"
+        onClick={onToggle}
+      >
+        <span>Betting Filters</span>
+        <span className="float-right ml-2">{isOpen ? '▲' : '▼'}</span>
+      </button>
+      {isOpen && (
+        <div className="absolute z-10 mt-1 bg-white border rounded shadow-lg p-4 min-w-[300px] max-h-96 overflow-y-auto">
+          <div className="space-y-4">
+            {/* Over/Under Line Range */}
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">O/U Line Range</div>
+              <Slider
+                value={ouLineRange}
+                onValueChange={(value: number[]) => setOuLineRange([value[0], value[1]] as [number, number])}
+                max={20}
+                min={0}
+                step={0.5}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{ouLineRange[0]}</span>
+                <span>{ouLineRange[1]}</span>
+              </div>
+            </div>
+
+            {/* Over/Under Handle Range */}
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">O/U Handle %</div>
+              <Slider
+                value={ouHandleRange}
+                onValueChange={(value: number[]) => setOuHandleRange([value[0], value[1]] as [number, number])}
+                max={100}
+                min={0}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{ouHandleRange[0]}%</span>
+                <span>{ouHandleRange[1]}%</span>
+              </div>
+            </div>
+
+            {/* Over/Under Bets Range */}
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">O/U Bets %</div>
+              <Slider
+                value={ouBetsRange}
+                onValueChange={(value: number[]) => setOuBetsRange([value[0], value[1]] as [number, number])}
+                max={100}
+                min={0}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{ouBetsRange[0]}%</span>
+                <span>{ouBetsRange[1]}%</span>
+              </div>
+            </div>
+
+            {/* Home Moneyline Handle Range */}
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">Home ML Handle %</div>
+              <Slider
+                value={homeMlHandleRange}
+                onValueChange={(value: number[]) => setHomeMlHandleRange([value[0], value[1]] as [number, number])}
+                max={100}
+                min={0}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{homeMlHandleRange[0]}%</span>
+                <span>{homeMlHandleRange[1]}%</span>
+              </div>
+            </div>
+
+            {/* Home Moneyline Bets Range */}
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">Home ML Bets %</div>
+              <Slider
+                value={homeMlBetsRange}
+                onValueChange={(value: number[]) => setHomeMlBetsRange([value[0], value[1]] as [number, number])}
+                max={100}
+                min={0}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{homeMlBetsRange[0]}%</span>
+                <span>{homeMlBetsRange[1]}%</span>
+              </div>
+            </div>
+
+            {/* Home Runline Handle Range */}
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">Home RL Handle %</div>
+              <Slider
+                value={homeRlHandleRange}
+                onValueChange={(value: number[]) => setHomeRlHandleRange([value[0], value[1]] as [number, number])}
+                max={100}
+                min={0}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{homeRlHandleRange[0]}%</span>
+                <span>{homeRlHandleRange[1]}%</span>
+              </div>
+            </div>
+
+            {/* Home Runline Bets Range */}
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">Home RL Bets %</div>
+              <Slider
+                value={homeRlBetsRange}
+                onValueChange={(value: number[]) => setHomeRlBetsRange([value[0], value[1]] as [number, number])}
+                max={100}
+                min={0}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{homeRlBetsRange[0]}%</span>
+                <span>{homeRlBetsRange[1]}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Doughnut Chart Component
 const DoughnutChart = ({ data, colors, size = 120 }: { 
   data: { name: string; value: number }[], 
@@ -267,6 +441,15 @@ export default function FilterableWinRates() {
   const [favoriteFilter, setFavoriteFilter] = useState<string>("all");
   const [homePitcherHand, setHomePitcherHand] = useState<string>("all");
   const [awayPitcherHand, setAwayPitcherHand] = useState<string>("all");
+  
+  // Betting volume filters
+  const [ouHandleRange, setOuHandleRange] = useState<[number, number]>([0, 100]);
+  const [ouBetsRange, setOuBetsRange] = useState<[number, number]>([0, 100]);
+  const [homeMlHandleRange, setHomeMlHandleRange] = useState<[number, number]>([0, 100]);
+  const [homeMlBetsRange, setHomeMlBetsRange] = useState<[number, number]>([0, 100]);
+  const [homeRlHandleRange, setHomeRlHandleRange] = useState<[number, number]>([0, 100]);
+  const [homeRlBetsRange, setHomeRlBetsRange] = useState<[number, number]>([0, 100]);
+  const [bettingFiltersOpen, setBettingFiltersOpen] = useState(false);
 
   // Helper to build filters object
   const buildFilters = () => {
@@ -295,7 +478,19 @@ export default function FilterableWinRates() {
           ou_line_max: ouLineRange[1],
           team_status: favoriteFilter !== "all" ? favoriteFilter : undefined,
           home_handedness: homePitcherHand !== "all" ? homePitcherHand : undefined,
-          away_handedness: awayPitcherHand !== "all" ? awayPitcherHand : undefined
+          away_handedness: awayPitcherHand !== "all" ? awayPitcherHand : undefined,
+          ou_handle_min: ouHandleRange[0] / 100,
+          ou_handle_max: ouHandleRange[1] / 100,
+          ou_bets_min: ouBetsRange[0] / 100,
+          ou_bets_max: ouBetsRange[1] / 100,
+          home_ml_handle_min: homeMlHandleRange[0] / 100,
+          home_ml_handle_max: homeMlHandleRange[1] / 100,
+          home_ml_bets_min: homeMlBetsRange[0] / 100,
+          home_ml_bets_max: homeMlBetsRange[1] / 100,
+          home_rl_handle_min: homeRlHandleRange[0] / 100,
+          home_rl_handle_max: homeRlHandleRange[1] / 100,
+          home_rl_bets_min: homeRlBetsRange[0] / 100,
+          home_rl_bets_max: homeRlBetsRange[1] / 100
         };
 
         console.log('Frontend: Sending filters to backend:', filters);
@@ -328,7 +523,7 @@ export default function FilterableWinRates() {
       }
     };
     fetchData();
-  }, [selectedSeasons, selectedMonths, ouLineRange, favoriteFilter, homePitcherHand, awayPitcherHand]);
+  }, [selectedSeasons, selectedMonths, ouLineRange, favoriteFilter, homePitcherHand, awayPitcherHand, ouHandleRange, ouBetsRange, homeMlHandleRange, homeMlBetsRange, homeRlHandleRange, homeRlBetsRange]);
 
   return (
     <div className="space-y-8">
@@ -344,25 +539,24 @@ export default function FilterableWinRates() {
           <div className="flex flex-col md:flex-row gap-8 text-foreground">
             <DropdownMultiSelect label="Season" options={AVAILABLE_SEASONS.map(s => ({ value: s, label: s.toString() }))} selected={selectedSeasons} setSelected={setSelectedSeasons} />
             <DropdownMultiSelect label="Month" options={MONTHS} selected={selectedMonths} setSelected={setSelectedMonths} />
-            
-            {/* O/U Line Range Slider */}
-            <div className="space-y-3">
-              <div className="font-semibold text-foreground">O/U Line Range</div>
-              <div className="w-64">
-                <Slider
-                  value={ouLineRange}
-                  onValueChange={(value: number[]) => setOuLineRange([value[0], value[1]] as [number, number])}
-                  max={20}
-                  min={0}
-                  step={0.5}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm text-muted-foreground mt-2">
-                  <span>{ouLineRange[0]}</span>
-                  <span>{ouLineRange[1]}</span>
-                </div>
-              </div>
-            </div>
+            <BettingFiltersDropdown
+              isOpen={bettingFiltersOpen}
+              onToggle={() => setBettingFiltersOpen(!bettingFiltersOpen)}
+              ouLineRange={ouLineRange}
+              setOuLineRange={setOuLineRange}
+              ouHandleRange={ouHandleRange}
+              setOuHandleRange={setOuHandleRange}
+              ouBetsRange={ouBetsRange}
+              setOuBetsRange={setOuBetsRange}
+              homeMlHandleRange={homeMlHandleRange}
+              setHomeMlHandleRange={setHomeMlHandleRange}
+              homeMlBetsRange={homeMlBetsRange}
+              setHomeMlBetsRange={setHomeMlBetsRange}
+              homeRlHandleRange={homeRlHandleRange}
+              setHomeRlHandleRange={setHomeRlHandleRange}
+              homeRlBetsRange={homeRlBetsRange}
+              setHomeRlBetsRange={setHomeRlBetsRange}
+            />
 
             {/* Favorite Filter */}
             <div className="space-y-3">
@@ -443,6 +637,12 @@ export default function FilterableWinRates() {
                 setFavoriteFilter("all");
                 setHomePitcherHand("all");
                 setAwayPitcherHand("all");
+                setOuHandleRange([0, 100]);
+                setOuBetsRange([0, 100]);
+                setHomeMlHandleRange([0, 100]);
+                setHomeMlBetsRange([0, 100]);
+                setHomeRlHandleRange([0, 100]);
+                setHomeRlBetsRange([0, 100]);
               }}
             >
               Clear All Filters
@@ -516,6 +716,67 @@ export default function FilterableWinRates() {
                 />
               </Badge>
             )}
+
+            {/* Betting Volume Filters */}
+            {ouHandleRange[0] !== 0 || ouHandleRange[1] !== 100 ? (
+              <Badge variant="secondary" className="flex items-center gap-2 bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200">
+                O/U Handle: {ouHandleRange[0]}% - {ouHandleRange[1]}%
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-indigo-600" 
+                  onClick={() => setOuHandleRange([0, 100])}
+                />
+              </Badge>
+            ) : null}
+
+            {ouBetsRange[0] !== 0 || ouBetsRange[1] !== 100 ? (
+              <Badge variant="secondary" className="flex items-center gap-2 bg-cyan-100 text-cyan-800 border-cyan-200 hover:bg-cyan-200">
+                O/U Bets: {ouBetsRange[0]}% - {ouBetsRange[1]}%
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-cyan-600" 
+                  onClick={() => setOuBetsRange([0, 100])}
+                />
+              </Badge>
+            ) : null}
+
+            {homeMlHandleRange[0] !== 0 || homeMlHandleRange[1] !== 100 ? (
+              <Badge variant="secondary" className="flex items-center gap-2 bg-teal-100 text-teal-800 border-teal-200 hover:bg-teal-200">
+                Home ML Handle: {homeMlHandleRange[0]}% - {homeMlHandleRange[1]}%
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-teal-600" 
+                  onClick={() => setHomeMlHandleRange([0, 100])}
+                />
+              </Badge>
+            ) : null}
+
+            {homeMlBetsRange[0] !== 0 || homeMlBetsRange[1] !== 100 ? (
+              <Badge variant="secondary" className="flex items-center gap-2 bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200">
+                Home ML Bets: {homeMlBetsRange[0]}% - {homeMlBetsRange[1]}%
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-emerald-600" 
+                  onClick={() => setHomeMlBetsRange([0, 100])}
+                />
+              </Badge>
+            ) : null}
+
+            {homeRlHandleRange[0] !== 0 || homeRlHandleRange[1] !== 100 ? (
+              <Badge variant="secondary" className="flex items-center gap-2 bg-lime-100 text-lime-800 border-lime-200 hover:bg-lime-200">
+                Home RL Handle: {homeRlHandleRange[0]}% - {homeRlHandleRange[1]}%
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-lime-600" 
+                  onClick={() => setHomeRlHandleRange([0, 100])}
+                />
+              </Badge>
+            ) : null}
+
+            {homeRlBetsRange[0] !== 0 || homeRlBetsRange[1] !== 100 ? (
+              <Badge variant="secondary" className="flex items-center gap-2 bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200">
+                Home RL Bets: {homeRlBetsRange[0]}% - {homeRlBetsRange[1]}%
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-yellow-600" 
+                  onClick={() => setHomeRlBetsRange([0, 100])}
+                />
+              </Badge>
+            ) : null}
           </div>
         </CardContent>
       </Card>

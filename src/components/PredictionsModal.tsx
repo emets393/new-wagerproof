@@ -296,6 +296,27 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
     { label: "Last Game", away: "away_last_win", home: "home_last_win", type: "last_game" },
   ];
 
+  // Add helper for percentage color class
+  function getPctColorClass(leftPct, rightPct, isLeft) {
+    if (leftPct === rightPct) {
+      return isLeft ? 'text-red-600' : 'text-green-600';
+    }
+    if (isLeft) {
+      return leftPct > rightPct ? 'text-green-600' : 'text-red-600';
+    } else {
+      return rightPct > leftPct ? 'text-green-600' : 'text-red-600';
+    }
+  }
+
+  // Add helper for outline color (use home secondary for right, away secondary for left)
+  function getOutlineColor(homeBarColor, homeColors, awayBarColor, awayColors) {
+    // If the bars are using primary, use secondary for outline, else use primary
+    const homeOutline = homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary;
+    const awayOutline = awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary;
+    // If the bars are too similar, fallback to a neutral
+    return [awayOutline, homeOutline];
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl font-inter bg-gradient-to-br from-background to-muted/20 border-border/50 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -402,41 +423,74 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
             {/* Moneyline Distribution Card */}
             <div className="bg-gradient-to-br from-card to-primary/10 border-2 border-primary rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
               <div className="text-xl font-bold text-left w-full mb-4 text-primary drop-shadow-sm gradient-text-betting">Moneyline</div>
-              {/* Handle Sub-header */}
               <div className="text-lg font-semibold text-center mb-2">Handle</div>
-              {/* Moneyline Handle Distribution Chart */}
               <div className="flex items-center mb-6 w-full justify-between">
                 <div className="flex items-center gap-2">
                   <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                  <span className="font-bold text-lg" style={{ color: awayBarColor }}>{mlHandleAwayPct.toFixed(1)}%</span>
+                  <span className={`font-bold text-lg ${getPctColorClass(mlHandleAwayPct, mlHandleHomePct, true)}`}>{mlHandleAwayPct.toFixed(1)}%</span>
                 </div>
-                <div className="flex-1 mx-2">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                    <div className="h-full" style={{ width: `${mlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
-                    <div className="h-full" style={{ width: `${mlHandleHomePct}%`, backgroundColor: homeBarColor }} />
+                <div className="flex-1 mx-2 relative">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
+                    {/* Away bar: full border, left corners rounded */}
+                    <div style={{
+                      width: `${mlHandleAwayPct}%`,
+                      backgroundColor: awayBarColor,
+                      border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
+                      borderTopLeftRadius: '9999px',
+                      borderBottomLeftRadius: '9999px',
+                      borderTopRightRadius: 0,
+                      borderBottomRightRadius: 0,
+                      height: '100%',
+                      boxSizing: 'border-box',
+                    }} />
+                    {/* Home bar: full border, right corners rounded, rendered on top */}
+                    <div style={{
+                      width: `${mlHandleHomePct}%`,
+                      backgroundColor: homeBarColor,
+                      border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                      borderTopRightRadius: '9999px',
+                      borderBottomRightRadius: '9999px',
+                      borderTopLeftRadius: 0,
+                      borderBottomLeftRadius: 0,
+                      height: '100%',
+                      boxSizing: 'border-box',
+                      position: 'absolute',
+                      left: `${mlHandleAwayPct}%`,
+                      top: 0,
+                    }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg" style={{ color: homeBarColor }}>{mlHandleHomePct.toFixed(1)}%</span>
+                  <span className={`font-bold text-lg ${getPctColorClass(mlHandleAwayPct, mlHandleHomePct, false)}`}>{mlHandleHomePct.toFixed(1)}%</span>
                   <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>
-              {/* Bets Sub-header */}
               <div className="text-lg font-semibold text-center mb-2">Bets</div>
-              {/* Moneyline Bets Distribution Chart */}
               <div className="flex items-center mb-2 w-full justify-between">
                 <div className="flex items-center gap-2">
                   <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                  <span className="font-bold text-lg" style={{ color: awayBarColor }}>{mlBetsAwayPct.toFixed(1)}%</span>
+                  <span className={`font-bold text-lg ${getPctColorClass(mlBetsAwayPct, mlBetsHomePct, true)}`}>{mlBetsAwayPct.toFixed(1)}%</span>
                 </div>
-                <div className="flex-1 mx-2">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                <div className="flex-1 mx-2 relative">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
                     <div className="h-full" style={{ width: `${mlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
                     <div className="h-full" style={{ width: `${mlBetsHomePct}%`, backgroundColor: homeBarColor }} />
+                    {/* Outline overlay */}
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '9999px',
+                      border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                      pointerEvents: 'none',
+                      boxSizing: 'border-box',
+                    }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg" style={{ color: homeBarColor }}>{mlBetsHomePct.toFixed(1)}%</span>
+                  <span className={`font-bold text-lg ${getPctColorClass(mlBetsAwayPct, mlBetsHomePct, false)}`}>{mlBetsHomePct.toFixed(1)}%</span>
                   <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>
@@ -445,41 +499,61 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
             {/* Runline Distribution Card */}
             <div className="bg-gradient-to-br from-card to-success/10 border-2 border-success rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
               <div className="text-xl font-bold text-left w-full mb-4 text-success drop-shadow-sm gradient-text-betting">Runline</div>
-              {/* Handle Sub-header */}
               <div className="text-lg font-semibold text-center mb-2">Handle</div>
-              {/* Runline Handle Distribution Chart */}
               <div className="flex items-center mb-6 w-full justify-between">
                 <div className="flex items-center gap-2">
                   <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                  <span className="font-bold text-lg" style={{ color: awayBarColor }}>{rlHandleAwayPct.toFixed(1)}%</span>
+                  <span className={`font-bold text-lg ${getPctColorClass(rlHandleAwayPct, rlHandleHomePct, true)}`}>{rlHandleAwayPct.toFixed(1)}%</span>
                 </div>
-                <div className="flex-1 mx-2">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                <div className="flex-1 mx-2 relative">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
                     <div className="h-full" style={{ width: `${rlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
                     <div className="h-full" style={{ width: `${rlHandleHomePct}%`, backgroundColor: homeBarColor }} />
+                    {/* Outline overlay */}
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '9999px',
+                      border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                      pointerEvents: 'none',
+                      boxSizing: 'border-box',
+                    }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg" style={{ color: homeBarColor }}>{rlHandleHomePct.toFixed(1)}%</span>
+                  <span className={`font-bold text-lg ${getPctColorClass(rlHandleAwayPct, rlHandleHomePct, false)}`}>{rlHandleHomePct.toFixed(1)}%</span>
                   <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>
-              {/* Bets Sub-header */}
               <div className="text-lg font-semibold text-center mb-2">Bets</div>
-              {/* Runline Bets Distribution Chart */}
               <div className="flex items-center mb-2 w-full justify-between">
                 <div className="flex items-center gap-2">
                   <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                  <span className="font-bold text-lg" style={{ color: awayBarColor }}>{rlBetsAwayPct.toFixed(1)}%</span>
+                  <span className={`font-bold text-lg ${getPctColorClass(rlBetsAwayPct, rlBetsHomePct, true)}`}>{rlBetsAwayPct.toFixed(1)}%</span>
                 </div>
-                <div className="flex-1 mx-2">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
+                <div className="flex-1 mx-2 relative">
+                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
                     <div className="h-full" style={{ width: `${rlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
                     <div className="h-full" style={{ width: `${rlBetsHomePct}%`, backgroundColor: homeBarColor }} />
+                    {/* Outline overlay */}
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '9999px',
+                      border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                      pointerEvents: 'none',
+                      boxSizing: 'border-box',
+                    }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg" style={{ color: homeBarColor }}>{rlBetsHomePct.toFixed(1)}%</span>
+                  <span className={`font-bold text-lg ${getPctColorClass(rlBetsAwayPct, rlBetsHomePct, false)}`}>{rlBetsHomePct.toFixed(1)}%</span>
                   <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 </div>
               </div>

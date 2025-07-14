@@ -20,6 +20,8 @@ interface TrendMatch {
   games: number;
   win_pct: number;
   opponent_win_pct: number;
+  dominant_side?: string; // 'primary' or 'opponent'
+  dominant_win_pct?: number; // The higher win percentage
   feature_count: number;
   features: string[];
 }
@@ -84,8 +86,6 @@ const CustomModels = () => {
     { key: 'opponent_rl_bets', supabaseColumn: 'opponent_rl_bets', displayName: 'Opponent RL Bets', blurb: '% of run line bets on the opponent team.' },
     { key: 'ou_handle_over', supabaseColumn: 'ou_handle_over', displayName: 'Over/Under Handle', blurb: '% of money wagered on the Over for total runs.' },
     { key: 'ou_bets_over', supabaseColumn: 'ou_bets_over', displayName: 'Over Under Bets', blurb: '% of bets on the Over for total runs.' },
-    { key: 'primary_ops', supabaseColumn: 'primary_ops', displayName: 'Primary Team OPS', blurb: 'Season OPS (On-base + Slugging) for the primary team.' },
-    { key: 'opponent_ops', supabaseColumn: 'opponent_ops', displayName: 'Opponent Team OPS', blurb: 'Season OPS for the opponent team.' },
     { key: 'primary_handedness', supabaseColumn: 'primary_handedness', displayName: 'Primary Pitcher Handedness', blurb: 'Left-handed or right-handed primary pitcher.' },
     { key: 'opponent_handedness', supabaseColumn: 'opponent_handedness', displayName: 'Opponent Pitcher Handedness', blurb: 'Left-handed or right-handed opponent pitcher.' },
     { key: 'same_league', supabaseColumn: 'same_league', displayName: 'Same League Matchup', blurb: 'Whether both teams are in the same league.' },
@@ -160,15 +160,6 @@ const CustomModels = () => {
   };
 
   const handleSubmit = async () => {
-    if (!modelName.trim()) {
-      toast({
-        title: "Model name required",
-        description: "Please enter a name for your model.",
-        variant: "destructive"
-      })
-      return;
-    }
-
     if (selectedFeatures.length < 3) {
        toast({
         title: "Minimum features required",
@@ -230,18 +221,18 @@ const CustomModels = () => {
         };
       case 'runline':
         return {
-          primaryRate: 'Cover Rate',
-          opponentRate: 'No Cover Rate',
-          primaryShort: 'Cover %',
-          opponentShort: 'No Cover %',
+          primaryRate: 'Primary Cover Rate',
+          opponentRate: 'Opponent Cover Rate',
+          primaryShort: 'Primary Cover %',
+          opponentShort: 'Opponent Cover %',
           avgLabel: 'Avg Cover Rate'
         };
       case 'moneyline':
         return {
-          primaryRate: 'Win Rate',
-          opponentRate: 'Loss Rate',
-          primaryShort: 'Win %',
-          opponentShort: 'Loss %',
+          primaryRate: 'Primary Win Rate',
+          opponentRate: 'Opponent Win Rate',
+          primaryShort: 'Primary Win %',
+          opponentShort: 'Opponent Win %',
           avgLabel: 'Avg Win Rate'
         };
       default:
@@ -486,9 +477,9 @@ const CustomModels = () => {
                           <th className="text-left p-2">#</th>
                           <th className="text-left p-2">{targetLabels.primaryShort}</th>
                           <th className="text-left p-2">{targetLabels.opponentShort}</th>
+                          <th className="text-left p-2">Dominant</th>
                           <th className="text-left p-2">Games</th>
                           <th className="text-left p-2">Features</th>
-                          <th className="text-left p-2">Explain</th>
                           <th className="text-left p-2">Actions</th>
                         </tr>
                       </thead>
@@ -497,28 +488,45 @@ const CustomModels = () => {
                           <tr key={index} className="border-b hover:bg-gray-50">
                             <td className="p-2 font-bold text-blue-900">{index + 1}</td>
                             <td className="p-2">
-                              <span className={`font-medium ${
-                                match.win_pct > 0.6 ? 'text-green-600' : 
-                                match.win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
-                              }`}>
-                                {(match.win_pct * 100).toFixed(1)}%
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className={`font-medium ${
+                                  match.win_pct > 0.6 ? 'text-green-600' : 
+                                  match.win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                                }`}>
+                                  {(match.win_pct * 100).toFixed(1)}%
+                                </span>
+                                {match.dominant_side === 'primary' && (
+                                  <span className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded">★</span>
+                                )}
+                              </div>
                             </td>
                             <td className="p-2">
-                              <span className={`font-medium ${
-                                match.opponent_win_pct > 0.6 ? 'text-green-600' : 
-                                match.opponent_win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                              <div className="flex items-center gap-2">
+                                <span className={`font-medium ${
+                                  match.opponent_win_pct > 0.6 ? 'text-green-600' : 
+                                  match.opponent_win_pct < 0.4 ? 'text-red-600' : 'text-yellow-600'
+                                }`}>
+                                  {(match.opponent_win_pct * 100).toFixed(1)}%
+                                </span>
+                                {match.dominant_side === 'opponent' && (
+                                  <span className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded">★</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-2">
+                              <span className={`text-xs px-2 py-1 rounded font-medium ${
+                                match.dominant_side === 'primary' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : match.dominant_side === 'opponent'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-gray-100 text-gray-800'
                               }`}>
-                                {(match.opponent_win_pct * 100).toFixed(1)}%
+                                {match.dominant_side === 'primary' ? 'Primary' : 
+                                 match.dominant_side === 'opponent' ? 'Opponent' : 'Neutral'}
                               </span>
                             </td>
                             <td className="p-2">{match.games}</td>
                             <td className="p-2">{match.feature_count}</td>
-                            <td className="p-2">
-                              <Button variant="outline" size="sm" onClick={() => setExplainPatternIndex(index)}>
-                                Explain
-                              </Button>
-                            </td>
                             <td className="p-2">
                               <SavePatternButton
                                 combo={match.combo}
@@ -607,15 +615,38 @@ const CustomModels = () => {
                                   tm.games === match.games &&
                                   tm.feature_count === match.feature_count
                               );
-                              // Calculate highest win percentage
-                              const highestWinPct = Math.max(match.win_pct, match.opponent_win_pct);
+                              
+                              // Normalize prediction logic for grouped games
+                              let teamA = match.primary_team;
+                              let teamB = match.opponent_team;
+                              let teamAWinPct = match.win_pct;
+                              let teamBWinPct = match.opponent_win_pct;
+                              // If the pattern's primary_team does not match the grouped game's primary_team, swap
+                              if (gameInfo.primary_team !== match.primary_team) {
+                                [teamA, teamB] = [teamB, teamA];
+                                [teamAWinPct, teamBWinPct] = [teamBWinPct, teamAWinPct];
+                              }
+                              const predictedWinner = teamAWinPct > teamBWinPct ? teamA : teamB;
+                              const confidence = Math.max(teamAWinPct, teamBWinPct) * 100;
+                              
+                              console.log('CustomModels Debug:', {
+                                patternIndex: patternIndex !== -1 ? patternIndex + 1 : 'Unknown',
+                                teamA,
+                                teamB,
+                                teamAWinPct,
+                                teamBWinPct,
+                                predictedWinner,
+                                confidence
+                              });
+                              
                               return (
                                 <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
                                   <span className="font-semibold text-blue-900">
                                     {patternIndex !== -1 ? `Trend Pattern #${patternIndex + 1}` : 'Pattern'}
                                   </span>
                                   <div className="flex gap-4 text-gray-600 items-center">
-                                    <span className="font-bold text-green-700">{(highestWinPct * 100).toFixed(1)}% <span className="font-normal text-gray-600">Win %</span></span>
+                                    <span className="font-bold text-green-700">{predictedWinner}</span>
+                                    <span className="font-bold text-green-700">{(confidence).toFixed(1)}% <span className="font-normal text-gray-600">Win %</span></span>
                                     <span>{match.feature_count} features</span>
                                     <span>{match.games} games</span>
                                   </div>

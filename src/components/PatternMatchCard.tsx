@@ -20,6 +20,11 @@ interface PatternMatchProps {
     away_ml?: number;
     home_rl?: number;
     away_rl?: number;
+    game_info?: {
+      is_home_team: boolean;
+      primary_team: string;
+      opponent_team: string;
+    };
   };
   target: string;
   onViewMatchingGames?: () => void;
@@ -35,12 +40,42 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
     }
   };
 
-  // Calculate individual pattern prediction
+  // Calculate individual pattern prediction (align to game teams)
   const getPrediction = () => {
-    if (target === 'over_under') {
-      return match.win_pct > match.opponent_win_pct ? 'Over' : 'Under';
+    // If the parent component provides game_info, use it to align teams
+    // Otherwise, fallback to the match row logic
+    const gameInfo = match.game_info; // Assume this is passed in match if available
+    let homeTeam, awayTeam, homeWinPct, awayWinPct;
+    if (gameInfo) {
+      homeTeam = gameInfo.is_home_team ? gameInfo.primary_team : gameInfo.opponent_team;
+      awayTeam = gameInfo.is_home_team ? gameInfo.opponent_team : gameInfo.primary_team;
+      if (gameInfo.primary_team === match.primary_team) {
+        homeWinPct = match.win_pct;
+        awayWinPct = match.opponent_win_pct;
+      } else {
+        homeWinPct = match.opponent_win_pct;
+        awayWinPct = match.win_pct;
+      }
+      const predicted = homeWinPct > awayWinPct ? homeTeam : awayTeam;
+      console.log('DEBUG', {
+        homeTeam,
+        awayTeam,
+        homeWinPct,
+        awayWinPct,
+        predicted
+      });
+      return predicted;
     } else {
-      return match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
+      // Fallback: just use match row
+      const predicted = match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
+      console.log('DEBUG', {
+        primary_team: match.primary_team,
+        opponent_team: match.opponent_team,
+        win_pct: match.win_pct,
+        opponent_win_pct: match.opponent_win_pct,
+        predicted
+      });
+      return predicted;
     }
   };
 
@@ -49,14 +84,14 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
     if (target === 'over_under') {
       return match.o_u_line ? ` ${match.o_u_line}` : '';
     } else if (target === 'moneyline') {
-      const predictedTeam = match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
+      const predictedTeam = getPrediction();
       // Determine if predicted team is actually the home team
       const homeTeam = match.is_home_game ? match.primary_team : match.opponent_team;
       const isPredictedTeamHome = predictedTeam === homeTeam;
       const line = isPredictedTeamHome ? match.home_ml : match.away_ml;
       return line ? ` (${line > 0 ? '+' : ''}${line})` : '';
     } else if (target === 'runline') {
-      const predictedTeam = match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
+      const predictedTeam = getPrediction();
       // Determine if predicted team is actually the home team
       const homeTeam = match.is_home_game ? match.primary_team : match.opponent_team;
       const isPredictedTeamHome = predictedTeam === homeTeam;

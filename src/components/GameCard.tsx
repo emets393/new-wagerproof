@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import TeamDisplay from "./TeamDisplay";
 import PitcherDisplay from "./PitcherDisplay";
 import PredictionsModal from "./PredictionsModal";
+import PublicBettingDistribution from "./PublicBettingDistribution";
 import { useState } from "react";
 
 interface Game {

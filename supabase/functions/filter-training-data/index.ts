@@ -75,7 +75,10 @@ serve(async (req) => {
     ...numericFiltersWithOperators,
     ...booleanFilters,
     "primary_team", "primary_pitcher", "opponent_team", "opponent_pitcher", "team_status",
-    "ou_line_min", "ou_line_max", "home_handedness", "away_handedness"
+    "ou_line_min", "ou_line_max", "home_handedness", "away_handedness",
+    "ou_handle_min", "ou_handle_max", "ou_bets_min", "ou_bets_max",
+    "home_ml_handle_min", "home_ml_handle_max", "home_ml_bets_min", "home_ml_bets_max",
+    "home_rl_handle_min", "home_rl_handle_max", "home_rl_bets_min", "home_rl_bets_max"
   ];
 
   let query = supabase.from('training_data').select('*').order('date', { ascending: false });
@@ -125,6 +128,68 @@ serve(async (req) => {
     if (key === 'ou_line_max') {
       console.log(`Applying O/U line max filter: o_u_line <= ${val}`);
       query = query.lte('o_u_line', parseFloat(val));
+      continue;
+    }
+
+    // Handle betting volume filters
+    if (key === 'ou_handle_min') {
+      console.log(`Applying O/U handle min filter: ou_handle_over >= ${val}`);
+      query = query.gte('ou_handle_over', parseFloat(val));
+      continue;
+    }
+    if (key === 'ou_handle_max') {
+      console.log(`Applying O/U handle max filter: ou_handle_over <= ${val}`);
+      query = query.lte('ou_handle_over', parseFloat(val));
+      continue;
+    }
+    if (key === 'ou_bets_min') {
+      console.log(`Applying O/U bets min filter: ou_bets_over >= ${val}`);
+      query = query.gte('ou_bets_over', parseFloat(val));
+      continue;
+    }
+    if (key === 'ou_bets_max') {
+      console.log(`Applying O/U bets max filter: ou_bets_over <= ${val}`);
+      query = query.lte('ou_bets_over', parseFloat(val));
+      continue;
+    }
+    if (key === 'home_ml_handle_min') {
+      console.log(`Applying home ML handle min filter: home_ml_handle >= ${val}`);
+      query = query.gte('home_ml_handle', parseFloat(val));
+      continue;
+    }
+    if (key === 'home_ml_handle_max') {
+      console.log(`Applying home ML handle max filter: home_ml_handle <= ${val}`);
+      query = query.lte('home_ml_handle', parseFloat(val));
+      continue;
+    }
+    if (key === 'home_ml_bets_min') {
+      console.log(`Applying home ML bets min filter: home_ml_bets >= ${val}`);
+      query = query.gte('home_ml_bets', parseFloat(val));
+      continue;
+    }
+    if (key === 'home_ml_bets_max') {
+      console.log(`Applying home ML bets max filter: home_ml_bets <= ${val}`);
+      query = query.lte('home_ml_bets', parseFloat(val));
+      continue;
+    }
+    if (key === 'home_rl_handle_min') {
+      console.log(`Applying home RL handle min filter: home_rl_handle >= ${val}`);
+      query = query.gte('home_rl_handle', parseFloat(val));
+      continue;
+    }
+    if (key === 'home_rl_handle_max') {
+      console.log(`Applying home RL handle max filter: home_rl_handle <= ${val}`);
+      query = query.lte('home_rl_handle', parseFloat(val));
+      continue;
+    }
+    if (key === 'home_rl_bets_min') {
+      console.log(`Applying home RL bets min filter: home_rl_bets >= ${val}`);
+      query = query.gte('home_rl_bets', parseFloat(val));
+      continue;
+    }
+    if (key === 'home_rl_bets_max') {
+      console.log(`Applying home RL bets max filter: home_rl_bets <= ${val}`);
+      query = query.lte('home_rl_bets', parseFloat(val));
       continue;
     }
 

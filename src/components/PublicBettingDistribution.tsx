@@ -225,8 +225,31 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
     if (colorDistance(homeBarColor, awayColors.secondary) >= SIMILARITY_THRESHOLD) {
       awayBarColor = awayColors.secondary;
     } else {
-      awayBarColor = '#888888'; // fallback neutral
+      awayBarColor = '#6B7280'; // fallback high-contrast gray
     }
+  }
+
+  // Determine outline colors for bars (visually obvious, 3px solid)
+  let homeOutlineColor = homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary;
+  let awayOutlineColor = awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary;
+
+  // Helper to get percentage color classes for moneyline/runline
+  function getPctColorClass(leftPct, rightPct, isLeft) {
+    if (leftPct === rightPct) {
+      return isLeft ? 'text-red-600' : 'text-green-600';
+    }
+    if (isLeft) {
+      return leftPct > rightPct ? 'text-green-600' : 'text-red-600';
+    } else {
+      return rightPct > leftPct ? 'text-green-600' : 'text-red-600';
+    }
+  }
+
+  // Add helper for outline color (use home secondary for right, away secondary for left)
+  function getOutlineColor(homeBarColor, homeColors, awayBarColor, awayColors) {
+    const homeOutline = homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary;
+    const awayOutline = awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary;
+    return [awayOutline, homeOutline];
   }
 
   if (isLoading) {
@@ -308,16 +331,41 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             <div className="flex items-center mb-6 w-full justify-between">
               <div className="flex items-center gap-2">
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                <span className={`font-bold text-lg ${mlHandleAwayPct > mlHandleHomePct ? 'text-green-600' : 'text-red-600'}`}>{mlHandleAwayPct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${getPctColorClass(mlHandleAwayPct, mlHandleHomePct, true)}`}>{mlHandleAwayPct.toFixed(1)}%</span>
               </div>
-              <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${mlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
-                  <div className="h-full" style={{ width: `${mlHandleHomePct}%`, backgroundColor: homeBarColor }} />
+              <div className="flex-1 mx-2 relative">
+                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
+                  {/* Away bar: full border, left corners rounded */}
+                  <div style={{
+                    width: `${mlHandleAwayPct}%`,
+                    backgroundColor: awayBarColor,
+                    border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
+                    borderTopLeftRadius: '9999px',
+                    borderBottomLeftRadius: '9999px',
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                    height: '100%',
+                    boxSizing: 'border-box',
+                  }} />
+                  {/* Home bar: full border, right corners rounded, rendered on top */}
+                  <div style={{
+                    width: `${mlHandleHomePct}%`,
+                    backgroundColor: homeBarColor,
+                    border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                    borderTopRightRadius: '9999px',
+                    borderBottomRightRadius: '9999px',
+                    borderTopLeftRadius: 0,
+                    borderBottomLeftRadius: 0,
+                    height: '100%',
+                    boxSizing: 'border-box',
+                    position: 'absolute',
+                    left: `${mlHandleAwayPct}%`,
+                    top: 0,
+                  }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`font-bold text-lg ${mlHandleHomePct > mlHandleAwayPct ? 'text-green-600' : 'text-red-600'}`}>{mlHandleHomePct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${getPctColorClass(mlHandleAwayPct, mlHandleHomePct, false)}`}>{mlHandleHomePct.toFixed(1)}%</span>
                 <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
               </div>
             </div>
@@ -327,16 +375,42 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             <div className="flex items-center mb-2 w-full justify-between">
               <div className="flex items-center gap-2">
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                <span className={`font-bold text-lg ${mlBetsAwayPct > mlBetsHomePct ? 'text-green-600' : 'text-red-600'}`}>{mlBetsAwayPct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${getPctColorClass(mlBetsAwayPct, mlBetsHomePct, true)}`}>{mlBetsAwayPct.toFixed(1)}%</span>
               </div>
-              <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${mlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
-                  <div className="h-full" style={{ width: `${mlBetsHomePct}%`, backgroundColor: homeBarColor }} />
+              <div className="flex-1 mx-2 relative">
+                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
+                  {/* Away bar: full border, left corners rounded */}
+                  <div style={{
+                    width: `${mlBetsAwayPct}%`,
+                    backgroundColor: awayBarColor,
+                    border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
+                    borderTopLeftRadius: '9999px',
+                    borderBottomLeftRadius: '9999px',
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                    height: '100%',
+                    boxSizing: 'border-box',
+                    zIndex: 1,
+                  }} />
+                  {/* Home bar: full border, right corners rounded, rendered on top */}
+                  <div style={{
+                    width: `${mlBetsHomePct}%`,
+                    backgroundColor: homeBarColor,
+                    border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                    borderTopRightRadius: '9999px',
+                    borderBottomRightRadius: '9999px',
+                    borderTopLeftRadius: 0,
+                    borderBottomLeftRadius: 0,
+                    height: '100%',
+                    boxSizing: 'border-box',
+                    position: 'absolute',
+                    left: `${mlBetsAwayPct}%`,
+                    top: 0,
+                  }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`font-bold text-lg ${mlBetsHomePct > mlBetsAwayPct ? 'text-green-600' : 'text-red-600'}`}>{mlBetsHomePct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${getPctColorClass(mlBetsAwayPct, mlBetsHomePct, false)}`}>{mlBetsHomePct.toFixed(1)}%</span>
                 <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
               </div>
             </div>
@@ -353,16 +427,42 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             <div className="flex items-center mb-6 w-full justify-between">
               <div className="flex items-center gap-2">
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                <span className={`font-bold text-lg ${rlHandleAwayPct > rlHandleHomePct ? 'text-green-600' : 'text-red-600'}`}>{rlHandleAwayPct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${getPctColorClass(rlHandleAwayPct, rlHandleHomePct, true)}`}>{rlHandleAwayPct.toFixed(1)}%</span>
               </div>
-              <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${rlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
-                  <div className="h-full" style={{ width: `${rlHandleHomePct}%`, backgroundColor: homeBarColor }} />
+              <div className="flex-1 mx-2 relative">
+                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
+                  {/* Away bar: full border, left corners rounded */}
+                  <div style={{
+                    width: `${rlHandleAwayPct}%`,
+                    backgroundColor: awayBarColor,
+                    border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
+                    borderTopLeftRadius: '9999px',
+                    borderBottomLeftRadius: '9999px',
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                    height: '100%',
+                    boxSizing: 'border-box',
+                    zIndex: 1,
+                  }} />
+                  {/* Home bar: full border, right corners rounded, rendered on top */}
+                  <div style={{
+                    width: `${rlHandleHomePct}%`,
+                    backgroundColor: homeBarColor,
+                    border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                    borderTopRightRadius: '9999px',
+                    borderBottomRightRadius: '9999px',
+                    borderTopLeftRadius: 0,
+                    borderBottomLeftRadius: 0,
+                    height: '100%',
+                    boxSizing: 'border-box',
+                    position: 'absolute',
+                    left: `${rlHandleAwayPct}%`,
+                    top: 0,
+                  }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`font-bold text-lg ${rlHandleHomePct > rlHandleAwayPct ? 'text-green-600' : 'text-red-600'}`}>{rlHandleHomePct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${getPctColorClass(rlHandleAwayPct, rlHandleHomePct, false)}`}>{rlHandleHomePct.toFixed(1)}%</span>
                 <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
               </div>
             </div>
@@ -372,16 +472,42 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
             <div className="flex items-center mb-2 w-full justify-between">
               <div className="flex items-center gap-2">
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
-                <span className={`font-bold text-lg ${rlBetsAwayPct > rlBetsHomePct ? 'text-green-600' : 'text-red-600'}`}>{rlBetsAwayPct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${getPctColorClass(rlBetsAwayPct, rlBetsHomePct, true)}`}>{rlBetsAwayPct.toFixed(1)}%</span>
               </div>
-              <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full" style={{ width: `${rlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
-                  <div className="h-full" style={{ width: `${rlBetsHomePct}%`, backgroundColor: homeBarColor }} />
+              <div className="flex-1 mx-2 relative">
+                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
+                  {/* Away bar: full border, left corners rounded */}
+                  <div style={{
+                    width: `${rlBetsAwayPct}%`,
+                    backgroundColor: awayBarColor,
+                    border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
+                    borderTopLeftRadius: '9999px',
+                    borderBottomLeftRadius: '9999px',
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                    height: '100%',
+                    boxSizing: 'border-box',
+                    zIndex: 1,
+                  }} />
+                  {/* Home bar: full border, right corners rounded, rendered on top */}
+                  <div style={{
+                    width: `${rlBetsHomePct}%`,
+                    backgroundColor: homeBarColor,
+                    border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                    borderTopRightRadius: '9999px',
+                    borderBottomRightRadius: '9999px',
+                    borderTopLeftRadius: 0,
+                    borderBottomLeftRadius: 0,
+                    height: '100%',
+                    boxSizing: 'border-box',
+                    position: 'absolute',
+                    left: `${rlBetsAwayPct}%`,
+                    top: 0,
+                  }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`font-bold text-lg ${rlBetsHomePct > rlBetsAwayPct ? 'text-green-600' : 'text-red-600'}`}>{rlBetsHomePct.toFixed(1)}%</span>
+                <span className={`font-bold text-lg ${getPctColorClass(rlBetsAwayPct, rlBetsHomePct, false)}`}>{rlBetsHomePct.toFixed(1)}%</span>
                 <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
               </div>
             </div>

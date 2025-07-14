@@ -11,6 +11,8 @@ interface TrendMatch {
   games: number;
   win_pct: number;
   opponent_win_pct: number;
+  dominant_side: string; // 'primary' or 'opponent'
+  dominant_win_pct: number; // The higher win percentage
   feature_count: number;
   features: string[];
   perspective: string; // 'primary' or 'opponent'
@@ -299,17 +301,25 @@ serve(async (req) => {
 
         // Create trend matches for primary perspective
         for (const [combo, data] of primaryComboMap.entries()) {
-          const minGames = size >= 5 ? 25 : 30;
+          const minGames = size >= 5 ? 75 : 150;
           
           if (data.total >= minGames) {
             const winPct = data.wins / data.total;
+            const oppWinPct = 1 - winPct;
             
-            if (winPct >= 0.55 || winPct <= 0.45) {
+            // Include pattern if either side has a strong win percentage (>= 57%)
+            if (winPct >= 0.57 || oppWinPct >= 0.57) {
+              // Determine which side is dominant (the one with higher win percentage)
+              const dominant_side = winPct >= oppWinPct ? 'primary' : 'opponent';
+              const dominant_win_pct = Math.max(winPct, oppWinPct);
+              
               allTrendMatches.push({
                 combo,
                 games: data.total,
                 win_pct: winPct,
-                opponent_win_pct: 1 - winPct,
+                opponent_win_pct: oppWinPct,
+                dominant_side: dominant_side,
+                dominant_win_pct: dominant_win_pct,
                 feature_count: size,
                 features: features,
                 perspective: 'primary'
@@ -329,15 +339,54 @@ serve(async (req) => {
         });
       }
 
-      // Sort all trend matches by predictive strength and sample size
-      allTrendMatches.sort((a, b) => {
-        const scoreA = Math.max(a.win_pct, a.opponent_win_pct) * Math.log(a.games) * (a.feature_count / 10); // Slight bonus for more features
-        const scoreB = Math.max(b.win_pct, b.opponent_win_pct) * Math.log(b.games) * (b.feature_count / 10);
-        return scoreB - scoreA;
+      // Separate patterns into primary and opponent dominant buckets
+      const primaryDominantPatterns = allTrendMatches.filter(p => p.dominant_side === 'primary');
+      const opponentDominantPatterns = allTrendMatches.filter(p => p.dominant_side === 'opponent');
+      
+      console.log(`Found ${primaryDominantPatterns.length} primary-dominant and ${opponentDominantPatterns.length} opponent-dominant patterns`);
+      
+      // Sort each bucket by their dominant win percentage (highest first)
+      primaryDominantPatterns.sort((a, b) => b.dominant_win_pct - a.dominant_win_pct);
+      opponentDominantPatterns.sort((a, b) => b.dominant_win_pct - a.dominant_win_pct);
+      
+      // Take top 10 from each side (or all available if less than 10)
+      const topPrimary = primaryDominantPatterns.slice(0, 10);
+      const topOpponent = opponentDominantPatterns.slice(0, 10);
+      
+      console.log(`Selected top ${topPrimary.length} primary-dominant and ${topOpponent.length} opponent-dominant patterns`);
+      
+      // Combine the patterns
+      let combinedPatterns = [...topPrimary, ...topOpponent];
+      
+      // If we have less than 20 patterns, fill remaining slots with the best patterns from whichever side has more
+      if (combinedPatterns.length < 20) {
+        const remainingSlots = 20 - combinedPatterns.length;
+        const remainingPrimary = primaryDominantPatterns.slice(10);
+        const remainingOpponent = opponentDominantPatterns.slice(10);
+        
+        // Combine remaining patterns and sort by dominant win percentage
+        const remainingPatterns = [...remainingPrimary, ...remainingOpponent];
+        remainingPatterns.sort((a, b) => b.dominant_win_pct - a.dominant_win_pct);
+        
+        // Add the best remaining patterns to fill the slots
+        combinedPatterns = [...combinedPatterns, ...remainingPatterns.slice(0, remainingSlots)];
+      }
+      
+      // Sort the final combined list by dominant win percentage (highest first)
+      combinedPatterns.sort((a, b) => b.dominant_win_pct - a.dominant_win_pct);
+      
+      // Take the top 20 (or all available if less than 20)
+      topTrendMatches = combinedPatterns.slice(0, 20);
+      
+      // Debug: Log the final distribution
+      const finalPrimaryDominant = topTrendMatches.filter(t => t.dominant_side === 'primary').length;
+      const finalOpponentDominant = topTrendMatches.filter(t => t.dominant_side === 'opponent').length;
+      console.log(`Final pattern distribution: ${finalPrimaryDominant} primary-dominant, ${finalOpponentDominant} opponent-dominant out of ${topTrendMatches.length} total`);
+      
+      // Log the top 5 patterns for debugging
+      topTrendMatches.slice(0, 5).forEach((pattern, index) => {
+        console.log(`Pattern ${index + 1}: ${pattern.dominant_side} dominant (${(pattern.dominant_win_pct * 100).toFixed(1)}%), Primary: ${(pattern.win_pct * 100).toFixed(1)}%, Opponent: ${(pattern.opponent_win_pct * 100).toFixed(1)}%`);
       });
-
-      // Take top 15 patterns - these are the ones we'll return AND use for matching
-      topTrendMatches = allTrendMatches.slice(0, 15);
 
       console.log(`Selected top ${topTrendMatches.length} trend matches from ${allTrendMatches.length} total patterns`);
     }
