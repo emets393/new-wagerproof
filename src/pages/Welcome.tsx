@@ -8,8 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, BarChart3, Target, TrendingUp, Brain } from 'lucide-react';
-import wagerproofLogo from '@/assets/wagerproof-logo.svg';
+import { Loader2, BarChart3, Target, TrendingUp, Brain, Upload } from 'lucide-react';
 
 export default function Welcome() {
   const { user, loading, signIn, signUp } = useAuth();
@@ -95,7 +94,7 @@ export default function Welcome() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/10 to-primary/5">
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80">
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[calc(100vh-4rem)]">
           
@@ -104,13 +103,16 @@ export default function Welcome() {
             {/* Logo and Hero */}
             <div className="text-center lg:text-left space-y-6">
               <div className="flex justify-center lg:justify-start">
-                <img src={wagerproofLogo} alt="WAGER PROOF" className="h-20 w-auto" />
+                <div className="p-6 bg-white rounded-xl shadow-lg">
+                  <Upload className="h-16 w-16 text-primary mx-auto" />
+                  <p className="text-sm text-muted mt-2">Upload your WAGER PROOF logo</p>
+                </div>
               </div>
               <div className="space-y-4">
-                <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                <h1 className="text-4xl lg:text-5xl font-bold text-accent drop-shadow-lg">
                   Advanced Baseball Analytics
                 </h1>
-                <p className="text-xl text-muted-foreground">
+                <p className="text-xl text-white/90">
                   Data-driven insights for serious bettors. Make informed decisions with professional-grade analytics.
                 </p>
               </div>
@@ -119,14 +121,14 @@ export default function Welcome() {
             {/* Features Grid */}
             <div className="grid md:grid-cols-2 gap-6">
               {features.map((feature, index) => (
-                <div key={index} className="p-6 rounded-lg border bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-colors">
+                <div key={index} className="p-6 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors">
                   <div className="flex items-start space-x-4">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <feature.icon className="h-6 w-6 text-primary" />
+                    <div className="p-2 rounded-lg bg-accent/20">
+                      <feature.icon className="h-6 w-6 text-accent" />
                     </div>
                     <div className="space-y-2">
-                      <h3 className="font-semibold text-foreground">{feature.title}</h3>
-                      <p className="text-sm text-muted-foreground">{feature.description}</p>
+                      <h3 className="font-semibold text-white">{feature.title}</h3>
+                      <p className="text-sm text-white/80">{feature.description}</p>
                     </div>
                   </div>
                 </div>
@@ -136,26 +138,26 @@ export default function Welcome() {
 
           {/* Right Side - Authentication Forms */}
           <div className="flex justify-center lg:justify-end">
-            <Card className="w-full max-w-md shadow-2xl border-0 bg-card/80 backdrop-blur-sm">
+            <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
               <CardHeader className="text-center space-y-4">
-                <CardTitle className="text-2xl font-bold">
+                <CardTitle className="text-2xl font-bold text-primary">
                   Get Started
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-muted">
                   Sign in to your account or create a new one to access advanced analytics
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="login">Sign In</TabsTrigger>
-                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-2 bg-muted/20">
+                    <TabsTrigger value="login" className="text-primary data-[state=active]:bg-accent data-[state=active]:text-primary">Sign In</TabsTrigger>
+                    <TabsTrigger value="signup" className="text-primary data-[state=active]:bg-accent data-[state=active]:text-primary">Sign Up</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="login" className="space-y-4 mt-6">
                     <form onSubmit={(e) => handleSubmit(e, 'login')} className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email" className="text-primary font-medium">Email</Label>
                         <Input
                           id="email"
                           type="email"
@@ -167,7 +169,7 @@ export default function Welcome() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
+                        <Label htmlFor="password" className="text-primary font-medium">Password</Label>
                         <Input
                           id="password"
                           type="password"
@@ -186,7 +188,7 @@ export default function Welcome() {
                           onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                           disabled={isLoading}
                         />
-                        <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
+                        <Label htmlFor="remember" className="text-sm font-normal cursor-pointer text-primary">
                           Remember me for 30 days
                         </Label>
                       </div>
@@ -197,7 +199,7 @@ export default function Welcome() {
                         </Alert>
                       )}
                       
-                      <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                      <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 text-white" disabled={isLoading}>
                         {isLoading ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
