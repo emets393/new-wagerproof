@@ -94,8 +94,10 @@ export default function Welcome() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/95 to-primary/80 relative overflow-hidden">
+      {/* Additional gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-accent/5 to-accent/10"></div>
+      <div className="container mx-auto px-4 py-8 relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[calc(100vh-4rem)]">
           
           {/* Left Side - Branding & Features */}
@@ -103,10 +105,11 @@ export default function Welcome() {
             {/* Logo and Hero */}
             <div className="text-center lg:text-left space-y-6">
               <div className="flex justify-center lg:justify-start">
-                <div className="p-6 bg-white rounded-xl shadow-lg">
-                  <Upload className="h-16 w-16 text-primary mx-auto" />
-                  <p className="text-sm text-muted mt-2">Upload your WAGER PROOF logo</p>
-                </div>
+                <img 
+                  src="/lovable-uploads/40569607-0bf3-433c-a0f5-bca0ee0de005.png" 
+                  alt="WAGER PROOF" 
+                  className="h-20 w-auto drop-shadow-lg" 
+                />
               </div>
               <div className="space-y-4">
                 <h1 className="text-4xl lg:text-5xl font-bold text-accent drop-shadow-lg">
@@ -215,7 +218,7 @@ export default function Welcome() {
                   <TabsContent value="signup" className="space-y-4 mt-6">
                     <form onSubmit={(e) => handleSubmit(e, 'signup')} className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="signup-email">Email</Label>
+                        <Label htmlFor="signup-email" className="text-primary font-medium">Email</Label>
                         <Input
                           id="signup-email"
                           type="email"
@@ -227,7 +230,7 @@ export default function Welcome() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="signup-password">Password</Label>
+                        <Label htmlFor="signup-password" className="text-primary font-medium">Password</Label>
                         <Input
                           id="signup-password"
                           type="password"
@@ -251,7 +254,7 @@ export default function Welcome() {
                         </Alert>
                       )}
                       
-                      <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                      <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 text-white" disabled={isLoading}>
                         {isLoading ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
