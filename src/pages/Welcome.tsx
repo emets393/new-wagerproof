@@ -105,11 +105,13 @@ export default function Welcome() {
             {/* Logo and Hero */}
             <div className="text-center lg:text-left space-y-6">
               <div className="flex justify-center lg:justify-start">
-                <img 
-                  src="/lovable-uploads/40569607-0bf3-433c-a0f5-bca0ee0de005.png" 
-                  alt="WAGER PROOF" 
-                  className="h-20 w-auto drop-shadow-lg" 
-                />
+                <div className="p-6 bg-white rounded-xl shadow-lg">
+                  <img 
+                    src="/lovable-uploads/40569607-0bf3-433c-a0f5-bca0ee0de005.png" 
+                    alt="WAGER PROOF" 
+                    className="h-60 w-auto" 
+                  />
+                </div>
               </div>
               <div className="space-y-4">
                 <h1 className="text-4xl lg:text-5xl font-bold text-accent drop-shadow-lg">
