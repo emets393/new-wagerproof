@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,42 +41,13 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
     }
   };
 
-  // Calculate individual pattern prediction (align to game teams)
+  // Get the predicted team or outcome based on win percentages
   const getPrediction = () => {
-    // If the parent component provides game_info, use it to align teams
-    // Otherwise, fallback to the match row logic
-    const gameInfo = match.game_info; // Assume this is passed in match if available
-    let homeTeam, awayTeam, homeWinPct, awayWinPct;
-    if (gameInfo) {
-      homeTeam = gameInfo.is_home_team ? gameInfo.primary_team : gameInfo.opponent_team;
-      awayTeam = gameInfo.is_home_team ? gameInfo.opponent_team : gameInfo.primary_team;
-      if (gameInfo.primary_team === match.primary_team) {
-        homeWinPct = match.win_pct;
-        awayWinPct = match.opponent_win_pct;
-      } else {
-        homeWinPct = match.opponent_win_pct;
-        awayWinPct = match.win_pct;
-      }
-      const predicted = homeWinPct > awayWinPct ? homeTeam : awayTeam;
-      console.log('DEBUG', {
-        homeTeam,
-        awayTeam,
-        homeWinPct,
-        awayWinPct,
-        predicted
-      });
-      return predicted;
+    if (target === 'over_under') {
+      return match.win_pct > match.opponent_win_pct ? 'Over' : 'Under';
     } else {
-      // Fallback: just use match row
-      const predicted = match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
-      console.log('DEBUG', {
-        primary_team: match.primary_team,
-        opponent_team: match.opponent_team,
-        win_pct: match.win_pct,
-        opponent_win_pct: match.opponent_win_pct,
-        predicted
-      });
-      return predicted;
+      // For moneyline and runline, return the team with higher win percentage
+      return match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
     }
   };
 
@@ -102,11 +74,7 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
   };
 
   const getConfidence = () => {
-    if (target === 'over_under') {
-      return Math.max(match.win_pct, match.opponent_win_pct) * 100;
-    } else {
-      return Math.max(match.win_pct, match.opponent_win_pct) * 100;
-    }
+    return Math.max(match.win_pct, match.opponent_win_pct) * 100;
   };
 
   const prediction = getPrediction();
@@ -146,6 +114,9 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
               )}
               <span className="font-semibold text-lg text-foreground">{getBettingLine()}</span>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Confidence: {confidence.toFixed(1)}%
+            </p>
           </div>
         </div>
       </div>

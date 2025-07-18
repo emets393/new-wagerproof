@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -271,6 +272,28 @@ const SavedPatterns: React.FC = () => {
     }
   };
 
+  // Helper function to get the predicted team and win percentage
+  const getPredictionInfo = (pattern: SavedPattern) => {
+    if (pattern.target === 'over_under') {
+      return {
+        prediction: pattern.win_pct > pattern.opponent_win_pct ? 'Over' : 'Under',
+        winPct: Math.max(pattern.win_pct, pattern.opponent_win_pct),
+        isOver: pattern.win_pct > pattern.opponent_win_pct
+      };
+    } else {
+      // For moneyline and runline, we need to determine which team has the higher win percentage
+      // Since we don't have team names in saved patterns, we'll use a generic approach
+      const higherWinPct = Math.max(pattern.win_pct, pattern.opponent_win_pct);
+      const isPrimaryTeamPredicted = pattern.win_pct > pattern.opponent_win_pct;
+      
+      return {
+        prediction: isPrimaryTeamPredicted ? 'Primary Team' : 'Opponent Team',
+        winPct: higherWinPct,
+        isPrimaryTeamPredicted
+      };
+    }
+  };
+
   const filteredPatterns = savedPatterns.filter(pattern => {
     // Filter by target
     if (selectedFilter !== 'all' && pattern.target !== selectedFilter) {
@@ -420,6 +443,7 @@ const SavedPatterns: React.FC = () => {
               const patternMatches = todayMatches.filter(m => m.pattern_id === pattern.id);
               const hasMatches = patternMatches.length > 0;
               const isExpanded = expandedPatterns.has(pattern.id);
+              const predictionInfo = getPredictionInfo(pattern);
               
               return (
                 <Card key={pattern.id} className="hover:shadow-xl transition-shadow overflow-hidden border border-border/60 bg-card/80">
@@ -448,23 +472,12 @@ const SavedPatterns: React.FC = () => {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                      {pattern.target === 'over_under' ? (
-                        <>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Over %</p>
-                            <p className="font-semibold text-green-600">{(pattern.win_pct * 100).toFixed(1)}%</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Under %</p>
-                            <p className="font-semibold text-red-600">{(pattern.opponent_win_pct * 100).toFixed(1)}%</p>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="col-span-2">
-                          <p className="text-sm text-muted-foreground">Win %</p>
-                          <p className="font-semibold text-green-600">{(Math.max(pattern.win_pct, pattern.opponent_win_pct) * 100).toFixed(1)}%</p>
-                        </div>
-                      )}
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">Prediction</p>
+                        <p className="font-semibold text-green-600">
+                          {predictionInfo.prediction}: {(predictionInfo.winPct * 100).toFixed(1)}%
+                        </p>
+                      </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Games</p>
                         <p className="font-semibold text-foreground">{pattern.games}</p>
@@ -546,4 +559,4 @@ const SavedPatterns: React.FC = () => {
   );
 };
 
-export default SavedPatterns; 
+export default SavedPatterns;
