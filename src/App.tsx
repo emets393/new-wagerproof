@@ -4,10 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { navItems } from "./nav-items";
-import Index from "./pages/Index";
-import SavedPatterns from "./pages/SavedPatterns";
-import GameAnalysis from "./pages/GameAnalysis";
-import Account from "./pages/Account";
+import { Index, SavedPatterns, GameAnalysis, Account, Welcome } from "./pages";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -77,6 +74,7 @@ const App = () => (
           <AppHeader />
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/welcome" element={<Welcome />} />
             <Route path="/account" element={<Account />} />
             <Route path="/saved-patterns" element={<SavedPatterns />} />
             <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
