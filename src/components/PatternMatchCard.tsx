@@ -15,6 +15,7 @@ interface PatternMatchProps {
     win_pct: number;
     opponent_win_pct: number;
     target: string;
+    dominant_side?: string;
     // Betting line data
     o_u_line?: number;
     home_ml?: number;
@@ -46,8 +47,10 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
     if (target === 'over_under') {
       return match.win_pct > match.opponent_win_pct ? 'Over' : 'Under';
     } else {
-      // For moneyline and runline, return the team with higher win percentage
-      return match.win_pct > match.opponent_win_pct ? match.primary_team : match.opponent_team;
+      // For moneyline and runline, use dominant_side logic for consistent predictions
+      // This ensures the same prediction logic as the Custom Models page
+      const dominantSide = match.dominant_side || (match.win_pct > match.opponent_win_pct ? 'primary' : 'opponent');
+      return dominantSide === 'primary' ? match.primary_team : match.opponent_team;
     }
   };
 

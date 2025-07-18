@@ -21,6 +21,7 @@ interface SavedPattern {
   games: number;
   feature_count: number;
   created_at: string;
+  dominant_side?: string;
   roi?: {
     roi_percentage: number;
     total_games: number;
@@ -40,6 +41,7 @@ interface PatternMatch {
   win_pct: number;
   opponent_win_pct: number;
   target: string;
+  dominant_side?: string;
 }
 
 const SavedPatterns: React.FC = () => {
@@ -281,15 +283,17 @@ const SavedPatterns: React.FC = () => {
         isOver: pattern.win_pct > pattern.opponent_win_pct
       };
     } else {
-      // For moneyline and runline, we need to determine which team has the higher win percentage
-      // Since we don't have team names in saved patterns, we'll use a generic approach
+      // For moneyline and runline, use the dominant_side field if available
+      // This ensures consistent prediction logic across pages
       const higherWinPct = Math.max(pattern.win_pct, pattern.opponent_win_pct);
-      const isPrimaryTeamPredicted = pattern.win_pct > pattern.opponent_win_pct;
+      const dominantSide = pattern.dominant_side || (pattern.win_pct > pattern.opponent_win_pct ? 'primary' : 'opponent');
+      const isPrimaryTeamPredicted = dominantSide === 'primary';
       
       return {
         prediction: isPrimaryTeamPredicted ? 'Primary Team' : 'Opponent Team',
         winPct: higherWinPct,
-        isPrimaryTeamPredicted
+        isPrimaryTeamPredicted,
+        dominantSide
       };
     }
   };

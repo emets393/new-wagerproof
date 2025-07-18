@@ -16,6 +16,7 @@ interface SavePatternButtonProps {
   games: number;
   featureCount: number;
   target: string;
+  dominantSide?: string; // 'primary' or 'opponent'
 }
 
 const SavePatternButton: React.FC<SavePatternButtonProps> = ({
@@ -25,7 +26,8 @@ const SavePatternButton: React.FC<SavePatternButtonProps> = ({
   opponentWinPct,
   games,
   featureCount,
-  target
+  target,
+  dominantSide
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [patternName, setPatternName] = useState('');
@@ -56,6 +58,9 @@ const SavePatternButton: React.FC<SavePatternButtonProps> = ({
         return;
       }
 
+      // Determine dominant side if not provided
+      const calculatedDominantSide = dominantSide || (winPct > opponentWinPct ? 'primary' : 'opponent');
+      
       const { error } = await supabase
         .from('saved_trend_patterns')
         .insert({
@@ -67,7 +72,8 @@ const SavePatternButton: React.FC<SavePatternButtonProps> = ({
           win_pct: winPct,
           opponent_win_pct: opponentWinPct,
           games,
-          feature_count: featureCount
+          feature_count: featureCount,
+          dominant_side: calculatedDominantSide
         });
 
       if (error) {

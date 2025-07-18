@@ -226,6 +226,7 @@ serve(async (req) => {
             opponent_win_pct: pattern.opponent_win_pct,
             games: pattern.games,
             target: pattern.target,
+            dominant_side: pattern.dominant_side || (pattern.win_pct > pattern.opponent_win_pct ? 'primary' : 'opponent'),
             // Use circa_lines if available, otherwise fallback to view fields
             o_u_line: circaLines?.o_u_line ?? game.o_u_line,
             // Home team's lines (regardless of primary/opponent status)

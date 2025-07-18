@@ -536,6 +536,7 @@ const CustomModels = () => {
                                 games={match.games}
                                 featureCount={match.feature_count}
                                 target={results.target}
+                                dominantSide={match.dominant_side}
                               />
                             </td>
                           </tr>
