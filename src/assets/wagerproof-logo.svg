@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" width="300" height="120">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="40" cy="60" r="35" fill="url(#logoGradient)" />
+  
+  <!-- W letter in circle -->
+  <text x="40" y="72" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="32" font-weight="bold">W</text>
+  
+  <!-- WAGER PROOF text -->
+  <text x="90" y="45" fill="url(#logoGradient)" font-family="Arial, sans-serif" font-size="28" font-weight="bold">WAGER</text>
+  <text x="90" y="75" fill="url(#logoGradient)" font-family="Arial, sans-serif" font-size="28" font-weight="bold">PROOF</text>
+</svg>

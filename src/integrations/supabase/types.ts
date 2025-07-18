@@ -1695,40 +1695,40 @@ export type Database = {
       }
       pattern_roi: {
         Row: {
+          created_at: string | null
           id: string
-          saved_pattern_id: string
-          total_games: number
-          wins: number
-          losses: number
-          total_bet_amount: number
-          total_payout: number
-          roi_percentage: number
-          last_updated: string
-          created_at: string
+          last_updated: string | null
+          losses: number | null
+          roi_percentage: number | null
+          saved_pattern_id: string | null
+          total_bet_amount: number | null
+          total_games: number | null
+          total_payout: number | null
+          wins: number | null
         }
         Insert: {
+          created_at?: string | null
           id?: string
-          saved_pattern_id: string
-          total_games?: number
-          wins?: number
-          losses?: number
-          total_bet_amount?: number
-          total_payout?: number
-          roi_percentage?: number
-          last_updated?: string
-          created_at?: string
+          last_updated?: string | null
+          losses?: number | null
+          roi_percentage?: number | null
+          saved_pattern_id?: string | null
+          total_bet_amount?: number | null
+          total_games?: number | null
+          total_payout?: number | null
+          wins?: number | null
         }
         Update: {
+          created_at?: string | null
           id?: string
-          saved_pattern_id?: string
-          total_games?: number
-          wins?: number
-          losses?: number
-          total_bet_amount?: number
-          total_payout?: number
-          roi_percentage?: number
-          last_updated?: string
-          created_at?: string
+          last_updated?: string | null
+          losses?: number | null
+          roi_percentage?: number | null
+          saved_pattern_id?: string | null
+          total_bet_amount?: number | null
+          total_games?: number | null
+          total_payout?: number | null
+          wins?: number | null
         }
         Relationships: [
           {
