@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { navItems } from "./nav-items";
 import { Index, SavedPatterns, GameAnalysis, Account, Welcome } from "./pages";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -64,6 +64,27 @@ function AppHeader() {
   );
 }
 
+function AppWithHeader() {
+  const location = useLocation();
+  const showHeader = location.pathname !== '/welcome';
+  
+  return (
+    <>
+      {showHeader && <AppHeader />}
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/welcome" element={<Welcome />} />
+        <Route path="/account" element={<Account />} />
+        <Route path="/saved-patterns" element={<SavedPatterns />} />
+        <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
+        {navItems.map(({ to, page }) => (
+          <Route key={to} path={to} element={page} />
+        ))}
+      </Routes>
+    </>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -71,17 +92,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppHeader />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/welcome" element={<Welcome />} />
-            <Route path="/account" element={<Account />} />
-            <Route path="/saved-patterns" element={<SavedPatterns />} />
-            <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
-            {navItems.map(({ to, page }) => (
-              <Route key={to} path={to} element={page} />
-            ))}
-          </Routes>
+          <AppWithHeader />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
