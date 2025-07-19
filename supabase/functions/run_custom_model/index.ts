@@ -30,6 +30,7 @@ interface TodayMatch {
   feature_count: number;
   features: string[];
   perspective: string; // 'primary' or 'opponent'
+  primary_vs_opponent_id: string; // Add orientation identifier
 }
 
 interface ModelResults {
@@ -188,9 +189,9 @@ serve(async (req) => {
 
     console.log('Model saved:', modelData);
 
-    // Get training data from the team format view - filter to one perspective per game
+    // Get training data from the team format table - filter to one perspective per game
     const { data: rawTrainingData, error: trainingError } = await supabase
-      .from('training_data_team_view')
+      .from('training_data_team_with_orientation')
       .select('*');
 
     if (trainingError) {
@@ -460,7 +461,8 @@ serve(async (req) => {
                 games: trend.games,
                 feature_count: trend.feature_count,
                 features: trend.features,
-                perspective: trend.perspective
+                perspective: trend.perspective,
+                primary_vs_opponent_id: game.primary_vs_opponent_id || `${game.primary_team}_vs_${game.opponent_team}`
               });
               
               matchedCombos.add(gameCombo);

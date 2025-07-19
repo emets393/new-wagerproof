@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     console.log('=== STARTING GAME DATA QUERY ===');
     console.log('Querying for unique_id:', unique_id);
     
-    // Get all game info including betting lines from input_values_view (same as Today's Games)
+    // Get game info from input_values_view for basic game data
     const { data: gameRows, error: gameError } = await supabase
       .from('input_values_view')
       .select(`
@@ -41,12 +41,7 @@ Deno.serve(async (req) => {
         home_whip,
         away_whip,
         date,
-        start_time_minutes,
-        home_ml,
-        away_ml,
-        home_rl,
-        away_rl,
-        o_u_line
+        start_time_minutes
       `)
       .eq('unique_id', unique_id)
       .limit(1);
@@ -69,14 +64,25 @@ Deno.serve(async (req) => {
 
     console.log('=== GAME DATA QUERY RESULT ===');
     console.log('Game data retrieved successfully:', !!gameData);
-    console.log('Full game data object:', JSON.stringify(gameData, null, 2));
-    console.log('Betting lines from game data:');
-    console.log('- O/U Line:', gameData.o_u_line, typeof gameData.o_u_line);
-    console.log('- Home ML:', gameData.home_ml, typeof gameData.home_ml);
-    console.log('- Away ML:', gameData.away_ml, typeof gameData.away_ml);
-    console.log('- Home RL:', gameData.home_rl, typeof gameData.home_rl);
-    console.log('- Away RL:', gameData.away_rl, typeof gameData.away_rl);
-    console.log('=== END GAME DATA RESULT ===');
+
+    // Get betting lines from input_values_team_format_view (primary/opponent format)
+    const { data: bettingLinesRows, error: bettingError } = await supabase
+      .from('input_values_team_format_view')
+      .select(`
+        unique_id,
+        primary_team,
+        opponent_team,
+        is_home_team,
+        primary_ml,
+        opponent_ml,
+        primary_rl,
+        opponent_rl,
+        o_u_line
+      `)
+      .eq('unique_id', unique_id);
+
+    console.log('Betting lines query result:', bettingLinesRows);
+    console.log('Betting lines error:', bettingError);
 
     // Use real model data if provided, otherwise fall back to single prediction
     let modelPredictions = [];
@@ -175,10 +181,20 @@ Deno.serve(async (req) => {
     const weightedPrimaryWinPct = totalWeight > 0 ? totalWeightedPrediction / totalWeight : 0.5;
     const weightedOpponentWinPct = 1 - weightedPrimaryWinPct;
 
-    // Determine team winner prediction
-    const teamWinnerPrediction = weightedPrimaryWinPct > weightedOpponentWinPct 
-      ? gameData.home_team 
-      : gameData.away_team;
+    // Determine team winner prediction based on the matched model orientation
+    let teamWinnerPrediction;
+    if (models && Array.isArray(models) && models.length > 0) {
+      // Use the orientation from the matched model data
+      const firstModel = models[0];
+      teamWinnerPrediction = weightedPrimaryWinPct > weightedOpponentWinPct 
+        ? firstModel.primary_team 
+        : firstModel.opponent_team;
+    } else {
+      // Fallback to home/away if no model data
+      teamWinnerPrediction = weightedPrimaryWinPct > weightedOpponentWinPct 
+        ? gameData.home_team 
+        : gameData.away_team;
+    }
 
     // Calculate model agreement confidence
     const avgWinPct = modelPredictions.reduce((sum, model) => sum + model.win_pct, 0) / modelPredictions.length;
@@ -188,24 +204,81 @@ Deno.serve(async (req) => {
     const agreement = Math.max(0, 1 - (variance * 4)); // Scale variance to 0-1 range
     const modelAgreementConfidence = Math.round(agreement * 100);
 
+    // Determine game_info orientation based on matched model data
+    let gameInfoOrientation;
+    if (models && Array.isArray(models) && models.length > 0) {
+      // Use the orientation from the matched model data
+      const firstModel = models[0];
+      gameInfoOrientation = {
+        primary_team: firstModel.primary_team,
+        opponent_team: firstModel.opponent_team,
+        is_home_team: firstModel.is_home_team
+      };
+    } else {
+      // Fallback to home/away if no model data
+      gameInfoOrientation = {
+        primary_team: gameData.home_team,
+        opponent_team: gameData.away_team,
+        is_home_team: true
+      };
+    }
+
+    // Map betting lines based on the model's primary/opponent orientation
+    let mappedBettingLines = {
+      o_u_line: null,
+      primary_ml: null,
+      opponent_ml: null,
+      primary_rl: null,
+      opponent_rl: null
+    };
+
+    if (bettingLinesRows && bettingLinesRows.length > 0) {
+      // Find the row that matches the model's orientation
+      const matchingRow = bettingLinesRows.find(row => 
+        row.primary_team === gameInfoOrientation.primary_team && 
+        row.opponent_team === gameInfoOrientation.opponent_team
+      );
+
+      if (matchingRow) {
+        // Use the primary/opponent betting lines directly
+        mappedBettingLines = {
+          o_u_line: matchingRow.o_u_line,
+          primary_ml: matchingRow.primary_ml,
+          opponent_ml: matchingRow.opponent_ml,
+          primary_rl: matchingRow.primary_rl,
+          opponent_rl: matchingRow.opponent_rl
+        };
+      } else {
+        // Fallback: use the first row
+        const firstRow = bettingLinesRows[0];
+        mappedBettingLines = {
+          o_u_line: firstRow.o_u_line,
+          primary_ml: firstRow.primary_ml,
+          opponent_ml: firstRow.opponent_ml,
+          primary_rl: firstRow.primary_rl,
+          opponent_rl: firstRow.opponent_rl
+        };
+      }
+    }
+
     console.log('Final betting lines being returned:');
-    console.log('- O/U Line:', gameData.o_u_line);
-    console.log('- Home ML:', gameData.home_ml);
-    console.log('- Away ML:', gameData.away_ml);
-    console.log('- Home RL:', gameData.home_rl);
-    console.log('- Away RL:', gameData.away_rl);
+    console.log('- O/U Line:', mappedBettingLines.o_u_line);
+    console.log('- Primary ML:', mappedBettingLines.primary_ml);
+    console.log('- Opponent ML:', mappedBettingLines.opponent_ml);
+    console.log('- Primary RL:', mappedBettingLines.primary_rl);
+    console.log('- Opponent RL:', mappedBettingLines.opponent_rl);
 
     const analysisData = {
       game_info: {
         unique_id: unique_id,
-        primary_team: gameData.home_team,
-        opponent_team: gameData.away_team,
-        is_home_team: true,
-        o_u_line: gameData.o_u_line,
-        home_ml: gameData.home_ml,
-        away_ml: gameData.away_ml,
-        home_rl: gameData.home_rl,
-        away_rl: gameData.away_rl
+        primary_team: gameInfoOrientation.primary_team,
+        opponent_team: gameInfoOrientation.opponent_team,
+        is_home_team: gameInfoOrientation.is_home_team,
+        o_u_line: mappedBettingLines.o_u_line,
+        primary_ml: mappedBettingLines.primary_ml,
+        opponent_ml: mappedBettingLines.opponent_ml,
+        primary_rl: mappedBettingLines.primary_rl,
+        opponent_rl: mappedBettingLines.opponent_rl
       },
       matches: modelPredictions,
       target: target,
@@ -226,7 +299,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in get-game-analysis-data:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

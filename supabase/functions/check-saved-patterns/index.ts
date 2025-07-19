@@ -176,19 +176,53 @@ serve(async (req) => {
 
     console.log(`Found ${todaysGames.length} games for ET date: ${today}`);
 
+    // Group games by unique_id to prevent duplicate inverse matches (same logic as run_custom_model)
+    const groupedGames = new Map<string, any[]>();
+    
+    for (const game of todaysGames) {
+      const uniqueId = game.unique_id;
+      if (!groupedGames.has(uniqueId)) {
+        groupedGames.set(uniqueId, []);
+      }
+      groupedGames.get(uniqueId)!.push(game);
+    }
+    
+    console.log(`Grouped into ${groupedGames.size} unique games`);
+
     const allMatches = [];
 
     // Check each saved pattern against today's games
     for (const pattern of savedPatterns) {
-      for (const game of todaysGames) {
+      // Track patterns already matched for each unique game to avoid duplicates
+      const matchedCombos = new Set<string>();
+      
+      for (const [uniqueId, gameVariants] of groupedGames.entries()) {
+        for (const game of gameVariants) {
         const gameBinnedFeatures = pattern.features.map((feature: string) => {
           const value = game[feature];
           return binValue(feature, value);
         });
         
         const gameCombo = gameBinnedFeatures.join('|');
+        
+        // Skip if we already matched this combo for this unique game
+        if (matchedCombos.has(gameCombo)) {
+          continue;
+        }
 
         if (gameCombo === pattern.combo) {
+          // Check if this game has the correct team orientation for this pattern
+          const dominantSide = (pattern as any).dominant_side || (pattern.opponent_win_pct > pattern.win_pct ? 'opponent' : 'primary');
+          
+          console.log(`Pattern ${pattern.pattern_name} (${dominantSide} dominant) matching game: ${game.primary_team} vs ${game.opponent_team}`);
+          console.log(`Pattern win percentages - Primary: ${(pattern.win_pct * 100).toFixed(1)}%, Opponent: ${(pattern.opponent_win_pct * 100).toFixed(1)}%`);
+          
+          // Since saved patterns are generic trend patterns, we don't restrict by specific team orientation
+          // The pattern matches based on feature combinations, and the prediction is based on dominant side
+          console.log(`Match accepted - pattern matches game features`);
+          
+          matchedCombos.add(gameCombo);
+          
           // Fetch latest betting lines from circa_lines
           let circaLines = null;
           try {
@@ -226,7 +260,8 @@ serve(async (req) => {
             opponent_win_pct: pattern.opponent_win_pct,
             games: pattern.games,
             target: pattern.target,
-            dominant_side: pattern.dominant_side || (pattern.win_pct > pattern.opponent_win_pct ? 'primary' : 'opponent'),
+            dominant_side: dominantSide,
+            primary_vs_opponent_id: game.primary_vs_opponent_id || `${game.primary_team}_vs_${game.opponent_team}`,
             // Use circa_lines if available, otherwise fallback to view fields
             o_u_line: circaLines?.o_u_line ?? game.o_u_line,
             // Home team's lines (regardless of primary/opponent status)
@@ -237,35 +272,51 @@ serve(async (req) => {
           });
 
           // Get game data from training_data_team_view for the new columns
-          const { data: gameData } = await supabase
-            .from('training_data_team_view')
-            .select('primary_ml, primary_rl, opponent_ml, opponent_rl, ou_result, primary_win, primary_runline_win')
-            .eq('unique_id', game.unique_id)
-            .eq('primary_team', game.primary_team)
-            .eq('opponent_team', game.opponent_team)
-            .single();
+          let gameData = null;
+          try {
+            const { data: trainingData, error: trainingError } = await supabase
+              .from('training_data_team_with_orientation')
+              .select('primary_ml, primary_rl, opponent_ml, opponent_rl, ou_result, primary_win, primary_runline_win')
+              .eq('unique_id', game.unique_id)
+              .eq('primary_team', game.primary_team)
+              .eq('opponent_team', game.opponent_team)
+              .single();
+            
+            if (!trainingError && trainingData) {
+              gameData = trainingData;
+            }
+          } catch (e) {
+            console.log(`Could not fetch training data for game ${game.unique_id}:`, e);
+            gameData = null;
+          }
 
           // Insert into pattern_daily_matches table
-          await supabase
-            .from('pattern_daily_matches')
-            .upsert({
-              saved_pattern_id: pattern.id,
-              match_date: today,
-              unique_id: game.unique_id,
-              primary_team: game.primary_team || 'Unknown',
-              opponent_team: game.opponent_team || 'Unknown',
-              is_home_game: game.is_home_team || false,
-              primary_ml: gameData?.primary_ml || null,
-              primary_rl: gameData?.primary_rl || null,
-              opponent_ml: gameData?.opponent_ml || null,
-              opponent_rl: gameData?.opponent_rl || null,
-              ou_result: gameData?.ou_result || null,
-              primary_win: gameData?.primary_win || null,
-              primary_runline_win: gameData?.primary_runline_win || null
-            });
+          try {
+            await supabase
+              .from('pattern_daily_matches')
+              .upsert({
+                saved_pattern_id: pattern.id,
+                match_date: today,
+                unique_id: game.unique_id,
+                primary_team: game.primary_team || 'Unknown',
+                opponent_team: game.opponent_team || 'Unknown',
+                is_home_game: game.is_home_team || false,
+                primary_ml: gameData?.primary_ml || null,
+                primary_rl: gameData?.primary_rl || null,
+                opponent_ml: gameData?.opponent_ml || null,
+                opponent_rl: gameData?.opponent_rl || null,
+                ou_result: gameData?.ou_result || null,
+                primary_win: gameData?.primary_win || null,
+                primary_runline_win: gameData?.primary_runline_win || null
+              });
+          } catch (e) {
+            console.log(`Could not insert into pattern_daily_matches for game ${game.unique_id}:`, e);
+            // Continue processing even if this fails
+          }
         }
       }
     }
+  }
 
     console.log(`Found ${allMatches.length} matches for ${savedPatterns.length} saved patterns`);
 

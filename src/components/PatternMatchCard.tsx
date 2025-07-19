@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,10 +46,29 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
     if (target === 'over_under') {
       return match.win_pct > match.opponent_win_pct ? 'Over' : 'Under';
     } else {
-      // For moneyline and runline, use dominant_side logic for consistent predictions
-      // This ensures the same prediction logic as the Custom Models page
+      // For moneyline and runline, use the dominant_side field to determine which team to predict
       const dominantSide = match.dominant_side || (match.win_pct > match.opponent_win_pct ? 'primary' : 'opponent');
-      return dominantSide === 'primary' ? match.primary_team : match.opponent_team;
+      
+      console.log('PatternMatchCard Debug:', {
+        pattern_name: match.pattern_name,
+        primary_team: match.primary_team,
+        opponent_team: match.opponent_team,
+        win_pct: match.win_pct,
+        opponent_win_pct: match.opponent_win_pct,
+        dominant_side: dominantSide,
+        predicted_team: dominantSide === 'primary' ? match.primary_team : match.opponent_team
+      });
+      
+      // The key insight: the pattern's dominant_side tells us which team to predict
+      // If dominant_side is 'primary', predict the primary team
+      // If dominant_side is 'opponent', predict the opponent team
+      // This works regardless of the current game orientation
+      
+      if (dominantSide === 'primary') {
+        return match.primary_team;
+      } else {
+        return match.opponent_team;
+      }
     }
   };
 
@@ -77,6 +95,7 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
   };
 
   const getConfidence = () => {
+    // Return the dominant win percentage (the higher of the two)
     return Math.max(match.win_pct, match.opponent_win_pct) * 100;
   };
 

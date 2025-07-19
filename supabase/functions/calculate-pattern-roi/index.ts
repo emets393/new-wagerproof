@@ -13,6 +13,8 @@ interface SavedPattern {
   win_pct: number;
   opponent_win_pct: number;
   created_at: string;
+  primary_vs_opponent_id?: string;
+  dominant_side?: string;
 }
 
 interface PatternMatch {
@@ -51,12 +53,17 @@ function calculateBetROI(odds: number, won: boolean): number {
   }
 }
 
-// Helper function to determine prediction based on win percentages
-function getPrediction(winPct: number, opponentWinPct: number, target: string): {
+// Helper function to determine prediction based on win percentages and dominant side
+function getPrediction(winPct: number, opponentWinPct: number, target: string, dominantSide?: string): {
   predictsPrimary: boolean;
   predictsOver: boolean;
 } {
-  const primaryWins = winPct > opponentWinPct;
+  // Use dominant_side if available, otherwise fall back to win percentage comparison
+  let primaryWins = winPct > opponentWinPct;
+  
+  if (dominantSide) {
+    primaryWins = dominantSide === 'primary';
+  }
   
   return {
     predictsPrimary: primaryWins,
@@ -76,10 +83,10 @@ serve(async (req) => {
 
     console.log('Starting ROI calculation for all saved patterns...');
 
-    // Get all saved patterns
+    // Get all saved patterns with orientation information
     const { data: savedPatterns, error: patternsError } = await supabase
       .from('saved_trend_patterns')
-      .select('id, pattern_name, target, win_pct, opponent_win_pct, created_at');
+      .select('id, pattern_name, target, win_pct, opponent_win_pct, created_at, primary_vs_opponent_id, dominant_side');
 
     if (patternsError) {
       throw new Error(`Failed to fetch saved patterns: ${patternsError.message}`);
@@ -99,6 +106,8 @@ serve(async (req) => {
     // Process each saved pattern
     for (const pattern of savedPatterns) {
       console.log(`Processing pattern: ${pattern.pattern_name}`);
+      console.log(`Pattern orientation: ${pattern.primary_vs_opponent_id}`);
+      console.log(`Pattern dominant side: ${pattern.dominant_side}`);
 
       // Get all matches for this pattern from created_at onwards
       console.log(`Looking for matches for pattern ${pattern.id} from ${pattern.created_at.split('T')[0]}`);
@@ -139,10 +148,13 @@ serve(async (req) => {
       let losses = 0;
       let totalROI = 0;
 
-      const prediction = getPrediction(pattern.win_pct, pattern.opponent_win_pct, pattern.target);
+      const prediction = getPrediction(pattern.win_pct, pattern.opponent_win_pct, pattern.target, pattern.dominant_side);
 
       // Process each match
       for (const match of matches) {
+        console.log(`Processing match: ${match.unique_id} - ${match.primary_team} vs ${match.opponent_team} on ${match.match_date}`);
+        console.log(`Pattern predicts: ${prediction.predictsPrimary ? 'Primary' : 'Opponent'} team`);
+
         let betWon = false;
         let betROI = 0;
 
@@ -150,6 +162,7 @@ serve(async (req) => {
           case 'moneyline':
             // Check if we have the required data
             if (match.primary_win === null || match.primary_ml === null) {
+              console.log(`Missing moneyline data for game: ${match.unique_id}`);
               continue; // Skip games with missing data
             }
 
@@ -157,16 +170,19 @@ serve(async (req) => {
               // Predicted primary team to win
               betWon = match.primary_win === 1;
               betROI = calculateBetROI(match.primary_ml, betWon);
+              console.log(`Moneyline prediction: Primary team (${match.primary_ml}), Result: ${betWon ? 'WIN' : 'LOSS'}`);
             } else {
               // Predicted opponent team to win
               betWon = match.primary_win === 0;
               betROI = calculateBetROI(match.opponent_ml || 0, betWon);
+              console.log(`Moneyline prediction: Opponent team (${match.opponent_ml}), Result: ${betWon ? 'WIN' : 'LOSS'}`);
             }
             break;
 
           case 'runline':
             // Check if we have the required data
             if (match.primary_runline_win === null || match.primary_rl === null) {
+              console.log(`Missing runline data for game: ${match.unique_id}`);
               continue; // Skip games with missing data
             }
 
@@ -174,16 +190,19 @@ serve(async (req) => {
               // Predicted primary team to cover
               betWon = match.primary_runline_win === 1;
               betROI = calculateBetROI(match.primary_rl, betWon);
+              console.log(`Runline prediction: Primary team (${match.primary_rl}), Result: ${betWon ? 'WIN' : 'LOSS'}`);
             } else {
               // Predicted opponent team to cover
               betWon = match.primary_runline_win === 0;
               betROI = calculateBetROI(match.opponent_rl || 0, betWon);
+              console.log(`Runline prediction: Opponent team (${match.opponent_rl}), Result: ${betWon ? 'WIN' : 'LOSS'}`);
             }
             break;
 
           case 'over_under':
             // Check if we have the required data
             if (match.ou_result === null) {
+              console.log(`Missing over/under data for game: ${match.unique_id}`);
               continue; // Skip games with missing data
             }
 
@@ -193,15 +212,18 @@ serve(async (req) => {
               // For over/under, we need to get the line from training_data_team_view
               // For now, assume -110 odds (standard O/U odds)
               betROI = calculateBetROI(-110, betWon);
+              console.log(`Over/Under prediction: Over, Result: ${betWon ? 'WIN' : 'LOSS'}`);
             } else {
               // Predicted under
               betWon = match.ou_result === 0;
               // For under, also assume -110 odds
               betROI = calculateBetROI(-110, betWon);
+              console.log(`Over/Under prediction: Under, Result: ${betWon ? 'WIN' : 'LOSS'}`);
             }
             break;
 
           default:
+            console.log(`Unknown target type: ${pattern.target}`);
             continue; // Skip unknown target types
         }
 
@@ -248,23 +270,22 @@ serve(async (req) => {
       }
     }
 
-    console.log(`ROI calculation completed for ${roiCalculations.length} patterns`);
+    console.log('ROI calculation completed successfully');
 
-    return new Response(JSON.stringify({ 
-      message: 'ROI calculation completed successfully',
-      processed_patterns: roiCalculations.length,
-      calculations: roiCalculations
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ 
+        message: 'ROI calculation completed successfully',
+        processed_patterns: roiCalculations.length,
+        calculations: roiCalculations
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
-    console.error('Error in ROI calculation:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message || 'Internal server error' 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error in calculate-pattern-roi:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 }); 

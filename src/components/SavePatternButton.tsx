@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -17,6 +16,9 @@ interface SavePatternButtonProps {
   featureCount: number;
   target: string;
   dominantSide?: string; // 'primary' or 'opponent'
+  primaryTeam?: string; // The primary team when the pattern was created
+  opponentTeam?: string; // The opponent team when the pattern was created
+  primaryVsOpponentId?: string; // The orientation identifier
 }
 
 const SavePatternButton: React.FC<SavePatternButtonProps> = ({
@@ -27,7 +29,10 @@ const SavePatternButton: React.FC<SavePatternButtonProps> = ({
   games,
   featureCount,
   target,
-  dominantSide
+  dominantSide,
+  primaryTeam,
+  opponentTeam,
+  primaryVsOpponentId
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [patternName, setPatternName] = useState('');
@@ -61,6 +66,9 @@ const SavePatternButton: React.FC<SavePatternButtonProps> = ({
       // Determine dominant side if not provided
       const calculatedDominantSide = dominantSide || (winPct > opponentWinPct ? 'primary' : 'opponent');
       
+      console.log('Saving pattern with dominant_side:', calculatedDominantSide);
+      console.log('Pattern details:', { winPct, opponentWinPct, dominantSide });
+      
       const { error } = await supabase
         .from('saved_trend_patterns')
         .insert({
@@ -73,7 +81,8 @@ const SavePatternButton: React.FC<SavePatternButtonProps> = ({
           opponent_win_pct: opponentWinPct,
           games,
           feature_count: featureCount,
-          dominant_side: calculatedDominantSide
+          dominant_side: calculatedDominantSide,
+          primary_vs_opponent_id: primaryVsOpponentId || (primaryTeam && opponentTeam ? `${primaryTeam}_vs_${opponentTeam}` : null)
         });
 
       if (error) {

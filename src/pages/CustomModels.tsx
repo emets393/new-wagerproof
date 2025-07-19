@@ -537,6 +537,11 @@ const CustomModels = () => {
                                 featureCount={match.feature_count}
                                 target={results.target}
                                 dominantSide={match.dominant_side}
+                                // Get team information from the first matching game today
+                                primaryTeam={results.today_matches.find(tm => tm.combo === match.combo)?.primary_team}
+                                opponentTeam={results.today_matches.find(tm => tm.combo === match.combo)?.opponent_team}
+                                primaryVsOpponentId={results.today_matches.find(tm => tm.combo === match.combo)?.primary_team && results.today_matches.find(tm => tm.combo === match.combo)?.opponent_team ? 
+                                  `${results.today_matches.find(tm => tm.combo === match.combo)?.primary_team}_vs_${results.today_matches.find(tm => tm.combo === match.combo)?.opponent_team}` : undefined}
                               />
                             </td>
                           </tr>

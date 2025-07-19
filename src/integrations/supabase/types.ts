@@ -3156,74 +3156,66 @@ export type Database = {
           series_unders: number | null
           team_side: string | null
           unique_id: string | null
+          primary_vs_opponent_id: string | null
         }
         Relationships: []
       }
-      input_values_view: {
+      input_values_team_format_with_orientation: {
         Row: {
-          away_division_number: number | null
-          away_era: number | null
-          away_handedness: number | null
-          away_last_runs: number | null
-          away_last_runs_allowed: number | null
-          away_last_win: number | null
-          away_league_number: number | null
-          away_ml: number | null
-          away_ml_bets: number | null
-          away_ml_handle: number | null
-          away_ops_last_3: number | null
-          away_pitcher: string | null
-          away_pitcher_id: number | null
-          away_rl: number | null
-          away_rl_bets: number | null
-          away_rl_handle: number | null
-          away_streak: number | null
-          away_team: string | null
-          away_team_last_3: number | null
-          away_team_number: number | null
-          away_whip: number | null
-          away_win_pct: number | null
           date: string | null
           day: number | null
-          excel_date: number | null
-          home_division_number: number | null
-          home_era: number | null
-          home_handedness: number | null
-          home_last_runs: number | null
-          home_last_runs_allowed: number | null
-          home_last_win: number | null
-          home_league_number: number | null
-          home_ml: number | null
-          home_ml_bets: number | null
-          home_ml_handle: number | null
-          home_ops_last_3: number | null
-          home_pitcher: string | null
-          home_pitcher_id: number | null
-          home_rl: number | null
-          home_rl_bets: number | null
-          home_rl_handle: number | null
-          home_team: string | null
-          home_team_last_3: number | null
-          home_team_number: number | null
-          home_whip: number | null
-          home_win_pct: number | null
+          is_home_team: boolean | null
           month: number | null
           o_u_line: number | null
+          opponent_era: number | null
+          opponent_handedness: number | null
+          opponent_last_runs: number | null
+          opponent_last_runs_allowed: number | null
+          opponent_last_win: number | null
+          opponent_ml: number | null
+          opponent_ml_bets: number | null
+          opponent_ml_handle: number | null
+          opponent_ops_last_3: number | null
+          opponent_pitcher_id: number | null
+          opponent_rl: number | null
+          opponent_rl_bets: number | null
+          opponent_rl_handle: number | null
+          opponent_streak: number | null
+          opponent_team: string | null
+          opponent_team_last_3: number | null
+          opponent_team_number: number | null
+          opponent_whip: number | null
+          opponent_win_pct: number | null
           ou_bets_over: number | null
           ou_handle_over: number | null
+          primary_era: number | null
+          primary_handedness: number | null
+          primary_last_runs: number | null
+          primary_last_runs_allowed: number | null
+          primary_last_win: number | null
+          primary_ml: number | null
+          primary_ml_bets: number | null
+          primary_ml_handle: number | null
+          primary_ops_last_3: number | null
+          primary_pitcher_id: number | null
+          primary_rl: number | null
+          primary_rl_bets: number | null
+          primary_rl_handle: number | null
+          primary_streak: number | null
+          primary_team: string | null
+          primary_team_last_3: number | null
+          primary_team_number: number | null
+          primary_whip: number | null
+          primary_win_pct: number | null
           same_division: number | null
           same_league: number | null
           season: number | null
-          series_away_wins: number | null
           series_game_number: number | null
-          series_home_wins: number | null
           series_overs: number | null
           series_unders: number | null
-          start_time_minutes: number | null
-          streak: number | null
-          unique_away_team_id: string | null
-          unique_home_team_id: string | null
+          team_side: string | null
           unique_id: string | null
+          orientation_unique_id: string | null
         }
         Relationships: []
       }
@@ -3296,6 +3288,79 @@ export type Database = {
           series_unders: number | null
           start_time_minutes: number | null
           unique_id: string | null
+        }
+        Relationships: []
+      }
+      training_data_team_with_orientation: {
+        Row: {
+          data_source: string | null
+          date: string | null
+          day: number | null
+          is_home_team: boolean | null
+          month: number | null
+          o_u_line: number | null
+          opponent_division_number: number | null
+          opponent_era: number | null
+          opponent_handedness: number | null
+          opponent_last_runs: number | null
+          opponent_last_runs_allowed: number | null
+          opponent_last_win: number | null
+          opponent_league_number: number | null
+          opponent_ml: number | null
+          opponent_ml_bets: number | null
+          opponent_ml_handle: number | null
+          opponent_ops_last_3: number | null
+          opponent_pitcher: string | null
+          opponent_pitcher_id: number | null
+          opponent_rl: number | null
+          opponent_rl_bets: number | null
+          opponent_rl_handle: number | null
+          opponent_streak: number | null
+          opponent_team: string | null
+          opponent_team_last_3: number | null
+          opponent_team_number: number | null
+          opponent_unique_team_id: string | null
+          opponent_whip: number | null
+          opponent_win_pct: number | null
+          ou_bets_over: number | null
+          ou_handle_over: number | null
+          ou_result: number | null
+          primary_division_number: number | null
+          primary_era: number | null
+          primary_handedness: number | null
+          primary_last_runs: number | null
+          primary_last_runs_allowed: number | null
+          primary_last_win: number | null
+          primary_league_number: number | null
+          primary_ml: number | null
+          primary_ml_bets: number | null
+          primary_ml_handle: number | null
+          primary_ops_last_3: number | null
+          primary_pitcher: string | null
+          primary_pitcher_id: number | null
+          primary_rl: number | null
+          primary_rl_bets: number | null
+          primary_rl_handle: number | null
+          primary_runline_win: number | null
+          primary_streak: number | null
+          primary_team: string | null
+          primary_team_last_3: number | null
+          primary_team_number: number | null
+          primary_unique_team_id: string | null
+          primary_whip: number | null
+          primary_win: number | null
+          primary_win_pct: number | null
+          same_division: number | null
+          same_league: number | null
+          season: number | null
+          series_game_number: number | null
+          series_opponent_wins: number | null
+          series_overs: number | null
+          series_primary_wins: number | null
+          series_unders: number | null
+          start_time_minutes: number | null
+          unique_id: string | null
+          orientation_unique_id: string | null
         }
         Relationships: []
       }

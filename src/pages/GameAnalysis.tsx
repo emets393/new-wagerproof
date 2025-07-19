@@ -31,10 +31,10 @@ interface GameAnalysisData {
     opponent_team: string;
     is_home_team: boolean;
     o_u_line?: number;
-    home_ml?: number;
-    away_ml?: number;
-    home_rl?: number;
-    away_rl?: number;
+    primary_ml?: number;
+    opponent_ml?: number;
+    primary_rl?: number;
+    opponent_rl?: number;
   };
   matches: GameMatch[];
   target: string;
@@ -214,11 +214,13 @@ const GameAnalysis: React.FC = () => {
   const getMoneyline = () => {
     if (!analysisData || !analysisData.consensus.team_winner_prediction) return null;
     const { team_winner_prediction } = analysisData.consensus;
-    const { home_ml, away_ml, primary_team } = analysisData.game_info;
+    const { primary_ml, opponent_ml, primary_team, opponent_team } = analysisData.game_info;
     
-    // If predicted winner is the home team, return home_ml, otherwise away_ml
-    const isHomeTeamWinner = team_winner_prediction === primary_team;
-    const line = isHomeTeamWinner ? home_ml : away_ml;
+    // Determine which betting line to show based on the predicted winner
+    // If predicted winner is the primary team, show primary team's line
+    // If predicted winner is the opponent team, show opponent team's line
+    const isPrimaryTeamWinner = team_winner_prediction === primary_team;
+    const line = isPrimaryTeamWinner ? primary_ml : opponent_ml;
     return line ? (line > 0 ? `+${line}` : `${line}`) : null;
   };
 
@@ -226,11 +228,13 @@ const GameAnalysis: React.FC = () => {
   const getRunline = () => {
     if (!analysisData || !analysisData.consensus.team_winner_prediction) return null;
     const { team_winner_prediction } = analysisData.consensus;
-    const { home_rl, away_rl, primary_team } = analysisData.game_info;
+    const { primary_rl, opponent_rl, primary_team, opponent_team } = analysisData.game_info;
     
-    // If predicted winner is the home team, return home_rl, otherwise away_rl
-    const isHomeTeamWinner = team_winner_prediction === primary_team;
-    const line = isHomeTeamWinner ? home_rl : away_rl;
+    // Determine which betting line to show based on the predicted winner
+    // If predicted winner is the primary team, show primary team's line
+    // If predicted winner is the opponent team, show opponent team's line
+    const isPrimaryTeamWinner = team_winner_prediction === primary_team;
+    const line = isPrimaryTeamWinner ? primary_rl : opponent_rl;
     return line ? (line > 0 ? `+${line}` : `${line}`) : null;
   };
 

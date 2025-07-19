@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -75,9 +74,16 @@ const SavedPatterns: React.FC = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      console.log('Loaded saved patterns:', patterns);
+
       if (patternsError) {
         throw patternsError;
       }
+
+      // Debug: Log each pattern's dominant_side
+      patterns?.forEach(pattern => {
+        console.log(`Pattern "${pattern.pattern_name}": dominant_side = "${pattern.dominant_side}", win_pct = ${(pattern.win_pct * 100).toFixed(1)}%, opponent_win_pct = ${(pattern.opponent_win_pct * 100).toFixed(1)}%`);
+      });
 
       // Get ROI data for each pattern
       const patternsWithROI = await Promise.all(
@@ -119,6 +125,8 @@ const SavedPatterns: React.FC = () => {
       
       if (!user) return;
 
+      console.log('Checking matches for user:', user.id);
+      
       const response = await fetch('https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/check-saved-patterns', {
         method: 'POST',
         headers: {
@@ -128,7 +136,28 @@ const SavedPatterns: React.FC = () => {
         body: JSON.stringify({ userId: user.id })
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
       const result = await response.json();
+      console.log('Response result:', result);
+      
+      // Debug: Log each match's dominant_side
+      result.matches?.forEach(match => {
+        console.log(`Match for pattern "${match.pattern_name}": dominant_side = "${match.dominant_side}", win_pct = ${(match.win_pct * 100).toFixed(1)}%, opponent_win_pct = ${(match.opponent_win_pct * 100).toFixed(1)}%`);
+      });
+      
+      if (result.error) {
+        console.error('Function returned error:', result.error);
+        throw new Error(result.error);
+      }
+      
       setTodayMatches(result.matches || []);
 
       if (result.matches?.length > 0) {
@@ -141,7 +170,7 @@ const SavedPatterns: React.FC = () => {
       console.error('Error checking today matches:', error);
       toast({
         title: "Error checking matches",
-        description: "Please try again later.",
+        description: error.message || "Please try again later.",
         variant: "destructive"
       });
     } finally {
@@ -287,6 +316,9 @@ const SavedPatterns: React.FC = () => {
       // This ensures consistent prediction logic across pages
       const higherWinPct = Math.max(pattern.win_pct, pattern.opponent_win_pct);
       const dominantSide = pattern.dominant_side || (pattern.win_pct > pattern.opponent_win_pct ? 'primary' : 'opponent');
+      
+      // Use the same team orientation normalization logic as PatternMatchCard
+      // This ensures consistent prediction logic across pages
       const isPrimaryTeamPredicted = dominantSide === 'primary';
       
       return {
@@ -444,7 +476,22 @@ const SavedPatterns: React.FC = () => {
         ) : (
           <div className="space-y-6">
             {filteredPatterns.map((pattern) => {
-              const patternMatches = todayMatches.filter(m => m.pattern_id === pattern.id);
+              // Filter matches for this pattern, ensuring team orientation matches how the pattern was created
+              const patternMatches = todayMatches.filter(m => {
+                if (m.pattern_id !== pattern.id) return false;
+                
+                // If the pattern has team information saved, use it to filter by orientation
+                const patternPrimaryTeam = (pattern as any).pattern_primary_team;
+                const patternOpponentTeam = (pattern as any).pattern_opponent_team;
+                
+                if (patternPrimaryTeam && patternOpponentTeam) {
+                  // Only include matches where the teams are in the same orientation as when the pattern was created
+                  return m.primary_team === patternPrimaryTeam && m.opponent_team === patternOpponentTeam;
+                }
+                
+                // If no team info saved, include all matches (fallback)
+                return true;
+              });
               const hasMatches = patternMatches.length > 0;
               const isExpanded = expandedPatterns.has(pattern.id);
               const predictionInfo = getPredictionInfo(pattern);

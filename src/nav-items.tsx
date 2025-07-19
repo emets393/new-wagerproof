@@ -1,5 +1,5 @@
 import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark } from "lucide-react";
-import Index from "./pages/Index";
+import { Index } from "./pages/index";
 // import Analytics from "./pages/Analytics"; // Deleted
 import WinRates from "./pages/WinRates";
 import CustomModels from "./pages/CustomModels";

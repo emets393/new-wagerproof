@@ -86,7 +86,7 @@ serve(async (req) => {
   ];
 
   // Build query for today's games
-  let todaysQuery = supabase.from('training_data_team_view_enhanced').select('*').eq('date', todayStr);
+  let todaysQuery = supabase.from('training_data_team_with_orientation').select('*').eq('date', todayStr);
   
   // Apply the same filters to today's games query
   for (const key of allFilters) {
@@ -192,7 +192,7 @@ serve(async (req) => {
   console.log('Teams playing today:', Array.from(teamsPlayingToday));
 
   // Now get historical data for these teams with the same filters (excluding today)
-  let historicalQuery = supabase.from('training_data_team_view_enhanced')
+  let historicalQuery = supabase.from('training_data_team_with_orientation')
     .select('*')
     .lt('date', todayStr)
     .limit(100000);
