@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -264,23 +263,23 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className="font-semibold text-sm text-red-600">Under</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
+                <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                   <div 
-                    className="h-full" 
                     style={{ 
                       width: `${calculateHandlePercentages().underPercentage}%`,
-                      background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
-                      border: 'none',
-                      outline: 'none'
+                      background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 30%, #f87171 70%, #fca5a5 100%)',
+                      border: 'none !important',
+                      outline: 'none !important',
+                      height: '100%'
                     }} 
                   />
                   <div 
-                    className="h-full" 
                     style={{ 
                       width: `${calculateHandlePercentages().overPercentage}%`,
-                      background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)',
-                      border: 'none',
-                      outline: 'none'
+                      background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 30%, #4ade80 70%, #86efac 100%)',
+                      border: 'none !important',
+                      outline: 'none !important',
+                      height: '100%'
                     }} 
                   />
                 </div>
@@ -299,23 +298,23 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className="font-semibold text-sm text-red-600">Under</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
+                <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                   <div 
-                    className="h-full" 
                     style={{ 
                       width: `${calculateBetsPercentages().underPercentage}%`,
-                      background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
-                      border: 'none',
-                      outline: 'none'
+                      background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 30%, #f87171 70%, #fca5a5 100%)',
+                      border: 'none !important',
+                      outline: 'none !important',
+                      height: '100%'
                     }} 
                   />
                   <div 
-                    className="h-full" 
                     style={{ 
                       width: `${calculateBetsPercentages().overPercentage}%`,
-                      background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)',
-                      border: 'none',
-                      outline: 'none'
+                      background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 30%, #4ade80 70%, #86efac 100%)',
+                      border: 'none !important',
+                      outline: 'none !important',
+                      height: '100%'
                     }} 
                   />
                 </div>
@@ -341,20 +340,20 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className={`font-bold text-lg ${getPctColorClass(mlHandleAwayPct, mlHandleHomePct, true)}`}>{mlHandleAwayPct.toFixed(1)}%</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
+                <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                   <div style={{
                     width: `${mlHandleAwayPct}%`,
-                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}dd 50%, ${awayBarColor}bb 100%)`,
+                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}cc 25%, ${awayBarColor}99 50%, ${awayBarColor}66 75%, ${awayBarColor}44 100%)`,
                     height: '100%',
-                    border: 'none',
-                    outline: 'none'
+                    border: 'none !important',
+                    outline: 'none !important'
                   }} />
                   <div style={{
                     width: `${mlHandleHomePct}%`,
-                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}dd 50%, ${homeBarColor}bb 100%)`,
+                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}cc 25%, ${homeBarColor}99 50%, ${homeBarColor}66 75%, ${homeBarColor}44 100%)`,
                     height: '100%',
-                    border: 'none',
-                    outline: 'none'
+                    border: 'none !important',
+                    outline: 'none !important'
                   }} />
                 </div>
               </div>
@@ -372,20 +371,20 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className={`font-bold text-lg ${getPctColorClass(mlBetsAwayPct, mlBetsHomePct, true)}`}>{mlBetsAwayPct.toFixed(1)}%</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
+                <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                   <div style={{
                     width: `${mlBetsAwayPct}%`,
-                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}dd 50%, ${awayBarColor}bb 100%)`,
+                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}cc 25%, ${awayBarColor}99 50%, ${awayBarColor}66 75%, ${awayBarColor}44 100%)`,
                     height: '100%',
-                    border: 'none',
-                    outline: 'none'
+                    border: 'none !important',
+                    outline: 'none !important'
                   }} />
                   <div style={{
                     width: `${mlBetsHomePct}%`,
-                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}dd 50%, ${homeBarColor}bb 100%)`,
+                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}cc 25%, ${homeBarColor}99 50%, ${homeBarColor}66 75%, ${homeBarColor}44 100%)`,
                     height: '100%',
-                    border: 'none',
-                    outline: 'none'
+                    border: 'none !important',
+                    outline: 'none !important'
                   }} />
                 </div>
               </div>
@@ -410,20 +409,20 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className={`font-bold text-lg ${getPctColorClass(rlHandleAwayPct, rlHandleHomePct, true)}`}>{rlHandleAwayPct.toFixed(1)}%</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
+                <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                   <div style={{
                     width: `${rlHandleAwayPct}%`,
-                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}dd 50%, ${awayBarColor}bb 100%)`,
+                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}cc 25%, ${awayBarColor}99 50%, ${awayBarColor}66 75%, ${awayBarColor}44 100%)`,
                     height: '100%',
-                    border: 'none',
-                    outline: 'none'
+                    border: 'none !important',
+                    outline: 'none !important'
                   }} />
                   <div style={{
                     width: `${rlHandleHomePct}%`,
-                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}dd 50%, ${homeBarColor}bb 100%)`,
+                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}cc 25%, ${homeBarColor}99 50%, ${homeBarColor}66 75%, ${homeBarColor}44 100%)`,
                     height: '100%',
-                    border: 'none',
-                    outline: 'none'
+                    border: 'none !important',
+                    outline: 'none !important'
                   }} />
                 </div>
               </div>
@@ -441,20 +440,20 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className={`font-bold text-lg ${getPctColorClass(rlBetsAwayPct, rlBetsHomePct, true)}`}>{rlBetsAwayPct.toFixed(1)}%</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
+                <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                   <div style={{
                     width: `${rlBetsAwayPct}%`,
-                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}dd 50%, ${awayBarColor}bb 100%)`,
+                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}cc 25%, ${awayBarColor}99 50%, ${awayBarColor}66 75%, ${awayBarColor}44 100%)`,
                     height: '100%',
-                    border: 'none',
-                    outline: 'none'
+                    border: 'none !important',
+                    outline: 'none !important'
                   }} />
                   <div style={{
                     width: `${rlBetsHomePct}%`,
-                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}dd 50%, ${homeBarColor}bb 100%)`,
+                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}cc 25%, ${homeBarColor}99 50%, ${homeBarColor}66 75%, ${homeBarColor}44 100%)`,
                     height: '100%',
-                    border: 'none',
-                    outline: 'none'
+                    border: 'none !important',
+                    outline: 'none !important'
                   }} />
                 </div>
               </div>
@@ -480,4 +479,4 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
   );
 };
 
-export default PublicBettingDistribution; 
+export default PublicBettingDistribution;
