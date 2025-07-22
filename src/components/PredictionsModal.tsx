@@ -378,7 +378,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
             <h3 className="text-2xl font-bold text-center mb-2">Public Betting Distribution</h3>
 
             {/* O/U Distribution Card */}
-            <div className="bg-gradient-to-br from-card to-accent/10 border-2 border-accent rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
+            <div className="bg-gradient-to-br from-card to-accent/10 rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
               <div className="text-xl font-bold text-left w-full mb-4 text-primary drop-shadow-sm gradient-text-betting">O/U</div>
               {/* Handle Sub-header */}
               <div className="text-lg font-semibold text-center mb-2">Handle</div>
@@ -389,9 +389,25 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                   <span className="font-semibold text-sm text-rose-600">Under</span>
                 </div>
                 <div className="flex-1 mx-2">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                    <div className="bg-gradient-rose h-full" style={{ width: `${calculateHandlePercentages().underPercentage}%` }} />
-                    <div className="bg-gradient-emerald h-full" style={{ width: `${calculateHandlePercentages().overPercentage}%` }} />
+                  <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
+                    <div 
+                      style={{ 
+                        width: `${calculateHandlePercentages().underPercentage}%`,
+                        background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 30%, #f87171 70%, #fca5a5 100%)',
+                        border: 'none !important',
+                        outline: 'none !important',
+                        height: '100%'
+                      }} 
+                    />
+                    <div 
+                      style={{ 
+                        width: `${calculateHandlePercentages().overPercentage}%`,
+                        background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 30%, #4ade80 70%, #86efac 100%)',
+                        border: 'none !important',
+                        outline: 'none !important',
+                        height: '100%'
+                      }} 
+                    />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -408,9 +424,25 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                   <span className="font-semibold text-sm text-rose-600">Under</span>
                 </div>
                 <div className="flex-1 mx-2">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                    <div className="bg-gradient-rose h-full" style={{ width: `${calculateBetsPercentages().underPercentage}%` }} />
-                    <div className="bg-gradient-emerald h-full" style={{ width: `${calculateBetsPercentages().overPercentage}%` }} />
+                  <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
+                    <div 
+                      style={{ 
+                        width: `${calculateBetsPercentages().underPercentage}%`,
+                        background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 30%, #f87171 70%, #fca5a5 100%)',
+                        border: 'none !important',
+                        outline: 'none !important',
+                        height: '100%'
+                      }} 
+                    />
+                    <div 
+                      style={{ 
+                        width: `${calculateBetsPercentages().overPercentage}%`,
+                        background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 30%, #4ade80 70%, #86efac 100%)',
+                        border: 'none !important',
+                        outline: 'none !important',
+                        height: '100%'
+                      }} 
+                    />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -421,7 +453,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
             </div>
 
             {/* Moneyline Distribution Card */}
-            <div className="bg-gradient-to-br from-card to-primary/10 border-2 border-primary rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
+            <div className="bg-gradient-to-br from-card to-primary/10 rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
               <div className="text-xl font-bold text-left w-full mb-4 text-primary drop-shadow-sm gradient-text-betting">Moneyline</div>
               <div className="text-lg font-semibold text-center mb-2">Handle</div>
               <div className="flex items-center mb-6 w-full justify-between">
@@ -429,34 +461,21 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                   <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                   <span className={`font-bold text-lg ${getPctColorClass(mlHandleAwayPct, mlHandleHomePct, true)}`}>{mlHandleAwayPct.toFixed(1)}%</span>
                 </div>
-                <div className="flex-1 mx-2 relative">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                    {/* Away bar: full border, left corners rounded */}
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                     <div style={{
                       width: `${mlHandleAwayPct}%`,
-                      backgroundColor: awayBarColor,
-                      border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
-                      borderTopLeftRadius: '9999px',
-                      borderBottomLeftRadius: '9999px',
-                      borderTopRightRadius: 0,
-                      borderBottomRightRadius: 0,
+                      background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}cc 25%, ${awayBarColor}99 50%, ${awayBarColor}66 75%, ${awayBarColor}44 100%)`,
                       height: '100%',
-                      boxSizing: 'border-box',
+                      border: 'none !important',
+                      outline: 'none !important'
                     }} />
-                    {/* Home bar: full border, right corners rounded, rendered on top */}
                     <div style={{
                       width: `${mlHandleHomePct}%`,
-                      backgroundColor: homeBarColor,
-                      border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
-                      borderTopRightRadius: '9999px',
-                      borderBottomRightRadius: '9999px',
-                      borderTopLeftRadius: 0,
-                      borderBottomLeftRadius: 0,
+                      background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}cc 25%, ${homeBarColor}99 50%, ${homeBarColor}66 75%, ${homeBarColor}44 100%)`,
                       height: '100%',
-                      boxSizing: 'border-box',
-                      position: 'absolute',
-                      left: `${mlHandleAwayPct}%`,
-                      top: 0,
+                      border: 'none !important',
+                      outline: 'none !important'
                     }} />
                   </div>
                 </div>
@@ -471,21 +490,21 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                   <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                   <span className={`font-bold text-lg ${getPctColorClass(mlBetsAwayPct, mlBetsHomePct, true)}`}>{mlBetsAwayPct.toFixed(1)}%</span>
                 </div>
-                <div className="flex-1 mx-2 relative">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                    <div className="h-full" style={{ width: `${mlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
-                    <div className="h-full" style={{ width: `${mlBetsHomePct}%`, backgroundColor: homeBarColor }} />
-                    {/* Outline overlay */}
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                     <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
+                      width: `${mlBetsAwayPct}%`,
+                      background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}cc 25%, ${awayBarColor}99 50%, ${awayBarColor}66 75%, ${awayBarColor}44 100%)`,
                       height: '100%',
-                      borderRadius: '9999px',
-                      border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
-                      pointerEvents: 'none',
-                      boxSizing: 'border-box',
+                      border: 'none !important',
+                      outline: 'none !important'
+                    }} />
+                    <div style={{
+                      width: `${mlBetsHomePct}%`,
+                      background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}cc 25%, ${homeBarColor}99 50%, ${homeBarColor}66 75%, ${homeBarColor}44 100%)`,
+                      height: '100%',
+                      border: 'none !important',
+                      outline: 'none !important'
                     }} />
                   </div>
                 </div>
@@ -497,7 +516,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
             </div>
 
             {/* Runline Distribution Card */}
-            <div className="bg-gradient-to-br from-card to-success/10 border-2 border-success rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
+            <div className="bg-gradient-to-br from-card to-success/10 rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
               <div className="text-xl font-bold text-left w-full mb-4 text-success drop-shadow-sm gradient-text-betting">Runline</div>
               <div className="text-lg font-semibold text-center mb-2">Handle</div>
               <div className="flex items-center mb-6 w-full justify-between">
@@ -505,21 +524,21 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                   <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                   <span className={`font-bold text-lg ${getPctColorClass(rlHandleAwayPct, rlHandleHomePct, true)}`}>{rlHandleAwayPct.toFixed(1)}%</span>
                 </div>
-                <div className="flex-1 mx-2 relative">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                    <div className="h-full" style={{ width: `${rlHandleAwayPct}%`, backgroundColor: awayBarColor }} />
-                    <div className="h-full" style={{ width: `${rlHandleHomePct}%`, backgroundColor: homeBarColor }} />
-                    {/* Outline overlay */}
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                     <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
+                      width: `${rlHandleAwayPct}%`,
+                      background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}cc 25%, ${awayBarColor}99 50%, ${awayBarColor}66 75%, ${awayBarColor}44 100%)`,
                       height: '100%',
-                      borderRadius: '9999px',
-                      border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
-                      pointerEvents: 'none',
-                      boxSizing: 'border-box',
+                      border: 'none !important',
+                      outline: 'none !important'
+                    }} />
+                    <div style={{
+                      width: `${rlHandleHomePct}%`,
+                      background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}cc 25%, ${homeBarColor}99 50%, ${homeBarColor}66 75%, ${homeBarColor}44 100%)`,
+                      height: '100%',
+                      border: 'none !important',
+                      outline: 'none !important'
                     }} />
                   </div>
                 </div>
@@ -534,21 +553,21 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                   <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                   <span className={`font-bold text-lg ${getPctColorClass(rlBetsAwayPct, rlBetsHomePct, true)}`}>{rlBetsAwayPct.toFixed(1)}%</span>
                 </div>
-                <div className="flex-1 mx-2 relative">
-                  <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                    <div className="h-full" style={{ width: `${rlBetsAwayPct}%`, backgroundColor: awayBarColor }} />
-                    <div className="h-full" style={{ width: `${rlBetsHomePct}%`, backgroundColor: homeBarColor }} />
-                    {/* Outline overlay */}
+                <div className="flex-1 mx-2">
+                  <div className="w-full h-8 rounded-full overflow-hidden flex" style={{ border: 'none !important', outline: 'none !important' }}>
                     <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
+                      width: `${rlBetsAwayPct}%`,
+                      background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}cc 25%, ${awayBarColor}99 50%, ${awayBarColor}66 75%, ${awayBarColor}44 100%)`,
                       height: '100%',
-                      borderRadius: '9999px',
-                      border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
-                      pointerEvents: 'none',
-                      boxSizing: 'border-box',
+                      border: 'none !important',
+                      outline: 'none !important'
+                    }} />
+                    <div style={{
+                      width: `${rlBetsHomePct}%`,
+                      background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}cc 25%, ${homeBarColor}99 50%, ${homeBarColor}66 75%, ${homeBarColor}44 100%)`,
+                      height: '100%',
+                      border: 'none !important',
+                      outline: 'none !important'
                     }} />
                   </div>
                 </div>
