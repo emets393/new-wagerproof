@@ -40,7 +40,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
   const { data: gameStats, isLoading: isStatsLoading } = useQuery({
     queryKey: ["game_stats", uniqueId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("input_values_view")
         .select("*")
         .eq("unique_id", uniqueId)
@@ -323,7 +323,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
         <DialogHeader className="text-center space-y-3 pb-2">
           <div className="flex flex-col items-center justify-center">
             {/* Divisional Game */}
-            {gameStats?.same_division === 1 && (
+            {(gameStats as any)?.same_division === 1 && (
               <div className="text-sm font-semibold text-primary mb-1">Divisional Game</div>
             )}
             {/* Team Logos with Game Number in between */}
@@ -333,7 +333,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
                 <span className="mt-2 text-base font-semibold">{awayTeam}</span>
               </div>
               <div className="flex flex-col items-center min-w-[80px]">
-                <span className="text-lg font-bold text-primary">Game {gameStats?.series_game_number ?? "-"}</span>
+                <span className="text-lg font-bold text-primary">Game {(gameStats as any)?.series_game_number ?? "-"}</span>
               </div>
               <div className="flex flex-col items-center">
                 <img src={getTeamLogo(homeTeam)} alt={homeTeam + ' logo'} className="w-24 h-24 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />

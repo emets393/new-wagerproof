@@ -82,7 +82,7 @@ const SavedPatterns: React.FC = () => {
 
       // Debug: Log each pattern's dominant_side
       patterns?.forEach(pattern => {
-        console.log(`Pattern "${pattern.pattern_name}": dominant_side = "${pattern.dominant_side}", win_pct = ${(pattern.win_pct * 100).toFixed(1)}%, opponent_win_pct = ${(pattern.opponent_win_pct * 100).toFixed(1)}%`);
+        console.log(`Pattern "${pattern.pattern_name}": dominant_side = "${(pattern as any).dominant_side}", win_pct = ${(pattern.win_pct * 100).toFixed(1)}%, opponent_win_pct = ${(pattern.opponent_win_pct * 100).toFixed(1)}%`);
       });
 
       // Get ROI data for each pattern

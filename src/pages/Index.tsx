@@ -40,7 +40,7 @@ export default function Index() {
       console.log('======================');
       
       // First, let's check what dates are available in the database
-      const { data: allDates, error: dateError } = await supabase
+      const { data: allDates, error: dateError } = await (supabase as any)
         .from('input_values_view')
         .select('date')
         .order('date', { ascending: false })
@@ -49,10 +49,10 @@ export default function Index() {
       if (dateError) {
         console.error('Error fetching dates:', dateError);
       } else {
-        console.log('Available dates in database:', allDates?.map(d => d.date));
+        console.log('Available dates in database:', allDates?.map((d: any) => d.date));
       }
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('input_values_view')
         .select(`
           unique_id,
@@ -84,7 +84,7 @@ export default function Index() {
       if (data && data.length > 0) {
         console.log('Sample game:', data[0]);
       }
-      return (data || []) as TodaysGame[];
+      return (data || []) as unknown as TodaysGame[];
     },
   });
 
