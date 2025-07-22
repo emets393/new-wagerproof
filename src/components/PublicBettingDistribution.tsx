@@ -289,9 +289,9 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className="font-semibold text-sm text-red-600">Under</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full bg-red-500" style={{ width: `${calculateHandlePercentages().underPercentage}%` }} />
-                  <div className="h-full bg-green-500" style={{ width: `${calculateHandlePercentages().overPercentage}%` }} />
+                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex">
+                  <div className="h-full bg-gradient-to-r from-red-600 to-red-400" style={{ width: `${calculateHandlePercentages().underPercentage}%` }} />
+                  <div className="h-full bg-gradient-to-r from-green-400 to-green-600" style={{ width: `${calculateHandlePercentages().overPercentage}%` }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -308,9 +308,9 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className="font-semibold text-sm text-red-600">Under</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner border border-border/30 flex">
-                  <div className="h-full bg-red-500" style={{ width: `${calculateBetsPercentages().underPercentage}%` }} />
-                  <div className="h-full bg-green-500" style={{ width: `${calculateBetsPercentages().overPercentage}%` }} />
+                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex">
+                  <div className="h-full bg-gradient-to-r from-red-600 to-red-400" style={{ width: `${calculateBetsPercentages().underPercentage}%` }} />
+                  <div className="h-full bg-gradient-to-r from-green-400 to-green-600" style={{ width: `${calculateBetsPercentages().overPercentage}%` }} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -335,11 +335,10 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2 relative">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                  {/* Away bar: full border, left corners rounded */}
+                  {/* Away bar: left corners rounded */}
                   <div style={{
                     width: `${mlHandleAwayPct}%`,
-                    backgroundColor: awayBarColor,
-                    border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
+                    background: `linear-gradient(135deg, ${awayBarColor}, ${awayBarColor}CC)`,
                     borderTopLeftRadius: '9999px',
                     borderBottomLeftRadius: '9999px',
                     borderTopRightRadius: 0,
@@ -347,11 +346,10 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                     height: '100%',
                     boxSizing: 'border-box',
                   }} />
-                  {/* Home bar: full border, right corners rounded, rendered on top */}
+                  {/* Home bar: right corners rounded, rendered on top */}
                   <div style={{
                     width: `${mlHandleHomePct}%`,
-                    backgroundColor: homeBarColor,
-                    border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                    background: `linear-gradient(135deg, ${homeBarColor}, ${homeBarColor}CC)`,
                     borderTopRightRadius: '9999px',
                     borderBottomRightRadius: '9999px',
                     borderTopLeftRadius: 0,
@@ -379,11 +377,10 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2 relative">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                  {/* Away bar: full border, left corners rounded */}
+                  {/* Away bar: left corners rounded */}
                   <div style={{
                     width: `${mlBetsAwayPct}%`,
-                    backgroundColor: awayBarColor,
-                    border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
+                    background: `linear-gradient(135deg, ${awayBarColor}, ${awayBarColor}CC)`,
                     borderTopLeftRadius: '9999px',
                     borderBottomLeftRadius: '9999px',
                     borderTopRightRadius: 0,
@@ -392,11 +389,10 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                     boxSizing: 'border-box',
                     zIndex: 1,
                   }} />
-                  {/* Home bar: full border, right corners rounded, rendered on top */}
+                  {/* Home bar: right corners rounded, rendered on top */}
                   <div style={{
                     width: `${mlBetsHomePct}%`,
-                    backgroundColor: homeBarColor,
-                    border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                    background: `linear-gradient(135deg, ${homeBarColor}, ${homeBarColor}CC)`,
                     borderTopRightRadius: '9999px',
                     borderBottomRightRadius: '9999px',
                     borderTopLeftRadius: 0,
@@ -431,11 +427,10 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2 relative">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                  {/* Away bar: full border, left corners rounded */}
+                  {/* Away bar: left corners rounded */}
                   <div style={{
                     width: `${rlHandleAwayPct}%`,
-                    backgroundColor: awayBarColor,
-                    border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
+                    background: `linear-gradient(135deg, ${awayBarColor}, ${awayBarColor}CC)`,
                     borderTopLeftRadius: '9999px',
                     borderBottomLeftRadius: '9999px',
                     borderTopRightRadius: 0,
@@ -444,11 +439,10 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                     boxSizing: 'border-box',
                     zIndex: 1,
                   }} />
-                  {/* Home bar: full border, right corners rounded, rendered on top */}
+                  {/* Home bar: right corners rounded, rendered on top */}
                   <div style={{
                     width: `${rlHandleHomePct}%`,
-                    backgroundColor: homeBarColor,
-                    border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                    background: `linear-gradient(135deg, ${homeBarColor}, ${homeBarColor}CC)`,
                     borderTopRightRadius: '9999px',
                     borderBottomRightRadius: '9999px',
                     borderTopLeftRadius: 0,
@@ -476,11 +470,10 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
               </div>
               <div className="flex-1 mx-2 relative">
                 <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                  {/* Away bar: full border, left corners rounded */}
+                  {/* Away bar: left corners rounded */}
                   <div style={{
                     width: `${rlBetsAwayPct}%`,
-                    backgroundColor: awayBarColor,
-                    border: `3px solid ${awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary}`,
+                    background: `linear-gradient(135deg, ${awayBarColor}, ${awayBarColor}CC)`,
                     borderTopLeftRadius: '9999px',
                     borderBottomLeftRadius: '9999px',
                     borderTopRightRadius: 0,
@@ -489,11 +482,10 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                     boxSizing: 'border-box',
                     zIndex: 1,
                   }} />
-                  {/* Home bar: full border, right corners rounded, rendered on top */}
+                  {/* Home bar: right corners rounded, rendered on top */}
                   <div style={{
                     width: `${rlBetsHomePct}%`,
-                    backgroundColor: homeBarColor,
-                    border: `3px solid ${homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary}`,
+                    background: `linear-gradient(135deg, ${homeBarColor}, ${homeBarColor}CC)`,
                     borderTopRightRadius: '9999px',
                     borderBottomRightRadius: '9999px',
                     borderTopLeftRadius: 0,
