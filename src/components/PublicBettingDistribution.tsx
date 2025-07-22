@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -110,21 +111,6 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
     return teamColors[teamName] || { primary: '#666666', secondary: '#999999' };
   };
 
-  // Helper to get bar color based on percentage
-  const getBarColor = (percentage: number) => {
-    console.log(`getBarColor called with percentage: ${percentage}`);
-    if (percentage < 33.3) {
-      console.log(`Returning red for ${percentage}%`);
-      return '#ef4444'; // red
-    }
-    if (percentage < 66.6) {
-      console.log(`Returning orange for ${percentage}%`);
-      return '#f59e42'; // orange
-    }
-    console.log(`Returning green for ${percentage}%`);
-    return '#22c55e'; // green
-  };
-
   // Calculate percentages for the O/U handle bar
   const calculateHandlePercentages = () => {
     const overHandle = Number(moneylineData?.Total_Over_Handle) || 0;
@@ -229,10 +215,6 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
     }
   }
 
-  // Determine outline colors for bars (visually obvious, 3px solid)
-  let homeOutlineColor = homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary;
-  let awayOutlineColor = awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary;
-
   // Helper to get percentage color classes for moneyline/runline
   function getPctColorClass(leftPct, rightPct, isLeft) {
     if (leftPct === rightPct) {
@@ -243,13 +225,6 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
     } else {
       return rightPct > leftPct ? 'text-green-600' : 'text-red-600';
     }
-  }
-
-  // Add helper for outline color (use home secondary for right, away secondary for left)
-  function getOutlineColor(homeBarColor, homeColors, awayBarColor, awayColors) {
-    const homeOutline = homeBarColor === homeColors.primary ? homeColors.secondary : homeColors.primary;
-    const awayOutline = awayBarColor === awayColors.primary ? awayColors.secondary : awayColors.primary;
-    return [awayOutline, homeOutline];
   }
 
   if (isLoading) {
@@ -278,7 +253,7 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
     switch (target) {
       case 'over_under':
         return (
-          <div className="bg-gradient-to-br from-card to-accent/10 border-2 border-accent rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
+          <div className="bg-gradient-to-br from-card to-accent/10 rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
             <div className="text-xl font-bold text-left w-full mb-4 text-primary drop-shadow-sm gradient-text-betting">O/U</div>
             {/* Handle Sub-header */}
             <div className="text-lg font-semibold text-center mb-2">Handle</div>
@@ -289,9 +264,25 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className="font-semibold text-sm text-red-600">Under</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex">
-                  <div className="h-full bg-gradient-to-r from-red-600 to-red-400" style={{ width: `${calculateHandlePercentages().underPercentage}%` }} />
-                  <div className="h-full bg-gradient-to-r from-green-400 to-green-600" style={{ width: `${calculateHandlePercentages().overPercentage}%` }} />
+                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
+                  <div 
+                    className="h-full" 
+                    style={{ 
+                      width: `${calculateHandlePercentages().underPercentage}%`,
+                      background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
+                      border: 'none',
+                      outline: 'none'
+                    }} 
+                  />
+                  <div 
+                    className="h-full" 
+                    style={{ 
+                      width: `${calculateHandlePercentages().overPercentage}%`,
+                      background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)',
+                      border: 'none',
+                      outline: 'none'
+                    }} 
+                  />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -308,9 +299,25 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <span className="font-semibold text-sm text-red-600">Under</span>
               </div>
               <div className="flex-1 mx-2">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex">
-                  <div className="h-full bg-gradient-to-r from-red-600 to-red-400" style={{ width: `${calculateBetsPercentages().underPercentage}%` }} />
-                  <div className="h-full bg-gradient-to-r from-green-400 to-green-600" style={{ width: `${calculateBetsPercentages().overPercentage}%` }} />
+                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
+                  <div 
+                    className="h-full" 
+                    style={{ 
+                      width: `${calculateBetsPercentages().underPercentage}%`,
+                      background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
+                      border: 'none',
+                      outline: 'none'
+                    }} 
+                  />
+                  <div 
+                    className="h-full" 
+                    style={{ 
+                      width: `${calculateBetsPercentages().overPercentage}%`,
+                      background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)',
+                      border: 'none',
+                      outline: 'none'
+                    }} 
+                  />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -323,7 +330,7 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
 
       case 'moneyline':
         return (
-          <div className="bg-gradient-to-br from-card to-primary/10 border-2 border-primary rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
+          <div className="bg-gradient-to-br from-card to-primary/10 rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
             <div className="text-xl font-bold text-left w-full mb-4 text-primary drop-shadow-sm gradient-text-betting">Moneyline</div>
             {/* Handle Sub-header */}
             <div className="text-lg font-semibold text-center mb-2">Handle</div>
@@ -333,32 +340,21 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 <span className={`font-bold text-lg ${getPctColorClass(mlHandleAwayPct, mlHandleHomePct, true)}`}>{mlHandleAwayPct.toFixed(1)}%</span>
               </div>
-              <div className="flex-1 mx-2 relative">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                  {/* Away bar: left corners rounded */}
+              <div className="flex-1 mx-2">
+                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
                   <div style={{
                     width: `${mlHandleAwayPct}%`,
-                    background: `linear-gradient(135deg, ${awayBarColor}, ${awayBarColor}CC)`,
-                    borderTopLeftRadius: '9999px',
-                    borderBottomLeftRadius: '9999px',
-                    borderTopRightRadius: 0,
-                    borderBottomRightRadius: 0,
+                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}dd 50%, ${awayBarColor}bb 100%)`,
                     height: '100%',
-                    boxSizing: 'border-box',
+                    border: 'none',
+                    outline: 'none'
                   }} />
-                  {/* Home bar: right corners rounded, rendered on top */}
                   <div style={{
                     width: `${mlHandleHomePct}%`,
-                    background: `linear-gradient(135deg, ${homeBarColor}, ${homeBarColor}CC)`,
-                    borderTopRightRadius: '9999px',
-                    borderBottomRightRadius: '9999px',
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
+                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}dd 50%, ${homeBarColor}bb 100%)`,
                     height: '100%',
-                    boxSizing: 'border-box',
-                    position: 'absolute',
-                    left: `${mlHandleAwayPct}%`,
-                    top: 0,
+                    border: 'none',
+                    outline: 'none'
                   }} />
                 </div>
               </div>
@@ -375,33 +371,21 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 <span className={`font-bold text-lg ${getPctColorClass(mlBetsAwayPct, mlBetsHomePct, true)}`}>{mlBetsAwayPct.toFixed(1)}%</span>
               </div>
-              <div className="flex-1 mx-2 relative">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                  {/* Away bar: left corners rounded */}
+              <div className="flex-1 mx-2">
+                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
                   <div style={{
                     width: `${mlBetsAwayPct}%`,
-                    background: `linear-gradient(135deg, ${awayBarColor}, ${awayBarColor}CC)`,
-                    borderTopLeftRadius: '9999px',
-                    borderBottomLeftRadius: '9999px',
-                    borderTopRightRadius: 0,
-                    borderBottomRightRadius: 0,
+                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}dd 50%, ${awayBarColor}bb 100%)`,
                     height: '100%',
-                    boxSizing: 'border-box',
-                    zIndex: 1,
+                    border: 'none',
+                    outline: 'none'
                   }} />
-                  {/* Home bar: right corners rounded, rendered on top */}
                   <div style={{
                     width: `${mlBetsHomePct}%`,
-                    background: `linear-gradient(135deg, ${homeBarColor}, ${homeBarColor}CC)`,
-                    borderTopRightRadius: '9999px',
-                    borderBottomRightRadius: '9999px',
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
+                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}dd 50%, ${homeBarColor}bb 100%)`,
                     height: '100%',
-                    boxSizing: 'border-box',
-                    position: 'absolute',
-                    left: `${mlBetsAwayPct}%`,
-                    top: 0,
+                    border: 'none',
+                    outline: 'none'
                   }} />
                 </div>
               </div>
@@ -415,7 +399,7 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
 
       case 'runline':
         return (
-          <div className="bg-gradient-to-br from-card to-success/10 border-2 border-success rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
+          <div className="bg-gradient-to-br from-card to-success/10 rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col mb-8">
             <div className="text-xl font-bold text-left w-full mb-4 text-success drop-shadow-sm gradient-text-betting">Runline</div>
             {/* Handle Sub-header */}
             <div className="text-lg font-semibold text-center mb-2">Handle</div>
@@ -425,33 +409,21 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 <span className={`font-bold text-lg ${getPctColorClass(rlHandleAwayPct, rlHandleHomePct, true)}`}>{rlHandleAwayPct.toFixed(1)}%</span>
               </div>
-              <div className="flex-1 mx-2 relative">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                  {/* Away bar: left corners rounded */}
+              <div className="flex-1 mx-2">
+                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
                   <div style={{
                     width: `${rlHandleAwayPct}%`,
-                    background: `linear-gradient(135deg, ${awayBarColor}, ${awayBarColor}CC)`,
-                    borderTopLeftRadius: '9999px',
-                    borderBottomLeftRadius: '9999px',
-                    borderTopRightRadius: 0,
-                    borderBottomRightRadius: 0,
+                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}dd 50%, ${awayBarColor}bb 100%)`,
                     height: '100%',
-                    boxSizing: 'border-box',
-                    zIndex: 1,
+                    border: 'none',
+                    outline: 'none'
                   }} />
-                  {/* Home bar: right corners rounded, rendered on top */}
                   <div style={{
                     width: `${rlHandleHomePct}%`,
-                    background: `linear-gradient(135deg, ${homeBarColor}, ${homeBarColor}CC)`,
-                    borderTopRightRadius: '9999px',
-                    borderBottomRightRadius: '9999px',
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
+                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}dd 50%, ${homeBarColor}bb 100%)`,
                     height: '100%',
-                    boxSizing: 'border-box',
-                    position: 'absolute',
-                    left: `${rlHandleAwayPct}%`,
-                    top: 0,
+                    border: 'none',
+                    outline: 'none'
                   }} />
                 </div>
               </div>
@@ -468,33 +440,21 @@ const PublicBettingDistribution: React.FC<PublicBettingDistributionProps> = ({
                 <img src={getTeamLogo(awayTeam)} alt={awayTeam + ' logo'} className="w-10 h-10 rounded-full bg-white shadow-md border-2 border-primary object-contain p-1" />
                 <span className={`font-bold text-lg ${getPctColorClass(rlBetsAwayPct, rlBetsHomePct, true)}`}>{rlBetsAwayPct.toFixed(1)}%</span>
               </div>
-              <div className="flex-1 mx-2 relative">
-                <div className="w-full h-8 bg-gradient-to-r from-muted/50 to-muted/30 rounded-full overflow-hidden shadow-inner flex relative">
-                  {/* Away bar: left corners rounded */}
+              <div className="flex-1 mx-2">
+                <div className="w-full h-8 bg-gray-200 rounded-full overflow-hidden flex">
                   <div style={{
                     width: `${rlBetsAwayPct}%`,
-                    background: `linear-gradient(135deg, ${awayBarColor}, ${awayBarColor}CC)`,
-                    borderTopLeftRadius: '9999px',
-                    borderBottomLeftRadius: '9999px',
-                    borderTopRightRadius: 0,
-                    borderBottomRightRadius: 0,
+                    background: `linear-gradient(135deg, ${awayBarColor} 0%, ${awayBarColor}dd 50%, ${awayBarColor}bb 100%)`,
                     height: '100%',
-                    boxSizing: 'border-box',
-                    zIndex: 1,
+                    border: 'none',
+                    outline: 'none'
                   }} />
-                  {/* Home bar: right corners rounded, rendered on top */}
                   <div style={{
                     width: `${rlBetsHomePct}%`,
-                    background: `linear-gradient(135deg, ${homeBarColor}, ${homeBarColor}CC)`,
-                    borderTopRightRadius: '9999px',
-                    borderBottomRightRadius: '9999px',
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
+                    background: `linear-gradient(135deg, ${homeBarColor} 0%, ${homeBarColor}dd 50%, ${homeBarColor}bb 100%)`,
                     height: '100%',
-                    boxSizing: 'border-box',
-                    position: 'absolute',
-                    left: `${rlBetsAwayPct}%`,
-                    top: 0,
+                    border: 'none',
+                    outline: 'none'
                   }} />
                 </div>
               </div>
