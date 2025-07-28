@@ -182,20 +182,78 @@ const CustomModels = () => {
     setResults(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('run_custom_model', {
-        body: {
-          model_name: modelName,
-          selected_features: selectedFeatures,
-          target: targetVariable
+      // Map frontend target to API target
+      const targetMap: Record<string, string> = {
+        'moneyline': 'primary_win',
+        'runline': 'primary_runline_win', 
+        'over_under': 'ou_result'
+      };
+
+      const response = await fetch('https://modelserver-hs5t.onrender.com/run-trend-miner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          target: targetMap[targetVariable] || targetVariable,
+          selected_features: selectedFeatures
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Transform matches to match expected format
+      const trendMatches: TrendMatch[] = [];
+      const todayMatches: TodayMatch[] = [];
+
+      data.matches.forEach((match: any) => {
+        // Add to today's matches
+        todayMatches.push({
+          unique_id: match.orientation_unique_id,
+          primary_team: match.primary_team,
+          opponent_team: match.opponent_team,
+          is_home_team: true, // Default value
+          combo: match.trend.features.join('|'),
+          win_pct: match.trend.win_rate,
+          opponent_win_pct: 1 - match.trend.win_rate,
+          games: match.trend.match_count,
+          feature_count: match.trend.features.length,
+          features: match.trend.features
+        });
+      });
+
+      // Group trends to avoid duplicates
+      const trendMap = new Map();
+      data.matches.forEach((match: any) => {
+        const trend = match.trend;
+        const key = trend.features.join('|') + trend.win_rate;
+        if (!trendMap.has(key)) {
+          trendMap.set(key, {
+            combo: trend.features.join('|'),
+            games: trend.match_count,
+            win_pct: trend.win_rate,
+            opponent_win_pct: 1 - trend.win_rate,
+            dominant_side: trend.win_rate >= 0.5 ? 'primary' : 'opponent',
+            dominant_win_pct: Math.max(trend.win_rate, 1 - trend.win_rate),
+            feature_count: trend.features.length,
+            features: trend.features
+          });
         }
       });
 
-      if (error) {
-        throw new Error(error.message || 'Failed to run model');
-      }
+      const modelResults: ModelResults = {
+        model_id: `render-${Date.now()}`,
+        trend_matches: Array.from(trendMap.values()),
+        today_matches: todayMatches,
+        target: targetMap[targetVariable] || targetVariable
+      };
 
-      setResults(data);
-      updateUrlParams(modelName, selectedFeatures, targetVariable, data);
+      setResults(modelResults);
+      updateUrlParams(modelName, selectedFeatures, targetVariable, modelResults);
     } catch (error: any) {
       console.error('Error running custom model:', error);
       toast({
