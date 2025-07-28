@@ -212,43 +212,45 @@ const CustomModels = () => {
       const todayMatches: TodayMatch[] = [];
       const trendMap = new Map();
 
-      // Check if matches exists and is an array
-      if (Array.isArray(data.matches)) {
-        data.matches.forEach((match: any) => {
-          // Add to today's matches
-          todayMatches.push({
-            unique_id: match.orientation_unique_id,
-            primary_team: match.primary_team,
-            opponent_team: match.opponent_team,
-            is_home_team: true, // Default value
-            combo: match.trend.features.join('|'),
-            win_pct: match.trend.win_rate,
-            opponent_win_pct: 1 - match.trend.win_rate,
-            games: match.trend.match_count,
-            feature_count: match.trend.features.length,
-            features: match.trend.features
-          });
-        });
-
-        // Group trends to avoid duplicates
-        data.matches.forEach((match: any) => {
-          const trend = match.trend;
-          const key = trend.features.join('|') + trend.win_rate;
+      // Handle trend_patterns from API response
+      if (Array.isArray(data.trend_patterns)) {
+        data.trend_patterns.forEach((pattern: any) => {
+          const key = pattern.combo;
           if (!trendMap.has(key)) {
             trendMap.set(key, {
-              combo: trend.features.join('|'),
-              games: trend.match_count,
-              win_pct: trend.win_rate,
-              opponent_win_pct: 1 - trend.win_rate,
-              dominant_side: trend.win_rate >= 0.5 ? 'primary' : 'opponent',
-              dominant_win_pct: Math.max(trend.win_rate, 1 - trend.win_rate),
-              feature_count: trend.features.length,
-              features: trend.features
+              combo: pattern.combo,
+              games: pattern.games,
+              win_pct: pattern.win_pct,
+              opponent_win_pct: pattern.opponent_win_pct,
+              dominant_side: pattern.dominant_side,
+              dominant_win_pct: pattern.dominant_win_pct,
+              feature_count: pattern.feature_count,
+              features: pattern.features
             });
           }
         });
-      } else {
-        console.log('No matches found or matches is not an array:', data);
+      }
+
+      // Handle matches_today from API response
+      if (Array.isArray(data.matches_today)) {
+        data.matches_today.forEach((match: any) => {
+          todayMatches.push({
+            unique_id: match.unique_id,
+            primary_team: match.primary_team,
+            opponent_team: match.opponent_team,
+            is_home_team: match.is_home_team || true,
+            combo: match.combo,
+            win_pct: match.win_pct,
+            opponent_win_pct: match.opponent_win_pct,
+            games: match.games,
+            feature_count: match.feature_count,
+            features: match.features
+          });
+        });
+      }
+
+      if (data.trend_patterns?.length === 0 && data.matches_today?.length === 0) {
+        console.log('No patterns or matches found in API response');
       }
 
       const modelResults: ModelResults = {
