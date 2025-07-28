@@ -189,23 +189,53 @@ const CustomModels = () => {
         'over_under': 'ou_result'
       };
 
-      const response = await fetch('https://modelserver-hs5t.onrender.com/run-trend-miner', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          target: targetMap[targetVariable] || targetVariable,
-          selected_features: selectedFeatures
-        })
-      });
+      // Try the Render API first, fallback to Supabase Edge Function
+      let apiData;
+      let apiError;
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+      try {
+        const response = await fetch('https://modelserver-hs5t.onrender.com/run-trend-miner', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            target: targetMap[targetVariable] || targetVariable,
+            selected_features: selectedFeatures
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Render API error: ${response.status} - ${response.statusText}`);
+        }
+
+        apiData = await response.json();
+        console.log('Render API Response:', apiData);
+      } catch (renderError) {
+        console.log('Render API failed, trying Supabase Edge Function:', renderError);
+        apiError = renderError;
+
+        // Fallback to Supabase Edge Function
+        try {
+          const { data: supabaseData, error } = await supabase.functions.invoke('run_custom_model', {
+            body: {
+              model_name: modelName,
+              selected_features: selectedFeatures,
+              target: targetMap[targetVariable] || targetVariable
+            }
+          });
+
+          if (error) {
+            throw new Error(`Supabase API error: ${error.message}`);
+          }
+
+          apiData = supabaseData;
+          console.log('Supabase API Response:', apiData);
+        } catch (supabaseError) {
+          console.error('Both APIs failed:', { renderError: apiError, supabaseError });
+          throw new Error(`Both model APIs failed. Render: ${apiError?.message || 'Unknown error'}. Supabase: ${supabaseError?.message || 'Unknown error'}`);
+        }
       }
-
-      const data = await response.json();
-      console.log('API Response:', data);
 
       // Transform matches to match expected format
       const trendMatches: TrendMatch[] = [];
@@ -213,8 +243,8 @@ const CustomModels = () => {
       const trendMap = new Map();
 
       // Handle trend_patterns from API response
-      if (Array.isArray(data.trend_patterns)) {
-        data.trend_patterns.forEach((pattern: any) => {
+      if (Array.isArray(apiData.trend_patterns)) {
+        apiData.trend_patterns.forEach((pattern: any) => {
           const key = pattern.combo;
           if (!trendMap.has(key)) {
             trendMap.set(key, {
@@ -232,8 +262,8 @@ const CustomModels = () => {
       }
 
       // Handle matches_today from API response
-      if (Array.isArray(data.matches_today)) {
-        data.matches_today.forEach((match: any) => {
+      if (Array.isArray(apiData.matches_today)) {
+        apiData.matches_today.forEach((match: any) => {
           todayMatches.push({
             unique_id: match.unique_id,
             primary_team: match.primary_team,
@@ -249,7 +279,7 @@ const CustomModels = () => {
         });
       }
 
-      if (data.trend_patterns?.length === 0 && data.matches_today?.length === 0) {
+      if (apiData.trend_patterns?.length === 0 && apiData.matches_today?.length === 0) {
         console.log('No patterns or matches found in API response');
       }
 
