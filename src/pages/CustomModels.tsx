@@ -242,28 +242,28 @@ const CustomModels = () => {
       const todayMatches: TodayMatch[] = [];
       const trendMap = new Map();
 
-      // Handle trend_patterns from API response
-      if (Array.isArray(apiData.trend_patterns)) {
-        apiData.trend_patterns.forEach((pattern: any) => {
-          const key = pattern.combo;
+      // Handle both Render API format (matches array) and Supabase format (trend_patterns/matches_today)
+      if (Array.isArray(apiData.matches)) {
+        // Render API format - process matches array
+        console.log(`Processing ${apiData.matches.length} matches from Render API`);
+        
+        apiData.matches.forEach((match: any) => {
+          // Group by combo to create trend patterns
+          const key = match.combo;
           if (!trendMap.has(key)) {
             trendMap.set(key, {
-              combo: pattern.combo,
-              games: pattern.games,
-              win_pct: pattern.win_pct,
-              opponent_win_pct: pattern.opponent_win_pct,
-              dominant_side: pattern.dominant_side,
-              dominant_win_pct: pattern.dominant_win_pct,
-              feature_count: pattern.feature_count,
-              features: pattern.features
+              combo: match.combo,
+              games: match.games,
+              win_pct: match.win_pct,
+              opponent_win_pct: match.opponent_win_pct,
+              dominant_side: match.dominant_side,
+              dominant_win_pct: match.dominant_win_pct,
+              feature_count: match.feature_count,
+              features: match.features
             });
           }
-        });
-      }
 
-      // Handle matches_today from API response
-      if (Array.isArray(apiData.matches_today)) {
-        apiData.matches_today.forEach((match: any) => {
+          // Add to today's matches
           todayMatches.push({
             unique_id: match.unique_id,
             primary_team: match.primary_team,
@@ -277,9 +277,47 @@ const CustomModels = () => {
             features: match.features
           });
         });
+      } else {
+        // Supabase format - handle trend_patterns and matches_today separately
+        if (Array.isArray(apiData.trend_patterns)) {
+          apiData.trend_patterns.forEach((pattern: any) => {
+            const key = pattern.combo;
+            if (!trendMap.has(key)) {
+              trendMap.set(key, {
+                combo: pattern.combo,
+                games: pattern.games,
+                win_pct: pattern.win_pct,
+                opponent_win_pct: pattern.opponent_win_pct,
+                dominant_side: pattern.dominant_side,
+                dominant_win_pct: pattern.dominant_win_pct,
+                feature_count: pattern.feature_count,
+                features: pattern.features
+              });
+            }
+          });
+        }
+
+        if (Array.isArray(apiData.matches_today)) {
+          apiData.matches_today.forEach((match: any) => {
+            todayMatches.push({
+              unique_id: match.unique_id,
+              primary_team: match.primary_team,
+              opponent_team: match.opponent_team,
+              is_home_team: match.is_home_team || true,
+              combo: match.combo,
+              win_pct: match.win_pct,
+              opponent_win_pct: match.opponent_win_pct,
+              games: match.games,
+              feature_count: match.feature_count,
+              features: match.features
+            });
+          });
+        }
       }
 
-      if (apiData.trend_patterns?.length === 0 && apiData.matches_today?.length === 0) {
+      console.log(`Processed ${trendMatches.length} trend patterns and ${todayMatches.length} today's matches`);
+
+      if (Array.from(trendMap.values()).length === 0 && todayMatches.length === 0) {
         console.log('No patterns or matches found in API response');
       }
 
