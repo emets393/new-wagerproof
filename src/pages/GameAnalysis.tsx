@@ -119,6 +119,7 @@ const GameAnalysis: React.FC = () => {
       case 'runline':
         return { primary: 'Cover', opponent: 'Don\'t Cover' };
       case 'over_under':
+      case 'ou_result':
         return { primary: 'Over', opponent: 'Under' };
       default:
         return { primary: 'Primary', opponent: 'Opponent' };
@@ -132,6 +133,7 @@ const GameAnalysis: React.FC = () => {
       case 'runline':
         return 'bg-green-100 text-green-800';
       case 'over_under':
+      case 'ou_result':
         return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -324,13 +326,13 @@ const GameAnalysis: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Trophy className="h-5 w-5" />
-                {analysisData.target === 'over_under' ? 'Prediction' : 'Prediction Winner'}
+                {(analysisData.target === 'over_under' || analysisData.target === 'ou_result') ? 'Prediction' : 'Prediction Winner'}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col items-center space-y-4">
                 <div className="w-20 h-20 rounded-full bg-white shadow-md border-2 border-primary flex items-center justify-center overflow-hidden p-2">
-                  {analysisData.target === 'over_under'
+                  {(analysisData.target === 'over_under' || analysisData.target === 'ou_result')
                     ? getOverUnderPrediction().arrow
                     : (getTeamLogo(analysisData.consensus.team_winner_prediction) ? (
                         <img 
@@ -346,11 +348,11 @@ const GameAnalysis: React.FC = () => {
                 </div>
                 <div className="text-center">
                    <p className={`text-2xl font-bold mb-2 ${
-                     analysisData.target === 'over_under'
+                     (analysisData.target === 'over_under' || analysisData.target === 'ou_result')
                        ? getOverUnderPrediction().color
                        : 'text-green-600'
                    }`}>
-                     {analysisData.target === 'over_under'
+                     {(analysisData.target === 'over_under' || analysisData.target === 'ou_result')
                        ? `${getOverUnderPrediction().label}${getOULine() !== null ? ` (${getOULine()})` : ''}`
                        : analysisData.target === 'moneyline'
                          ? `${analysisData.consensus.team_winner_prediction}${getMoneyline() ? ` (${getMoneyline()})` : ''}`
@@ -359,7 +361,7 @@ const GameAnalysis: React.FC = () => {
                            : analysisData.consensus.team_winner_prediction}
                    </p>
                   <p className="text-lg text-gray-600">
-                    {analysisData.target === 'over_under' ? 'Consensus Prediction' : 'Consensus Winner'} ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
+                    {(analysisData.target === 'over_under' || analysisData.target === 'ou_result') ? 'Consensus Prediction' : 'Consensus Winner'} ({Math.round(Math.max(analysisData.consensus.primary_percentage, analysisData.consensus.opponent_percentage) * 100)}% confidence)
                   </p>
                 </div>
               </div>
@@ -379,7 +381,7 @@ const GameAnalysis: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex flex-col items-center space-y-3">
                 <h3 className="font-medium text-center w-full">
-                  {analysisData.target === 'over_under' ? 'Over' : analysisData.game_info.primary_team}
+                  {(analysisData.target === 'over_under' || analysisData.target === 'ou_result') ? 'Over' : analysisData.game_info.primary_team}
                 </h3>
                 <ConfidenceChart 
                   confidence={analysisData.consensus.primary_percentage * 100}
@@ -387,13 +389,13 @@ const GameAnalysis: React.FC = () => {
                 />
                 <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
                 <p className="text-sm text-gray-600 text-center w-full">
-                  {analysisData.target === 'over_under' ? 'Weighted Over Probability' : 'Weighted Win Probability'}
+                  {(analysisData.target === 'over_under' || analysisData.target === 'ou_result') ? 'Weighted Over Probability' : 'Weighted Win Probability'}
                 </p>
               </div>
               
               <div className="flex flex-col items-center space-y-3">
                 <h3 className="font-medium text-center w-full">
-                  {analysisData.target === 'over_under' ? 'Under' : analysisData.game_info.opponent_team}
+                  {(analysisData.target === 'over_under' || analysisData.target === 'ou_result') ? 'Under' : analysisData.game_info.opponent_team}
                 </h3>
                 <ConfidenceChart 
                   confidence={analysisData.consensus.opponent_percentage * 100}
@@ -401,7 +403,7 @@ const GameAnalysis: React.FC = () => {
                 />
                 <Badge variant="secondary">{analysisData.consensus.models} models</Badge>
                 <p className="text-sm text-gray-600 text-center w-full">
-                  {analysisData.target === 'over_under' ? 'Weighted Under Probability' : 'Weighted Win Probability'}
+                  {(analysisData.target === 'over_under' || analysisData.target === 'ou_result') ? 'Weighted Under Probability' : 'Weighted Win Probability'}
                 </p>
               </div>
             </div>
@@ -443,7 +445,7 @@ const GameAnalysis: React.FC = () => {
                             {(match.win_pct * 100).toFixed(1)}%
                           </p>
                           <p className="text-xs text-gray-600">
-                            {analysisData.target === 'over_under' ? 'Over %' : `${analysisData.game_info.primary_team} Win %`}
+                            {(analysisData.target === 'over_under' || analysisData.target === 'ou_result') ? 'Over %' : `${analysisData.game_info.primary_team} Win %`}
                           </p>
                         </div>
                         <div>
@@ -451,7 +453,7 @@ const GameAnalysis: React.FC = () => {
                             {(match.opponent_win_pct * 100).toFixed(1)}%
                           </p>
                           <p className="text-xs text-gray-600">
-                            {analysisData.target === 'over_under' ? 'Under %' : `${analysisData.game_info.opponent_team} Win %`}
+                            {(analysisData.target === 'over_under' || analysisData.target === 'ou_result') ? 'Under %' : `${analysisData.game_info.opponent_team} Win %`}
                           </p>
                         </div>
                       </div>
