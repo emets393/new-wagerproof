@@ -1,8 +1,9 @@
-import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark } from "lucide-react";
+import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark, Trophy } from "lucide-react";
 import { Index } from "./pages/index";
 // import Analytics from "./pages/Analytics"; // Deleted
 import WinRates from "./pages/WinRates";
 import CustomModels from "./pages/CustomModels";
+import CollegeFootball from "./pages/CollegeFootball";
 import NotFound from "./pages/NotFound";
 
 /**
@@ -26,6 +27,12 @@ export const navItems = [
     to: "/custom-models",
     icon: <Settings className="h-4 w-4" />,
     page: <CustomModels />,
+  },
+  {
+    title: "College Football",
+    to: "/college-football",
+    icon: <Trophy className="h-4 w-4" />,
+    page: <CollegeFootball />,
   },
   {
     title: "Saved Patterns",

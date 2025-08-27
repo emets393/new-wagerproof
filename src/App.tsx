@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { navItems } from "./nav-items";
 import { Index, SavedPatterns, GameAnalysis, Account, Welcome } from "./pages";
+import CollegeFootball from "./pages/CollegeFootball";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,7 @@ function AppWithHeader() {
         <Route path="/account" element={<Account />} />
         <Route path="/saved-patterns" element={<SavedPatterns />} />
         <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
+        <Route path="/college-football" element={<CollegeFootball />} />
         {navItems.map(({ to, page }) => (
           <Route key={to} path={to} element={page} />
         ))}
