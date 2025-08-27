@@ -1,0 +1,10 @@
+[33mecef4d5[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Add College Football page with professional weather icons and horizontal layout - Integrate Visual Crossing weather icons - Add horizontal weather display (icon, temperature, wind) - Improve weather visualization with SVG icons - Add wind speed display with clear wind emoji - Update weather section layout and styling
+[33me2f54c5[m Fix custom model builder timeout issues - optimize data processing and reduce feature combinations
+[33md52b0f9[m Fix: Apply gradient styles to O/U bars
+[33m9803455[m Fix global CSS border conflict
+[33m6a23856[m Fix: Update public betting distribution styling
+[33m8e2d9fb[m Fix: Resolve type errors in predictions and index pages
+[33m623093c[m Update bar graph styling
+[33mb3e10e1[m Fix team orientation consistency across all pages and update ROI calculator
+[33m50f4c10[m Fix prediction consistency bug: Add dominant_side field and update prediction logic
+[33m458f677[m Fix: Consistent team prediction display

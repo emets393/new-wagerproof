@@ -182,20 +182,159 @@ const CustomModels = () => {
     setResults(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('run_custom_model', {
-        body: {
-          model_name: modelName,
-          selected_features: selectedFeatures,
-          target: targetVariable
-        }
-      });
+      // Map frontend target to API target
+      const targetMap: Record<string, string> = {
+        'moneyline': 'primary_win',
+        'runline': 'primary_runline_win', 
+        'over_under': 'ou_result'
+      };
 
-      if (error) {
-        throw new Error(error.message || 'Failed to run model');
+      // Try the Render API first, fallback to Supabase Edge Function
+      let apiData;
+      let apiError;
+
+      try {
+        const response = await fetch('https://modelserver-hs5t.onrender.com/run-trend-miner', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            target: targetMap[targetVariable] || targetVariable,
+            selected_features: selectedFeatures
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Render API error: ${response.status} - ${response.statusText}`);
+        }
+
+        apiData = await response.json();
+        console.log('Render API Response:', apiData);
+      } catch (renderError) {
+        console.log('Render API failed, trying Supabase Edge Function:', renderError);
+        apiError = renderError;
+
+        // Fallback to Supabase Edge Function
+        try {
+          const { data: supabaseData, error } = await supabase.functions.invoke('run_custom_model', {
+            body: {
+              model_name: modelName,
+              selected_features: selectedFeatures,
+              target: targetMap[targetVariable] || targetVariable
+            }
+          });
+
+          if (error) {
+            throw new Error(`Supabase API error: ${error.message}`);
+          }
+
+          apiData = supabaseData;
+          console.log('Supabase API Response:', apiData);
+        } catch (supabaseError) {
+          console.error('Both APIs failed:', { renderError: apiError, supabaseError });
+          throw new Error(`Both model APIs failed. Render: ${apiError?.message || 'Unknown error'}. Supabase: ${supabaseError?.message || 'Unknown error'}`);
+        }
       }
 
-      setResults(data);
-      updateUrlParams(modelName, selectedFeatures, targetVariable, data);
+      // Transform matches to match expected format
+      const todayMatches: TodayMatch[] = [];
+      const trendMap = new Map();
+
+      // Handle both Render API format (matches array) and Supabase format (trend_patterns/matches_today)
+      if (Array.isArray(apiData.matches)) {
+        // Render API format - process matches array with nested trend data
+        console.log(`Processing ${apiData.matches.length} matches from Render API`);
+        
+        apiData.matches.forEach((match: any) => {
+          // Create combo key from nested trend data
+          const combo = match.trend?.features && match.trend?.feature_values 
+            ? match.trend.features.map((f: string, i: number) => `${f}=${match.trend.feature_values[i]}`).join(", ")
+            : 'unknown';
+          
+          // Group by combo to create trend patterns
+          if (!trendMap.has(combo)) {
+            trendMap.set(combo, {
+              combo: combo,
+              games: match.trend?.match_count || 0,
+              win_pct: match.trend?.win_rate || 0,
+              opponent_win_pct: 1 - (match.trend?.win_rate || 0),
+              dominant_side: (match.trend?.win_rate || 0) > 0.5 ? 'primary' : 'opponent',
+              dominant_win_pct: Math.max(match.trend?.win_rate || 0, 1 - (match.trend?.win_rate || 0)),
+              feature_count: match.trend?.features?.length || 0,
+              features: match.trend?.features || []
+            });
+          }
+
+          // Add to today's matches
+          todayMatches.push({
+            unique_id: match.orientation_unique_id || match.unique_id,
+            primary_team: match.primary_team,
+            opponent_team: match.opponent_team,
+            is_home_team: match.is_home_team || true,
+            combo: combo,
+            win_pct: match.trend?.win_rate || 0,
+            opponent_win_pct: 1 - (match.trend?.win_rate || 0),
+            games: match.trend?.match_count || 0,
+            feature_count: match.trend?.features?.length || 0,
+            features: match.trend?.features || []
+          });
+        });
+      } else {
+        // Supabase format - handle trend_patterns and matches_today separately
+        if (Array.isArray(apiData.trend_patterns)) {
+          apiData.trend_patterns.forEach((pattern: any) => {
+            const key = pattern.combo;
+            if (!trendMap.has(key)) {
+              trendMap.set(key, {
+                combo: pattern.combo,
+                games: pattern.games,
+                win_pct: pattern.win_pct,
+                opponent_win_pct: pattern.opponent_win_pct,
+                dominant_side: pattern.dominant_side,
+                dominant_win_pct: pattern.dominant_win_pct,
+                feature_count: pattern.feature_count,
+                features: pattern.features
+              });
+            }
+          });
+        }
+
+        if (Array.isArray(apiData.matches_today)) {
+          apiData.matches_today.forEach((match: any) => {
+            todayMatches.push({
+              unique_id: match.unique_id,
+              primary_team: match.primary_team,
+              opponent_team: match.opponent_team,
+              is_home_team: match.is_home_team || true,
+              combo: match.combo,
+              win_pct: match.win_pct,
+              opponent_win_pct: match.opponent_win_pct,
+              games: match.games,
+              feature_count: match.feature_count,
+              features: match.features
+            });
+          });
+        }
+      }
+
+      // Convert trendMap to trendMatches array
+      const trendMatches = Array.from(trendMap.values());
+      console.log(`Processed ${trendMatches.length} trend patterns and ${todayMatches.length} today's matches`);
+
+      if (Array.from(trendMap.values()).length === 0 && todayMatches.length === 0) {
+        console.log('No patterns or matches found in API response');
+      }
+
+      const modelResults: ModelResults = {
+        model_id: `render-${Date.now()}`,
+        trend_matches: Array.from(trendMap.values()),
+        today_matches: todayMatches,
+        target: targetMap[targetVariable] || targetVariable
+      };
+
+      setResults(modelResults);
+      updateUrlParams(modelName, selectedFeatures, targetVariable, modelResults);
     } catch (error: any) {
       console.error('Error running custom model:', error);
       toast({
