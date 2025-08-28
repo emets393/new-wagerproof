@@ -551,7 +551,7 @@ export default function CollegeFootball() {
               <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-2 border-gray-200 hover:border-blue-300 shadow-lg">
                 {/* Gradient accent line at top */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
-                <CardContent className="space-y-4 pt-6 pb-6">
+                <CardContent className="space-y-6 pt-6 pb-6">
                   {/* Game Date - Small font above the @ symbol */}
                   <div className="text-center">
                     <div className="text-xs font-medium text-muted-foreground mb-2">
@@ -560,102 +560,111 @@ export default function CollegeFootball() {
                   </div>
 
                   {/* Team Logos and Betting Info - Horizontal Layout */}
-                  <div className="flex justify-between items-start">
-                    {/* Away Team */}
-                    <div className="text-center flex-1">
-                      {getTeamLogo(prediction.away_team) && (
-                        <img 
-                          src={getTeamLogo(prediction.away_team)} 
-                          alt={`${prediction.away_team} logo`}
-                          className="h-16 w-16 mx-auto mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                        />
-                      )}
-                      <div className="text-xl font-bold mb-2 h-8 flex items-center justify-center text-gray-800">
-                        {prediction.away_team}
+                  <div className="space-y-4 pt-2">
+                    <div className="flex justify-between items-start">
+                      {/* Away Team */}
+                      <div className="text-center flex-1">
+                        {getTeamLogo(prediction.away_team) && (
+                          <img 
+                            src={getTeamLogo(prediction.away_team)} 
+                            alt={`${prediction.away_team} logo`}
+                            className="h-16 w-16 mx-auto mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                          />
+                        )}
+                        <div className="text-xl font-bold mb-2 h-8 flex items-center justify-center text-gray-800">
+                          {prediction.away_team}
+                        </div>
+                        <div className="text-lg font-bold h-8 flex items-center justify-center text-blue-600">
+                          {formatMoneyline(prediction.away_ml)}
+                        </div>
+                        <div className="text-sm text-muted-foreground h-6 flex items-center justify-center">
+                          Spread: {formatSpread(prediction.away_spread)}
+                        </div>
                       </div>
-                      <div className="text-lg font-bold h-8 flex items-center justify-center text-blue-600">
-                        {formatMoneyline(prediction.away_ml)}
-                      </div>
-                      <div className="text-sm text-muted-foreground h-6 flex items-center justify-center">
-                        Spread: {formatSpread(prediction.away_spread)}
-                      </div>
-                    </div>
 
-                    {/* @ Symbol, Game Time, and Total */}
-                    <div className="text-center px-4 flex flex-col items-center justify-center">
-                      <span className="text-2xl font-bold text-gray-400">@</span>
-                      <div className="text-sm font-medium text-gray-600 mt-2 mb-4 bg-gray-100 px-3 py-1 rounded-full">
-                        {convertTimeToEST(prediction.game_time)}
+                      {/* @ Symbol, Game Time, and Total */}
+                      <div className="text-center px-4 flex flex-col items-center justify-center">
+                        <span className="text-2xl font-bold text-gray-400">@</span>
+                        <div className="text-sm font-medium text-gray-600 mt-2 mb-4 bg-gray-100 px-3 py-1 rounded-full">
+                          {convertTimeToEST(prediction.game_time)}
+                        </div>
+                        <div className="text-sm font-bold text-gray-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                          Total: {prediction.total_line || '-'}
+                        </div>
                       </div>
-                      <div className="text-sm font-bold text-gray-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                        Total: {prediction.total_line || '-'}
-                      </div>
-                    </div>
 
-                    {/* Home Team */}
-                    <div className="text-center flex-1">
-                      {getTeamLogo(prediction.home_team) && (
-                        <img 
-                          src={getTeamLogo(prediction.home_team)} 
-                          alt={`${prediction.home_team} logo`}
-                          className="h-16 w-16 mx-auto mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                        />
-                      )}
-                      <div className="text-xl font-bold mb-2 h-8 flex items-center justify-center text-gray-800">
-                        {prediction.home_team}
-                      </div>
-                      <div className="text-lg font-bold h-8 flex items-center justify-center text-green-600">
-                        {formatMoneyline(prediction.home_ml)}
-                      </div>
-                      <div className="text-sm text-muted-foreground h-6 flex items-center justify-center">
-                        Spread: {formatSpread(prediction.home_spread)}
+                      {/* Home Team */}
+                      <div className="text-center flex-1">
+                        {getTeamLogo(prediction.home_team) && (
+                          <img 
+                            src={getTeamLogo(prediction.home_team)} 
+                            alt={`${prediction.home_team} logo`}
+                            className="h-16 w-16 mx-auto mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                          />
+                        )}
+                        <div className="text-xl font-bold mb-2 h-8 flex items-center justify-center text-gray-800">
+                          {prediction.home_team}
+                        </div>
+                        <div className="text-lg font-bold h-8 flex items-center justify-center text-green-600">
+                          {formatMoneyline(prediction.home_ml)}
+                        </div>
+                        <div className="text-sm text-muted-foreground h-6 flex items-center justify-center">
+                          Spread: {formatSpread(prediction.home_spread)}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Split Labels */}
-                  <div className="space-y-2 pt-3 border-t">
-                    {prediction.ml_splits_label && (
-                      <Badge 
-                        variant="outline" 
-                        className={`w-full justify-center ${
-                          shouldHighlightLabel(prediction.ml_splits_label) 
-                            ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                            : ''
-                        }`}
-                      >
-                        ML: {prediction.ml_splits_label}
-                      </Badge>
-                    )}
-                    {prediction.spread_splits_label && (
-                      <Badge 
-                        variant="outline" 
-                        className={`w-full justify-center ${
-                          shouldHighlightLabel(prediction.spread_splits_label) 
-                            ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                            : ''
-                        }`}
-                      >
-                        Spread: {prediction.spread_splits_label}
-                      </Badge>
-                    )}
-                    {prediction.total_splits_label && (
-                      <Badge 
-                        variant="outline" 
-                        className={`w-full justify-center ${
-                          shouldHighlightLabel(prediction.total_splits_label) 
-                            ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                            : ''
-                        }`}
-                      >
-                        Total: {prediction.total_splits_label}
-                      </Badge>
-                    )}
-                  </div>
+                  {/* Betting Split Labels Section */}
+                  {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
+                    <div className="space-y-3 pt-6 border-t-2 border-gray-200">
+                      <div className="text-center">
+                        <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-indigo-50 to-blue-50 px-3 py-1 rounded-full border border-gray-200">Public Betting Facts</h4>
+                      </div>
+                      <div className="space-y-2 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-lg border border-gray-200 shadow-sm">
+                        {prediction.ml_splits_label && (
+                          <Badge 
+                            variant="outline" 
+                            className={`w-full justify-center ${
+                              shouldHighlightLabel(prediction.ml_splits_label) 
+                                ? 'bg-blue-100 border-blue-300 text-blue-800' 
+                                : 'bg-white border-gray-300 text-gray-700'
+                            }`}
+                          >
+                            ML: {prediction.ml_splits_label}
+                          </Badge>
+                        )}
+                        {prediction.spread_splits_label && (
+                          <Badge 
+                            variant="outline" 
+                            className={`w-full justify-center ${
+                              shouldHighlightLabel(prediction.spread_splits_label) 
+                                ? 'bg-blue-100 border-blue-300 text-blue-800' 
+                                : 'bg-white border-gray-300 text-gray-700'
+                            }`}
+                          >
+                            Spread: {prediction.spread_splits_label}
+                          </Badge>
+                        )}
+                        {prediction.total_splits_label && (
+                          <Badge 
+                            variant="outline" 
+                            className={`w-full justify-center ${
+                              shouldHighlightLabel(prediction.total_splits_label) 
+                                ? 'bg-blue-100 border-blue-300 text-blue-800' 
+                                : 'bg-white border-gray-300 text-gray-700'
+                            }`}
+                          >
+                            Total: {prediction.total_splits_label}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Predictions Section */}
                   {(prediction.pred_ml_proba !== null || prediction.pred_spread_proba !== null || prediction.pred_total_proba !== null) && (
-                    <div className="space-y-3 pt-4 border-t border-gray-200">
+                    <div className="space-y-3 pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
                         <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 px-3 py-1 rounded-full border border-gray-200">Model Predictions</h4>
                       </div>
@@ -714,10 +723,10 @@ export default function CollegeFootball() {
                               {Math.round((prediction.pred_total_proba > 0.5 ? prediction.pred_total_proba : 1 - prediction.pred_total_proba) * 100)}%
                             </div>
                             <div className="text-xs text-gray-500">
-                              {prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'}
+                              Probability to Go {prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'}
                             </div>
                             <div className="text-xs text-gray-500">
-                              Probability to Go {prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'}
+                              Total: {prediction.total_line || '-'}
                             </div>
                           </div>
                         )}
@@ -727,7 +736,7 @@ export default function CollegeFootball() {
 
                   {/* Score Prediction Section */}
                   {(prediction.pred_away_score !== null || prediction.pred_home_score !== null) && (
-                    <div className="space-y-3 pt-4 border-t border-gray-200">
+                    <div className="space-y-3 pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
                         <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-orange-50 to-red-50 px-3 py-1 rounded-full border border-gray-200">Score Prediction</h4>
                       </div>
@@ -770,7 +779,7 @@ export default function CollegeFootball() {
 
                   {/* Weather Section */}
                   {prediction.icon_code && (
-                    <div className="space-y-3 pt-4 border-t border-gray-200">
+                    <div className="space-y-3 pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
                         <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-green-50 px-3 py-1 rounded-full border border-gray-200">Weather</h4>
                       </div>
