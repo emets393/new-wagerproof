@@ -1,9 +1,10 @@
-import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark, Trophy } from "lucide-react";
+import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark, Trophy, Shield } from "lucide-react";
 import { Index } from "./pages/index";
 // import Analytics from "./pages/Analytics"; // Deleted
 import WinRates from "./pages/WinRates";
 import CustomModels from "./pages/CustomModels";
 import CollegeFootball from "./pages/CollegeFootball";
+import NFL from "./pages/NFL";
 import NotFound from "./pages/NotFound";
 
 /**
@@ -33,6 +34,12 @@ export const navItems = [
     to: "/college-football",
     icon: <Trophy className="h-4 w-4" />,
     page: <CollegeFootball />,
+  },
+  {
+    title: "NFL",
+    to: "/nfl",
+    icon: <Shield className="h-4 w-4" />,
+    page: <NFL />,
   },
   {
     title: "Saved Patterns",

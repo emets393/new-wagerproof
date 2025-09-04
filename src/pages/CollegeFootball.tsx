@@ -130,6 +130,10 @@ export default function CollegeFootball() {
       
       console.log('Fetching college football data...');
       
+      // Get today's date in YYYY-MM-DD format for filtering
+      const today = new Date().toISOString().split('T')[0];
+      console.log('Filtering games from today onwards:', today);
+      
       // Fetch team mappings first
       const { data: mappings, error: mappingsError } = await collegeFootballSupabase
         .from('cfb_team_mapping')
@@ -144,10 +148,11 @@ export default function CollegeFootball() {
       console.log('Team mappings fetched:', mappings?.length || 0);
       setTeamMappings(mappings || []);
 
-      // Fetch predictions
+      // Fetch predictions - only from today onwards
       const { data: preds, error: predsError } = await collegeFootballSupabase
         .from('cfb_predictions')
         .select('*')
+        .gte('game_date', today)
         .order('game_date', { ascending: true })
         .order('game_time', { ascending: true });
 
@@ -345,11 +350,18 @@ export default function CollegeFootball() {
       // Parse the time string (format: "15:30:00")
       const [hours, minutes] = timeString.split(':').map(Number);
       
-      // Format as 12-hour time since database is already in EST
-      const time = new Date();
-      time.setHours(hours, minutes, 0, 0);
+      // Create a date object for today and set the time in EST
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      const day = today.getDate();
       
-      return time.toLocaleTimeString('en-US', {
+      // Create date in EST timezone
+      const estDate = new Date(year, month, day, hours, minutes, 0);
+      
+      // Format as 12-hour time in EST
+      return estDate.toLocaleTimeString('en-US', {
+        timeZone: 'America/New_York',
         hour: 'numeric',
         minute: '2-digit',
         hour12: true

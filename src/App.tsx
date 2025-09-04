@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-do
 import { navItems } from "./nav-items";
 import { Index, SavedPatterns, GameAnalysis, Account, Welcome } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
+import NFL from "./pages/NFL";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ function AppWithHeader() {
         <Route path="/saved-patterns" element={<SavedPatterns />} />
         <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
         <Route path="/college-football" element={<CollegeFootball />} />
+        <Route path="/nfl" element={<NFL />} />
         {navItems.map(({ to, page }) => (
           <Route key={to} path={to} element={page} />
         ))}
