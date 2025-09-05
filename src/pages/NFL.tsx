@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, Trophy, AlertCircle, History } from 'lucide-react';
+import { RefreshCw, Trophy, AlertCircle, History, TrendingUp } from 'lucide-react';
 import H2HModal from '@/components/H2HModal';
+import LineMovementModal from '@/components/LineMovementModal';
 
 interface NFLPrediction {
   id: string;
@@ -20,6 +21,7 @@ interface NFLPrediction {
   game_date: string;
   game_time: string;
   training_key: string;
+  unique_id: string;
   // Model predictions
   spread_ens_prob: number | null;
   favcov_prob: number | null;
@@ -59,6 +61,10 @@ export default function NFL() {
   const [selectedHomeTeam, setSelectedHomeTeam] = useState<string>('');
   const [selectedAwayTeam, setSelectedAwayTeam] = useState<string>('');
 
+  // Line Movement Modal state
+  const [lineMovementModalOpen, setLineMovementModalOpen] = useState(false);
+  const [selectedUniqueId, setSelectedUniqueId] = useState<string>('');
+
   // Filter options
   const filterOptions = ['All Games', 'Sharp Money', 'Public Bets', 'Consensus Bets'];
 
@@ -92,6 +98,22 @@ export default function NFL() {
   // Close H2H modal
   const closeH2HModal = () => {
     setH2hModalOpen(false);
+    setSelectedHomeTeam('');
+    setSelectedAwayTeam('');
+  };
+
+  // Open Line Movement modal
+  const openLineMovementModal = (uniqueId: string, homeTeam: string, awayTeam: string) => {
+    setSelectedUniqueId(uniqueId);
+    setSelectedHomeTeam(homeTeam);
+    setSelectedAwayTeam(awayTeam);
+    setLineMovementModalOpen(true);
+  };
+
+  // Close Line Movement modal
+  const closeLineMovementModal = () => {
+    setLineMovementModalOpen(false);
+    setSelectedUniqueId('');
     setSelectedHomeTeam('');
     setSelectedAwayTeam('');
   };
@@ -654,20 +676,31 @@ export default function NFL() {
               <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-2 border-gray-200 hover:border-blue-300 shadow-lg">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
                 <CardContent className="space-y-6 pt-6 pb-6">
-                  {/* Game Date and H2H Button */}
+                  {/* Game Date and Action Buttons */}
                   <div className="text-center">
                     <div className="text-xs font-medium text-muted-foreground mb-2">
                       {formatCompactDate(prediction.game_date)}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openH2HModal(prediction.home_team, prediction.away_team)}
-                      className="text-xs bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200 text-blue-700 hover:text-blue-800 transition-all duration-200"
-                    >
-                      <History className="h-3 w-3 mr-1" />
-                      View H2H
-                    </Button>
+                    <div className="flex gap-2 justify-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openH2HModal(prediction.home_team, prediction.away_team)}
+                        className="text-xs bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200 text-blue-700 hover:text-blue-800 transition-all duration-200"
+                      >
+                        <History className="h-3 w-3 mr-1" />
+                        H2H
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openLineMovementModal(prediction.unique_id, prediction.home_team, prediction.away_team)}
+                        className="text-xs bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200 text-green-700 hover:text-green-800 transition-all duration-200"
+                      >
+                        <TrendingUp className="h-3 w-3 mr-1" />
+                        Lines
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Team Logos and Betting Info */}
@@ -944,6 +977,16 @@ export default function NFL() {
         onClose={closeH2HModal}
         homeTeam={selectedHomeTeam}
         awayTeam={selectedAwayTeam}
+      />
+
+      {/* Line Movement Modal */}
+      <LineMovementModal
+        isOpen={lineMovementModalOpen}
+        onClose={closeLineMovementModal}
+        uniqueId={selectedUniqueId}
+        homeTeam={selectedHomeTeam}
+        awayTeam={selectedAwayTeam}
+        teamMappings={teamMappings}
       />
     </div>
   );

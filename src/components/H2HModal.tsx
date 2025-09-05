@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Trophy, Target, ArrowUp, ArrowDown } from 'lucide-react';
-import { collegeFootballSupabase } from '../integrations/supabase/college-football-client';
+import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 
 interface H2HGame {
   id: number;
