@@ -26,6 +26,7 @@ interface LineMovementData {
   as_of_ts: string;
   home_spread: number | null;
   away_spread: number | null;
+  over_line: number | null;
   home_team: string;
   away_team: string;
 }
@@ -35,6 +36,7 @@ interface ChartDataPoint {
   displayTime: string;
   homeSpread: number | null;
   awaySpread: number | null;
+  overLine: number | null;
 }
 
 const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, teamMappings }: LineMovementModalProps) => {
@@ -73,7 +75,7 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
       try {
         const { data, error } = await collegeFootballSupabase
           .from('nfl_betting_lines')
-          .select('as_of_ts, home_spread, away_spread, home_team, away_team')
+          .select('as_of_ts, home_spread, away_spread, over_line, home_team, away_team')
           .eq('training_key', uniqueId)
           .order('as_of_ts', { ascending: true });
 
@@ -105,7 +107,8 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
     timestamp: item.as_of_ts,
     displayTime: formatTimestamp(item.as_of_ts),
     homeSpread: item.home_spread,
-    awaySpread: item.away_spread
+    awaySpread: item.away_spread,
+    overLine: item.over_line
   }));
 
   // Get team logos
@@ -122,7 +125,9 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
           <p className="font-semibold text-gray-800">{label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.dataKey === 'homeSpread' ? `${homeTeam} Spread: ` : `${awayTeam} Spread: `}
+              {entry.dataKey === 'homeSpread' ? `${homeTeam} Spread: ` : 
+               entry.dataKey === 'awaySpread' ? `${awayTeam} Spread: ` :
+               entry.dataKey === 'overLine' ? 'Over/Under: ' : ''}
               {entry.value !== null ? entry.value.toFixed(1) : 'N/A'}
             </p>
           ))}
@@ -165,7 +170,11 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
               <Button
                 variant={selectedTeam === 'away' ? 'default' : 'outline'}
                 onClick={() => setSelectedTeam('away')}
-                className="flex items-center space-x-2 px-6 py-3"
+                className={`flex items-center space-x-2 px-6 py-3 transition-all duration-200 ${
+                  selectedTeam === 'away' 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg' 
+                    : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300'
+                }`}
               >
                 {getTeamLogo(awayTeam) && (
                   <img 
@@ -180,7 +189,11 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
               <Button
                 variant={selectedTeam === 'home' ? 'default' : 'outline'}
                 onClick={() => setSelectedTeam('home')}
-                className="flex items-center space-x-2 px-6 py-3"
+                className={`flex items-center space-x-2 px-6 py-3 transition-all duration-200 ${
+                  selectedTeam === 'home' 
+                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg' 
+                    : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300'
+                }`}
               >
                 {getTeamLogo(homeTeam) && (
                   <img 
@@ -194,15 +207,26 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
             </div>
 
             {/* Chart */}
-            <div className="h-80 w-full">
+            <div className="relative h-80 w-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200 shadow-sm">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <LineChart data={chartData} margin={{ top: 20, right: 40, left: 40, bottom: 20 }}>
+                  <CartesianGrid 
+                    strokeDasharray="2 4" 
+                    stroke="#cbd5e1" 
+                    strokeOpacity={0.6}
+                    vertical={false}
+                  />
                   
                   {/* X Axis */}
                   <XAxis 
                     dataKey="displayTime" 
-                    tick={{ fontSize: 12 }}
+                    tick={{ 
+                      fontSize: 11, 
+                      fontWeight: 500,
+                      fill: '#475569'
+                    }}
+                    axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                    tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                     angle={-45}
                     textAnchor="end"
                     height={80}
@@ -210,14 +234,28 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
                   
                   {/* Y Axis */}
                   <YAxis 
-                    tick={{ fontSize: 12 }}
+                    tick={{ 
+                      fontSize: 11, 
+                      fontWeight: 600,
+                      fill: '#334155'
+                    }}
+                    axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                    tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                     tickFormatter={(value) => value.toFixed(1)}
-                    domain={['dataMin - 2', 'dataMax + 2']}
+                    domain={['dataMin - 1', 'dataMax + 1']}
                     ticks={(() => {
-                      const min = Math.min(...chartData.map(d => selectedTeam === 'away' ? d.awaySpread : d.homeSpread).filter(v => v !== null)) - 2;
-                      const max = Math.max(...chartData.map(d => selectedTeam === 'away' ? d.awaySpread : d.homeSpread).filter(v => v !== null)) + 2;
+                      const dataValues = chartData.map(d => selectedTeam === 'away' ? d.awaySpread : d.homeSpread).filter(v => v !== null);
+                      if (dataValues.length === 0) return [];
+                      
+                      const min = Math.min(...dataValues);
+                      const max = Math.max(...dataValues);
+                      
+                      // Extend the range beyond the data to show a fuller scale
+                      const rangeMin = Math.floor((min - 1) * 2) / 2; // Round down to nearest 0.5, with 1 point buffer
+                      const rangeMax = Math.ceil((max + 1) * 2) / 2;   // Round up to nearest 0.5, with 1 point buffer
+                      
                       const ticks = [];
-                      for (let i = min; i <= max; i += 0.5) {
+                      for (let i = rangeMin; i <= rangeMax; i += 0.5) {
                         ticks.push(i);
                       }
                       return ticks;
@@ -226,7 +264,12 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
                       value: selectedTeam === 'away' ? `${awayTeam} Spread` : `${homeTeam} Spread`, 
                       angle: -90, 
                       position: 'insideLeft',
-                      style: { textAnchor: 'middle' }
+                      style: { 
+                        textAnchor: 'middle',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        fill: '#475569'
+                      }
                     }}
                   />
                   
@@ -234,52 +277,150 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
                   
                   {/* Single Line for Selected Team */}
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey={selectedTeam === 'away' ? 'awaySpread' : 'homeSpread'}
-                    stroke={selectedTeam === 'away' ? '#3b82f6' : '#ef4444'}
-                    strokeWidth={3}
+                    stroke={selectedTeam === 'away' ? '#2563eb' : '#dc2626'}
+                    strokeWidth={4}
                     dot={{ 
-                      fill: selectedTeam === 'away' ? '#3b82f6' : '#ef4444', 
-                      strokeWidth: 2, 
-                      r: 4 
+                      fill: selectedTeam === 'away' ? '#2563eb' : '#dc2626', 
+                      strokeWidth: 3, 
+                      r: 7,
+                      stroke: '#ffffff',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
                     }}
                     activeDot={{ 
-                      r: 6, 
-                      stroke: selectedTeam === 'away' ? '#3b82f6' : '#ef4444', 
-                      strokeWidth: 2 
+                      r: 10, 
+                      stroke: selectedTeam === 'away' ? '#2563eb' : '#dc2626', 
+                      strokeWidth: 4,
+                      fill: '#ffffff',
+                      filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.15))'
                     }}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                     connectNulls={false}
                     name={selectedTeam === 'away' ? `${awayTeam} Spread` : `${homeTeam} Spread`}
                   />
                 </LineChart>
               </ResponsiveContainer>
-            </div>
-
-            {/* Data Summary */}
-            <div className="flex justify-center space-x-6">
-              {/* Current Spread */}
-              <div className={`p-6 rounded-xl text-center border-2 ${selectedTeam === 'away' ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                <div className={`text-sm font-medium mb-2 ${selectedTeam === 'away' ? 'text-blue-700' : 'text-red-700'}`}>
-                  Current Spread
-                </div>
-                <div className={`text-3xl font-bold ${selectedTeam === 'away' ? 'text-blue-800' : 'text-red-800'}`}>
-                  {selectedTeam === 'away' 
+              
+              {/* Spread Values Text */}
+              <div className="absolute bottom-2 left-0 right-0 text-center">
+                <div className="text-sm font-medium text-gray-700">
+                  Opening: {selectedTeam === 'away' 
+                    ? (chartData[0]?.awaySpread?.toFixed(1) || 'N/A')
+                    : (chartData[0]?.homeSpread?.toFixed(1) || 'N/A')
+                  } | Current: {selectedTeam === 'away' 
                     ? (chartData[chartData.length - 1]?.awaySpread?.toFixed(1) || 'N/A')
                     : (chartData[chartData.length - 1]?.homeSpread?.toFixed(1) || 'N/A')
                   }
                 </div>
               </div>
-              
-              {/* Opening Spread */}
-              <div className={`p-6 rounded-xl text-center border-2 ${selectedTeam === 'away' ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                <div className={`text-sm font-medium mb-2 ${selectedTeam === 'away' ? 'text-blue-700' : 'text-red-700'}`}>
-                  Opening Spread
-                </div>
-                <div className={`text-3xl font-bold ${selectedTeam === 'away' ? 'text-blue-800' : 'text-red-800'}`}>
-                  {selectedTeam === 'away' 
-                    ? (chartData[0]?.awaySpread?.toFixed(1) || 'N/A')
-                    : (chartData[0]?.homeSpread?.toFixed(1) || 'N/A')
-                  }
+            </div>
+
+            {/* Over/Under Chart */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-center text-gray-800">Over/Under Line Movement</h3>
+              <div className="relative h-80 w-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200 shadow-sm">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 20, right: 40, left: 40, bottom: 20 }}>
+                    <CartesianGrid 
+                      strokeDasharray="2 4" 
+                      stroke="#cbd5e1" 
+                      strokeOpacity={0.6}
+                      vertical={false}
+                    />
+                    
+                    {/* X Axis */}
+                    <XAxis 
+                      dataKey="displayTime" 
+                      tick={{ 
+                        fontSize: 11, 
+                        fontWeight: 500,
+                        fill: '#475569'
+                      }}
+                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                      tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    
+                    {/* Y Axis */}
+                    <YAxis 
+                      tick={{ 
+                        fontSize: 11, 
+                        fontWeight: 600,
+                        fill: '#334155'
+                      }}
+                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                      tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                      tickFormatter={(value) => value.toFixed(1)}
+                      domain={['dataMin - 1', 'dataMax + 1']}
+                      ticks={(() => {
+                        const dataValues = chartData.map(d => d.overLine).filter(v => v !== null);
+                        if (dataValues.length === 0) return [];
+                        
+                        const min = Math.min(...dataValues);
+                        const max = Math.max(...dataValues);
+                        
+                        // Extend the range beyond the data to show a fuller scale
+                        const rangeMin = Math.floor((min - 1) * 2) / 2; // Round down to nearest 0.5, with 1 point buffer
+                        const rangeMax = Math.ceil((max + 1) * 2) / 2;   // Round up to nearest 0.5, with 1 point buffer
+                        
+                        const ticks = [];
+                        for (let i = rangeMin; i <= rangeMax; i += 0.5) {
+                          ticks.push(i);
+                        }
+                        return ticks;
+                      })()}
+                      label={{ 
+                        value: 'Over/Under Line', 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        style: { 
+                          textAnchor: 'middle',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          fill: '#475569'
+                        }
+                      }}
+                    />
+                    
+                    <Tooltip content={<CustomTooltip />} />
+                    
+                    {/* Over/Under Line */}
+                    <Line
+                      type="linear"
+                      dataKey="overLine"
+                      stroke="#10b981"
+                      strokeWidth={4}
+                      dot={{ 
+                        fill: '#10b981', 
+                        strokeWidth: 3, 
+                        r: 7,
+                        stroke: '#ffffff',
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+                      }}
+                      activeDot={{ 
+                        r: 10, 
+                        stroke: '#10b981', 
+                        strokeWidth: 4,
+                        fill: '#ffffff',
+                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.15))'
+                      }}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      connectNulls={false}
+                      name="Over/Under Line"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+                
+                {/* Over/Under Values Text */}
+                <div className="absolute bottom-2 left-0 right-0 text-center">
+                  <div className="text-sm font-medium text-gray-700">
+                    Opening O/U: {chartData[0]?.overLine?.toFixed(1) || 'N/A'} | Current O/U: {chartData[chartData.length - 1]?.overLine?.toFixed(1) || 'N/A'}
+                  </div>
                 </div>
               </div>
             </div>

@@ -296,89 +296,124 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <Trophy className="h-6 w-6 text-yellow-500" />
-            <h2 className="text-2xl font-bold text-gray-900">
-              {homeTeam} vs {awayTeam} - Head to Head
-            </h2>
+        <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200 bg-white">
+          <div className="flex items-center space-x-4">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-sm">
+              <Trophy className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">
+                {homeTeam} vs {awayTeam}
+              </h2>
+              <p className="text-sm text-slate-500 font-medium">Most Recent Head to Head Analysis</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors duration-200"
           >
-            <X className="h-6 w-6" />
+            <X className="h-4 w-4 text-slate-600" />
           </button>
         </div>
 
         {/* Summary Statistics */}
-        <div className="p-6 bg-gray-50 border-b border-gray-200">
-          <div className="grid grid-cols-3 gap-6">
+        <div className="px-8 py-6 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+          <div className="grid grid-cols-3 gap-8">
             {/* Wins */}
-            <div className="text-center p-4 rounded-lg border-2 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-gradient-to-r from-blue-500 to-purple-500">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Wins</h3>
-              <div className="flex items-center justify-center space-x-8">
-                <div className="flex flex-col items-center">
-                  <img 
-                    src={getTeamLogo(awayTeam)} 
-                    alt={`${awayTeam} logo`}
-                    className="h-16 w-16 mb-2"
-                  />
-                  <span className="text-3xl font-bold text-gray-900">{stats.awayTeamWins}</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <img 
-                    src={getTeamLogo(homeTeam)} 
-                    alt={`${homeTeam} logo`}
-                    className="h-16 w-16 mb-2"
-                  />
-                  <span className="text-3xl font-bold text-gray-900">{stats.homeTeamWins}</span>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200">
+              <div className="text-center">
+                <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-6">Wins</h3>
+                <div className="flex items-center justify-center space-x-12">
+                  <div className={`flex flex-col items-center space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                    stats.awayTeamWins > stats.homeTeamWins 
+                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                      : 'bg-transparent'
+                  }`}>
+                    <img 
+                      src={getTeamLogo(awayTeam)} 
+                      alt={`${awayTeam} logo`}
+                      className="w-16 h-16 object-contain"
+                    />
+                    <div className="text-3xl font-bold text-slate-900">{stats.awayTeamWins}</div>
+                  </div>
+                  <div className={`flex flex-col items-center space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                    stats.homeTeamWins > stats.awayTeamWins 
+                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                      : 'bg-transparent'
+                  }`}>
+                    <img 
+                      src={getTeamLogo(homeTeam)} 
+                      alt={`${homeTeam} logo`}
+                      className="w-16 h-16 object-contain"
+                    />
+                    <div className="text-3xl font-bold text-slate-900">{stats.homeTeamWins}</div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Covers */}
-            <div className="text-center p-4 rounded-lg border-2 bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-gradient-to-r from-green-500 to-emerald-500">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Covers</h3>
-              <div className="flex items-center justify-center space-x-8">
-                <div className="flex flex-col items-center">
-                  <img 
-                    src={getTeamLogo(awayTeam)} 
-                    alt={`${awayTeam} logo`}
-                    className="h-16 w-16 mb-2"
-                  />
-                  <span className="text-3xl font-bold text-gray-900">{stats.awayTeamCovers}</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <img 
-                    src={getTeamLogo(homeTeam)} 
-                    alt={`${homeTeam} logo`}
-                    className="h-16 w-16 mb-2"
-                  />
-                  <span className="text-3xl font-bold text-gray-900">{stats.homeTeamCovers}</span>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200">
+              <div className="text-center">
+                <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-6">Covers</h3>
+                <div className="flex items-center justify-center space-x-12">
+                  <div className={`flex flex-col items-center space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                    stats.awayTeamCovers > stats.homeTeamCovers 
+                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                      : 'bg-transparent'
+                  }`}>
+                    <img 
+                      src={getTeamLogo(awayTeam)} 
+                      alt={`${awayTeam} logo`}
+                      className="w-16 h-16 object-contain"
+                    />
+                    <div className="text-3xl font-bold text-slate-900">{stats.awayTeamCovers}</div>
+                  </div>
+                  <div className={`flex flex-col items-center space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                    stats.homeTeamCovers > stats.awayTeamCovers 
+                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                      : 'bg-transparent'
+                  }`}>
+                    <img 
+                      src={getTeamLogo(homeTeam)} 
+                      alt={`${homeTeam} logo`}
+                      className="w-16 h-16 object-contain"
+                    />
+                    <div className="text-3xl font-bold text-slate-900">{stats.homeTeamCovers}</div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Over/Under */}
-            <div className="text-center p-4 rounded-lg border-2 bg-gradient-to-br from-orange-500/10 to-red-500/10 border-gradient-to-r from-orange-500 to-red-500">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Over/Under</h3>
-              <div className="flex items-center justify-center space-x-8">
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2 h-16">
-                    <ArrowUp className="h-8 w-8 text-green-600" />
-                    <span className="text-xl font-semibold text-green-600">Over</span>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200">
+              <div className="text-center">
+                <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-6">Over/Under</h3>
+                <div className="flex items-center justify-center space-x-12">
+                  <div className={`flex flex-col items-center space-y-3 p-3 rounded-lg transition-all duration-200 ${
+                    stats.overs > stats.unders 
+                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                      : 'bg-transparent'
+                  }`}>
+                    <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
+                      <ArrowUp className="h-7 w-7 text-emerald-600" />
+                    </div>
+                    <div className="text-3xl font-bold text-slate-900">{stats.overs}</div>
+                    <div className="text-sm font-medium text-emerald-600">Over</div>
                   </div>
-                  <span className="text-3xl font-bold text-gray-900">{stats.overs}</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2 h-16">
-                    <ArrowDown className="h-8 w-8 text-red-600" />
-                    <span className="text-xl font-semibold text-red-600">Under</span>
+                  <div className={`flex flex-col items-center space-y-3 p-3 rounded-lg transition-all duration-200 ${
+                    stats.unders > stats.overs 
+                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                      : 'bg-transparent'
+                  }`}>
+                    <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+                      <ArrowDown className="h-7 w-7 text-red-600" />
+                    </div>
+                    <div className="text-3xl font-bold text-slate-900">{stats.unders}</div>
+                    <div className="text-sm font-medium text-red-600">Under</div>
                   </div>
-                  <span className="text-3xl font-bold text-gray-900">{stats.unders}</span>
                 </div>
               </div>
             </div>
@@ -386,7 +421,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="p-6 overflow-y-auto flex-1">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
