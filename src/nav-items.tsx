@@ -1,10 +1,11 @@
-import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark, Trophy, Shield } from "lucide-react";
+import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark, Trophy, Shield, BarChart } from "lucide-react";
 import { Index } from "./pages/index";
-// import Analytics from "./pages/Analytics"; // Deleted
+import Analytics from "./pages/Analytics";
 import WinRates from "./pages/WinRates";
 import CustomModels from "./pages/CustomModels";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
+import NFLAnalytics from "./pages/NFLAnalytics";
 import NotFound from "./pages/NotFound";
 
 /**
@@ -16,6 +17,12 @@ export const navItems = [
     to: "/",
     icon: <HomeIcon className="h-4 w-4" />,
     page: <Index />,
+  },
+  {
+    title: "Analytics",
+    to: "/analytics",
+    icon: <BarChart3 className="h-4 w-4" />,
+    page: <Analytics />,
   },
   {
     title: "Win Rates",
@@ -40,6 +47,12 @@ export const navItems = [
     to: "/nfl",
     icon: <Shield className="h-4 w-4" />,
     page: <NFL />,
+  },
+  {
+    title: "NFL Analytics",
+    to: "/nfl-analytics",
+    icon: <BarChart className="h-4 w-4" />,
+    page: <NFLAnalytics />,
   },
   {
     title: "Saved Patterns",
