@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { buildQueryString } from "@/utils/queryParams";
 import { normalizeTeamNamesInFilters } from "@/utils/teamNormalization";
 import AdvancedNumericFilter from "@/components/AdvancedNumericFilter";
@@ -55,9 +56,14 @@ interface PercentageStats {
   under: string;
 }
 
+type SortField = 'home_team' | 'away_team' | 'ha_winner' | 'run_line_winner' | 'ou_result';
+type SortDirection = 'asc' | 'desc' | null;
+
 export default function Analytics() {
   const [filters, setFilters] = useState<Filters>({});
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
   const queryFn = async (): Promise<TrainingDataRow[]> => {
     console.log('Fetching with applied filters:', appliedFilters);
@@ -150,6 +156,69 @@ export default function Analytics() {
     setFilters({});
     setAppliedFilters({});
   };
+
+  // Sorting functions
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Cycle through: asc -> desc -> null
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortDirection(null);
+        setSortField(null);
+      }
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="h-4 w-4" />;
+    }
+    if (sortDirection === 'desc') {
+      return <ArrowDown className="h-4 w-4" />;
+    }
+    return <ArrowUpDown className="h-4 w-4" />;
+  };
+
+  // Sort the data based on current sort settings
+  const sortedData = useMemo(() => {
+    if (!data || !sortField || !sortDirection) {
+      return data || [];
+    }
+
+    return [...data].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      // Handle special cases for display values
+      if (sortField === 'ha_winner') {
+        aValue = aValue === 1 ? 'Home' : 'Away';
+        bValue = bValue === 1 ? 'Home' : 'Away';
+      } else if (sortField === 'run_line_winner') {
+        aValue = aValue === 1 ? 'Home' : 'Away';
+        bValue = bValue === 1 ? 'Home' : 'Away';
+      } else if (sortField === 'ou_result') {
+        aValue = aValue === 1 ? 'Over' : 'Under';
+        bValue = bValue === 1 ? 'Over' : 'Under';
+      }
+
+      // Convert to strings for comparison
+      const aStr = String(aValue || '');
+      const bStr = String(bValue || '');
+
+      if (sortDirection === 'asc') {
+        return aStr.localeCompare(bStr);
+      } else {
+        return bStr.localeCompare(aStr);
+      }
+    });
+  }, [data, sortField, sortDirection]);
 
   // Define ranges for different numeric fields with better formatting
   const getFieldConfig = (field: string) => {
@@ -321,26 +390,88 @@ export default function Analytics() {
             </div>
           )}
 
-          {data && data.length > 0 && !isLoading && (
+          {sortedData && sortedData.length > 0 && !isLoading && (
             <Card className="mt-4">
               <CardHeader>
                 <CardTitle>Training Data Sample</CardTitle>
-                <CardDescription>A preview of the first 10 records matching your filters.</CardDescription>
+                <CardDescription>
+                  A preview of the first 10 records matching your filters.
+                  {sortField && sortDirection && (
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      Sorted by {sortField.replace('_', ' ')} ({sortDirection})
+                    </span>
+                  )}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Home Team</TableHead>
-                        <TableHead>Away Team</TableHead>
-                        <TableHead className="text-center">Winner (ML)</TableHead>
-                        <TableHead className="text-center">Winner (RL)</TableHead>
-                        <TableHead className="text-center">O/U Result</TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort('home_team')}
+                            className="h-auto p-0 font-semibold hover:bg-transparent"
+                          >
+                            <div className="flex items-center gap-2">
+                              Home Team
+                              {getSortIcon('home_team')}
+                            </div>
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort('away_team')}
+                            className="h-auto p-0 font-semibold hover:bg-transparent"
+                          >
+                            <div className="flex items-center gap-2">
+                              Away Team
+                              {getSortIcon('away_team')}
+                            </div>
+                          </Button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort('ha_winner')}
+                            className="h-auto p-0 font-semibold hover:bg-transparent"
+                          >
+                            <div className="flex items-center gap-2 justify-center">
+                              Winner (ML)
+                              {getSortIcon('ha_winner')}
+                            </div>
+                          </Button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort('run_line_winner')}
+                            className="h-auto p-0 font-semibold hover:bg-transparent"
+                          >
+                            <div className="flex items-center gap-2 justify-center">
+                              Winner (RL)
+                              {getSortIcon('run_line_winner')}
+                            </div>
+                          </Button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort('ou_result')}
+                            className="h-auto p-0 font-semibold hover:bg-transparent"
+                          >
+                            <div className="flex items-center gap-2 justify-center">
+                              O/U Result
+                              {getSortIcon('ou_result')}
+                            </div>
+                          </Button>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.slice(0, 10).map((row, index) => (
+                      {sortedData.slice(0, 10).map((row, index) => (
                         <TableRow key={index}>
                           <TableCell>{row.home_team}</TableCell>
                           <TableCell>{row.away_team}</TableCell>
@@ -356,7 +487,7 @@ export default function Analytics() {
             </Card>
           )}
 
-          {data && data.length === 0 && !isLoading && (
+          {sortedData && sortedData.length === 0 && !isLoading && (
             <div className="text-center py-8 text-gray-500">
               <p>No records found with the current filters.</p>
               <p className="text-sm mt-2">Try clearing filters or using different values.</p>
