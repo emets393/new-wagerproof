@@ -13,7 +13,7 @@ serve(async (req) => {
     });
   }
 
-  // Get filters from request body for POST requests
+  // Get filters from request body
   let filters: Record<string, string> = {};
   
   if (req.method === 'POST') {
@@ -37,315 +37,309 @@ serve(async (req) => {
   }
 
   console.log('NFL Edge function received filters:', filters);
+  console.log('Season filter value:', filters.season, 'Type:', typeof filters.season);
+  console.log('Week filter value:', filters.week, 'Type:', typeof filters.week);
   
-  // Get today's date in Eastern Time (ET) for consistent date handling
-  const now = new Date();
-  const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
-  const today = easternTime.toISOString().split('T')[0];
-  console.log('=== NFL DATE DEBUG INFO ===');
-  console.log('Current UTC time:', now.toISOString());
-  console.log('Current ET time:', easternTime.toISOString());
-  console.log('Using today as:', today);
-  console.log('==========================');
-  
-  // Use the college football Supabase client for NFL data
   const supabase = createClient(
     "https://jpxnjuwglavsjbgbasnl.supabase.co",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5qdXdnbGF2c2piZ2Jhc25sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTc4NjEsImV4cCI6MjA2ODI3Mzg2MX0.BjOHMysQh3wST-_UR6bJxHngRThlAmOOx4FfSVKRzWo"
   );
 
-  // NFL-specific filters
-  const numericFiltersWithOperators = new Set([
-    "season", "week", "o_u_line", "home_spread", "away_spread", "home_ml", "away_ml",
-    "home_ml_handle", "home_ml_bets", "away_ml_handle", "away_ml_bets",
-    "home_spread_handle", "home_spread_bets", "away_spread_handle", "away_spread_bets",
-    "ou_handle_over", "ou_bets_over", "temperature", "wind_speed", "precipitation"
-  ]);
-
-  const booleanFilters = new Set([
-    "is_home_team"
-  ]);
-
-  const allFilters = [
-    ...numericFiltersWithOperators,
-    ...booleanFilters,
-    "home_team", "away_team", "team_status", "view_type", // view_type: "team" or "game"
-    "ou_line_min", "ou_line_max", "spread_min", "spread_max",
-    "ou_handle_min", "ou_handle_max", "ou_bets_min", "ou_bets_max",
-    "home_ml_handle_min", "home_ml_handle_max", "home_ml_bets_min", "home_ml_bets_max",
-    "home_spread_handle_min", "home_spread_handle_max", "home_spread_bets_min", "home_spread_bets_max"
-  ];
-
-  // Determine which table to query based on view_type
-  const viewType = filters.view_type || "team"; // Default to team view
-  // Try different table names that might exist
-  const tableName = "nfl_training_data"; // Use the table that exists based on H2HModal
-  
-  let query = supabase.from(tableName).select('*').order('game_date', { ascending: false });
-  console.log(`Starting with base query on ${tableName} (view_type: ${viewType})`);
-
-  // Apply filters to the query
-  for (const key of allFilters) {
-    const val = filters[key];
-    if (!val) continue;
-
-    console.log(`Processing filter: ${key} = ${val}`);
-
-    // Handle special team_status filter for home/away favored
-    if (key === 'team_status') {
-      if (val === 'home_favored') {
-        console.log('Applying home favored filter: home_spread < 0');
-        query = query.filter('home_spread', 'lt', 0);
-      } else if (val === 'away_favored') {
-        console.log('Applying away favored filter: away_spread < 0');
-        query = query.filter('away_spread', 'lt', 0);
-      }
-      continue;
-    }
-
-    // Handle boolean filters
-    if (booleanFilters.has(key)) {
-      const boolValue = val === 'true';
-      console.log(`Applying boolean filter: ${key} = ${boolValue}`);
-      query = query.eq(key, boolValue);
-      continue;
-    }
-
-    // Handle multi-select for season and week
-    if ((key === 'season' || key === 'week') && val.includes(',')) {
-      const values = val.split(',').map(v => v.trim());
-      console.log(`Applying multi-select filter: ${key} in`, values);
-      query = query.in(key, values);
-      continue;
-    }
-
-    // Handle O/U line range filter
-    if (key === 'ou_line_min') {
-      console.log(`Applying O/U line min filter: o_u_line >= ${val}`);
-      query = query.gte('o_u_line', parseFloat(val));
-      continue;
-    }
-    if (key === 'ou_line_max') {
-      console.log(`Applying O/U line max filter: o_u_line <= ${val}`);
-      query = query.lte('o_u_line', parseFloat(val));
-      continue;
-    }
-
-    // Handle spread range filters
-    if (key === 'spread_min') {
-      console.log(`Applying spread min filter: home_spread >= ${val}`);
-      query = query.gte('home_spread', parseFloat(val));
-      continue;
-    }
-    if (key === 'spread_max') {
-      console.log(`Applying spread max filter: home_spread <= ${val}`);
-      query = query.lte('home_spread', parseFloat(val));
-      continue;
-    }
-
-    // Handle betting volume filters
-    if (key === 'ou_handle_min') {
-      console.log(`Applying O/U handle min filter: ou_handle_over >= ${val}`);
-      query = query.gte('ou_handle_over', parseFloat(val));
-      continue;
-    }
-    if (key === 'ou_handle_max') {
-      console.log(`Applying O/U handle max filter: ou_handle_over <= ${val}`);
-      query = query.lte('ou_handle_over', parseFloat(val));
-      continue;
-    }
-    if (key === 'ou_bets_min') {
-      console.log(`Applying O/U bets min filter: ou_bets_over >= ${val}`);
-      query = query.gte('ou_bets_over', parseFloat(val));
-      continue;
-    }
-    if (key === 'ou_bets_max') {
-      console.log(`Applying O/U bets max filter: ou_bets_over <= ${val}`);
-      query = query.lte('ou_bets_over', parseFloat(val));
-      continue;
-    }
-
-    // Handle home ML betting filters
-    if (key === 'home_ml_handle_min') {
-      console.log(`Applying home ML handle min filter: home_ml_handle >= ${val}`);
-      query = query.gte('home_ml_handle', parseFloat(val));
-      continue;
-    }
-    if (key === 'home_ml_handle_max') {
-      console.log(`Applying home ML handle max filter: home_ml_handle <= ${val}`);
-      query = query.lte('home_ml_handle', parseFloat(val));
-      continue;
-    }
-    if (key === 'home_ml_bets_min') {
-      console.log(`Applying home ML bets min filter: home_ml_bets >= ${val}`);
-      query = query.gte('home_ml_bets', parseFloat(val));
-      continue;
-    }
-    if (key === 'home_ml_bets_max') {
-      console.log(`Applying home ML bets max filter: home_ml_bets <= ${val}`);
-      query = query.lte('home_ml_bets', parseFloat(val));
-      continue;
-    }
-
-    // Handle home spread betting filters
-    if (key === 'home_spread_handle_min') {
-      console.log(`Applying home spread handle min filter: home_spread_handle >= ${val}`);
-      query = query.gte('home_spread_handle', parseFloat(val));
-      continue;
-    }
-    if (key === 'home_spread_handle_max') {
-      console.log(`Applying home spread handle max filter: home_spread_handle <= ${val}`);
-      query = query.lte('home_spread_handle', parseFloat(val));
-      continue;
-    }
-    if (key === 'home_spread_bets_min') {
-      console.log(`Applying home spread bets min filter: home_spread_bets >= ${val}`);
-      query = query.gte('home_spread_bets', parseFloat(val));
-      continue;
-    }
-    if (key === 'home_spread_bets_max') {
-      console.log(`Applying home spread bets max filter: home_spread_bets <= ${val}`);
-      query = query.lte('home_spread_bets', parseFloat(val));
-      continue;
-    }
-
-    // Handle team filters
-    if (key === 'home_team' && val.includes(',')) {
-      const teams = val.split(',').map(t => t.trim());
-      console.log(`Applying home team filter: home_team in`, teams);
-      query = query.in('home_team', teams);
-      continue;
-    }
-    if (key === 'away_team' && val.includes(',')) {
-      const teams = val.split(',').map(t => t.trim());
-      console.log(`Applying away team filter: away_team in`, teams);
-      query = query.in('away_team', teams);
-      continue;
-    }
-
-    if (numericFiltersWithOperators.has(key)) {
-      if (val.startsWith('gt:')) {
-        const value = val.slice(3);
-        console.log(`Applying gt filter: ${key} > ${value}`);
-        query = query.gt(key, value);
-      } else if (val.startsWith('gte:')) {
-        const value = val.slice(4);
-        console.log(`Applying gte filter: ${key} >= ${value}`);
-        query = query.gte(key, value);
-      } else if (val.startsWith('lt:')) {
-        const value = val.slice(3);
-        console.log(`Applying lt filter: ${key} < ${value}`);
-        query = query.lt(key, value);
-      } else if (val.startsWith('lte:')) {
-        const value = val.slice(4);
-        console.log(`Applying lte filter: ${key} <= ${value}`);
-        query = query.lte(key, value);
-      } else if (val.startsWith('between:')) {
-        const [min, max] = val.slice(8).split(',');
-        console.log(`Applying between filter: ${key} between ${min} and ${max}`);
-        query = query.gte(key, min).lte(key, max);
-      } else if ((key === 'season' || key === 'week') && val.includes(',')) {
-        // Already handled above
-        continue;
-      } else {
-        console.log(`Applying eq filter: ${key} = ${val}`);
-        query = query.eq(key, val);
-      }
-    } else {
-      console.log(`Applying text eq filter: ${key} = ${val}`);
-      query = query.eq(key, val);
-    }
-  }
-
-  console.log('Executing query...');
-  let { data, error } = await query;
-
-  // JS-side fallback: filter out any rows with null results
-  let allValid = [];
-  let mostRecent100 = [];
-  if (data) {
-    const before = data.length;
-    allValid = data.filter(row => row.ou_result !== null);
-    const after = allValid.length;
-    if (before !== after) {
-      console.log(`Filtered out ${before - after} rows with null ou_result in JS fallback.`);
-    }
-
-    // If view_type is "game", deduplicate by unique_id
-    if (viewType === "game") {
-      console.log('Deduplicating data by unique_id for game-level view');
-      const uniqueGames = new Map();
-      allValid.forEach(row => {
-        if (row.unique_id && !uniqueGames.has(row.unique_id)) {
-          uniqueGames.set(row.unique_id, row);
-        }
-      });
-      allValid = Array.from(uniqueGames.values());
-      console.log(`Deduplicated from ${data.length} to ${allValid.length} unique games`);
-    }
-
-    // Take the 25 most recent valid games
-    mostRecent100 = allValid.slice(0, 25);
-    console.log(`Returning ${mostRecent100.length} most recent valid games for table.`);
-    
-    // Log date ranges
-    if (allValid.length > 0) {
-      const allDates = allValid.map(row => row.game_date).filter(Boolean).sort();
-      console.log('ALL: Earliest date:', allDates[0]);
-      console.log('ALL: Latest date:', allDates[allDates.length - 1]);
-      console.log('ALL: Total valid games:', allValid.length);
-    }
-    if (mostRecent100.length > 0) {
-      const tableDates = mostRecent100.map(row => row.game_date).filter(Boolean).sort();
-      console.log('TABLE: Earliest date:', tableDates[0]);
-      console.log('TABLE: Latest date:', tableDates[tableDates.length - 1]);
-      console.log('TABLE: Total games:', mostRecent100.length);
-    }
-  }
-
-  // Calculate summary stats from allValid
-  const totalGames = allValid.length;
-  const homeWins = allValid.filter(game => game.home_score > game.away_score).length;
-  const awayWins = allValid.filter(game => game.away_score > game.home_score).length;
-  const homeCovers = allValid.filter(game => game.home_away_spread_cover === 1).length;
-  const awayCovers = allValid.filter(game => game.home_away_spread_cover === 0).length;
-  const overs = allValid.filter(game => game.ou_result === 1).length;
-  const unders = allValid.filter(game => game.ou_result === 0).length;
-
-  const overPct = totalGames > 0 ? +(overs / totalGames * 100).toFixed(1) : 0;
-  const underPct = +(100.0 - overPct).toFixed(1);
-  const homeWinPct = totalGames > 0 ? +(homeWins / totalGames * 100).toFixed(1) : 0;
-  const awayWinPct = +(100.0 - homeWinPct).toFixed(1);
-  const homeCoverPct = totalGames > 0 ? +(homeCovers / totalGames * 100).toFixed(1) : 0;
-  const awayCoverPct = +(100.0 - homeCoverPct).toFixed(1);
-  
-  const summary = {
-    homeWinPct,
-    awayWinPct,
-    homeCoverPct,
-    awayCoverPct,
-    overPct,
-    underPct,
-    totalGames
+  // NFL Team Logo mapping function (same as NFL page)
+  const getNFLTeamLogo = (teamName: string): string => {
+    const logoMap: { [key: string]: string } = {
+      'Arizona': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
+      'Atlanta': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
+      'Baltimore': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
+      'Buffalo': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
+      'Carolina': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
+      'Chicago': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
+      'Cincinnati': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
+      'Cleveland': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
+      'Dallas': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
+      'Denver': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
+      'Detroit': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
+      'Green Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
+      'Houston': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
+      'Indianapolis': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
+      'Jacksonville': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
+      'Kansas City': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
+      'Las Vegas': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
+      'LA Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+      'LA Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+      'Miami': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
+      'Minnesota': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
+      'New England': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
+      'New Orleans': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
+      'NY Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
+      'NY Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
+      'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
+      'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
+      'San Francisco': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
+      'Seattle': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
+      'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
+      'Tennessee': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
+      'Washington': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
+    };
+    return logoMap[teamName] || '/placeholder.svg';
   };
 
-  // Select only the columns needed for the display table
-  const displayColumns = [
-    'game_date', 'home_team', 'away_team', 'home_score', 'away_score',
-    'o_u_line', 'home_spread', 'away_spread', 'home_ml', 'away_ml',
-    'home_ml_handle', 'away_ml_handle', 'home_ml_bets', 'away_ml_bets',
-    'home_spread_handle', 'away_spread_handle', 'home_spread_bets', 'away_spread_bets',
-    'ou_handle_over', 'ou_bets_over', 'temperature', 'wind_speed', 'precipitation',
-    'home_away_spread_cover', 'ou_result'
-  ];
+  // Determine view type
+  const viewType = filters.view_type || "individual";
   
-  const gameRows = mostRecent100.map(row => {
-    const obj = {};
-    displayColumns.forEach(col => { obj[col] = row[col]; });
-    return obj;
-  });
+  let query;
+  let teamStats = [];
+  let summary = {};
 
-  console.log(`Query completed successfully. Returned ${mostRecent100?.length || 0} records for table, ${allValid?.length || 0} for summary.`);
+  if (viewType === "individual") {
+    // Individual Team Performance - use v_nfl_training_exploded
+    // First get all teams from nfl_team_mapping
+    const { data: teamMapping, error: teamMappingError } = await supabase
+      .from('nfl_team_mapping')
+      .select('team_id, city_and_name, team_name');
+
+    if (teamMappingError) {
+      console.error('Team mapping error:', teamMappingError);
+      return new Response(JSON.stringify({ error: teamMappingError.message }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    console.log('Team mapping data:', teamMapping);
+    console.log('Team mapping count:', teamMapping?.length);
+
+    // If no team mapping data, return empty result
+    if (!teamMapping || teamMapping.length === 0) {
+      console.log('No team mapping data found');
+      return new Response(JSON.stringify({ 
+        teamStats: [], 
+        summary: {},
+        viewType: "individual",
+        debug: "No team mapping data found"
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    // Initialize team map with all teams
+    const teamMap = new Map();
+    teamMapping?.forEach(team => {
+      teamMap.set(team.team_id, {
+        teamId: team.team_id,
+        teamName: team.city_and_name,
+        teamLogo: getNFLTeamLogo(team.team_name),
+        games: 0,
+        wins: 0,
+        covers: 0,
+        overs: 0,
+        totalGames: 0
+      });
+    });
+
+    console.log('Initialized teams:', teamMap.size);
+
+    // Now get filtered data from v_nfl_training_exploded
+    query = supabase.from('v_nfl_training_exploded').select('*');
+    
+    // Apply filters (but don't filter by priority_team_id to get all teams)
+    if (filters.opponent_team_id) {
+      query = query.eq('opponent_team_id', filters.opponent_team_id);
+    }
+    if (filters.season) {
+      if (filters.season.includes(',')) {
+        // Range filter: "2020,2024"
+        const [minSeason, maxSeason] = filters.season.split(',').map(Number);
+        query = query.gte('season', minSeason).lte('season', maxSeason);
+      } else {
+        query = query.eq('season', filters.season);
+      }
+    }
+    if (filters.week) {
+      if (filters.week.includes(',')) {
+        // Range filter: "1,18"
+        const [minWeek, maxWeek] = filters.week.split(',').map(Number);
+        query = query.gte('week', minWeek).lte('week', maxWeek);
+      } else {
+        query = query.eq('week', filters.week);
+      }
+    }
+    if (filters.start) {
+      query = query.eq('start', filters.start);
+    }
+    if (filters.ou_vegas_line) {
+      query = query.eq('ou_vegas_line', filters.ou_vegas_line);
+    }
+    if (filters.spread_closing) {
+      query = query.eq('spread_closing', filters.spread_closing);
+    }
+    if (filters.surface) {
+      query = query.eq('surface', filters.surface);
+    }
+    if (filters.game_stadium_dome) {
+      query = query.eq('game_stadium_dome', filters.game_stadium_dome);
+    }
+    if (filters.temperature) {
+      query = query.eq('temperature', filters.temperature);
+    }
+    if (filters.precipitation_type) {
+      query = query.eq('precipitation_type', filters.precipitation_type);
+    }
+    if (filters.wind_speed) {
+      query = query.eq('wind_speed', filters.wind_speed);
+    }
+    if (filters.conference_game) {
+      query = query.eq('conference_game', filters.conference_game === 'true');
+    }
+
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Query error:', error);
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    console.log('Filtered data count:', data?.length);
+    console.log('Sample data row:', data?.[0]);
+
+    // If no data from v_nfl_training_exploded, still return all teams with 0 stats
+    if (!data || data.length === 0) {
+      console.log('No data from v_nfl_training_exploded, returning teams with 0 stats');
+    }
+
+    // Process the filtered data and update team stats
+    data?.forEach(row => {
+      const teamId = row.priority_team_id;
+      if (teamMap.has(teamId)) {
+        const team = teamMap.get(teamId);
+        team.games++;
+        team.totalGames++;
+        
+        if (row.priority_team_won === 1) team.wins++;
+        if (row.priority_team_covered === 1) team.covers++;
+        if (row.ou_result === 1) team.overs++;
+      }
+    });
+
+    // Convert to array and calculate percentages
+    teamStats = Array.from(teamMap.values()).map(team => ({
+      teamId: team.teamId,
+      teamName: team.teamName,
+      teamLogo: team.teamLogo,
+      games: team.games,
+      winPercentage: team.games > 0 ? (team.wins / team.games * 100).toFixed(1) : 0,
+      coverPercentage: team.games > 0 ? (team.covers / team.games * 100).toFixed(1) : 0,
+      overPercentage: team.games > 0 ? (team.overs / team.games * 100).toFixed(1) : 0
+    }));
+
+    console.log('Final team stats count:', teamStats.length);
+
+  } else {
+    // Game Level Performance - use nfl_training_data
+    query = supabase.from('nfl_training_data').select('*');
+    
+    // Apply filters
+    if (filters.home_team_id) {
+      query = query.eq('home_team_id', filters.home_team_id);
+    }
+    if (filters.away_team_id) {
+      query = query.eq('away_team_id', filters.away_team_id);
+    }
+    if (filters.home_spread) {
+      query = query.eq('home_spread', filters.home_spread);
+    }
+    if (filters.start) {
+      query = query.eq('start', filters.start);
+    }
+    if (filters.temperature) {
+      query = query.eq('temperature', filters.temperature);
+    }
+    if (filters.wind_speed) {
+      query = query.eq('wind_speed', filters.wind_speed);
+    }
+    if (filters.precipitation_type) {
+      query = query.eq('precipitation_type', filters.precipitation_type);
+    }
+    if (filters.game_stadium_dome) {
+      query = query.eq('game_stadium_dome', filters.game_stadium_dome);
+    }
+    if (filters.conference_game) {
+      query = query.eq('conference_game', filters.conference_game === 'true');
+    }
+    if (filters.surface) {
+      query = query.eq('surface', filters.surface);
+    }
+    if (filters.week) {
+      if (filters.week.includes(',')) {
+        // Range filter: "1,18"
+        const [minWeek, maxWeek] = filters.week.split(',').map(Number);
+        query = query.gte('week', minWeek).lte('week', maxWeek);
+      } else {
+        query = query.eq('week', filters.week);
+      }
+    }
+    if (filters.season) {
+      if (filters.season.includes(',')) {
+        // Range filter: "2020,2024"
+        const [minSeason, maxSeason] = filters.season.split(',').map(Number);
+        query = query.gte('season', minSeason).lte('season', maxSeason);
+      } else {
+        query = query.eq('season', filters.season);
+      }
+    }
+    if (filters.ou_vegas_line) {
+      query = query.eq('ou_vegas_line', filters.ou_vegas_line);
+    }
+
+    console.log('About to execute query with filters:', {
+      season: filters.season,
+      week: filters.week,
+      seasonType: typeof filters.season,
+      weekType: typeof filters.week
+    });
+
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Query error:', error);
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    // Calculate summary stats for game level
+    const totalGames = data?.length || 0;
+    const homeWins = data?.filter(row => row.home_away_ml === 1).length || 0;
+    const homeCovers = data?.filter(row => row.home_away_spread_cover === 1).length || 0;
+    const overs = data?.filter(row => row.ou_result === 1).length || 0;
+
+    summary = {
+      totalGames,
+      homeWinPercentage: totalGames > 0 ? (homeWins / totalGames * 100).toFixed(1) : 0,
+      awayWinPercentage: totalGames > 0 ? ((totalGames - homeWins) / totalGames * 100).toFixed(1) : 0,
+      homeCoverPercentage: totalGames > 0 ? (homeCovers / totalGames * 100).toFixed(1) : 0,
+      awayCoverPercentage: totalGames > 0 ? ((totalGames - homeCovers) / totalGames * 100).toFixed(1) : 0,
+      overPercentage: totalGames > 0 ? (overs / totalGames * 100).toFixed(1) : 0,
+      underPercentage: totalGames > 0 ? ((totalGames - overs) / totalGames * 100).toFixed(1) : 0
+    };
+  }
 
   const headers = {
     'Content-Type': 'application/json',
@@ -353,15 +347,11 @@ serve(async (req) => {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
   };
 
-  if (error) {
-    console.error('Query error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers
-    });
-  }
-
-  return new Response(JSON.stringify({ summary, gameRows }), {
+  return new Response(JSON.stringify({ 
+    teamStats, 
+    summary,
+    viewType 
+  }), {
     status: 200,
     headers
   });
