@@ -38,6 +38,54 @@ serve(async (req) => {
 
   console.log('Edge function received filters:', filters);
   
+  // Team name normalization mapping
+  const teamNameMap: { [key: string]: string } = {
+    // Oakland Raiders -> Las Vegas Raiders (2020)
+    'Oakland Raiders': 'Las Vegas Raiders',
+    'Oakland': 'Las Vegas',
+    
+    // Washington Redskins -> Washington Commanders (2022)
+    'Washington Redskins': 'Washington Commanders',
+    'Washington Football Team': 'Washington Commanders',
+    
+    // St. Louis Rams -> Los Angeles Rams (2016)
+    'St. Louis Rams': 'Los Angeles Rams',
+    
+    // San Diego Chargers -> Los Angeles Chargers (2017)
+    'San Diego Chargers': 'Los Angeles Chargers',
+  };
+
+  // Normalize team names in filters
+  const normalizeTeamName = (teamName: string): string => {
+    if (!teamName) return teamName;
+    
+    // Check for exact matches first
+    if (teamNameMap[teamName]) {
+      return teamNameMap[teamName];
+    }
+    
+    // Check for partial matches (e.g., "Oakland" in "Oakland Raiders")
+    for (const [oldName, newName] of Object.entries(teamNameMap)) {
+      if (teamName.includes(oldName)) {
+        return teamName.replace(oldName, newName);
+      }
+    }
+    
+    return teamName;
+  };
+
+  // Apply team name normalization to team-related filters
+  const teamFields = ['home_team', 'away_team', 'primary_team', 'opponent_team'];
+  teamFields.forEach(field => {
+    if (filters[field]) {
+      const normalizedName = normalizeTeamName(filters[field]);
+      if (normalizedName !== filters[field]) {
+        console.log(`Normalized team name: ${filters[field]} -> ${normalizedName}`);
+        filters[field] = normalizedName;
+      }
+    }
+  });
+  
   // Get today's date in Eastern Time (ET) for consistent date handling
   const now = new Date();
   const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));

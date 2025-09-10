@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { buildQueryString } from "@/utils/queryParams";
+import { normalizeTeamNamesInFilters } from "@/utils/teamNormalization";
 import AdvancedNumericFilter from "@/components/AdvancedNumericFilter";
 import FilterSummary from "@/components/FilterSummary";
 import NumericRangeFilter from "@/components/NumericRangeFilter";
@@ -67,8 +68,12 @@ export default function Analytics() {
       return [];
     }
 
-    // Build query string from filters
-    const queryString = buildQueryString(appliedFilters);
+    // Normalize team names in filters (e.g., Oakland -> Las Vegas)
+    const normalizedFilters = normalizeTeamNamesInFilters(appliedFilters);
+    console.log('Normalized filters:', normalizedFilters);
+
+    // Build query string from normalized filters
+    const queryString = buildQueryString(normalizedFilters);
     const url = `https://gnjrklxotmbvnxbnnqgq.functions.supabase.co/filter-training-data?${queryString}`;
     
     console.log('Original applied filters:', appliedFilters);
@@ -192,8 +197,15 @@ export default function Analytics() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
             MLB Betting Analytics
           </h1>
-          
+        </div>
 
+        {/* Team Name Normalization Notice */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-sm font-semibold text-blue-800 mb-2">Team Name Normalization</h3>
+          <p className="text-sm text-blue-700">
+            Historical team name changes are automatically handled. For example, "Oakland" will be normalized to "Las Vegas" 
+            to include data from both the Oakland Raiders (pre-2020) and Las Vegas Raiders (2020+) periods.
+          </p>
         </div>
 
         <div className="grid gap-6">
