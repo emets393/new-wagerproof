@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { navItems } from "./nav-items";
-import { Index, SavedPatterns, GameAnalysis, Account, Welcome } from "./pages";
+import { Index, GameAnalysis, Account, Welcome } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -77,7 +77,6 @@ function AppWithHeader() {
         <Route path="/" element={<Index />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/account" element={<Account />} />
-        <Route path="/saved-patterns" element={<SavedPatterns />} />
         <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
         <Route path="/college-football" element={<CollegeFootball />} />
         <Route path="/nfl" element={<NFL />} />

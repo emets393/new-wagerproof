@@ -84,6 +84,45 @@ serve(async (req) => {
     return logoMap[teamName] || '/placeholder.svg';
   };
 
+  // Helper: derive day-of-week in America/New_York
+  const normalizeDateInput = (dateVal: string | number | Date | null | undefined): Date | null => {
+    if (!dateVal) return null;
+    if (typeof dateVal === 'string') {
+      // If format is YYYY-MM-DD, treat as UTC midnight to avoid TZ skew
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+        const dt = new Date(dateVal + 'T00:00:00Z');
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
+    }
+    const dt = new Date(dateVal as any);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  };
+
+  const getDayOfWeekEST = (dateVal: string | number | Date | null | undefined): string | null => {
+    try {
+      const dt = normalizeDateInput(dateVal);
+      if (!dt) return null;
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        weekday: 'long',
+      });
+      return formatter.format(dt).toLowerCase();
+    } catch {
+      return null;
+    }
+  };
+
+  const getDayOfWeekUTC = (dateVal: string | number | Date | null | undefined): string | null => {
+    try {
+      const dt = normalizeDateInput(dateVal);
+      if (!dt) return null;
+      const names = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+      return names[dt.getUTCDay()];
+    } catch {
+      return null;
+    }
+  };
+
   // Determine view type
   const viewType = filters.view_type || "individual";
   
@@ -174,26 +213,66 @@ serve(async (req) => {
     if (filters.start) {
       query = query.eq('start', filters.start);
     }
+    // Day filter handled after fetch (derive from date column)
     if (filters.ou_vegas_line) {
-      query = query.eq('ou_vegas_line', filters.ou_vegas_line);
+      if (filters.ou_vegas_line.includes(',')) {
+        const [minOu, maxOu] = filters.ou_vegas_line.split(',').map(Number);
+        query = query.gte('ou_vegas_line', minOu).lte('ou_vegas_line', maxOu);
+      } else {
+        query = query.eq('ou_vegas_line', Number(filters.ou_vegas_line));
+      }
     }
     if (filters.spread_closing) {
       query = query.eq('spread_closing', filters.spread_closing);
     }
     if (filters.surface) {
-      query = query.eq('surface', filters.surface);
+      const s = (filters.surface || '').toLowerCase();
+      console.log('Filtering by surface:', s);
+      if (s === 'grass') {
+        query = query.ilike('surface', '%grass%');
+      } else if (s === 'turf') {
+        // Match common turf variants
+        query = query.or(
+          "surface.ilike.%turf%,surface.ilike.%artificial%,surface.ilike.%synthetic%,surface.ilike.%fieldturf%,surface.ilike.%astro%"
+        );
+      } else {
+        query = query.eq('surface', filters.surface);
+      }
     }
     if (filters.game_stadium_dome) {
       query = query.eq('game_stadium_dome', filters.game_stadium_dome);
     }
     if (filters.temperature) {
-      query = query.eq('temperature', filters.temperature);
+      if (filters.temperature.includes(',')) {
+        const [minTemp, maxTemp] = filters.temperature.split(',').map(Number);
+        query = query.gte('temperature', minTemp).lte('temperature', maxTemp);
+      } else {
+        query = query.eq('temperature', Number(filters.temperature));
+      }
     }
     if (filters.precipitation_type) {
-      query = query.eq('precipitation_type', filters.precipitation_type);
+      const p = (filters.precipitation_type || '').toLowerCase();
+      console.log('Filtering by precipitation_type:', p);
+      if (p === 'rain') {
+        // Match any rain variants
+        query = query.ilike('precipitation_type', '%rain%');
+      } else if (p === 'snow') {
+        // Match any snow variants
+        query = query.ilike('precipitation_type', '%snow%');
+      } else if (p === 'none') {
+        // Treat none as null/clear/dry/no precipitation
+        query = query.or("precipitation_type.is.null,precipitation_type.ilike.clear,precipitation_type.ilike.dry,precipitation_type.ilike.none,precipitation_type.ilike.no%precipitation% ");
+      } else {
+        query = query.eq('precipitation_type', filters.precipitation_type);
+      }
     }
     if (filters.wind_speed) {
-      query = query.eq('wind_speed', filters.wind_speed);
+      if (filters.wind_speed.includes(',')) {
+        const [minWind, maxWind] = filters.wind_speed.split(',').map(Number);
+        query = query.gte('wind_speed', minWind).lte('wind_speed', maxWind);
+      } else {
+        query = query.eq('wind_speed', Number(filters.wind_speed));
+      }
     }
     if (filters.conference_game) {
       query = query.eq('conference_game', filters.conference_game === 'true');
@@ -214,14 +293,40 @@ serve(async (req) => {
 
     console.log('Filtered data count:', data?.length);
     console.log('Sample data row:', data?.[0]);
+    
+    // Debug: Check what precipitation values exist
+    const { data: precipData } = await supabase
+      .from('v_nfl_training_exploded')
+      .select('precipitation_type')
+      .not('precipitation_type', 'is', null)
+      .limit(10);
+    console.log('Sample precipitation values:', precipData?.map(r => r.precipitation_type));
 
     // If no data from v_nfl_training_exploded, still return all teams with 0 stats
     if (!data || data.length === 0) {
       console.log('No data from v_nfl_training_exploded, returning teams with 0 stats');
     }
 
-    // Process the filtered data and update team stats
-    data?.forEach(row => {
+    // Apply derived day-of-week filter if requested
+    const filteredByDay = (filters.day
+      ? data?.filter((row: any) => {
+          const d = (filters.day || '').toLowerCase();
+          const valid = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+          if (!valid.includes(d)) return true;
+          const dateVal = row.game_date || row.start || row.date || row.game_date_time || row.datetime;
+          const est = getDayOfWeekEST(dateVal);
+          const utc = getDayOfWeekUTC(dateVal);
+          if (!est && !utc) return true; // don't exclude on parse failure
+          const match = (est === d) || (utc === d);
+          if (!match && (Math.random() < 0.01)) {
+            console.log('Day filter mismatch sample:', { input: dateVal, est, utc, want: d });
+          }
+          return match;
+        })
+      : data) || [];
+
+    // Process the filtered data and update team stats (non-deduped)
+    filteredByDay.forEach(row => {
       const teamId = row.priority_team_id;
       if (teamMap.has(teamId)) {
         const team = teamMap.get(teamId);
@@ -247,6 +352,36 @@ serve(async (req) => {
 
     console.log('Final team stats count:', teamStats.length);
 
+    // Compute deduped game-level summary for donuts
+    const uniqueMap = new Map<string, any>();
+    filteredByDay.forEach((row: any) => {
+      const id = String(row.unique_id ?? `${row.game_id ?? ''}-${row.start ?? row.game_date ?? ''}`);
+      if (!uniqueMap.has(id)) uniqueMap.set(id, row);
+    });
+
+    const games = Array.from(uniqueMap.values());
+    const totalGames = games.length;
+    const homeWins = games.filter(r => r.home_away_ml === 1).length;
+    const awayWins = totalGames - homeWins;
+    const homeCovers = games.filter(r => r.home_away_spread_cover === 1).length;
+    const awayCovers = totalGames - homeCovers;
+    const favoriteCovers = games.filter(r => r.favorite_covered === 1).length;
+    const underdogCovers = totalGames - favoriteCovers;
+    const overs = games.filter(r => r.ou_result === 1).length;
+    const unders = totalGames - overs;
+
+    summary = {
+      totalGames,
+      homeWinPercentage: totalGames ? (homeWins / totalGames * 100).toFixed(1) : 0,
+      awayWinPercentage: totalGames ? (awayWins / totalGames * 100).toFixed(1) : 0,
+      homeCoverPercentage: totalGames ? (homeCovers / totalGames * 100).toFixed(1) : 0,
+      awayCoverPercentage: totalGames ? (awayCovers / totalGames * 100).toFixed(1) : 0,
+      favoriteCoverPercentage: totalGames ? (favoriteCovers / totalGames * 100).toFixed(1) : 0,
+      underdogCoverPercentage: totalGames ? (underdogCovers / totalGames * 100).toFixed(1) : 0,
+      overPercentage: totalGames ? (overs / totalGames * 100).toFixed(1) : 0,
+      underPercentage: totalGames ? (unders / totalGames * 100).toFixed(1) : 0,
+    };
+
   } else {
     // Game Level Performance - use nfl_training_data
     query = supabase.from('nfl_training_data').select('*');
@@ -264,14 +399,35 @@ serve(async (req) => {
     if (filters.start) {
       query = query.eq('start', filters.start);
     }
+    // Day filter handled after fetch (derive from date column)
     if (filters.temperature) {
-      query = query.eq('temperature', filters.temperature);
+      if (filters.temperature.includes(',')) {
+        const [minTemp, maxTemp] = filters.temperature.split(',').map(Number);
+        query = query.gte('temperature', minTemp).lte('temperature', maxTemp);
+      } else {
+        query = query.eq('temperature', Number(filters.temperature));
+      }
     }
     if (filters.wind_speed) {
-      query = query.eq('wind_speed', filters.wind_speed);
+      if (filters.wind_speed.includes(',')) {
+        const [minWind, maxWind] = filters.wind_speed.split(',').map(Number);
+        query = query.gte('wind_speed', minWind).lte('wind_speed', maxWind);
+      } else {
+        query = query.eq('wind_speed', Number(filters.wind_speed));
+      }
     }
     if (filters.precipitation_type) {
-      query = query.eq('precipitation_type', filters.precipitation_type);
+      const p = (filters.precipitation_type || '').toLowerCase();
+      console.log('Filtering by precipitation_type:', p);
+      if (p === 'rain') {
+        query = query.ilike('precipitation_type', '%rain%');
+      } else if (p === 'snow') {
+        query = query.ilike('precipitation_type', '%snow%');
+      } else if (p === 'none') {
+        query = query.or("precipitation_type.is.null,precipitation_type.ilike.clear,precipitation_type.ilike.dry,precipitation_type.ilike.none,precipitation_type.ilike.no%precipitation% ");
+      } else {
+        query = query.eq('precipitation_type', filters.precipitation_type);
+      }
     }
     if (filters.game_stadium_dome) {
       query = query.eq('game_stadium_dome', filters.game_stadium_dome);
@@ -280,7 +436,17 @@ serve(async (req) => {
       query = query.eq('conference_game', filters.conference_game === 'true');
     }
     if (filters.surface) {
-      query = query.eq('surface', filters.surface);
+      const s = (filters.surface || '').toLowerCase();
+      console.log('Filtering by surface:', s);
+      if (s === 'grass') {
+        query = query.ilike('surface', '%grass%');
+      } else if (s === 'turf') {
+        query = query.or(
+          "surface.ilike.%turf%,surface.ilike.%artificial%,surface.ilike.%synthetic%,surface.ilike.%fieldturf%,surface.ilike.%astro%"
+        );
+      } else {
+        query = query.eq('surface', filters.surface);
+      }
     }
     if (filters.week) {
       if (filters.week.includes(',')) {
@@ -301,7 +467,12 @@ serve(async (req) => {
       }
     }
     if (filters.ou_vegas_line) {
-      query = query.eq('ou_vegas_line', filters.ou_vegas_line);
+      if (filters.ou_vegas_line.includes(',')) {
+        const [minOu, maxOu] = filters.ou_vegas_line.split(',').map(Number);
+        query = query.gte('ou_vegas_line', minOu).lte('ou_vegas_line', maxOu);
+      } else {
+        query = query.eq('ou_vegas_line', Number(filters.ou_vegas_line));
+      }
     }
 
     console.log('About to execute query with filters:', {
@@ -325,10 +496,23 @@ serve(async (req) => {
     }
 
     // Calculate summary stats for game level
-    const totalGames = data?.length || 0;
-    const homeWins = data?.filter(row => row.home_away_ml === 1).length || 0;
-    const homeCovers = data?.filter(row => row.home_away_spread_cover === 1).length || 0;
-    const overs = data?.filter(row => row.ou_result === 1).length || 0;
+    const derivedDayFiltered = (filters.day
+      ? data?.filter((row: any) => {
+          const d = (filters.day || '').toLowerCase();
+          const valid = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+          if (!valid.includes(d)) return true;
+          const dateVal = row.game_date || row.start || row.date || row.game_date_time || row.datetime;
+          const est = getDayOfWeekEST(dateVal);
+          const utc = getDayOfWeekUTC(dateVal);
+          if (!est && !utc) return true;
+          return (est === d) || (utc === d);
+        })
+      : data) || [];
+
+    const totalGames = derivedDayFiltered.length || 0;
+    const homeWins = derivedDayFiltered.filter(row => row.home_away_ml === 1).length || 0;
+    const homeCovers = derivedDayFiltered.filter(row => row.home_away_spread_cover === 1).length || 0;
+    const overs = derivedDayFiltered.filter(row => row.ou_result === 1).length || 0;
 
     summary = {
       totalGames,

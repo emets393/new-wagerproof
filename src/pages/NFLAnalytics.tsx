@@ -24,6 +24,7 @@ export default function NFLAnalytics() {
     season: '',
     week: '',
     start: '',
+    day: '',
     ou_vegas_line: '',
     temperature: '',
     wind_speed: '',
@@ -44,6 +45,9 @@ export default function NFLAnalytics() {
   // Range filter states
   const [seasonRange, setSeasonRange] = useState([2018, 2025]);
   const [weekRange, setWeekRange] = useState([1, 18]);
+  const [ouLineRange, setOuLineRange] = useState<[number, number]>([35, 60]);
+  const [temperatureRange, setTemperatureRange] = useState<[number, number]>([-10, 110]);
+  const [windSpeedRange, setWindSpeedRange] = useState<[number, number]>([0, 40]);
 
   const testDatabase = async () => {
     console.log('Testing database tables...');
@@ -104,6 +108,15 @@ export default function NFLAnalytics() {
       }
       if (weekRange[0] !== 1 || weekRange[1] !== 18) {
         activeFilters.week = `${weekRange[0]},${weekRange[1]}`;
+      }
+      if (ouLineRange[0] !== 35 || ouLineRange[1] !== 60) {
+        activeFilters.ou_vegas_line = `${ouLineRange[0]},${ouLineRange[1]}`;
+      }
+      if (temperatureRange[0] !== -10 || temperatureRange[1] !== 110) {
+        activeFilters.temperature = `${temperatureRange[0]},${temperatureRange[1]}`;
+      }
+      if (windSpeedRange[0] !== 0 || windSpeedRange[1] !== 40) {
+        activeFilters.wind_speed = `${windSpeedRange[0]},${windSpeedRange[1]}`;
       }
       
       const response = await fetch('https://jpxnjuwglavsjbgbasnl.supabase.co/functions/v1/filter-nfl-training-data', {
@@ -186,6 +199,9 @@ export default function NFLAnalytics() {
     });
     setSeasonRange([2018, 2025]);
     setWeekRange([1, 18]);
+    setOuLineRange([35, 60]);
+    setTemperatureRange([-10, 110]);
+    setWindSpeedRange([0, 40]);
   };
 
   const renderIndividualTeamView = () => (
@@ -235,96 +251,85 @@ export default function NFLAnalytics() {
 
   const renderGameLevelView = () => {
     const chartData = [
-      { name: 'Home Win', value: parseFloat(summary.homeWinPercentage || 0), color: '#0088FE' },
-      { name: 'Away Win', value: parseFloat(summary.awayWinPercentage || 0), color: '#00C49F' }
+      { name: 'Home Win', value: parseFloat(summary.homeWinPercentage || 0), color: '#16a34a' },
+      { name: 'Away Win', value: parseFloat(summary.awayWinPercentage || 0), color: '#dc2626' }
     ];
 
     const coverData = [
-      { name: 'Home Cover', value: parseFloat(summary.homeCoverPercentage || 0), color: '#FFBB28' },
-      { name: 'Away Cover', value: parseFloat(summary.awayCoverPercentage || 0), color: '#FF8042' }
+      { name: 'Home Cover', value: parseFloat(summary.homeCoverPercentage || 0), color: '#16a34a' },
+      { name: 'Away Cover', value: parseFloat(summary.awayCoverPercentage || 0), color: '#dc2626' }
+    ];
+
+    const favDogCover = [
+      { name: 'Favorite', value: parseFloat(summary.favoriteCoverPercentage || 0), color: '#16a34a' },
+      { name: 'Dog', value: parseFloat(summary.underdogCoverPercentage || 0), color: '#dc2626' }
     ];
 
     const ouData = [
-      { name: 'Over', value: parseFloat(summary.overPercentage || 0), color: '#0088FE' },
-      { name: 'Under', value: parseFloat(summary.underPercentage || 0), color: '#00C49F' }
+      { name: 'Over', value: parseFloat(summary.overPercentage || 0), color: '#16a34a' },
+      { name: 'Under', value: parseFloat(summary.underPercentage || 0), color: '#dc2626' }
+    ];
+
+    const blocks = [
+      { title: 'Win/Loss', data: chartData },
+      { title: 'Home/Away Cover', data: coverData },
+      { title: 'Favorite/Underdog Cover', data: favDogCover },
+      { title: 'Over/Under', data: ouData },
     ];
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Win/Loss</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={80}
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Cover/No Cover</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={coverData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={80}
-                  dataKey="value"
-                >
-                  {coverData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Over/Under</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={ouData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={80}
-                  dataKey="value"
-                >
-                  {ouData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {blocks.map((b, i) => (
+          <Card key={i}>
+            <CardHeader className="pb-2 text-center">
+              <CardTitle className="text-base font-semibold text-center tracking-tight">{b.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+                  <defs>
+                    <linearGradient id={`gradGreen-${i}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#22c55e" />
+                      <stop offset="100%" stopColor="#16a34a" />
+                    </linearGradient>
+                    <linearGradient id={`gradRed-${i}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f87171" />
+                      <stop offset="100%" stopColor="#dc2626" />
+                    </linearGradient>
+                    <filter id={`shadow-${i}`} x="-50%" y="-50%" width="200%" height="200%">
+                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000" floodOpacity="0.25" />
+                    </filter>
+                  </defs>
+                  <Pie
+                    data={b.data}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={70}
+                    startAngle={90}
+                    endAngle={450}
+                    paddingAngle={1}
+                    cornerRadius={6}
+                    stroke="#0b0b0b"
+                    strokeWidth={0.8}
+                    dataKey="value"
+                    label={({ value }) => `${(value as number).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {b.data.map((_, idx) => (
+                      <Cell
+                        key={`cell-${idx}`}
+                        fill={`url(#${idx === 0 ? `gradGreen-${i}` : `gradRed-${i}`})`}
+                        filter={`url(#shadow-${i})`}
+                      />
+                    ))}
+                  </Pie>
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   };
@@ -338,24 +343,11 @@ export default function NFLAnalytics() {
         </p>
       </div>
       
-      {/* View Type Selection */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Select View Type</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <RadioGroup value={viewType} onValueChange={(value) => setViewType(value)}>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="individual" id="individual" />
-              <Label htmlFor="individual">Individual Team Performance</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="game" id="game" />
-              <Label htmlFor="game">Game Level Performance</Label>
-            </div>
-          </RadioGroup>
-        </CardContent>
-      </Card>
+      {/* Summary Donuts */}
+      <div className="mb-2 text-center text-sm text-muted-foreground">
+        Total games: {Number((summary as any)?.totalGames || 0)}
+      </div>
+      {renderGameLevelView()}
 
       {/* Filters */}
       <Card className="mb-6">
@@ -365,6 +357,23 @@ export default function NFLAnalytics() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Common Filters */}
+            <div>
+              <Label htmlFor="day">Day of Week</Label>
+              <Select value={filters.day || 'any'} onValueChange={(value) => handleFilterChange('day', value === 'any' ? '' : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Any day" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any</SelectItem>
+                  <SelectItem value="sunday">Sunday</SelectItem>
+                  <SelectItem value="monday">Monday</SelectItem>
+                  <SelectItem value="thursday">Thursday</SelectItem>
+                  <SelectItem value="saturday">Saturday</SelectItem>
+                  <SelectItem value="friday">Friday</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <Label>Season Range: {seasonRange[0]} - {seasonRange[1]}</Label>
               <div className="px-2 py-2">
@@ -380,45 +389,55 @@ export default function NFLAnalytics() {
                   <div
                     className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
                     style={{ left: `${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%` }}
-                    onMouseDown={(e) => {
-                      const slider = e.currentTarget.parentElement;
-                      const rect = slider!.getBoundingClientRect();
-                      const handleMove = (e: MouseEvent) => {
-                        const x = e.clientX - rect.left;
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
                         const percentage = Math.max(0, Math.min(1, x / rect.width));
                         const value = Math.round(2018 + percentage * (2025 - 2018));
                         if (value <= seasonRange[1]) {
                           setSeasonRange([value, seasonRange[1]]);
                         }
                       };
-                      const handleUp = () => {
-                        document.removeEventListener('mousemove', handleMove);
-                        document.removeEventListener('mouseup', handleUp);
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
                       };
-                      document.addEventListener('mousemove', handleMove);
-                      document.addEventListener('mouseup', handleUp);
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
                     }}
                   ></div>
                   <div
                     className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
                     style={{ left: `${((seasonRange[1] - 2018) / (2025 - 2018)) * 100}%` }}
-                    onMouseDown={(e) => {
-                      const slider = e.currentTarget.parentElement;
-                      const rect = slider!.getBoundingClientRect();
-                      const handleMove = (e: MouseEvent) => {
-                        const x = e.clientX - rect.left;
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
                         const percentage = Math.max(0, Math.min(1, x / rect.width));
                         const value = Math.round(2018 + percentage * (2025 - 2018));
                         if (value >= seasonRange[0]) {
                           setSeasonRange([seasonRange[0], value]);
                         }
                       };
-                      const handleUp = () => {
-                        document.removeEventListener('mousemove', handleMove);
-                        document.removeEventListener('mouseup', handleUp);
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
                       };
-                      document.addEventListener('mousemove', handleMove);
-                      document.addEventListener('mouseup', handleUp);
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
                     }}
                   ></div>
                 </div>
@@ -440,45 +459,55 @@ export default function NFLAnalytics() {
                   <div
                     className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
                     style={{ left: `${((weekRange[0] - 1) / (18 - 1)) * 100}%` }}
-                    onMouseDown={(e) => {
-                      const slider = e.currentTarget.parentElement;
-                      const rect = slider!.getBoundingClientRect();
-                      const handleMove = (e: MouseEvent) => {
-                        const x = e.clientX - rect.left;
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
                         const percentage = Math.max(0, Math.min(1, x / rect.width));
                         const value = Math.round(1 + percentage * (18 - 1));
                         if (value <= weekRange[1]) {
                           setWeekRange([value, weekRange[1]]);
                         }
                       };
-                      const handleUp = () => {
-                        document.removeEventListener('mousemove', handleMove);
-                        document.removeEventListener('mouseup', handleUp);
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
                       };
-                      document.addEventListener('mousemove', handleMove);
-                      document.addEventListener('mouseup', handleUp);
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
                     }}
                   ></div>
                   <div
                     className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
                     style={{ left: `${((weekRange[1] - 1) / (18 - 1)) * 100}%` }}
-                    onMouseDown={(e) => {
-                      const slider = e.currentTarget.parentElement;
-                      const rect = slider!.getBoundingClientRect();
-                      const handleMove = (e: MouseEvent) => {
-                        const x = e.clientX - rect.left;
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
                         const percentage = Math.max(0, Math.min(1, x / rect.width));
                         const value = Math.round(1 + percentage * (18 - 1));
                         if (value >= weekRange[0]) {
                           setWeekRange([weekRange[0], value]);
                         }
                       };
-                      const handleUp = () => {
-                        document.removeEventListener('mousemove', handleMove);
-                        document.removeEventListener('mouseup', handleUp);
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
                       };
-                      document.addEventListener('mousemove', handleMove);
-                      document.addEventListener('mouseup', handleUp);
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
                     }}
                   ></div>
                 </div>
@@ -486,34 +515,215 @@ export default function NFLAnalytics() {
             </div>
 
             <div>
-              <Label htmlFor="ou_vegas_line">O/U Line</Label>
-              <Input
-                id="ou_vegas_line"
-                value={filters.ou_vegas_line}
-                onChange={(e) => handleFilterChange('ou_vegas_line', e.target.value)}
-                placeholder="45.5"
-              />
+              <Label>O/U Line Range: {ouLineRange[0]} - {ouLineRange[1]}</Label>
+              <div className="px-2 py-2">
+                <div className="relative h-8">
+                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
+                  <div 
+                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+                    style={{
+                      left: `${((ouLineRange[0] - 30) / (70 - 30)) * 100}%`,
+                      width: `${((ouLineRange[1] - ouLineRange[0]) / (70 - 30)) * 100}%`
+                    }}
+                  ></div>
+                  <div
+                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                    style={{ left: `${((ouLineRange[0] - 30) / (70 - 30)) * 100}%` }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const value = Math.round(30 + percentage * (70 - 30));
+                        if (value <= ouLineRange[1]) {
+                          setOuLineRange([value, ouLineRange[1]]);
+                        }
+                      };
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                      };
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                    }}
+                  ></div>
+                  <div
+                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                    style={{ left: `${((ouLineRange[1] - 30) / (70 - 30)) * 100}%` }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const value = Math.round(30 + percentage * (70 - 30));
+                        if (value >= ouLineRange[0]) {
+                          setOuLineRange([ouLineRange[0], value]);
+                        }
+                      };
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                      };
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                    }}
+                  ></div>
+                </div>
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="temperature">Temperature</Label>
-              <Input
-                id="temperature"
-                value={filters.temperature}
-                onChange={(e) => handleFilterChange('temperature', e.target.value)}
-                placeholder="70"
-              />
+              <Label>Temperature Range: {temperatureRange[0]}°F - {temperatureRange[1]}°F</Label>
+              <div className="px-2 py-2">
+                <div className="relative h-8">
+                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
+                  <div 
+                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+                    style={{
+                      left: `${((temperatureRange[0] - -20) / (120 - -20)) * 100}%`,
+                      width: `${((temperatureRange[1] - temperatureRange[0]) / (120 - -20)) * 100}%`
+                    }}
+                  ></div>
+                  <div
+                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                    style={{ left: `${((temperatureRange[0] - -20) / (120 - -20)) * 100}%` }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const value = Math.round(-20 + percentage * (120 - -20));
+                        if (value <= temperatureRange[1]) {
+                          setTemperatureRange([value, temperatureRange[1]]);
+                        }
+                      };
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                      };
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                    }}
+                  ></div>
+                  <div
+                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                    style={{ left: `${((temperatureRange[1] - -20) / (120 - -20)) * 100}%` }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const value = Math.round(-20 + percentage * (120 - -20));
+                        if (value >= temperatureRange[0]) {
+                          setTemperatureRange([temperatureRange[0], value]);
+                        }
+                      };
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                      };
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                    }}
+                  ></div>
+                </div>
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="wind_speed">Wind Speed</Label>
-              <Input
-                id="wind_speed"
-                value={filters.wind_speed}
-                onChange={(e) => handleFilterChange('wind_speed', e.target.value)}
-                placeholder="10"
-              />
+              <Label>Wind Speed Range: {windSpeedRange[0]} mph - {windSpeedRange[1]} mph</Label>
+              <div className="px-2 py-2">
+                <div className="relative h-8">
+                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
+                  <div 
+                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+                    style={{
+                      left: `${((windSpeedRange[0] - 0) / (60 - 0)) * 100}%`,
+                      width: `${((windSpeedRange[1] - windSpeedRange[0]) / (60 - 0)) * 100}%`
+                    }}
+                  ></div>
+                  <div
+                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                    style={{ left: `${((windSpeedRange[0] - 0) / (60 - 0)) * 100}%` }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const value = Math.round(0 + percentage * (60 - 0));
+                        if (value <= windSpeedRange[1]) {
+                          setWindSpeedRange([value, windSpeedRange[1]]);
+                        }
+                      };
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                      };
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                    }}
+                  ></div>
+                  <div
+                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                    style={{ left: `${((windSpeedRange[1] - 0) / (60 - 0)) * 100}%` }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const value = Math.round(0 + percentage * (60 - 0));
+                        if (value >= windSpeedRange[0]) {
+                          setWindSpeedRange([windSpeedRange[0], value]);
+                        }
+                      };
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                      };
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                    }}
+                  ></div>
+                </div>
+              </div>
             </div>
+
 
             <div>
               <Label htmlFor="precipitation_type">Precipitation</Label>
@@ -525,7 +735,6 @@ export default function NFLAnalytics() {
                   <SelectItem value="none">None</SelectItem>
                   <SelectItem value="rain">Rain</SelectItem>
                   <SelectItem value="snow">Snow</SelectItem>
-                  <SelectItem value="sleet">Sleet</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -678,12 +887,8 @@ export default function NFLAnalytics() {
         </Card>
       )}
 
-      {/* Data Display */}
-      {!isLoading && !error && (
-        <>
-          {viewType === "individual" ? renderIndividualTeamView() : renderGameLevelView()}
-        </>
-      )}
+      {/* Team Table (non-deduped) */}
+      {!isLoading && !error && renderIndividualTeamView()}
     </div>
   );
 }
