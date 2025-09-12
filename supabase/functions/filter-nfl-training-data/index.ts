@@ -37,6 +37,8 @@ serve(async (req) => {
   }
 
   console.log('NFL Edge function received filters:', filters);
+  console.log('Priority team ID filter:', filters.priority_team_id, 'Type:', typeof filters.priority_team_id);
+  console.log('Opponent team ID filter:', filters.opponent_team_id, 'Type:', typeof filters.opponent_team_id);
   console.log('Season filter value:', filters.season, 'Type:', typeof filters.season);
   console.log('Week filter value:', filters.week, 'Type:', typeof filters.week);
   
@@ -127,15 +129,15 @@ serve(async (req) => {
   const viewType = filters.view_type || "individual";
   
   let query;
-  let teamStats = [];
-  let summary = {};
+  let teamStats: any[] = [];
+  let summary: any = {};
 
   if (viewType === "individual") {
     // Individual Team Performance - use v_nfl_training_exploded
     // First get all teams from nfl_team_mapping
     const { data: teamMapping, error: teamMappingError } = await supabase
       .from('nfl_team_mapping')
-      .select('team_id, city_and_name, team_name');
+      .select('city_and_name, team_name, team_id');
 
     if (teamMappingError) {
       console.error('Team mapping error:', teamMappingError);
@@ -150,6 +152,10 @@ serve(async (req) => {
 
     console.log('Team mapping data:', teamMapping);
     console.log('Team mapping count:', teamMapping?.length);
+    if (teamMapping && teamMapping.length > 0) {
+      console.log('First team mapping entry:', teamMapping[0]);
+      console.log('Team mapping columns:', Object.keys(teamMapping[0]));
+    }
 
     // If no team mapping data, return empty result
     if (!teamMapping || teamMapping.length === 0) {
@@ -168,29 +174,78 @@ serve(async (req) => {
       });
     }
 
-    // Initialize team map with all teams
+    // Initialize team map - deduplicate by team_id and prefer current team names
     const teamMap = new Map();
+    
+    // First, deduplicate team mapping data by team_id, preferring current names
+    const deduplicatedTeamMapping = new Map();
     teamMapping?.forEach(team => {
-      teamMap.set(team.team_id, {
-        teamId: team.team_id,
-        teamName: team.city_and_name,
-        teamLogo: getNFLTeamLogo(team.team_name),
-        games: 0,
-        wins: 0,
-        covers: 0,
-        overs: 0,
-        totalGames: 0
-      });
+      const existingTeam = deduplicatedTeamMapping.get(team.team_id);
+      
+      // If no existing team or if current team name is more recent (contains "Las Vegas" vs "Oakland")
+      if (!existingTeam || 
+          (team.city_and_name.includes('Las Vegas') && existingTeam.city_and_name.includes('Oakland'))) {
+        deduplicatedTeamMapping.set(team.team_id, team);
+      }
     });
+    
+    // If priority_team_id is specified, only initialize those teams
+    if (filters.priority_team_id && filters.priority_team_id.length > 0) {
+      const teamIds = Array.isArray(filters.priority_team_id) ? filters.priority_team_id : [filters.priority_team_id];
+      teamIds.forEach(teamId => {
+        const selectedTeam = deduplicatedTeamMapping.get(teamId);
+        if (selectedTeam) {
+          teamMap.set(selectedTeam.team_id, {
+            teamId: selectedTeam.team_id,
+            teamName: selectedTeam.city_and_name,
+            teamLogo: getNFLTeamLogo(selectedTeam.team_name),
+            games: 0,
+            wins: 0,
+            covers: 0,
+            overs: 0,
+            totalGames: 0
+          });
+        }
+      });
+    } else {
+      // If no priority_team_id filter, initialize all teams
+      deduplicatedTeamMapping.forEach(team => {
+        teamMap.set(team.team_id, {
+          teamId: team.team_id,
+          teamName: team.city_and_name,
+          teamLogo: getNFLTeamLogo(team.team_name),
+          games: 0,
+          wins: 0,
+          covers: 0,
+          overs: 0,
+          totalGames: 0
+        });
+      });
+    }
 
     console.log('Initialized teams:', teamMap.size);
 
     // Now get filtered data from v_nfl_training_exploded
     query = supabase.from('v_nfl_training_exploded').select('*');
     
-    // Apply filters (but don't filter by priority_team_id to get all teams)
-    if (filters.opponent_team_id) {
-      query = query.eq('opponent_team_id', filters.opponent_team_id);
+    // Apply filters - filter by team_id directly (support arrays)
+    if (filters.priority_team_id && filters.priority_team_id.length > 0) {
+      console.log('Filtering by priority_team_id:', filters.priority_team_id);
+      console.log('Filtering by priority_team_id type:', typeof filters.priority_team_id);
+      if (Array.isArray(filters.priority_team_id)) {
+        query = query.in('priority_team_id', filters.priority_team_id);
+      } else {
+        query = query.eq('priority_team_id', filters.priority_team_id);
+      }
+    }
+    if (filters.opponent_team_id && filters.opponent_team_id.length > 0) {
+      console.log('Filtering by opponent_team_id:', filters.opponent_team_id);
+      console.log('Filtering by opponent_team_id type:', typeof filters.opponent_team_id);
+      if (Array.isArray(filters.opponent_team_id)) {
+        query = query.in('opponent_team_id', filters.opponent_team_id);
+      } else {
+        query = query.eq('opponent_team_id', filters.opponent_team_id);
+      }
     }
     if (filters.season) {
       if (filters.season.includes(',')) {
@@ -223,7 +278,12 @@ serve(async (req) => {
       }
     }
     if (filters.spread_closing) {
-      query = query.eq('spread_closing', filters.spread_closing);
+      if (filters.spread_closing.includes(',')) {
+        const [minSpread, maxSpread] = filters.spread_closing.split(',').map(Number);
+        query = query.gte('spread_closing', minSpread).lte('spread_closing', maxSpread);
+      } else {
+        query = query.eq('spread_closing', Number(filters.spread_closing));
+      }
     }
     if (filters.surface) {
       const s = (filters.surface || '').toLowerCase();
@@ -277,6 +337,46 @@ serve(async (req) => {
     if (filters.conference_game) {
       query = query.eq('conference_game', filters.conference_game === 'true');
     }
+    
+    // Boolean filters (1 and 0 in database)
+    if (filters.team_last_spread) {
+      query = query.eq('team_last_spread', Number(filters.team_last_spread));
+    }
+    if (filters.team_last_ou) {
+      query = query.eq('team_last_ou', Number(filters.team_last_ou));
+    }
+    if (filters.team_last_ml) {
+      query = query.eq('team_last_ml', Number(filters.team_last_ml));
+    }
+    if (filters.opponent_last_spread) {
+      query = query.eq('opponent_last_spread', Number(filters.opponent_last_spread));
+    }
+    if (filters.opponent_last_ou) {
+      query = query.eq('opponent_last_ou', Number(filters.opponent_last_ou));
+    }
+    if (filters.opponent_last_ml) {
+      query = query.eq('opponent_last_ml', Number(filters.opponent_last_ml));
+    }
+    
+    // Home/Away last game filters
+    if (filters.team_consecutive_home_away) {
+      if (filters.team_consecutive_home_away === 'home') {
+        // Home: positive numbers >= 2
+        query = query.gte('team_consecutive_home_away', 2);
+      } else if (filters.team_consecutive_home_away === 'away') {
+        // Away: negative numbers OR positive 1
+        query = query.or('team_consecutive_home_away.lt.0,team_consecutive_home_away.eq.1');
+      }
+    }
+    if (filters.opponent_consecutive_home_away) {
+      if (filters.opponent_consecutive_home_away === 'home') {
+        // Home: positive numbers >= 2
+        query = query.gte('opponent_consecutive_home_away', 2);
+      } else if (filters.opponent_consecutive_home_away === 'away') {
+        // Away: negative numbers OR positive 1
+        query = query.or('opponent_consecutive_home_away.lt.0,opponent_consecutive_home_away.eq.1');
+      }
+    }
 
     const { data, error } = await query;
     
@@ -293,6 +393,20 @@ serve(async (req) => {
 
     console.log('Filtered data count:', data?.length);
     console.log('Sample data row:', data?.[0]);
+    if (data && data.length > 0) {
+      console.log('Sample row columns:', Object.keys(data[0]));
+      console.log('Sample priority_team_id values:', data.slice(0, 5).map(row => row.priority_team_id));
+      console.log('Sample opponent_team_id values:', data.slice(0, 5).map(row => row.opponent_team_id));
+      // Check if there are other team-related columns
+      const teamColumns = Object.keys(data[0]).filter(key => key.includes('team') || key.includes('Team'));
+      console.log('Team-related columns:', teamColumns);
+    }
+    
+    // Debug: Check what priority_team_id values exist in the data
+    if (data && data.length > 0) {
+      const uniqueTeamIds = [...new Set(data.map(row => row.priority_team_id))];
+      console.log('Unique priority_team_id values in data:', uniqueTeamIds.slice(0, 10));
+    }
     
     // Debug: Check what precipitation values exist
     const { data: precipData } = await supabase
@@ -327,7 +441,26 @@ serve(async (req) => {
 
     // Process the filtered data and update team stats (non-deduped)
     filteredByDay.forEach(row => {
+      // priority_team_id in v_nfl_training_exploded contains team IDs
       const teamId = row.priority_team_id;
+      
+      // If team not in map yet, add it (for opponent filtering case)
+      if (!teamMap.has(teamId)) {
+        const teamInfo = deduplicatedTeamMapping.get(teamId);
+        if (teamInfo) {
+          teamMap.set(teamId, {
+            teamId: teamInfo.team_id,
+            teamName: teamInfo.city_and_name,
+            teamLogo: getNFLTeamLogo(teamInfo.team_name),
+            games: 0,
+            wins: 0,
+            covers: 0,
+            overs: 0,
+            totalGames: 0
+          });
+        }
+      }
+      
       if (teamMap.has(teamId)) {
         const team = teamMap.get(teamId);
         team.games++;
@@ -472,6 +605,46 @@ serve(async (req) => {
         query = query.gte('ou_vegas_line', minOu).lte('ou_vegas_line', maxOu);
       } else {
         query = query.eq('ou_vegas_line', Number(filters.ou_vegas_line));
+      }
+    }
+    
+    // Boolean filters (1 and 0 in database)
+    if (filters.team_last_spread) {
+      query = query.eq('team_last_spread', Number(filters.team_last_spread));
+    }
+    if (filters.team_last_ou) {
+      query = query.eq('team_last_ou', Number(filters.team_last_ou));
+    }
+    if (filters.team_last_ml) {
+      query = query.eq('team_last_ml', Number(filters.team_last_ml));
+    }
+    if (filters.opponent_last_spread) {
+      query = query.eq('opponent_last_spread', Number(filters.opponent_last_spread));
+    }
+    if (filters.opponent_last_ou) {
+      query = query.eq('opponent_last_ou', Number(filters.opponent_last_ou));
+    }
+    if (filters.opponent_last_ml) {
+      query = query.eq('opponent_last_ml', Number(filters.opponent_last_ml));
+    }
+    
+    // Home/Away last game filters
+    if (filters.team_consecutive_home_away) {
+      if (filters.team_consecutive_home_away === 'home') {
+        // Home: positive numbers >= 2
+        query = query.gte('team_consecutive_home_away', 2);
+      } else if (filters.team_consecutive_home_away === 'away') {
+        // Away: negative numbers OR positive 1
+        query = query.or('team_consecutive_home_away.lt.0,team_consecutive_home_away.eq.1');
+      }
+    }
+    if (filters.opponent_consecutive_home_away) {
+      if (filters.opponent_consecutive_home_away === 'home') {
+        // Home: positive numbers >= 2
+        query = query.gte('opponent_consecutive_home_away', 2);
+      } else if (filters.opponent_consecutive_home_away === 'away') {
+        // Away: negative numbers OR positive 1
+        query = query.or('opponent_consecutive_home_away.lt.0,opponent_consecutive_home_away.eq.1');
       }
     }
 

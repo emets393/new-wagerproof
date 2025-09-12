@@ -7,17 +7,27 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { createClient } from '@supabase/supabase-js';
+import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
+interface NFLTeam {
+  city_and_name: string;
+  team_name: string;
+  team_id: string;
+}
 
 export default function NFLAnalytics() {
   const [viewType, setViewType] = useState<"individual" | "game">("individual");
   const [teamStats, setTeamStats] = useState([]);
-  const [summary, setSummary] = useState({});
+  const [summary, setSummary] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [nflTeams, setNflTeams] = useState<NFLTeam[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(true);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -33,13 +43,23 @@ export default function NFLAnalytics() {
     conference_game: '',
     surface: '',
     // Individual team filters
-    primary_team__id: '',
-    opponent_team_id: '',
+    priority_team_id: [] as string[],
+    opponent_team_id: [] as string[],
     spread_closing: '',
     // Game level filters
     home_team_id: '',
     away_team_id: '',
-    home_spread: ''
+    home_spread: '',
+    // Boolean filters
+    team_last_spread: '',
+    team_last_ou: '',
+    team_last_ml: '',
+    opponent_last_spread: '',
+    opponent_last_ou: '',
+    opponent_last_ml: '',
+    // Home/Away last game filters
+    team_consecutive_home_away: '',
+    opponent_consecutive_home_away: ''
   });
 
   // Range filter states
@@ -48,6 +68,7 @@ export default function NFLAnalytics() {
   const [ouLineRange, setOuLineRange] = useState<[number, number]>([35, 60]);
   const [temperatureRange, setTemperatureRange] = useState<[number, number]>([-10, 110]);
   const [windSpeedRange, setWindSpeedRange] = useState<[number, number]>([0, 40]);
+  const [spreadRange, setSpreadRange] = useState<[number, number]>([0, 20]);
 
   const testDatabase = async () => {
     console.log('Testing database tables...');
@@ -102,6 +123,8 @@ export default function NFLAnalytics() {
         Object.entries(filters).filter(([_, value]) => value !== '')
       );
       
+      console.log('Sending filters to backend:', activeFilters);
+      
       // Add range filters
       if (seasonRange[0] !== 2018 || seasonRange[1] !== 2025) {
         activeFilters.season = `${seasonRange[0]},${seasonRange[1]}`;
@@ -118,6 +141,14 @@ export default function NFLAnalytics() {
       if (windSpeedRange[0] !== 0 || windSpeedRange[1] !== 40) {
         activeFilters.wind_speed = `${windSpeedRange[0]},${windSpeedRange[1]}`;
       }
+      if (spreadRange[0] !== 0 || spreadRange[1] !== 20) {
+        activeFilters.spread_closing = `${spreadRange[0]},${spreadRange[1]}`;
+      }
+      
+      console.log('Sending API request with filters:', {
+        view_type: viewType,
+        ...activeFilters
+      });
       
       const response = await fetch('https://jpxnjuwglavsjbgbasnl.supabase.co/functions/v1/filter-nfl-training-data', {
         method: 'POST',
@@ -174,8 +205,67 @@ export default function NFLAnalytics() {
     return () => clearTimeout(timeoutId);
   }, [filters]);
 
+  // Fetch NFL teams for dropdowns
+  useEffect(() => {
+    const fetchNFLTeams = async () => {
+      try {
+        setTeamsLoading(true);
+        const { data, error } = await collegeFootballSupabase
+          .from('nfl_team_mapping')
+          .select('city_and_name, team_name, team_id')
+          .order('team_name');
+        
+        if (error) {
+          console.error('Error fetching NFL teams:', error);
+          setError(`NFL teams error: ${error.message}`);
+          return;
+        }
+        
+        // Deduplicate teams by team_id and prefer current team names
+        const teamMap = new Map<string, NFLTeam>();
+        
+        (data || []).forEach((team: NFLTeam) => {
+          const existingTeam = teamMap.get(team.team_id);
+          
+          // If no existing team or if current team name is more recent (contains "Las Vegas" vs "Oakland")
+          if (!existingTeam || 
+              (team.city_and_name.includes('Las Vegas') && existingTeam.city_and_name.includes('Oakland'))) {
+            teamMap.set(team.team_id, team);
+          }
+        });
+        
+        const uniqueTeams = Array.from(teamMap.values());
+        setNflTeams(uniqueTeams);
+      } catch (error) {
+        console.error('Error in fetchNFLTeams:', error);
+        setError(`NFL teams error: ${error.message}`);
+      } finally {
+        setTeamsLoading(false);
+      }
+    };
+
+    fetchNFLTeams();
+  }, []);
+
   const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    // Convert "any" back to empty string for filtering
+    const filterValue = value === "any" ? "" : value;
+    console.log('Filter change:', key, 'value:', value, 'filterValue:', filterValue);
+    console.log('Current filters before update:', filters);
+    setFilters(prev => {
+      const newFilters = { ...prev, [key]: filterValue };
+      console.log('New filters after update:', newFilters);
+      return newFilters;
+    });
+  };
+
+  const handleMultiSelectChange = (key: string, values: string[]) => {
+    console.log('Multi-select change:', key, 'values:', values);
+    setFilters(prev => {
+      const newFilters = { ...prev, [key]: values };
+      console.log('New filters after multi-select update:', newFilters);
+      return newFilters;
+    });
   };
 
   const clearFilters = () => {
@@ -183,6 +273,7 @@ export default function NFLAnalytics() {
       season: '',
       week: '',
       start: '',
+      day: '',
       ou_vegas_line: '',
       temperature: '',
       wind_speed: '',
@@ -190,18 +281,27 @@ export default function NFLAnalytics() {
       game_stadium_dome: '',
       conference_game: '',
       surface: '',
-      primary_team__id: '',
-      opponent_team_id: '',
+      priority_team_id: [] as string[],
+      opponent_team_id: [] as string[],
       spread_closing: '',
       home_team_id: '',
       away_team_id: '',
-      home_spread: ''
+      home_spread: '',
+      team_last_spread: '',
+      team_last_ou: '',
+      team_last_ml: '',
+      opponent_last_spread: '',
+      opponent_last_ou: '',
+      opponent_last_ml: '',
+      team_consecutive_home_away: '',
+      opponent_consecutive_home_away: ''
     });
     setSeasonRange([2018, 2025]);
     setWeekRange([1, 18]);
     setOuLineRange([35, 60]);
     setTemperatureRange([-10, 110]);
     setWindSpeedRange([0, 40]);
+    setSpreadRange([0, 20]);
   };
 
   const renderIndividualTeamView = () => (
@@ -753,10 +853,10 @@ export default function NFLAnalytics() {
             </div>
 
             <div>
-              <Label htmlFor="conference_game">Conference Game</Label>
+              <Label htmlFor="conference_game">Divisional Game</Label>
               <Select value={filters.conference_game} onValueChange={(value) => handleFilterChange('conference_game', value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select conference game" />
+                  <SelectValue placeholder="Select divisional game" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="true">Yes</SelectItem>
@@ -782,33 +882,370 @@ export default function NFLAnalytics() {
             {viewType === "individual" && (
               <>
                 <div>
-                  <Label htmlFor="primary_team__id">Primary Team ID</Label>
-                  <Input
-                    id="primary_team__id"
-                    value={filters.primary_team__id}
-                    onChange={(e) => handleFilterChange('primary_team__id', e.target.value)}
-                    placeholder="Team ID"
-                  />
+                  <Label htmlFor="priority_team_id">Primary Teams</Label>
+                  <Select 
+                    value={filters.priority_team_id.length > 0 ? "multiple" : "any"} 
+                    onValueChange={(value) => {
+                      if (value === "any") {
+                        handleMultiSelectChange('priority_team_id', []);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select primary teams...">
+                        {filters.priority_team_id.length === 0 
+                          ? "Any" 
+                          : `${filters.priority_team_id.length} team${filters.priority_team_id.length === 1 ? '' : 's'} selected`
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <div className="px-2 py-1 border-b">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMultiSelectChange('priority_team_id', nflTeams.map(t => t.team_id));
+                            }}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMultiSelectChange('priority_team_id', []);
+                            }}
+                          >
+                            Clear All
+                          </Button>
+                        </div>
+                      </div>
+                      {teamsLoading ? (
+                        <SelectItem value="loading" disabled>Loading teams...</SelectItem>
+                      ) : (
+                        nflTeams?.map((team) => (
+                          <div key={`primary-${team.team_id}`} className="flex items-center space-x-2 px-2 py-1.5 hover:bg-accent">
+                            <Checkbox
+                              id={`primary-${team.team_id}`}
+                              checked={filters.priority_team_id.includes(team.team_id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  handleMultiSelectChange('priority_team_id', [...filters.priority_team_id, team.team_id]);
+                                } else {
+                                  handleMultiSelectChange('priority_team_id', filters.priority_team_id.filter(id => id !== team.team_id));
+                                }
+                              }}
+                            />
+                            <Label htmlFor={`primary-${team.team_id}`} className="text-sm cursor-pointer flex-1">
+                              {team.city_and_name}
+                            </Label>
+                          </div>
+                        )) || []
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {filters.priority_team_id.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-muted-foreground mb-1">Selected teams:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {filters.priority_team_id.map(teamId => {
+                          const team = nflTeams.find(t => t.team_id === teamId);
+                          return (
+                            <Badge key={teamId} variant="secondary" className="text-xs">
+                              {team?.city_and_name || teamId}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <Label htmlFor="opponent_team_id">Opponent Team ID</Label>
-                  <Input
-                    id="opponent_team_id"
-                    value={filters.opponent_team_id}
-                    onChange={(e) => handleFilterChange('opponent_team_id', e.target.value)}
-                    placeholder="Team ID"
-                  />
+                  <Label htmlFor="opponent_team_id">Opponent Teams</Label>
+                  <Select 
+                    value={filters.opponent_team_id.length > 0 ? "multiple" : "any"} 
+                    onValueChange={(value) => {
+                      if (value === "any") {
+                        handleMultiSelectChange('opponent_team_id', []);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select opponent teams...">
+                        {filters.opponent_team_id.length === 0 
+                          ? "Any" 
+                          : `${filters.opponent_team_id.length} team${filters.opponent_team_id.length === 1 ? '' : 's'} selected`
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <div className="px-2 py-1 border-b">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMultiSelectChange('opponent_team_id', nflTeams.map(t => t.team_id));
+                            }}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMultiSelectChange('opponent_team_id', []);
+                            }}
+                          >
+                            Clear All
+                          </Button>
+                        </div>
+                      </div>
+                      {teamsLoading ? (
+                        <SelectItem value="loading" disabled>Loading teams...</SelectItem>
+                      ) : (
+                        nflTeams?.map((team) => (
+                          <div key={`opponent-${team.team_id}`} className="flex items-center space-x-2 px-2 py-1.5 hover:bg-accent">
+                            <Checkbox
+                              id={`opponent-${team.team_id}`}
+                              checked={filters.opponent_team_id.includes(team.team_id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  handleMultiSelectChange('opponent_team_id', [...filters.opponent_team_id, team.team_id]);
+                                } else {
+                                  handleMultiSelectChange('opponent_team_id', filters.opponent_team_id.filter(id => id !== team.team_id));
+                                }
+                              }}
+                            />
+                            <Label htmlFor={`opponent-${team.team_id}`} className="text-sm cursor-pointer flex-1">
+                              {team.city_and_name}
+                            </Label>
+                          </div>
+                        )) || []
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {filters.opponent_team_id.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-muted-foreground mb-1">Selected teams:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {filters.opponent_team_id.map(teamId => {
+                          const team = nflTeams.find(t => t.team_id === teamId);
+                          return (
+                            <Badge key={teamId} variant="secondary" className="text-xs">
+                              {team?.city_and_name || teamId}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <Label htmlFor="spread_closing">Spread Closing</Label>
-                  <Input
-                    id="spread_closing"
-                    value={filters.spread_closing}
-                    onChange={(e) => handleFilterChange('spread_closing', e.target.value)}
-                    placeholder="-3.5"
-                  />
+                  <Label>Spread Range: {spreadRange[0]} to {spreadRange[1]}</Label>
+                  <div className="px-2 py-2">
+                    <div className="relative h-8">
+                      <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
+                      <div 
+                        className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+                        style={{
+                          left: `${(spreadRange[0] / 20) * 100}%`,
+                          width: `${((spreadRange[1] - spreadRange[0]) / 20) * 100}%`
+                        }}
+                      ></div>
+                      <div
+                        className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                        style={{ left: `${(spreadRange[0] / 20) * 100}%` }}
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          const handleEl = e.currentTarget as HTMLElement;
+                          handleEl.setPointerCapture(e.pointerId);
+                          const slider = handleEl.parentElement!;
+                          const getRect = () => slider.getBoundingClientRect();
+                          const onMove = (pe: PointerEvent) => {
+                            const rect = getRect();
+                            const x = pe.clientX - rect.left;
+                            const percentage = Math.max(0, Math.min(1, x / rect.width));
+                            const value = Math.round(percentage * 20);
+                            if (value <= spreadRange[1]) {
+                              setSpreadRange([value, spreadRange[1]]);
+                            }
+                          };
+                          const onUp = (pe: PointerEvent) => {
+                            handleEl.releasePointerCapture(pe.pointerId);
+                            window.removeEventListener('pointermove', onMove);
+                            window.removeEventListener('pointerup', onUp);
+                          };
+                          window.addEventListener('pointermove', onMove);
+                          window.addEventListener('pointerup', onUp);
+                        }}
+                      ></div>
+                      <div
+                        className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                        style={{ left: `${(spreadRange[1] / 20) * 100}%` }}
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          const handleEl = e.currentTarget as HTMLElement;
+                          handleEl.setPointerCapture(e.pointerId);
+                          const slider = handleEl.parentElement!;
+                          const getRect = () => slider.getBoundingClientRect();
+                          const onMove = (pe: PointerEvent) => {
+                            const rect = getRect();
+                            const x = pe.clientX - rect.left;
+                            const percentage = Math.max(0, Math.min(1, x / rect.width));
+                            const value = Math.round(percentage * 20);
+                            if (value >= spreadRange[0]) {
+                              setSpreadRange([spreadRange[0], value]);
+                            }
+                          };
+                          const onUp = (pe: PointerEvent) => {
+                            handleEl.releasePointerCapture(pe.pointerId);
+                            window.removeEventListener('pointermove', onMove);
+                            window.removeEventListener('pointerup', onUp);
+                          };
+                          window.addEventListener('pointermove', onMove);
+                          window.addEventListener('pointerup', onUp);
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Boolean Filters */}
+            {viewType === "individual" && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="team_last_spread">Team Last Spread</Label>
+                    <Select value={filters.team_last_spread || "any"} onValueChange={(value) => handleFilterChange('team_last_spread', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="1">Covered</SelectItem>
+                        <SelectItem value="0">Didn't Cover</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="team_last_ou">Team Last Over/Under</Label>
+                    <Select value={filters.team_last_ou || "any"} onValueChange={(value) => handleFilterChange('team_last_ou', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="1">Over</SelectItem>
+                        <SelectItem value="0">Under</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="team_last_ml">Team Last Money Line</Label>
+                    <Select value={filters.team_last_ml || "any"} onValueChange={(value) => handleFilterChange('team_last_ml', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="1">Won</SelectItem>
+                        <SelectItem value="0">Loss</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="opponent_last_spread">Opponent Last Spread</Label>
+                    <Select value={filters.opponent_last_spread || "any"} onValueChange={(value) => handleFilterChange('opponent_last_spread', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="1">Covered</SelectItem>
+                        <SelectItem value="0">Didn't Cover</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="opponent_last_ou">Opponent Last Over/Under</Label>
+                    <Select value={filters.opponent_last_ou || "any"} onValueChange={(value) => handleFilterChange('opponent_last_ou', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="1">Over</SelectItem>
+                        <SelectItem value="0">Under</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="opponent_last_ml">Opponent Last Money Line</Label>
+                    <Select value={filters.opponent_last_ml || "any"} onValueChange={(value) => handleFilterChange('opponent_last_ml', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="1">Won</SelectItem>
+                        <SelectItem value="0">Loss</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="team_consecutive_home_away">Primary Team Last Game</Label>
+                    <Select value={filters.team_consecutive_home_away || "any"} onValueChange={(value) => handleFilterChange('team_consecutive_home_away', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="home">Home</SelectItem>
+                        <SelectItem value="away">Away</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="opponent_consecutive_home_away">Opponent Team Last Game</Label>
+                    <Select value={filters.opponent_consecutive_home_away || "any"} onValueChange={(value) => handleFilterChange('opponent_consecutive_home_away', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="home">Home</SelectItem>
+                        <SelectItem value="away">Away</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </>
             )}
