@@ -450,13 +450,13 @@ export default function NFLAnalytics() {
       {renderGameLevelView()}
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Common Filters */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Schedule Group */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Schedule</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div>
               <Label htmlFor="day">Day of Week</Label>
               <Select value={filters.day || 'any'} onValueChange={(value) => handleFilterChange('day', value === 'any' ? '' : value)}>
@@ -613,6 +613,86 @@ export default function NFLAnalytics() {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Betting Lines Group */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Betting Lines</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {viewType === "individual" && (
+              <div>
+                <Label>Spread Range: {spreadRange[0]} to {spreadRange[1]}</Label>
+                <div className="px-2 py-2">
+                  <div className="relative h-8">
+                    <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
+                    <div 
+                      className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+                      style={{
+                        left: `${(spreadRange[0] / 20) * 100}%`,
+                        width: `${((spreadRange[1] - spreadRange[0]) / 20) * 100}%`
+                      }}
+                    ></div>
+                    <div
+                      className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                      style={{ left: `${(spreadRange[0] / 20) * 100}%` }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        const handleEl = e.currentTarget as HTMLElement;
+                        handleEl.setPointerCapture(e.pointerId);
+                        const slider = handleEl.parentElement!;
+                        const getRect = () => slider.getBoundingClientRect();
+                        const onMove = (pe: PointerEvent) => {
+                          const rect = getRect();
+                          const x = pe.clientX - rect.left;
+                          const percentage = Math.max(0, Math.min(1, x / rect.width));
+                          const value = Math.round(percentage * 20);
+                          if (value <= spreadRange[1]) {
+                            setSpreadRange([value, spreadRange[1]]);
+                          }
+                        };
+                        const onUp = (pe: PointerEvent) => {
+                          handleEl.releasePointerCapture(pe.pointerId);
+                          window.removeEventListener('pointermove', onMove);
+                          window.removeEventListener('pointerup', onUp);
+                        };
+                        window.addEventListener('pointermove', onMove);
+                        window.addEventListener('pointerup', onUp);
+                      }}
+                    ></div>
+                    <div
+                      className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                      style={{ left: `${(spreadRange[1] / 20) * 100}%` }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        const handleEl = e.currentTarget as HTMLElement;
+                        handleEl.setPointerCapture(e.pointerId);
+                        const slider = handleEl.parentElement!;
+                        const getRect = () => slider.getBoundingClientRect();
+                        const onMove = (pe: PointerEvent) => {
+                          const rect = getRect();
+                          const x = pe.clientX - rect.left;
+                          const percentage = Math.max(0, Math.min(1, x / rect.width));
+                          const value = Math.round(percentage * 20);
+                          if (value >= spreadRange[0]) {
+                            setSpreadRange([spreadRange[0], value]);
+                          }
+                        };
+                        const onUp = (pe: PointerEvent) => {
+                          handleEl.releasePointerCapture(pe.pointerId);
+                          window.removeEventListener('pointermove', onMove);
+                          window.removeEventListener('pointerup', onUp);
+                        };
+                        window.addEventListener('pointermove', onMove);
+                        window.addEventListener('pointerup', onUp);
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <Label>O/U Line Range: {ouLineRange[0]} - {ouLineRange[1]}</Label>
@@ -669,6 +749,98 @@ export default function NFLAnalytics() {
                         const value = Math.round(30 + percentage * (70 - 30));
                         if (value >= ouLineRange[0]) {
                           setOuLineRange([ouLineRange[0], value]);
+                        }
+                      };
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                      };
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Game Time Conditions Group */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Game Time Conditions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="precipitation_type">Precipitation</Label>
+              <Select value={filters.precipitation_type} onValueChange={(value) => handleFilterChange('precipitation_type', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select precipitation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="rain">Rain</SelectItem>
+                  <SelectItem value="snow">Snow</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Wind Speed Range: {windSpeedRange[0]} mph - {windSpeedRange[1]} mph</Label>
+              <div className="px-2 py-2">
+                <div className="relative h-8">
+                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
+                  <div 
+                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+                    style={{
+                      left: `${((windSpeedRange[0] - 0) / (60 - 0)) * 100}%`,
+                      width: `${((windSpeedRange[1] - windSpeedRange[0]) / (60 - 0)) * 100}%`
+                    }}
+                  ></div>
+                  <div
+                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                    style={{ left: `${((windSpeedRange[0] - 0) / (60 - 0)) * 100}%` }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const value = Math.round(0 + percentage * (60 - 0));
+                        if (value <= windSpeedRange[1]) {
+                          setWindSpeedRange([value, windSpeedRange[1]]);
+                        }
+                      };
+                      const onUp = (pe: PointerEvent) => {
+                        handleEl.releasePointerCapture(pe.pointerId);
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                      };
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                    }}
+                  ></div>
+                  <div
+                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
+                    style={{ left: `${((windSpeedRange[1] - 0) / (60 - 0)) * 100}%` }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      const handleEl = e.currentTarget as HTMLElement;
+                      handleEl.setPointerCapture(e.pointerId);
+                      const slider = handleEl.parentElement!;
+                      const getRect = () => slider.getBoundingClientRect();
+                      const onMove = (pe: PointerEvent) => {
+                        const rect = getRect();
+                        const x = pe.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const value = Math.round(0 + percentage * (60 - 0));
+                        if (value >= windSpeedRange[0]) {
+                          setWindSpeedRange([windSpeedRange[0], value]);
                         }
                       };
                       const onUp = (pe: PointerEvent) => {
@@ -755,91 +927,6 @@ export default function NFLAnalytics() {
             </div>
 
             <div>
-              <Label>Wind Speed Range: {windSpeedRange[0]} mph - {windSpeedRange[1]} mph</Label>
-              <div className="px-2 py-2">
-                <div className="relative h-8">
-                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
-                  <div 
-                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
-                    style={{
-                      left: `${((windSpeedRange[0] - 0) / (60 - 0)) * 100}%`,
-                      width: `${((windSpeedRange[1] - windSpeedRange[0]) / (60 - 0)) * 100}%`
-                    }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((windSpeedRange[0] - 0) / (60 - 0)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(0 + percentage * (60 - 0));
-                        if (value <= windSpeedRange[1]) {
-                          setWindSpeedRange([value, windSpeedRange[1]]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
-                    }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((windSpeedRange[1] - 0) / (60 - 0)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(0 + percentage * (60 - 0));
-                        if (value >= windSpeedRange[0]) {
-                          setWindSpeedRange([windSpeedRange[0], value]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
-                    }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-
-            <div>
-              <Label htmlFor="precipitation_type">Precipitation</Label>
-              <Select value={filters.precipitation_type} onValueChange={(value) => handleFilterChange('precipitation_type', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select precipitation" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="rain">Rain</SelectItem>
-                  <SelectItem value="snow">Snow</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
               <Label htmlFor="game_stadium_dome">Stadium Type</Label>
               <Select value={filters.game_stadium_dome} onValueChange={(value) => handleFilterChange('game_stadium_dome', value)}>
                 <SelectTrigger>
@@ -848,19 +935,6 @@ export default function NFLAnalytics() {
                 <SelectContent>
                   <SelectItem value="true">Dome</SelectItem>
                   <SelectItem value="false">Outdoor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="conference_game">Divisional Game</Label>
-              <Select value={filters.conference_game} onValueChange={(value) => handleFilterChange('conference_game', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select divisional game" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -877,8 +951,15 @@ export default function NFLAnalytics() {
                 </SelectContent>
               </Select>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Individual Team Filters */}
+        {/* Select Team(s) Group */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Team(s)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             {viewType === "individual" && (
               <>
                 <div>
@@ -1058,199 +1139,23 @@ export default function NFLAnalytics() {
                     </div>
                   )}
                 </div>
-
-                <div>
-                  <Label>Spread Range: {spreadRange[0]} to {spreadRange[1]}</Label>
-                  <div className="px-2 py-2">
-                    <div className="relative h-8">
-                      <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
-                      <div 
-                        className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
-                        style={{
-                          left: `${(spreadRange[0] / 20) * 100}%`,
-                          width: `${((spreadRange[1] - spreadRange[0]) / 20) * 100}%`
-                        }}
-                      ></div>
-                      <div
-                        className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                        style={{ left: `${(spreadRange[0] / 20) * 100}%` }}
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          const handleEl = e.currentTarget as HTMLElement;
-                          handleEl.setPointerCapture(e.pointerId);
-                          const slider = handleEl.parentElement!;
-                          const getRect = () => slider.getBoundingClientRect();
-                          const onMove = (pe: PointerEvent) => {
-                            const rect = getRect();
-                            const x = pe.clientX - rect.left;
-                            const percentage = Math.max(0, Math.min(1, x / rect.width));
-                            const value = Math.round(percentage * 20);
-                            if (value <= spreadRange[1]) {
-                              setSpreadRange([value, spreadRange[1]]);
-                            }
-                          };
-                          const onUp = (pe: PointerEvent) => {
-                            handleEl.releasePointerCapture(pe.pointerId);
-                            window.removeEventListener('pointermove', onMove);
-                            window.removeEventListener('pointerup', onUp);
-                          };
-                          window.addEventListener('pointermove', onMove);
-                          window.addEventListener('pointerup', onUp);
-                        }}
-                      ></div>
-                      <div
-                        className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                        style={{ left: `${(spreadRange[1] / 20) * 100}%` }}
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          const handleEl = e.currentTarget as HTMLElement;
-                          handleEl.setPointerCapture(e.pointerId);
-                          const slider = handleEl.parentElement!;
-                          const getRect = () => slider.getBoundingClientRect();
-                          const onMove = (pe: PointerEvent) => {
-                            const rect = getRect();
-                            const x = pe.clientX - rect.left;
-                            const percentage = Math.max(0, Math.min(1, x / rect.width));
-                            const value = Math.round(percentage * 20);
-                            if (value >= spreadRange[0]) {
-                              setSpreadRange([spreadRange[0], value]);
-                            }
-                          };
-                          const onUp = (pe: PointerEvent) => {
-                            handleEl.releasePointerCapture(pe.pointerId);
-                            window.removeEventListener('pointermove', onMove);
-                            window.removeEventListener('pointerup', onUp);
-                          };
-                          window.addEventListener('pointermove', onMove);
-                          window.addEventListener('pointerup', onUp);
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
               </>
             )}
 
-            {/* Boolean Filters */}
-            {viewType === "individual" && (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="team_last_spread">Team Last Spread</Label>
-                    <Select value={filters.team_last_spread || "any"} onValueChange={(value) => handleFilterChange('team_last_spread', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="1">Covered</SelectItem>
-                        <SelectItem value="0">Didn't Cover</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <div>
+              <Label htmlFor="conference_game">Divisional Game</Label>
+              <Select value={filters.conference_game} onValueChange={(value) => handleFilterChange('conference_game', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select divisional game" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Yes</SelectItem>
+                  <SelectItem value="false">No</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                  <div>
-                    <Label htmlFor="team_last_ou">Team Last Over/Under</Label>
-                    <Select value={filters.team_last_ou || "any"} onValueChange={(value) => handleFilterChange('team_last_ou', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="1">Over</SelectItem>
-                        <SelectItem value="0">Under</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="team_last_ml">Team Last Money Line</Label>
-                    <Select value={filters.team_last_ml || "any"} onValueChange={(value) => handleFilterChange('team_last_ml', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="1">Won</SelectItem>
-                        <SelectItem value="0">Loss</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="opponent_last_spread">Opponent Last Spread</Label>
-                    <Select value={filters.opponent_last_spread || "any"} onValueChange={(value) => handleFilterChange('opponent_last_spread', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="1">Covered</SelectItem>
-                        <SelectItem value="0">Didn't Cover</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="opponent_last_ou">Opponent Last Over/Under</Label>
-                    <Select value={filters.opponent_last_ou || "any"} onValueChange={(value) => handleFilterChange('opponent_last_ou', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="1">Over</SelectItem>
-                        <SelectItem value="0">Under</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="opponent_last_ml">Opponent Last Money Line</Label>
-                    <Select value={filters.opponent_last_ml || "any"} onValueChange={(value) => handleFilterChange('opponent_last_ml', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="1">Won</SelectItem>
-                        <SelectItem value="0">Loss</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="team_consecutive_home_away">Primary Team Last Game</Label>
-                    <Select value={filters.team_consecutive_home_away || "any"} onValueChange={(value) => handleFilterChange('team_consecutive_home_away', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="home">Home</SelectItem>
-                        <SelectItem value="away">Away</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="opponent_consecutive_home_away">Opponent Team Last Game</Label>
-                    <Select value={filters.opponent_consecutive_home_away || "any"} onValueChange={(value) => handleFilterChange('opponent_consecutive_home_away', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="home">Home</SelectItem>
-                        <SelectItem value="away">Away</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Game Level Filters */}
+            {/* Game Level Filters for Team Selection */}
             {viewType === "game" && (
               <>
                 <div>
@@ -1284,9 +1189,138 @@ export default function NFLAnalytics() {
                 </div>
               </>
             )}
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="flex gap-2 mt-4">
+        {/* Last Game Results/Conditions Group */}
+        {viewType === "individual" && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Last Game Results/Conditions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="team_last_spread">Team Last Spread</Label>
+                  <Select value={filters.team_last_spread || "any"} onValueChange={(value) => handleFilterChange('team_last_spread', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="1">Covered</SelectItem>
+                      <SelectItem value="0">Didn't Cover</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="team_last_ou">Team Last Over/Under</Label>
+                  <Select value={filters.team_last_ou || "any"} onValueChange={(value) => handleFilterChange('team_last_ou', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="1">Over</SelectItem>
+                      <SelectItem value="0">Under</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="team_last_ml">Team Last Money Line</Label>
+                  <Select value={filters.team_last_ml || "any"} onValueChange={(value) => handleFilterChange('team_last_ml', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="1">Won</SelectItem>
+                      <SelectItem value="0">Loss</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="opponent_last_spread">Opponent Last Spread</Label>
+                  <Select value={filters.opponent_last_spread || "any"} onValueChange={(value) => handleFilterChange('opponent_last_spread', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="1">Covered</SelectItem>
+                      <SelectItem value="0">Didn't Cover</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="opponent_last_ou">Opponent Last Over/Under</Label>
+                  <Select value={filters.opponent_last_ou || "any"} onValueChange={(value) => handleFilterChange('opponent_last_ou', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="1">Over</SelectItem>
+                      <SelectItem value="0">Under</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="opponent_last_ml">Opponent Last Money Line</Label>
+                  <Select value={filters.opponent_last_ml || "any"} onValueChange={(value) => handleFilterChange('opponent_last_ml', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="1">Won</SelectItem>
+                      <SelectItem value="0">Loss</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="team_consecutive_home_away">Primary Team Last Game (Home/Away)</Label>
+                  <Select value={filters.team_consecutive_home_away || "any"} onValueChange={(value) => handleFilterChange('team_consecutive_home_away', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="home">Home</SelectItem>
+                      <SelectItem value="away">Away</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="opponent_consecutive_home_away">Opponent Team Last Game (Home/Away)</Label>
+                  <Select value={filters.opponent_consecutive_home_away || "any"} onValueChange={(value) => handleFilterChange('opponent_consecutive_home_away', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="home">Home</SelectItem>
+                      <SelectItem value="away">Away</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="flex gap-2">
             <Button onClick={clearFilters} variant="outline">
               Clear Filters
             </Button>

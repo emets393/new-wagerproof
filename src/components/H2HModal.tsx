@@ -16,6 +16,7 @@ interface H2HGame {
   home_away_ml: number;
   away_ml?: number;
   ou_result: number;
+  ou_vegas_line?: number;
   season: number;
 }
 

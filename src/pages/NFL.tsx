@@ -27,6 +27,7 @@ interface NFLPrediction {
   favcov_prob: number | null;
   fav_team: string | null;
   favcov_home_away_pred: number | null;
+  spread_pick?: number | null;
   ml_ensemble_prob: number | null;
   ou_cls_prob: number | null;
   ou_reg_pred: number | null;
