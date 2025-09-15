@@ -613,6 +613,21 @@ export default function NFLAnalytics() {
                 </div>
               </div>
             </div>
+
+            <div>
+              <Label htmlFor="start">Start Time</Label>
+              <Select value={filters.start || 'any'} onValueChange={(value) => handleFilterChange('start', value === 'any' ? '' : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Any start time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any</SelectItem>
+                  <SelectItem value="Day">Day</SelectItem>
+                  <SelectItem value="Late">Late</SelectItem>
+                  <SelectItem value="Night">Night</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 
