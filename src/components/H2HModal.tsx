@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Trophy, Target, ArrowUp, ArrowDown } from 'lucide-react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface H2HGame {
   id: number;
@@ -31,6 +32,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
   const [games, setGames] = useState<H2HGame[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (isOpen && homeTeam && awayTeam) {
@@ -296,38 +298,60 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className={`bg-white rounded-lg shadow-xl w-full flex flex-col ${
+        isMobile 
+          ? 'max-w-sm max-h-[95vh] mx-2' 
+          : 'max-w-4xl max-h-[90vh]'
+      }`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200 bg-white">
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-sm">
-              <Trophy className="h-5 w-5 text-white" />
+        <div className={`flex items-center justify-between border-b border-slate-200 bg-white ${
+          isMobile ? 'px-4 py-4' : 'px-8 py-6'
+        }`}>
+          <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-4'}`}>
+            <div className={`rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-sm ${
+              isMobile ? 'w-8 h-8' : 'w-10 h-10'
+            }`}>
+              <Trophy className={`text-white ${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                {homeTeam} vs {awayTeam}
+              <h2 className={`font-bold text-slate-900 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+                {isMobile ? `${homeTeam.length > 8 ? homeTeam.substring(0, 8) + '...' : homeTeam} vs ${awayTeam.length > 8 ? awayTeam.substring(0, 8) + '...' : awayTeam}` : `${homeTeam} vs ${awayTeam}`}
               </h2>
-              <p className="text-sm text-slate-500 font-medium">Most Recent Head to Head Analysis</p>
+              <p className={`text-slate-500 font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                {isMobile ? 'H2H Analysis' : 'Most Recent Head to Head Analysis'}
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors duration-200"
+            className={`rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors duration-200 ${
+              isMobile ? 'w-10 h-10' : 'w-8 h-8'
+            }`}
           >
-            <X className="h-4 w-4 text-slate-600" />
+            <X className={`text-slate-600 ${isMobile ? 'h-5 w-5' : 'h-4 w-4'}`} />
           </button>
         </div>
 
         {/* Summary Statistics */}
-        <div className="px-8 py-6 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-          <div className="grid grid-cols-3 gap-8">
+        <div className={`bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 ${
+          isMobile ? 'px-4 py-4' : 'px-8 py-6'
+        }`}>
+          <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-3 gap-8'}`}>
             {/* Wins */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200">
+            <div className={`bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 ${
+              isMobile ? 'p-4' : 'p-6'
+            }`}>
               <div className="text-center">
-                <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-6">Wins</h3>
-                <div className="flex items-center justify-center space-x-12">
-                  <div className={`flex flex-col items-center space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                <h3 className={`font-semibold text-slate-600 uppercase tracking-wide ${
+                  isMobile ? 'text-xs mb-4' : 'text-sm mb-6'
+                }`}>Wins</h3>
+                <div className={`flex items-center justify-center ${
+                  isMobile ? 'space-x-4' : 'space-x-12'
+                }`}>
+                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                    isMobile ? 'space-y-2' : 'space-y-4 p-3'
+                  } ${
                     stats.awayTeamWins > stats.homeTeamWins 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
                       : 'bg-transparent'
@@ -335,11 +359,15 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                     <img 
                       src={getTeamLogo(awayTeam)} 
                       alt={`${awayTeam} logo`}
-                      className="w-16 h-16 object-contain"
+                      className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
                     />
-                    <div className="text-3xl font-bold text-slate-900">{stats.awayTeamWins}</div>
+                    <div className={`font-bold text-slate-900 ${
+                      isMobile ? 'text-xl' : 'text-3xl'
+                    }`}>{stats.awayTeamWins}</div>
                   </div>
-                  <div className={`flex flex-col items-center space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                    isMobile ? 'space-y-2' : 'space-y-4 p-3'
+                  } ${
                     stats.homeTeamWins > stats.awayTeamWins 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
                       : 'bg-transparent'
@@ -347,20 +375,30 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                     <img 
                       src={getTeamLogo(homeTeam)} 
                       alt={`${homeTeam} logo`}
-                      className="w-16 h-16 object-contain"
+                      className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
                     />
-                    <div className="text-3xl font-bold text-slate-900">{stats.homeTeamWins}</div>
+                    <div className={`font-bold text-slate-900 ${
+                      isMobile ? 'text-xl' : 'text-3xl'
+                    }`}>{stats.homeTeamWins}</div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Covers */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200">
+            <div className={`bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 ${
+              isMobile ? 'p-4' : 'p-6'
+            }`}>
               <div className="text-center">
-                <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-6">Covers</h3>
-                <div className="flex items-center justify-center space-x-12">
-                  <div className={`flex flex-col items-center space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                <h3 className={`font-semibold text-slate-600 uppercase tracking-wide ${
+                  isMobile ? 'text-xs mb-4' : 'text-sm mb-6'
+                }`}>Covers</h3>
+                <div className={`flex items-center justify-center ${
+                  isMobile ? 'space-x-4' : 'space-x-12'
+                }`}>
+                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                    isMobile ? 'space-y-2' : 'space-y-4 p-3'
+                  } ${
                     stats.awayTeamCovers > stats.homeTeamCovers 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
                       : 'bg-transparent'
@@ -368,11 +406,15 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                     <img 
                       src={getTeamLogo(awayTeam)} 
                       alt={`${awayTeam} logo`}
-                      className="w-16 h-16 object-contain"
+                      className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
                     />
-                    <div className="text-3xl font-bold text-slate-900">{stats.awayTeamCovers}</div>
+                    <div className={`font-bold text-slate-900 ${
+                      isMobile ? 'text-xl' : 'text-3xl'
+                    }`}>{stats.awayTeamCovers}</div>
                   </div>
-                  <div className={`flex flex-col items-center space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                    isMobile ? 'space-y-2' : 'space-y-4 p-3'
+                  } ${
                     stats.homeTeamCovers > stats.awayTeamCovers 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
                       : 'bg-transparent'
@@ -380,40 +422,64 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                     <img 
                       src={getTeamLogo(homeTeam)} 
                       alt={`${homeTeam} logo`}
-                      className="w-16 h-16 object-contain"
+                      className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
                     />
-                    <div className="text-3xl font-bold text-slate-900">{stats.homeTeamCovers}</div>
+                    <div className={`font-bold text-slate-900 ${
+                      isMobile ? 'text-xl' : 'text-3xl'
+                    }`}>{stats.homeTeamCovers}</div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Over/Under */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200">
+            <div className={`bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 ${
+              isMobile ? 'p-4' : 'p-6'
+            }`}>
               <div className="text-center">
-                <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-6">Over/Under</h3>
-                <div className="flex items-center justify-center space-x-12">
-                  <div className={`flex flex-col items-center space-y-3 p-3 rounded-lg transition-all duration-200 ${
+                <h3 className={`font-semibold text-slate-600 uppercase tracking-wide ${
+                  isMobile ? 'text-xs mb-4' : 'text-sm mb-6'
+                }`}>Over/Under</h3>
+                <div className={`flex items-center justify-center ${
+                  isMobile ? 'space-x-4' : 'space-x-12'
+                }`}>
+                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                    isMobile ? 'space-y-2' : 'space-y-3 p-3'
+                  } ${
                     stats.overs > stats.unders 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
                       : 'bg-transparent'
                   }`}>
-                    <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
-                      <ArrowUp className="h-7 w-7 text-emerald-600" />
+                    <div className={`rounded-full bg-emerald-50 flex items-center justify-center ${
+                      isMobile ? 'w-10 h-10' : 'w-14 h-14'
+                    }`}>
+                      <ArrowUp className={`text-emerald-600 ${isMobile ? 'h-5 w-5' : 'h-7 w-7'}`} />
                     </div>
-                    <div className="text-3xl font-bold text-slate-900">{stats.overs}</div>
-                    <div className="text-sm font-medium text-emerald-600">Over</div>
+                    <div className={`font-bold text-slate-900 ${
+                      isMobile ? 'text-xl' : 'text-3xl'
+                    }`}>{stats.overs}</div>
+                    <div className={`font-medium text-emerald-600 ${
+                      isMobile ? 'text-xs' : 'text-sm'
+                    }`}>Over</div>
                   </div>
-                  <div className={`flex flex-col items-center space-y-3 p-3 rounded-lg transition-all duration-200 ${
+                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                    isMobile ? 'space-y-2' : 'space-y-3 p-3'
+                  } ${
                     stats.unders > stats.overs 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
                       : 'bg-transparent'
                   }`}>
-                    <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
-                      <ArrowDown className="h-7 w-7 text-red-600" />
+                    <div className={`rounded-full bg-red-50 flex items-center justify-center ${
+                      isMobile ? 'w-10 h-10' : 'w-14 h-14'
+                    }`}>
+                      <ArrowDown className={`text-red-600 ${isMobile ? 'h-5 w-5' : 'h-7 w-7'}`} />
                     </div>
-                    <div className="text-3xl font-bold text-slate-900">{stats.unders}</div>
-                    <div className="text-sm font-medium text-red-600">Under</div>
+                    <div className={`font-bold text-slate-900 ${
+                      isMobile ? 'text-xl' : 'text-3xl'
+                    }`}>{stats.unders}</div>
+                    <div className={`font-medium text-red-600 ${
+                      isMobile ? 'text-xs' : 'text-sm'
+                    }`}>Under</div>
                   </div>
                 </div>
               </div>
@@ -422,7 +488,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className={`overflow-y-auto flex-1 ${isMobile ? 'p-4' : 'p-6'}`}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -447,7 +513,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="text-sm text-gray-600 mb-4">
+              <div className={`text-gray-600 ${isMobile ? 'text-xs mb-3' : 'text-sm mb-4'}`}>
                 Last {games.length} matchup{games.length !== 1 ? 's' : ''} between these teams:
               </div>
               
@@ -458,28 +524,38 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                 const ouResult = getOUResult(game.home_score, game.away_score, game.ou_result);
 
                 return (
-                  <div key={game.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-600">
+                  <div key={game.id} className={`border border-gray-200 rounded-lg bg-gray-50 ${
+                    isMobile ? 'p-3' : 'p-4'
+                  }`}>
+                    <div className={`flex items-center justify-between ${isMobile ? 'mb-2' : 'mb-3'}`}>
+                      <div className={`flex items-center ${isMobile ? 'space-x-1' : 'space-x-2'}`}>
+                        <Calendar className={`text-gray-500 ${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
+                        <span className={`font-medium text-gray-600 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                           {formatDate(game.game_date)} - Week {game.week}
                         </span>
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className={`text-gray-500 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                         Season {game.season}
                       </div>
                     </div>
 
                     {/* Betting Results */}
-                    <div className="grid grid-cols-3 gap-6 items-center">
+                    <div className={`grid items-center ${
+                      isMobile ? 'grid-cols-1 gap-2' : 'grid-cols-3 gap-6'
+                    }`}>
                       {/* Spread */}
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-1 mb-2">
-                          <Target className="h-5 w-5 text-blue-500" />
-                          <span className="text-base font-medium text-gray-700">Spread</span>
+                      <div className={`text-center ${isMobile ? 'py-2 border-b border-gray-200' : ''}`}>
+                        <div className={`flex items-center justify-center mb-2 ${
+                          isMobile ? 'space-x-1' : 'space-x-1'
+                        }`}>
+                          <Target className={`text-blue-500 ${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
+                          <span className={`font-medium text-gray-700 ${
+                            isMobile ? 'text-sm' : 'text-base'
+                          }`}>Spread</span>
                         </div>
-                        <div className={`text-lg font-semibold ${
+                        <div className={`font-semibold ${
+                          isMobile ? 'text-base' : 'text-lg'
+                        } ${
                           spreadResult.covered ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {spreadResult.winner} {spreadResult.spreadLine > 0 ? '+' : ''}{spreadResult.spreadLine} {spreadResult.covered ? '✓' : '✗'}
@@ -487,43 +563,61 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                       </div>
 
                       {/* Score */}
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-6 whitespace-nowrap">
+                      <div className={`text-center ${isMobile ? 'py-2 border-b border-gray-200' : ''}`}>
+                        <div className={`flex items-center justify-center whitespace-nowrap ${
+                          isMobile ? 'space-x-3' : 'space-x-6'
+                        }`}>
                           <div className="flex flex-col items-center">
-                            <span className="text-xs font-medium text-gray-500 mb-1">Home</span>
+                            <span className={`font-medium text-gray-500 mb-1 ${
+                              isMobile ? 'text-xs' : 'text-xs'
+                            }`}>Home</span>
                             <img 
                               src={getTeamLogo(game.home_team)} 
                               alt={game.home_team}
-                              className="h-12 w-12 object-contain flex-shrink-0"
+                              className={`object-contain flex-shrink-0 ${
+                                isMobile ? 'h-8 w-8' : 'h-12 w-12'
+                              }`}
                             />
                           </div>
-                          <div className="text-4xl font-bold text-gray-900 flex-shrink-0">
+                          <div className={`font-bold text-gray-900 flex-shrink-0 ${
+                            isMobile ? 'text-2xl' : 'text-4xl'
+                          }`}>
                             {game.home_score} - {game.away_score}
                           </div>
                           <div className="flex flex-col items-center">
-                            <span className="text-xs font-medium text-gray-500 mb-1">Away</span>
+                            <span className={`font-medium text-gray-500 mb-1 ${
+                              isMobile ? 'text-xs' : 'text-xs'
+                            }`}>Away</span>
                             <img 
                               src={getTeamLogo(game.away_team)} 
                               alt={game.away_team}
-                              className="h-12 w-12 object-contain flex-shrink-0"
+                              className={`object-contain flex-shrink-0 ${
+                                isMobile ? 'h-8 w-8' : 'h-12 w-12'
+                              }`}
                             />
                           </div>
                         </div>
                       </div>
 
                       {/* Over/Under */}
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-1 mb-2">
-                          <span className="text-base font-medium text-gray-700">Over/Under</span>
+                      <div className={`text-center ${isMobile ? 'py-2' : ''}`}>
+                        <div className={`flex items-center justify-center mb-2 ${
+                          isMobile ? 'space-x-1' : 'space-x-1'
+                        }`}>
+                          <span className={`font-medium text-gray-700 ${
+                            isMobile ? 'text-sm' : 'text-base'
+                          }`}>Over/Under</span>
                         </div>
-                        <div className={`text-lg font-semibold flex items-center justify-center space-x-1 ${
+                        <div className={`font-semibold flex items-center justify-center space-x-1 ${
+                          isMobile ? 'text-base' : 'text-lg'
+                        } ${
                           game.ou_result === 1 ? 'text-green-600' : 'text-red-600'
                         }`}>
                           <span>{getOUDisplay(game.ou_result)} {game.ou_vegas_line}</span>
                           {game.ou_result === 1 ? (
-                            <ArrowUp className="h-5 w-5 text-green-600" />
+                            <ArrowUp className={`text-green-600 ${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
                           ) : (
-                            <ArrowDown className="h-5 w-5 text-red-600" />
+                            <ArrowDown className={`text-red-600 ${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
                           )}
                         </div>
                       </div>
