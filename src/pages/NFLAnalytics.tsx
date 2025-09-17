@@ -1354,7 +1354,6 @@ export default function NFLAnalytics() {
           </div>
         </CardContent>
       </Card>
-      )}
 
       {/* Loading State */}
       {isLoading && (
