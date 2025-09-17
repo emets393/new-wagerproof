@@ -14,6 +14,16 @@ import { collegeFootballSupabase } from '@/integrations/supabase/college-footbal
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
+// Color coding helper function
+const getColorClass = (value1: any, value2: any) => {
+  const v1 = parseFloat(value1 || 0);
+  const v2 = parseFloat(value2 || 0);
+  
+  if (v1 > v2) return 'text-green-600';
+  if (v1 < v2) return 'text-red-600';
+  return 'text-yellow-600'; // Equal values (around 50%)
+};
+
 interface NFLTeam {
   city_and_name: string;
   team_name: string;
@@ -384,47 +394,87 @@ export default function NFLAnalytics() {
     return (
       <>
         {/* Mobile: compact summary card replacing donuts */}
-        <div className="block sm:hidden">
-          <Card>
+        <div className="block sm:hidden sticky top-0 z-10 bg-white border-b pb-2 mb-4">
+          <Card className="shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">Summary</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="grid grid-cols-2 gap-2 text-xs">
+                {/* Container 1: Home/Away Win */}
                 <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600">Home Win</div>
-                  <div className="font-bold text-slate-900">{pct(summary.homeWinPercentage)}</div>
-                </div>
-                <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600">Away Win</div>
-                  <div className="font-bold text-slate-900">{pct(summary.awayWinPercentage)}</div>
-                </div>
-
-                <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600">Home Cover</div>
-                  <div className="font-bold text-slate-900">{pct(summary.homeCoverPercentage)}</div>
-                </div>
-                <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600">Away Cover</div>
-                  <div className="font-bold text-slate-900">{pct(summary.awayCoverPercentage)}</div>
-                </div>
-
-                <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600">Favorite Cover</div>
-                  <div className="font-bold text-slate-900">{pct(summary.favoriteCoverPercentage)}</div>
-                </div>
-                <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600">Underdog Cover</div>
-                  <div className="font-bold text-slate-900">{pct(summary.underdogCoverPercentage)}</div>
+                  <div className="text-[11px] text-slate-600 mb-1">Wins</div>
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="text-[10px] text-slate-500">Home</div>
+                      <div className={`font-bold ${getColorClass(summary.homeWinPercentage, summary.awayWinPercentage)}`}>
+                        {pct(summary.homeWinPercentage)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-500">Away</div>
+                      <div className={`font-bold ${getColorClass(summary.awayWinPercentage, summary.homeWinPercentage)}`}>
+                        {pct(summary.awayWinPercentage)}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
+                {/* Container 2: Home/Away Cover */}
                 <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600">Over</div>
-                  <div className="font-bold text-slate-900">{pct(summary.overPercentage)}</div>
+                  <div className="text-[11px] text-slate-600 mb-1">Covers</div>
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="text-[10px] text-slate-500">Home</div>
+                      <div className={`font-bold ${getColorClass(summary.homeCoverPercentage, summary.awayCoverPercentage)}`}>
+                        {pct(summary.homeCoverPercentage)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-500">Away</div>
+                      <div className={`font-bold ${getColorClass(summary.awayCoverPercentage, summary.homeCoverPercentage)}`}>
+                        {pct(summary.awayCoverPercentage)}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Container 3: Favorite/Underdog Cover */}
                 <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600">Under</div>
-                  <div className="font-bold text-slate-900">{pct(summary.underPercentage)}</div>
+                  <div className="text-[11px] text-slate-600 mb-1">Fav/Dog</div>
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="text-[10px] text-slate-500">Fav</div>
+                      <div className={`font-bold ${getColorClass(summary.favoriteCoverPercentage, summary.underdogCoverPercentage)}`}>
+                        {pct(summary.favoriteCoverPercentage)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-500">Dog</div>
+                      <div className={`font-bold ${getColorClass(summary.underdogCoverPercentage, summary.favoriteCoverPercentage)}`}>
+                        {pct(summary.underdogCoverPercentage)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Container 4: Over/Under */}
+                <div className="bg-white border rounded-md p-2">
+                  <div className="text-[11px] text-slate-600 mb-1">O/U</div>
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="text-[10px] text-slate-500">Over</div>
+                      <div className={`font-bold ${getColorClass(summary.overPercentage, summary.underPercentage)}`}>
+                        {pct(summary.overPercentage)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-500">Under</div>
+                      <div className={`font-bold ${getColorClass(summary.underPercentage, summary.overPercentage)}`}>
+                        {pct(summary.underPercentage)}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
