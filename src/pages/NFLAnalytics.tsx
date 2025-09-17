@@ -540,7 +540,39 @@ export default function NFLAnalytics() {
   };
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
+    <>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .slider::-webkit-slider-thumb {
+            appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          }
+          .slider::-moz-range-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          }
+          .slider::-webkit-slider-track {
+            height: 8px;
+            border-radius: 4px;
+          }
+          .slider::-moz-range-track {
+            height: 8px;
+            border-radius: 4px;
+          }
+        `
+      }} />
+      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-4xl font-bold text-primary mb-2 sm:mb-4">NFL Analytics</h1>
         <p className="text-sm sm:text-lg text-muted-foreground">
@@ -581,140 +613,92 @@ export default function NFLAnalytics() {
 
             <div>
               <Label>Season Range: {seasonRange[0]} - {seasonRange[1]}</Label>
-              <div className="px-2 py-2">
-                <div className="relative h-8">
-                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
-                  <div 
-                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+              <div className="px-2 py-2 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <input
+                    type="range"
+                    min="2018"
+                    max="2025"
+                    value={seasonRange[0]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value <= seasonRange[1]) {
+                        setSeasonRange([value, seasonRange[1]]);
+                      }
+                    }}
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                     style={{
-                      left: `${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%`,
-                      width: `${((seasonRange[1] - seasonRange[0]) / (2025 - 2018)) * 100}%`
+                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%, #e5e7eb ${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(2018 + percentage * (2025 - 2018));
-                        if (value <= seasonRange[1]) {
-                          setSeasonRange([value, seasonRange[1]]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                  />
+                  <span className="text-xs text-gray-500 w-8">{seasonRange[0]}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <input
+                    type="range"
+                    min="2018"
+                    max="2025"
+                    value={seasonRange[1]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value >= seasonRange[0]) {
+                        setSeasonRange([seasonRange[0], value]);
+                      }
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((seasonRange[1] - 2018) / (2025 - 2018)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(2018 + percentage * (2025 - 2018));
-                        if (value >= seasonRange[0]) {
-                          setSeasonRange([seasonRange[0], value]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%, #3b82f6 ${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%, #3b82f6 ${((seasonRange[1] - 2018) / (2025 - 2018)) * 100}%, #e5e7eb ${((seasonRange[1] - 2018) / (2025 - 2018)) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
+                  />
+                  <span className="text-xs text-gray-500 w-8">{seasonRange[1]}</span>
                 </div>
               </div>
             </div>
             
             <div>
               <Label>Week Range: {weekRange[0]} - {weekRange[1]}</Label>
-              <div className="px-2 py-2">
-                <div className="relative h-8">
-                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
-                  <div 
-                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+              <div className="px-2 py-2 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="18"
+                    value={weekRange[0]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value <= weekRange[1]) {
+                        setWeekRange([value, weekRange[1]]);
+                      }
+                    }}
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                     style={{
-                      left: `${((weekRange[0] - 1) / (18 - 1)) * 100}%`,
-                      width: `${((weekRange[1] - weekRange[0]) / (18 - 1)) * 100}%`
+                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((weekRange[0] - 1) / (18 - 1)) * 100}%, #e5e7eb ${((weekRange[0] - 1) / (18 - 1)) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((weekRange[0] - 1) / (18 - 1)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(1 + percentage * (18 - 1));
-                        if (value <= weekRange[1]) {
-                          setWeekRange([value, weekRange[1]]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                  />
+                  <span className="text-xs text-gray-500 w-8">{weekRange[0]}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="18"
+                    value={weekRange[1]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value >= weekRange[0]) {
+                        setWeekRange([weekRange[0], value]);
+                      }
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((weekRange[1] - 1) / (18 - 1)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(1 + percentage * (18 - 1));
-                        if (value >= weekRange[0]) {
-                          setWeekRange([weekRange[0], value]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${((weekRange[0] - 1) / (18 - 1)) * 100}%, #3b82f6 ${((weekRange[0] - 1) / (18 - 1)) * 100}%, #3b82f6 ${((weekRange[1] - 1) / (18 - 1)) * 100}%, #e5e7eb ${((weekRange[1] - 1) / (18 - 1)) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
+                  />
+                  <span className="text-xs text-gray-500 w-8">{weekRange[1]}</span>
                 </div>
               </div>
             </div>
@@ -745,70 +729,46 @@ export default function NFLAnalytics() {
             {viewType === "individual" && (
               <div>
                 <Label>Spread Range: {spreadRange[0]} to {spreadRange[1]}</Label>
-                <div className="px-2 py-2">
-                  <div className="relative h-8">
-                    <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
-                    <div 
-                      className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+                <div className="px-2 py-2 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500 w-12">Min:</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      value={spreadRange[0]}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value);
+                        if (value <= spreadRange[1]) {
+                          setSpreadRange([value, spreadRange[1]]);
+                        }
+                      }}
+                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                       style={{
-                        left: `${(spreadRange[0] / 20) * 100}%`,
-                        width: `${((spreadRange[1] - spreadRange[0]) / 20) * 100}%`
+                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(spreadRange[0] / 20) * 100}%, #e5e7eb ${(spreadRange[0] / 20) * 100}%, #e5e7eb 100%)`
                       }}
-                    ></div>
-                    <div
-                      className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                      style={{ left: `${(spreadRange[0] / 20) * 100}%` }}
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        const handleEl = e.currentTarget as HTMLElement;
-                        handleEl.setPointerCapture(e.pointerId);
-                        const slider = handleEl.parentElement!;
-                        const getRect = () => slider.getBoundingClientRect();
-                        const onMove = (pe: PointerEvent) => {
-                          const rect = getRect();
-                          const x = pe.clientX - rect.left;
-                          const percentage = Math.max(0, Math.min(1, x / rect.width));
-                          const value = Math.round(percentage * 20);
-                          if (value <= spreadRange[1]) {
-                            setSpreadRange([value, spreadRange[1]]);
-                          }
-                        };
-                        const onUp = (pe: PointerEvent) => {
-                          handleEl.releasePointerCapture(pe.pointerId);
-                          window.removeEventListener('pointermove', onMove);
-                          window.removeEventListener('pointerup', onUp);
-                        };
-                        window.addEventListener('pointermove', onMove);
-                        window.addEventListener('pointerup', onUp);
+                    />
+                    <span className="text-xs text-gray-500 w-8">{spreadRange[0]}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500 w-12">Max:</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      value={spreadRange[1]}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value);
+                        if (value >= spreadRange[0]) {
+                          setSpreadRange([spreadRange[0], value]);
+                        }
                       }}
-                    ></div>
-                    <div
-                      className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                      style={{ left: `${(spreadRange[1] / 20) * 100}%` }}
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        const handleEl = e.currentTarget as HTMLElement;
-                        handleEl.setPointerCapture(e.pointerId);
-                        const slider = handleEl.parentElement!;
-                        const getRect = () => slider.getBoundingClientRect();
-                        const onMove = (pe: PointerEvent) => {
-                          const rect = getRect();
-                          const x = pe.clientX - rect.left;
-                          const percentage = Math.max(0, Math.min(1, x / rect.width));
-                          const value = Math.round(percentage * 20);
-                          if (value >= spreadRange[0]) {
-                            setSpreadRange([spreadRange[0], value]);
-                          }
-                        };
-                        const onUp = (pe: PointerEvent) => {
-                          handleEl.releasePointerCapture(pe.pointerId);
-                          window.removeEventListener('pointermove', onMove);
-                          window.removeEventListener('pointerup', onUp);
-                        };
-                        window.addEventListener('pointermove', onMove);
-                        window.addEventListener('pointerup', onUp);
+                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      style={{
+                        background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${(spreadRange[0] / 20) * 100}%, #3b82f6 ${(spreadRange[0] / 20) * 100}%, #3b82f6 ${(spreadRange[1] / 20) * 100}%, #e5e7eb ${(spreadRange[1] / 20) * 100}%, #e5e7eb 100%)`
                       }}
-                    ></div>
+                    />
+                    <span className="text-xs text-gray-500 w-8">{spreadRange[1]}</span>
                   </div>
                 </div>
               </div>
@@ -816,70 +776,46 @@ export default function NFLAnalytics() {
 
             <div>
               <Label>O/U Line Range: {ouLineRange[0]} - {ouLineRange[1]}</Label>
-              <div className="px-2 py-2">
-                <div className="relative h-8">
-                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
-                  <div 
-                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+              <div className="px-2 py-2 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <input
+                    type="range"
+                    min="30"
+                    max="70"
+                    value={ouLineRange[0]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value <= ouLineRange[1]) {
+                        setOuLineRange([value, ouLineRange[1]]);
+                      }
+                    }}
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                     style={{
-                      left: `${((ouLineRange[0] - 30) / (70 - 30)) * 100}%`,
-                      width: `${((ouLineRange[1] - ouLineRange[0]) / (70 - 30)) * 100}%`
+                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((ouLineRange[0] - 30) / (70 - 30)) * 100}%, #e5e7eb ${((ouLineRange[0] - 30) / (70 - 30)) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((ouLineRange[0] - 30) / (70 - 30)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(30 + percentage * (70 - 30));
-                        if (value <= ouLineRange[1]) {
-                          setOuLineRange([value, ouLineRange[1]]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                  />
+                  <span className="text-xs text-gray-500 w-8">{ouLineRange[0]}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <input
+                    type="range"
+                    min="30"
+                    max="70"
+                    value={ouLineRange[1]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value >= ouLineRange[0]) {
+                        setOuLineRange([ouLineRange[0], value]);
+                      }
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((ouLineRange[1] - 30) / (70 - 30)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(30 + percentage * (70 - 30));
-                        if (value >= ouLineRange[0]) {
-                          setOuLineRange([ouLineRange[0], value]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${((ouLineRange[0] - 30) / (70 - 30)) * 100}%, #3b82f6 ${((ouLineRange[0] - 30) / (70 - 30)) * 100}%, #3b82f6 ${((ouLineRange[1] - 30) / (70 - 30)) * 100}%, #e5e7eb ${((ouLineRange[1] - 30) / (70 - 30)) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
+                  />
+                  <span className="text-xs text-gray-500 w-8">{ouLineRange[1]}</span>
                 </div>
               </div>
             </div>
@@ -908,140 +844,92 @@ export default function NFLAnalytics() {
 
             <div>
               <Label>Wind Speed Range: {windSpeedRange[0]} mph - {windSpeedRange[1]} mph</Label>
-              <div className="px-2 py-2">
-                <div className="relative h-8">
-                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
-                  <div 
-                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+              <div className="px-2 py-2 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="60"
+                    value={windSpeedRange[0]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value <= windSpeedRange[1]) {
+                        setWindSpeedRange([value, windSpeedRange[1]]);
+                      }
+                    }}
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                     style={{
-                      left: `${((windSpeedRange[0] - 0) / (60 - 0)) * 100}%`,
-                      width: `${((windSpeedRange[1] - windSpeedRange[0]) / (60 - 0)) * 100}%`
+                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(windSpeedRange[0] / 60) * 100}%, #e5e7eb ${(windSpeedRange[0] / 60) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((windSpeedRange[0] - 0) / (60 - 0)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(0 + percentage * (60 - 0));
-                        if (value <= windSpeedRange[1]) {
-                          setWindSpeedRange([value, windSpeedRange[1]]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                  />
+                  <span className="text-xs text-gray-500 w-8">{windSpeedRange[0]}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="60"
+                    value={windSpeedRange[1]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value >= windSpeedRange[0]) {
+                        setWindSpeedRange([windSpeedRange[0], value]);
+                      }
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((windSpeedRange[1] - 0) / (60 - 0)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(0 + percentage * (60 - 0));
-                        if (value >= windSpeedRange[0]) {
-                          setWindSpeedRange([windSpeedRange[0], value]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${(windSpeedRange[0] / 60) * 100}%, #3b82f6 ${(windSpeedRange[0] / 60) * 100}%, #3b82f6 ${(windSpeedRange[1] / 60) * 100}%, #e5e7eb ${(windSpeedRange[1] / 60) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
+                  />
+                  <span className="text-xs text-gray-500 w-8">{windSpeedRange[1]}</span>
                 </div>
               </div>
             </div>
 
             <div>
               <Label>Temperature Range: {temperatureRange[0]}°F - {temperatureRange[1]}°F</Label>
-              <div className="px-2 py-2">
-                <div className="relative h-8">
-                  <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
-                  <div 
-                    className="absolute top-1/2 h-2 bg-blue-500 rounded-full transform -translate-y-1/2"
+              <div className="px-2 py-2 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <input
+                    type="range"
+                    min="-20"
+                    max="120"
+                    value={temperatureRange[0]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value <= temperatureRange[1]) {
+                        setTemperatureRange([value, temperatureRange[1]]);
+                      }
+                    }}
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                     style={{
-                      left: `${((temperatureRange[0] - -20) / (120 - -20)) * 100}%`,
-                      width: `${((temperatureRange[1] - temperatureRange[0]) / (120 - -20)) * 100}%`
+                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((temperatureRange[0] - -20) / (120 - -20)) * 100}%, #e5e7eb ${((temperatureRange[0] - -20) / (120 - -20)) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((temperatureRange[0] - -20) / (120 - -20)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(-20 + percentage * (120 - -20));
-                        if (value <= temperatureRange[1]) {
-                          setTemperatureRange([value, temperatureRange[1]]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                  />
+                  <span className="text-xs text-gray-500 w-8">{temperatureRange[0]}°</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <input
+                    type="range"
+                    min="-20"
+                    max="120"
+                    value={temperatureRange[1]}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value >= temperatureRange[0]) {
+                        setTemperatureRange([temperatureRange[0], value]);
+                      }
                     }}
-                  ></div>
-                  <div
-                    className="absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 cursor-pointer border-2 border-white shadow-lg"
-                    style={{ left: `${((temperatureRange[1] - -20) / (120 - -20)) * 100}%` }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      const handleEl = e.currentTarget as HTMLElement;
-                      handleEl.setPointerCapture(e.pointerId);
-                      const slider = handleEl.parentElement!;
-                      const getRect = () => slider.getBoundingClientRect();
-                      const onMove = (pe: PointerEvent) => {
-                        const rect = getRect();
-                        const x = pe.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, x / rect.width));
-                        const value = Math.round(-20 + percentage * (120 - -20));
-                        if (value >= temperatureRange[0]) {
-                          setTemperatureRange([temperatureRange[0], value]);
-                        }
-                      };
-                      const onUp = (pe: PointerEvent) => {
-                        handleEl.releasePointerCapture(pe.pointerId);
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                      };
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${((temperatureRange[0] - -20) / (120 - -20)) * 100}%, #3b82f6 ${((temperatureRange[0] - -20) / (120 - -20)) * 100}%, #3b82f6 ${((temperatureRange[1] - -20) / (120 - -20)) * 100}%, #e5e7eb ${((temperatureRange[1] - -20) / (120 - -20)) * 100}%, #e5e7eb 100%)`
                     }}
-                  ></div>
+                  />
+                  <span className="text-xs text-gray-500 w-8">{temperatureRange[1]}°</span>
                 </div>
               </div>
             </div>
@@ -1480,6 +1368,7 @@ export default function NFLAnalytics() {
 
       {/* Team Table (non-deduped) */}
       {!isLoading && !error && renderIndividualTeamView()}
-    </div>
+      </div>
+    </>
   );
 }
