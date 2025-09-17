@@ -306,44 +306,46 @@ export default function NFLAnalytics() {
 
   const renderIndividualTeamView = () => (
     <Card>
-      <CardHeader>
-        <CardTitle>Individual Team Performance</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base sm:text-lg">Individual Team Performance</CardTitle>
       </CardHeader>
       <CardContent>
         {teamStats.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Team</TableHead>
-                <TableHead>Games</TableHead>
-                <TableHead>Win %</TableHead>
-                <TableHead>Cover %</TableHead>
-                <TableHead>Over %</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {teamStats.map((team, index) => (
-                <TableRow key={index}>
-                  <TableCell className="flex items-center gap-2">
-                    {team.teamLogo && (
-                      <img 
-                        src={team.teamLogo} 
-                        alt={team.teamName}
-                        className="w-6 h-6"
-                      />
-                    )}
-                    {team.teamName}
-                  </TableCell>
-                  <TableCell>{team.games}</TableCell>
-                  <TableCell>{team.winPercentage}%</TableCell>
-                  <TableCell>{team.coverPercentage}%</TableCell>
-                  <TableCell>{team.overPercentage}%</TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs sm:text-sm">Team</TableHead>
+                  <TableHead className="text-xs sm:text-sm">Games</TableHead>
+                  <TableHead className="text-xs sm:text-sm">Win %</TableHead>
+                  <TableHead className="text-xs sm:text-sm">Cover %</TableHead>
+                  <TableHead className="text-xs sm:text-sm">Over %</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {teamStats.map((team, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="flex items-center gap-2 text-xs sm:text-sm">
+                      {team.teamLogo && (
+                        <img 
+                          src={team.teamLogo} 
+                          alt={team.teamName}
+                          className="w-4 h-4 sm:w-6 sm:h-6"
+                        />
+                      )}
+                      {team.teamName}
+                    </TableCell>
+                    <TableCell className="text-xs sm:text-sm">{team.games}</TableCell>
+                    <TableCell className="text-xs sm:text-sm">{team.winPercentage}%</TableCell>
+                    <TableCell className="text-xs sm:text-sm">{team.coverPercentage}%</TableCell>
+                    <TableCell className="text-xs sm:text-sm">{team.overPercentage}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         ) : (
-          <p>No team data available</p>
+          <p className="text-xs sm:text-sm">No team data available</p>
         )}
       </CardContent>
     </Card>
@@ -378,14 +380,14 @@ export default function NFLAnalytics() {
     ];
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {blocks.map((b, i) => (
           <Card key={i}>
             <CardHeader className="pb-2 text-center">
-              <CardTitle className="text-base font-semibold text-center tracking-tight">{b.title}</CardTitle>
+              <CardTitle className="text-sm sm:text-base font-semibold text-center tracking-tight">{b.title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={200}>
                 <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                   <defs>
                     <linearGradient id={`gradGreen-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -435,28 +437,28 @@ export default function NFLAnalytics() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-primary mb-4">NFL Analytics</h1>
-        <p className="text-lg text-muted-foreground">
+    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-4xl font-bold text-primary mb-2 sm:mb-4">NFL Analytics</h1>
+        <p className="text-sm sm:text-lg text-muted-foreground">
           Analyze NFL team and game performance with advanced filtering options. 
         </p>
       </div>
       
       {/* Summary Donuts */}
-      <div className="mb-2 text-center text-sm text-muted-foreground">
+      <div className="mb-2 text-center text-xs sm:text-sm text-muted-foreground">
         Total games: {Number((summary as any)?.totalGames || 0)}
       </div>
       {renderGameLevelView()}
 
       {/* Filters */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
         {/* Schedule Group */}
         <Card>
-          <CardHeader>
-            <CardTitle>Schedule</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Schedule</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             <div>
               <Label htmlFor="day">Day of Week</Label>
               <Select value={filters.day || 'any'} onValueChange={(value) => handleFilterChange('day', value === 'any' ? '' : value)}>
@@ -633,10 +635,10 @@ export default function NFLAnalytics() {
 
         {/* Betting Lines Group */}
         <Card>
-          <CardHeader>
-            <CardTitle>Betting Lines</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Betting Lines</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             {viewType === "individual" && (
               <div>
                 <Label>Spread Range: {spreadRange[0]} to {spreadRange[1]}</Label>
@@ -783,10 +785,10 @@ export default function NFLAnalytics() {
 
         {/* Game Time Conditions Group */}
         <Card>
-          <CardHeader>
-            <CardTitle>Game Time Conditions</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Game Time Conditions</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             <div>
               <Label htmlFor="precipitation_type">Precipitation</Label>
               <Select value={filters.precipitation_type} onValueChange={(value) => handleFilterChange('precipitation_type', value)}>
@@ -971,10 +973,10 @@ export default function NFLAnalytics() {
 
         {/* Select Team(s) Group */}
         <Card>
-          <CardHeader>
-            <CardTitle>Select Team(s)</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Select Team(s)</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             {viewType === "individual" && (
               <>
                 <div>
@@ -1210,11 +1212,11 @@ export default function NFLAnalytics() {
         {/* Last Game Results/Conditions Group */}
         {viewType === "individual" && (
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Last Game Results/Conditions</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base sm:text-lg">Last Game Results/Conditions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                 <div>
                   <Label htmlFor="team_last_spread">Team Last Spread</Label>
                   <Select value={filters.team_last_spread || "any"} onValueChange={(value) => handleFilterChange('team_last_spread', value)}>
@@ -1333,22 +1335,22 @@ export default function NFLAnalytics() {
       </div>
 
       {/* Action Buttons */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex gap-2">
-            <Button onClick={clearFilters} variant="outline">
+      <Card className="mb-4 sm:mb-6">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={clearFilters} variant="outline" className="text-xs sm:text-sm">
               Clear Filters
             </Button>
-            <Button onClick={fetchData}>
+            <Button onClick={fetchData} className="text-xs sm:text-sm">
               Apply Filters
             </Button>
             <Button onClick={() => {
               console.log('Testing edge function...');
               fetchData();
-            }} variant="secondary">
+            }} variant="secondary" className="text-xs sm:text-sm">
               Test Edge Function
             </Button>
-            <Button onClick={testDatabase} variant="outline">
+            <Button onClick={testDatabase} variant="outline" className="text-xs sm:text-sm">
               Test Database Tables
             </Button>
           </div>

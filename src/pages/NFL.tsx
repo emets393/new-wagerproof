@@ -655,8 +655,8 @@ export default function NFL() {
         </Card>
       )}
 
-      <div className="space-y-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-6 sm:space-y-8">
+        <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {predictions
             .filter(shouldDisplayGame)
             .sort((a, b) => {
@@ -667,18 +667,18 @@ export default function NFL() {
             .map((prediction, index) => (
               <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-2 border-gray-200 hover:border-blue-300 shadow-lg">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
-                <CardContent className="space-y-6 pt-6 pb-6">
+                <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
                   {/* Game Date and Action Buttons */}
                   <div className="text-center">
                     <div className="text-xs font-medium text-muted-foreground mb-2">
                       {formatCompactDate(prediction.game_date)}
                     </div>
-                    <div className="flex gap-2 justify-center">
+                    <div className="flex gap-1.5 sm:gap-2 justify-center">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => openH2HModal(prediction.home_team, prediction.away_team)}
-                        className="text-xs bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200 text-blue-700 hover:text-blue-800 transition-all duration-200"
+                        className="text-xs bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200 text-blue-700 hover:text-blue-800 transition-all duration-200 px-2 py-1"
                       >
                         <History className="h-3 w-3 mr-1" />
                         H2H
@@ -687,7 +687,7 @@ export default function NFL() {
                         variant="outline"
                         size="sm"
                         onClick={() => openLineMovementModal(prediction.training_key, prediction.home_team, prediction.away_team)}
-                        className="text-xs bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200 text-green-700 hover:text-green-800 transition-all duration-200"
+                        className="text-xs bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200 text-green-700 hover:text-green-800 transition-all duration-200 px-2 py-1"
                       >
                         <TrendingUp className="h-3 w-3 mr-1" />
                         Lines
@@ -696,7 +696,7 @@ export default function NFL() {
                   </div>
 
                   {/* Team Logos and Betting Info */}
-                  <div className="space-y-4 pt-2">
+                  <div className="space-y-3 sm:space-y-4 pt-2">
                     <div className="flex justify-between items-start">
                       {/* Away Team */}
                       <div className="text-center flex-1">
@@ -704,27 +704,27 @@ export default function NFL() {
                           <img 
                             src={getTeamLogo(prediction.away_team)} 
                             alt={`${prediction.away_team} logo`}
-                            className="h-16 w-16 mx-auto mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-xl font-bold mb-2 h-8 flex items-center justify-center text-gray-800">
+                        <div className="text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 flex items-center justify-center text-gray-800">
                           {prediction.away_team}
                         </div>
-                        <div className="text-sm text-muted-foreground h-6 flex items-center justify-center">
+                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
                           Spread: {formatSpread(prediction.away_spread)}
                         </div>
-                        <div className="text-lg font-bold h-8 flex items-center justify-center text-blue-600">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600">
                           {formatMoneyline(prediction.away_ml)}
                         </div>
                       </div>
 
                       {/* @ Symbol, Game Time, and Total */}
-                      <div className="text-center px-4 flex flex-col items-center justify-center">
-                        <span className="text-2xl font-bold text-gray-400">@</span>
-                        <div className="text-sm font-medium text-gray-600 mt-2 mb-4 bg-gray-100 px-3 py-1 rounded-full">
+                      <div className="text-center px-2 sm:px-4 flex flex-col items-center justify-center">
+                        <span className="text-xl sm:text-2xl font-bold text-gray-400">@</span>
+                        <div className="text-xs sm:text-sm font-medium text-gray-600 mt-1 sm:mt-2 mb-2 sm:mb-4 bg-gray-100 px-2 sm:px-3 py-1 rounded-full">
                           {convertTimeToEST(prediction.game_time)}
                         </div>
-                        <div className="text-sm font-bold text-gray-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                        <div className="text-xs sm:text-sm font-bold text-gray-700 bg-blue-50 px-2 sm:px-3 py-1 rounded-full border border-blue-200">
                           Total: {prediction.over_line || '-'}
                         </div>
                       </div>
@@ -735,16 +735,16 @@ export default function NFL() {
                           <img 
                             src={getTeamLogo(prediction.home_team)} 
                             alt={`${prediction.home_team} logo`}
-                            className="h-16 w-16 mx-auto mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-xl font-bold mb-2 h-8 flex items-center justify-center text-gray-800">
+                        <div className="text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 flex items-center justify-center text-gray-800">
                           {prediction.home_team}
                         </div>
-                        <div className="text-sm text-muted-foreground h-6 flex items-center justify-center">
+                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
                           Spread: {formatSpread(prediction.home_spread)}
                         </div>
-                        <div className="text-lg font-bold h-8 flex items-center justify-center text-green-600">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600">
                           {formatMoneyline(prediction.home_ml)}
                         </div>
                       </div>
@@ -752,22 +752,22 @@ export default function NFL() {
                   </div>
 
                   {/* Model Predictions Section */}
-                  <div className="space-y-4 pt-6 border-t-2 border-gray-200">
+                  <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t-2 border-gray-200">
                     <div className="text-center">
-                      <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 px-3 py-1 rounded-full border border-gray-200">Model Predictions</h4>
+                      <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Model Predictions</h4>
                     </div>
                     
                     {/* Spread Predictions Card */}
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                      <div className="text-center mb-3">
-                        <h5 className="text-sm font-bold text-gray-700">Spread Predictions</h5>
+                    <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
+                      <div className="text-center mb-2 sm:mb-3">
+                        <h5 className="text-xs sm:text-sm font-bold text-gray-700">Spread Predictions</h5>
                       </div>
-                      <div className="grid grid-cols-1 gap-3">
+                      <div className="grid grid-cols-1 gap-2 sm:gap-3">
                         {/* Spread Prediction */}
                         {prediction.home_away_spread_cover_prob !== null && (
                           <div className="text-center">
                             <div className="text-xs font-medium text-gray-600 mb-1">Spread Prediction</div>
-                            <div className="text-lg font-bold text-blue-600">
+                            <div className="text-base sm:text-lg font-bold text-blue-600">
                               {Math.round((prediction.home_away_spread_cover_prob > 0.5 ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100)}%
                             </div>
                             <div className="text-xs text-gray-500">
@@ -782,15 +782,15 @@ export default function NFL() {
 
                     {/* Over/Under Analysis Card */}
                     {prediction.ou_result_prob !== null && (
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div className="text-center mb-3">
-                          <h5 className="text-sm font-bold text-gray-700">Over/Under Analysis</h5>
+                      <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
+                        <div className="text-center mb-2 sm:mb-3">
+                          <h5 className="text-xs sm:text-sm font-bold text-gray-700">Over/Under Analysis</h5>
                         </div>
-                        <div className="grid grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 gap-2 sm:gap-3">
                           {/* Over/Under Prediction */}
                           <div className="text-center">
                             <div className="text-xs font-medium text-gray-600 mb-1">Prediction</div>
-                            <div className="text-lg font-bold text-orange-600">
+                            <div className="text-base sm:text-lg font-bold text-orange-600">
                               {Math.round((prediction.ou_result_prob > 0.5 ? prediction.ou_result_prob : 1 - prediction.ou_result_prob) * 100)}%
                             </div>
                             <div className="text-xs text-gray-500">
@@ -803,10 +803,10 @@ export default function NFL() {
 
                     {/* Moneyline Prediction Card */}
                     {prediction.home_away_ml_prob !== null && (
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
                         <div className="text-center">
-                          <h5 className="text-sm font-bold text-gray-700 mb-2">Moneyline Prediction</h5>
-                          <div className="text-lg font-bold text-purple-600">
+                          <h5 className="text-xs sm:text-sm font-bold text-gray-700 mb-2">Moneyline Prediction</h5>
+                          <div className="text-base sm:text-lg font-bold text-purple-600">
                             {Math.round((prediction.home_away_ml_prob > 0.5 ? prediction.home_away_ml_prob : 1 - prediction.home_away_ml_prob) * 100)}%
                           </div>
                           <div className="text-xs text-gray-500">
@@ -819,15 +819,15 @@ export default function NFL() {
 
                   {/* Betting Split Labels Section */}
                   {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
-                    <div className="space-y-3 pt-6 border-t-2 border-gray-200">
+                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
-                        <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-indigo-50 to-blue-50 px-3 py-1 rounded-full border border-gray-200">Public Betting Facts</h4>
+                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-indigo-50 to-blue-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Public Betting Facts</h4>
                       </div>
-                      <div className="space-y-2 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-lg border border-gray-200 shadow-sm">
+                      <div className="space-y-1.5 sm:space-y-2 bg-gradient-to-br from-indigo-50 to-blue-50 p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm">
                         {prediction.ml_splits_label && (
                           <Badge 
                             variant="outline" 
-                            className={`w-full justify-center ${
+                            className={`w-full justify-center text-xs ${
                               shouldHighlightLabel(prediction.ml_splits_label) 
                                 ? 'bg-blue-100 border-blue-300 text-blue-800' 
                                 : 'bg-white border-gray-300 text-gray-700'
@@ -839,7 +839,7 @@ export default function NFL() {
                         {prediction.spread_splits_label && (
                           <Badge 
                             variant="outline" 
-                            className={`w-full justify-center ${
+                            className={`w-full justify-center text-xs ${
                               shouldHighlightLabel(prediction.spread_splits_label) 
                                 ? 'bg-blue-100 border-blue-300 text-blue-800' 
                                 : 'bg-white border-gray-300 text-gray-700'
@@ -851,7 +851,7 @@ export default function NFL() {
                         {prediction.total_splits_label && (
                           <Badge 
                             variant="outline" 
-                            className={`w-full justify-center ${
+                            className={`w-full justify-center text-xs ${
                               shouldHighlightLabel(prediction.total_splits_label) 
                                 ? 'bg-blue-100 border-blue-300 text-blue-800' 
                                 : 'bg-white border-gray-300 text-gray-700'
@@ -865,12 +865,12 @@ export default function NFL() {
                   )}
 
                   {/* Weather Section */}
-                  <div className="space-y-3 pt-6 border-t-2 border-gray-200">
+                  <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
                     <div className="text-center">
-                      <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-green-50 px-3 py-1 rounded-full border border-gray-200">Weather</h4>
+                      <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-green-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Weather</h4>
                     </div>
                     {prediction.icon ? (
-                      <div className="flex justify-center bg-gradient-to-br from-blue-50 to-green-50 p-3 rounded-lg border border-gray-200">
+                      <div className="flex justify-center bg-gradient-to-br from-blue-50 to-green-50 p-2 sm:p-3 rounded-lg border border-gray-200">
                         <WeatherIcon 
                           iconCode={prediction.icon}
                           temperature={prediction.temperature}
@@ -878,8 +878,8 @@ export default function NFL() {
                         />
                       </div>
                     ) : (
-                      <div className="flex justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-3 rounded-lg border border-gray-200">
-                        <span className="text-sm text-gray-600 font-bold">Indoor Game</span>
+                      <div className="flex justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-2 sm:p-3 rounded-lg border border-gray-200">
+                        <span className="text-xs sm:text-sm text-gray-600 font-bold">Indoor Game</span>
                       </div>
                     )}
                   </div>

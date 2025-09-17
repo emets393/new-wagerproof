@@ -305,8 +305,8 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
           : 'max-w-4xl max-h-[90vh]'
       }`}>
         {/* Header */}
-        <div className={`flex items-center justify-between border-b border-slate-200 bg-white ${
-          isMobile ? 'px-4 py-4' : 'px-8 py-6'
+        <div className={`flex items-center justify-between border-b border-slate-200 bg-white sticky top-0 z-10 ${
+          isMobile ? 'px-4 py-3 shadow-sm' : 'px-8 py-5'
         }`}>
           <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-4'}`}>
             <div className={`rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-sm ${
@@ -315,10 +315,10 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
               <Trophy className={`text-white ${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
             </div>
             <div>
-              <h2 className={`font-bold text-slate-900 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+              <h2 className={`font-bold text-slate-900 ${isMobile ? 'text-base' : 'text-xl'}`}>
                 {isMobile ? `${homeTeam.length > 8 ? homeTeam.substring(0, 8) + '...' : homeTeam} vs ${awayTeam.length > 8 ? awayTeam.substring(0, 8) + '...' : awayTeam}` : `${homeTeam} vs ${awayTeam}`}
               </h2>
-              <p className={`text-slate-500 font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>
+              <p className={`text-slate-500 font-medium ${isMobile ? 'text-[11px]' : 'text-sm'}`}>
                 {isMobile ? 'H2H Analysis' : 'Most Recent Head to Head Analysis'}
               </p>
             </div>
@@ -326,7 +326,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
           <button
             onClick={onClose}
             className={`rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors duration-200 ${
-              isMobile ? 'w-10 h-10' : 'w-8 h-8'
+              isMobile ? 'w-9 h-9' : 'w-8 h-8'
             }`}
           >
             <X className={`text-slate-600 ${isMobile ? 'h-5 w-5' : 'h-4 w-4'}`} />
@@ -335,22 +335,22 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
 
         {/* Summary Statistics */}
         <div className={`bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 ${
-          isMobile ? 'px-4 py-4' : 'px-8 py-6'
+          isMobile ? 'px-3 py-3' : 'px-8 py-6'
         }`}>
-          <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-3 gap-8'}`}>
+          <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-3 gap-8'}`}>
             {/* Wins */}
             <div className={`bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 ${
-              isMobile ? 'p-4' : 'p-6'
+              isMobile ? 'p-3' : 'p-6'
             }`}>
               <div className="text-center">
                 <h3 className={`font-semibold text-slate-600 uppercase tracking-wide ${
-                  isMobile ? 'text-xs mb-4' : 'text-sm mb-6'
+                  isMobile ? 'text-[11px] mb-3' : 'text-sm mb-6'
                 }`}>Wins</h3>
                 <div className={`flex items-center justify-center ${
                   isMobile ? 'space-x-4' : 'space-x-12'
                 }`}>
                   <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-2' : 'space-y-4 p-3'
+                    isMobile ? 'space-y-1.5' : 'space-y-4 p-3'
                   } ${
                     stats.awayTeamWins > stats.homeTeamWins 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
@@ -362,11 +362,11 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                       className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
                     />
                     <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-xl' : 'text-3xl'
+                      isMobile ? 'text-lg' : 'text-3xl'
                     }`}>{stats.awayTeamWins}</div>
                   </div>
                   <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-2' : 'space-y-4 p-3'
+                    isMobile ? 'space-y-1.5' : 'space-y-4 p-3'
                   } ${
                     stats.homeTeamWins > stats.awayTeamWins 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
@@ -378,7 +378,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                       className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
                     />
                     <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-xl' : 'text-3xl'
+                      isMobile ? 'text-lg' : 'text-3xl'
                     }`}>{stats.homeTeamWins}</div>
                   </div>
                 </div>
@@ -387,17 +387,17 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
 
             {/* Covers */}
             <div className={`bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 ${
-              isMobile ? 'p-4' : 'p-6'
+              isMobile ? 'p-3' : 'p-6'
             }`}>
               <div className="text-center">
                 <h3 className={`font-semibold text-slate-600 uppercase tracking-wide ${
-                  isMobile ? 'text-xs mb-4' : 'text-sm mb-6'
+                  isMobile ? 'text-[11px] mb-3' : 'text-sm mb-6'
                 }`}>Covers</h3>
                 <div className={`flex items-center justify-center ${
                   isMobile ? 'space-x-4' : 'space-x-12'
                 }`}>
                   <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-2' : 'space-y-4 p-3'
+                    isMobile ? 'space-y-1.5' : 'space-y-4 p-3'
                   } ${
                     stats.awayTeamCovers > stats.homeTeamCovers 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
@@ -409,11 +409,11 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                       className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
                     />
                     <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-xl' : 'text-3xl'
+                      isMobile ? 'text-lg' : 'text-3xl'
                     }`}>{stats.awayTeamCovers}</div>
                   </div>
                   <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-2' : 'space-y-4 p-3'
+                    isMobile ? 'space-y-1.5' : 'space-y-4 p-3'
                   } ${
                     stats.homeTeamCovers > stats.awayTeamCovers 
                       ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
@@ -425,7 +425,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                       className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
                     />
                     <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-xl' : 'text-3xl'
+                      isMobile ? 'text-lg' : 'text-3xl'
                     }`}>{stats.homeTeamCovers}</div>
                   </div>
                 </div>
@@ -434,11 +434,11 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
 
             {/* Over/Under */}
             <div className={`bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 ${
-              isMobile ? 'p-4' : 'p-6'
+              isMobile ? 'p-3' : 'p-6'
             }`}>
               <div className="text-center">
                 <h3 className={`font-semibold text-slate-600 uppercase tracking-wide ${
-                  isMobile ? 'text-xs mb-4' : 'text-sm mb-6'
+                  isMobile ? 'text-[11px] mb-3' : 'text-sm mb-6'
                 }`}>Over/Under</h3>
                 <div className={`flex items-center justify-center ${
                   isMobile ? 'space-x-4' : 'space-x-12'
@@ -451,12 +451,12 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                       : 'bg-transparent'
                   }`}>
                     <div className={`rounded-full bg-emerald-50 flex items-center justify-center ${
-                      isMobile ? 'w-10 h-10' : 'w-14 h-14'
+                      isMobile ? 'w-9 h-9' : 'w-14 h-14'
                     }`}>
                       <ArrowUp className={`text-emerald-600 ${isMobile ? 'h-5 w-5' : 'h-7 w-7'}`} />
                     </div>
                     <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-xl' : 'text-3xl'
+                      isMobile ? 'text-lg' : 'text-3xl'
                     }`}>{stats.overs}</div>
                     <div className={`font-medium text-emerald-600 ${
                       isMobile ? 'text-xs' : 'text-sm'
@@ -470,12 +470,12 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
                       : 'bg-transparent'
                   }`}>
                     <div className={`rounded-full bg-red-50 flex items-center justify-center ${
-                      isMobile ? 'w-10 h-10' : 'w-14 h-14'
+                      isMobile ? 'w-9 h-9' : 'w-14 h-14'
                     }`}>
                       <ArrowDown className={`text-red-600 ${isMobile ? 'h-5 w-5' : 'h-7 w-7'}`} />
                     </div>
                     <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-xl' : 'text-3xl'
+                      isMobile ? 'text-lg' : 'text-3xl'
                     }`}>{stats.unders}</div>
                     <div className={`font-medium text-red-600 ${
                       isMobile ? 'text-xs' : 'text-sm'
