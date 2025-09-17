@@ -337,158 +337,208 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
         <div className={`bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 ${
           isMobile ? 'px-3 py-3' : 'px-8 py-6'
         }`}>
-          <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-3 gap-8'}`}>
-            {/* Wins */}
-            <div className={`bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 ${
-              isMobile ? 'p-3' : 'p-6'
-            }`}>
-              <div className="text-center">
-                <h3 className={`font-semibold text-slate-600 uppercase tracking-wide ${
-                  isMobile ? 'text-[11px] mb-3' : 'text-sm mb-6'
-                }`}>Wins</h3>
-                <div className={`flex items-center justify-center ${
-                  isMobile ? 'space-x-4' : 'space-x-12'
-                }`}>
-                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-1.5' : 'space-y-4 p-3'
-                  } ${
-                    stats.awayTeamWins > stats.homeTeamWins 
-                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
-                      : 'bg-transparent'
-                  }`}>
-                    <img 
-                      src={getTeamLogo(awayTeam)} 
-                      alt={`${awayTeam} logo`}
-                      className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
-                    />
-                    <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-lg' : 'text-3xl'
-                    }`}>{stats.awayTeamWins}</div>
-                  </div>
-                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-1.5' : 'space-y-4 p-3'
-                  } ${
-                    stats.homeTeamWins > stats.awayTeamWins 
-                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
-                      : 'bg-transparent'
-                  }`}>
-                    <img 
-                      src={getTeamLogo(homeTeam)} 
-                      alt={`${homeTeam} logo`}
-                      className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
-                    />
-                    <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-lg' : 'text-3xl'
-                    }`}>{stats.homeTeamWins}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Covers */}
-            <div className={`bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 ${
-              isMobile ? 'p-3' : 'p-6'
-            }`}>
-              <div className="text-center">
-                <h3 className={`font-semibold text-slate-600 uppercase tracking-wide ${
-                  isMobile ? 'text-[11px] mb-3' : 'text-sm mb-6'
-                }`}>Covers</h3>
-                <div className={`flex items-center justify-center ${
-                  isMobile ? 'space-x-4' : 'space-x-12'
-                }`}>
-                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-1.5' : 'space-y-4 p-3'
-                  } ${
-                    stats.awayTeamCovers > stats.homeTeamCovers 
-                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
-                      : 'bg-transparent'
-                  }`}>
-                    <img 
-                      src={getTeamLogo(awayTeam)} 
-                      alt={`${awayTeam} logo`}
-                      className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
-                    />
-                    <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-lg' : 'text-3xl'
-                    }`}>{stats.awayTeamCovers}</div>
-                  </div>
-                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-1.5' : 'space-y-4 p-3'
-                  } ${
-                    stats.homeTeamCovers > stats.awayTeamCovers 
-                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
-                      : 'bg-transparent'
-                  }`}>
-                    <img 
-                      src={getTeamLogo(homeTeam)} 
-                      alt={`${homeTeam} logo`}
-                      className={`object-contain ${isMobile ? 'w-8 h-8' : 'w-16 h-16'}`}
-                    />
-                    <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-lg' : 'text-3xl'
-                    }`}>{stats.homeTeamCovers}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Over/Under */}
-            <div className={`bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 ${
-              isMobile ? 'p-3' : 'p-6'
-            }`}>
-              <div className="text-center">
-                <h3 className={`font-semibold text-slate-600 uppercase tracking-wide ${
-                  isMobile ? 'text-[11px] mb-3' : 'text-sm mb-6'
-                }`}>Over/Under</h3>
-                <div className={`flex items-center justify-center ${
-                  isMobile ? 'space-x-4' : 'space-x-12'
-                }`}>
-                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-2' : 'space-y-3 p-3'
-                  } ${
-                    stats.overs > stats.unders 
-                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
-                      : 'bg-transparent'
-                  }`}>
-                    <div className={`rounded-full bg-emerald-50 flex items-center justify-center ${
-                      isMobile ? 'w-9 h-9' : 'w-14 h-14'
+          {isMobile ? (
+            // Mobile: Single combined container
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3">
+              <div className="grid grid-cols-3 gap-2">
+                {/* Wins */}
+                <div className="text-center">
+                  <h3 className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-2">Wins</h3>
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className={`flex flex-col items-center p-1 rounded-lg transition-all duration-200 ${
+                      stats.awayTeamWins > stats.homeTeamWins 
+                        ? 'bg-green-50 border border-green-200' 
+                        : 'bg-transparent'
                     }`}>
-                      <ArrowUp className={`text-emerald-600 ${isMobile ? 'h-5 w-5' : 'h-7 w-7'}`} />
+                      <img 
+                        src={getTeamLogo(awayTeam)} 
+                        alt={`${awayTeam} logo`}
+                        className="object-contain w-6 h-6"
+                      />
+                      <div className="font-bold text-slate-900 text-sm">{stats.awayTeamWins}</div>
                     </div>
-                    <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-lg' : 'text-3xl'
-                    }`}>{stats.overs}</div>
-                    <div className={`font-medium text-emerald-600 ${
-                      isMobile ? 'text-xs' : 'text-sm'
-                    }`}>Over</div>
-                  </div>
-                  <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-                    isMobile ? 'space-y-2' : 'space-y-3 p-3'
-                  } ${
-                    stats.unders > stats.overs 
-                      ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
-                      : 'bg-transparent'
-                  }`}>
-                    <div className={`rounded-full bg-red-50 flex items-center justify-center ${
-                      isMobile ? 'w-9 h-9' : 'w-14 h-14'
+                    <div className={`flex flex-col items-center p-1 rounded-lg transition-all duration-200 ${
+                      stats.homeTeamWins > stats.awayTeamWins 
+                        ? 'bg-green-50 border border-green-200' 
+                        : 'bg-transparent'
                     }`}>
-                      <ArrowDown className={`text-red-600 ${isMobile ? 'h-5 w-5' : 'h-7 w-7'}`} />
+                      <img 
+                        src={getTeamLogo(homeTeam)} 
+                        alt={`${homeTeam} logo`}
+                        className="object-contain w-6 h-6"
+                      />
+                      <div className="font-bold text-slate-900 text-sm">{stats.homeTeamWins}</div>
                     </div>
-                    <div className={`font-bold text-slate-900 ${
-                      isMobile ? 'text-lg' : 'text-3xl'
-                    }`}>{stats.unders}</div>
-                    <div className={`font-medium text-red-600 ${
-                      isMobile ? 'text-xs' : 'text-sm'
-                    }`}>Under</div>
+                  </div>
+                </div>
+
+                {/* Covers */}
+                <div className="text-center">
+                  <h3 className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-2">Covers</h3>
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className={`flex flex-col items-center p-1 rounded-lg transition-all duration-200 ${
+                      stats.awayTeamCovers > stats.homeTeamCovers 
+                        ? 'bg-green-50 border border-green-200' 
+                        : 'bg-transparent'
+                    }`}>
+                      <img 
+                        src={getTeamLogo(awayTeam)} 
+                        alt={`${awayTeam} logo`}
+                        className="object-contain w-6 h-6"
+                      />
+                      <div className="font-bold text-slate-900 text-sm">{stats.awayTeamCovers}</div>
+                    </div>
+                    <div className={`flex flex-col items-center p-1 rounded-lg transition-all duration-200 ${
+                      stats.homeTeamCovers > stats.awayTeamCovers 
+                        ? 'bg-green-50 border border-green-200' 
+                        : 'bg-transparent'
+                    }`}>
+                      <img 
+                        src={getTeamLogo(homeTeam)} 
+                        alt={`${homeTeam} logo`}
+                        className="object-contain w-6 h-6"
+                      />
+                      <div className="font-bold text-slate-900 text-sm">{stats.homeTeamCovers}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* O/U */}
+                <div className="text-center">
+                  <h3 className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-2">O/U</h3>
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className={`flex flex-col items-center p-1 rounded-lg transition-all duration-200 ${
+                      stats.overs > stats.unders 
+                        ? 'bg-green-50 border border-green-200' 
+                        : 'bg-transparent'
+                    }`}>
+                      <div className="rounded-full bg-emerald-50 flex items-center justify-center w-6 h-6">
+                        <ArrowUp className="text-emerald-600 h-3 w-3" />
+                      </div>
+                      <div className="font-bold text-slate-900 text-sm">{stats.overs}</div>
+                    </div>
+                    <div className={`flex flex-col items-center p-1 rounded-lg transition-all duration-200 ${
+                      stats.unders > stats.overs 
+                        ? 'bg-green-50 border border-green-200' 
+                        : 'bg-transparent'
+                    }`}>
+                      <div className="rounded-full bg-red-50 flex items-center justify-center w-6 h-6">
+                        <ArrowDown className="text-red-600 h-3 w-3" />
+                      </div>
+                      <div className="font-bold text-slate-900 text-sm">{stats.unders}</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            // Desktop: Original three separate containers
+            <div className="grid grid-cols-3 gap-8">
+              {/* Wins */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 p-6">
+                <div className="text-center">
+                  <h3 className="font-semibold text-slate-600 uppercase tracking-wide text-sm mb-6">Wins</h3>
+                  <div className="flex items-center justify-center space-x-12">
+                    <div className={`flex flex-col items-center p-3 rounded-lg transition-all duration-200 space-y-4 ${
+                      stats.awayTeamWins > stats.homeTeamWins 
+                        ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                        : 'bg-transparent'
+                    }`}>
+                      <img 
+                        src={getTeamLogo(awayTeam)} 
+                        alt={`${awayTeam} logo`}
+                        className="object-contain w-16 h-16"
+                      />
+                      <div className="font-bold text-slate-900 text-3xl">{stats.awayTeamWins}</div>
+                    </div>
+                    <div className={`flex flex-col items-center p-3 rounded-lg transition-all duration-200 space-y-4 ${
+                      stats.homeTeamWins > stats.awayTeamWins 
+                        ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                        : 'bg-transparent'
+                    }`}>
+                      <img 
+                        src={getTeamLogo(homeTeam)} 
+                        alt={`${homeTeam} logo`}
+                        className="object-contain w-16 h-16"
+                      />
+                      <div className="font-bold text-slate-900 text-3xl">{stats.homeTeamWins}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Covers */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 p-6">
+                <div className="text-center">
+                  <h3 className="font-semibold text-slate-600 uppercase tracking-wide text-sm mb-6">Covers</h3>
+                  <div className="flex items-center justify-center space-x-12">
+                    <div className={`flex flex-col items-center p-3 rounded-lg transition-all duration-200 space-y-4 ${
+                      stats.awayTeamCovers > stats.homeTeamCovers 
+                        ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                        : 'bg-transparent'
+                    }`}>
+                      <img 
+                        src={getTeamLogo(awayTeam)} 
+                        alt={`${awayTeam} logo`}
+                        className="object-contain w-16 h-16"
+                      />
+                      <div className="font-bold text-slate-900 text-3xl">{stats.awayTeamCovers}</div>
+                    </div>
+                    <div className={`flex flex-col items-center p-3 rounded-lg transition-all duration-200 space-y-4 ${
+                      stats.homeTeamCovers > stats.awayTeamCovers 
+                        ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                        : 'bg-transparent'
+                    }`}>
+                      <img 
+                        src={getTeamLogo(homeTeam)} 
+                        alt={`${homeTeam} logo`}
+                        className="object-contain w-16 h-16"
+                      />
+                      <div className="font-bold text-slate-900 text-3xl">{stats.homeTeamCovers}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Over/Under */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-200 p-6">
+                <div className="text-center">
+                  <h3 className="font-semibold text-slate-600 uppercase tracking-wide text-sm mb-6">Over/Under</h3>
+                  <div className="flex items-center justify-center space-x-12">
+                    <div className={`flex flex-col items-center p-3 rounded-lg transition-all duration-200 space-y-3 ${
+                      stats.overs > stats.unders 
+                        ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                        : 'bg-transparent'
+                    }`}>
+                      <div className="rounded-full bg-emerald-50 flex items-center justify-center w-14 h-14">
+                        <ArrowUp className="text-emerald-600 h-7 w-7" />
+                      </div>
+                      <div className="font-bold text-slate-900 text-3xl">{stats.overs}</div>
+                      <div className="font-medium text-emerald-600 text-sm">Over</div>
+                    </div>
+                    <div className={`flex flex-col items-center p-3 rounded-lg transition-all duration-200 space-y-3 ${
+                      stats.unders > stats.overs 
+                        ? 'bg-green-50 border-2 border-green-200 shadow-sm' 
+                        : 'bg-transparent'
+                    }`}>
+                      <div className="rounded-full bg-red-50 flex items-center justify-center w-14 h-14">
+                        <ArrowDown className="text-red-600 h-7 w-7" />
+                      </div>
+                      <div className="font-bold text-slate-900 text-3xl">{stats.unders}</div>
+                      <div className="font-medium text-red-600 text-sm">Under</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Content */}
-        <div className={`overflow-y-auto flex-1 ${isMobile ? 'p-4' : 'p-6'}`}>
+        <div className={`overflow-y-auto flex-1 ${isMobile ? 'p-4' : 'p-6'} ${isMobile ? 'scroll-smooth' : ''}`} style={{ 
+          WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
+          scrollBehavior: isMobile ? 'smooth' : 'auto'
+        }}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -512,8 +562,8 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className={`text-gray-600 ${isMobile ? 'text-xs mb-3' : 'text-sm mb-4'}`}>
+            <div className={`space-y-3 ${isMobile ? 'space-y-3' : 'space-y-4'}`}>
+              <div className={`text-gray-600 ${isMobile ? 'text-xs mb-2' : 'text-sm mb-4'}`}>
                 Last {games.length} matchup{games.length !== 1 ? 's' : ''} between these teams:
               </div>
               
@@ -525,7 +575,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
 
                 return (
                   <div key={game.id} className={`border border-gray-200 rounded-lg bg-gray-50 ${
-                    isMobile ? 'p-3' : 'p-4'
+                    isMobile ? 'p-2.5' : 'p-4'
                   }`}>
                     <div className={`flex items-center justify-between ${isMobile ? 'mb-2' : 'mb-3'}`}>
                       <div className={`flex items-center ${isMobile ? 'space-x-1' : 'space-x-2'}`}>
