@@ -140,7 +140,7 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-center">
             Line Movement: {awayTeam} @ {homeTeam}
@@ -164,13 +164,13 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
             <AlertDescription>No line movement data available for this game.</AlertDescription>
           </Alert>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Team Selection Buttons */}
-            <div className="flex justify-center space-x-4 mb-6">
+            <div className="flex justify-center space-x-2 sm:space-x-4 mb-4 sm:mb-6">
               <Button
                 variant={selectedTeam === 'away' ? 'default' : 'outline'}
                 onClick={() => setSelectedTeam('away')}
-                className={`flex items-center space-x-2 px-6 py-3 transition-all duration-200 ${
+                className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-6 py-2 sm:py-3 transition-all duration-200 text-sm sm:text-base ${
                   selectedTeam === 'away' 
                     ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg' 
                     : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300'
@@ -189,7 +189,7 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
               <Button
                 variant={selectedTeam === 'home' ? 'default' : 'outline'}
                 onClick={() => setSelectedTeam('home')}
-                className={`flex items-center space-x-2 px-6 py-3 transition-all duration-200 ${
+                className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-6 py-2 sm:py-3 transition-all duration-200 text-sm sm:text-base ${
                   selectedTeam === 'home' 
                     ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg' 
                     : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300'
@@ -207,9 +207,9 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
             </div>
 
             {/* Chart */}
-            <div className="relative h-80 w-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="relative h-64 sm:h-80 w-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-2 sm:p-4 border border-slate-200 shadow-sm">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 20, right: 40, left: 40, bottom: 20 }}>
+                <LineChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 40 }}>
                   <CartesianGrid 
                     strokeDasharray="2 4" 
                     stroke="#cbd5e1" 
@@ -221,7 +221,7 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
                   <XAxis 
                     dataKey="displayTime" 
                     tick={{ 
-                      fontSize: 11, 
+                      fontSize: 10, 
                       fontWeight: 500,
                       fill: '#475569'
                     }}
@@ -229,13 +229,13 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
                     tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                     angle={-45}
                     textAnchor="end"
-                    height={80}
+                    height={60}
                   />
                   
                   {/* Y Axis */}
                   <YAxis 
                     tick={{ 
-                      fontSize: 11, 
+                      fontSize: 10, 
                       fontWeight: 600,
                       fill: '#334155'
                     }}
@@ -417,8 +417,8 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
                 </ResponsiveContainer>
                 
                 {/* Over/Under Values Text */}
-                <div className="absolute bottom-2 left-0 right-0 text-center">
-                  <div className="text-sm font-medium text-gray-700">
+                <div className="absolute bottom-1 left-0 right-0 text-center">
+                  <div className="text-xs sm:text-sm font-medium text-gray-700">
                     Opening O/U: {chartData[0]?.overLine?.toFixed(1) || 'N/A'} | Current O/U: {chartData[chartData.length - 1]?.overLine?.toFixed(1) || 'N/A'}
                   </div>
                 </div>
