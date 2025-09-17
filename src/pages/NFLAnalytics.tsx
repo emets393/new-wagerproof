@@ -543,7 +543,7 @@ export default function NFLAnalytics() {
     <>
       <style dangerouslySetInnerHTML={{
         __html: `
-          .slider::-webkit-slider-thumb {
+          .slider-thumb-left::-webkit-slider-thumb {
             appearance: none;
             height: 20px;
             width: 20px;
@@ -553,7 +553,7 @@ export default function NFLAnalytics() {
             border: 2px solid white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
           }
-          .slider::-moz-range-thumb {
+          .slider-thumb-left::-moz-range-thumb {
             height: 20px;
             width: 20px;
             border-radius: 50%;
@@ -562,13 +562,36 @@ export default function NFLAnalytics() {
             border: 2px solid white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
           }
-          .slider::-webkit-slider-track {
-            height: 8px;
-            border-radius: 4px;
+          .slider-thumb-right::-webkit-slider-thumb {
+            appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #dc2626;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
           }
-          .slider::-moz-range-track {
+          .slider-thumb-right::-moz-range-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #dc2626;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          }
+          .slider-thumb-left::-webkit-slider-track,
+          .slider-thumb-right::-webkit-slider-track {
             height: 8px;
             border-radius: 4px;
+            background: transparent;
+          }
+          .slider-thumb-left::-moz-range-track,
+          .slider-thumb-right::-moz-range-track {
+            height: 8px;
+            border-radius: 4px;
+            background: transparent;
           }
         `
       }} />
@@ -613,9 +636,8 @@ export default function NFLAnalytics() {
 
             <div>
               <Label>Season Range: {seasonRange[0]} - {seasonRange[1]}</Label>
-              <div className="px-2 py-2 space-y-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+              <div className="px-2 py-2">
+                <div className="relative">
                   <input
                     type="range"
                     min="2018"
@@ -627,15 +649,9 @@ export default function NFLAnalytics() {
                         setSeasonRange([value, seasonRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%, #e5e7eb ${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
+                    style={{ zIndex: seasonRange[0] > seasonRange[1] - 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{seasonRange[0]}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
                   <input
                     type="range"
                     min="2018"
@@ -647,21 +663,26 @@ export default function NFLAnalytics() {
                         setSeasonRange([seasonRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%, #3b82f6 ${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%, #3b82f6 ${((seasonRange[1] - 2018) / (2025 - 2018)) * 100}%, #e5e7eb ${((seasonRange[1] - 2018) / (2025 - 2018)) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
+                    style={{ zIndex: seasonRange[1] <= seasonRange[0] + 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{seasonRange[1]}</span>
+                  <div className="relative h-2 bg-gray-200 rounded-lg">
+                    <div 
+                      className="absolute h-2 bg-blue-500 rounded-lg"
+                      style={{
+                        left: `${((seasonRange[0] - 2018) / (2025 - 2018)) * 100}%`,
+                        width: `${((seasonRange[1] - seasonRange[0]) / (2025 - 2018)) * 100}%`
+                      }}
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
             
             <div>
               <Label>Week Range: {weekRange[0]} - {weekRange[1]}</Label>
-              <div className="px-2 py-2 space-y-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+              <div className="px-2 py-2">
+                <div className="relative">
                   <input
                     type="range"
                     min="1"
@@ -673,15 +694,9 @@ export default function NFLAnalytics() {
                         setWeekRange([value, weekRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((weekRange[0] - 1) / (18 - 1)) * 100}%, #e5e7eb ${((weekRange[0] - 1) / (18 - 1)) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
+                    style={{ zIndex: weekRange[0] > weekRange[1] - 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{weekRange[0]}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
                   <input
                     type="range"
                     min="1"
@@ -693,12 +708,18 @@ export default function NFLAnalytics() {
                         setWeekRange([weekRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${((weekRange[0] - 1) / (18 - 1)) * 100}%, #3b82f6 ${((weekRange[0] - 1) / (18 - 1)) * 100}%, #3b82f6 ${((weekRange[1] - 1) / (18 - 1)) * 100}%, #e5e7eb ${((weekRange[1] - 1) / (18 - 1)) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
+                    style={{ zIndex: weekRange[1] <= weekRange[0] + 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{weekRange[1]}</span>
+                  <div className="relative h-2 bg-gray-200 rounded-lg">
+                    <div 
+                      className="absolute h-2 bg-blue-500 rounded-lg"
+                      style={{
+                        left: `${((weekRange[0] - 1) / (18 - 1)) * 100}%`,
+                        width: `${((weekRange[1] - weekRange[0]) / (18 - 1)) * 100}%`
+                      }}
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -729,9 +750,8 @@ export default function NFLAnalytics() {
             {viewType === "individual" && (
               <div>
                 <Label>Spread Range: {spreadRange[0]} to {spreadRange[1]}</Label>
-                <div className="px-2 py-2 space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500 w-12">Min:</span>
+                <div className="px-2 py-2">
+                  <div className="relative">
                     <input
                       type="range"
                       min="0"
@@ -743,15 +763,9 @@ export default function NFLAnalytics() {
                           setSpreadRange([value, spreadRange[1]]);
                         }
                       }}
-                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                      style={{
-                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(spreadRange[0] / 20) * 100}%, #e5e7eb ${(spreadRange[0] / 20) * 100}%, #e5e7eb 100%)`
-                      }}
+                      className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
+                      style={{ zIndex: spreadRange[0] > spreadRange[1] - 1 ? 5 : 3 }}
                     />
-                    <span className="text-xs text-gray-500 w-8">{spreadRange[0]}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500 w-12">Max:</span>
                     <input
                       type="range"
                       min="0"
@@ -763,12 +777,18 @@ export default function NFLAnalytics() {
                           setSpreadRange([spreadRange[0], value]);
                         }
                       }}
-                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                      style={{
-                        background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${(spreadRange[0] / 20) * 100}%, #3b82f6 ${(spreadRange[0] / 20) * 100}%, #3b82f6 ${(spreadRange[1] / 20) * 100}%, #e5e7eb ${(spreadRange[1] / 20) * 100}%, #e5e7eb 100%)`
-                      }}
+                      className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
+                      style={{ zIndex: spreadRange[1] <= spreadRange[0] + 1 ? 5 : 3 }}
                     />
-                    <span className="text-xs text-gray-500 w-8">{spreadRange[1]}</span>
+                    <div className="relative h-2 bg-gray-200 rounded-lg">
+                      <div 
+                        className="absolute h-2 bg-blue-500 rounded-lg"
+                        style={{
+                          left: `${(spreadRange[0] / 20) * 100}%`,
+                          width: `${((spreadRange[1] - spreadRange[0]) / 20) * 100}%`
+                        }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -776,9 +796,8 @@ export default function NFLAnalytics() {
 
             <div>
               <Label>O/U Line Range: {ouLineRange[0]} - {ouLineRange[1]}</Label>
-              <div className="px-2 py-2 space-y-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+              <div className="px-2 py-2">
+                <div className="relative">
                   <input
                     type="range"
                     min="30"
@@ -790,15 +809,9 @@ export default function NFLAnalytics() {
                         setOuLineRange([value, ouLineRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((ouLineRange[0] - 30) / (70 - 30)) * 100}%, #e5e7eb ${((ouLineRange[0] - 30) / (70 - 30)) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
+                    style={{ zIndex: ouLineRange[0] > ouLineRange[1] - 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{ouLineRange[0]}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
                   <input
                     type="range"
                     min="30"
@@ -810,12 +823,18 @@ export default function NFLAnalytics() {
                         setOuLineRange([ouLineRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${((ouLineRange[0] - 30) / (70 - 30)) * 100}%, #3b82f6 ${((ouLineRange[0] - 30) / (70 - 30)) * 100}%, #3b82f6 ${((ouLineRange[1] - 30) / (70 - 30)) * 100}%, #e5e7eb ${((ouLineRange[1] - 30) / (70 - 30)) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
+                    style={{ zIndex: ouLineRange[1] <= ouLineRange[0] + 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{ouLineRange[1]}</span>
+                  <div className="relative h-2 bg-gray-200 rounded-lg">
+                    <div 
+                      className="absolute h-2 bg-blue-500 rounded-lg"
+                      style={{
+                        left: `${((ouLineRange[0] - 30) / (70 - 30)) * 100}%`,
+                        width: `${((ouLineRange[1] - ouLineRange[0]) / (70 - 30)) * 100}%`
+                      }}
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -844,9 +863,8 @@ export default function NFLAnalytics() {
 
             <div>
               <Label>Wind Speed Range: {windSpeedRange[0]} mph - {windSpeedRange[1]} mph</Label>
-              <div className="px-2 py-2 space-y-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+              <div className="px-2 py-2">
+                <div className="relative">
                   <input
                     type="range"
                     min="0"
@@ -858,15 +876,9 @@ export default function NFLAnalytics() {
                         setWindSpeedRange([value, windSpeedRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(windSpeedRange[0] / 60) * 100}%, #e5e7eb ${(windSpeedRange[0] / 60) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
+                    style={{ zIndex: windSpeedRange[0] > windSpeedRange[1] - 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{windSpeedRange[0]}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
                   <input
                     type="range"
                     min="0"
@@ -878,21 +890,26 @@ export default function NFLAnalytics() {
                         setWindSpeedRange([windSpeedRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${(windSpeedRange[0] / 60) * 100}%, #3b82f6 ${(windSpeedRange[0] / 60) * 100}%, #3b82f6 ${(windSpeedRange[1] / 60) * 100}%, #e5e7eb ${(windSpeedRange[1] / 60) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
+                    style={{ zIndex: windSpeedRange[1] <= windSpeedRange[0] + 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{windSpeedRange[1]}</span>
+                  <div className="relative h-2 bg-gray-200 rounded-lg">
+                    <div 
+                      className="absolute h-2 bg-blue-500 rounded-lg"
+                      style={{
+                        left: `${(windSpeedRange[0] / 60) * 100}%`,
+                        width: `${((windSpeedRange[1] - windSpeedRange[0]) / 60) * 100}%`
+                      }}
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div>
               <Label>Temperature Range: {temperatureRange[0]}°F - {temperatureRange[1]}°F</Label>
-              <div className="px-2 py-2 space-y-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+              <div className="px-2 py-2">
+                <div className="relative">
                   <input
                     type="range"
                     min="-20"
@@ -904,15 +921,9 @@ export default function NFLAnalytics() {
                         setTemperatureRange([value, temperatureRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((temperatureRange[0] - -20) / (120 - -20)) * 100}%, #e5e7eb ${((temperatureRange[0] - -20) / (120 - -20)) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
+                    style={{ zIndex: temperatureRange[0] > temperatureRange[1] - 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{temperatureRange[0]}°</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
                   <input
                     type="range"
                     min="-20"
@@ -924,12 +935,18 @@ export default function NFLAnalytics() {
                         setTemperatureRange([temperatureRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${((temperatureRange[0] - -20) / (120 - -20)) * 100}%, #3b82f6 ${((temperatureRange[0] - -20) / (120 - -20)) * 100}%, #3b82f6 ${((temperatureRange[1] - -20) / (120 - -20)) * 100}%, #e5e7eb ${((temperatureRange[1] - -20) / (120 - -20)) * 100}%, #e5e7eb 100%)`
-                    }}
+                    className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
+                    style={{ zIndex: temperatureRange[1] <= temperatureRange[0] + 1 ? 5 : 3 }}
                   />
-                  <span className="text-xs text-gray-500 w-8">{temperatureRange[1]}°</span>
+                  <div className="relative h-2 bg-gray-200 rounded-lg">
+                    <div 
+                      className="absolute h-2 bg-blue-500 rounded-lg"
+                      style={{
+                        left: `${((temperatureRange[0] - -20) / (120 - -20)) * 100}%`,
+                        width: `${((temperatureRange[1] - temperatureRange[0]) / (120 - -20)) * 100}%`
+                      }}
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
