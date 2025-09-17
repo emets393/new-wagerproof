@@ -22,16 +22,11 @@ interface NFLPrediction {
   game_time: string;
   training_key: string;
   unique_id: string;
-  // Model predictions
-  spread_ens_prob: number | null;
-  favcov_prob: number | null;
-  fav_team: string | null;
-  favcov_home_away_pred: number | null;
-  spread_pick?: number | null;
-  ml_ensemble_prob: number | null;
-  ou_cls_prob: number | null;
-  ou_reg_pred: number | null;
-  edge_total: number | null;
+  // Model predictions (EPA model)
+  home_away_ml_prob: number | null;
+  home_away_spread_cover_prob: number | null;
+  ou_result_prob: number | null;
+  run_id: string | null;
   // Weather data
   temperature: number | null;
   precipitation: number | null;
@@ -184,13 +179,63 @@ export default function NFL() {
       
       setTeamMappings(teamMappings);
 
-      // Fetch predictions - only from today onwards
-      const { data: preds, error: predsError } = await collegeFootballSupabase
-        .from('nfl_predictions')
+      // Fetch betting lines first - get most recent row per training_key
+      const { data: bettingData, error: bettingError } = await collegeFootballSupabase
+        .from('nfl_betting_lines')
         .select('*')
         .gte('game_date', today)
-        .order('game_date', { ascending: true })
-        .order('game_time', { ascending: true });
+        .order('as_of_ts', { ascending: false });
+
+      if (bettingError) {
+        console.error('Error fetching betting lines:', bettingError);
+        setError(`Betting lines error: ${bettingError.message}`);
+        return;
+      }
+
+      console.log('Betting lines fetched:', bettingData?.length || 0);
+
+      // Create a map of most recent betting lines by training_key
+      const bettingMap = new Map();
+      bettingData?.forEach(bet => {
+        const key = bet.training_key;
+        if (!bettingMap.has(key) || new Date(bet.as_of_ts) > new Date(bettingMap.get(key).as_of_ts)) {
+          bettingMap.set(key, bet);
+        }
+      });
+
+      console.log('Betting map created with', bettingMap.size, 'entries');
+
+      // Fetch predictions - only from today onwards
+      // First get the most recent run_id
+      const { data: latestRun, error: runError } = await collegeFootballSupabase
+        .from('nfl_predictions_epa')
+        .select('run_id')
+        .gte('game_date', today)
+        .order('run_id', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (runError) {
+        console.error('Error fetching latest run_id:', runError);
+        setError(`Run ID error: ${runError.message}`);
+        return;
+      }
+
+      const latestRunId = latestRun?.run_id;
+      if (!latestRunId) {
+        console.log('No predictions found for today onwards');
+        setPredictions([]);
+        setLoading(false);
+        return;
+      }
+
+      // Now fetch predictions with the latest run_id
+      const { data: preds, error: predsError } = await collegeFootballSupabase
+        .from('nfl_predictions_epa')
+        .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id, game_date')
+        .gte('game_date', today)
+        .eq('run_id', latestRunId)
+        .order('game_date', { ascending: true });
 
       if (predsError) {
         console.error('Error fetching predictions:', predsError);
@@ -205,43 +250,13 @@ export default function NFL() {
       }
 
       // Fetch weather data
-      console.log('Attempting to fetch weather data...');
       const { data: weatherData, error: weatherError } = await collegeFootballSupabase
         .from('production_weather')
         .select('*');
-      console.log('Weather fetch completed. Data:', weatherData, 'Error:', weatherError);
 
       if (weatherError) {
         console.error('Error fetching weather data:', weatherError);
         console.warn('Weather data unavailable, continuing without weather info');
-      } else {
-        console.log('Weather data fetched:', weatherData?.length || 0);
-        if (weatherData && weatherData.length > 0) {
-          console.log('Sample weather data:', weatherData[0]);
-          console.log('Weather data columns:', Object.keys(weatherData[0]));
-          console.log('First 3 weather training_keys:', weatherData.slice(0, 3).map(w => w.training_key));
-        } else {
-          console.log('NO WEATHER DATA FOUND!');
-        }
-      }
-
-      // Fetch betting lines - get most recent row per training_key
-      const { data: bettingData, error: bettingError } = await collegeFootballSupabase
-        .from('nfl_betting_lines')
-        .select('*')
-        .order('as_of_ts', { ascending: false });
-
-      if (bettingError) {
-        console.error('Error fetching betting data:', bettingError);
-        console.warn('Betting data unavailable, continuing without betting info');
-      } else {
-        console.log('Betting data fetched:', bettingData?.length || 0);
-        if (bettingData && bettingData.length > 0) {
-          console.log('Sample betting data:', bettingData[0]);
-          console.log('All betting data columns:', Object.keys(bettingData[0]));
-        } else {
-          console.log('No betting data found');
-        }
       }
 
       // Get most recent betting data per training_key
@@ -257,43 +272,33 @@ export default function NFL() {
 
       // Map all data together
       const predictionsWithData = (preds || []).map(prediction => {
-        // Match weather data by training_key (weather uses training_key, predictions use unique_id)
-        const weather = weatherData?.find(w => w.training_key === prediction.unique_id);
+        // Match weather data by training_key
+        const weather = weatherData?.find(w => w.training_key === prediction.training_key);
         
-        // Try to match betting data by training_key first, then by team names and date
-        let betting = uniqueBettingData?.find(b => b.training_key === prediction.unique_id);
+        // Match betting data by training_key
+        const betting = uniqueBettingData?.find(b => b.training_key === prediction.training_key);
         
-        if (!betting) {
-          // Fallback: match by team names and game date
-          betting = uniqueBettingData?.find(b => 
-            b.game_date === prediction.game_date &&
-            ((b.home_team === prediction.home_team && b.away_team === prediction.away_team) ||
-             (b.home_team === prediction.away_team && b.away_team === prediction.home_team))
-          );
-        }
-        
-        console.log('=== DEBUGGING WEATHER MATCHING ===');
+        console.log('=== DEBUGGING DATA MATCHING ===');
         console.log('Prediction training_key:', prediction.training_key);
-        console.log('Available weather data training_keys:', weatherData?.map(w => w.training_key));
         console.log('Weather match found:', !!weather);
-        console.log('Weather for this prediction:', weather);
-        console.log('Weather temperature:', weather?.temperature);
-        console.log('Weather icon:', weather?.icon);
+        console.log('Betting match found:', !!betting);
         console.log('=====================================');
         
         return {
-          ...prediction,
+          ...betting, // Start with betting data as base
+          ...weather, // Add weather data
+          // Override with prediction data
+          home_away_ml_prob: prediction.home_away_ml_prob,
+          home_away_spread_cover_prob: prediction.home_away_spread_cover_prob,
+          ou_result_prob: prediction.ou_result_prob,
+          run_id: prediction.run_id,
+          game_date: prediction.game_date,
+          training_key: prediction.training_key,
           // Weather data - using correct column names from production_weather
           temperature: weather?.temperature || null,
-          precipitation: weather?.precipitation_pct || null, // Changed from precipitation to precipitation_pct
+          precipitation: weather?.precipitation_pct || null,
           wind_speed: weather?.wind_speed || null,
           icon: weather?.icon || null,
-          // Betting data - prioritize betting table data, fallback to prediction data
-          home_spread: betting?.home_spread ?? prediction.home_spread ?? null,
-          away_spread: betting?.away_spread ?? prediction.away_spread ?? null,
-          over_line: betting?.over_line ?? prediction.over_line ?? null,
-          home_ml: betting?.home_ml ?? prediction.home_ml ?? null,
-          away_ml: betting?.away_ml ?? prediction.away_ml ?? null,
           // Public betting splits - using label columns
           spread_splits_label: betting?.spread_splits_label || null,
           total_splits_label: betting?.total_splits_label || null,
@@ -551,20 +556,6 @@ export default function NFL() {
     return Math.round(value * 2) / 2;
   };
 
-  // Helper function to get favorite cover prediction
-  const getFavoriteCoverPrediction = (prediction: NFLPrediction) => {
-    if (!prediction.favcov_prob || !prediction.fav_team || prediction.favcov_home_away_pred === null) {
-      return null;
-    }
-
-    const probability = prediction.favcov_prob > 0.5 ? prediction.favcov_prob : 1 - prediction.favcov_prob;
-    const predictedTeam = prediction.favcov_home_away_pred === 0 ? prediction.away_team : prediction.home_team;
-    
-    return {
-      probability: Math.round(probability * 100),
-      team: predictedTeam
-    };
-  };
 
   if (loading) {
     return (
@@ -695,7 +686,7 @@ export default function NFL() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => openLineMovementModal(prediction.unique_id, prediction.home_team, prediction.away_team)}
+                        onClick={() => openLineMovementModal(prediction.training_key, prediction.home_team, prediction.away_team)}
                         className="text-xs bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200 text-green-700 hover:text-green-800 transition-all duration-200"
                       >
                         <TrendingUp className="h-3 w-3 mr-1" />
@@ -771,121 +762,55 @@ export default function NFL() {
                       <div className="text-center mb-3">
                         <h5 className="text-sm font-bold text-gray-700">Spread Predictions</h5>
                       </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        {/* Spread Model #1 */}
-                        {prediction.spread_ens_prob !== null && (
+                      <div className="grid grid-cols-1 gap-3">
+                        {/* Spread Prediction */}
+                        {prediction.home_away_spread_cover_prob !== null && (
                           <div className="text-center">
-                            <div className="text-xs font-medium text-gray-600 mb-1">Spread Model #1</div>
+                            <div className="text-xs font-medium text-gray-600 mb-1">Spread Prediction</div>
                             <div className="text-lg font-bold text-blue-600">
-                              {Math.round((prediction.spread_ens_prob > 0.5 ? prediction.spread_ens_prob : 1 - prediction.spread_ens_prob) * 100)}%
+                              {Math.round((prediction.home_away_spread_cover_prob > 0.5 ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100)}%
                             </div>
                             <div className="text-xs text-gray-500">
-                              {prediction.spread_ens_prob > 0.5 ? prediction.home_team : prediction.away_team}
+                              {prediction.home_away_spread_cover_prob > 0.5 ? prediction.home_team : prediction.away_team}
                             </div>
                           </div>
                         )}
 
-                        {/* Model Agreement Indicator */}
-                        <div className="text-center flex flex-col items-center justify-center">
-                          <div className="text-xs font-medium text-gray-600 mb-1">Models</div>
-                          <div className="text-sm font-bold mb-1">
-                            {prediction.spread_pick === prediction.favcov_home_away_pred ? (
-                              <span className="text-green-600">✓ Agree</span>
-                            ) : (
-                              <span className="text-red-600">✗ Contradict</span>
-                            )}
-                          </div>
-                        </div>
 
-                        {/* Spread Model #2 */}
-                        {getFavoriteCoverPrediction(prediction) && (
-                          <div className="text-center">
-                            <div className="text-xs font-medium text-gray-600 mb-1 whitespace-nowrap">Spread Model #2</div>
-                            <div className="text-lg font-bold text-green-600">
-                              {getFavoriteCoverPrediction(prediction)?.probability}%
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {getFavoriteCoverPrediction(prediction)?.team}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
 
                     {/* Over/Under Analysis Card */}
-                    {(prediction.ou_cls_prob !== null || prediction.ou_reg_pred !== null || prediction.edge_total !== null) && (
+                    {prediction.ou_result_prob !== null && (
                       <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                         <div className="text-center mb-3">
                           <h5 className="text-sm font-bold text-gray-700">Over/Under Analysis</h5>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 gap-3">
                           {/* Over/Under Prediction */}
-                          {prediction.ou_cls_prob !== null && (
-                            <div className="text-center">
-                              <div className="text-xs font-medium text-gray-600 mb-1">Prediction</div>
-                              <div className="text-lg font-bold text-orange-600">
-                                {Math.round((prediction.ou_cls_prob > 0.5 ? prediction.ou_cls_prob : 1 - prediction.ou_cls_prob) * 100)}%
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {prediction.ou_cls_prob > 0.5 ? 'Over' : 'Under'} {prediction.over_line || '-'}
-                              </div>
+                          <div className="text-center">
+                            <div className="text-xs font-medium text-gray-600 mb-1">Prediction</div>
+                            <div className="text-lg font-bold text-orange-600">
+                              {Math.round((prediction.ou_result_prob > 0.5 ? prediction.ou_result_prob : 1 - prediction.ou_result_prob) * 100)}%
                             </div>
-                          )}
-                          
-                          {/* Model Projection */}
-                          {prediction.ou_reg_pred !== null && (
-                            <div className="text-center">
-                              <div className="text-xs font-medium text-gray-600 mb-1">Model's Projected O/U Line</div>
-                              <div className="text-lg font-bold text-gray-800">
-                                {roundToNearestHalf(prediction.ou_reg_pred)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {prediction.ou_cls_prob !== null && prediction.over_line !== null && (
-                                  <>
-                                    {(() => {
-                                      const projectedLine = roundToNearestHalf(prediction.ou_reg_pred);
-                                      const vegasLine = prediction.over_line;
-                                      const isOverPrediction = prediction.ou_cls_prob > 0.5;
-                                      
-                                      const modelsAgree = (projectedLine < vegasLine && !isOverPrediction) || 
-                                                        (projectedLine > vegasLine && isOverPrediction);
-                                      
-                                      return modelsAgree ? (
-                                        <span className="text-green-600">✓ Models Agree</span>
-                                      ) : (
-                                        <span className="text-red-600">✗ Models Disagree</span>
-                                      );
-                                    })()}
-                                  </>
-                                )}
-                              </div>
+                            <div className="text-xs text-gray-500">
+                              {prediction.ou_result_prob > 0.5 ? 'Over' : 'Under'} {prediction.over_line || '-'}
                             </div>
-                          )}
-                          
-                          {/* Edge */}
-                          {prediction.edge_total !== null && (
-                            <div className="text-center">
-                              <div className="text-xs font-medium text-gray-600 mb-1">Edge</div>
-                              <div className={`text-lg font-bold ${prediction.edge_total >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {prediction.edge_total >= 0 ? '+' : ''}{prediction.edge_total?.toFixed(1)}
-                              </div>
-                              <div className="text-xs text-gray-500">vs Vegas Line</div>
-                            </div>
-                          )}
+                          </div>
                         </div>
                       </div>
                     )}
 
                     {/* Moneyline Prediction Card */}
-                    {prediction.ml_ensemble_prob !== null && (
+                    {prediction.home_away_ml_prob !== null && (
                       <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                         <div className="text-center">
                           <h5 className="text-sm font-bold text-gray-700 mb-2">Moneyline Prediction</h5>
                           <div className="text-lg font-bold text-purple-600">
-                            {Math.round((prediction.ml_ensemble_prob > 0.5 ? prediction.ml_ensemble_prob : 1 - prediction.ml_ensemble_prob) * 100)}%
+                            {Math.round((prediction.home_away_ml_prob > 0.5 ? prediction.home_away_ml_prob : 1 - prediction.home_away_ml_prob) * 100)}%
                           </div>
                           <div className="text-xs text-gray-500">
-                            {prediction.ml_ensemble_prob > 0.5 ? prediction.home_team : prediction.away_team}
+                            {prediction.home_away_ml_prob > 0.5 ? prediction.home_team : prediction.away_team}
                           </div>
                         </div>
                       </div>
