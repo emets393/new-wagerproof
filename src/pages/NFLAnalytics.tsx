@@ -560,6 +560,8 @@ export default function NFLAnalytics() {
             cursor: pointer;
             border: 2px solid white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 1;
           }
           .slider-thumb-left::-moz-range-thumb {
             height: 20px;
@@ -569,6 +571,8 @@ export default function NFLAnalytics() {
             cursor: pointer;
             border: 2px solid white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 1;
           }
           .slider-thumb-right::-webkit-slider-thumb {
             appearance: none;
@@ -579,6 +583,8 @@ export default function NFLAnalytics() {
             cursor: pointer;
             border: 2px solid white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 2;
           }
           .slider-thumb-right::-moz-range-thumb {
             height: 20px;
@@ -588,6 +594,8 @@ export default function NFLAnalytics() {
             cursor: pointer;
             border: 2px solid white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 2;
           }
           .slider-thumb-left::-webkit-slider-track,
           .slider-thumb-right::-webkit-slider-track {
@@ -600,6 +608,11 @@ export default function NFLAnalytics() {
             height: 8px;
             border-radius: 4px;
             background: transparent;
+          }
+          .slider-thumb-left,
+          .slider-thumb-right {
+            pointer-events: auto;
+            touch-action: none;
           }
         `
       }} />
@@ -642,7 +655,7 @@ export default function NFLAnalytics() {
             <div>
               <Label>Season Range: {seasonRange[0]} - {seasonRange[1]}</Label>
               <div className="px-2 py-2">
-                <div className="relative">
+                <div className="relative px-2">
                   <input
                     type="range"
                     min="2018"
@@ -655,7 +668,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: 5 }}
+                    style={{ zIndex: 3 }}
                   />
                   <input
                     type="range"
@@ -687,7 +700,7 @@ export default function NFLAnalytics() {
             <div>
               <Label>Week Range: {weekRange[0]} - {weekRange[1]}</Label>
               <div className="px-2 py-2">
-                <div className="relative">
+                <div className="relative px-2">
                   <input
                     type="range"
                     min="1"
@@ -700,7 +713,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: 5 }}
+                    style={{ zIndex: 3 }}
                   />
                   <input
                     type="range"
@@ -769,7 +782,7 @@ export default function NFLAnalytics() {
                         }
                       }}
                       className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                      style={{ zIndex: 5 }}
+                      style={{ zIndex: 3 }}
                     />
                     <input
                       type="range"
@@ -802,7 +815,7 @@ export default function NFLAnalytics() {
             <div>
               <Label>O/U Line Range: {ouLineRange[0]} - {ouLineRange[1]}</Label>
               <div className="px-2 py-2">
-                <div className="relative">
+                <div className="relative px-2">
                   <input
                     type="range"
                     min="30"
@@ -815,7 +828,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: 5 }}
+                    style={{ zIndex: 3 }}
                   />
                   <input
                     type="range"
@@ -869,7 +882,7 @@ export default function NFLAnalytics() {
             <div>
               <Label>Wind Speed Range: {windSpeedRange[0]} mph - {windSpeedRange[1]} mph</Label>
               <div className="px-2 py-2">
-                <div className="relative">
+                <div className="relative px-2">
                   <input
                     type="range"
                     min="0"
@@ -882,7 +895,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: 5 }}
+                    style={{ zIndex: 3 }}
                   />
                   <input
                     type="range"
@@ -914,7 +927,7 @@ export default function NFLAnalytics() {
             <div>
               <Label>Temperature Range: {temperatureRange[0]}°F - {temperatureRange[1]}°F</Label>
               <div className="px-2 py-2">
-                <div className="relative">
+                <div className="relative px-2">
                   <input
                     type="range"
                     min="-20"
@@ -927,7 +940,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: 5 }}
+                    style={{ zIndex: 3 }}
                   />
                   <input
                     type="range"
