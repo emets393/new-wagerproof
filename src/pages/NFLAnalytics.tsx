@@ -400,6 +400,14 @@ export default function NFLAnalytics() {
               <CardTitle className="text-sm font-semibold">Summary</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
+              {/* Total Games Count */}
+              <div className="mb-3 p-2 bg-slate-50 rounded-md border">
+                <div className="text-center">
+                  <div className="text-[11px] text-slate-600 mb-1">Total Games</div>
+                  <div className="font-bold text-slate-900 text-lg">{summary.totalGames}</div>
+                </div>
+              </div>
+              
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {/* Container 1: Home/Away Win */}
                 <div className="bg-white border rounded-md p-2">
