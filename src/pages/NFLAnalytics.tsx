@@ -655,7 +655,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: seasonRange[0] > seasonRange[1] - 1 ? 5 : 3 }}
+                    style={{ zIndex: 5 }}
                   />
                   <input
                     type="range"
@@ -669,7 +669,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
-                    style={{ zIndex: seasonRange[1] <= seasonRange[0] + 1 ? 5 : 3 }}
+                    style={{ zIndex: 4 }}
                   />
                   <div className="relative h-2 bg-gray-200 rounded-lg">
                     <div 
@@ -700,7 +700,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: weekRange[0] > weekRange[1] - 1 ? 5 : 3 }}
+                    style={{ zIndex: 5 }}
                   />
                   <input
                     type="range"
@@ -714,7 +714,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
-                    style={{ zIndex: weekRange[1] <= weekRange[0] + 1 ? 5 : 3 }}
+                    style={{ zIndex: 4 }}
                   />
                   <div className="relative h-2 bg-gray-200 rounded-lg">
                     <div 
@@ -769,7 +769,7 @@ export default function NFLAnalytics() {
                         }
                       }}
                       className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                      style={{ zIndex: spreadRange[0] > spreadRange[1] - 1 ? 5 : 3 }}
+                      style={{ zIndex: 5 }}
                     />
                     <input
                       type="range"
@@ -783,7 +783,7 @@ export default function NFLAnalytics() {
                         }
                       }}
                       className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
-                      style={{ zIndex: spreadRange[1] <= spreadRange[0] + 1 ? 5 : 3 }}
+                      style={{ zIndex: 4 }}
                     />
                     <div className="relative h-2 bg-gray-200 rounded-lg">
                       <div 
@@ -815,7 +815,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: ouLineRange[0] > ouLineRange[1] - 1 ? 5 : 3 }}
+                    style={{ zIndex: 5 }}
                   />
                   <input
                     type="range"
@@ -829,7 +829,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
-                    style={{ zIndex: ouLineRange[1] <= ouLineRange[0] + 1 ? 5 : 3 }}
+                    style={{ zIndex: 4 }}
                   />
                   <div className="relative h-2 bg-gray-200 rounded-lg">
                     <div 
@@ -882,7 +882,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: windSpeedRange[0] > windSpeedRange[1] - 1 ? 5 : 3 }}
+                    style={{ zIndex: 5 }}
                   />
                   <input
                     type="range"
@@ -896,7 +896,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
-                    style={{ zIndex: windSpeedRange[1] <= windSpeedRange[0] + 1 ? 5 : 3 }}
+                    style={{ zIndex: 4 }}
                   />
                   <div className="relative h-2 bg-gray-200 rounded-lg">
                     <div 
@@ -927,7 +927,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-left"
-                    style={{ zIndex: temperatureRange[0] > temperatureRange[1] - 1 ? 5 : 3 }}
+                    style={{ zIndex: 5 }}
                   />
                   <input
                     type="range"
@@ -941,7 +941,7 @@ export default function NFLAnalytics() {
                       }
                     }}
                     className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider-thumb-right"
-                    style={{ zIndex: temperatureRange[1] <= temperatureRange[0] + 1 ? 5 : 3 }}
+                    style={{ zIndex: 4 }}
                   />
                   <div className="relative h-2 bg-gray-200 rounded-lg">
                     <div 
