@@ -707,7 +707,7 @@ export default function NFL() {
                             className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 flex items-center justify-center text-gray-800">
+                        <div className="hidden sm:flex text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 items-center justify-center text-gray-800">
                           {prediction.away_team}
                         </div>
                         <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
@@ -738,7 +738,7 @@ export default function NFL() {
                             className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 flex items-center justify-center text-gray-800">
+                        <div className="hidden sm:flex text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 items-center justify-center text-gray-800">
                           {prediction.home_team}
                         </div>
                         <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
