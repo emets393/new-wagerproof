@@ -612,9 +612,6 @@ export default function NFLAnalytics() {
       </div>
       
       {/* Summary Donuts */}
-      <div className="mb-2 text-center text-xs sm:text-sm text-muted-foreground">
-        Total games: {Number((summary as any)?.totalGames || 0)}
-      </div>
       {renderGameLevelView()}
 
       {/* Filters */}
