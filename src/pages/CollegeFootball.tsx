@@ -476,8 +476,8 @@ export default function CollegeFootball() {
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Trophy className="h-8 w-8 text-orange-500" />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <Trophy className="h-7 w-7 sm:h-8 sm:w-8 text-orange-500" />
             College Football Predictions
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -548,9 +548,9 @@ export default function CollegeFootball() {
         </Card>
       )}
 
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
         {/* Display all games in a single grid, ordered by date and time */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {predictions
             .filter(shouldDisplayGame)
             .sort((a, b) => {
@@ -563,7 +563,7 @@ export default function CollegeFootball() {
               <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-2 border-gray-200 hover:border-blue-300 shadow-lg">
                 {/* Gradient accent line at top */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
-                <CardContent className="space-y-6 pt-6 pb-6">
+                <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
                   {/* Game Date - Small font above the @ symbol */}
                   <div className="text-center">
                     <div className="text-xs font-medium text-muted-foreground mb-2">
@@ -572,7 +572,7 @@ export default function CollegeFootball() {
                   </div>
 
                   {/* Team Logos and Betting Info - Horizontal Layout */}
-                  <div className="space-y-4 pt-2">
+                  <div className="space-y-3 sm:space-y-4 pt-2">
                     <div className="flex justify-between items-start">
                       {/* Away Team */}
                       <div className="text-center flex-1">
@@ -580,27 +580,27 @@ export default function CollegeFootball() {
                           <img 
                             src={getTeamLogo(prediction.away_team)} 
                             alt={`${prediction.away_team} logo`}
-                            className="h-16 w-16 mx-auto mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-xl font-bold mb-2 h-8 flex items-center justify-center text-gray-800">
+                        <div className="text-sm sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 flex items-center justify-center text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-[130px] mx-auto">
                           {prediction.away_team}
                         </div>
-                        <div className="text-lg font-bold h-8 flex items-center justify-center text-blue-600">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600">
                           {formatMoneyline(prediction.away_ml)}
                         </div>
-                        <div className="text-sm text-muted-foreground h-6 flex items-center justify-center">
+                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
                           Spread: {formatSpread(prediction.away_spread)}
                         </div>
                       </div>
 
                       {/* @ Symbol, Game Time, and Total */}
-                      <div className="text-center px-4 flex flex-col items-center justify-center">
-                        <span className="text-2xl font-bold text-gray-400">@</span>
-                        <div className="text-sm font-medium text-gray-600 mt-2 mb-4 bg-gray-100 px-3 py-1 rounded-full">
+                      <div className="text-center px-2 sm:px-4 flex flex-col items-center justify-center">
+                        <span className="text-xl sm:text-2xl font-bold text-gray-400">@</span>
+                        <div className="text-xs sm:text-sm font-medium text-gray-600 mt-1 sm:mt-2 mb-2 sm:mb-4 bg-gray-100 px-2 sm:px-3 py-1 rounded-full">
                           {convertTimeToEST(prediction.game_time)}
                         </div>
-                        <div className="text-sm font-bold text-gray-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                        <div className="text-xs sm:text-sm font-bold text-gray-700 bg-blue-50 px-2 sm:px-3 py-1 rounded-full border border-blue-200">
                           Total: {prediction.total_line || '-'}
                         </div>
                       </div>
@@ -611,16 +611,16 @@ export default function CollegeFootball() {
                           <img 
                             src={getTeamLogo(prediction.home_team)} 
                             alt={`${prediction.home_team} logo`}
-                            className="h-16 w-16 mx-auto mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-xl font-bold mb-2 h-8 flex items-center justify-center text-gray-800">
+                        <div className="text-sm sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 flex items-center justify-center text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-[130px] mx-auto">
                           {prediction.home_team}
                         </div>
-                        <div className="text-lg font-bold h-8 flex items-center justify-center text-green-600">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600">
                           {formatMoneyline(prediction.home_ml)}
                         </div>
-                        <div className="text-sm text-muted-foreground h-6 flex items-center justify-center">
+                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
                           Spread: {formatSpread(prediction.home_spread)}
                         </div>
                       </div>
@@ -629,15 +629,15 @@ export default function CollegeFootball() {
 
                   {/* Betting Split Labels Section */}
                   {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
-                    <div className="space-y-3 pt-6 border-t-2 border-gray-200">
+                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
-                        <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-indigo-50 to-blue-50 px-3 py-1 rounded-full border border-gray-200">Public Betting Facts</h4>
+                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-indigo-50 to-blue-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Public Betting Facts</h4>
                       </div>
-                      <div className="space-y-2 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-lg border border-gray-200 shadow-sm">
+                      <div className="space-y-1.5 sm:space-y-2 bg-gradient-to-br from-indigo-50 to-blue-50 p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm">
                         {prediction.ml_splits_label && (
                           <Badge 
                             variant="outline" 
-                            className={`w-full justify-center ${
+                            className={`w-full justify-center text-xs ${
                               shouldHighlightLabel(prediction.ml_splits_label) 
                                 ? 'bg-blue-100 border-blue-300 text-blue-800' 
                                 : 'bg-white border-gray-300 text-gray-700'
@@ -649,7 +649,7 @@ export default function CollegeFootball() {
                         {prediction.spread_splits_label && (
                           <Badge 
                             variant="outline" 
-                            className={`w-full justify-center ${
+                            className={`w-full justify-center text-xs ${
                               shouldHighlightLabel(prediction.spread_splits_label) 
                                 ? 'bg-blue-100 border-blue-300 text-blue-800' 
                                 : 'bg-white border-gray-300 text-gray-700'
@@ -661,7 +661,7 @@ export default function CollegeFootball() {
                         {prediction.total_splits_label && (
                           <Badge 
                             variant="outline" 
-                            className={`w-full justify-center ${
+                            className={`w-full justify-center text-xs ${
                               shouldHighlightLabel(prediction.total_splits_label) 
                                 ? 'bg-blue-100 border-blue-300 text-blue-800' 
                                 : 'bg-white border-gray-300 text-gray-700'
@@ -676,68 +676,68 @@ export default function CollegeFootball() {
 
                   {/* Predictions Section */}
                   {(prediction.pred_ml_proba !== null || prediction.pred_spread_proba !== null || prediction.pred_total_proba !== null) && (
-                    <div className="space-y-3 pt-6 border-t-2 border-gray-200">
+                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
-                        <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 px-3 py-1 rounded-full border border-gray-200">Model Predictions</h4>
+                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Model Predictions</h4>
                       </div>
-                      <div className="grid grid-cols-3 gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <div className="grid grid-cols-3 gap-2 sm:gap-3 bg-gray-50 p-2.5 sm:p-3 rounded-lg border border-gray-200">
                         {/* Moneyline Prediction */}
                         {prediction.pred_ml_proba !== null && (
                           <div className="text-center">
-                            <div className="text-xs font-medium text-gray-600 mb-1">Moneyline</div>
-                            <div className="text-lg font-bold text-blue-600">
+                            <div className="text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Moneyline</div>
+                            <div className="text-base sm:text-lg font-bold text-blue-600">
                               {Math.round((prediction.pred_ml_proba > 0.5 ? prediction.pred_ml_proba : 1 - prediction.pred_ml_proba) * 100)}%
                             </div>
-                            <div className="flex items-center justify-center space-x-2 mb-1">
+                            <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 mb-1">
                               {getTeamLogo(prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team) && (
                                 <img 
                                   src={getTeamLogo(prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team)} 
                                   alt="Team logo"
-                                  className="h-6 w-6"
+                                  className="h-5 w-5 sm:h-6 sm:w-6"
                                 />
                               )}
-                              <div className="text-xs text-gray-500">
+                              <div className="text-[11px] sm:text-xs text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-[110px]">
                                 {prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team}
                               </div>
                             </div>
-                            <div className="text-xs text-gray-500">Probability to Win</div>
+                            <div className="text-[11px] sm:text-xs text-gray-500">Probability to Win</div>
                           </div>
                         )}
 
                         {/* Spread Prediction */}
                         {prediction.pred_spread_proba !== null && (
                           <div className="text-center">
-                            <div className="text-xs font-medium text-gray-600 mb-1">Spread</div>
-                            <div className="text-lg font-bold text-green-600">
+                            <div className="text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Spread</div>
+                            <div className="text-base sm:text-lg font-bold text-green-600">
                               {Math.round((prediction.pred_spread_proba > 0.5 ? prediction.pred_spread_proba : 1 - prediction.pred_spread_proba) * 100)}%
                             </div>
-                            <div className="flex items-center justify-center space-x-2 mb-1">
+                            <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 mb-1">
                               {getTeamLogo(prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team) && (
                                 <img 
                                   src={getTeamLogo(prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team)} 
                                   alt="Team logo"
-                                  className="h-6 w-6"
+                                  className="h-5 w-5 sm:h-6 sm:w-6"
                                 />
                               )}
-                              <div className="text-xs text-gray-500">
+                              <div className="text-[11px] sm:text-xs text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-[110px]">
                                 {prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team}
                               </div>
                             </div>
-                            <div className="text-xs text-gray-500">Probability to Cover</div>
+                            <div className="text-[11px] sm:text-xs text-gray-500">Probability to Cover</div>
                           </div>
                         )}
 
                         {/* Over/Under Prediction */}
                         {prediction.pred_total_proba !== null && (
                           <div className="text-center">
-                            <div className="text-xs font-medium text-gray-600 mb-1">Over/Under</div>
-                            <div className="text-lg font-bold text-purple-600">
+                            <div className="text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Over/Under</div>
+                            <div className="text-base sm:text-lg font-bold text-purple-600">
                               {Math.round((prediction.pred_total_proba > 0.5 ? prediction.pred_total_proba : 1 - prediction.pred_total_proba) * 100)}%
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-[11px] sm:text-xs text-gray-500">
                               Probability to Go {prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-[11px] sm:text-xs text-gray-500">
                               Total: {prediction.total_line || '-'}
                             </div>
                           </div>
@@ -748,28 +748,28 @@ export default function CollegeFootball() {
 
                   {/* Score Prediction Section */}
                   {(prediction.pred_away_score !== null || prediction.pred_home_score !== null) && (
-                    <div className="space-y-3 pt-6 border-t-2 border-gray-200">
+                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
-                        <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-orange-50 to-red-50 px-3 py-1 rounded-full border border-gray-200">Score Prediction</h4>
+                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-orange-50 to-red-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Score Prediction</h4>
                       </div>
-                      <div className="flex justify-between items-center bg-gradient-to-br from-orange-50 to-red-50 p-4 rounded-lg border border-gray-200">
+                      <div className="flex justify-between items-center bg-gradient-to-br from-orange-50 to-red-50 p-3 sm:p-4 rounded-lg border border-gray-200">
                         {/* Away Team Score */}
                         <div className="text-center flex-1">
                           {getTeamLogo(prediction.away_team) && (
                             <img 
                               src={getTeamLogo(prediction.away_team)} 
                               alt={`${prediction.away_team} logo`}
-                              className="h-12 w-12 mx-auto mb-2 drop-shadow-md"
+                              className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-1 sm:mb-2 drop-shadow-md"
                             />
                           )}
-                          <div className="text-2xl font-bold text-gray-800">
+                          <div className="text-xl sm:text-2xl font-bold text-gray-800">
                             {prediction.pred_away_score !== null ? prediction.pred_away_score.toFixed(1) : '-'}
                           </div>
                         </div>
 
                         {/* VS Separator */}
-                        <div className="text-center px-4">
-                          <div className="text-lg font-bold text-gray-500">VS</div>
+                        <div className="text-center px-3 sm:px-4">
+                          <div className="text-base sm:text-lg font-bold text-gray-500">VS</div>
                         </div>
 
                         {/* Home Team Score */}
@@ -781,7 +781,7 @@ export default function CollegeFootball() {
                               className="h-12 w-12 mx-auto mb-2 drop-shadow-md"
                             />
                           )}
-                          <div className="text-2xl font-bold text-gray-800">
+                          <div className="text-xl sm:text-2xl font-bold text-gray-800">
                             {prediction.pred_home_score !== null ? prediction.pred_home_score.toFixed(1) : '-'}
                           </div>
                         </div>
@@ -791,11 +791,11 @@ export default function CollegeFootball() {
 
                   {/* Weather Section */}
                   {prediction.icon_code && (
-                    <div className="space-y-3 pt-6 border-t-2 border-gray-200">
+                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
-                        <h4 className="text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-green-50 px-3 py-1 rounded-full border border-gray-200">Weather</h4>
+                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-green-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Weather</h4>
                       </div>
-                      <div className="flex justify-center bg-gradient-to-br from-blue-50 to-green-50 p-3 rounded-lg border border-gray-200">
+                      <div className="flex justify-center bg-gradient-to-br from-blue-50 to-green-50 p-2 sm:p-3 rounded-lg border border-gray-200">
                         <WeatherIcon 
                           iconCode={prediction.icon_code}
                           temperature={prediction.temperature}
