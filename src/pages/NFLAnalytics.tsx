@@ -379,60 +379,113 @@ export default function NFLAnalytics() {
       { title: 'Over/Under', data: ouData },
     ];
 
+    const pct = (v: any) => `${Number(parseFloat(v || 0)).toFixed(0)}%`;
+
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {blocks.map((b, i) => (
-          <Card key={i}>
-            <CardHeader className="pb-2 text-center">
-              <CardTitle className="text-sm sm:text-base font-semibold text-center tracking-tight">{b.title}</CardTitle>
+      <>
+        {/* Mobile: compact summary card replacing donuts */}
+        <div className="block sm:hidden">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Summary</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-                  <defs>
-                    <linearGradient id={`gradGreen-${i}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#22c55e" />
-                      <stop offset="100%" stopColor="#16a34a" />
-                    </linearGradient>
-                    <linearGradient id={`gradRed-${i}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f87171" />
-                      <stop offset="100%" stopColor="#dc2626" />
-                    </linearGradient>
-                    <filter id={`shadow-${i}`} x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000" floodOpacity="0.25" />
-                    </filter>
-                  </defs>
-                  <Pie
-                    data={b.data}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={70}
-                    startAngle={90}
-                    endAngle={450}
-                    paddingAngle={1}
-                    cornerRadius={6}
-                    stroke="#0b0b0b"
-                    strokeWidth={0.8}
-                    dataKey="value"
-                    label={({ value }) => `${(value as number).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {b.data.map((_, idx) => (
-                      <Cell
-                        key={`cell-${idx}`}
-                        fill={`url(#${idx === 0 ? `gradGreen-${i}` : `gradRed-${i}`})`}
-                        filter={`url(#shadow-${i})`}
-                      />
-                    ))}
-                  </Pie>
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-white border rounded-md p-2">
+                  <div className="text-[11px] text-slate-600">Home Win</div>
+                  <div className="font-bold text-slate-900">{pct(summary.homeWinPercentage)}</div>
+                </div>
+                <div className="bg-white border rounded-md p-2">
+                  <div className="text-[11px] text-slate-600">Away Win</div>
+                  <div className="font-bold text-slate-900">{pct(summary.awayWinPercentage)}</div>
+                </div>
+
+                <div className="bg-white border rounded-md p-2">
+                  <div className="text-[11px] text-slate-600">Home Cover</div>
+                  <div className="font-bold text-slate-900">{pct(summary.homeCoverPercentage)}</div>
+                </div>
+                <div className="bg-white border rounded-md p-2">
+                  <div className="text-[11px] text-slate-600">Away Cover</div>
+                  <div className="font-bold text-slate-900">{pct(summary.awayCoverPercentage)}</div>
+                </div>
+
+                <div className="bg-white border rounded-md p-2">
+                  <div className="text-[11px] text-slate-600">Favorite Cover</div>
+                  <div className="font-bold text-slate-900">{pct(summary.favoriteCoverPercentage)}</div>
+                </div>
+                <div className="bg-white border rounded-md p-2">
+                  <div className="text-[11px] text-slate-600">Underdog Cover</div>
+                  <div className="font-bold text-slate-900">{pct(summary.underdogCoverPercentage)}</div>
+                </div>
+
+                <div className="bg-white border rounded-md p-2">
+                  <div className="text-[11px] text-slate-600">Over</div>
+                  <div className="font-bold text-slate-900">{pct(summary.overPercentage)}</div>
+                </div>
+                <div className="bg-white border rounded-md p-2">
+                  <div className="text-[11px] text-slate-600">Under</div>
+                  <div className="font-bold text-slate-900">{pct(summary.underPercentage)}</div>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </div>
+
+        {/* Desktop/tablet: keep donut charts */}
+        <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {blocks.map((b, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2 text-center">
+                <CardTitle className="text-sm sm:text-base font-semibold text-center tracking-tight">{b.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+                    <defs>
+                      <linearGradient id={`gradGreen-${i}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#22c55e" />
+                        <stop offset="100%" stopColor="#16a34a" />
+                      </linearGradient>
+                      <linearGradient id={`gradRed-${i}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f87171" />
+                        <stop offset="100%" stopColor="#dc2626" />
+                      </linearGradient>
+                      <filter id={`shadow-${i}`} x="-50%" y="-50%" width="200%" height="200%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000" floodOpacity="0.25" />
+                      </filter>
+                    </defs>
+                    <Pie
+                      data={b.data}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={70}
+                      startAngle={90}
+                      endAngle={450}
+                      paddingAngle={1}
+                      cornerRadius={6}
+                      stroke="#0b0b0b"
+                      strokeWidth={0.8}
+                      dataKey="value"
+                      label={({ value }) => `${(value as number).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {b.data.map((_, idx) => (
+                        <Cell
+                          key={`cell-${idx}`}
+                          fill={`url(#${idx === 0 ? `gradGreen-${i}` : `gradRed-${i}`})`}
+                          filter={`url(#shadow-${i})`}
+                        />
+                      ))}
+                    </Pie>
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </>
     );
   };
 
