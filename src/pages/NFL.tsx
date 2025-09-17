@@ -51,6 +51,7 @@ export default function NFL() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>(['All Games']);
+  const [sortKey, setSortKey] = useState<'none' | 'ml' | 'spread' | 'ou'>('none');
   
   // H2H Modal state
   const [h2hModalOpen, setH2hModalOpen] = useState(false);
@@ -61,27 +62,18 @@ export default function NFL() {
   const [lineMovementModalOpen, setLineMovementModalOpen] = useState(false);
   const [selectedUniqueId, setSelectedUniqueId] = useState<string>('');
 
-  // Filter options
-  const filterOptions = ['All Games', 'Sharp Money', 'Public Bets', 'Consensus Bets'];
-
-  // Toggle filter selection
-  const toggleFilter = (filter: string) => {
-    if (filter === 'All Games') {
-      setActiveFilters(['All Games']);
-    } else {
-      setActiveFilters(prev => {
-        // If the filter is already selected, remove it
-        if (prev.includes(filter)) {
-          const newFilters = prev.filter(f => f !== filter);
-          // If no filters are left, default to All Games
-          return newFilters.length === 0 ? ['All Games'] : newFilters;
-        } else {
-          // If the filter is not selected, add it and remove All Games
-          const newFilters = prev.filter(f => f !== 'All Games');
-          return [...newFilters, filter];
-        }
-      });
-    }
+  // Sorting helpers (displayed probability = max(p, 1-p))
+  const getDisplayedMlProb = (p: number | null): number | null => {
+    if (p === null || p === undefined) return null;
+    return p >= 0.5 ? p : 1 - p;
+  };
+  const getDisplayedSpreadProb = (p: number | null): number | null => {
+    if (p === null || p === undefined) return null;
+    return p >= 0.5 ? p : 1 - p;
+  };
+  const getDisplayedOuProb = (p: number | null): number | null => {
+    if (p === null || p === undefined) return null;
+    return p >= 0.5 ? p : 1 - p;
   };
 
   // Open H2H modal
@@ -550,6 +542,29 @@ export default function NFL() {
       return dateString;
     }
   };
+  // Build sorted list according to current sort selection
+  const getSortedPredictions = (): NFLPrediction[] => {
+    const list = predictions.filter(shouldDisplayGame);
+    const byDateTime = (a: NFLPrediction, b: NFLPrediction) => {
+      const dateComparison = a.game_date.localeCompare(b.game_date);
+      if (dateComparison !== 0) return dateComparison;
+      return a.game_time.localeCompare(b.game_time);
+    };
+    if (sortKey === 'none') {
+      return [...list].sort(byDateTime);
+    }
+    const score = (p: NFLPrediction): number => {
+      if (sortKey === 'ml') return getDisplayedMlProb(p.home_away_ml_prob) ?? -1;
+      if (sortKey === 'spread') return getDisplayedSpreadProb(p.home_away_spread_cover_prob) ?? -1;
+      return getDisplayedOuProb(p.ou_result_prob) ?? -1;
+    };
+    return [...list].sort((a, b) => {
+      const sb = score(b) - score(a);
+      if (sb !== 0) return sb;
+      return byDateTime(a, b);
+    });
+  };
+
 
   // Helper function to round to nearest 0.5 or whole number
   const roundToNearestHalf = (value: number): number => {
@@ -607,26 +622,37 @@ export default function NFL() {
         </div>
       </div>
 
-      {/* Filter Buttons */}
-      <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-gray-50 rounded-lg border">
-        <span className="text-sm font-medium text-gray-700 mr-2">Filter by:</span>
-        {filterOptions.map(filter => (
-          <Button
-            key={filter}
-            variant={activeFilters.includes(filter) ? 'default' : 'outline'}
-            onClick={() => toggleFilter(filter)}
-            className={`flex items-center gap-2 px-4 py-2 font-medium transition-all duration-200 ${
-              activeFilters.includes(filter)
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg transform hover:scale-105'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-300 hover:border-gray-400 shadow-md hover:shadow-lg'
-            }`}
-          >
-            {filter}
-            {activeFilters.includes(filter) && (
-              <span className="text-xs font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">✓</span>
-            )}
-          </Button>
-        ))}
+      {/* Sort Controls */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg border">
+        <span className="text-sm font-medium text-gray-700 mr-2">Sort by:</span>
+        <Button
+          variant={sortKey === 'none' ? 'default' : 'outline'}
+          onClick={() => setSortKey('none')}
+          className={`${sortKey === 'none' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} text-xs sm:text-sm px-2.5 py-1`}
+        >
+          Default (Date/Time)
+        </Button>
+        <Button
+          variant={sortKey === 'ml' ? 'default' : 'outline'}
+          onClick={() => setSortKey('ml')}
+          className={`${sortKey === 'ml' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} text-xs sm:text-sm px-2.5 py-1`}
+        >
+          Moneyline Prob
+        </Button>
+        <Button
+          variant={sortKey === 'spread' ? 'default' : 'outline'}
+          onClick={() => setSortKey('spread')}
+          className={`${sortKey === 'spread' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} text-xs sm:text-sm px-2.5 py-1`}
+        >
+          Spread Prob
+        </Button>
+        <Button
+          variant={sortKey === 'ou' ? 'default' : 'outline'}
+          onClick={() => setSortKey('ou')}
+          className={`${sortKey === 'ou' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} text-xs sm:text-sm px-2.5 py-1`}
+        >
+          O/U Prob
+        </Button>
       </div>
 
       {error && (
@@ -657,13 +683,7 @@ export default function NFL() {
 
       <div className="space-y-6 sm:space-y-8">
         <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {predictions
-            .filter(shouldDisplayGame)
-            .sort((a, b) => {
-              const dateComparison = a.game_date.localeCompare(b.game_date);
-              if (dateComparison !== 0) return dateComparison;
-              return a.game_time.localeCompare(b.game_time);
-            })
+          {getSortedPredictions()
             .map((prediction, index) => (
               <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-2 border-gray-200 hover:border-blue-300 shadow-lg">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
