@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, Trophy, AlertCircle } from 'lucide-react';
+import ConfidenceMeter from '@/components/ConfidenceMeter';
 
 interface CFBPrediction {
   id: string;
@@ -685,10 +686,10 @@ export default function CollegeFootball() {
                         {prediction.pred_ml_proba !== null && (
                           <div className="text-center">
                             <div className="text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Moneyline</div>
-                            <div className="text-base sm:text-lg font-bold text-blue-600">
-                              {Math.round((prediction.pred_ml_proba > 0.5 ? prediction.pred_ml_proba : 1 - prediction.pred_ml_proba) * 100)}%
+                            <div className="flex items-center justify-center">
+                              <ConfidenceMeter value={prediction.pred_ml_proba > 0.5 ? prediction.pred_ml_proba : 1 - prediction.pred_ml_proba} />
                             </div>
-                            <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 mb-1">
+                            <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 mt-1">
                               {getTeamLogo(prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team) && (
                                 <img 
                                   src={getTeamLogo(prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team)} 
@@ -696,11 +697,10 @@ export default function CollegeFootball() {
                                   className="h-5 w-5 sm:h-6 sm:w-6"
                                 />
                               )}
-                              <div className="text-[11px] sm:text-xs text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-[110px]">
+                              <div className="text-[11px] sm:text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis max-w-[110px]">
                                 {prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team}
                               </div>
                             </div>
-                            <div className="text-[11px] sm:text-xs text-gray-500">Probability to Win</div>
                           </div>
                         )}
 
@@ -708,10 +708,10 @@ export default function CollegeFootball() {
                         {prediction.pred_spread_proba !== null && (
                           <div className="text-center">
                             <div className="text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Spread</div>
-                            <div className="text-base sm:text-lg font-bold text-green-600">
-                              {Math.round((prediction.pred_spread_proba > 0.5 ? prediction.pred_spread_proba : 1 - prediction.pred_spread_proba) * 100)}%
+                            <div className="flex items-center justify-center">
+                              <ConfidenceMeter value={prediction.pred_spread_proba > 0.5 ? prediction.pred_spread_proba : 1 - prediction.pred_spread_proba} />
                             </div>
-                            <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 mb-1">
+                            <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 mt-1">
                               {getTeamLogo(prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team) && (
                                 <img 
                                   src={getTeamLogo(prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team)} 
@@ -719,11 +719,10 @@ export default function CollegeFootball() {
                                   className="h-5 w-5 sm:h-6 sm:w-6"
                                 />
                               )}
-                              <div className="text-[11px] sm:text-xs text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-[110px]">
+                              <div className="text-[11px] sm:text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis max-w-[110px]">
                                 {prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team}
                               </div>
                             </div>
-                            <div className="text-[11px] sm:text-xs text-gray-500">Probability to Cover</div>
                           </div>
                         )}
 
@@ -731,14 +730,11 @@ export default function CollegeFootball() {
                         {prediction.pred_total_proba !== null && (
                           <div className="text-center">
                             <div className="text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Over/Under</div>
-                            <div className="text-base sm:text-lg font-bold text-purple-600">
-                              {Math.round((prediction.pred_total_proba > 0.5 ? prediction.pred_total_proba : 1 - prediction.pred_total_proba) * 100)}%
+                            <div className="flex items-center justify-center">
+                              <ConfidenceMeter value={prediction.pred_total_proba > 0.5 ? prediction.pred_total_proba : 1 - prediction.pred_total_proba} />
                             </div>
-                            <div className="text-[11px] sm:text-xs text-gray-500">
-                              Probability to Go {prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'}
-                            </div>
-                            <div className="text-[11px] sm:text-xs text-gray-500">
-                              Total: {prediction.total_line || '-'}
+                            <div className="text-[11px] sm:text-xs text-gray-600 mt-1">
+                              {prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'} • Total: {prediction.total_line || '-'}
                             </div>
                           </div>
                         )}
