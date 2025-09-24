@@ -689,17 +689,21 @@ export default function CollegeFootball() {
                             <div className="flex items-center justify-center">
                               <ConfidenceMeter value={prediction.pred_ml_proba > 0.5 ? prediction.pred_ml_proba : 1 - prediction.pred_ml_proba} />
                             </div>
-                            <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 mt-1">
-                              {getTeamLogo(prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team) && (
-                                <img 
-                                  src={getTeamLogo(prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team)} 
-                                  alt="Team logo"
-                                  className="h-5 w-5 sm:h-6 sm:w-6"
-                                />
-                              )}
-                              <div className="text-[11px] sm:text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis max-w-[110px]">
-                                {prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team}
-                              </div>
+                            <div className="flex items-center justify-center gap-2 mt-1">
+                              {(() => {
+                                const isHomeFav = prediction.pred_ml_proba > 0.5;
+                                const team = isHomeFav ? prediction.home_team : prediction.away_team;
+                                const ml = isHomeFav ? prediction.home_ml : prediction.away_ml;
+                                const logo = getTeamLogo(team);
+                                return (
+                                  <>
+                                    {logo && (
+                                      <img src={logo} alt="Team logo" className="h-5 w-5 sm:h-6 sm:w-6" />
+                                    )}
+                                    <span className="text-[11px] sm:text-xs text-gray-800 font-semibold">{formatMoneyline(ml)}</span>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         )}
@@ -711,17 +715,21 @@ export default function CollegeFootball() {
                             <div className="flex items-center justify-center">
                               <ConfidenceMeter value={prediction.pred_spread_proba > 0.5 ? prediction.pred_spread_proba : 1 - prediction.pred_spread_proba} />
                             </div>
-                            <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 mt-1">
-                              {getTeamLogo(prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team) && (
-                                <img 
-                                  src={getTeamLogo(prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team)} 
-                                  alt="Team logo"
-                                  className="h-5 w-5 sm:h-6 sm:w-6"
-                                />
-                              )}
-                              <div className="text-[11px] sm:text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis max-w-[110px]">
-                                {prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team}
-                              </div>
+                            <div className="flex items-center justify-center gap-2 mt-1">
+                              {(() => {
+                                const isHomeFav = prediction.pred_spread_proba > 0.5;
+                                const team = isHomeFav ? prediction.home_team : prediction.away_team;
+                                const spread = isHomeFav ? prediction.home_spread : prediction.away_spread;
+                                const logo = getTeamLogo(team);
+                                return (
+                                  <>
+                                    {logo && (
+                                      <img src={logo} alt="Team logo" className="h-5 w-5 sm:h-6 sm:w-6" />
+                                    )}
+                                    <span className="text-[11px] sm:text-xs text-gray-800 font-semibold">{formatSpread(spread)}</span>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         )}
@@ -733,8 +741,9 @@ export default function CollegeFootball() {
                             <div className="flex items-center justify-center">
                               <ConfidenceMeter value={prediction.pred_total_proba > 0.5 ? prediction.pred_total_proba : 1 - prediction.pred_total_proba} />
                             </div>
-                            <div className="text-[11px] sm:text-xs text-gray-600 mt-1">
-                              {prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'} • Total: {prediction.total_line || '-'}
+                            <div className="text-[11px] sm:text-xs text-gray-800 mt-1">
+                              <span className="font-bold">{prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'}</span>
+                              <span>{` • Total: ${prediction.total_line || '-'}`}</span>
                             </div>
                           </div>
                         )}
