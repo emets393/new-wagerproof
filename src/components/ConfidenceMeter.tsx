@@ -5,6 +5,7 @@ interface ConfidenceMeterProps {
 	value: number;
 	size?: number; // desktop/tablet width in px
 	sizeMobile?: number; // mobile width in px
+	showTitle?: boolean; // show the "Confidence Meter" label above gauge
 }
 
 function clampToMeterRange(raw: number): number {
@@ -42,7 +43,7 @@ function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: nu
 }
 
 
-const ConfidenceMeter: React.FC<ConfidenceMeterProps> = ({ value, size = 110, sizeMobile = 90 }) => {
+const ConfidenceMeter: React.FC<ConfidenceMeterProps> = ({ value, size = 110, sizeMobile = 90, showTitle = false }) => {
 	const val = clampToMeterRange(value);
 	const { label, color } = getConfidenceLabel(val);
 
@@ -83,7 +84,9 @@ const ConfidenceMeter: React.FC<ConfidenceMeterProps> = ({ value, size = 110, si
 
 	return (
 		<div className="flex flex-col items-center justify-center">
-			<div className="text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Confidence Meter</div>
+			{showTitle && (
+				<div className="text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Confidence Meter</div>
+			)}
 			<svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="block">
 				{/* Background arc (light gray) */}
 				<path d={arcPath(cx, cy, radius, -180, 0)} stroke="#e5e7eb" strokeWidth={10} fill="none" />
