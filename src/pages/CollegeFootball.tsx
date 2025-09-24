@@ -681,14 +681,14 @@ export default function CollegeFootball() {
                       <div className="text-center">
                         <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Model Predictions</h4>
                       </div>
-                      <div className="bg-gray-50 p-2.5 sm:p-3 rounded-lg border border-gray-200">
+                      <div className="p-0 sm:bg-gray-50 sm:p-3 sm:rounded-lg sm:border sm:border-gray-200">
                         <div className="text-center mb-2">
                           <div className="text-[11px] sm:text-xs font-bold text-gray-700">Confidence Meter</div>
                         </div>
                         <div className="grid grid-cols-3 gap-2 sm:gap-3">
                         {/* Moneyline Prediction */}
                         {prediction.pred_ml_proba !== null && (
-                          <div className="text-center rounded-md border border-gray-200 p-2">
+                          <div className="text-center p-0 sm:rounded-md sm:border sm:border-gray-200 sm:p-2">
                             <div className="text-[11px] sm:text-xs font-medium text-gray-700 mb-1">Moneyline</div>
                             <div className="flex items-center justify-center">
                               <ConfidenceMeter value={prediction.pred_ml_proba > 0.5 ? prediction.pred_ml_proba : 1 - prediction.pred_ml_proba} />
@@ -702,9 +702,9 @@ export default function CollegeFootball() {
                                 return (
                                   <>
                                     {logo && (
-                                      <img src={logo} alt="Team logo" className="h-5 w-5 sm:h-6 sm:w-6" />
+                                      <img src={logo} alt="Team logo" className="h-5 w-5 sm:h-7 sm:w-7 md:h-8 md:w-8" />
                                     )}
-                                    <span className="text-[11px] sm:text-xs text-gray-800 font-semibold">{formatMoneyline(ml)}</span>
+                                    <span className="text-[11px] sm:text-sm md:text-base text-gray-800 font-semibold">{formatMoneyline(ml)}</span>
                                   </>
                                 );
                               })()}
@@ -714,7 +714,7 @@ export default function CollegeFootball() {
 
                         {/* Spread Prediction */}
                         {prediction.pred_spread_proba !== null && (
-                          <div className="text-center rounded-md border border-gray-200 p-2">
+                          <div className="text-center p-0 sm:rounded-md sm:border sm:border-gray-200 sm:p-2">
                             <div className="text-[11px] sm:text-xs font-medium text-gray-700 mb-1">Spread</div>
                             <div className="flex items-center justify-center">
                               <ConfidenceMeter value={prediction.pred_spread_proba > 0.5 ? prediction.pred_spread_proba : 1 - prediction.pred_spread_proba} />
@@ -728,9 +728,9 @@ export default function CollegeFootball() {
                                 return (
                                   <>
                                     {logo && (
-                                      <img src={logo} alt="Team logo" className="h-5 w-5 sm:h-6 sm:w-6" />
+                                      <img src={logo} alt="Team logo" className="h-5 w-5 sm:h-7 sm:w-7 md:h-8 md:w-8" />
                                     )}
-                                    <span className="text-[11px] sm:text-xs text-gray-800 font-semibold">{formatSpread(spread)}</span>
+                                    <span className="text-[11px] sm:text-sm md:text-base text-gray-800 font-semibold">{formatSpread(spread)}</span>
                                   </>
                                 );
                               })()}
@@ -740,12 +740,12 @@ export default function CollegeFootball() {
 
                         {/* Over/Under Prediction */}
                         {prediction.pred_total_proba !== null && (
-                          <div className="text-center rounded-md border border-gray-200 p-2">
+                          <div className="text-center p-0 sm:rounded-md sm:border sm:border-gray-200 sm:p-2">
                             <div className="text-[11px] sm:text-xs font-medium text-gray-700 mb-1">Over/Under</div>
                             <div className="flex items-center justify-center">
                               <ConfidenceMeter value={prediction.pred_total_proba > 0.5 ? prediction.pred_total_proba : 1 - prediction.pred_total_proba} />
                             </div>
-                            <div className="text-[11px] sm:text-xs text-gray-800 mt-1">
+                            <div className="text-[11px] sm:text-sm md:text-base text-gray-800 mt-1">
                               <span className="font-bold">{prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'}</span>
                               <span>{` • Total: ${prediction.total_line || '-'}`}</span>
                             </div>
