@@ -9,6 +9,9 @@ interface AuthContextType {
   signingOut: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any }>;
+  signInWithProvider: (provider: 'google' | 'apple') => Promise<{ error: any }>;
+  sendPasswordReset: (email: string) => Promise<{ error: any }>;
+  updatePassword: (newPassword: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -61,6 +64,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
+  const signInWithProvider = async (provider: 'google' | 'apple') => {
+    const redirectUrl = `${window.location.origin}/account`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: redirectUrl,
+        queryParams: { prompt: 'consent' }
+      }
+    });
+    return { error };
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    const redirectUrl = `${window.location.origin}/account?reset=1`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl
+    });
+    return { error };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error };
+  };
+
   const signOut = async () => {
     try {
       setSigningOut(true);
@@ -82,6 +110,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signingOut,
     signUp,
     signIn,
+    signInWithProvider,
+    sendPasswordReset,
+    updatePassword,
     signOut
   };
 

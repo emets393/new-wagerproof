@@ -615,7 +615,7 @@ export default function NFL() {
               Last updated: {lastUpdated.toLocaleTimeString()}
             </span>
           )}
-          <Button onClick={fetchData} disabled={loading}>
+          <Button onClick={fetchData} disabled={loading} className="text-white">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>

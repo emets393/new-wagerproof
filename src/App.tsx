@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { navItems } from "./nav-items";
-import { Index, GameAnalysis, Account, Welcome } from "./pages";
+import { GameAnalysis, Account, Welcome } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -18,13 +18,12 @@ function AppHeader() {
   const { user, signOut } = useAuth();
 
   return (
-    <header className="w-full border-b bg-background px-4 py-2 mb-4 flex items-center justify-between">
-      <div className="flex items-center">
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-2 mb-4 flex items-center justify-between">
+      <div className="flex items-center gap-2">
         <Sheet>
           <SheetTrigger asChild>
-            <button className="p-2 rounded hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">
+            <button className="p-2 rounded hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring" aria-label="Open navigation">
               <Menu className="h-6 w-6" />
-              <span className="sr-only">Open navigation</span>
             </button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64">
@@ -42,7 +41,7 @@ function AppHeader() {
             </nav>
           </SheetContent>
         </Sheet>
-        <span className="ml-4 text-lg font-bold">Wagerproof</span>
+        <span className="text-lg font-bold">Wagerproof</span>
       </div>
       
       <div className="flex items-center gap-2">
@@ -69,12 +68,12 @@ function AppHeader() {
 function AppWithHeader() {
   const location = useLocation();
   const showHeader = location.pathname !== '/welcome';
-  
+
   return (
     <>
       {showHeader && <AppHeader />}
       <Routes>
-        <Route path="/" element={<Index />} />
+        <Route path="/" element={<NFL />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/account" element={<Account />} />
         <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />

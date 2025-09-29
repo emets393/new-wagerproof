@@ -1,27 +1,18 @@
-import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark, Trophy, Shield, BarChart } from "lucide-react";
+import { HomeIcon, BarChart3, TrendingUp, Settings, Bookmark, Trophy, Shield, BarChart, User, ShoppingBag } from "lucide-react";
 import { Index } from "./pages/index";
-import WinRates from "./pages/WinRates";
+// import WinRates from "./pages/WinRates"; // Temporarily hidden (MLB season over)
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NotFound from "./pages/NotFound";
+import { Account } from "./pages";
+import Marketplace from "./pages/Marketplace";
 
 /**
  * Central place for defining the navigation items. Used for navigation components and routing.
  */
 export const navItems = [
-  {
-    title: "Today's Games",
-    to: "/",
-    icon: <HomeIcon className="h-4 w-4" />,
-    page: <Index />,
-  },
-  {
-    title: "Win Rates",
-    to: "/win-rates", 
-    icon: <TrendingUp className="h-4 w-4" />,
-    page: <WinRates />,
-  },
+  // Hiding Today's Games and Win Rates (keep code, remove from nav)
   {
     title: "College Football",
     to: "/college-football",
@@ -39,5 +30,17 @@ export const navItems = [
     to: "/nfl-analytics",
     icon: <BarChart className="h-4 w-4" />,
     page: <NFLAnalytics />,
+  },
+  {
+    title: "Account",
+    to: "/account",
+    icon: <User className="h-4 w-4" />,
+    page: <Account />,
+  },
+  {
+    title: "Marketplace",
+    to: "/marketplace",
+    icon: <ShoppingBag className="h-4 w-4" />,
+    page: <Marketplace />,
   },
 ];

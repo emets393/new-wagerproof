@@ -10,21 +10,18 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, LogOut, User } from 'lucide-react';
 
 export default function Account() {
-  const { user, loading, signIn, signUp, signOut } = useAuth();
+  const { user, loading, signIn, signUp, signOut, signInWithProvider, sendPasswordReset, updatePassword } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [resetMode, setResetMode] = useState<boolean>(() => new URLSearchParams(window.location.search).get('reset') === '1');
+  const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('login');
 
-  // Redirect authenticated users to home
-  useEffect(() => {
-    if (user && !loading) {
-      navigate('/', { replace: true });
-    }
-  }, [user, loading, navigate]);
+  // Stay on account page even if authenticated (show profile view)
 
   const handleSubmit = async (e: React.FormEvent, action: 'login' | 'signup') => {
     e.preventDefault();
@@ -60,6 +57,32 @@ export default function Account() {
   const handleSignOut = async () => {
     await signOut();
     navigate('/', { replace: true });
+  };
+
+  const handleProvider = async (provider: 'google' | 'apple') => {
+    setError('');
+    setIsLoading(true);
+    const { error } = await signInWithProvider(provider);
+    if (error) setError(error.message);
+    setIsLoading(false);
+  };
+
+  const handleSendReset = async () => {
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+    const { error } = await sendPasswordReset(email);
+    if (error) setError(error.message); else setSuccess('Password reset email sent.');
+    setIsLoading(false);
+  };
+
+  const handleUpdatePassword = async () => {
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+    const { error } = await updatePassword(newPassword);
+    if (error) setError(error.message); else setSuccess('Password updated. You can now sign in.');
+    setIsLoading(false);
   };
 
   if (loading) {
@@ -116,6 +139,16 @@ export default function Account() {
               </TabsList>
               
               <TabsContent value="login" className="space-y-4">
+                {resetMode ? (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">New Password</Label>
+                      <Input id="new-password" type="password" value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} placeholder="Enter new password" />
+                    </div>
+                    <Button className="w-full" onClick={handleUpdatePassword} disabled={isLoading || !newPassword}>Update Password</Button>
+                    <Button variant="ghost" className="w-full" onClick={()=>setResetMode(false)}>Back to Sign In</Button>
+                  </div>
+                ) : (
                 <form onSubmit={(e) => handleSubmit(e, 'login')} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
@@ -156,7 +189,13 @@ export default function Account() {
                       'Sign In'
                     )}
                   </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant="outline" onClick={()=>handleProvider('google')} disabled={isLoading}>Sign in with Google</Button>
+                    <Button type="button" variant="outline" onClick={()=>handleProvider('apple')} disabled={isLoading}>Sign in with Apple</Button>
+                  </div>
+                  <Button type="button" variant="ghost" className="w-full" onClick={handleSendReset} disabled={!email || isLoading}>Forgot password?</Button>
                 </form>
+                )}
               </TabsContent>
               
               <TabsContent value="signup" className="space-y-4">
@@ -206,6 +245,10 @@ export default function Account() {
                       'Create Account'
                     )}
                   </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant="outline" onClick={()=>handleProvider('google')} disabled={isLoading}>Sign up with Google</Button>
+                    <Button type="button" variant="outline" onClick={()=>handleProvider('apple')} disabled={isLoading}>Sign up with Apple</Button>
+                  </div>
                 </form>
               </TabsContent>
             </Tabs>

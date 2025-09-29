@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
-import { createClient } from '@supabase/supabase-js';
+import { ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
@@ -22,6 +22,47 @@ const getColorClass = (value1: any, value2: any) => {
   if (v1 > v2) return 'text-green-600';
   if (v1 < v2) return 'text-red-600';
   return 'text-yellow-600'; // Equal values (around 50%)
+};
+
+// NFL team logo helper (matches NFL page mapping)
+const getNFLTeamLogo = (teamName: string): string => {
+  const logoMap: { [key: string]: string } = {
+    'Arizona': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
+    'Atlanta': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
+    'Baltimore': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
+    'Buffalo': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
+    'Carolina': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
+    'Chicago': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
+    'Cincinnati': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
+    'Cleveland': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
+    'Dallas': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
+    'Denver': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
+    'Detroit': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
+    'Green Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
+    'Houston': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
+    'Indianapolis': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
+    'Jacksonville': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
+    'Kansas City': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
+    'Las Vegas': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
+    'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+    'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+    'LA Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+    'LA Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+    'Miami': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
+    'Minnesota': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
+    'New England': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
+    'New Orleans': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
+    'NY Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
+    'NY Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
+    'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
+    'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
+    'San Francisco': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
+    'Seattle': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
+    'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
+    'Tennessee': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
+    'Washington': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
+  };
+  return logoMap[teamName] || '/placeholder.svg';
 };
 
 interface NFLTeam {
@@ -38,6 +79,7 @@ export default function NFLAnalytics() {
   const [error, setError] = useState(null);
   const [nflTeams, setNflTeams] = useState<NFLTeam[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
+  const [teamSort, setTeamSort] = useState<{ key: 'teamName' | 'games' | 'winPercentage' | 'coverPercentage' | 'overPercentage'; asc: boolean }>({ key: 'teamName', asc: true });
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -55,6 +97,7 @@ export default function NFLAnalytics() {
     // Individual team filters
     priority_team_id: [] as string[],
     opponent_team_id: [] as string[],
+    is_home: '',
     spread_closing: '',
     // Game level filters
     home_team_id: '',
@@ -80,48 +123,7 @@ export default function NFLAnalytics() {
   const [windSpeedRange, setWindSpeedRange] = useState<[number, number]>([0, 40]);
   const [spreadRange, setSpreadRange] = useState<[number, number]>([0, 20]);
 
-  const testDatabase = async () => {
-    console.log('Testing database tables...');
-    
-    try {
-      const supabase = createClient(
-        "https://jpxnjuwglavsjbgbasnl.supabase.co",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5qdXdnbGF2c2piZ2Jhc25sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTc4NjEsImV4cCI6MjA2ODI3Mzg2MX0.BjOHMysQh3wST-_UR6bJxHngRThlAmOOx4FfSVKRzWo"
-      );
-
-      console.log('Supabase client created');
-
-      // Test nfl_team_mapping table
-      console.log('Testing nfl_team_mapping table...');
-      const { data: teamMapping, error: teamError } = await supabase
-        .from('nfl_team_mapping')
-        .select('*')
-        .limit(5);
-      
-      console.log('Team mapping result:', { data: teamMapping, error: teamError });
-
-      // Test v_nfl_training_exploded table
-      console.log('Testing v_nfl_training_exploded table...');
-      const { data: nflData, error: nflError } = await supabase
-        .from('v_nfl_training_exploded')
-        .select('*')
-        .limit(5);
-      
-      console.log('NFL data result:', { data: nflData, error: nflError });
-
-      // Test nfl_training_data table
-      console.log('Testing nfl_training_data table...');
-      const { data: trainingData, error: trainingError } = await supabase
-        .from('nfl_training_data')
-        .select('*')
-        .limit(5);
-      
-      console.log('Training data result:', { data: trainingData, error: trainingError });
-
-    } catch (err) {
-      console.error('Database test error:', err);
-    }
-  };
+  // Removed test utilities and buttons (streamlined UI)
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -133,6 +135,12 @@ export default function NFLAnalytics() {
         Object.entries(filters).filter(([_, value]) => value !== '')
       );
       
+      // Normalize boolean-like filters
+      if (typeof activeFilters.is_home === 'string') {
+        if (activeFilters.is_home.toLowerCase() === 'true') activeFilters.is_home = true;
+        else if (activeFilters.is_home.toLowerCase() === 'false') activeFilters.is_home = false;
+      }
+
       console.log('Sending filters to backend:', activeFilters);
       
       // Add range filters
@@ -155,44 +163,164 @@ export default function NFLAnalytics() {
         activeFilters.spread_closing = `${spreadRange[0]},${spreadRange[1]}`;
       }
       
-      console.log('Sending API request with filters:', {
-        view_type: viewType,
-        ...activeFilters
-      });
-      
-      const response = await fetch('https://jpxnjuwglavsjbgbasnl.supabase.co/functions/v1/filter-nfl-training-data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5qdXdnbGF2c2piZ2Jhc25sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTc4NjEsImV4cCI6MjA2ODI3Mzg2MX0.BjOHMysQh3wST-_UR6bJxHngRThlAmOOx4FfSVKRzWo'
-        },
-        body: JSON.stringify({
-          filters: {
-            view_type: viewType,
-            ...activeFilters
-          }
-        })
-      });
+      console.log('Building client-side analytics with filters:', { view_type: viewType, ...activeFilters });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response error:', response.status, errorText);
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      // Client-side query of v_nfl_training_exploded to ensure local changes reflect immediately
+      let q = collegeFootballSupabase
+        .from('v_nfl_training_exploded')
+        .select('*');
+
+      if (activeFilters.priority_team_id && activeFilters.priority_team_id.length > 0) {
+        if (Array.isArray(activeFilters.priority_team_id)) q = q.in('priority_team_id', activeFilters.priority_team_id);
+        else q = q.eq('priority_team_id', activeFilters.priority_team_id);
+      }
+      if (activeFilters.opponent_team_id && activeFilters.opponent_team_id.length > 0) {
+        if (Array.isArray(activeFilters.opponent_team_id)) q = q.in('opponent_team_id', activeFilters.opponent_team_id);
+        else q = q.eq('opponent_team_id', activeFilters.opponent_team_id);
+      }
+      if (activeFilters.season) {
+        if (String(activeFilters.season).includes(',')) {
+          const [minS, maxS] = String(activeFilters.season).split(',').map(Number);
+          q = q.gte('season', minS).lte('season', maxS);
+        } else q = q.eq('season', activeFilters.season);
+      }
+      if (activeFilters.week) {
+        if (String(activeFilters.week).includes(',')) {
+          const [minW, maxW] = String(activeFilters.week).split(',').map(Number);
+          q = q.gte('week', minW).lte('week', maxW);
+        } else q = q.eq('week', activeFilters.week);
+      }
+      if (activeFilters.start) q = q.eq('start', activeFilters.start);
+      if (activeFilters.ou_vegas_line) {
+        if (String(activeFilters.ou_vegas_line).includes(',')) {
+          const [minOu, maxOu] = String(activeFilters.ou_vegas_line).split(',').map(Number);
+          q = q.gte('ou_vegas_line', minOu).lte('ou_vegas_line', maxOu);
+        } else q = q.eq('ou_vegas_line', Number(activeFilters.ou_vegas_line));
+      }
+      if (activeFilters.spread_closing) {
+        if (String(activeFilters.spread_closing).includes(',')) {
+          const [minSp, maxSp] = String(activeFilters.spread_closing).split(',').map(Number);
+          q = q.gte('spread_closing', minSp).lte('spread_closing', maxSp);
+        } else q = q.eq('spread_closing', Number(activeFilters.spread_closing));
+      }
+      if (activeFilters.surface) q = q.ilike('surface', `%${String(activeFilters.surface)}%`);
+      if (activeFilters.game_stadium_dome) q = q.eq('game_stadium_dome', activeFilters.game_stadium_dome);
+      if (activeFilters.temperature) {
+        if (String(activeFilters.temperature).includes(',')) {
+          const [minT, maxT] = String(activeFilters.temperature).split(',').map(Number);
+          q = q.gte('temperature', minT).lte('temperature', maxT);
+        } else q = q.eq('temperature', Number(activeFilters.temperature));
+      }
+      if (activeFilters.precipitation_type) q = q.ilike('precipitation_type', `%${String(activeFilters.precipitation_type)}%`);
+      if (activeFilters.wind_speed) {
+        if (String(activeFilters.wind_speed).includes(',')) {
+          const [minWS, maxWS] = String(activeFilters.wind_speed).split(',').map(Number);
+          q = q.gte('wind_speed', minWS).lte('wind_speed', maxWS);
+        } else q = q.eq('wind_speed', Number(activeFilters.wind_speed));
+      }
+      if (activeFilters.conference_game) q = q.eq('conference_game', String(activeFilters.conference_game) === 'true');
+      for (const k of ['team_last_spread','team_last_ou','team_last_ml','opponent_last_spread','opponent_last_ou','opponent_last_ml'] as const) {
+        const v = (activeFilters as any)[k];
+        if (v !== undefined && v !== '') q = q.eq(k, Number(v));
+      }
+      if (activeFilters.is_home !== undefined && activeFilters.is_home !== '') {
+        const wantHome = String(activeFilters.is_home).toLowerCase() === 'true' || String(activeFilters.is_home) === '1' || String(activeFilters.is_home).toLowerCase() === 'home';
+        q = q.or(wantHome ? 'is_home.eq.true,is_home.eq.1,original_side.eq.home' : 'is_home.eq.false,is_home.eq.0,original_side.eq.away');
       }
 
-      const data = await response.json();
-      console.log('Fetched data:', data);
-      console.log('Team stats length:', data.teamStats?.length);
-      console.log('Summary:', data.summary);
-      
-      if (data.error) {
-        console.error('Edge function error:', data.error);
-        setError(data.error);
-        return;
+      const { data: rows, error: rowsError } = await q;
+
+      if (rowsError) {
+        console.error('Supabase query error:', rowsError);
+        throw rowsError;
       }
-      
-      setTeamStats(data.teamStats || []);
-      setSummary(data.summary || {});
+
+      const list = rows || [];
+
+      // Apply Day of Week filter client-side (derive from game_date)
+      const dayFilter = (filters.day || '').toString().toLowerCase();
+      const validDays = new Set(['sunday','monday','tuesday','wednesday','thursday','friday','saturday']);
+      const getDayNameUTC = (dateString: string) => {
+        try {
+          if (!dateString) return null;
+          // Treat as UTC midnight to avoid TZ skew
+          const dt = new Date(`${dateString}T00:00:00Z`);
+          if (isNaN(dt.getTime())) return null;
+          const names = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+          return names[dt.getUTCDay()];
+        } catch {
+          return null;
+        }
+      };
+      const dayFiltered = dayFilter && validDays.has(dayFilter)
+        ? list.filter((row: any) => {
+            const d = getDayNameUTC(row.game_date || row.date || (row.start && row.start.split(' ')[0]) || '');
+            return d ? d === dayFilter : true;
+          })
+        : list;
+
+      // Build team map
+      const teamMapLocal = new Map<string, any>();
+      const idToTeam = new Map<string, any>();
+      nflTeams.forEach(t => idToTeam.set(t.team_id, t));
+      dayFiltered.forEach((row: any) => {
+        const teamId = row.priority_team_id;
+        if (!teamMapLocal.has(teamId)) {
+          const tInfo = idToTeam.get(teamId);
+          teamMapLocal.set(teamId, {
+            teamId,
+            teamName: tInfo?.city_and_name || row.priority_team || teamId,
+            teamLogo: getNFLTeamLogo(tInfo?.team_name || row.priority_team || ''),
+            games: 0,
+            wins: 0,
+            covers: 0,
+            overs: 0,
+          });
+        }
+        const tm = teamMapLocal.get(teamId);
+        tm.games += 1;
+        if (row.priority_team_won === 1) tm.wins += 1;
+        if (row.priority_team_covered === 1) tm.covers += 1;
+        if (row.ou_result === 1) tm.overs += 1;
+      });
+
+      const builtTeamStats = Array.from(teamMapLocal.values()).map((tm: any) => ({
+        teamId: tm.teamId,
+        teamName: tm.teamName,
+        teamLogo: tm.teamLogo,
+        games: tm.games,
+        winPercentage: tm.games > 0 ? (tm.wins / tm.games * 100).toFixed(1) : 0,
+        coverPercentage: tm.games > 0 ? (tm.covers / tm.games * 100).toFixed(1) : 0,
+        overPercentage: tm.games > 0 ? (tm.overs / tm.games * 100).toFixed(1) : 0,
+      }));
+
+      // Donut summary (dedupe by unique_id)
+      const uniqueMap = new Map<string, any>();
+      dayFiltered.forEach((row: any) => {
+        const id = String(row.unique_id ?? `${row.game_id ?? ''}-${row.start ?? row.game_date ?? ''}`);
+        if (!uniqueMap.has(id)) uniqueMap.set(id, row);
+      });
+      const games = Array.from(uniqueMap.values());
+      const totalGames = games.length;
+      const homeWins = games.filter((r: any) => r.home_away_ml === 1).length;
+      const homeCovers = games.filter((r: any) => r.home_away_spread_cover === 1).length;
+      const favoriteCovers = games.filter((r: any) => r.favorite_covered === 1).length;
+      const overs = games.filter((r: any) => r.ou_result === 1).length;
+
+      const builtSummary = {
+        totalGames,
+        homeWinPercentage: totalGames ? (homeWins / totalGames * 100).toFixed(1) : 0,
+        awayWinPercentage: totalGames ? ((totalGames - homeWins) / totalGames * 100).toFixed(1) : 0,
+        homeCoverPercentage: totalGames ? (homeCovers / totalGames * 100).toFixed(1) : 0,
+        awayCoverPercentage: totalGames ? ((totalGames - homeCovers) / totalGames * 100).toFixed(1) : 0,
+        favoriteCoverPercentage: totalGames ? (favoriteCovers / totalGames * 100).toFixed(1) : 0,
+        underdogCoverPercentage: totalGames ? ((totalGames - favoriteCovers) / totalGames * 100).toFixed(1) : 0,
+        overPercentage: totalGames ? (overs / totalGames * 100).toFixed(1) : 0,
+        underPercentage: totalGames ? ((totalGames - overs) / totalGames * 100).toFixed(1) : 0,
+      } as any;
+
+      setTeamStats(builtTeamStats);
+      setSummary(builtSummary);
       
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -206,14 +334,13 @@ export default function NFLAnalytics() {
     fetchData();
   }, [viewType]);
 
-  // Separate effect for filters to avoid infinite loops
+  // Apply filters instantly on change (including range sliders) with debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchData();
-    }, 500); // Debounce filter changes
-    
+    }, 500);
     return () => clearTimeout(timeoutId);
-  }, [filters]);
+  }, [filters, seasonRange, weekRange, ouLineRange, temperatureRange, windSpeedRange, spreadRange]);
 
   // Fetch NFL teams for dropdowns
   useEffect(() => {
@@ -293,6 +420,7 @@ export default function NFLAnalytics() {
       surface: '',
       priority_team_id: [] as string[],
       opponent_team_id: [] as string[],
+      is_home: '',
       spread_closing: '',
       home_team_id: '',
       away_team_id: '',
@@ -325,15 +453,63 @@ export default function NFLAnalytics() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs sm:text-sm">Team</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Games</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Win %</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Cover %</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Over %</TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    <button
+                      className="flex items-center gap-1 hover:underline"
+                      onClick={() => setTeamSort(prev => ({ key: 'teamName', asc: prev.key === 'teamName' ? !prev.asc : true }))}
+                    >
+                      Team {teamSort.key === 'teamName' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    <button
+                      className="flex items-center gap-1 hover:underline"
+                      onClick={() => setTeamSort(prev => ({ key: 'games', asc: prev.key === 'games' ? !prev.asc : true }))}
+                    >
+                      Games {teamSort.key === 'games' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    <button
+                      className="flex items-center gap-1 hover:underline"
+                      onClick={() => setTeamSort(prev => ({ key: 'winPercentage', asc: prev.key === 'winPercentage' ? !prev.asc : true }))}
+                    >
+                      Win % {teamSort.key === 'winPercentage' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    <button
+                      className="flex items-center gap-1 hover:underline"
+                      onClick={() => setTeamSort(prev => ({ key: 'coverPercentage', asc: prev.key === 'coverPercentage' ? !prev.asc : true }))}
+                    >
+                      Cover % {teamSort.key === 'coverPercentage' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    <button
+                      className="flex items-center gap-1 hover:underline"
+                      onClick={() => setTeamSort(prev => ({ key: 'overPercentage', asc: prev.key === 'overPercentage' ? !prev.asc : true }))}
+                    >
+                      Over % {teamSort.key === 'overPercentage' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
+                    </button>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {teamStats.map((team, index) => (
+                {[...teamStats].sort((a: any, b: any) => {
+                  const k = teamSort.key;
+                  let av: any = a[k];
+                  let bv: any = b[k];
+                  if (k === 'teamName') {
+                    av = String(av || '').toLowerCase();
+                    bv = String(bv || '').toLowerCase();
+                  } else {
+                    av = parseFloat(av ?? 0);
+                    bv = parseFloat(bv ?? 0);
+                  }
+                  const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+                  return teamSort.asc ? cmp : -cmp;
+                }).map((team: any, index: number) => (
                   <TableRow key={index}>
                     <TableCell className="flex items-center gap-2 text-xs sm:text-sm">
                       {team.teamLogo && (
@@ -489,7 +665,16 @@ export default function NFLAnalytics() {
           </Card>
         </div>
 
-        {/* Desktop/tablet: keep donut charts */}
+        {/* Desktop/tablet: small centered Total Games box above donuts */}
+        <div className="hidden sm:block">
+          <div className="w-full flex justify-center mb-2 sm:mb-3">
+            <div className="px-3 py-2 bg-slate-50 rounded-md border text-center shadow-sm w-40">
+              <div className="text-[11px] text-slate-600 mb-1">Total Games</div>
+              <div className="font-bold text-slate-900 text-lg">{summary.totalGames}</div>
+            </div>
+          </div>
+        </div>
+
         <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {blocks.map((b, i) => (
             <Card key={i}>
@@ -1116,6 +1301,21 @@ export default function NFLAnalytics() {
                     </div>
                   )}
                 </div>
+
+              {/* Primary Team Side filter using is_home */}
+              <div>
+                <Label htmlFor="primary_team_side">Primary Team Side</Label>
+                <Select value={filters.is_home || 'any'} onValueChange={(value) => handleFilterChange('is_home', value === 'any' ? '' : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Any</SelectItem>
+                    <SelectItem value="true">Home</SelectItem>
+                    <SelectItem value="false">Away</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               </>
             )}
 
@@ -1298,20 +1498,8 @@ export default function NFLAnalytics() {
       <Card className="mb-4 sm:mb-6">
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex flex-wrap gap-2">
-            <Button onClick={clearFilters} variant="outline" className="text-xs sm:text-sm">
+            <Button onClick={clearFilters} className="text-white text-xs sm:text-sm">
               Clear Filters
-            </Button>
-            <Button onClick={fetchData} className="text-xs sm:text-sm">
-              Apply Filters
-            </Button>
-            <Button onClick={() => {
-              console.log('Testing edge function...');
-              fetchData();
-            }} variant="secondary" className="text-xs sm:text-sm">
-              Test Edge Function
-            </Button>
-            <Button onClick={testDatabase} variant="outline" className="text-xs sm:text-sm">
-              Test Database Tables
             </Button>
           </div>
         </CardContent>

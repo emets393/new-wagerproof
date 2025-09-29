@@ -285,6 +285,18 @@ serve(async (req) => {
         query = query.eq('spread_closing', Number(filters.spread_closing));
       }
     }
+    // Primary team side (is_home) — support boolean and 1/0 in v_nfl_training_exploded
+    if (typeof (filters as any).is_home !== 'undefined' && (filters as any).is_home !== '') {
+      const val = String((filters as any).is_home).toLowerCase();
+      const wantTrue = val === 'true' || val === '1';
+      // Match either boolean true/false or numeric 1/0 columns
+      query = query.or(
+        wantTrue
+          ? 'is_home.eq.true,is_home.eq.1'
+          : 'is_home.eq.false,is_home.eq.0'
+      );
+    }
+
     if (filters.surface) {
       const s = (filters.surface || '').toLowerCase();
       console.log('Filtering by surface:', s);
@@ -421,9 +433,25 @@ serve(async (req) => {
       console.log('No data from v_nfl_training_exploded, returning teams with 0 stats');
     }
 
+    // Optional primary team side post-filter (robust to value forms)
+    const wantSide = (filters as any).is_home;
+    const applyHomeFilter = (arr: any[]) => {
+      if (typeof wantSide === 'undefined' || wantSide === '') return arr;
+      const wantHome = String(wantSide).toLowerCase() === 'true' || String(wantSide) === '1' || String(wantSide).toLowerCase() === 'home';
+      return arr.filter((row: any) => {
+        const v = row.is_home;
+        const val = typeof v === 'boolean'
+          ? v
+          : (String(v).toLowerCase() === 'true' || String(v) === '1' || String(v).toLowerCase() === 't' || String(v).toLowerCase() === 'home');
+        return val === wantHome;
+      });
+    };
+
+    const afterHome = applyHomeFilter(data || []);
+
     // Apply derived day-of-week filter if requested
     const filteredByDay = (filters.day
-      ? data?.filter((row: any) => {
+      ? afterHome.filter((row: any) => {
           const d = (filters.day || '').toLowerCase();
           const valid = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
           if (!valid.includes(d)) return true;
@@ -437,7 +465,7 @@ serve(async (req) => {
           }
           return match;
         })
-      : data) || [];
+      : afterHome) || [];
 
     // Process the filtered data and update team stats (non-deduped)
     filteredByDay.forEach(row => {
@@ -568,6 +596,17 @@ serve(async (req) => {
     if (filters.conference_game) {
       query = query.eq('conference_game', filters.conference_game === 'true');
     }
+    // Primary team side (is_home) — support boolean and 1/0 in nfl_training_data
+    if (typeof (filters as any).is_home !== 'undefined' && (filters as any).is_home !== '') {
+      const val = String((filters as any).is_home).toLowerCase();
+      const wantTrue = val === 'true' || val === '1';
+      query = query.or(
+        wantTrue
+          ? 'is_home.eq.true,is_home.eq.1'
+          : 'is_home.eq.false,is_home.eq.0'
+      );
+    }
+
     if (filters.surface) {
       const s = (filters.surface || '').toLowerCase();
       console.log('Filtering by surface:', s);
