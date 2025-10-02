@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, Trophy, AlertCircle } from 'lucide-react';
-import ConfidenceMeter from '@/components/ConfidenceMeter';
 
 interface CFBPrediction {
   id: string;
@@ -20,24 +19,38 @@ interface CFBPrediction {
   ml_splits_label: string | null;
   spread_splits_label: string | null;
   total_splits_label: string | null;
-  game_date: string;
-  game_time: string;
-  generated_at: string;
-  training_key: string; // Add this to map to weather data
-  temperature: number | null;
-  precipitation: number | null;
-  wind_speed: number | null;
-  icon_code: string | null; // New weather icon code
-  pred_ml_proba: number | null; // New probability fields
-  pred_spread_proba: number | null;
-  pred_total_proba: number | null;
+  game_date?: string;
+  game_time?: string;
+  start_time?: string; // Date/time from cfb_live_weekly_inputs
+  start_date?: string; // Alternative column name
+  game_datetime?: string; // Alternative column name
+  datetime?: string; // Alternative column name
+  // New columns from cfb_live_weekly_inputs
+  away_moneyline?: number | null;
+  home_moneyline?: number | null;
+  api_spread?: number | null;
+  api_over_line?: number | null;
+  generated_at?: string;
+  training_key?: string; // Add this to map to weather data
+  temperature?: number | null;
+  precipitation?: number | null;
+  wind_speed?: number | null;
+  icon_code?: string | null; // New weather icon code
+  pred_ml_proba?: number | null; // New probability fields
+  pred_spread_proba?: number | null;
+  pred_total_proba?: number | null;
   // Add score prediction columns
-  pred_away_score: number | null;
-  pred_home_score: number | null;
+  pred_away_score?: number | null;
+  pred_home_score?: number | null;
+  // Prediction data from cfb_api_predictions
+  pred_spread?: number | null;
+  home_spread_diff?: number | null;
+  pred_total?: number | null;
+  total_diff?: number | null;
 }
 
 interface TeamMapping {
-  vsin: string;
+  api: string;
   logo_light: string;
 }
 
@@ -131,14 +144,10 @@ export default function CollegeFootball() {
       
       console.log('Fetching college football data...');
       
-      // Get today's date in YYYY-MM-DD format for filtering
-      const today = new Date().toISOString().split('T')[0];
-      console.log('Filtering games from today onwards:', today);
-      
       // Fetch team mappings first
       const { data: mappings, error: mappingsError } = await collegeFootballSupabase
         .from('cfb_team_mapping')
-        .select('vsin, logo_light');
+        .select('api, logo_light');
       
       if (mappingsError) {
         console.error('Error fetching team mappings:', mappingsError);
@@ -149,21 +158,33 @@ export default function CollegeFootball() {
       console.log('Team mappings fetched:', mappings?.length || 0);
       setTeamMappings(mappings || []);
 
-      // Fetch predictions - only from today onwards
-      const { data: preds, error: predsError } = await collegeFootballSupabase
-        .from('cfb_predictions')
-        .select('*')
-        .gte('game_date', today)
-        .order('game_date', { ascending: true })
-        .order('game_time', { ascending: true });
+        // Fetch predictions - no date filtering needed
+        const { data: preds, error: predsError } = await collegeFootballSupabase
+          .from('cfb_live_weekly_inputs')
+          .select('*');
 
-      if (predsError) {
-        console.error('Error fetching predictions:', predsError);
-        setError(`Predictions error: ${predsError.message}`);
-        return;
-      }
+        if (predsError) {
+          console.error('Error fetching predictions:', predsError);
+          setError(`Predictions error: ${predsError.message}`);
+          return;
+        }
 
-      console.log('Predictions fetched:', preds?.length || 0);
+        console.log('Predictions fetched:', preds?.length || 0);
+        console.log('Sample prediction data:', preds?.[0]); // Log first prediction to see structure
+
+        // Fetch prediction data from cfb_api_predictions
+        const { data: apiPreds, error: apiPredsError } = await collegeFootballSupabase
+          .from('cfb_api_predictions')
+          .select('*');
+
+        if (apiPredsError) {
+          console.error('Error fetching API predictions:', apiPredsError);
+          setError(`API predictions error: ${apiPredsError.message}`);
+          return;
+        }
+
+        console.log('API predictions fetched:', apiPreds?.length || 0);
+        console.log('Sample API prediction data:', apiPreds?.[0]); // Log first API prediction to see structure
 
       // Fetch weather data from the view
       const { data: weatherData, error: weatherError } = await collegeFootballSupabase
@@ -176,17 +197,31 @@ export default function CollegeFootball() {
         console.warn('Weather data unavailable, continuing without weather info');
       }
 
-      // Map weather data to predictions using training_key
-      const predictionsWithWeather = (preds || []).map(prediction => {
-        const weather = weatherData?.find(w => w.unique_id === prediction.training_key);
-        return {
-          ...prediction,
-          temperature: weather?.temperature || null,
-          precipitation: weather?.precipitation || null,
-          wind_speed: weather?.wind_speed || null,
-          icon_code: weather?.icon_code || null
-        };
-      });
+        // Map weather data to predictions using training_key
+        const predictionsWithWeather = (preds || []).map(prediction => {
+          const weather = weatherData?.find(w => w.unique_id === prediction.training_key);
+          const apiPred = apiPreds?.find(ap => ap.id === prediction.id);
+          
+          // Debug logging for first prediction
+          if (prediction.id === preds?.[0]?.id) {
+            console.log('Mapping prediction:', prediction.id);
+            console.log('Found API pred:', apiPred);
+            console.log('All API pred columns:', Object.keys(apiPred || {}));
+          }
+          
+          return {
+            ...prediction,
+            temperature: weather?.temperature || null,
+            precipitation: weather?.precipitation || null,
+            wind_speed: weather?.wind_speed || null,
+            icon_code: weather?.icon_code || null,
+            // Add API prediction data - try different possible column names
+            pred_spread: apiPred?.pred_spread || apiPred?.run_line_prediction || apiPred?.spread_prediction || null,
+            home_spread_diff: apiPred?.home_spread_diff || apiPred?.spread_diff || apiPred?.edge || null,
+            pred_total: apiPred?.pred_total || apiPred?.total_prediction || apiPred?.ou_prediction || null,
+            total_diff: apiPred?.total_diff || apiPred?.total_edge || null
+          };
+        });
 
       setPredictions(predictionsWithWeather);
       // Use the generated_at time from the first prediction if available
@@ -208,7 +243,7 @@ export default function CollegeFootball() {
   }, []);
 
   const getTeamLogo = (teamName: string): string => {
-    const mapping = teamMappings.find(m => m.vsin === teamName);
+    const mapping = teamMappings.find(m => m.api === teamName);
     return mapping?.logo_light || '';
   };
 
@@ -390,62 +425,64 @@ export default function CollegeFootball() {
     }
   };
 
-  const formatDate = (dateString: string): string => {
+  // Helper function to round to nearest 0.5
+  const roundToHalf = (value: number): number => {
+    return Math.round(value * 2) / 2;
+  };
+
+  // Helper function to format edge display
+  const formatEdge = (edge: number): string => {
+    const roundedEdge = roundToHalf(Math.abs(edge));
+    return roundedEdge.toString();
+  };
+
+  // Helper function to get edge team info
+  const getEdgeInfo = (homeSpreadDiff: number | null, awayTeam: string, homeTeam: string) => {
+    if (homeSpreadDiff === null || isNaN(homeSpreadDiff)) return null;
+    
+    const isHomeEdge = homeSpreadDiff > 0;
+    const teamName = isHomeEdge ? homeTeam : awayTeam;
+    const edgeValue = Math.abs(homeSpreadDiff);
+    
+    return {
+      teamName,
+      edgeValue: roundToHalf(edgeValue),
+      isHomeEdge,
+      displayEdge: formatEdge(homeSpreadDiff)
+    };
+  };
+
+  const formatStartTime = (startTimeString: string | null | undefined): { date: string; time: string } => {
+    console.log('formatStartTime called with:', startTimeString); // Debug logging
+    if (!startTimeString) {
+      return { date: 'TBD', time: 'TBD' };
+    }
+
     try {
-      // Parse the date string explicitly to avoid timezone issues
-      const [year, month, day] = dateString.split('-').map(Number);
-      // Month is 0-indexed in JavaScript Date constructor
-      const date = new Date(year, month - 1, day);
+      // Parse the start_time string (format: "2025-10-03 01:00:00+00")
+      const utcDate = new Date(startTimeString);
       
-      return date.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
+      // Format date in EST
+      const estDate = utcDate.toLocaleDateString('en-US', {
+        timeZone: 'America/New_York',
+        month: 'numeric',
         day: 'numeric',
         year: 'numeric'
       });
-    } catch (error) {
-      return dateString;
-    }
-  };
-
-  const formatCompactDate = (dateString: string): string => {
-    try {
-      // Parse the date string explicitly to avoid timezone issues
-      const [year, month, day] = dateString.split('-').map(Number);
-      // Month is 0-indexed in JavaScript Date constructor
-      const date = new Date(year, month - 1, day);
       
-      return date.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric'
-      });
+      // Format time in EST
+      const estTime = utcDate.toLocaleTimeString('en-US', {
+        timeZone: 'America/New_York',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }) + ' EST';
+      
+      return { date: estDate, time: estTime };
     } catch (error) {
-      return dateString;
+      console.error('Error formatting start time:', error);
+      return { date: 'TBD', time: 'TBD' };
     }
-  };
-
-  const groupGamesByDate = (games: CFBPrediction[]): Record<string, CFBPrediction[]> => {
-    const grouped: Record<string, CFBPrediction[]> = {};
-    
-    games.forEach(game => {
-      const date = game.game_date;
-      if (!grouped[date]) {
-        grouped[date] = [];
-      }
-      grouped[date].push(game);
-    });
-    
-    // Sort games within each date by time
-    Object.keys(grouped).forEach(date => {
-      grouped[date].sort((a, b) => {
-        const timeA = a.game_time;
-        const timeB = b.game_time;
-        return timeA.localeCompare(timeB);
-      });
-    });
-    
-    return grouped;
   };
 
   if (loading) {
@@ -555,28 +592,41 @@ export default function CollegeFootball() {
           {predictions
             .filter(shouldDisplayGame)
             .sort((a, b) => {
-              // Sort by date first, then by time
-              const dateComparison = a.game_date.localeCompare(b.game_date);
-              if (dateComparison !== 0) return dateComparison;
-              return a.game_time.localeCompare(b.game_time);
+              // Sort by any available date/time field
+              const timeA = a.start_time || a.start_date || a.game_datetime || a.datetime;
+              const timeB = b.start_time || b.start_date || b.game_datetime || b.datetime;
+              
+              if (timeA && timeB) {
+                return new Date(timeA).getTime() - new Date(timeB).getTime();
+              }
+              // Convert id to string for comparison
+              const idA = String(a.id || '');
+              const idB = String(b.id || '');
+              return idA.localeCompare(idB);
             })
             .map((prediction) => (
               <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-2 border-gray-200 hover:border-blue-300 shadow-lg">
                 {/* Gradient accent line at top */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
                 <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
-                  {/* Game Date - Small font above the @ symbol */}
-                  <div className="text-center">
-                    <div className="text-xs font-medium text-muted-foreground mb-2">
-                      {formatCompactDate(prediction.game_date)}
+                  {/* Game Date and Time */}
+                  {(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime) && (
+                    <div className="text-center">
+                      <div className="text-xs font-medium text-muted-foreground mb-1">
+                        {formatStartTime(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime).date}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">
+                        {formatStartTime(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime).time}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Team Logos and Betting Info - Horizontal Layout */}
                   <div className="space-y-3 sm:space-y-4 pt-2">
-                    <div className="flex justify-between items-start">
-                      {/* Away Team */}
-                      <div className="text-center flex-1">
+                    {/* Team Logos Row */}
+                    <div className="flex justify-center items-center space-x-4 sm:space-x-6">
+                      {/* Away Team Logo */}
+                      <div className="text-center w-[140px] sm:w-[160px]">
                         {getTeamLogo(prediction.away_team) && (
                           <img 
                             src={getTeamLogo(prediction.away_team)} 
@@ -584,30 +634,18 @@ export default function CollegeFootball() {
                             className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-sm sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 flex items-center justify-center text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-[130px] mx-auto">
+                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-2">
                           {prediction.away_team}
                         </div>
-                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600">
-                          {formatMoneyline(prediction.away_ml)}
-                        </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
-                          Spread: {formatSpread(prediction.away_spread)}
-                        </div>
                       </div>
 
-                      {/* @ Symbol, Game Time, and Total */}
-                      <div className="text-center px-2 sm:px-4 flex flex-col items-center justify-center">
+                      {/* @ Symbol */}
+                      <div className="text-center">
                         <span className="text-xl sm:text-2xl font-bold text-gray-400">@</span>
-                        <div className="text-xs sm:text-sm font-medium text-gray-600 mt-1 sm:mt-2 mb-2 sm:mb-4 bg-gray-100 px-2 sm:px-3 py-1 rounded-full">
-                          {convertTimeToEST(prediction.game_time)}
-                        </div>
-                        <div className="text-xs sm:text-sm font-bold text-gray-700 bg-blue-50 px-2 sm:px-3 py-1 rounded-full border border-blue-200">
-                          Total: {prediction.total_line || '-'}
-                        </div>
                       </div>
 
-                      {/* Home Team */}
-                      <div className="text-center flex-1">
+                      {/* Home Team Logo */}
+                      <div className="text-center w-[140px] sm:w-[160px]">
                         {getTeamLogo(prediction.home_team) && (
                           <img 
                             src={getTeamLogo(prediction.home_team)} 
@@ -615,14 +653,38 @@ export default function CollegeFootball() {
                             className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-sm sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 flex items-center justify-center text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-[130px] mx-auto">
+                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-2">
                           {prediction.home_team}
                         </div>
-                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600">
-                          {formatMoneyline(prediction.home_ml)}
+                      </div>
+                    </div>
+
+                    {/* Betting Lines Row */}
+                    <div className="flex justify-between items-center">
+                      {/* Away Team Betting */}
+                      <div className="text-center flex-1">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600">
+                          {formatMoneyline(prediction.away_moneyline)}
                         </div>
                         <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
-                          Spread: {formatSpread(prediction.home_spread)}
+                          Spread: {formatSpread(prediction.api_spread ? -prediction.api_spread : null)}
+                        </div>
+                      </div>
+
+                      {/* Total */}
+                      <div className="text-center px-2 sm:px-4">
+                        <div className="text-xs sm:text-sm font-bold text-gray-700 bg-blue-50 px-2 sm:px-3 py-1 rounded-full border border-blue-200">
+                          Total: {prediction.api_over_line || '-'}
+                        </div>
+                      </div>
+
+                      {/* Home Team Betting */}
+                      <div className="text-center flex-1">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600">
+                          {formatMoneyline(prediction.home_moneyline)}
+                        </div>
+                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
+                          Spread: {formatSpread(prediction.api_spread)}
                         </div>
                       </div>
                     </div>
@@ -675,84 +737,89 @@ export default function CollegeFootball() {
                     </div>
                   )}
 
-                  {/* Predictions Section */}
-                  {(prediction.pred_ml_proba !== null || prediction.pred_spread_proba !== null || prediction.pred_total_proba !== null) && (
-                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
+                  {/* Model Predictions Section */}
+                  {(prediction.pred_spread !== null || prediction.home_spread_diff !== null) && (
+                    <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
-                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Model Predictions</h4>
+                        <h4 className="text-sm sm:text-base font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-4 py-2 rounded-full border border-blue-200">Model Predictions</h4>
                       </div>
-                      <div className="p-0 sm:bg-gray-50 sm:p-3 sm:rounded-lg sm:border sm:border-gray-200">
-                        <div className="text-center mb-2">
-                          <div className="text-[11px] sm:text-xs font-bold text-gray-700">Confidence Meter</div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                        {/* Moneyline Prediction */}
-                        {prediction.pred_ml_proba !== null && (
-                          <div className="text-center p-0 sm:rounded-md sm:border sm:border-gray-200 sm:p-2">
-                            <div className="text-[11px] sm:text-xs font-medium text-gray-700 mb-1">Moneyline</div>
-                            <div className="flex items-center justify-center">
-                              <ConfidenceMeter value={prediction.pred_ml_proba > 0.5 ? prediction.pred_ml_proba : 1 - prediction.pred_ml_proba} />
+                      
+                      {/* Spread Edge Display */}
+                      {(() => {
+                        const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
+                        
+                        if (!edgeInfo) {
+                          // Show a placeholder when no edge data is available
+                          return (
+                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4 sm:p-6">
+                              <div className="text-center">
+                                <div className="text-xs sm:text-sm font-semibold text-gray-600 mb-3">Spread Edge</div>
+                                <div className="text-sm text-gray-500">
+                                  Edge calculation unavailable
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                  <div className="text-xs text-gray-500 font-medium">
+                                    Model: {prediction.pred_spread ? roundToHalf(prediction.pred_spread) : 'N/A'} • Vegas: {prediction.api_spread || 'N/A'}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center justify-center gap-2 mt-1">
-                              {(() => {
-                                const isHomeFav = prediction.pred_ml_proba > 0.5;
-                                const team = isHomeFav ? prediction.home_team : prediction.away_team;
-                                const ml = isHomeFav ? prediction.home_ml : prediction.away_ml;
-                                const logo = getTeamLogo(team);
-                                return (
-                                  <>
-                                    {logo && (
-                                      <img src={logo} alt="Team logo" className="h-5 w-5 sm:h-7 sm:w-7 md:h-8 md:w-8" />
-                                    )}
-                                    <span className="text-[11px] sm:text-sm md:text-base text-gray-800 font-semibold">{formatMoneyline(ml)}</span>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        )}
+                          );
+                        }
+                        
+                        return (
+                          <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl border border-emerald-200 p-4 sm:p-6">
+                            <div className="text-center">
+                              <div className="text-xs sm:text-sm font-semibold text-emerald-700 mb-3">Spread Edge</div>
+                              
+                              <div className="flex items-center justify-center space-x-4">
+                                {/* Team Logo */}
+                                <div className="flex-shrink-0">
+                                  {getTeamLogo(edgeInfo.teamName) && (
+                                    <img 
+                                      src={getTeamLogo(edgeInfo.teamName)} 
+                                      alt={`${edgeInfo.teamName} logo`}
+                                      className="h-12 w-12 sm:h-16 sm:w-16 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                                    />
+                                  )}
+                                </div>
+                                
+                                {/* Edge Value */}
+                                <div className="text-center">
+                                  <div className="text-2xl sm:text-3xl font-bold text-emerald-600 mb-1">
+                                    {edgeInfo.displayEdge}
+                                  </div>
+                                  <div className="text-xs sm:text-sm font-medium text-emerald-700">
+                                    Point Edge
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Model vs Vegas Comparison */}
+                              <div className="mt-4 pt-3 border-t border-emerald-200">
+                                <div className="text-xs text-emerald-600 font-medium">
+                                  {(() => {
+                                    let modelSpreadDisplay = prediction.pred_spread;
+                                    let vegasSpreadDisplay = prediction.api_spread;
 
-                        {/* Spread Prediction */}
-                        {prediction.pred_spread_proba !== null && (
-                          <div className="text-center p-0 sm:rounded-md sm:border sm:border-gray-200 sm:p-2">
-                            <div className="text-[11px] sm:text-xs font-medium text-gray-700 mb-1">Spread</div>
-                            <div className="flex items-center justify-center">
-                              <ConfidenceMeter value={prediction.pred_spread_proba > 0.5 ? prediction.pred_spread_proba : 1 - prediction.pred_spread_proba} />
-                            </div>
-                            <div className="flex items-center justify-center gap-2 mt-1">
-                              {(() => {
-                                const isHomeFav = prediction.pred_spread_proba > 0.5;
-                                const team = isHomeFav ? prediction.home_team : prediction.away_team;
-                                const spread = isHomeFav ? prediction.home_spread : prediction.away_spread;
-                                const logo = getTeamLogo(team);
-                                return (
-                                  <>
-                                    {logo && (
-                                      <img src={logo} alt="Team logo" className="h-5 w-5 sm:h-7 sm:w-7 md:h-8 md:w-8" />
-                                    )}
-                                    <span className="text-[11px] sm:text-sm md:text-base text-gray-800 font-semibold">{formatSpread(spread)}</span>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        )}
+                                    // If the edge is for the away team, show spreads from away team perspective
+                                    if (!edgeInfo.isHomeEdge) {
+                                      if (modelSpreadDisplay !== null) modelSpreadDisplay = -modelSpreadDisplay;
+                                      if (vegasSpreadDisplay !== null) vegasSpreadDisplay = -vegasSpreadDisplay;
+                                    }
 
-                        {/* Over/Under Prediction */}
-                        {prediction.pred_total_proba !== null && (
-                          <div className="text-center p-0 sm:rounded-md sm:border sm:border-gray-200 sm:p-2">
-                            <div className="text-[11px] sm:text-xs font-medium text-gray-700 mb-1">Over/Under</div>
-                            <div className="flex items-center justify-center">
-                              <ConfidenceMeter value={prediction.pred_total_proba > 0.5 ? prediction.pred_total_proba : 1 - prediction.pred_total_proba} />
-                            </div>
-                            <div className="text-[11px] sm:text-sm md:text-base text-gray-800 mt-1">
-                              <span className="font-bold">{prediction.pred_total_proba > 0.5 ? 'Over' : 'Under'}</span>
-                              <span>{` • Total: ${prediction.total_line || '-'}`}</span>
+                                    return (
+                                      <>
+                                        Model: {modelSpreadDisplay !== null ? roundToHalf(modelSpreadDisplay) : 'N/A'} • Vegas: {vegasSpreadDisplay !== null ? roundToHalf(vegasSpreadDisplay) : 'N/A'}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        )}
-                        </div>
-                      </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -773,7 +840,7 @@ export default function CollegeFootball() {
                             />
                           )}
                           <div className="text-xl sm:text-2xl font-bold text-gray-800">
-                            {prediction.pred_away_score !== null ? prediction.pred_away_score.toFixed(1) : '-'}
+                            {prediction.pred_away_score !== null && prediction.pred_away_score !== undefined ? prediction.pred_away_score.toFixed(1) : '-'}
                           </div>
                         </div>
 
@@ -792,7 +859,7 @@ export default function CollegeFootball() {
                             />
                           )}
                           <div className="text-xl sm:text-2xl font-bold text-gray-800">
-                            {prediction.pred_home_score !== null ? prediction.pred_home_score.toFixed(1) : '-'}
+                            {prediction.pred_home_score !== null && prediction.pred_home_score !== undefined ? prediction.pred_home_score.toFixed(1) : '-'}
                           </div>
                         </div>
                       </div>
