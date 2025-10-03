@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, Trophy, AlertCircle } from 'lucide-react';
+import { RefreshCw, Trophy, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface CFBPrediction {
   id: string;
@@ -36,17 +36,27 @@ interface CFBPrediction {
   precipitation?: number | null;
   wind_speed?: number | null;
   icon_code?: string | null; // New weather icon code
+    // Direct weather fields from cfb_live_weekly_inputs
+    weather_icon_text?: string | null;
+    weather_temp_f?: number | null;
+    weather_windspeed_mph?: number | null;
   pred_ml_proba?: number | null; // New probability fields
   pred_spread_proba?: number | null;
   pred_total_proba?: number | null;
   // Add score prediction columns
   pred_away_score?: number | null;
   pred_home_score?: number | null;
+  // Alternative naming for simulated points
+  pred_away_points?: number | null;
+  pred_home_points?: number | null;
   // Prediction data from cfb_api_predictions
   pred_spread?: number | null;
   home_spread_diff?: number | null;
   pred_total?: number | null;
   total_diff?: number | null;
+    // Over/Under specific
+    pred_over_line?: number | null;
+    over_line_diff?: number | null;
 }
 
 interface TeamMapping {
@@ -61,6 +71,28 @@ export default function CollegeFootball() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>(['All Games']);
+  const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
+  const toggleGameSelection = (id: string) => {
+    setSelectedGameIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const [gameDropdownOpen, setGameDropdownOpen] = useState<boolean>(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!gameDropdownOpen) return;
+      const target = e.target as Node;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setGameDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [gameDropdownOpen]);
+  type SortMode = 'time' | 'spread' | 'ou';
+  const [sortMode, setSortMode] = useState<SortMode>('time');
+  // Match simulator UI states per game id
+  const [simLoadingById, setSimLoadingById] = useState<Record<string, boolean>>({});
+  const [simRevealedById, setSimRevealedById] = useState<Record<string, boolean>>({});
 
   // Filter options
   const filterOptions = ['All Games', 'Sharp Money', 'Public Bets', 'Consensus Bets'];
@@ -85,34 +117,23 @@ export default function CollegeFootball() {
     }
   };
 
-  // Check if a game should be displayed based on active filters
-  const shouldDisplayGame = (prediction: CFBPrediction): boolean => {
-    if (activeFilters.includes('All Games')) return true;
-    
-    const allLabels = [
-      prediction.ml_splits_label,
-      prediction.spread_splits_label,
-      prediction.total_splits_label
-    ].filter(Boolean);
-    
-    return activeFilters.some(filter => {
-      if (filter === 'All Games') return true;
-      
-      // Create flexible matching patterns for each filter type
-      const patterns = {
-        'Sharp Money': ['sharp'],
-        'Public Bets': ['public'],
-        'Consensus Bets': ['consensus']
-      };
-      
-      const patternsToMatch = patterns[filter as keyof typeof patterns] || [];
-      
-      return allLabels.some(label => 
-        patternsToMatch.some(pattern => 
-          label?.toLowerCase().includes(pattern)
-        )
-      );
-    });
+  // Check if a game should be displayed based on dropdown selections
+  const shouldDisplaySelected = (prediction: CFBPrediction): boolean => {
+    if (selectedGameIds.length === 0) return true; // no selection means show all
+    return selectedGameIds.includes(String(prediction.id));
+  };
+
+  // Displayed edge helpers (match UI rounding behavior)
+  const getDisplayedSpreadEdge = (p: CFBPrediction): number => {
+    const val = p.home_spread_diff;
+    if (val === null || val === undefined || isNaN(Number(val))) return -Infinity;
+    return Math.round(Math.abs(Number(val)) * 2) / 2; // roundToHalf(abs)
+  };
+
+  const getDisplayedOUEdge = (p: CFBPrediction): number => {
+    const val = p.over_line_diff as number | null | undefined;
+    if (val === null || val === undefined || isNaN(Number(val))) return -Infinity;
+    return Math.round(Math.abs(Number(val)) * 2) / 2; // roundToHalf(abs)
   };
 
   // Check if a specific label should be highlighted
@@ -219,7 +240,15 @@ export default function CollegeFootball() {
             pred_spread: apiPred?.pred_spread || apiPred?.run_line_prediction || apiPred?.spread_prediction || null,
             home_spread_diff: apiPred?.home_spread_diff || apiPred?.spread_diff || apiPred?.edge || null,
             pred_total: apiPred?.pred_total || apiPred?.total_prediction || apiPred?.ou_prediction || null,
-            total_diff: apiPred?.total_diff || apiPred?.total_edge || null
+            total_diff: apiPred?.total_diff || apiPred?.total_edge || null,
+            // Explicit Over/Under values
+            pred_over_line: apiPred?.pred_over_line ?? null,
+            over_line_diff: apiPred?.over_line_diff ?? null,
+            // Score prediction fields (support multiple possible column names)
+            pred_away_score: apiPred?.pred_away_score ?? (apiPred as any)?.away_points ?? (prediction as any)?.pred_away_score ?? null,
+            pred_home_score: apiPred?.pred_home_score ?? (apiPred as any)?.home_points ?? (prediction as any)?.pred_home_score ?? null,
+            pred_away_points: apiPred?.pred_away_points ?? (apiPred as any)?.away_points ?? null,
+            pred_home_points: apiPred?.pred_home_points ?? (apiPred as any)?.home_points ?? null
           };
         });
 
@@ -369,6 +398,122 @@ export default function CollegeFootball() {
     );
   };
 
+  // Map text from cfb_live_weekly_inputs to our icon code set
+  const mapIconTextToCode = (text: string | null | undefined): string | null => {
+    if (!text) return null;
+    const t = text.toLowerCase().trim();
+
+    // Night hints
+    const isNight = /(night|pm\s*\(night\)|overnight)/.test(t);
+
+    // Rain spectrum
+    if (/(drizzle|light rain|rain showers|shower|sprinkle|rainy|rain)/.test(t)) {
+      return isNight ? 'showers-night' : /showers|shower|drizzle/.test(t) ? 'showers-day' : 'rain';
+    }
+
+    // Thunderstorms
+    if (/(t-?storm|thunder|storm)/.test(t)) {
+      return t.includes('rain') ? 'thunder-rain' : 'thunder';
+    }
+
+    // Snow variants
+    if (/(snow|flurries|blowing snow)/.test(t)) {
+      return /showers|flurries/.test(t)
+        ? (isNight ? 'snow-showers-night' : 'snow-showers-day')
+        : 'snow';
+    }
+
+    // Mixed precip
+    if (/(wintry mix|rain and snow|rain\s*\/\s*snow|sleet)/.test(t)) return 'rain-snow';
+    if (/sleet/.test(t)) return 'sleet';
+    if (/hail/.test(t)) return 'hail';
+
+    // Fog/Mist/Haze
+    if (/(fog|mist|haze|smoke)/.test(t)) return 'fog';
+
+    // Cloud cover
+    if (/(overcast)/.test(t)) return 'cloudy';
+    if (/(mostly cloudy|broken clouds|considerable cloud)/.test(t)) return 'cloudy';
+    if (/(partly sunny|partly cloudy|intermittent cloud|scattered cloud)/.test(t)) {
+      return isNight ? 'partly-cloudy-night' : 'partly-cloudy-day';
+    }
+    if (/cloud/.test(t)) return 'cloudy';
+
+    // Clear/mostly clear
+    if (/(clear|sunny|mostly clear)/.test(t)) return isNight ? 'clear-night' : 'clear-day';
+
+    // Windy
+    if (/wind/.test(t)) return 'wind';
+
+    // Fallback
+    return isNight ? 'clear-night' : 'clear-day';
+  };
+
+  // Small weather pill used above team logos
+  const WeatherPill = ({ iconText, tempF, windMph, fallbackIcon }: { iconText: string | null | undefined; tempF: number | null | undefined; windMph: number | null | undefined; fallbackIcon?: string | null; }) => {
+    const code = mapIconTextToCode(iconText) || fallbackIcon || null;
+    const iconPath = code
+      ? (() => {
+          const iconMap: { [key: string]: string } = {
+            'clear-day': 'clear-day.svg',
+            'clear-night': 'clear-night.svg',
+            'partly-cloudy-day': 'partly-cloudy-day.svg',
+            'partly-cloudy-night': 'partly-cloudy-night.svg',
+            'cloudy': 'cloudy.svg',
+            'rain': 'rain.svg',
+            'showers-day': 'showers-day.svg',
+            'showers-night': 'showers-night.svg',
+            'snow': 'snow.svg',
+            'snow-showers-day': 'snow-showers-day.svg',
+            'snow-showers-night': 'snow-showers-night.svg',
+            'sleet': 'sleet.svg',
+            'fog': 'fog.svg',
+            'thunder': 'thunder.svg',
+            'thunder-showers-day': 'thunder-showers-day.svg',
+            'thunder-showers-night': 'thunder-showers-night.svg',
+            'thunder-rain': 'thunder-rain.svg',
+            'rain-snow': 'rain-snow.svg',
+            'hail': 'hail.svg',
+            'wind': 'wind.svg'
+          };
+          return iconMap[code] || 'clear-day.svg';
+        })()
+      : null;
+
+    return (
+      <div className="flex justify-center mt-2">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white shadow-sm">
+          {iconPath && (
+            <img src={`/weather-icons/${iconPath}`} alt={code || 'weather'} className="h-5 w-5 object-contain" />
+          )}
+          <div className="text-xs font-medium text-gray-700">
+            {typeof tempF === 'number' ? `Temp: ${Math.round(tempF)}°F` : 'Temp: --'}
+            <span className="mx-2 text-gray-300">•</span>
+            {typeof windMph === 'number' ? `Wind: ${Math.round(windMph)} mph` : 'Wind: --'}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Spinning football loader for simulator
+  const FootballLoader = () => (
+    <svg
+      className="h-8 w-8 animate-spin mr-2"
+      viewBox="0 0 64 64"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <ellipse cx="32" cy="32" rx="28" ry="16" fill="#8B4513" />
+      <path d="M10 32c0-8.837 9.85-16 22-16s22 7.163 22 16-9.85 16-22 16-22-7.163-22-16z" stroke="#5A3310" strokeWidth="2" fill="none"/>
+      <path d="M20 32h24" stroke="#fff" strokeWidth="2"/>
+      <path d="M28 28v8M32 28v8M36 28v8" stroke="#fff" strokeWidth="2"/>
+      <path d="M14 24c6 4 30 4 36 0" stroke="#5A3310" strokeWidth="2"/>
+      <path d="M14 40c6-4 30-4 36 0" stroke="#5A3310" strokeWidth="2"/>
+    </svg>
+  );
+
   const formatMoneyline = (ml: number | null): string => {
     if (ml === null || ml === undefined) return '-';
     if (ml > 0) return `+${ml}`;
@@ -430,6 +575,21 @@ export default function CollegeFootball() {
     return Math.round(value * 2) / 2;
   };
 
+  // Helper to format rounded spread with explicit '+' for positives
+  const formatSignedHalf = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(Number(value))) return 'N/A';
+    const rounded = roundToHalf(Number(value));
+    if (rounded > 0) return `+${rounded}`;
+    return rounded.toString();
+  };
+
+  // Helper to format rounded value without forcing '+' for positives (keeps '-' for negatives)
+  const formatHalfNoSign = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(Number(value))) return 'N/A';
+    const rounded = roundToHalf(Number(value));
+    return rounded.toString();
+  };
+
   // Helper function to format edge display
   const formatEdge = (edge: number): string => {
     const roundedEdge = roundToHalf(Math.abs(edge));
@@ -462,13 +622,20 @@ export default function CollegeFootball() {
       // Parse the start_time string (format: "2025-10-03 01:00:00+00")
       const utcDate = new Date(startTimeString);
       
-      // Format date in EST
-      const estDate = utcDate.toLocaleDateString('en-US', {
+      // Format date in EST as "OCT 2, 2025"
+      const estMonth = utcDate.toLocaleString('en-US', {
         timeZone: 'America/New_York',
-        month: 'numeric',
-        day: 'numeric',
+        month: 'short'
+      }).toUpperCase();
+      const estDay = utcDate.toLocaleString('en-US', {
+        timeZone: 'America/New_York',
+        day: 'numeric'
+      });
+      const estYear = utcDate.toLocaleString('en-US', {
+        timeZone: 'America/New_York',
         year: 'numeric'
       });
+      const estDate = `${estMonth} ${estDay}, ${estYear}`;
       
       // Format time in EST
       const estTime = utcDate.toLocaleTimeString('en-US', {
@@ -528,33 +695,84 @@ export default function CollegeFootball() {
               Betting Lines Current as of: {convertUTCToEST(lastUpdated.toISOString())}
             </span>
           )}
-          <Button onClick={fetchData} disabled={loading}>
+          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
       </div>
 
-      {/* Filter Buttons */}
-      <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-gray-50 rounded-lg border">
-        <span className="text-sm font-medium text-gray-700 mr-2">Filter by:</span>
-        {filterOptions.map(filter => (
-          <Button
-            key={filter}
-            variant={activeFilters.includes(filter) ? 'default' : 'outline'}
-            onClick={() => toggleFilter(filter)}
-            className={`flex items-center gap-2 px-4 py-2 font-medium transition-all duration-200 ${
-              activeFilters.includes(filter)
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg transform hover:scale-105'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-300 hover:border-gray-400 shadow-md hover:shadow-lg'
-            }`}
+      {/* Game selection dropdown (multi) */}
+      <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-gray-50 rounded-lg border relative">
+        <span className="text-sm font-medium text-gray-700">Select games:</span>
+        <div ref={dropdownRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setGameDropdownOpen(o => !o)}
+            className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-2 bg-white border rounded-md shadow-sm text-sm"
           >
-            {filter}
-            {activeFilters.includes(filter) && (
-              <span className="text-xs font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">✓</span>
-            )}
+            {selectedGameIds.length === 0 ? 'All Games' : `${selectedGameIds.length} selected`}
+            <span className={`text-gray-400 transition-transform ${gameDropdownOpen ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {gameDropdownOpen && (
+          <div className="absolute z-10 mt-2 w-[320px] max-h-72 overflow-auto bg-white border rounded-md shadow-lg p-2">
+            <div className="flex items-center justify-between mb-2">
+              <Button variant="outline" className="text-xs" onClick={() => setSelectedGameIds(predictions.map(p => String(p.id)))}>Select All</Button>
+              <Button variant="outline" className="text-xs" onClick={() => setSelectedGameIds([])}>Clear</Button>
+            </div>
+            <ul className="space-y-1">
+              {predictions
+                .slice()
+                .sort((a, b) => String(a.away_team).localeCompare(String(b.away_team)))
+                .map(p => {
+                const id = String(p.id);
+                const checked = selectedGameIds.includes(id);
+                return (
+                  <li key={id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50">
+                    <input
+                      id={`game-${id}`}
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleGameSelection(id)}
+                    />
+                    <label htmlFor={`game-${id}`} className="text-sm cursor-pointer select-none">
+                      {p.away_team} @ {p.home_team}
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          )}
+        </div>
+
+        {/* Sorting controls */}
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant={sortMode === 'spread' ? 'default' : 'outline'}
+            className={`${sortMode === 'spread' ? 'bg-blue-600 text-white' : ''} text-xs`}
+            onClick={() => setSortMode('spread')}
+            title="Sort by highest Spread edge"
+          >
+            Sort: Spread Edge
           </Button>
-        ))}
+          <Button
+            variant={sortMode === 'ou' ? 'default' : 'outline'}
+            className={`${sortMode === 'ou' ? 'bg-blue-600 text-white' : ''} text-xs`}
+            onClick={() => setSortMode('ou')}
+            title="Sort by highest Over/Under edge"
+          >
+            Sort: O/U Edge
+          </Button>
+          <Button
+            variant={sortMode === 'time' ? 'default' : 'outline'}
+            className={`${sortMode === 'time' ? 'bg-blue-600 text-white' : ''} text-xs`}
+            onClick={() => setSortMode('time')}
+            title="Sort by game time"
+          >
+            Sort: Time
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -590,16 +808,20 @@ export default function CollegeFootball() {
         {/* Display all games in a single grid, ordered by date and time */}
         <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {predictions
-            .filter(shouldDisplayGame)
+            .filter(shouldDisplaySelected)
             .sort((a, b) => {
-              // Sort by any available date/time field
+              if (sortMode === 'spread') {
+                return getDisplayedSpreadEdge(b) - getDisplayedSpreadEdge(a);
+              }
+              if (sortMode === 'ou') {
+                return getDisplayedOUEdge(b) - getDisplayedOUEdge(a);
+              }
+              // default: by time
               const timeA = a.start_time || a.start_date || a.game_datetime || a.datetime;
               const timeB = b.start_time || b.start_date || b.game_datetime || b.datetime;
-              
               if (timeA && timeB) {
                 return new Date(timeA).getTime() - new Date(timeB).getTime();
               }
-              // Convert id to string for comparison
               const idA = String(a.id || '');
               const idB = String(b.id || '');
               return idA.localeCompare(idB);
@@ -618,6 +840,15 @@ export default function CollegeFootball() {
                       <div className="text-xs font-medium text-muted-foreground">
                         {formatStartTime(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime).time}
                       </div>
+                      {/* Compact Weather Row */}
+                      {(prediction.weather_icon_text || prediction.temperature !== null || prediction.wind_speed !== null || prediction.icon_code) && (
+                        <WeatherPill 
+                          iconText={(prediction as any).weather_icon_text}
+                          tempF={(prediction as any).weather_temp_f ?? prediction.temperature}
+                          windMph={(prediction as any).weather_windspeed_mph ?? prediction.wind_speed}
+                          fallbackIcon={prediction.icon_code}
+                        />
+                      )}
                     </div>
                   )}
 
@@ -738,97 +969,175 @@ export default function CollegeFootball() {
                   )}
 
                   {/* Model Predictions Section */}
-                  {(prediction.pred_spread !== null || prediction.home_spread_diff !== null) && (
+                  {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
                     <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t-2 border-gray-200">
                       <div className="text-center">
                         <h4 className="text-sm sm:text-base font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-4 py-2 rounded-full border border-blue-200">Model Predictions</h4>
                       </div>
-                      
-                      {/* Spread Edge Display */}
-                      {(() => {
-                        const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
-                        
-                        if (!edgeInfo) {
-                          // Show a placeholder when no edge data is available
-                          return (
-                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4 sm:p-6">
-                              <div className="text-center">
-                                <div className="text-xs sm:text-sm font-semibold text-gray-600 mb-3">Spread Edge</div>
-                                <div className="text-sm text-gray-500">
-                                  Edge calculation unavailable
-                                </div>
-                                <div className="mt-3 pt-3 border-t border-gray-200">
-                                  <div className="text-xs text-gray-500 font-medium">
-                                    Model: {prediction.pred_spread ? roundToHalf(prediction.pred_spread) : 'N/A'} • Vegas: {prediction.api_spread || 'N/A'}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-                        
-                        return (
-                          <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl border border-emerald-200 p-4 sm:p-6">
-                            <div className="text-center">
-                              <div className="text-xs sm:text-sm font-semibold text-emerald-700 mb-3">Spread Edge</div>
-                              
-                              <div className="flex items-center justify-center space-x-4">
-                                {/* Team Logo */}
-                                <div className="flex-shrink-0">
-                                  {getTeamLogo(edgeInfo.teamName) && (
-                                    <img 
-                                      src={getTeamLogo(edgeInfo.teamName)} 
-                                      alt={`${edgeInfo.teamName} logo`}
-                                      className="h-12 w-12 sm:h-16 sm:w-16 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                                    />
-                                  )}
-                                </div>
-                                
-                                {/* Edge Value */}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                        {/* Spread Edge Display (left) */}
+                        {(() => {
+                          const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
+
+                          if (!edgeInfo) {
+                            return (
+                              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4 sm:p-6">
                                 <div className="text-center">
-                                  <div className="text-2xl sm:text-3xl font-bold text-emerald-600 mb-1">
-                                    {edgeInfo.displayEdge}
-                                  </div>
-                                  <div className="text-xs sm:text-sm font-medium text-emerald-700">
-                                    Point Edge
+                                  <h5 className="text-sm sm:text-base font-bold text-gray-800 mb-3 pb-2 border-b border-gray-200">Spread</h5>
+                                  <div className="text-sm text-gray-500">Edge calculation unavailable</div>
+                                  <div className="mt-3">
+                                    <div className="text-xs sm:text-sm font-semibold text-gray-600 mb-1">Model Spread</div>
+                                    <div className="text-2xl sm:text-3xl font-bold text-gray-700">
+                                      {formatSignedHalf(prediction.pred_spread)}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                              
-                              {/* Model vs Vegas Comparison */}
-                              <div className="mt-4 pt-3 border-t border-emerald-200">
-                                <div className="text-xs text-emerald-600 font-medium">
+                            );
+                          }
+
+                          return (
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 h-full flex flex-col">
+                              <div className="text-center">
+                                <h5 className="text-sm sm:text-base font-bold text-gray-900 mb-3 pb-2 border-b border-gray-200">Spread</h5>
+
+                                <div className="flex-1 flex items-center justify-center space-x-4 min-h-[110px]">
+                                  {/* Team Logo */}
+                                  <div className="flex-shrink-0">
+                                    {getTeamLogo(edgeInfo.teamName) && (
+                                      <img
+                                        src={getTeamLogo(edgeInfo.teamName)}
+                                        alt={`${edgeInfo.teamName} logo`}
+                                        className="h-12 w-12 sm:h-16 sm:w-16 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                                      />
+                                    )}
+                                  </div>
+
+                                  {/* Edge Value */}
+                                  <div className="text-center">
+                                    <div className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1">
+                                      {edgeInfo.displayEdge}
+                                    </div>
+                                    <div className="text-xs sm:text-sm font-medium text-gray-600">Edge</div>
+                                  </div>
+                                </div>
+
+                                {/* Model Spread Only */}
+                                <div className="mt-4">
+                                  <div className="text-xs sm:text-sm font-semibold text-gray-700 mb-1">Model Spread</div>
                                   {(() => {
                                     let modelSpreadDisplay = prediction.pred_spread;
-                                    let vegasSpreadDisplay = prediction.api_spread;
-
-                                    // If the edge is for the away team, show spreads from away team perspective
                                     if (!edgeInfo.isHomeEdge) {
                                       if (modelSpreadDisplay !== null) modelSpreadDisplay = -modelSpreadDisplay;
-                                      if (vegasSpreadDisplay !== null) vegasSpreadDisplay = -vegasSpreadDisplay;
                                     }
-
                                     return (
-                                      <>
-                                        Model: {modelSpreadDisplay !== null ? roundToHalf(modelSpreadDisplay) : 'N/A'} • Vegas: {vegasSpreadDisplay !== null ? roundToHalf(vegasSpreadDisplay) : 'N/A'}
-                                      </>
+                                      <div className="text-2xl sm:text-3xl font-bold text-gray-800">
+                                        {formatSignedHalf(modelSpreadDisplay)}
+                                      </div>
                                     );
                                   })()}
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })()}
+                          );
+                        })()}
+
+                        {/* Over/Under Edge Display (right) */}
+                        {(() => {
+                          const ouDiff = prediction.over_line_diff;
+                          const hasOuData = ouDiff !== null || prediction.pred_over_line !== null || prediction.api_over_line !== null;
+
+                          if (!hasOuData) {
+                            return (
+                              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4 sm:p-6">
+                                <div className="text-center">
+                                  <div className="text-xs sm:text-sm font-semibold text-gray-600 mb-3">Over/Under Edge</div>
+                                  <div className="text-sm text-gray-500">No O/U data available</div>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          const isOver = (ouDiff ?? 0) > 0;
+                          const magnitude = Math.abs(ouDiff ?? 0);
+                          const displayMagnitude = roundToHalf(magnitude).toString();
+                          const modelValue = prediction.pred_over_line;
+
+                          return (
+                            <div className={`rounded-xl border p-4 sm:p-6 h-full flex flex-col bg-white border-gray-200`}>
+                              <div className="text-center">
+                                <h5 className={`text-sm sm:text-base font-bold mb-3 pb-2 border-b ${isOver ? 'text-emerald-800' : 'text-rose-800'} border-gray-200`}>Over/Under</h5>
+
+                                <div className="flex-1 flex items-center justify-center space-x-4 min-h-[110px]">
+                                  {/* Arrow Indicator */}
+                                  <div className="flex-shrink-0">
+                                    {isOver ? (
+                                      <div className="flex flex-col items-center">
+                                        <ArrowUp className="h-12 w-12 sm:h-16 sm:w-16 text-emerald-600" />
+                                        <div className="text-xs font-bold text-emerald-700 -mt-2">Over</div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center">
+                                        <ArrowDown className="h-12 w-12 sm:h-16 sm:w-16 text-rose-600" />
+                                        <div className="text-xs font-bold text-rose-700 -mt-2">Under</div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Edge Value */}
+                                  <div className="text-center">
+                                    <div className={`text-2xl sm:text-3xl font-bold mb-1 ${isOver ? 'text-emerald-600' : 'text-rose-600'}`}>{displayMagnitude}</div>
+                                    <div className={`text-xs sm:text-sm font-medium ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Edge</div>
+                                  </div>
+                                </div>
+
+                                {/* Model O/U Only */}
+                                <div className="mt-4">
+                                  <div className={`text-xs sm:text-sm font-semibold mb-1 ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Model O/U</div>
+                                  <div className={`text-2xl sm:text-3xl font-bold ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>{formatHalfNoSign(modelValue)}</div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   )}
 
-                  {/* Score Prediction Section */}
-                  {(prediction.pred_away_score !== null || prediction.pred_home_score !== null) && (
-                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
-                      <div className="text-center">
-                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-orange-50 to-red-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Score Prediction</h4>
+                  {/* Match Simulator Section */}
+                  <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
+                    <div className="text-center">
+                      <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-orange-50 to-red-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Match Simulator</h4>
+                    </div>
+
+                    {/* Simulate Button or Loading */}
+                    {!simRevealedById[prediction.id] && (
+                      <div className="flex justify-center">
+                        <Button
+                          disabled={!!simLoadingById[prediction.id]}
+                          onClick={() => {
+                            setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
+                            setTimeout(() => {
+                              setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
+                              setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
+                            }, 2500);
+                          }}
+                          className="px-6 py-6 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md"
+                        >
+                          {simLoadingById[prediction.id] ? (
+                            <span className="flex items-center">
+                              <FootballLoader /> Simulating…
+                            </span>
+                          ) : (
+                            'Simulate Match'
+                          )}
+                        </Button>
                       </div>
+                    )}
+
+                    {/* Revealed Score Layout */}
+                    {simRevealedById[prediction.id] && (
                       <div className="flex justify-between items-center bg-gradient-to-br from-orange-50 to-red-50 p-3 sm:p-4 rounded-lg border border-gray-200">
                         {/* Away Team Score */}
                         <div className="text-center flex-1">
@@ -840,7 +1149,10 @@ export default function CollegeFootball() {
                             />
                           )}
                           <div className="text-xl sm:text-2xl font-bold text-gray-800">
-                            {prediction.pred_away_score !== null && prediction.pred_away_score !== undefined ? prediction.pred_away_score.toFixed(1) : '-'}
+                            {(() => {
+                              const val = prediction.pred_away_points ?? prediction.pred_away_score;
+                              return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
+                            })()}
                           </div>
                         </div>
 
@@ -859,12 +1171,15 @@ export default function CollegeFootball() {
                             />
                           )}
                           <div className="text-xl sm:text-2xl font-bold text-gray-800">
-                            {prediction.pred_home_score !== null && prediction.pred_home_score !== undefined ? prediction.pred_home_score.toFixed(1) : '-'}
+                            {(() => {
+                              const val = prediction.pred_home_points ?? prediction.pred_home_score;
+                              return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
+                            })()}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {/* Weather Section */}
                   {prediction.icon_code && (

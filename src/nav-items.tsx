@@ -6,7 +6,7 @@ import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NotFound from "./pages/NotFound";
 import { Account } from "./pages";
-import Marketplace from "./pages/Marketplace";
+// import Marketplace from "./pages/Marketplace"; // Temporarily hidden
 
 /**
  * Central place for defining the navigation items. Used for navigation components and routing.
@@ -37,10 +37,5 @@ export const navItems = [
     icon: <User className="h-4 w-4" />,
     page: <Account />,
   },
-  {
-    title: "Marketplace",
-    to: "/marketplace",
-    icon: <ShoppingBag className="h-4 w-4" />,
-    page: <Marketplace />,
-  },
+  // Marketplace temporarily hidden
 ];
