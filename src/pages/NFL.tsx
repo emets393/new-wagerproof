@@ -779,62 +779,94 @@ export default function NFL() {
                     
                     {/* Spread Predictions Card */}
                     <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
-                      <div className="text-center mb-2 sm:mb-3">
-                        <h5 className="text-xs sm:text-sm font-bold text-gray-700">Spread Predictions</h5>
+                      <div className="text-center mb-3">
+                        <h5 className="text-xs sm:text-sm font-semibold text-gray-700">Spread</h5>
                       </div>
-                      <div className="grid grid-cols-1 gap-2 sm:gap-3">
-                        {/* Spread Prediction */}
-                        {prediction.home_away_spread_cover_prob !== null && (
-                          <div className="text-center">
-                            <div className="text-xs font-medium text-gray-600 mb-1">Spread Prediction</div>
-                            <div className="text-base sm:text-lg font-bold text-blue-600">
-                              {Math.round((prediction.home_away_spread_cover_prob > 0.5 ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100)}%
+                      {/* Spread Prediction */}
+                      {prediction.home_away_spread_cover_prob !== null && (
+                        (() => {
+                          const isHome = prediction.home_away_spread_cover_prob > 0.5;
+                          const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
+                          const predictedSpread = isHome ? prediction.home_spread : prediction.away_spread;
+                          const confidencePct = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
+                          const confidenceColorClass =
+                            confidencePct <= 58 ? 'text-rose-600' :
+                            confidencePct <= 65 ? 'text-orange-500' :
+                            'text-emerald-600';
+                          return (
+                            <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
+                              {/* Left: Logo + Team (spread) */}
+                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+                                <div className="h-full w-full px-3 sm:px-4 pt-3 sm:pt-4 pb-6 sm:pb-7 rounded-xl bg-white flex flex-col items-center justify-center">
+                                  <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 flex items-center justify-center mb-2">
+                                    <img
+                                      src={getTeamLogo(predictedTeam)}
+                                      alt={`${predictedTeam} logo`}
+                                      className="max-h-full max-w-full object-contain drop-shadow"
+                                    />
+                                  </div>
+                                  <span className="text-xs sm:text-sm md:text-base font-semibold text-gray-800 text-center leading-snug">
+                                    {predictedTeam} ({formatSpread(predictedSpread)})
+                                  </span>
+                                </div>
+                              </div>
+                              {/* Right: Confidence % */}
+                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+                                <div className="h-full w-full px-3 sm:px-4 pt-3 sm:pt-4 pb-4 sm:pb-5 rounded-xl bg-white flex flex-col items-center justify-center text-center">
+                                  <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
+                                    {confidencePct}%
+                                  </div>
+                                  <div className="text-[11px] sm:text-xs text-gray-600 font-medium mt-1">Confidence</div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {prediction.home_away_spread_cover_prob > 0.5 ? prediction.home_team : prediction.away_team}
-                            </div>
-                          </div>
-                        )}
-
-
-                      </div>
+                          );
+                        })()
+                      )}
                     </div>
 
                     {/* Over/Under Analysis Card */}
                     {prediction.ou_result_prob !== null && (
                       <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
-                        <div className="text-center mb-2 sm:mb-3">
-                          <h5 className="text-xs sm:text-sm font-bold text-gray-700">Over/Under Analysis</h5>
+                        <div className="text-center mb-3">
+                          <h5 className="text-xs sm:text-sm font-semibold text-gray-700">Over / Under</h5>
                         </div>
-                        <div className="grid grid-cols-1 gap-2 sm:gap-3">
-                          {/* Over/Under Prediction */}
-                          <div className="text-center">
-                            <div className="text-xs font-medium text-gray-600 mb-1">Prediction</div>
-                            <div className="text-base sm:text-lg font-bold text-orange-600">
-                              {Math.round((prediction.ou_result_prob > 0.5 ? prediction.ou_result_prob : 1 - prediction.ou_result_prob) * 100)}%
+                        {(() => {
+                          const isOver = prediction.ou_result_prob! > 0.5;
+                          const confidencePct = Math.round((isOver ? prediction.ou_result_prob! : 1 - prediction.ou_result_prob!) * 100);
+                          const confidenceColorClass =
+                            confidencePct <= 58 ? 'text-rose-600' :
+                            confidencePct <= 65 ? 'text-orange-500' :
+                            'text-emerald-600';
+                          const arrow = isOver ? '▲' : '▼';
+                          const arrowColor = isOver ? 'text-emerald-600' : 'text-rose-600';
+                          const label = isOver ? 'Over' : 'Under';
+                          return (
+                            <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
+                              {/* Left: Big arrow + OU line */}
+                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+                                <div className="h-full w-full p-3 sm:p-4 rounded-xl bg-white flex flex-col items-center justify-center">
+                                  <div className={`text-4xl sm:text-5xl md:text-6xl font-black ${arrowColor}`}>{arrow}</div>
+                                  <div className="mt-2 text-sm sm:text-base md:text-lg font-semibold text-gray-800 text-center">
+                                    {label} {prediction.over_line || '-'}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Right: Confidence % */}
+                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+                                <div className="h-full w-full p-3 sm:p-4 rounded-xl bg-white flex flex-col items-center justify-center text-center">
+                                  <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
+                                    {confidencePct}%
+                                  </div>
+                                  <div className="text-[11px] sm:text-xs text-gray-600 font-medium mt-1">Confidence</div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {prediction.ou_result_prob > 0.5 ? 'Over' : 'Under'} {prediction.over_line || '-'}
-                            </div>
-                          </div>
-                        </div>
+                          );
+                        })()}
                       </div>
                     )}
-
-                    {/* Moneyline Prediction Card */}
-                    {prediction.home_away_ml_prob !== null && (
-                      <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
-                        <div className="text-center">
-                          <h5 className="text-xs sm:text-sm font-bold text-gray-700 mb-2">Moneyline Prediction</h5>
-                          <div className="text-base sm:text-lg font-bold text-purple-600">
-                            {Math.round((prediction.home_away_ml_prob > 0.5 ? prediction.home_away_ml_prob : 1 - prediction.home_away_ml_prob) * 100)}%
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {prediction.home_away_ml_prob > 0.5 ? prediction.home_team : prediction.away_team}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    
                   </div>
 
                   {/* Betting Split Labels Section */}
