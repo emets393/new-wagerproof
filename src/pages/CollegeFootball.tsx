@@ -842,19 +842,19 @@ export default function CollegeFootball() {
                   )}
 
                   {/* Team Logos and Betting Info - Horizontal Layout */}
-                  <div className="space-y-2.5 sm:space-y-4 pt-1.5">
+                  <div className="space-y-2 sm:space-y-4 pt-1.5">
                     {/* Team Logos Row */}
                     <div className="flex justify-center items-center space-x-4 sm:space-x-6">
                       {/* Away Team Logo */}
-                      <div className="text-center w-[150px] sm:w-[170px]">
+                      <div className="text-center w-[140px] sm:w-[160px]">
                         {getTeamLogo(prediction.away_team) && (
                           <img 
                             src={getTeamLogo(prediction.away_team)} 
                             alt={`${prediction.away_team} logo`}
-                            className="h-16 w-16 sm:h-20 sm:w-20 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-base sm:text-lg font-bold mb-1 sm:mb-2 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-1.5">
+                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-2">
                           {prediction.away_team}
                         </div>
                       </div>
@@ -865,15 +865,15 @@ export default function CollegeFootball() {
                       </div>
 
                       {/* Home Team Logo */}
-                      <div className="text-center w-[150px] sm:w-[170px]">
+                      <div className="text-center w-[140px] sm:w-[160px]">
                         {getTeamLogo(prediction.home_team) && (
                           <img 
                             src={getTeamLogo(prediction.home_team)} 
                             alt={`${prediction.home_team} logo`}
-                            className="h-16 w-16 sm:h-20 sm:w-20 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-base sm:text-lg font-bold mb-1 sm:mb-2 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-1.5">
+                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-2">
                           {prediction.home_team}
                         </div>
                       </div>
@@ -883,15 +883,15 @@ export default function CollegeFootball() {
                     <div className="flex justify-between items-center">
                       {/* Away Team Betting */}
                       <div className="text-center flex-1">
-                        <div className="text-lg sm:text-xl font-bold h-7 sm:h-9 flex items-center justify-center text-blue-600">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600">
                           {formatMoneyline(prediction.away_moneyline)}
                         </div>
-                        <div className="text-sm sm:text-base text-muted-foreground h-6 sm:h-7 flex items-center justify-center">
+                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
                           Spread: {formatSpread(prediction.api_spread ? -prediction.api_spread : null)}
                         </div>
                         {typeof prediction.opening_spread === 'number' && (
                           <div className="mt-1 flex justify-center">
-                            <span className="text-xs sm:text-sm px-2.5 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
+                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
                               Open: {formatSpread(prediction.opening_spread ? -prediction.opening_spread : null)}
                             </span>
                           </div>
@@ -900,22 +900,22 @@ export default function CollegeFootball() {
 
                       {/* Total */}
                       <div className="text-center px-2 sm:px-4">
-                        <div className="text-sm sm:text-base font-bold text-gray-700 bg-blue-50 px-2.5 sm:px-3.5 py-1 rounded-full border border-blue-200">
+                        <div className="text-xs sm:text-sm font-bold text-gray-700 bg-blue-50 px-2 sm:px-3 py-1 rounded-full border border-blue-200">
                           Total: {prediction.api_over_line || '-'}
                         </div>
                       </div>
 
                       {/* Home Team Betting */}
                       <div className="text-center flex-1">
-                        <div className="text-lg sm:text-xl font-bold h-7 sm:h-9 flex items-center justify-center text-green-600">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600">
                           {formatMoneyline(prediction.home_moneyline)}
                         </div>
-                        <div className="text-sm sm:text-base text-muted-foreground h-6 sm:h-7 flex items-center justify-center">
+                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
                           Spread: {formatSpread(prediction.api_spread)}
                         </div>
                         {typeof prediction.opening_spread === 'number' && (
                           <div className="mt-1 flex justify-center">
-                            <span className="text-xs sm:text-sm px-2.5 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
+                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
                               Open: {formatSpread(prediction.opening_spread)}
                             </span>
                           </div>
@@ -1003,39 +1003,39 @@ export default function CollegeFootball() {
                           return (
                             <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 h-full flex flex-col">
                               <div className="text-center">
-                                <h5 className="text-sm sm:text-base font-bold text-gray-900 mb-3 pb-2 border-b border-gray-200">Spread</h5>
+                                <h5 className="text-base sm:text-lg font-bold text-gray-900 mb-3 pb-2 border-b border-gray-200">Spread</h5>
 
-                                <div className="flex-1 flex items-center justify-center space-x-4 min-h-[110px]">
+                                <div className="flex-1 flex items-center justify-center space-x-5 min-h-[120px]">
                                   {/* Team Logo */}
                                   <div className="flex-shrink-0">
                                     {getTeamLogo(edgeInfo.teamName) && (
                                       <img
                                         src={getTeamLogo(edgeInfo.teamName)}
                                         alt={`${edgeInfo.teamName} logo`}
-                                        className="h-12 w-12 sm:h-16 sm:w-16 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                                        className="h-14 w-14 sm:h-20 sm:w-20 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                                       />
                                     )}
                                   </div>
 
                                   {/* Edge Value */}
                                   <div className="text-center">
-                                    <div className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1">
+                                    <div className="text-3xl sm:text-4xl font-bold text-gray-800 mb-1">
                                       {edgeInfo.displayEdge}
                                     </div>
-                                    <div className="text-xs sm:text-sm font-medium text-gray-600">Edge</div>
+                                    <div className="text-sm sm:text-base font-medium text-gray-600">Edge</div>
                                   </div>
                                 </div>
 
                                 {/* Model Spread Only */}
                                 <div className="mt-4">
-                                  <div className="text-xs sm:text-sm font-semibold text-gray-700 mb-1">Model Spread</div>
+                                  <div className="text-sm sm:text-base font-semibold text-gray-700 mb-1">Model Spread</div>
                                   {(() => {
                                     let modelSpreadDisplay = prediction.pred_spread;
                                     if (!edgeInfo.isHomeEdge) {
                                       if (modelSpreadDisplay !== null) modelSpreadDisplay = -modelSpreadDisplay;
                                     }
                                     return (
-                                      <div className="text-2xl sm:text-3xl font-bold text-gray-800">
+                                      <div className="text-3xl sm:text-4xl font-bold text-gray-800">
                                         {formatSignedHalf(modelSpreadDisplay)}
                                       </div>
                                     );
@@ -1070,19 +1070,19 @@ export default function CollegeFootball() {
                           return (
                             <div className={`rounded-xl border p-4 sm:p-6 h-full flex flex-col bg-white border-gray-200`}>
                               <div className="text-center">
-                                <h5 className={`text-sm sm:text-base font-bold mb-3 pb-2 border-b ${isOver ? 'text-emerald-800' : 'text-rose-800'} border-gray-200`}>Over/Under</h5>
+                                <h5 className={`text-base sm:text-lg font-bold mb-3 pb-2 border-b ${isOver ? 'text-emerald-800' : 'text-rose-800'} border-gray-200`}>Over/Under</h5>
 
-                                <div className="flex-1 flex items-center justify-center space-x-4 min-h-[110px]">
+                                <div className="flex-1 flex items-center justify-center space-x-5 min-h-[120px]">
                                   {/* Arrow Indicator */}
                                   <div className="flex-shrink-0">
                                     {isOver ? (
                                       <div className="flex flex-col items-center">
-                                        <ArrowUp className="h-12 w-12 sm:h-16 sm:w-16 text-emerald-600" />
+                                        <ArrowUp className="h-14 w-14 sm:h-20 sm:w-20 text-emerald-600" />
                                         <div className="text-xs font-bold text-emerald-700 -mt-2">Over</div>
                                       </div>
                                     ) : (
                                       <div className="flex flex-col items-center">
-                                        <ArrowDown className="h-12 w-12 sm:h-16 sm:w-16 text-rose-600" />
+                                        <ArrowDown className="h-14 w-14 sm:h-20 sm:w-20 text-rose-600" />
                                         <div className="text-xs font-bold text-rose-700 -mt-2">Under</div>
                                       </div>
                                     )}
@@ -1090,15 +1090,15 @@ export default function CollegeFootball() {
 
                                   {/* Edge Value */}
                                   <div className="text-center">
-                                    <div className={`text-2xl sm:text-3xl font-bold mb-1 ${isOver ? 'text-emerald-600' : 'text-rose-600'}`}>{displayMagnitude}</div>
-                                    <div className={`text-xs sm:text-sm font-medium ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Edge</div>
+                                    <div className={`text-3xl sm:text-4xl font-bold mb-1 ${isOver ? 'text-emerald-600' : 'text-rose-600'}`}>{displayMagnitude}</div>
+                                    <div className={`text-sm sm:text-base font-medium ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Edge</div>
                                   </div>
                                 </div>
 
                                 {/* Model O/U Only */}
                                 <div className="mt-4">
-                                  <div className={`text-xs sm:text-sm font-semibold mb-1 ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Model O/U</div>
-                                  <div className={`text-2xl sm:text-3xl font-bold ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>{formatHalfNoSign(modelValue)}</div>
+                                  <div className={`text-sm sm:text-base font-semibold mb-1 ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Model O/U</div>
+                                  <div className={`text-3xl sm:text-4xl font-bold ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>{formatHalfNoSign(modelValue)}</div>
                                 </div>
                               </div>
                             </div>
