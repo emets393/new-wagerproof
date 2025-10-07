@@ -1,0 +1,64 @@
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Football, GraduationCap, BarChart3 } from 'lucide-react';
+import logo from '@/assets/wagerproof-logo.svg';
+
+export default function Landing() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/40">
+      <div className="container mx-auto px-4 py-10">
+        {/* Logo + Tagline */}
+        <div className="text-center space-y-6 mb-10">
+          <div className="flex justify-center">
+            <img src={logo} alt="WagerProof" className="h-16 sm:h-20" />
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">WagerProof</h1>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            Navigate to live predictions and tools across the site. Pick a sport to get started.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Link to="/nfl"><Button size="lg" className="">NFL</Button></Link>
+            <Link to="/college-football"><Button size="lg" variant="secondary">College Football</Button></Link>
+          </div>
+        </div>
+
+        {/* Quick Nav Cards */}
+        <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <Football className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold">NFL Predictions</h3>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">Live lines, weather, and model edges.</p>
+              <Link to="/nfl"><Button>Go to NFL</Button></Link>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold">College Football</h3>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">Team edges, totals, and game weather.</p>
+              <Link to="/college-football"><Button>Go to CFB</Button></Link>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold">Account & Settings</h3>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">Manage access and preferences.</p>
+              <Link to="/account"><Button variant="outline">Account</Button></Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+

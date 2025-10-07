@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
+import Landing from "./pages/Landing";
 import { navItems } from "./nav-items";
 import { GameAnalysis, Account, Welcome } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -73,7 +74,7 @@ function AppWithHeader() {
     <>
       {showHeader && <AppHeader />}
       <Routes>
-        <Route path="/" element={<NFL />} />
+        <Route path="/" element={<Landing />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/account" element={<Account />} />
         <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
