@@ -9,12 +9,12 @@ export default function Landing() {
       {/* Hero section with solid navy background to ensure readability */}
       <section className="w-full bg-[#0a2540] text-white">
         <div className="container mx-auto px-4 py-12 sm:py-16">
-          <div className="flex flex-col items-center text-center gap-6">
+          <div className="flex flex-col items-center text-center gap-3">
             {/* Brand logo (large) */}
             <img
               src="/wagerproof-landing.png"
               alt="WAGER PROOF"
-              className="h-40 sm:h-56 w-auto drop-shadow-xl"
+              className="h-56 sm:h-72 w-auto drop-shadow-xl -mb-4 sm:-mb-6"
             />
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">WagerProof</h1>
             <p className="max-w-2xl text-white/90 text-base sm:text-lg">
