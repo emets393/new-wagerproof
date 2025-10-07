@@ -27,21 +27,41 @@ export default function NFLTeaserSharpness() {
   const [rows, setRows] = useState<SharpnessRow[]>([]);
   const [logos, setLogos] = useState<Record<number, string>>({});
   const [showHist, setShowHist] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const load = async () => {
-      const { data, error } = await (supabase as any)
-        .from('v_nfl_spread_bias_sharpness_2025')
-        .select('team_id, team_name, ou_bias_2025, ou_sharpness_2025, games_ou_2025, ou_sharpness_hist_18_24');
-      if (!error && data) setRows(data as SharpnessRow[]);
+      try {
+        setLoading(true);
+        setError(null);
+        const { data, error: vErr } = await (supabase as any)
+          .from('v_nfl_spread_bias_sharpness_2025')
+          .select('*');
+        if (vErr) {
+          console.error('Error loading sharpness view:', vErr);
+          setError(vErr.message);
+        } else {
+          console.log('Sharpness rows loaded:', data?.length);
+          setRows((data || []) as SharpnessRow[]);
+        }
 
-      const { data: mapData } = await (supabase as any)
-        .from('nfl_team_mapping')
-        .select('team_id, logo_url');
-      const map: Record<number, string> = {};
-      (mapData || []).forEach((r: any) => { map[r.team_id] = r.logo_url; });
-      setLogos(map);
+        const { data: mapData, error: mapErr } = await (supabase as any)
+          .from('nfl_team_mapping')
+          .select('team_id, logo_url');
+        if (mapErr) {
+          console.warn('Team mapping error (non-fatal):', mapErr.message);
+        }
+        const map: Record<number, string> = {};
+        (mapData || []).forEach((r: any) => { map[r.team_id] = r.logo_url; });
+        setLogos(map);
+      } catch (e: any) {
+        console.error('Unexpected error loading data', e);
+        setError(e?.message || 'Unexpected error');
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
@@ -90,6 +110,10 @@ export default function NFLTeaserSharpness() {
             <Toggle pressed={showHist} onPressedChange={setShowHist}>Show Historical Line</Toggle>
           </div>
         </div>
+
+        {error && (
+          <div className="mb-4 text-sm text-red-600">{error}</div>
+        )}
 
         <div ref={chartRef}>
           <ResponsiveContainer width="100%" height={600}>
