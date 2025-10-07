@@ -58,7 +58,66 @@ export default function Landing() {
         </div>
       </section>
 
-        {/* Removed repetitive quick nav cards below the hero */}
+      {/* Informational sections */}
+      <section className="bg-white">
+        <div className="container mx-auto px-4 py-12 sm:py-16 text-gray-800">
+          {/* Headline + Subheadline */}
+          <div className="max-w-4xl mx-auto text-center space-y-4 mb-12">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Smarter Sports Betting Starts Here.</h2>
+            <p className="text-base sm:text-lg text-gray-600">
+              Wagerproof uses real data — not hype — to identify true betting edges across the NFL, NBA, MLB, and College Football.
+              <br />
+              No emotion. No “locks.” Just transparent, data-backed predictions built from machine learning models that track accuracy over time.
+            </p>
+          </div>
+
+          {/* Section 1 */}
+          <div className="max-w-5xl mx-auto grid gap-6 sm:grid-cols-5 items-start mb-12">
+            <div className="sm:col-span-2">
+              <h3 className="text-xl sm:text-2xl font-bold">Real Models. Real Results.</h3>
+            </div>
+            <div className="sm:col-span-3 text-gray-700 leading-relaxed">
+              <p className="mb-3">
+                Every pick you see on Wagerproof is generated from custom code and live data pipelines — not AI guesses or public trends.
+              </p>
+              <p>
+                Our models pull stats, betting lines, weather, and matchup data in real time, then calculate where the numbers disagree with the sportsbooks.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 2 - Key Features */}
+          <div className="max-w-5xl mx-auto grid gap-6 sm:grid-cols-5 items-start mb-12">
+            <div className="sm:col-span-2">
+              <h3 className="text-xl sm:text-2xl font-bold">Key Features</h3>
+            </div>
+            <div className="sm:col-span-3 text-gray-700">
+              <ul className="space-y-3">
+                <li>📊 <span className="font-semibold">Daily Model Predictions</span> — Moneyline, Spread, and Over/Under probabilities for every game.</li>
+                <li>🔍 <span className="font-semibold">Transparency Dashboard</span> — Track historical accuracy and profit performance across sports and bet types.</li>
+                <li>⚙️ <span className="font-semibold">Custom Model Builder</span> — Design and save your own betting models using our trend-mining tools.</li>
+                <li>🧠 <span className="font-semibold">Educational Tools</span> — Learn how data modeling really works and how to spot edges for yourself.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Section 3 - Why Wagerproof */}
+          <div className="max-w-5xl mx-auto grid gap-6 sm:grid-cols-5 items-start">
+            <div className="sm:col-span-2">
+              <h3 className="text-xl sm:text-2xl font-bold">Why Wagerproof</h3>
+            </div>
+            <div className="sm:col-span-3 text-gray-700 leading-relaxed">
+              <p className="mb-3">
+                Sports betting is full of noise — influencers, hype, and bad math. Wagerproof cuts through that with clean data, explainable models, and results you can verify.
+              </p>
+              <p>
+                We don’t sell picks — we show you how the numbers actually play out.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* End Informational sections */}
     </div>
   );
 }
