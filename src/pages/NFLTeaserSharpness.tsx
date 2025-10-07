@@ -78,10 +78,51 @@ export default function NFLTeaserSharpness() {
 
   const teamsData = rows.map(r => ({
     ...r,
-    logo: logos[r.team_id] || '',
+    logo: logos[r.team_id] || getNFLTeamLogo(r.team_name),
     initials: r.team_name?.split(' ').map(p => p[0]).join('').slice(0, 3) || 'TM',
     size: Math.max(28, Math.min(64, 28 + (r.games_ou_2025 || 0) * 1.2)),
   }));
+
+  // Reuse NFL logo mapping from NFL page
+  const getNFLTeamLogo = (teamName: string): string => {
+    const logoMap: { [key: string]: string } = {
+      'Arizona': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
+      'Atlanta': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
+      'Baltimore': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
+      'Buffalo': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
+      'Carolina': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
+      'Chicago': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
+      'Cincinnati': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
+      'Cleveland': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
+      'Dallas': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
+      'Denver': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
+      'Detroit': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
+      'Green Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
+      'Houston': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
+      'Indianapolis': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
+      'Jacksonville': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
+      'Kansas City': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
+      'Las Vegas': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
+      'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+      'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+      'LA Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+      'LA Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+      'Miami': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
+      'Minnesota': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
+      'New England': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
+      'New Orleans': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
+      'NY Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
+      'NY Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
+      'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
+      'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
+      'San Francisco': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
+      'Seattle': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
+      'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
+      'Tennessee': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
+      'Washington': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
+    };
+    return logoMap[teamName] || '/placeholder.svg';
+  };
 
   const renderLogoPoint = (props: any) => {
     const { cx, cy, payload } = props;
