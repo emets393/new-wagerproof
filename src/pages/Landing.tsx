@@ -20,9 +20,24 @@ export default function Landing() {
             <p className="max-w-2xl text-white/90 text-base sm:text-lg">
               Navigate to live predictions and tools across the site. Pick a sport to get started.
             </p>
-            <div className="flex gap-3 flex-wrap justify-center">
-              <Link to="/nfl"><Button size="lg" className="bg-white text-[#0a2540] hover:bg-white/90">NFL</Button></Link>
-              <Link to="/college-football"><Button size="lg" variant="secondary" className="bg-transparent border-white text-white hover:bg-white/10">College Football</Button></Link>
+            <div className="flex gap-4 flex-wrap justify-center">
+              {/* NFL button with gradient border and higher contrast */}
+              <div className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_18px_rgba(16,185,129,0.35)]">
+                <Link to="/nfl">
+                  <Button size="lg" className="rounded-full px-7 py-3 text-lg bg-white text-[#0a2540] hover:bg-white">
+                    NFL
+                  </Button>
+                </Link>
+              </div>
+
+              {/* CFB button with gradient border and solid dark fill so it doesn't blend */}
+              <div className="rounded-full p-[2px] bg-gradient-to-r from-blue-500 to-indigo-500 shadow-[0_0_18px_rgba(59,130,246,0.35)]">
+                <Link to="/college-football">
+                  <Button size="lg" className="rounded-full px-7 py-3 text-lg bg-[#0a2540] text-white hover:bg-[#0b2a4a]">
+                    College Football
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
