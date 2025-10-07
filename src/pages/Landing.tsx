@@ -14,7 +14,7 @@ export default function Landing() {
             <img
               src="/wagerproof-landing.png"
               alt="WAGER PROOF"
-              className="h-28 sm:h-36 w-auto drop-shadow-xl"
+              className="h-40 sm:h-56 w-auto drop-shadow-xl"
             />
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">WagerProof</h1>
             <p className="max-w-2xl text-white/90 text-base sm:text-lg">
