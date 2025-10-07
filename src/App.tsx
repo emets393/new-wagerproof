@@ -9,6 +9,7 @@ import { GameAnalysis, Account, Welcome } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
+import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,7 @@ function AppWithHeader() {
         <Route path="/college-football" element={<CollegeFootball />} />
         <Route path="/nfl" element={<NFL />} />
         <Route path="/nfl-analytics" element={<NFLAnalytics />} />
+        <Route path="/nfl/teaser-sharpness" element={<NFLTeaserSharpness />} />
         <Route path="/" element={<NFL />} />
         {navItems.map(({ to, page }) => (
           <Route key={to} path={to} element={page} />

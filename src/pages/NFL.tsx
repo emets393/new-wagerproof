@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, Trophy, AlertCircle, History, TrendingUp, BarChart } from 'lucide-react';
+import { RefreshCw, Trophy, AlertCircle, History, TrendingUp, BarChart, ScatterChart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import H2HModal from '@/components/H2HModal';
 import LineMovementModal from '@/components/LineMovementModal';
@@ -616,6 +616,13 @@ export default function NFL() {
             <button className="rounded-full px-4 py-2 text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-2">
               <BarChart className="h-4 w-4" />
               Analytics
+            </button>
+          </Link>
+          {/* Link to Teaser Sharpness page */}
+          <Link to="/nfl/teaser-sharpness" className="hidden sm:inline rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_14px_rgba(16,185,129,0.25)]">
+            <button className="rounded-full px-4 py-2 text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-2">
+              <ScatterChart className="h-4 w-4" />
+              Teaser Sharpness
             </button>
           </Link>
           {lastUpdated && (
