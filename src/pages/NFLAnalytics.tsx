@@ -137,8 +137,8 @@ export default function NFLAnalytics() {
       
       // Normalize boolean-like filters
       if (typeof activeFilters.is_home === 'string') {
-        if (activeFilters.is_home.toLowerCase() === 'true') activeFilters.is_home = true;
-        else if (activeFilters.is_home.toLowerCase() === 'false') activeFilters.is_home = false;
+        if (activeFilters.is_home.toLowerCase() === 'true') activeFilters.is_home = 'true';
+        else if (activeFilters.is_home.toLowerCase() === 'false') activeFilters.is_home = 'false';
       }
 
       console.log('Sending filters to backend:', activeFilters);

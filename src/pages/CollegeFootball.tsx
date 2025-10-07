@@ -735,31 +735,34 @@ export default function CollegeFootball() {
           )}
         </div>
 
-        {/* Sorting controls */}
-        <div className="ml-auto flex items-center gap-2">
+        {/* Sorting controls - wrap on mobile, align right on desktop */}
+        <div className="w-full sm:w-auto sm:ml-auto flex flex-wrap items-center gap-1.5 sm:gap-2">
           <Button
             variant={sortMode === 'spread' ? 'default' : 'outline'}
-            className={`${sortMode === 'spread' ? 'bg-blue-600 text-white' : ''} text-xs`}
+            className={`${sortMode === 'spread' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
             onClick={() => setSortMode('spread')}
             title="Sort by highest Spread edge"
           >
-            Sort: Spread Edge
+            <span className="hidden sm:inline">Sort: Spread Edge</span>
+            <span className="sm:hidden">Spread</span>
           </Button>
           <Button
             variant={sortMode === 'ou' ? 'default' : 'outline'}
-            className={`${sortMode === 'ou' ? 'bg-blue-600 text-white' : ''} text-xs`}
+            className={`${sortMode === 'ou' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
             onClick={() => setSortMode('ou')}
             title="Sort by highest Over/Under edge"
           >
-            Sort: O/U Edge
+            <span className="hidden sm:inline">Sort: O/U Edge</span>
+            <span className="sm:hidden">O/U</span>
           </Button>
           <Button
             variant={sortMode === 'time' ? 'default' : 'outline'}
-            className={`${sortMode === 'time' ? 'bg-blue-600 text-white' : ''} text-xs`}
+            className={`${sortMode === 'time' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
             onClick={() => setSortMode('time')}
             title="Sort by game time"
           >
-            Sort: Time
+            <span className="hidden sm:inline">Sort: Time</span>
+            <span className="sm:hidden">Time</span>
           </Button>
         </div>
       </div>
