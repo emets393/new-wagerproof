@@ -21,6 +21,9 @@ interface SharpnessRow {
   ou_sharpness_2025: number;
   games_ou_2025: number;
   ou_sharpness_hist_18_24: number | null;
+  // spread fields for alternate chart
+  spread_bias_2025?: number;
+  spread_sharpness_2025?: number;
 }
 
 export default function NFLTeaserSharpness() {
@@ -29,6 +32,7 @@ export default function NFLTeaserSharpness() {
   const [showHist, setShowHist] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [mode, setMode] = useState<'ou' | 'spread'>('ou');
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,16 +50,8 @@ export default function NFLTeaserSharpness() {
           console.log('Sharpness rows loaded:', data?.length);
           setRows((data || []) as SharpnessRow[]);
         }
-
-        const { data: mapData, error: mapErr } = await (supabase as any)
-          .from('nfl_team_mapping')
-          .select('team_id, logo_url');
-        if (mapErr) {
-          console.warn('Team mapping error (non-fatal):', mapErr.message);
-        }
-        const map: Record<number, string> = {};
-        (mapData || []).forEach((r: any) => { map[r.team_id] = r.logo_url; });
-        setLogos(map);
+        // Temporarily skip team mapping fetch (404 in this environment).
+        // We'll render initials when a logo is missing.
       } catch (e: any) {
         console.error('Unexpected error loading data', e);
         setError(e?.message || 'Unexpected error');
@@ -83,6 +79,7 @@ export default function NFLTeaserSharpness() {
   const teamsData = rows.map(r => ({
     ...r,
     logo: logos[r.team_id] || '',
+    initials: r.team_name?.split(' ').map(p => p[0]).join('').slice(0, 3) || 'TM',
     size: Math.max(28, Math.min(64, 28 + (r.games_ou_2025 || 0) * 1.2)),
   }));
 
@@ -90,8 +87,17 @@ export default function NFLTeaserSharpness() {
     const { cx, cy, payload } = props;
     const size = payload.size || 32;
     const half = size / 2;
+    if (payload.logo) {
+      return <image x={cx - half} y={cy - half} href={payload.logo} width={size} height={size} />;
+    }
+    // Fallback circle with initials
     return (
-      <image x={cx - half} y={cy - half} href={payload.logo} width={size} height={size} />
+      <g>
+        <circle cx={cx} cy={cy} r={half} fill="#0ea5e9" stroke="white" strokeWidth={2} />
+        <text x={cx} y={cy + 4} textAnchor="middle" fontSize={Math.max(10, size / 3)} fill="white" fontWeight="bold">
+          {payload.initials}
+        </text>
+      </g>
     );
   };
 
