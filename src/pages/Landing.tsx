@@ -28,39 +28,7 @@ export default function Landing() {
         </div>
       </section>
 
-        {/* Quick Nav Cards */}
-        <div className="container mx-auto px-4 py-8 grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <Trophy className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">NFL Predictions</h3>
-              </div>
-              <p className="text-sm text-muted-foreground mb-4">Live lines, weather, and model edges.</p>
-              <Link to="/nfl"><Button>Go to NFL</Button></Link>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <GraduationCap className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">College Football</h3>
-              </div>
-              <p className="text-sm text-muted-foreground mb-4">Team edges, totals, and game weather.</p>
-              <Link to="/college-football"><Button>Go to CFB</Button></Link>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <BarChart className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">Account & Settings</h3>
-              </div>
-              <p className="text-sm text-muted-foreground mb-4">Manage access and preferences.</p>
-              <Link to="/account"><Button variant="outline">Account</Button></Link>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Removed repetitive quick nav cards below the hero */}
     </div>
   );
 }
