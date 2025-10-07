@@ -886,8 +886,8 @@ export default function CollegeFootball() {
                         <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600">
                           {formatMoneyline(prediction.away_moneyline)}
                         </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
-                          Spread: {formatSpread(prediction.api_spread ? -prediction.api_spread : null)}
+                        <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-gray-800">
+                          {formatSpread(prediction.api_spread ? -prediction.api_spread : null)}
                         </div>
                         {typeof prediction.opening_spread === 'number' && (
                           <div className="mt-1 flex justify-center">
@@ -910,8 +910,8 @@ export default function CollegeFootball() {
                         <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600">
                           {formatMoneyline(prediction.home_moneyline)}
                         </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
-                          Spread: {formatSpread(prediction.api_spread)}
+                        <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-gray-800">
+                          {formatSpread(prediction.api_spread)}
                         </div>
                         {typeof prediction.opening_spread === 'number' && (
                           <div className="mt-1 flex justify-center">
