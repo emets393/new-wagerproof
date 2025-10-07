@@ -57,6 +57,8 @@ interface CFBPrediction {
     // Over/Under specific
     pred_over_line?: number | null;
     over_line_diff?: number | null;
+  // Opening spread from cfb_live_weekly_inputs (column: spread)
+  opening_spread?: number | null;
 }
 
 interface TeamMapping {
@@ -207,20 +209,8 @@ export default function CollegeFootball() {
         console.log('API predictions fetched:', apiPreds?.length || 0);
         console.log('Sample API prediction data:', apiPreds?.[0]); // Log first API prediction to see structure
 
-      // Fetch weather data from the view
-      const { data: weatherData, error: weatherError } = await collegeFootballSupabase
-        .from('v_cfb_input_values_v2')
-        .select('unique_id, temperature, precipitation, wind_speed, icon_code');
-
-      if (weatherError) {
-        console.error('Error fetching weather data:', weatherError);
-        // Don't fail completely, just log the error
-        console.warn('Weather data unavailable, continuing without weather info');
-      }
-
-        // Map weather data to predictions using training_key
+        // Map API prediction data; weather display comes directly from cfb_live_weekly_inputs fields
         const predictionsWithWeather = (preds || []).map(prediction => {
-          const weather = weatherData?.find(w => w.unique_id === prediction.training_key);
           const apiPred = apiPreds?.find(ap => ap.id === prediction.id);
           
           // Debug logging for first prediction
@@ -232,10 +222,9 @@ export default function CollegeFootball() {
           
           return {
             ...prediction,
-            temperature: weather?.temperature || null,
-            precipitation: weather?.precipitation || null,
-            wind_speed: weather?.wind_speed || null,
-            icon_code: weather?.icon_code || null,
+            // Map opening spread from raw column name 'spread'
+            opening_spread: (prediction as any)?.spread ?? null,
+            // Weather fields are sourced directly from cfb_live_weekly_inputs (prediction)
             // Add API prediction data - try different possible column names
             pred_spread: apiPred?.pred_spread || apiPred?.run_line_prediction || apiPred?.spread_prediction || null,
             home_spread_diff: apiPred?.home_spread_diff || apiPred?.spread_diff || apiPred?.edge || null,
@@ -900,6 +889,13 @@ export default function CollegeFootball() {
                         <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
                           Spread: {formatSpread(prediction.api_spread ? -prediction.api_spread : null)}
                         </div>
+                        {typeof prediction.opening_spread === 'number' && (
+                          <div className="mt-1 flex justify-center">
+                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
+                              Open: {formatSpread(prediction.opening_spread ? -prediction.opening_spread : null)}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Total */}
@@ -917,6 +913,13 @@ export default function CollegeFootball() {
                         <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
                           Spread: {formatSpread(prediction.api_spread)}
                         </div>
+                        {typeof prediction.opening_spread === 'number' && (
+                          <div className="mt-1 flex justify-center">
+                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
+                              Open: {formatSpread(prediction.opening_spread)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1181,21 +1184,7 @@ export default function CollegeFootball() {
                     )}
                   </div>
 
-                  {/* Weather Section */}
-                  {prediction.icon_code && (
-                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
-                      <div className="text-center">
-                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-green-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Weather</h4>
-                      </div>
-                      <div className="flex justify-center bg-gradient-to-br from-blue-50 to-green-50 p-2 sm:p-3 rounded-lg border border-gray-200">
-                        <WeatherIcon 
-                          iconCode={prediction.icon_code}
-                          temperature={prediction.temperature}
-                          windSpeed={prediction.wind_speed}
-                        />
-                      </div>
-                    </div>
-                  )}
+                  {/* Bottom Weather section removed; using compact WeatherPill above */}
                 </CardContent>
               </Card>
             ))}
