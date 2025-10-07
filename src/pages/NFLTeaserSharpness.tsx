@@ -41,7 +41,7 @@ export default function NFLTeaserSharpness() {
         setLoading(true);
         setError(null);
         const { data, error: vErr } = await (supabase as any)
-          .from('v_nfl_spread_bias_sharpness_2025')
+          .from('public.v_nfl_spread_bias_sharpness_2025')
           .select('*');
         if (vErr) {
           console.error('Error loading sharpness view:', vErr);
@@ -153,6 +153,10 @@ export default function NFLTeaserSharpness() {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
           <div className="space-x-2">
+            <div className="inline-flex rounded-full overflow-hidden border">
+              <button onClick={() => setMode('ou')} className={`px-3 py-2 text-sm ${mode==='ou'?'bg-blue-600 text-white':'bg-white text-gray-700'}`}>Over/Under</button>
+              <button onClick={() => setMode('spread')} className={`px-3 py-2 text-sm ${mode==='spread'?'bg-blue-600 text-white':'bg-white text-gray-700'}`}>Spread</button>
+            </div>
             <Button onClick={exportAsPNG}>Export PNG</Button>
             <Toggle pressed={showHist} onPressedChange={setShowHist}>Show Historical Line</Toggle>
           </div>
@@ -166,8 +170,16 @@ export default function NFLTeaserSharpness() {
           <ResponsiveContainer width="100%" height={600}>
             <ScatterChart margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" dataKey="ou_bias_2025" name="O/U Bias" label={{ value: 'Average O/U Bias (+ OVER lean | − UNDER lean)', position: 'bottom' }} />
-              <YAxis type="number" dataKey="ou_sharpness_2025" name="O/U Sharpness" label={{ value: 'Average |O/U Error| (lower = sharper)', angle: -90, position: 'left' }} />
+              <XAxis
+                type="number"
+                dataKey={mode==='ou' ? 'ou_bias_2025' : 'spread_bias_2025'}
+                label={{ value: mode==='ou' ? 'Average O/U Bias (+ OVER lean | − UNDER lean)' : 'Average Spread Bias (+ Favorites | − Underdogs)', position: 'bottom' }}
+              />
+              <YAxis
+                type="number"
+                dataKey={mode==='ou' ? 'ou_sharpness_2025' : 'spread_sharpness_2025'}
+                label={{ value: mode==='ou' ? 'Average |O/U Error| (lower = sharper)' : 'Average |Spread Error| (lower = sharper)', angle: -90, position: 'left' }}
+              />
               {/* Safe zone band */}
               <ReferenceLine y={targetBand} stroke="#16a34a" strokeOpacity={0.15} strokeWidth={40} />
               {/* Center line */}
