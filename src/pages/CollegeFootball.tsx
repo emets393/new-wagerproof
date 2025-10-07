@@ -819,14 +819,14 @@ export default function CollegeFootball() {
               <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-2 border-gray-200 hover:border-blue-300 shadow-lg">
                 {/* Gradient accent line at top */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
-                <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
+                <CardContent className="space-y-3 sm:space-y-5 pt-3 pb-3 sm:pt-5 sm:pb-5">
                   {/* Game Date and Time */}
                   {(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime) && (
                     <div className="text-center">
-                      <div className="text-xs font-medium text-muted-foreground mb-1">
+                      <div className="text-sm font-medium text-muted-foreground mb-1">
                         {formatStartTime(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime).date}
                       </div>
-                      <div className="text-xs font-medium text-muted-foreground">
+                      <div className="text-sm font-medium text-muted-foreground">
                         {formatStartTime(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime).time}
                       </div>
                       {/* Compact Weather Row */}
@@ -842,19 +842,19 @@ export default function CollegeFootball() {
                   )}
 
                   {/* Team Logos and Betting Info - Horizontal Layout */}
-                  <div className="space-y-3 sm:space-y-4 pt-2">
+                  <div className="space-y-2.5 sm:space-y-4 pt-1.5">
                     {/* Team Logos Row */}
                     <div className="flex justify-center items-center space-x-4 sm:space-x-6">
                       {/* Away Team Logo */}
-                      <div className="text-center w-[140px] sm:w-[160px]">
+                      <div className="text-center w-[150px] sm:w-[170px]">
                         {getTeamLogo(prediction.away_team) && (
                           <img 
                             src={getTeamLogo(prediction.away_team)} 
                             alt={`${prediction.away_team} logo`}
-                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-16 w-16 sm:h-20 sm:w-20 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-2">
+                        <div className="text-base sm:text-lg font-bold mb-1 sm:mb-2 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-1.5">
                           {prediction.away_team}
                         </div>
                       </div>
@@ -865,15 +865,15 @@ export default function CollegeFootball() {
                       </div>
 
                       {/* Home Team Logo */}
-                      <div className="text-center w-[140px] sm:w-[160px]">
+                      <div className="text-center w-[150px] sm:w-[170px]">
                         {getTeamLogo(prediction.home_team) && (
                           <img 
                             src={getTeamLogo(prediction.home_team)} 
                             alt={`${prediction.home_team} logo`}
-                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-16 w-16 sm:h-20 sm:w-20 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-2">
+                        <div className="text-base sm:text-lg font-bold mb-1 sm:mb-2 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-1.5">
                           {prediction.home_team}
                         </div>
                       </div>
@@ -883,15 +883,15 @@ export default function CollegeFootball() {
                     <div className="flex justify-between items-center">
                       {/* Away Team Betting */}
                       <div className="text-center flex-1">
-                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600">
+                        <div className="text-lg sm:text-xl font-bold h-7 sm:h-9 flex items-center justify-center text-blue-600">
                           {formatMoneyline(prediction.away_moneyline)}
                         </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
+                        <div className="text-sm sm:text-base text-muted-foreground h-6 sm:h-7 flex items-center justify-center">
                           Spread: {formatSpread(prediction.api_spread ? -prediction.api_spread : null)}
                         </div>
                         {typeof prediction.opening_spread === 'number' && (
                           <div className="mt-1 flex justify-center">
-                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
+                            <span className="text-xs sm:text-sm px-2.5 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
                               Open: {formatSpread(prediction.opening_spread ? -prediction.opening_spread : null)}
                             </span>
                           </div>
@@ -900,22 +900,22 @@ export default function CollegeFootball() {
 
                       {/* Total */}
                       <div className="text-center px-2 sm:px-4">
-                        <div className="text-xs sm:text-sm font-bold text-gray-700 bg-blue-50 px-2 sm:px-3 py-1 rounded-full border border-blue-200">
+                        <div className="text-sm sm:text-base font-bold text-gray-700 bg-blue-50 px-2.5 sm:px-3.5 py-1 rounded-full border border-blue-200">
                           Total: {prediction.api_over_line || '-'}
                         </div>
                       </div>
 
                       {/* Home Team Betting */}
                       <div className="text-center flex-1">
-                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600">
+                        <div className="text-lg sm:text-xl font-bold h-7 sm:h-9 flex items-center justify-center text-green-600">
                           {formatMoneyline(prediction.home_moneyline)}
                         </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
+                        <div className="text-sm sm:text-base text-muted-foreground h-6 sm:h-7 flex items-center justify-center">
                           Spread: {formatSpread(prediction.api_spread)}
                         </div>
                         {typeof prediction.opening_spread === 'number' && (
                           <div className="mt-1 flex justify-center">
-                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
+                            <span className="text-xs sm:text-sm px-2.5 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
                               Open: {formatSpread(prediction.opening_spread)}
                             </span>
                           </div>
