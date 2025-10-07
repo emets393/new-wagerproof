@@ -12,7 +12,7 @@ export default function Landing() {
           <div className="flex flex-col items-center text-center gap-6">
             {/* Brand logo (large) */}
             <img
-              src="/lovable-uploads/40569607-0bf3-433c-a0f5-bca0ee0de005.png"
+              src="/wagerproof-landing.png"
               alt="WAGER PROOF"
               className="h-28 sm:h-36 w-auto drop-shadow-xl"
             />
