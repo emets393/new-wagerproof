@@ -32,12 +32,7 @@ export const navItems = [
     icon: <Shield className="h-4 w-4" />,
     page: <NFL />,
   },
-  {
-    title: "NFL Analytics",
-    to: "/nfl-analytics",
-    icon: <BarChart className="h-4 w-4" />,
-    page: <NFLAnalytics />,
-  },
+  // NFL Analytics will be linked from the NFL page directly
   {
     title: "Account",
     to: "/account",
