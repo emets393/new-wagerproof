@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Toggle } from '@/components/ui/toggle';
-import { supabase } from '@/integrations/supabase/client';
+import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import {
   ResponsiveContainer,
   ScatterChart,
@@ -11,6 +9,7 @@ import {
   YAxis,
   Tooltip as RechartsTooltip,
   ReferenceLine,
+  ReferenceArea,
   Scatter,
 } from 'recharts';
 
@@ -20,7 +19,6 @@ interface SharpnessRow {
   ou_bias_2025: number;
   ou_sharpness_2025: number;
   games_ou_2025: number;
-  ou_sharpness_hist_18_24: number | null;
   // spread fields for alternate chart
   spread_bias_2025?: number;
   spread_sharpness_2025?: number;
@@ -29,26 +27,54 @@ interface SharpnessRow {
 export default function NFLTeaserSharpness() {
   const [rows, setRows] = useState<SharpnessRow[]>([]);
   const [logos, setLogos] = useState<Record<number, string>>({});
-  const [showHist, setShowHist] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [mode, setMode] = useState<'ou' | 'spread'>('ou');
   const chartRef = useRef<HTMLDivElement>(null);
+  const [matchups, setMatchups] = useState<Array<{ label: string; teams: [string, string] }>>([]);
+  const [selectedMatchup, setSelectedMatchup] = useState<string>('');
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
         setError(null);
-        const { data, error: vErr } = await (supabase as any)
-          .from('public.v_nfl_spread_bias_sharpness_2025')
-          .select('*');
-        if (vErr) {
-          console.error('Error loading sharpness view:', vErr);
-          setError(vErr.message);
+        // Prefer RPC (works regardless of underlying schema exposure)
+        const { data, error: rpcErr } = await (collegeFootballSupabase as any)
+          .rpc('get_nfl_teaser_sharpness');
+        if (rpcErr) {
+          console.warn('RPC get_nfl_teaser_sharpness failed, falling back to direct view select:', rpcErr.message);
+          const { data: vdata, error: vErr } = await (collegeFootballSupabase as any)
+            .from('v_nfl_spread_bias_sharpness_2025')
+            .select('team_id,team_name,ou_bias_2025,ou_sharpness_2025,spread_bias_2025,spread_sharpness_2025,games_ou_2025');
+          if (vErr) {
+            console.error('Error loading sharpness view:', vErr);
+            setError(vErr.message);
+          } else {
+            console.log('Sharpness rows loaded (view):', vdata?.length);
+            setRows((vdata || []) as SharpnessRow[]);
+          }
         } else {
-          console.log('Sharpness rows loaded:', data?.length);
+          console.log('Sharpness rows loaded (rpc):', data?.length);
           setRows((data || []) as SharpnessRow[]);
+        }
+        // Load upcoming matchups for filter
+        const { data: games, error: gamesErr } = await (collegeFootballSupabase as any)
+          .from('nfl_input_values_view')
+          .select('away_team,home_team')
+          .limit(200);
+        if (!gamesErr && games) {
+          const seen = new Set<string>();
+          const list: Array<{ label: string; teams: [string, string] }> = [];
+          (games as any[]).forEach(g => {
+            const away: string = g.away_team;
+            const home: string = g.home_team;
+            const label = `${away} @ ${home}`;
+            if (seen.has(label)) return;
+            seen.add(label);
+            list.push({ label, teams: [away, home] });
+          });
+          setMatchups(list);
         }
         // Temporarily skip team mapping fetch (404 in this environment).
         // We'll render initials when a logo is missing.
@@ -62,12 +88,6 @@ export default function NFLTeaserSharpness() {
     load();
   }, []);
 
-  const histAvg = useMemo(() => {
-    const vals = rows.map(r => r.ou_sharpness_hist_18_24).filter((v): v is number => typeof v === 'number');
-    if (vals.length === 0) return undefined;
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  }, [rows]);
-
   const targetBand = useMemo(() => {
     if (rows.length === 0) return 5;
     const sorted = [...rows].map(r => r.ou_sharpness_2025).sort((a, b) => a - b);
@@ -76,15 +96,49 @@ export default function NFLTeaserSharpness() {
     return Math.min(median, 5);
   }, [rows]);
 
-  const teamsData = rows.map(r => ({
-    ...r,
-    logo: logos[r.team_id] || getNFLTeamLogo(r.team_name),
-    initials: r.team_name?.split(' ').map(p => p[0]).join('').slice(0, 3) || 'TM',
-    size: Math.max(28, Math.min(64, 28 + (r.games_ou_2025 || 0) * 1.2)),
-  }));
+  // X-axis ticks every 2 units, symmetric around 0 based on current mode and data extent
+  const xScale = useMemo(() => {
+    const xs = rows
+      .map(r => (mode === 'ou' ? r.ou_bias_2025 : (r.spread_bias_2025 as number | undefined)))
+      .filter((n): n is number => typeof n === 'number' && isFinite(n));
+    if (xs.length === 0) {
+      return { min: -8, max: 8, ticks: [-8, -6, -4, -2, 0, 2, 4, 6, 8] };
+    }
+    const minVal = Math.min(...xs);
+    const maxVal = Math.max(...xs);
+    const maxAbs = Math.max(Math.abs(minVal), Math.abs(maxVal));
+    const roundDown2 = (v: number) => Math.floor(v / 2) * 2;
+    const roundUp2 = (v: number) => Math.ceil(v / 2) * 2;
+    const min = roundDown2(-maxAbs);
+    const max = roundUp2(maxAbs);
+    const ticks: number[] = [];
+    for (let t = min; t <= max; t += 2) ticks.push(t);
+    return { min, max, ticks };
+  }, [rows, mode]);
 
-  // Reuse NFL logo mapping from NFL page
-  const getNFLTeamLogo = (teamName: string): string => {
+  // Y-axis dynamic domain with ticks every 2, starting at 0
+  const yScale = useMemo(() => {
+    const ys = rows
+      .map(r => (mode === 'ou' ? r.ou_sharpness_2025 : (r.spread_sharpness_2025 as number | undefined)))
+      .filter((n): n is number => typeof n === 'number' && isFinite(n));
+    if (ys.length === 0) {
+      return { min: 0, max: 12, ticks: [0, 2, 4, 6, 8, 10, 12] };
+    }
+    const maxVal = Math.max(...ys);
+    const roundUp2 = (v: number) => Math.ceil(v / 2) * 2;
+    // Ensure at least 6 so the safe zone [0,6] is visible, but keep tight to data
+    const max = Math.max(6, roundUp2(maxVal + 0.5));
+    const ticks: number[] = [];
+    for (let t = 0; t <= max; t += 2) ticks.push(t);
+    return { min: 0, max, ticks };
+  }, [rows, mode]);
+
+  // Hoisted function (declaration) so it is available before use in teamsData
+  function getNFLTeamLogo(teamName: string): string {
+    // Handle known full-name alias used in the view
+    if (teamName === 'Las Vegas Raiders') {
+      return 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png';
+    }
     const logoMap: { [key: string]: string } = {
       'Arizona': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
       'Atlanta': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
@@ -122,7 +176,30 @@ export default function NFLTeaserSharpness() {
       'Washington': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
     };
     return logoMap[teamName] || '/placeholder.svg';
-  };
+  }
+
+  const teamsData = rows.map(r => ({
+    ...r,
+    logo: logos[r.team_id] || getNFLTeamLogo(r.team_name),
+    initials: r.team_name?.split(' ').map(p => p[0]).join('').slice(0, 3) || 'TM',
+    size: Math.max(28, Math.min(64, 28 + (r.games_ou_2025 || 0) * 1.2)),
+  }));
+
+  // Normalize team names from matchup list to view team_name
+  function normalizeMatchTeam(name: string): string {
+    if (name === 'Las Vegas') return 'Las Vegas Raiders';
+    return name;
+  }
+
+  const filteredData = useMemo(() => {
+    if (!selectedMatchup) return teamsData;
+    const m = matchups.find(m => m.label === selectedMatchup);
+    if (!m) return teamsData;
+    const a = normalizeMatchTeam(m.teams[0]);
+    const h = normalizeMatchTeam(m.teams[1]);
+    return teamsData.filter(d => d.team_name === a || d.team_name === h);
+  }, [teamsData, selectedMatchup, matchups]);
+
 
   const renderLogoPoint = (props: any) => {
     const { cx, cy, payload } = props;
@@ -151,14 +228,28 @@ export default function NFLTeaserSharpness() {
     <div className="container mx-auto px-4 py-6">
       <Card className="p-6 max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
+          <div className="flex items-center gap-3">
+            <button onClick={() => window.history.back()} className="text-sm px-3 py-2 rounded border bg-white hover:bg-gray-50">← Back</button>
+            <h1 className="text-2xl font-bold">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
+          </div>
           <div className="space-x-2">
             <div className="inline-flex rounded-full overflow-hidden border">
               <button onClick={() => setMode('ou')} className={`px-3 py-2 text-sm ${mode==='ou'?'bg-blue-600 text-white':'bg-white text-gray-700'}`}>Over/Under</button>
               <button onClick={() => setMode('spread')} className={`px-3 py-2 text-sm ${mode==='spread'?'bg-blue-600 text-white':'bg-white text-gray-700'}`}>Spread</button>
             </div>
-            <Button onClick={exportAsPNG}>Export PNG</Button>
-            <Toggle pressed={showHist} onPressedChange={setShowHist}>Show Historical Line</Toggle>
+            <div className="inline-flex items-center gap-2 ml-3">
+              <span className="text-sm text-gray-700">Filter by Matchups</span>
+              <select
+                className="text-sm border rounded px-2 py-1 bg-white"
+                value={selectedMatchup}
+                onChange={e => setSelectedMatchup(e.target.value)}
+              >
+                <option value="">All</option>
+                {matchups.map(m => (
+                  <option key={m.label} value={m.label}>{m.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -170,33 +261,88 @@ export default function NFLTeaserSharpness() {
           <ResponsiveContainer width="100%" height={600}>
             <ScatterChart margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" />
+              {/* Safe zone rectangle: x in [-6, 6], y in [0, 6] */}
+              <ReferenceArea x1={-6} x2={6} y1={0} y2={6} fill="#16a34a" fillOpacity={0.12} stroke="#16a34a" strokeOpacity={0.25} />
               <XAxis
                 type="number"
                 dataKey={mode==='ou' ? 'ou_bias_2025' : 'spread_bias_2025'}
-                label={{ value: mode==='ou' ? 'Average O/U Bias (+ OVER lean | − UNDER lean)' : 'Average Spread Bias (+ Favorites | − Underdogs)', position: 'bottom' }}
+                label={{ value: mode==='ou' ? 'Average O/U Bias' : 'Average Spread Bias', position: 'bottom', style: { fontWeight: 'bold' } }}
+                domain={[xScale.min, xScale.max]}
+                ticks={xScale.ticks}
               />
               <YAxis
                 type="number"
                 dataKey={mode==='ou' ? 'ou_sharpness_2025' : 'spread_sharpness_2025'}
-                label={{ value: mode==='ou' ? 'Average |O/U Error| (lower = sharper)' : 'Average |Spread Error| (lower = sharper)', angle: -90, position: 'left' }}
+                label={{ value: mode==='ou' ? 'Average O/U Error' : 'Average Absolute Spread Error', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontWeight: 'bold' } }}
+                domain={[yScale.min, yScale.max]}
+                ticks={yScale.ticks}
               />
-              {/* Safe zone band */}
-              <ReferenceLine y={targetBand} stroke="#16a34a" strokeOpacity={0.15} strokeWidth={40} />
               {/* Center line */}
               <ReferenceLine x={0} strokeDasharray="4 4" />
-              {/* Historical average */}
-              {showHist && histAvg !== undefined && (
-                <ReferenceLine y={histAvg} strokeDasharray="4 4" strokeOpacity={0.6} />
-              )}
-              <RechartsTooltip cursor={{ strokeDasharray: '3 3' }} formatter={(v: any, n: string) => [v, n]} />
-              <Scatter data={teamsData} shape={renderLogoPoint} />
+              <RechartsTooltip 
+                cursor={{ strokeDasharray: '3 3' }} 
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-white p-3 border rounded shadow-lg">
+                        <p className="font-semibold">{data.team_name}</p>
+                        <p className="text-sm">
+                          Bias: {data[mode === 'ou' ? 'ou_bias_2025' : 'spread_bias_2025']?.toFixed(2)}
+                        </p>
+                        <p className="text-sm">
+                          Sharpness: {data[mode === 'ou' ? 'ou_sharpness_2025' : 'spread_sharpness_2025']?.toFixed(2)}
+                        </p>
+                        <p className="text-sm">Games: {data.games_ou_2025}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Scatter data={filteredData} shape={renderLogoPoint} />
             </ScatterChart>
           </ResponsiveContainer>
         </div>
 
         <p className="text-sm text-center mt-4 text-gray-500">
-          Green band marks teams closest to zero bias and low error — safest teaser targets. Logo size scales with 2025 sample size (Weeks 1–5).
+          Green band marks teams closest to zero bias and low error — safest teaser targets.
         </p>
+
+        {/* Reading guide */}
+        {mode === 'spread' ? (
+          <div className="mt-6 text-sm text-gray-800 space-y-2">
+            <div className="font-semibold">🏈 Spread Sharpness — How to Read</div>
+            <div>
+              <span className="font-medium">X-Axis (Average Spread Bias):</span>
+              <div className="ml-4">→ Right = Underrated — teams covering more often than expected.</div>
+              <div className="ml-4">→ Left = Overvalued — teams failing to cover consistently.</div>
+              <div className="ml-4">(Closer to the center means lines are more accurate.)</div>
+            </div>
+            <div>
+              <span className="font-medium">Y-Axis (Average Spread Error):</span>
+              <div className="ml-4">↓ Lower = Sharper — Vegas is tight on this team.</div>
+              <div className="ml-4">↑ Higher = Looser — spreads miss by more on average.</div>
+            </div>
+            <div className="italic">Bottom-right = ideal zone → underrated teams with sharp, consistent lines.</div>
+          </div>
+        ) : (
+          <div className="mt-6 text-sm text-gray-800 space-y-2">
+            <div className="font-semibold">📊 Over/Under Sharpness — How to Read</div>
+            <div>
+              <span className="font-medium">X-Axis (Average O/U Bias):</span>
+              <div className="ml-4">→ Right = Overs hit more often — totals set too low.</div>
+              <div className="ml-4">→ Left = Unders hit more often — totals set too high.</div>
+              <div className="ml-4">(Center = balanced totals market.)</div>
+            </div>
+            <div>
+              <span className="font-medium">Y-Axis (Average O/U Error):</span>
+              <div className="ml-4">↓ Lower = Sharper totals — Vegas is close on the number.</div>
+              <div className="ml-4">↑ Higher = Less predictable totals — larger misses on average.</div>
+            </div>
+            <div className="italic">Bottom-center = most efficient zone → totals market is sharp and unbiased.</div>
+          </div>
+        )}
       </Card>
     </div>
   );
