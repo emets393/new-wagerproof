@@ -21,7 +21,7 @@ export default function Landing() {
               Navigate to live predictions and tools across the site. Pick a sport to get started.
             </p>
             <div className="flex gap-4 flex-wrap justify-center">
-              {/* NFL button with gradient border and higher contrast */}
+              {/* Unified button style for consistency */}
               <div className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_18px_rgba(16,185,129,0.35)]">
                 <Link to="/nfl">
                   <Button size="lg" className="rounded-full px-7 py-3 text-lg bg-white text-[#0a2540] hover:bg-white">
@@ -29,11 +29,9 @@ export default function Landing() {
                   </Button>
                 </Link>
               </div>
-
-              {/* CFB button with gradient border and solid dark fill so it doesn't blend */}
-              <div className="rounded-full p-[2px] bg-gradient-to-r from-blue-500 to-indigo-500 shadow-[0_0_18px_rgba(59,130,246,0.35)]">
+              <div className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_18px_rgba(16,185,129,0.35)]">
                 <Link to="/college-football">
-                  <Button size="lg" className="rounded-full px-7 py-3 text-lg bg-[#0a2540] text-white hover:bg-[#0b2a4a]">
+                  <Button size="lg" className="rounded-full px-7 py-3 text-lg bg-white text-[#0a2540] hover:bg-white">
                     College Football
                   </Button>
                 </Link>
