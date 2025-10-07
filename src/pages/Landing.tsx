@@ -37,6 +37,23 @@ export default function Landing() {
                 </Link>
               </div>
             </div>
+
+            {/* Coming soon section */}
+            <div className="mt-8 sm:mt-10 text-center">
+              <div className="text-sm uppercase tracking-widest text-white/70 mb-4">Coming Soon</div>
+              <div className="flex gap-4 flex-wrap justify-center">
+                <div className="rounded-full p-[2px] bg-gradient-to-r from-slate-300 to-slate-500 opacity-70">
+                  <Button size="lg" disabled className="rounded-full px-7 py-3 text-lg bg-white text-[#0a2540]">
+                    NBA
+                  </Button>
+                </div>
+                <div className="rounded-full p-[2px] bg-gradient-to-r from-slate-300 to-slate-500 opacity-70">
+                  <Button size="lg" disabled className="rounded-full px-7 py-3 text-lg bg-white text-[#0a2540]">
+                    NCAAB
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
