@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Football, GraduationCap, BarChart3 } from 'lucide-react';
+import { Trophy, GraduationCap, BarChart } from 'lucide-react';
 import logo from '@/assets/wagerproof-logo.svg';
 
 export default function Landing() {
@@ -28,7 +28,7 @@ export default function Landing() {
           <Card className="hover:shadow-lg transition-shadow">
             <CardContent className="p-5">
               <div className="flex items-center gap-3 mb-3">
-                <Football className="h-5 w-5 text-primary" />
+                <Trophy className="h-5 w-5 text-primary" />
                 <h3 className="font-semibold">NFL Predictions</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-4">Live lines, weather, and model edges.</p>
@@ -48,7 +48,7 @@ export default function Landing() {
           <Card className="hover:shadow-lg transition-shadow">
             <CardContent className="p-5">
               <div className="flex items-center gap-3 mb-3">
-                <BarChart3 className="h-5 w-5 text-primary" />
+                <BarChart className="h-5 w-5 text-primary" />
                 <h3 className="font-semibold">Account & Settings</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-4">Manage access and preferences.</p>
