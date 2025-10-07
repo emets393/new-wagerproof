@@ -16,7 +16,7 @@ export const navItems = [
   // Hiding Today's Games and Win Rates (keep code, remove from nav)
   {
     title: "Home",
-    to: "/",
+    to: "/home",
     icon: <HomeIcon className="h-4 w-4" />,
     page: <Landing />,
   },

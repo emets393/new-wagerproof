@@ -74,12 +74,13 @@ function AppWithHeader() {
     <>
       {showHeader && <AppHeader />}
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/home" element={<Landing />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/account" element={<Account />} />
         <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
         <Route path="/college-football" element={<CollegeFootball />} />
         <Route path="/nfl" element={<NFL />} />
+        <Route path="/" element={<NFL />} />
         {navItems.map(({ to, page }) => (
           <Route key={to} path={to} element={page} />
         ))}
