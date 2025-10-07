@@ -668,23 +668,20 @@ export default function CollegeFootball() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
             <Trophy className="h-7 w-7 sm:h-8 sm:w-8 text-orange-500" />
             College Football Predictions
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Live predictions, spreads, and money lines
-          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           {lastUpdated && (
-            <span className="text-sm text-muted-foreground">
-              Betting Lines Current as of: {convertUTCToEST(lastUpdated.toISOString())}
+            <span className="text-xs sm:text-sm text-muted-foreground">
+              Last Updated: {convertUTCToEST(lastUpdated.toISOString())}
             </span>
           )}
-          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md">
+          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md w-full sm:w-auto">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
