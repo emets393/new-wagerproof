@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -767,7 +768,14 @@ export default function NFLAnalytics() {
       }} />
       <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
       <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-4xl font-bold text-primary mb-2 sm:mb-4">NFL Analytics</h1>
+        <div className="flex items-center gap-3 mb-2 sm:mb-4">
+          <Link to="/nfl">
+            <Button variant="outline" size="sm" className="text-sm">
+              ← Back to NFL Predictions
+            </Button>
+          </Link>
+          <h1 className="text-2xl sm:text-4xl font-bold text-primary">NFL Analytics</h1>
+        </div>
         <p className="text-sm sm:text-lg text-muted-foreground">
           Analyze NFL team and game performance with advanced filtering options. 
         </p>
