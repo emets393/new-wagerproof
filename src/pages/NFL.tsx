@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, Trophy, AlertCircle, History, TrendingUp, BarChart, ScatterChart } from 'lucide-react';
+import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import H2HModal from '@/components/H2HModal';
 import LineMovementModal from '@/components/LineMovementModal';
@@ -600,37 +600,40 @@ export default function NFL() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-0">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Trophy className="h-8 w-8 text-orange-500" />
+          <h1 className="text-3xl font-bold flex items-center">
+            <img 
+              src="/wagerproof-landing.png?v=2024" 
+              alt="WagerProof Logo" 
+              className="h-40 w-40 sm:h-48 sm:w-48 object-contain -mr-2" 
+            />
             NFL Predictions
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Live predictions, spreads, and money lines
-          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           {/* Link to NFL Analytics page */}
-          <Link to="/nfl-analytics" className="hidden sm:inline rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_14px_rgba(16,185,129,0.25)]">
-            <button className="rounded-full px-4 py-2 text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-2">
-              <BarChart className="h-4 w-4" />
-              Analytics
+          <Link to="/nfl-analytics" className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_14px_rgba(16,185,129,0.25)]">
+            <button className="rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-1 sm:gap-2">
+              <BarChart className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Analytics</span>
+              <span className="sm:hidden">Analytics</span>
             </button>
           </Link>
           {/* Link to Teaser Sharpness page */}
-          <Link to="/nfl/teaser-sharpness" className="hidden sm:inline rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_14px_rgba(16,185,129,0.25)]">
-            <button className="rounded-full px-4 py-2 text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-2">
-              <ScatterChart className="h-4 w-4" />
-              Teaser Sharpness
+          <Link to="/nfl/teaser-sharpness" className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_14px_rgba(16,185,129,0.25)]">
+            <button className="rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-1 sm:gap-2">
+              <ScatterChart className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Teaser Tool</span>
+              <span className="sm:hidden">Teaser</span>
             </button>
           </Link>
           {lastUpdated && (
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs sm:text-sm text-muted-foreground">
               Last updated: {lastUpdated.toLocaleTimeString()}
             </span>
           )}
-          <Button onClick={fetchData} disabled={loading} className="text-white">
+          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -638,35 +641,33 @@ export default function NFL() {
       </div>
 
       {/* Sort Controls */}
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg border">
-        <span className="text-sm font-medium text-gray-700 mr-2">Sort by:</span>
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-6">
         <Button
           variant={sortKey === 'none' ? 'default' : 'outline'}
+          className={`${sortKey === 'none' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
           onClick={() => setSortKey('none')}
-          className={`${sortKey === 'none' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} text-xs sm:text-sm px-2.5 py-1`}
+          title="Sort by game time"
         >
-          Default (Date/Time)
-        </Button>
-        <Button
-          variant={sortKey === 'ml' ? 'default' : 'outline'}
-          onClick={() => setSortKey('ml')}
-          className={`${sortKey === 'ml' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} text-xs sm:text-sm px-2.5 py-1`}
-        >
-          Moneyline Prob
+          <span className="hidden sm:inline">Sort: Time</span>
+          <span className="sm:hidden">Time</span>
         </Button>
         <Button
           variant={sortKey === 'spread' ? 'default' : 'outline'}
+          className={`${sortKey === 'spread' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
           onClick={() => setSortKey('spread')}
-          className={`${sortKey === 'spread' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} text-xs sm:text-sm px-2.5 py-1`}
+          title="Sort by highest Spread probability"
         >
-          Spread Prob
+          <span className="hidden sm:inline">Sort: Spread</span>
+          <span className="sm:hidden">Spread</span>
         </Button>
         <Button
           variant={sortKey === 'ou' ? 'default' : 'outline'}
+          className={`${sortKey === 'ou' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
           onClick={() => setSortKey('ou')}
-          className={`${sortKey === 'ou' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} text-xs sm:text-sm px-2.5 py-1`}
+          title="Sort by highest Over/Under probability"
         >
-          O/U Prob
+          <span className="hidden sm:inline">Sort: O/U</span>
+          <span className="sm:hidden">O/U</span>
         </Button>
       </div>
 

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, Trophy, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { RefreshCw, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface CFBPrediction {
   id: string;
@@ -158,6 +158,285 @@ export default function CollegeFootball() {
         label.toLowerCase().includes(pattern)
       );
     });
+  };
+
+  // Team acronym mapping function
+  const getTeamAcronym = (teamName: string): string => {
+    const acronymMap: { [key: string]: string } = {
+      // Major conferences and common teams
+      'Alabama': 'ALA',
+      'Auburn': 'AUB',
+      'Georgia': 'UGA',
+      'Florida': 'UF',
+      'LSU': 'LSU',
+      'Texas A&M': 'TAMU',
+      'Ole Miss': 'MISS',
+      'Mississippi State': 'MSST',
+      'Arkansas': 'ARK',
+      'Kentucky': 'UK',
+      'Tennessee': 'TENN',
+      'South Carolina': 'SC',
+      'Missouri': 'MIZ',
+      'Vanderbilt': 'VAN',
+      
+      'Ohio State': 'OSU',
+      'Michigan': 'MICH',
+      'Penn State': 'PSU',
+      'Michigan State': 'MSU',
+      'Wisconsin': 'WISC',
+      'Iowa': 'IOWA',
+      'Minnesota': 'MINN',
+      'Nebraska': 'NEB',
+      'Illinois': 'ILL',
+      'Northwestern': 'NW',
+      'Purdue': 'PUR',
+      'Indiana': 'IND',
+      'Rutgers': 'RUT',
+      'Maryland': 'MD',
+      
+      'Oklahoma': 'OU',
+      'Texas': 'TEX',
+      'Oklahoma State': 'OKST',
+      'Baylor': 'BAY',
+      'TCU': 'TCU',
+      'Texas Tech': 'TTU',
+      'Kansas State': 'KSU',
+      'Iowa State': 'ISU',
+      'Kansas': 'KU',
+      'West Virginia': 'WVU',
+      'BYU': 'BYU',
+      'Cincinnati': 'CIN',
+      'UCF': 'UCF',
+      'Houston': 'HOU',
+      
+      'USC': 'USC',
+      'UCLA': 'UCLA',
+      'Oregon': 'ORE',
+      'Washington': 'UW',
+      'Utah': 'UTAH',
+      'Arizona State': 'ASU',
+      'Arizona': 'ARIZ',
+      'Colorado': 'COLO',
+      'Stanford': 'STAN',
+      'California': 'CAL',
+      'Oregon State': 'ORST',
+      'Washington State': 'WSU',
+      
+      'Clemson': 'CLEM',
+      'Florida State': 'FSU',
+      'Miami': 'MIA',
+      'North Carolina': 'UNC',
+      'NC State': 'NCST',
+      'Virginia Tech': 'VT',
+      'Virginia': 'UVA',
+      'Duke': 'DUKE',
+      'Wake Forest': 'WAKE',
+      'Georgia Tech': 'GT',
+      'Boston College': 'BC',
+      'Pitt': 'PITT',
+      'Syracuse': 'SYR',
+      'Louisville': 'LOU',
+      
+      'Notre Dame': 'ND',
+      'Army': 'ARMY',
+      'Navy': 'NAVY',
+      'Air Force': 'AF',
+      
+      // Additional common teams
+      'Boise State': 'BSU',
+      'San Diego State': 'SDSU',
+      'Fresno State': 'FRES',
+      'Utah State': 'USU',
+      'Wyoming': 'WYO',
+      'Colorado State': 'CSU',
+      'Nevada': 'NEV',
+      'UNLV': 'UNLV',
+      'New Mexico': 'UNM',
+      'Hawaii': 'HAW',
+      'San Jose State': 'SJSU',
+      
+      'Memphis': 'MEM',
+      'SMU': 'SMU',
+      'Tulane': 'TUL',
+      'Tulsa': 'TULSA',
+      'East Carolina': 'ECU',
+      'Temple': 'TEMP',
+      'South Florida': 'USF',
+      'Charlotte': 'CHAR',
+      'Florida Atlantic': 'FAU',
+      'Florida International': 'FIU',
+      'Marshall': 'MRSH',
+      'Old Dominion': 'ODU',
+      'Middle Tennessee': 'MTSU',
+      'Western Kentucky': 'WKU',
+      'North Texas': 'UNT',
+      'UTSA': 'UTSA',
+      'Rice': 'RICE',
+      'Louisiana Tech': 'LAT',
+      'Southern Miss': 'USM',
+      'UTEP': 'UTEP',
+      'New Mexico State': 'NMSU',
+      'Liberty': 'LIB',
+      'James Madison': 'JMU',
+      'Appalachian State': 'APP',
+      'Coastal Carolina': 'CCU',
+      'Georgia Southern': 'GASO',
+      'Georgia State': 'GSU',
+      'Troy': 'TROY',
+      'South Alabama': 'USA',
+      'Louisiana': 'UL',
+      'Louisiana Monroe': 'ULM',
+      'Arkansas State': 'ARST',
+      'Texas State': 'TXST',
+      
+      'Buffalo': 'BUFF',
+      'Akron': 'AKR',
+      'Kent State': 'KENT',
+      'Ohio': 'OHIO',
+      'Miami (OH)': 'MOH',
+      'Bowling Green': 'BGSU',
+      'Toledo': 'TOL',
+      'Central Michigan': 'CMU',
+      'Eastern Michigan': 'EMU',
+      'Western Michigan': 'WMU',
+      'Northern Illinois': 'NIU',
+      'Ball State': 'BALL',
+      
+      'Northern Illinois': 'NIU',
+      'Ball State': 'BALL',
+      'Eastern Michigan': 'EMU',
+      'Central Michigan': 'CMU',
+      'Western Michigan': 'WMU',
+      'Toledo': 'TOL',
+      'Bowling Green': 'BGSU',
+      'Miami (OH)': 'MOH',
+      'Ohio': 'OHIO',
+      'Kent State': 'KENT',
+      'Akron': 'AKR',
+      'Buffalo': 'BUFF',
+      
+      'Massachusetts': 'UMASS',
+      'Connecticut': 'UCONN',
+      'New Mexico State': 'NMSU',
+      'Liberty': 'LIB',
+      'James Madison': 'JMU',
+      'Sam Houston': 'SHSU',
+      'Jacksonville State': 'JSU',
+      'Kennesaw State': 'KSU',
+      'Delaware': 'DEL',
+      'Villanova': 'VILL',
+      'Richmond': 'RICH',
+      'William & Mary': 'WM',
+      'Elon': 'ELON',
+      'Towson': 'TOW',
+      'Rhode Island': 'URI',
+      'Maine': 'MAINE',
+      'New Hampshire': 'UNH',
+      'Albany': 'ALB',
+      'Stony Brook': 'SBU',
+      'Sacred Heart': 'SHU',
+      'Central Connecticut': 'CCSU',
+      'Bryant': 'BRY',
+      'Wagner': 'WAG',
+      'Duquesne': 'DUQ',
+      'Robert Morris': 'RMU',
+      'Merrimack': 'MER',
+      'Stonehill': 'STON',
+      'Lehigh': 'LEH',
+      'Lafayette': 'LAF',
+      'Colgate': 'COLG',
+      'Bucknell': 'BUCK',
+      'Holy Cross': 'HC',
+      'Fordham': 'FOR',
+      'Georgetown': 'GTWN',
+      'Marist': 'MAR',
+      'Butler': 'BUT',
+      'Dayton': 'DAY',
+      'Davidson': 'DAV',
+      'San Diego': 'USD',
+      'Stetson': 'STET',
+      'Morehead State': 'MORE',
+      'Valparaiso': 'VALP',
+      'Drake': 'DRA',
+      'St. Thomas': 'UST',
+      'Presbyterian': 'PRES',
+      'Campbell': 'CAMP',
+      'Gardner-Webb': 'GWU',
+      'Charleston Southern': 'CSU',
+      'Hampton': 'HAM',
+      'North Carolina A&T': 'NCAT',
+      'South Carolina State': 'SCST',
+      'Norfolk State': 'NSU',
+      'Morgan State': 'MOR',
+      'Howard': 'HOW',
+      'Delaware State': 'DSU',
+      'Bethune-Cookman': 'BCU',
+      'Florida A&M': 'FAMU',
+      'Alabama State': 'ALST',
+      'Alabama A&M': 'AAMU',
+      'Jackson State': 'JSU',
+      'Mississippi Valley State': 'MVSU',
+      'Southern': 'SU',
+      'Grambling': 'GRAM',
+      'Prairie View A&M': 'PVAMU',
+      'Texas Southern': 'TXSO',
+      'Arkansas-Pine Bluff': 'UAPB',
+      'Alcorn State': 'ALCN',
+      'Tennessee State': 'TSU',
+      'Tennessee Tech': 'TTU',
+      'Austin Peay': 'APSU',
+      'Murray State': 'MUR',
+      'Eastern Kentucky': 'EKU',
+      'Western Kentucky': 'WKU',
+      'Middle Tennessee': 'MTSU',
+      'Chattanooga': 'UTC',
+      'East Tennessee State': 'ETSU',
+      'Samford': 'SAM',
+      'Mercer': 'MER',
+      'Wofford': 'WOF',
+      'Furman': 'FUR',
+      'The Citadel': 'CIT',
+      'VMI': 'VMI',
+      'Western Carolina': 'WCU',
+      'North Carolina Central': 'NCCU',
+      'North Carolina A&T': 'NCAT',
+      'South Carolina State': 'SCST',
+      'Norfolk State': 'NSU',
+      'Morgan State': 'MOR',
+      'Howard': 'HOW',
+      'Delaware State': 'DSU',
+      'Bethune-Cookman': 'BCU',
+      'Florida A&M': 'FAMU',
+      'Alabama State': 'ALST',
+      'Alabama A&M': 'AAMU',
+      'Jackson State': 'JSU',
+      'Mississippi Valley State': 'MVSU',
+      'Southern': 'SU',
+      'Grambling': 'GRAM',
+      'Prairie View A&M': 'PVAMU',
+      'Texas Southern': 'TXSO',
+      'Arkansas-Pine Bluff': 'UAPB',
+      'Alcorn State': 'ALCN',
+      'Tennessee State': 'TSU',
+      'Tennessee Tech': 'TTU',
+      'Austin Peay': 'APSU',
+      'Murray State': 'MUR',
+      'Eastern Kentucky': 'EKU',
+      'Western Kentucky': 'WKU',
+      'Middle Tennessee': 'MTSU',
+      'Chattanooga': 'UTC',
+      'East Tennessee State': 'ETSU',
+      'Samford': 'SAM',
+      'Mercer': 'MER',
+      'Wofford': 'WOF',
+      'Furman': 'FUR',
+      'The Citadel': 'CIT',
+      'VMI': 'VMI',
+      'Western Carolina': 'WCU',
+      'North Carolina Central': 'NCCU'
+    };
+    
+    return acronymMap[teamName] || teamName.substring(0, 4).toUpperCase();
   };
 
   const fetchData = async () => {
@@ -668,10 +947,14 @@ export default function CollegeFootball() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-0">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Trophy className="h-7 w-7 sm:h-8 sm:w-8 text-orange-500" />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center">
+            <img 
+              src="/wagerproof-landing.png?v=2024" 
+              alt="WagerProof Logo" 
+              className="h-40 w-40 sm:h-48 sm:w-48 object-contain -mr-2" 
+            />
             College Football Predictions
           </h1>
         </div>
@@ -816,7 +1099,7 @@ export default function CollegeFootball() {
               return idA.localeCompare(idB);
             })
             .map((prediction) => (
-              <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-2 border-gray-200 hover:border-blue-300 shadow-lg">
+              <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-4 border-gray-200 hover:border-blue-300 shadow-lg">
                 {/* Gradient accent line at top */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
                 <CardContent className="space-y-3 sm:space-y-5 pt-3 pb-3 sm:pt-5 sm:pb-5">
@@ -1022,7 +1305,7 @@ export default function CollegeFootball() {
                                     <div className="text-3xl sm:text-4xl font-bold text-gray-800 mb-1">
                                       {edgeInfo.displayEdge}
                                     </div>
-                                    <div className="text-sm sm:text-base font-medium text-gray-600">Edge</div>
+                                    <div className="text-xs sm:text-sm font-medium text-gray-600">Edge to {getTeamAcronym(edgeInfo.teamName)}</div>
                                   </div>
                                 </div>
 
@@ -1091,7 +1374,7 @@ export default function CollegeFootball() {
                                   {/* Edge Value */}
                                   <div className="text-center">
                                     <div className={`text-3xl sm:text-4xl font-bold mb-1 ${isOver ? 'text-emerald-600' : 'text-rose-600'}`}>{displayMagnitude}</div>
-                                    <div className={`text-sm sm:text-base font-medium ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Edge</div>
+                                    <div className={`text-xs sm:text-sm font-medium ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Edge to {isOver ? 'Over' : 'Under'}</div>
                                   </div>
                                 </div>
 
