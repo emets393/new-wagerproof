@@ -602,27 +602,27 @@ export default function NFL() {
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-0">
         <div>
-          <h1 className="text-3xl font-bold flex items-center">
+          <h1 className="text-xl sm:text-3xl font-bold flex items-center">
             <img 
               src="/wagerproof-landing.png?v=2024" 
               alt="WagerProof Logo" 
-              className="h-40 w-40 sm:h-48 sm:w-48 object-contain -mr-2" 
+              className="h-24 w-24 sm:h-48 sm:w-48 object-contain -mr-2" 
             />
             NFL Predictions
           </h1>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-3">
           {/* Link to NFL Analytics page */}
-          <Link to="/nfl-analytics" className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_14px_rgba(16,185,129,0.25)]">
-            <button className="rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-1 sm:gap-2">
+          <Link to="/nfl-analytics" className="rounded-full p-[1px] sm:p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_14px_rgba(16,185,129,0.25)]">
+            <button className="rounded-full px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-1 sm:gap-2">
               <BarChart className="h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Analytics</span>
               <span className="sm:hidden">Analytics</span>
             </button>
           </Link>
           {/* Link to Teaser Sharpness page */}
-          <Link to="/nfl/teaser-sharpness" className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_14px_rgba(16,185,129,0.25)]">
-            <button className="rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-1 sm:gap-2">
+          <Link to="/nfl/teaser-sharpness" className="rounded-full p-[1px] sm:p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_14px_rgba(16,185,129,0.25)]">
+            <button className="rounded-full px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-white text-gray-900 hover:bg-white flex items-center gap-1 sm:gap-2">
               <ScatterChart className="h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Teaser Tool</span>
               <span className="sm:hidden">Teaser</span>
@@ -633,8 +633,8 @@ export default function NFL() {
               Last updated: {lastUpdated.toLocaleTimeString()}
             </span>
           )}
-          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2">
+            <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>

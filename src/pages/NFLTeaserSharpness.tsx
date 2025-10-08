@@ -227,17 +227,17 @@ export default function NFLTeaserSharpness() {
   return (
     <div className="container mx-auto px-4 py-6">
       <Card className="p-6 max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
           <div className="flex items-center gap-3">
             <button onClick={() => window.history.back()} className="text-sm px-3 py-2 rounded border bg-white hover:bg-gray-50">← Back</button>
-            <h1 className="text-2xl font-bold">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
+            <h1 className="text-lg sm:text-2xl font-bold">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
           </div>
-          <div className="space-x-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
             <div className="inline-flex rounded-full overflow-hidden border">
               <button onClick={() => setMode('ou')} className={`px-3 py-2 text-sm ${mode==='ou'?'bg-blue-600 text-white':'bg-white text-gray-700'}`}>Over/Under</button>
               <button onClick={() => setMode('spread')} className={`px-3 py-2 text-sm ${mode==='spread'?'bg-blue-600 text-white':'bg-white text-gray-700'}`}>Spread</button>
             </div>
-            <div className="inline-flex items-center gap-2 ml-3">
+            <div className="inline-flex items-center gap-2">
               <span className="text-sm text-gray-700">Filter by Matchups</span>
               <select
                 className="text-sm border rounded px-2 py-1 bg-white"
@@ -257,8 +257,8 @@ export default function NFLTeaserSharpness() {
           <div className="mb-4 text-sm text-red-600">{error}</div>
         )}
 
-        <div ref={chartRef}>
-          <ResponsiveContainer width="100%" height={600}>
+        <div ref={chartRef} className="overflow-x-auto">
+          <ResponsiveContainer width="100%" height={600} minWidth={800}>
             <ScatterChart margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" />
               {/* Safe zone rectangle: x in [-6, 6], y in [0, 6] */}
