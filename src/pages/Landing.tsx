@@ -1,9 +1,28 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Trophy, GraduationCap, BarChart } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Trophy, GraduationCap, BarChart, X } from 'lucide-react';
+import { useAuth0 } from '@auth0/auth0-react';
+import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function Landing() {
+  const { user, isLoading, loginWithRedirect } = useAuth0();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a2540]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+          <p className="text-white/90">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Hero section with solid navy background to ensure readability */}
@@ -18,42 +37,60 @@ export default function Landing() {
             />
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">WagerProof</h1>
             <p className="max-w-2xl text-white/90 text-base sm:text-lg">
-              Navigate to live predictions and tools across the site. Pick a sport to get started.
+              {user ? 'Navigate to live predictions and tools across the site. Pick a sport to get started.' : 'Get started with data-driven sports betting insights. Sign in to access predictions and analytics.'}
             </p>
-            <div className="flex gap-4 flex-wrap justify-center">
-              {/* Unified button style for consistency */}
-              <div className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_18px_rgba(16,185,129,0.35)]">
-                <Link to="/nfl">
-                  <Button size="lg" className="rounded-full px-7 py-3 text-lg w-56 bg-white text-[#0a2540] hover:bg-white">
-                    NFL
-                  </Button>
-                </Link>
-              </div>
-              <div className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_18px_rgba(16,185,129,0.35)]">
-                <Link to="/college-football">
-                  <Button size="lg" className="rounded-full px-7 py-3 text-lg w-56 bg-white text-[#0a2540] hover:bg-white">
-                    College Football
-                  </Button>
-                </Link>
-              </div>
-            </div>
+            
+            {user ? (
+              // Sport selection buttons for authenticated users
+              <>
+                <div className="flex gap-4 flex-wrap justify-center">
+                  {/* Unified button style for consistency */}
+                  <div className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_18px_rgba(16,185,129,0.35)]">
+                    <Link to="/nfl">
+                      <Button size="lg" className="rounded-full px-7 py-3 text-lg w-56 bg-white text-[#0a2540] hover:bg-white">
+                        NFL
+                      </Button>
+                    </Link>
+                  </div>
+                  <div className="rounded-full p-[2px] bg-gradient-to-r from-emerald-400 to-blue-500 shadow-[0_0_18px_rgba(16,185,129,0.35)]">
+                    <Link to="/college-football">
+                      <Button size="lg" className="rounded-full px-7 py-3 text-lg w-56 bg-white text-[#0a2540] hover:bg-white">
+                        College Football
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
 
-            {/* Coming soon section */}
-            <div className="mt-8 sm:mt-10 text-center">
-              <div className="text-sm uppercase tracking-widest text-white/70 mb-4">Coming Soon</div>
-              <div className="flex gap-4 flex-wrap justify-center">
-                <div className="rounded-full p-[2px] bg-gradient-to-r from-slate-300 to-slate-500 opacity-70">
-                  <Button size="lg" disabled className="rounded-full px-7 py-3 text-lg w-56 bg-white text-[#0a2540]">
-                    NBA
-                  </Button>
+
+                {/* Coming soon section */}
+                <div className="mt-8 sm:mt-10 text-center">
+                  <div className="text-sm uppercase tracking-widest text-white/70 mb-4">Coming Soon</div>
+                  <div className="flex gap-4 flex-wrap justify-center">
+                    <div className="rounded-full p-[2px] bg-gradient-to-r from-slate-300 to-slate-500 opacity-70">
+                      <Button size="lg" disabled className="rounded-full px-7 py-3 text-lg w-56 bg-white text-[#0a2540]">
+                        NBA
+                      </Button>
+                    </div>
+                    <div className="rounded-full p-[2px] bg-gradient-to-r from-slate-300 to-slate-500 opacity-70">
+                      <Button size="lg" disabled className="rounded-full px-7 py-3 text-lg w-56 bg-white text-[#0a2540]">
+                        NCAAB
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-full p-[2px] bg-gradient-to-r from-slate-300 to-slate-500 opacity-70">
-                  <Button size="lg" disabled className="rounded-full px-7 py-3 text-lg w-56 bg-white text-[#0a2540]">
-                    NCAAB
-                  </Button>
-                </div>
+              </>
+            ) : (
+              // Professional sign in/sign up buttons for non-authenticated users
+              <div className="flex gap-8 flex-wrap justify-center mt-8">
+                <Button
+                  onClick={() => loginWithRedirect()}
+                  size="lg"
+                  className="px-12 py-4 text-xl bg-gradient-to-b from-white to-gray-100 text-[#0a2540] hover:from-gray-50 hover:to-gray-200 font-bold shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-200 border-2 border-gray-200"
+                >
+                  Sign In / Sign Up
+                </Button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -94,8 +131,7 @@ export default function Landing() {
             <div className="sm:col-span-3 text-gray-700">
               <ul className="space-y-3">
                 <li>📊 <span className="font-semibold">Daily Model Predictions</span> — Moneyline, Spread, and Over/Under probabilities for every game.</li>
-                <li>🔍 <span className="font-semibold">Transparency Dashboard</span> — Track historical accuracy and profit performance across sports and bet types.</li>
-                <li>⚙️ <span className="font-semibold">Custom Model Builder</span> — Design and save your own betting models using our trend-mining tools.</li>
+                <li>📈 <span className="font-semibold">Advanced Trend Analysis</span> — Discover hidden statistical patterns and market inefficiencies using professional-grade analytical tools.</li>
                 <li>🧠 <span className="font-semibold">Educational Tools</span> — Learn how data modeling really works and how to spot edges for yourself.</li>
               </ul>
             </div>
@@ -118,6 +154,7 @@ export default function Landing() {
         </div>
       </section>
       {/* End Informational sections */}
+
     </div>
   );
 }

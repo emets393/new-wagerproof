@@ -10,15 +10,19 @@ import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import Callback from "./pages/Callback";
+import { Auth0ProviderWrapper } from "@/providers/Auth0Provider";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { useAuth0 } from "@auth0/auth0-react";
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, User, LogOut } from "lucide-react";
+import { SubscriptionStatus } from "@/components/SubscriptionComponents";
 
 const queryClient = new QueryClient();
 
 function AppHeader() {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth0();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-2 mb-4 flex items-center justify-between">
@@ -50,8 +54,9 @@ function AppHeader() {
       <div className="flex items-center gap-2">
         {user ? (
           <div className="flex items-center gap-2">
+            <SubscriptionStatus />
             <span className="text-sm text-muted-foreground">{user.email}</span>
-            <Button variant="outline" size="sm" onClick={signOut}>
+            <Button variant="outline" size="sm" onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
@@ -79,6 +84,7 @@ function AppWithHeader() {
         <Route path="/home" element={<Landing />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/account" element={<Account />} />
+        <Route path="/callback" element={<Callback />} />
         <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
         <Route path="/college-football" element={<CollegeFootball />} />
         <Route path="/nfl" element={<NFL />} />
@@ -99,9 +105,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <AppWithHeader />
-        </AuthProvider>
+        <Auth0ProviderWrapper>
+          <SubscriptionProvider>
+            <AppWithHeader />
+          </SubscriptionProvider>
+        </Auth0ProviderWrapper>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
