@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, GraduationCap, BarChart, X } from 'lucide-react';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,9 +10,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function Landing() {
-  const { user, isLoading, loginWithRedirect } = useAuth0();
+  const { user, loading } = useAuth();
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a2540]">
         <div className="text-center space-y-4">
@@ -83,11 +83,11 @@ export default function Landing() {
               // Professional sign in/sign up buttons for non-authenticated users
               <div className="flex gap-8 flex-wrap justify-center mt-8">
                 <Button
-                  onClick={() => loginWithRedirect()}
+                  asChild
                   size="lg"
                   className="px-12 py-4 text-xl bg-gradient-to-b from-white to-gray-100 text-[#0a2540] hover:from-gray-50 hover:to-gray-200 font-bold shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-200 border-2 border-gray-200"
                 >
-                  Sign In / Sign Up
+                  <Link to="/account">Sign In / Sign Up</Link>
                 </Button>
               </div>
             )}
