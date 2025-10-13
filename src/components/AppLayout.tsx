@@ -66,7 +66,7 @@ export function AppLayout() {
             </div>
           </div>
           <span className="text-base font-semibold text-black dark:text-white">
-            Wagerproof
+            WagerProof
           </span>
         </Link>
       </SidebarHeader>

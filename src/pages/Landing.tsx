@@ -102,7 +102,7 @@ export default function Landing() {
           <div className="max-w-4xl mx-auto text-center space-y-4 mb-12">
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Smarter Sports Betting Starts Here.</h2>
             <p className="text-base sm:text-lg text-gray-600">
-              Wagerproof uses real data — not hype — to identify true betting edges across the NFL, NBA, MLB, and College Football.
+              WagerProof uses real data — not hype — to identify true betting edges across the NFL, NBA, MLB, and College Football.
               <br />
               No emotion. No “locks.” Just transparent, data-backed predictions built from machine learning models that track accuracy over time.
             </p>

@@ -1,4 +1,5 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Volleyball, School, Star } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap } from "lucide-react";
+import { Basketball } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
@@ -61,7 +62,7 @@ export const navItems: NavItem[] = [
   {
     title: "NBA",
     to: "/nba",
-    icon: <Volleyball className="h-4 w-4" />,
+    icon: <Basketball className="h-4 w-4" />,
     comingSoon: true,
   },
   {
@@ -74,6 +75,18 @@ export const navItems: NavItem[] = [
     title: "Editors Picks",
     to: "/editors-picks",
     icon: <Star className="h-4 w-4" />,
+    comingSoon: true,
+  },
+  {
+    title: "Feature Requests",
+    to: "/feature-requests",
+    icon: <MessageSquare className="h-4 w-4" />,
+    comingSoon: true,
+  },
+  {
+    title: "Learn WagerProof",
+    to: "/learn",
+    icon: <GraduationCap className="h-4 w-4" />,
     comingSoon: true,
   },
   {
