@@ -127,9 +127,9 @@ export default function Account() {
           </CardHeader>
           <CardContent className="space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login" className="text-base">Sign In</TabsTrigger>
-                <TabsTrigger value="signup" className="text-base">Sign Up</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-6 h-12">
+                <TabsTrigger value="login" className="text-base py-3">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" className="text-base py-3">Sign Up</TabsTrigger>
               </TabsList>
               
               <TabsContent value="login" className="space-y-5 mt-0">
