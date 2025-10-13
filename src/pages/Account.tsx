@@ -128,8 +128,8 @@ export default function Account() {
           <CardContent className="space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6 h-12">
-                <TabsTrigger value="login" className="text-base py-3">Sign In</TabsTrigger>
-                <TabsTrigger value="signup" className="text-base py-3">Sign Up</TabsTrigger>
+                <TabsTrigger value="login" className="text-base py-3 data-[state=active]:bg-primary data-[state=active]:text-white">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" className="text-base py-3 data-[state=active]:bg-primary data-[state=active]:text-white">Sign Up</TabsTrigger>
               </TabsList>
               
               <TabsContent value="login" className="space-y-5 mt-0">
@@ -149,7 +149,7 @@ export default function Account() {
                         />
                       </div>
                     </div>
-                    <Button className="w-full h-11" onClick={handleUpdatePassword} disabled={isLoading || !newPassword}>Update Password</Button>
+                    <Button className="w-full h-11 text-white" onClick={handleUpdatePassword} disabled={isLoading || !newPassword}>Update Password</Button>
                     <Button variant="ghost" className="w-full" onClick={()=>setResetMode(false)}>Back to Sign In</Button>
                   </div>
                 ) : (
@@ -191,7 +191,7 @@ export default function Account() {
                     </Alert>
                   )}
                   
-                  <Button type="submit" className="w-full h-11 text-base font-medium" disabled={isLoading}>
+                  <Button type="submit" className="w-full h-11 text-base font-medium text-white" disabled={isLoading}>
                     {isLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -262,7 +262,7 @@ export default function Account() {
                     </Alert>
                   )}
                   
-                  <Button type="submit" className="w-full h-11 text-base font-medium" disabled={isLoading}>
+                  <Button type="submit" className="w-full h-11 text-base font-medium text-white" disabled={isLoading}>
                     {isLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
