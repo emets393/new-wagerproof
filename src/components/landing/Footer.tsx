@@ -47,14 +47,14 @@ const Footer = () => {
               </button>
             </li>
             <li>
-              <a href="https://www.wagerproof.bet/nfl" className="text-gray-600 dark:text-gray-400 hover:text-honeydew-600 dark:hover:text-honeydew-400 transition-colors">
+              <Link to="/account" className="text-gray-600 dark:text-gray-400 hover:text-honeydew-600 dark:hover:text-honeydew-400 transition-colors">
                 NFL Analytics
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="https://www.wagerproof.bet/college-football" className="text-gray-600 dark:text-gray-400 hover:text-honeydew-600 dark:hover:text-honeydew-400 transition-colors">
+              <Link to="/account" className="text-gray-600 dark:text-gray-400 hover:text-honeydew-600 dark:hover:text-honeydew-400 transition-colors">
                 College Football
-              </a>
+              </Link>
             </li>
           </ul>
         </div>

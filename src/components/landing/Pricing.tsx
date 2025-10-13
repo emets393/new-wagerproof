@@ -3,6 +3,7 @@ import React from "react";
 import { Check } from "lucide-react";
 import { useInViewAnimation } from "@/hooks/useInViewAnimation";
 import { Button as MovingBorderButton } from "@/components/ui/moving-border";
+import { Link } from "react-router-dom";
 
 const PricingTier = ({ title, price, description, features, buttonText, highlighted = false, inView, index, subtext }: {
   title: string;
@@ -34,22 +35,23 @@ const PricingTier = ({ title, price, description, features, buttonText, highligh
             </li>)}
         </ul>
 
-        <MovingBorderButton
-          borderRadius="0.75rem"
-          containerClassName="h-12 w-full"
-          className={`${highlighted 
-            ? "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-honeydew-600 dark:text-honeydew-400 border-gray-300 dark:border-gray-600" 
-            : "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600"
-          } font-medium text-lg`}
-          borderClassName={highlighted 
-            ? "bg-[radial-gradient(#73b69e_40%,transparent_60%)]" 
-            : "bg-[radial-gradient(#6b7280_40%,transparent_60%)]"
-          }
-          duration={highlighted ? 2000 : 3000}
-          onClick={() => window.location.href = 'https://www.wagerproof.bet/account'}
-        >
-          <span className="px-4">{buttonText}</span>
-        </MovingBorderButton>
+        <Link to="/account">
+          <MovingBorderButton
+            borderRadius="0.75rem"
+            containerClassName="h-12 w-full"
+            className={`${highlighted 
+              ? "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-honeydew-600 dark:text-honeydew-400 border-gray-300 dark:border-gray-600" 
+              : "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600"
+            } font-medium text-lg`}
+            borderClassName={highlighted 
+              ? "bg-[radial-gradient(#73b69e_40%,transparent_60%)]" 
+              : "bg-[radial-gradient(#6b7280_40%,transparent_60%)]"
+            }
+            duration={highlighted ? 2000 : 3000}
+          >
+            <span className="px-4">{buttonText}</span>
+          </MovingBorderButton>
+        </Link>
       </div>
     </div>;
 };

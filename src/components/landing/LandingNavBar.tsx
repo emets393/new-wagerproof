@@ -83,17 +83,18 @@ const NavBar = () => {
               }} onClick={() => window.open('/press-kit', '_self')}>
                 Press Kit
             </Button>
-            <MovingBorderButton
-              borderRadius={BTN_RADIUS}
-              containerClassName="h-[2.3rem] w-auto"
-              className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-honeydew-600 dark:text-honeydew-400 font-semibold border-gray-300 dark:border-gray-600"
-              borderClassName="bg-[radial-gradient(#73b69e_40%,transparent_60%)]"
-              duration={2000}
-              onClick={() => window.location.href = 'https://www.wagerproof.bet/account'}
-            >
-                <span className="hidden md:inline px-3">Get Started</span>
-                <span className="md:hidden px-3">Sign In</span>
-            </MovingBorderButton>
+            <Link to="/account">
+              <MovingBorderButton
+                borderRadius={BTN_RADIUS}
+                containerClassName="h-[2.3rem] w-auto"
+                className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-honeydew-600 dark:text-honeydew-400 font-semibold border-gray-300 dark:border-gray-600"
+                borderClassName="bg-[radial-gradient(#73b69e_40%,transparent_60%)]"
+                duration={2000}
+              >
+                  <span className="hidden md:inline px-3">Get Started</span>
+                  <span className="md:hidden px-3">Sign In</span>
+              </MovingBorderButton>
+            </Link>
             <button className="md:hidden p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-honeydew-600 dark:hover:text-honeydew-400 focus:outline-none" style={{
             borderRadius: borderRadius
           }} onClick={() => setIsMenuOpen(!isMenuOpen)}>

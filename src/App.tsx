@@ -47,13 +47,14 @@ function AppRoutes() {
   const location = useLocation();
   
   // Determine if current route should use authenticated layout
-  const isPublicRoute = ['/welcome', '/home', '/access-denied'].includes(location.pathname);
+  const isPublicRoute = ['/', '/welcome', '/home', '/access-denied'].includes(location.pathname);
 
   // Pages that should not have the layout (landing, welcome, access denied)
   if (isPublicRoute) {
     return (
       <PublicLayout>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/home" element={<Landing />} />
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/access-denied" element={<AccessDenied />} />
@@ -73,7 +74,6 @@ function AppRoutes() {
         <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
         <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-        <Route path="/" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
       </Routes>
     </AuthenticatedLayout>
   );
