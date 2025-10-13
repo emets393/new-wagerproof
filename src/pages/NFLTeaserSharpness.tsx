@@ -159,8 +159,6 @@ export default function NFLTeaserSharpness() {
       'Las Vegas Raiders': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
       'LA Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
       'LA Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
-      'LA Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
-      'LA Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
       'Miami': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
       'Minnesota': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
       'New England': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',

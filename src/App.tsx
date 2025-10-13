@@ -11,11 +11,9 @@ import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, User, LogOut } from "lucide-react";
-import { SubscriptionStatus } from "@/components/SubscriptionComponents";
 
 const queryClient = new QueryClient();
 
@@ -52,7 +50,6 @@ function AppHeader() {
       <div className="flex items-center gap-2">
         {user ? (
           <div className="flex items-center gap-2">
-            <SubscriptionStatus />
             <span className="text-sm text-muted-foreground">{user.email}</span>
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4" />
@@ -103,9 +100,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <SubscriptionProvider>
-            <AppWithHeader />
-          </SubscriptionProvider>
+          <AppWithHeader />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
