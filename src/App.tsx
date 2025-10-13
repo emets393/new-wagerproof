@@ -10,10 +10,13 @@ import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
+import Admin from "./pages/Admin";
+import AccessDenied from "./pages/AccessDenied";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, User, LogOut } from "lucide-react";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -79,12 +82,14 @@ function AppWithHeader() {
         <Route path="/home" element={<Landing />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/account" element={<Account />} />
-        <Route path="/game-analysis/:gameId" element={<GameAnalysis />} />
-        <Route path="/college-football" element={<CollegeFootball />} />
-        <Route path="/nfl" element={<NFL />} />
-        <Route path="/nfl-analytics" element={<NFLAnalytics />} />
-        <Route path="/nfl/teaser-sharpness" element={<NFLTeaserSharpness />} />
-        <Route path="/" element={<NFL />} />
+        <Route path="/access-denied" element={<AccessDenied />} />
+        <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
+        <Route path="/college-football" element={<ProtectedRoute><CollegeFootball /></ProtectedRoute>} />
+        <Route path="/nfl" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
+        <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
+        <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+        <Route path="/" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
         {navItems.map(({ to, page }) => (
           <Route key={to} path={to} element={page} />
         ))}

@@ -1,13 +1,12 @@
-import { Home as HomeIcon, Trophy, Shield, BarChart, User } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield } from "lucide-react";
 import { Index } from "./pages/index";
-// import WinRates from "./pages/WinRates"; // Temporarily hidden (MLB season over)
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NotFound from "./pages/NotFound";
 import { Account } from "./pages";
-// import Marketplace from "./pages/Marketplace"; // Temporarily hidden
 import Landing from "./pages/Landing";
+import Admin from "./pages/Admin";
 
 /**
  * Central place for defining the navigation items. Used for navigation components and routing.
@@ -29,15 +28,20 @@ export const navItems = [
   {
     title: "NFL",
     to: "/nfl",
-    icon: <Shield className="h-4 w-4" />,
+    icon: <ShieldIcon className="h-4 w-4" />,
     page: <NFL />,
   },
-  // NFL Analytics will be linked from the NFL page directly
+  {
+    title: "Admin",
+    to: "/admin",
+    icon: <Shield className="h-4 w-4" />,
+    page: <Admin />,
+    requiresAdmin: true,
+  },
   {
     title: "Account",
     to: "/account",
     icon: <User className="h-4 w-4" />,
     page: <Account />,
   },
-  // Marketplace temporarily hidden
 ];
