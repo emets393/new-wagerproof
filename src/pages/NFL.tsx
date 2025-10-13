@@ -10,6 +10,9 @@ import { Link } from 'react-router-dom';
 import H2HModal from '@/components/H2HModal';
 import LineMovementModal from '@/components/LineMovementModal';
 import NFLGameCard from '@/components/NFLGameCard';
+import HistoricalDataSection from '@/components/HistoricalDataSection';
+import { BackgroundGradient } from '@/components/ui/background-gradient';
+import ElectricBorder from '@/components/ui/electric-border';
 
 interface NFLPrediction {
   id: string;
@@ -66,6 +69,7 @@ export default function NFL() {
 
   // Focused card state for light beams effect
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  
 
   // Sorting helpers (displayed probability = max(p, 1-p))
   const getDisplayedMlProb = (p: number | null): number | null => {
@@ -109,6 +113,34 @@ export default function NFL() {
     setSelectedUniqueId('');
     setSelectedHomeTeam('');
     setSelectedAwayTeam('');
+  };
+
+  // Helper function to calculate color luminance
+  const getColorLuminance = (hexColor: string): number => {
+    // Remove # if present
+    const hex = hexColor.replace('#', '');
+    
+    // Convert to RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // Calculate relative luminance using the formula
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  };
+
+  // Get appropriate team color for dark mode
+  const getTeamColorForMode = (teamColors: { primary: string; secondary: string }): string => {
+    // In dark mode, always choose the brighter color
+    if (document.documentElement.classList.contains('dark')) {
+      const primaryLuminance = getColorLuminance(teamColors.primary);
+      const secondaryLuminance = getColorLuminance(teamColors.secondary);
+      
+      // Return whichever color is brighter (higher luminance)
+      return secondaryLuminance > primaryLuminance ? teamColors.secondary : teamColors.primary;
+    }
+    // In light mode, use primary
+    return teamColors.primary;
   };
 
   // Check if a game should be displayed based on active filters
@@ -752,28 +784,13 @@ export default function NFL() {
                   awaySpread={prediction.away_spread}
                 >
                 <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
-                  {/* Game Date and Action Buttons */}
-                  <div className="text-center">
-                    <div className="text-xs font-medium text-muted-foreground mb-2">
+                  {/* Game Date and Time */}
+                  <div className="text-center space-y-2">
+                    <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">
                       {formatCompactDate(prediction.game_date)}
                     </div>
-                    <div className="flex gap-1.5 sm:gap-2 justify-center">
-                      <Button
-                        size="sm"
-                        onClick={() => openH2HModal(prediction.home_team, prediction.away_team)}
-                        className="text-xs bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-sm hover:shadow-md transition-all duration-200 px-2 py-1 border-0"
-                      >
-                        <History className="h-3 w-3 mr-1" />
-                        H2H
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => openLineMovementModal(prediction.training_key, prediction.home_team, prediction.away_team)}
-                        className="text-xs bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-sm hover:shadow-md transition-all duration-200 px-2 py-1 border-0"
-                      >
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        Lines
-                      </Button>
+                    <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 sm:px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700 inline-block">
+                      {convertTimeToEST(prediction.game_time)}
                     </div>
                   </div>
 
@@ -800,12 +817,9 @@ export default function NFL() {
                         </div>
                       </div>
 
-                      {/* @ Symbol, Game Time, and Total */}
+                      {/* @ Symbol and Total */}
                       <div className="text-center px-2 sm:px-4 flex flex-col items-center justify-center">
-                        <span className="text-xl sm:text-2xl font-bold text-gray-400 dark:text-gray-500">@</span>
-                        <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mt-1 sm:mt-2 mb-2 sm:mb-4 bg-gray-100 dark:bg-gray-800 px-2 sm:px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700">
-                          {convertTimeToEST(prediction.game_time)}
-                        </div>
+                        <span className="text-4xl sm:text-5xl font-bold text-gray-400 dark:text-gray-500 mb-2 sm:mb-3">@</span>
                         <div className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 bg-blue-50 dark:bg-blue-900/30 px-2 sm:px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800">
                           Total: {prediction.over_line || '-'}
                         </div>
@@ -833,33 +847,42 @@ export default function NFL() {
                     </div>
                   </div>
 
+                  {/* Historical Data Section */}
+                  <HistoricalDataSection
+                    prediction={prediction}
+                    awayTeamColors={awayTeamColors}
+                    homeTeamColors={homeTeamColors}
+                    onH2HClick={openH2HModal}
+                    onLinesClick={openLineMovementModal}
+                  />
+
                   {/* Model Predictions Section */}
-                  <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
-                    <div className="text-center">
-                      <h4 className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800 shadow-sm">Model Predictions</h4>
-                    </div>
-                    
-                    {/* Spread Predictions Card */}
-                    <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 dark:from-gray-800/50 dark:to-blue-900/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                      <div className="text-center mb-3">
-                        <h5 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">Spread</h5>
-                      </div>
-                      {/* Spread Prediction */}
+                  <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
+                    <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+                      {/* Header */}
+                      <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100">Model Predictions</h4>
+                      
+                      {/* Spread Predictions */}
                       {prediction.home_away_spread_cover_prob !== null && (
-                        (() => {
-                          const isHome = prediction.home_away_spread_cover_prob > 0.5;
-                          const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
-                          const predictedSpread = isHome ? prediction.home_spread : prediction.away_spread;
-                          const confidencePct = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
-                          const confidenceColorClass =
-                            confidencePct <= 58 ? 'text-rose-600' :
-                            confidencePct <= 65 ? 'text-orange-500' :
-                            'text-emerald-600';
-                          return (
-                            <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
-                              {/* Left: Logo + Team (spread) */}
-                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-300 via-indigo-300 to-purple-300 dark:from-blue-700 dark:via-indigo-700 dark:to-purple-700 shadow-lg">
-                                <div className="h-full w-full px-3 sm:px-4 pt-3 sm:pt-4 pb-6 sm:pb-7 rounded-xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center">
+                        <div className="space-y-3">
+                          <h5 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">Spread</h5>
+                          {(() => {
+                            const isHome = prediction.home_away_spread_cover_prob > 0.5;
+                            const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
+                            const predictedSpread = isHome ? prediction.home_spread : prediction.away_spread;
+                            const confidencePct = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
+                            const confidenceColorClass =
+                              confidencePct <= 58 ? 'text-rose-600' :
+                              confidencePct <= 65 ? 'text-orange-500' :
+                              'text-emerald-600';
+                            const teamColor = getTeamColorForMode(isHome ? homeTeamColors : awayTeamColors);
+                            return (
+                              <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
+                                {/* Left: Logo + Team (spread) */}
+                                <BackgroundGradient 
+                                  className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center"
+                                  colors={[teamColor, teamColor]}
+                                >
                                   <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 flex items-center justify-center mb-2">
                                     <img
                                       src={getTeamLogo(predictedTeam)}
@@ -870,65 +893,108 @@ export default function NFL() {
                                   <span className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 dark:text-gray-100 text-center leading-snug">
                                     {predictedTeam} ({formatSpread(predictedSpread)})
                                   </span>
-                                </div>
+                                </BackgroundGradient>
+                                {/* Right: Confidence % */}
+                                {confidencePct > 70 ? (
+                                  <ElectricBorder
+                                    color="#10b981"
+                                    speed={1.0}
+                                    chaos={0.3}
+                                    thickness={5}
+                                    className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
+                                    style={{ borderRadius: 24 }}
+                                  >
+                                    <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight text-emerald-600`}>
+                                      {confidencePct}%
+                                    </div>
+                                    <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
+                                  </ElectricBorder>
+                                ) : (
+                                  <BackgroundGradient 
+                                    className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
+                                    colors={
+                                      confidencePct <= 58 ? ['#dc2626', '#ef4444'] : // Red for low confidence
+                                      confidencePct <= 65 ? ['#ea580c', '#f97316'] : // Orange for medium confidence  
+                                      ['#059669', '#10b981'] // Green for high confidence
+                                    }
+                                  >
+                                    <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
+                                      {confidencePct}%
+                                    </div>
+                                    <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
+                                  </BackgroundGradient>
+                                )}
                               </div>
-                              {/* Right: Confidence % */}
-                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-300 via-indigo-300 to-purple-300 dark:from-blue-700 dark:via-indigo-700 dark:to-purple-700 shadow-lg">
-                                <div className="h-full w-full px-3 sm:px-4 pt-3 sm:pt-4 pb-4 sm:pb-5 rounded-xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center">
-                                  <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
-                                    {confidencePct}%
-                                  </div>
-                                  <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()
-                      )}
-                    </div>
-
-                    {/* Over/Under Analysis Card */}
-                    {prediction.ou_result_prob !== null && (
-                      <div className="bg-gradient-to-br from-gray-50 to-green-50/30 dark:from-gray-800/50 dark:to-green-900/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                        <div className="text-center mb-3">
-                          <h5 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">Over / Under</h5>
+                            );
+                          })()}
                         </div>
-                        {(() => {
-                          const isOver = prediction.ou_result_prob! > 0.5;
-                          const confidencePct = Math.round((isOver ? prediction.ou_result_prob! : 1 - prediction.ou_result_prob!) * 100);
-                          const confidenceColorClass =
-                            confidencePct <= 58 ? 'text-rose-600' :
-                            confidencePct <= 65 ? 'text-orange-500' :
-                            'text-emerald-600';
-                          const arrow = isOver ? '▲' : '▼';
-                          const arrowColor = isOver ? 'text-emerald-600' : 'text-rose-600';
-                          const label = isOver ? 'Over' : 'Under';
-                          return (
-                            <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
-                              {/* Left: Big arrow + OU line */}
-                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-green-300 via-emerald-300 to-blue-300 dark:from-green-700 dark:via-emerald-700 dark:to-blue-700 shadow-lg">
-                                <div className="h-full w-full p-3 sm:p-4 rounded-xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center">
+                      )}
+
+                      {/* Over/Under Analysis */}
+                      {prediction.ou_result_prob !== null && (
+                        <div className="space-y-3">
+                          <h5 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">Over / Under</h5>
+                          {(() => {
+                            const isOver = prediction.ou_result_prob! > 0.5;
+                            const confidencePct = Math.round((isOver ? prediction.ou_result_prob! : 1 - prediction.ou_result_prob!) * 100);
+                            const confidenceColorClass =
+                              confidencePct <= 58 ? 'text-rose-600' :
+                              confidencePct <= 65 ? 'text-orange-500' :
+                              'text-emerald-600';
+                            const arrow = isOver ? '▲' : '▼';
+                            const arrowColor = isOver ? 'text-emerald-600' : 'text-rose-600';
+                            const label = isOver ? 'Over' : 'Under';
+                            return (
+                              <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
+                                {/* Left: Big arrow + OU line */}
+                                <BackgroundGradient 
+                                  className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center"
+                                  colors={
+                                    isOver ? ['#059669', '#10b981'] : // Green for Over
+                                    ['#dc2626', '#ef4444'] // Red for Under
+                                  }
+                                >
                                   <div className={`text-4xl sm:text-5xl md:text-6xl font-black ${arrowColor}`}>{arrow}</div>
                                   <div className="mt-2 text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100 text-center">
                                     {label} {prediction.over_line || '-'}
                                   </div>
-                                </div>
+                                </BackgroundGradient>
+                                {/* Right: Confidence % */}
+                                {confidencePct > 70 ? (
+                                  <ElectricBorder
+                                    color="#10b981"
+                                    speed={1.2}
+                                    chaos={0.3}
+                                    thickness={5}
+                                    className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
+                                    style={{ borderRadius: 24 }}
+                                  >
+                                    <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight text-emerald-600`}>
+                                      {confidencePct}%
+                                    </div>
+                                    <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
+                                  </ElectricBorder>
+                                ) : (
+                                  <BackgroundGradient 
+                                    className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
+                                    colors={
+                                      confidencePct <= 58 ? ['#dc2626', '#ef4444'] : // Red for low confidence
+                                      confidencePct <= 65 ? ['#ea580c', '#f97316'] : // Orange for medium confidence  
+                                      ['#059669', '#10b981'] // Green for high confidence
+                                    }
+                                  >
+                                    <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
+                                      {confidencePct}%
+                                    </div>
+                                    <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
+                                  </BackgroundGradient>
+                                )}
                               </div>
-                              {/* Right: Confidence % */}
-                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-green-300 via-emerald-300 to-blue-300 dark:from-green-700 dark:via-emerald-700 dark:to-blue-700 shadow-lg">
-                                <div className="h-full w-full p-3 sm:p-4 rounded-xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center">
-                                  <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
-                                    {confidencePct}%
-                                  </div>
-                                  <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
-                    
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Betting Split Labels Section */}
