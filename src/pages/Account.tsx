@@ -46,6 +46,9 @@ export default function Account() {
         setSuccess('Check your email for the confirmation link!');
         setEmail('');
         setPassword('');
+      } else if (action === 'login') {
+        // Redirect to homepage after successful login
+        navigate('/', { replace: true });
       }
     } catch (err) {
       setError('An unexpected error occurred');
