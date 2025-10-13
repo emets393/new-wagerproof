@@ -2,6 +2,7 @@
 import React from "react";
 import { Check } from "lucide-react";
 import { useInViewAnimation } from "@/hooks/useInViewAnimation";
+import { Button as MovingBorderButton } from "@/components/ui/moving-border";
 
 const PricingTier = ({ title, price, description, features, buttonText, highlighted = false, inView, index, subtext }: {
   title: string;
@@ -33,13 +34,22 @@ const PricingTier = ({ title, price, description, features, buttonText, highligh
             </li>)}
         </ul>
 
-        <button 
-          className={`w-full py-3 rounded-lg font-medium ${highlighted ? "bg-gradient-to-r from-honeydew-500 to-honeydew-600 hover:from-honeydew-600 hover:to-honeydew-700 text-white" : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200"} text-lg shadow hover-scale transition`} 
-          type="button"
+        <MovingBorderButton
+          borderRadius="0.75rem"
+          containerClassName="h-12 w-full"
+          className={`${highlighted 
+            ? "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-honeydew-600 dark:text-honeydew-400 border-gray-300 dark:border-gray-600" 
+            : "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600"
+          } font-medium text-lg`}
+          borderClassName={highlighted 
+            ? "bg-[radial-gradient(#73b69e_40%,transparent_60%)]" 
+            : "bg-[radial-gradient(#6b7280_40%,transparent_60%)]"
+          }
+          duration={highlighted ? 2000 : 3000}
           onClick={() => window.location.href = 'https://www.wagerproof.bet/account'}
         >
-          {buttonText}
-        </button>
+          <span className="px-4">{buttonText}</span>
+        </MovingBorderButton>
       </div>
     </div>;
 };

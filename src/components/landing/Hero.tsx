@@ -3,6 +3,7 @@ import React from "react";
 import { AuroraText } from "@/components/magicui/aurora-text";
 import LightRays from "@/components/magicui/light-rays";
 import { Button } from "@/components/ui/button";
+import { Button as MovingBorderButton } from "@/components/ui/moving-border";
 const wagerProofIcon = "/wagerproof-landing.png";
 const Hero = () => {
   return <section className="relative min-h-screen pt-24 md:pt-32 px-4 md:px-6 pb-16 overflow-hidden transition-colors duration-500">
@@ -51,13 +52,16 @@ const Hero = () => {
 
           {/* CTA Button */}
           <div className="flex items-center justify-center mb-4">
-            <Button 
-              size="lg"
-              className="bg-gradient-to-r from-honeydew-500 to-honeydew-700 hover:from-honeydew-600 hover:to-honeydew-800 text-white font-semibold shadow-lg transition-transform hover:scale-105 px-10 py-6 text-lg"
+            <MovingBorderButton
+              borderRadius="1.5rem"
+              containerClassName="h-16 w-auto"
+              className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-honeydew-600 dark:text-honeydew-400 font-semibold border-gray-300 dark:border-gray-600 text-lg"
+              borderClassName="bg-[radial-gradient(#73b69e_40%,transparent_60%)]"
+              duration={2500}
               onClick={() => window.location.href = 'https://www.wagerproof.bet/nfl'}
             >
-              See Today's Games and Picks
-            </Button>
+              <span className="px-6">See Today's Games and Picks</span>
+            </MovingBorderButton>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

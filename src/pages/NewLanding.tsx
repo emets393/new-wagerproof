@@ -14,7 +14,7 @@ const NewLanding = () => {
   useRandomNotifications();
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 transition-colors duration-300">
       <SEO
         title="WagerProof - Data-Driven Sports Betting Analytics"
         description="Professional sports betting analytics powered by real data. Get predictions and insights for NFL, College Football, NBA, and more. Access advanced analytics tools today."

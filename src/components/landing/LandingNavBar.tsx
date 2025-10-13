@@ -1,6 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
+import { Button as MovingBorderButton } from "@/components/ui/moving-border";
 import { Link } from "react-router-dom";
 import { scrollToElement } from "@/utils/scrollToElement";
 import { Menu, X } from "lucide-react";
@@ -82,16 +83,17 @@ const NavBar = () => {
               }} onClick={() => window.open('/press-kit', '_self')}>
                 Press Kit
             </Button>
-            <Button className="bg-gradient-to-r from-honeydew-500 to-honeydew-700 hover:from-honeydew-600 hover:to-honeydew-800 text-white font-semibold shadow hover-scale transition" style={{
-              borderRadius: BTN_RADIUS,
-              paddingLeft: "1.2rem",
-              paddingRight: "1.2rem",
-              height: "2.3rem",
-              fontSize: "1rem"
-            }} onClick={() => window.location.href = 'https://www.wagerproof.bet/account'}>
-                <span className="hidden md:inline">Get Started</span>
-                <span className="md:hidden">Sign In</span>
-            </Button>
+            <MovingBorderButton
+              borderRadius={BTN_RADIUS}
+              containerClassName="h-[2.3rem] w-auto"
+              className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-honeydew-600 dark:text-honeydew-400 font-semibold border-gray-300 dark:border-gray-600"
+              borderClassName="bg-[radial-gradient(#73b69e_40%,transparent_60%)]"
+              duration={2000}
+              onClick={() => window.location.href = 'https://www.wagerproof.bet/account'}
+            >
+                <span className="hidden md:inline px-3">Get Started</span>
+                <span className="md:hidden px-3">Sign In</span>
+            </MovingBorderButton>
             <button className="md:hidden p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-honeydew-600 dark:hover:text-honeydew-400 focus:outline-none" style={{
             borderRadius: borderRadius
           }} onClick={() => setIsMenuOpen(!isMenuOpen)}>
