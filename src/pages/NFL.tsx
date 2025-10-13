@@ -860,7 +860,7 @@ export default function NFL() {
                   <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
                     <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
                       {/* Header */}
-                      <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100">Model Predictions</h4>
+                      <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Model Predictions</h4>
                       
                       {/* Spread Predictions */}
                       {prediction.home_away_spread_cover_prob !== null && (
@@ -999,69 +999,75 @@ export default function NFL() {
 
                   {/* Betting Split Labels Section */}
                   {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
-                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
-                      <div className="text-center">
-                        <h4 className="text-xs sm:text-sm font-bold text-indigo-900 dark:text-indigo-100 bg-gradient-to-r from-indigo-100 to-blue-100 dark:from-indigo-900/30 dark:to-blue-900/30 px-2 sm:px-3 py-1.5 rounded-full border border-indigo-200 dark:border-indigo-800 shadow-sm">Public Betting Facts</h4>
-                      </div>
-                      <div className="space-y-1.5 sm:space-y-2 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 p-3 sm:p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 shadow-sm">
-                        {prediction.ml_splits_label && (
-                          <Badge 
-                            variant="outline" 
-                            className={`w-full justify-center text-xs font-medium ${
-                              shouldHighlightLabel(prediction.ml_splits_label) 
-                                ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
-                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
-                            }`}
-                          >
-                            ML: {prediction.ml_splits_label}
-                          </Badge>
-                        )}
-                        {prediction.spread_splits_label && (
-                          <Badge 
-                            variant="outline" 
-                            className={`w-full justify-center text-xs font-medium ${
-                              shouldHighlightLabel(prediction.spread_splits_label) 
-                                ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
-                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
-                            }`}
-                          >
-                            Spread: {prediction.spread_splits_label}
-                          </Badge>
-                        )}
-                        {prediction.total_splits_label && (
-                          <Badge 
-                            variant="outline" 
-                            className={`w-full justify-center text-xs font-medium ${
-                              shouldHighlightLabel(prediction.total_splits_label) 
-                                ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
-                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
-                            }`}
-                          >
-                            Total: {prediction.total_splits_label}
-                          </Badge>
-                        )}
+                    <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
+                      <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
+                        {/* Header */}
+                        <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Public Betting Facts</h4>
+                        
+                        {/* Badges */}
+                        <div className="space-y-1.5 sm:space-y-2">
+                          {prediction.ml_splits_label && (
+                            <Badge 
+                              variant="outline" 
+                              className={`w-full justify-center text-xs font-medium ${
+                                shouldHighlightLabel(prediction.ml_splits_label) 
+                                  ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
+                                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
+                              }`}
+                            >
+                              ML: {prediction.ml_splits_label}
+                            </Badge>
+                          )}
+                          {prediction.spread_splits_label && (
+                            <Badge 
+                              variant="outline" 
+                              className={`w-full justify-center text-xs font-medium ${
+                                shouldHighlightLabel(prediction.spread_splits_label) 
+                                  ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
+                                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
+                              }`}
+                            >
+                              Spread: {prediction.spread_splits_label}
+                            </Badge>
+                          )}
+                          {prediction.total_splits_label && (
+                            <Badge 
+                              variant="outline" 
+                              className={`w-full justify-center text-xs font-medium ${
+                                shouldHighlightLabel(prediction.total_splits_label) 
+                                  ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
+                                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
+                              }`}
+                            >
+                              Total: {prediction.total_splits_label}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* Weather Section */}
-                  <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
-                    <div className="text-center">
-                      <h4 className="text-xs sm:text-sm font-bold text-cyan-900 dark:text-cyan-100 bg-gradient-to-r from-cyan-100 to-blue-100 dark:from-cyan-900/30 dark:to-blue-900/30 px-2 sm:px-3 py-1.5 rounded-full border border-cyan-200 dark:border-cyan-800 shadow-sm">Weather</h4>
+                  <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
+                    <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
+                      {/* Header */}
+                      <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Weather</h4>
+                      
+                      {/* Weather Content */}
+                      {prediction.icon ? (
+                        <div className="flex justify-center">
+                          <WeatherIcon 
+                            iconCode={prediction.icon}
+                            temperature={prediction.temperature}
+                            windSpeed={prediction.wind_speed}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex justify-center">
+                          <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-bold">Indoor Game</span>
+                        </div>
+                      )}
                     </div>
-                    {prediction.icon ? (
-                      <div className="flex justify-center bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 p-2 sm:p-3 rounded-lg border border-cyan-200 dark:border-cyan-800 shadow-sm">
-                        <WeatherIcon 
-                          iconCode={prediction.icon}
-                          temperature={prediction.temperature}
-                          windSpeed={prediction.wind_speed}
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 p-2 sm:p-3 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm">
-                        <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-bold">Indoor Game</span>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </NFLGameCard>

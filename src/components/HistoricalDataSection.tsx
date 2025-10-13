@@ -28,9 +28,9 @@ export default function HistoricalDataSection({
 
   return (
     <div className="text-center pt-2">
-      <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
+      <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 pb-4 sm:pb-6 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
         {/* Header */}
-        <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100">Historical Data</h4>
+        <h4 className="text-lg sm:text-xl pb-6 font-bold text-gray-400 dark:text-gray-500">Historical Data</h4>
         
         {/* Glass Icons */}
         <div className="flex gap-6 justify-center">
