@@ -9,6 +9,7 @@ import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart } f
 import { Link } from 'react-router-dom';
 import H2HModal from '@/components/H2HModal';
 import LineMovementModal from '@/components/LineMovementModal';
+import NFLGameCard from '@/components/NFLGameCard';
 
 interface NFLPrediction {
   id: string;
@@ -62,6 +63,9 @@ export default function NFL() {
   // Line Movement Modal state
   const [lineMovementModalOpen, setLineMovementModalOpen] = useState(false);
   const [selectedUniqueId, setSelectedUniqueId] = useState<string>('');
+
+  // Focused card state for light beams effect
+  const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
 
   // Sorting helpers (displayed probability = max(p, 1-p))
   const getDisplayedMlProb = (p: number | null): number | null => {
@@ -313,6 +317,47 @@ export default function NFL() {
     fetchData();
   }, []);
 
+  // Function to get NFL team colors
+  const getNFLTeamColors = (teamName: string): { primary: string; secondary: string } => {
+    const colorMap: { [key: string]: { primary: string; secondary: string } } = {
+      'Arizona': { primary: '#97233F', secondary: '#000000' },
+      'Atlanta': { primary: '#A71930', secondary: '#000000' },
+      'Baltimore': { primary: '#241773', secondary: '#9E7C0C' },
+      'Buffalo': { primary: '#00338D', secondary: '#C60C30' },
+      'Carolina': { primary: '#0085CA', secondary: '#101820' },
+      'Chicago': { primary: '#0B162A', secondary: '#C83803' },
+      'Cincinnati': { primary: '#FB4F14', secondary: '#000000' },
+      'Cleveland': { primary: '#311D00', secondary: '#FF3C00' },
+      'Dallas': { primary: '#003594', secondary: '#869397' },
+      'Denver': { primary: '#FB4F14', secondary: '#002244' },
+      'Detroit': { primary: '#0076B6', secondary: '#B0B7BC' },
+      'Green Bay': { primary: '#203731', secondary: '#FFB612' },
+      'Houston': { primary: '#03202F', secondary: '#A71930' },
+      'Indianapolis': { primary: '#002C5F', secondary: '#A2AAAD' },
+      'Jacksonville': { primary: '#101820', secondary: '#D7A22A' },
+      'Kansas City': { primary: '#E31837', secondary: '#FFB81C' },
+      'Las Vegas': { primary: '#000000', secondary: '#A5ACAF' },
+      'Los Angeles Chargers': { primary: '#0080C6', secondary: '#FFC20E' },
+      'Los Angeles Rams': { primary: '#003594', secondary: '#FFA300' },
+      'LA Chargers': { primary: '#0080C6', secondary: '#FFC20E' },
+      'LA Rams': { primary: '#003594', secondary: '#FFA300' },
+      'Miami': { primary: '#008E97', secondary: '#FC4C02' },
+      'Minnesota': { primary: '#4F2683', secondary: '#FFC62F' },
+      'New England': { primary: '#002244', secondary: '#C60C30' },
+      'New Orleans': { primary: '#101820', secondary: '#D3BC8D' },
+      'NY Giants': { primary: '#0B2265', secondary: '#A71930' },
+      'NY Jets': { primary: '#125740', secondary: '#000000' },
+      'Philadelphia': { primary: '#004C54', secondary: '#A5ACAF' },
+      'Pittsburgh': { primary: '#FFB612', secondary: '#101820' },
+      'San Francisco': { primary: '#AA0000', secondary: '#B3995D' },
+      'Seattle': { primary: '#002244', secondary: '#69BE28' },
+      'Tampa Bay': { primary: '#D50A0A', secondary: '#FF7900' },
+      'Tennessee': { primary: '#0C2340', secondary: '#4B92DB' },
+      'Washington': { primary: '#5A1414', secondary: '#FFB612' },
+    };
+    return colorMap[teamName] || { primary: '#6B7280', secondary: '#9CA3AF' };
+  };
+
   // Function to get NFL team logo URLs
   const getNFLTeamLogo = (teamName: string): string => {
     const logoMap: { [key: string]: string } = {
@@ -449,7 +494,7 @@ export default function NFL() {
           </div>
 
           {temperature !== null && (
-            <div className="text-lg font-bold text-gray-700 min-w-[60px] text-center">
+            <div className="text-lg font-bold text-gray-900 dark:text-gray-100 min-w-[60px] text-center">
               {Math.round(temperature)}°F
             </div>
           )}
@@ -457,14 +502,14 @@ export default function NFL() {
           {windSpeed !== null && windSpeed > 0 && (
             <div className="flex items-center space-x-2 min-w-[70px]">
               <div className="text-2xl text-blue-500">💨</div>
-              <span className="text-sm font-medium text-gray-600">
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                 {Math.round(windSpeed)} mph
               </span>
             </div>
           )}
         </div>
         
-        <div className="text-xs font-medium text-gray-600 capitalize">
+        <div className="text-xs font-medium text-gray-700 dark:text-gray-300 capitalize">
           {iconCode.replace(/-/g, ' ')}
         </div>
       </div>
@@ -605,7 +650,11 @@ export default function NFL() {
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
         <Button
           variant={sortKey === 'none' ? 'default' : 'outline'}
-          className={`${sortKey === 'none' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
+          className={`${
+            sortKey === 'none' 
+              ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40' 
+              : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
+          } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
           onClick={() => setSortKey('none')}
           title="Sort by game time"
         >
@@ -614,7 +663,11 @@ export default function NFL() {
         </Button>
         <Button
           variant={sortKey === 'spread' ? 'default' : 'outline'}
-          className={`${sortKey === 'spread' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
+          className={`${
+            sortKey === 'spread' 
+              ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40' 
+              : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
+          } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
           onClick={() => setSortKey('spread')}
           title="Sort by highest Spread probability"
         >
@@ -623,7 +676,11 @@ export default function NFL() {
         </Button>
         <Button
           variant={sortKey === 'ou' ? 'default' : 'outline'}
-          className={`${sortKey === 'ou' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
+          className={`${
+            sortKey === 'ou' 
+              ? 'bg-gradient-to-r from-green-600 to-emerald-700 text-white shadow-md shadow-green-500/30 hover:shadow-lg hover:shadow-green-500/40' 
+              : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
+          } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
           onClick={() => setSortKey('ou')}
           title="Sort by highest Over/Under probability"
         >
@@ -639,7 +696,11 @@ export default function NFL() {
               Last updated: {lastUpdated.toLocaleTimeString()}
             </span>
           )}
-          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2">
+          <Button 
+            onClick={fetchData} 
+            disabled={loading} 
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2 shadow-md hover:shadow-lg transition-all duration-200"
+          >
             <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -675,9 +736,21 @@ export default function NFL() {
       <div className="space-y-6 sm:space-y-8">
         <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {getSortedPredictions()
-            .map((prediction, index) => (
-              <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-2 border-gray-200 hover:border-blue-300 shadow-lg">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
+            .map((prediction, index) => {
+              const awayTeamColors = getNFLTeamColors(prediction.away_team);
+              const homeTeamColors = getNFLTeamColors(prediction.home_team);
+              
+              return (
+                <NFLGameCard
+                  key={prediction.id}
+                  isHovered={focusedCardId === prediction.id}
+                  onMouseEnter={() => setFocusedCardId(prediction.id)}
+                  onMouseLeave={() => setFocusedCardId(null)}
+                  awayTeamColors={awayTeamColors}
+                  homeTeamColors={homeTeamColors}
+                  homeSpread={prediction.home_spread}
+                  awaySpread={prediction.away_spread}
+                >
                 <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
                   {/* Game Date and Action Buttons */}
                   <div className="text-center">
@@ -686,19 +759,17 @@ export default function NFL() {
                     </div>
                     <div className="flex gap-1.5 sm:gap-2 justify-center">
                       <Button
-                        variant="outline"
                         size="sm"
                         onClick={() => openH2HModal(prediction.home_team, prediction.away_team)}
-                        className="text-xs bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200 text-blue-700 hover:text-blue-800 transition-all duration-200 px-2 py-1"
+                        className="text-xs bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-sm hover:shadow-md transition-all duration-200 px-2 py-1 border-0"
                       >
                         <History className="h-3 w-3 mr-1" />
                         H2H
                       </Button>
                       <Button
-                        variant="outline"
                         size="sm"
                         onClick={() => openLineMovementModal(prediction.training_key, prediction.home_team, prediction.away_team)}
-                        className="text-xs bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200 text-green-700 hover:text-green-800 transition-all duration-200 px-2 py-1"
+                        className="text-xs bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-sm hover:shadow-md transition-all duration-200 px-2 py-1 border-0"
                       >
                         <TrendingUp className="h-3 w-3 mr-1" />
                         Lines
@@ -718,7 +789,7 @@ export default function NFL() {
                             className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="hidden sm:flex text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 items-center justify-center text-gray-800">
+                        <div className="hidden sm:flex text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 items-center justify-center text-gray-900 dark:text-gray-100">
                           {prediction.away_team}
                         </div>
                         <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
@@ -731,11 +802,11 @@ export default function NFL() {
 
                       {/* @ Symbol, Game Time, and Total */}
                       <div className="text-center px-2 sm:px-4 flex flex-col items-center justify-center">
-                        <span className="text-xl sm:text-2xl font-bold text-gray-400">@</span>
-                        <div className="text-xs sm:text-sm font-medium text-gray-600 mt-1 sm:mt-2 mb-2 sm:mb-4 bg-gray-100 px-2 sm:px-3 py-1 rounded-full">
+                        <span className="text-xl sm:text-2xl font-bold text-gray-400 dark:text-gray-500">@</span>
+                        <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mt-1 sm:mt-2 mb-2 sm:mb-4 bg-gray-100 dark:bg-gray-800 px-2 sm:px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700">
                           {convertTimeToEST(prediction.game_time)}
                         </div>
-                        <div className="text-xs sm:text-sm font-bold text-gray-700 bg-blue-50 px-2 sm:px-3 py-1 rounded-full border border-blue-200">
+                        <div className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 bg-blue-50 dark:bg-blue-900/30 px-2 sm:px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800">
                           Total: {prediction.over_line || '-'}
                         </div>
                       </div>
@@ -749,7 +820,7 @@ export default function NFL() {
                             className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="hidden sm:flex text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 items-center justify-center text-gray-800">
+                        <div className="hidden sm:flex text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 items-center justify-center text-gray-900 dark:text-gray-100">
                           {prediction.home_team}
                         </div>
                         <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
@@ -763,15 +834,15 @@ export default function NFL() {
                   </div>
 
                   {/* Model Predictions Section */}
-                  <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t-2 border-gray-200">
+                  <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
                     <div className="text-center">
-                      <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Model Predictions</h4>
+                      <h4 className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800 shadow-sm">Model Predictions</h4>
                     </div>
                     
                     {/* Spread Predictions Card */}
-                    <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
+                    <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 dark:from-gray-800/50 dark:to-blue-900/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                       <div className="text-center mb-3">
-                        <h5 className="text-xs sm:text-sm font-semibold text-gray-700">Spread</h5>
+                        <h5 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">Spread</h5>
                       </div>
                       {/* Spread Prediction */}
                       {prediction.home_away_spread_cover_prob !== null && (
@@ -787,8 +858,8 @@ export default function NFL() {
                           return (
                             <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
                               {/* Left: Logo + Team (spread) */}
-                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-                                <div className="h-full w-full px-3 sm:px-4 pt-3 sm:pt-4 pb-6 sm:pb-7 rounded-xl bg-white flex flex-col items-center justify-center">
+                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-300 via-indigo-300 to-purple-300 dark:from-blue-700 dark:via-indigo-700 dark:to-purple-700 shadow-lg">
+                                <div className="h-full w-full px-3 sm:px-4 pt-3 sm:pt-4 pb-6 sm:pb-7 rounded-xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center">
                                   <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 flex items-center justify-center mb-2">
                                     <img
                                       src={getTeamLogo(predictedTeam)}
@@ -796,18 +867,18 @@ export default function NFL() {
                                       className="max-h-full max-w-full object-contain drop-shadow"
                                     />
                                   </div>
-                                  <span className="text-xs sm:text-sm md:text-base font-semibold text-gray-800 text-center leading-snug">
+                                  <span className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 dark:text-gray-100 text-center leading-snug">
                                     {predictedTeam} ({formatSpread(predictedSpread)})
                                   </span>
                                 </div>
                               </div>
                               {/* Right: Confidence % */}
-                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-                                <div className="h-full w-full px-3 sm:px-4 pt-3 sm:pt-4 pb-4 sm:pb-5 rounded-xl bg-white flex flex-col items-center justify-center text-center">
+                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-300 via-indigo-300 to-purple-300 dark:from-blue-700 dark:via-indigo-700 dark:to-purple-700 shadow-lg">
+                                <div className="h-full w-full px-3 sm:px-4 pt-3 sm:pt-4 pb-4 sm:pb-5 rounded-xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center">
                                   <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
                                     {confidencePct}%
                                   </div>
-                                  <div className="text-[11px] sm:text-xs text-gray-600 font-medium mt-1">Confidence</div>
+                                  <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
                                 </div>
                               </div>
                             </div>
@@ -818,9 +889,9 @@ export default function NFL() {
 
                     {/* Over/Under Analysis Card */}
                     {prediction.ou_result_prob !== null && (
-                      <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
+                      <div className="bg-gradient-to-br from-gray-50 to-green-50/30 dark:from-gray-800/50 dark:to-green-900/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                         <div className="text-center mb-3">
-                          <h5 className="text-xs sm:text-sm font-semibold text-gray-700">Over / Under</h5>
+                          <h5 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">Over / Under</h5>
                         </div>
                         {(() => {
                           const isOver = prediction.ou_result_prob! > 0.5;
@@ -835,21 +906,21 @@ export default function NFL() {
                           return (
                             <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
                               {/* Left: Big arrow + OU line */}
-                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-                                <div className="h-full w-full p-3 sm:p-4 rounded-xl bg-white flex flex-col items-center justify-center">
+                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-green-300 via-emerald-300 to-blue-300 dark:from-green-700 dark:via-emerald-700 dark:to-blue-700 shadow-lg">
+                                <div className="h-full w-full p-3 sm:p-4 rounded-xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center">
                                   <div className={`text-4xl sm:text-5xl md:text-6xl font-black ${arrowColor}`}>{arrow}</div>
-                                  <div className="mt-2 text-sm sm:text-base md:text-lg font-semibold text-gray-800 text-center">
+                                  <div className="mt-2 text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100 text-center">
                                     {label} {prediction.over_line || '-'}
                                   </div>
                                 </div>
                               </div>
                               {/* Right: Confidence % */}
-                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-blue-200 via-indigo-200 to-purple-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-                                <div className="h-full w-full p-3 sm:p-4 rounded-xl bg-white flex flex-col items-center justify-center text-center">
+                              <div className="h-28 sm:h-32 md:h-36 rounded-2xl p-[1px] bg-gradient-to-br from-green-300 via-emerald-300 to-blue-300 dark:from-green-700 dark:via-emerald-700 dark:to-blue-700 shadow-lg">
+                                <div className="h-full w-full p-3 sm:p-4 rounded-xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center">
                                   <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
                                     {confidencePct}%
                                   </div>
-                                  <div className="text-[11px] sm:text-xs text-gray-600 font-medium mt-1">Confidence</div>
+                                  <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
                                 </div>
                               </div>
                             </div>
@@ -862,18 +933,18 @@ export default function NFL() {
 
                   {/* Betting Split Labels Section */}
                   {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
-                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
+                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
                       <div className="text-center">
-                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-indigo-50 to-blue-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Public Betting Facts</h4>
+                        <h4 className="text-xs sm:text-sm font-bold text-indigo-900 dark:text-indigo-100 bg-gradient-to-r from-indigo-100 to-blue-100 dark:from-indigo-900/30 dark:to-blue-900/30 px-2 sm:px-3 py-1.5 rounded-full border border-indigo-200 dark:border-indigo-800 shadow-sm">Public Betting Facts</h4>
                       </div>
-                      <div className="space-y-1.5 sm:space-y-2 bg-gradient-to-br from-indigo-50 to-blue-50 p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm">
+                      <div className="space-y-1.5 sm:space-y-2 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 p-3 sm:p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 shadow-sm">
                         {prediction.ml_splits_label && (
                           <Badge 
                             variant="outline" 
-                            className={`w-full justify-center text-xs ${
+                            className={`w-full justify-center text-xs font-medium ${
                               shouldHighlightLabel(prediction.ml_splits_label) 
-                                ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                                : 'bg-white border-gray-300 text-gray-700'
+                                ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
+                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
                             }`}
                           >
                             ML: {prediction.ml_splits_label}
@@ -882,10 +953,10 @@ export default function NFL() {
                         {prediction.spread_splits_label && (
                           <Badge 
                             variant="outline" 
-                            className={`w-full justify-center text-xs ${
+                            className={`w-full justify-center text-xs font-medium ${
                               shouldHighlightLabel(prediction.spread_splits_label) 
-                                ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                                : 'bg-white border-gray-300 text-gray-700'
+                                ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
+                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
                             }`}
                           >
                             Spread: {prediction.spread_splits_label}
@@ -894,10 +965,10 @@ export default function NFL() {
                         {prediction.total_splits_label && (
                           <Badge 
                             variant="outline" 
-                            className={`w-full justify-center text-xs ${
+                            className={`w-full justify-center text-xs font-medium ${
                               shouldHighlightLabel(prediction.total_splits_label) 
-                                ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                                : 'bg-white border-gray-300 text-gray-700'
+                                ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
+                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
                             }`}
                           >
                             Total: {prediction.total_splits_label}
@@ -908,12 +979,12 @@ export default function NFL() {
                   )}
 
                   {/* Weather Section */}
-                  <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
+                  <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
                     <div className="text-center">
-                      <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-green-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Weather</h4>
+                      <h4 className="text-xs sm:text-sm font-bold text-cyan-900 dark:text-cyan-100 bg-gradient-to-r from-cyan-100 to-blue-100 dark:from-cyan-900/30 dark:to-blue-900/30 px-2 sm:px-3 py-1.5 rounded-full border border-cyan-200 dark:border-cyan-800 shadow-sm">Weather</h4>
                     </div>
                     {prediction.icon ? (
-                      <div className="flex justify-center bg-gradient-to-br from-blue-50 to-green-50 p-2 sm:p-3 rounded-lg border border-gray-200">
+                      <div className="flex justify-center bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 p-2 sm:p-3 rounded-lg border border-cyan-200 dark:border-cyan-800 shadow-sm">
                         <WeatherIcon 
                           iconCode={prediction.icon}
                           temperature={prediction.temperature}
@@ -921,14 +992,15 @@ export default function NFL() {
                         />
                       </div>
                     ) : (
-                      <div className="flex justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-2 sm:p-3 rounded-lg border border-gray-200">
-                        <span className="text-xs sm:text-sm text-gray-600 font-bold">Indoor Game</span>
+                      <div className="flex justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 p-2 sm:p-3 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm">
+                        <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-bold">Indoor Game</span>
                       </div>
                     )}
                   </div>
                 </CardContent>
-              </Card>
-            ))}
+              </NFLGameCard>
+            );
+            })}
         </div>
       </div>
 
