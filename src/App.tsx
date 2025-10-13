@@ -17,11 +17,21 @@ import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, User, LogOut } from "lucide-react";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { useIsAdmin } from "./hooks/useIsAdmin";
 
 const queryClient = new QueryClient();
 
 function AppHeader() {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
+
+  // Filter nav items based on admin status
+  const visibleNavItems = navItems.filter(item => {
+    if (item.requiresAdmin) {
+      return isAdmin;
+    }
+    return true;
+  });
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-2 mb-4 flex items-center justify-between">
@@ -34,7 +44,7 @@ function AppHeader() {
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64">
             <nav className="flex flex-col gap-1 p-4">
-              {navItems.map(({ to, title, icon }) => (
+              {visibleNavItems.map(({ to, title, icon }) => (
                 <Link
                   key={to}
                   to={to}
