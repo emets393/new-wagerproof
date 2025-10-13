@@ -90,7 +90,7 @@ const CurvedLoop: FC<CurvedLoopProps> = ({
           <path ref={pathRef} id={pathId} d={pathD} fill="none" stroke="transparent" />
         </defs>
         {ready && (
-          <text xmlSpace="preserve" className={`text-4xl font-bold uppercase ${className ?? ''}`} style={{ fontSize: '40px' }}>
+          <text xmlSpace="preserve" className={`text-4xl font-bold uppercase ${className ?? ''}`} style={{ fontSize: '40px' }} fill="currentColor">
             <textPath ref={textPathRef} href={`#${pathId}`} startOffset={offset + 'px'} xmlSpace="preserve">
               {totalText}
             </textPath>

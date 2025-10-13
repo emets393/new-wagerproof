@@ -50,11 +50,11 @@ const NavBar = () => {
           {/* LOGO + TITLE */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center px-2">
-              <img src="/wagerproof-landing.png" alt="WagerProof Logo" style={{
+              <img src="/Wagerproof_v1-iOS-logoonly-1024x1024@1x copy.png" alt="WagerProof Logo" style={{
               width: 36,
               height: 36,
               marginRight: 8
-            }} className="object-contain" />
+            }} className="object-contain rounded-lg" />
               <span className="text-2xl font-bold bg-gradient-to-r from-honeydew-500 to-honeydew-700 dark:from-honeydew-400 dark:to-honeydew-600 bg-clip-text text-transparent select-none" style={{
               letterSpacing: "-1px"
             }}>
@@ -73,17 +73,15 @@ const NavBar = () => {
               }} onClick={() => window.open('https://www.tiktok.com/@wagerproof', '_blank')}>
                 Follow
             </Button>
-            <Link to="/press-kit" className="hidden md:inline-flex">
-              <Button variant="outline" className="border-honeydew-400 text-gray-700 dark:text-gray-200 dark:border-gray-600 font-medium hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
+            <Button variant="ghost" className="hidden md:inline-flex text-gray-700 dark:text-gray-200 font-medium hover:text-honeydew-600 dark:hover:text-honeydew-400 hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
                 borderRadius: BTN_RADIUS,
                 paddingLeft: "1.2rem",
                 paddingRight: "1.2rem",
                 height: "2.3rem",
                 fontSize: "1rem"
-              }}>
+              }} onClick={() => window.open('/press-kit', '_self')}>
                 Press Kit
-              </Button>
-            </Link>
+            </Button>
             <Button className="bg-gradient-to-r from-honeydew-500 to-honeydew-700 hover:from-honeydew-600 hover:to-honeydew-800 text-white font-semibold shadow hover-scale transition" style={{
               borderRadius: BTN_RADIUS,
               paddingLeft: "1.2rem",
@@ -114,17 +112,15 @@ const NavBar = () => {
                 }} onClick={() => { window.open('https://www.tiktok.com/@wagerproof', '_blank'); setIsMenuOpen(false); }}>
                   Follow
               </Button>
-              <Link to="/press-kit" onClick={() => setIsMenuOpen(false)}>
-                <Button variant="outline" className="w-full justify-center border-honeydew-400 text-gray-700 dark:text-gray-200 dark:border-gray-600 font-medium hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
+              <Button variant="ghost" className="w-full justify-center text-gray-700 dark:text-gray-200 font-medium hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
                   borderRadius: BTN_RADIUS,
                   paddingLeft: "1.2rem",
                   paddingRight: "1.2rem",
                   height: "2.3rem",
                   fontSize: "1rem"
-                }}>
+                }} onClick={() => { window.open('/press-kit', '_self'); setIsMenuOpen(false); }}>
                   Press Kit
-                </Button>
-              </Link>
+              </Button>
             </div>
           </div>}
       </div>

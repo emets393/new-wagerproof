@@ -3,6 +3,7 @@ import React from "react";
 import { useInViewAnimation } from "@/hooks/useInViewAnimation";
 import { Marquee } from "@/components/magicui/marquee";
 import { cn } from "@/lib/utils";
+import CountUp from "./CountUp";
 
 const testimonials = [
   {
@@ -104,12 +105,12 @@ const Testimonials = () => {
       {/* Full-width Marquee */}
       <div className="relative w-screen -ml-[50vw] left-[50%] overflow-hidden">
         <div className="flex w-full flex-col items-center justify-center overflow-hidden">
-          <Marquee pauseOnHover className="[--duration:35s]">
+          <Marquee className="[--duration:30s]">
             {firstRow.map((review) => (
               <ReviewCard key={review.username} {...review} />
             ))}
           </Marquee>
-          <Marquee reverse pauseOnHover className="[--duration:35s]">
+          <Marquee reverse className="[--duration:30s]">
             {secondRow.map((review) => (
               <ReviewCard key={review.username} {...review} />
             ))}
@@ -123,12 +124,18 @@ const Testimonials = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className={`mt-12 text-center transition-all duration-700 ${inView ? "animate-fade-in" : "opacity-0 translate-y-10"}`}>
           <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">Join thousands of bettors already using WagerProof</p>
-          <button 
-            className="py-3 px-8 bg-gradient-to-r from-honeydew-500 to-honeydew-600 hover:from-honeydew-600 hover:to-honeydew-700 text-white rounded-lg font-medium transition-colors text-lg shadow hover-scale"
-            onClick={() => window.location.href = 'https://www.wagerproof.bet/account'}
-          >
-            Get Started Free
-          </button>
+          <div className="flex items-center justify-center gap-2 text-4xl md:text-5xl font-bold">
+            <CountUp
+              from={0}
+              to={5000}
+              separator=","
+              direction="up"
+              duration={2.5}
+              delay={0.5}
+              className="text-honeydew-600 dark:text-honeydew-400 font-black"
+            />
+            <span className="text-honeydew-600 dark:text-honeydew-400 font-black">+</span>
+          </div>
         </div>
       </div>
     </section>

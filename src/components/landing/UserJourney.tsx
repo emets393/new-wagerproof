@@ -28,8 +28,8 @@ const steps = [
     borderColor: ["#a855f7", "#c084fc", "#a855f7"],
   },
   {
-    title: "Track Results",
-    description: "Monitor model accuracy and your betting performance over time",
+    title: "Tune the Model",
+    description: "Customize your own betting model based on your risk preference and strategy",
     icon: <Trophy />,
     iconColor: "green",
     borderColor: ["#22c55e", "#4ade80", "#22c55e"],

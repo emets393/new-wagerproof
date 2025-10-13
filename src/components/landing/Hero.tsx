@@ -49,29 +49,21 @@ const Hero = () => {
             Next-gen, open source, lightweight, data-driven sports betting analytics for everyone.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
+          {/* CTA Button */}
+          <div className="flex items-center justify-center mb-4">
             <Button 
               size="lg"
-              className="bg-gradient-to-r from-honeydew-500 to-honeydew-700 hover:from-honeydew-600 hover:to-honeydew-800 text-white font-semibold shadow-lg transition-transform hover:scale-105 px-8 py-6 text-lg"
-              onClick={() => window.location.href = 'https://www.wagerproof.bet/account'}
-            >
-              Track Your Bets
-            </Button>
-            <Button 
-              size="lg"
-              variant="outline"
-              className="border-2 border-gray-700 dark:border-gray-300 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-transform hover:scale-105 px-8 py-6 text-lg"
+              className="bg-gradient-to-r from-honeydew-500 to-honeydew-700 hover:from-honeydew-600 hover:to-honeydew-800 text-white font-semibold shadow-lg transition-transform hover:scale-105 px-10 py-6 text-lg"
               onClick={() => window.location.href = 'https://www.wagerproof.bet/nfl'}
             >
-              See Live Demo
+              See Today's Games and Picks
             </Button>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            Free access to all predictions. No credit card required.
+            Follow us on Tiktok for free daily predictions and news.
           </p>
         </div>
 
