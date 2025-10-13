@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot } from "lucide-react";
 import { Basketball } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -87,6 +87,12 @@ export const navItems: NavItem[] = [
     title: "Learn WagerProof",
     to: "/learn",
     icon: <GraduationCap className="h-4 w-4" />,
+    comingSoon: true,
+  },
+  {
+    title: "WagerBot Chat",
+    to: "/wagerbot-chat",
+    icon: <Bot className="h-4 w-4" />,
     comingSoon: true,
   },
   {

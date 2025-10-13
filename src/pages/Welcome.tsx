@@ -1,25 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, BarChart3, Target, TrendingUp, Brain, Upload } from 'lucide-react';
+import { Loader2, BarChart3, Target, TrendingUp, Brain } from 'lucide-react';
+import { ModernAuthForm } from '@/components/ModernAuthForm';
 
 export default function Welcome() {
   const { user, loading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState('login');
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
 
   // Redirect authenticated users to home
   useEffect(() => {
@@ -28,8 +19,7 @@ export default function Welcome() {
     }
   }, [user, loading, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent, action: 'login' | 'signup') => {
-    e.preventDefault();
+  const handleSubmit = async (email: string, password: string, action: 'login' | 'signup') => {
     setError('');
     setSuccess('');
     setIsLoading(true);
@@ -42,15 +32,13 @@ export default function Welcome() {
 
     try {
       const { error } = action === 'login' 
-        ? await signIn(email, password, rememberMe)
+        ? await signIn(email, password, false)
         : await signUp(email, password);
 
       if (error) {
         setError(error.message);
       } else if (action === 'signup') {
         setSuccess('Check your email for the confirmation link!');
-        setEmail('');
-        setPassword('');
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -143,134 +131,14 @@ export default function Welcome() {
 
           {/* Right Side - Authentication Forms */}
           <div className="flex justify-center lg:justify-end">
-            <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
-              <CardHeader className="text-center space-y-4">
-                <CardTitle className="text-2xl font-bold text-primary">
-                  Get Started
-                </CardTitle>
-                <CardDescription className="text-muted">
-                  Sign in to your account or create a new one to access advanced analytics
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="grid w-full grid-cols-2 bg-muted/20">
-                    <TabsTrigger value="login" className="text-primary data-[state=active]:bg-accent data-[state=active]:text-primary">Sign In</TabsTrigger>
-                    <TabsTrigger value="signup" className="text-primary data-[state=active]:bg-accent data-[state=active]:text-primary">Sign Up</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="login" className="space-y-4 mt-6">
-                    <form onSubmit={(e) => handleSubmit(e, 'login')} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="email" className="text-primary font-medium">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Enter your email"
-                          disabled={isLoading}
-                          className="h-11"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="password" className="text-primary font-medium">Password</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Enter your password"
-                          disabled={isLoading}
-                          className="h-11"
-                        />
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="remember"
-                          checked={rememberMe}
-                          onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                          disabled={isLoading}
-                        />
-                        <Label htmlFor="remember" className="text-sm font-normal cursor-pointer text-primary">
-                          Remember me for 30 days
-                        </Label>
-                      </div>
-                      
-                      {error && (
-                        <Alert variant="destructive">
-                          <AlertDescription>{error}</AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 text-white" disabled={isLoading}>
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Signing In...
-                          </>
-                        ) : (
-                          'Sign In'
-                        )}
-                      </Button>
-                    </form>
-                  </TabsContent>
-                  
-                  <TabsContent value="signup" className="space-y-4 mt-6">
-                    <form onSubmit={(e) => handleSubmit(e, 'signup')} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-email" className="text-primary font-medium">Email</Label>
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Enter your email"
-                          disabled={isLoading}
-                          className="h-11"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-password" className="text-primary font-medium">Password</Label>
-                        <Input
-                          id="signup-password"
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Create a strong password"
-                          disabled={isLoading}
-                          className="h-11"
-                        />
-                      </div>
-                      
-                      {error && (
-                        <Alert variant="destructive">
-                          <AlertDescription>{error}</AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      {success && (
-                        <Alert>
-                          <AlertDescription>{success}</AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 text-white" disabled={isLoading}>
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Creating Account...
-                          </>
-                        ) : (
-                          'Create Account'
-                        )}
-                      </Button>
-                    </form>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+            <ModernAuthForm
+              onSubmit={handleSubmit}
+              isLoading={isLoading}
+              error={error}
+              success={success}
+              mode={mode}
+              onModeChange={setMode}
+            />
           </div>
         </div>
       </div>

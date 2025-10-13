@@ -113,6 +113,9 @@ export default {
 			backgroundImage: {
 				'gradient-emerald': 'linear-gradient(135deg, #10b981, #059669)',
 				'gradient-rose': 'linear-gradient(135deg, #f43f5e, #e11d48)',
+			},
+			boxShadow: {
+				'input': '0px 2px 3px -1px rgba(0, 0, 0, 0.1), 0px 1px 0px 0px rgba(25, 28, 33, 0.02), 0px 0px 0px 1px rgba(25, 28, 33, 0.08)',
 			}
 		}
 	},

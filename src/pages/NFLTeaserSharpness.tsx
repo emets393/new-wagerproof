@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { useTheme } from '@/contexts/ThemeContext';
 import {
   ResponsiveContainer,
   ScatterChart,
@@ -25,6 +26,7 @@ interface SharpnessRow {
 }
 
 export default function NFLTeaserSharpness() {
+  const { theme } = useTheme();
   const [rows, setRows] = useState<SharpnessRow[]>([]);
   const [logos, setLogos] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -224,21 +226,21 @@ export default function NFLTeaserSharpness() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <Card className="p-6 max-w-7xl mx-auto">
+      <Card className="p-6 max-w-7xl mx-auto bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
           <div className="flex items-center gap-3">
-            <button onClick={() => window.history.back()} className="text-sm px-3 py-2 rounded border bg-white hover:bg-gray-50">← Back</button>
-            <h1 className="text-lg sm:text-2xl font-bold">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
+            <button onClick={() => window.history.back()} className="text-sm px-3 py-2 rounded border bg-background hover:bg-muted text-foreground border-border">← Back</button>
+            <h1 className="text-lg sm:text-2xl font-bold text-foreground">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
-            <div className="inline-flex rounded-full overflow-hidden border">
-              <button onClick={() => setMode('ou')} className={`px-3 py-2 text-sm ${mode==='ou'?'bg-blue-600 text-white':'bg-white text-gray-700'}`}>Over/Under</button>
-              <button onClick={() => setMode('spread')} className={`px-3 py-2 text-sm ${mode==='spread'?'bg-blue-600 text-white':'bg-white text-gray-700'}`}>Spread</button>
+            <div className="inline-flex rounded-full overflow-hidden border border-border">
+              <button onClick={() => setMode('ou')} className={`px-3 py-2 text-sm transition-colors ${mode==='ou'?'bg-primary text-primary-foreground':'bg-background text-foreground hover:bg-muted'}`}>Over/Under</button>
+              <button onClick={() => setMode('spread')} className={`px-3 py-2 text-sm transition-colors ${mode==='spread'?'bg-primary text-primary-foreground':'bg-background text-foreground hover:bg-muted'}`}>Spread</button>
             </div>
             <div className="inline-flex items-center gap-2">
-              <span className="text-sm text-gray-700">Filter by Matchups</span>
+              <span className="text-sm text-muted-foreground">Filter by Matchups</span>
               <select
-                className="text-sm border rounded px-2 py-1 bg-white"
+                className="text-sm border border-border rounded px-2 py-1 bg-background text-foreground"
                 value={selectedMatchup}
                 onChange={e => setSelectedMatchup(e.target.value)}
               >
@@ -258,40 +260,46 @@ export default function NFLTeaserSharpness() {
         <div ref={chartRef} className="overflow-x-auto">
           <ResponsiveContainer width="100%" height={600} minWidth={800}>
             <ScatterChart margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? 'hsl(0 0% 20%)' : 'hsl(0 0% 91%)'} />
               {/* Safe zone rectangle: x in [-6, 6], y in [0, 6] */}
               <ReferenceArea x1={-6} x2={6} y1={0} y2={6} fill="#16a34a" fillOpacity={0.12} stroke="#16a34a" strokeOpacity={0.25} />
               <XAxis
                 type="number"
                 dataKey={mode==='ou' ? 'ou_bias_2025' : 'spread_bias_2025'}
-                label={{ value: mode==='ou' ? 'Average O/U Bias' : 'Average Spread Bias', position: 'bottom', style: { fontWeight: 'bold' } }}
+                label={{ value: mode==='ou' ? 'Average O/U Bias' : 'Average Spread Bias', position: 'bottom', style: { fontWeight: 'bold', fill: theme === 'dark' ? 'hsl(0 0% 96%)' : 'hsl(0 0% 10%)' } }}
                 domain={[xScale.min, xScale.max]}
                 ticks={xScale.ticks}
+                tick={{ fill: theme === 'dark' ? 'hsl(0 0% 96%)' : 'hsl(0 0% 10%)' }}
+                axisLine={{ stroke: theme === 'dark' ? 'hsl(0 0% 20%)' : 'hsl(0 0% 91%)' }}
+                tickLine={{ stroke: theme === 'dark' ? 'hsl(0 0% 20%)' : 'hsl(0 0% 91%)' }}
               />
               <YAxis
                 type="number"
                 dataKey={mode==='ou' ? 'ou_sharpness_2025' : 'spread_sharpness_2025'}
-                label={{ value: mode==='ou' ? 'Average O/U Error' : 'Average Absolute Spread Error', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontWeight: 'bold' } }}
+                label={{ value: mode==='ou' ? 'Average O/U Error' : 'Average Absolute Spread Error', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontWeight: 'bold', fill: theme === 'dark' ? 'hsl(0 0% 96%)' : 'hsl(0 0% 10%)' } }}
                 domain={[yScale.min, yScale.max]}
                 ticks={yScale.ticks}
+                tick={{ fill: theme === 'dark' ? 'hsl(0 0% 96%)' : 'hsl(0 0% 10%)' }}
+                axisLine={{ stroke: theme === 'dark' ? 'hsl(0 0% 20%)' : 'hsl(0 0% 91%)' }}
+                tickLine={{ stroke: theme === 'dark' ? 'hsl(0 0% 20%)' : 'hsl(0 0% 91%)' }}
               />
               {/* Center line */}
-              <ReferenceLine x={0} strokeDasharray="4 4" />
+              <ReferenceLine x={0} strokeDasharray="4 4" stroke={theme === 'dark' ? 'hsl(0 0% 45%)' : 'hsl(0 0% 65%)'} />
               <RechartsTooltip 
                 cursor={{ strokeDasharray: '3 3' }} 
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload;
                     return (
-                      <div className="bg-white p-3 border rounded shadow-lg">
-                        <p className="font-semibold">{data.team_name}</p>
-                        <p className="text-sm">
+                      <div className="bg-popover p-3 border border-border rounded shadow-lg">
+                        <p className="font-semibold text-popover-foreground">{data.team_name}</p>
+                        <p className="text-sm text-popover-foreground">
                           Bias: {data[mode === 'ou' ? 'ou_bias_2025' : 'spread_bias_2025']?.toFixed(2)}
                         </p>
-                        <p className="text-sm">
+                        <p className="text-sm text-popover-foreground">
                           Sharpness: {data[mode === 'ou' ? 'ou_sharpness_2025' : 'spread_sharpness_2025']?.toFixed(2)}
                         </p>
-                        <p className="text-sm">Games: {data.games_ou_2025}</p>
+                        <p className="text-sm text-popover-foreground">Games: {data.games_ou_2025}</p>
                       </div>
                     );
                   }
@@ -303,42 +311,42 @@ export default function NFLTeaserSharpness() {
           </ResponsiveContainer>
         </div>
 
-        <p className="text-sm text-center mt-4 text-gray-500">
+        <p className="text-sm text-center mt-4 text-muted-foreground">
           Green band marks teams closest to zero bias and low error — safest teaser targets.
         </p>
 
         {/* Reading guide */}
         {mode === 'spread' ? (
-          <div className="mt-6 text-sm text-gray-800 space-y-2">
+          <div className="mt-6 text-sm text-foreground space-y-2">
             <div className="font-semibold">🏈 Spread Sharpness — How to Read</div>
             <div>
               <span className="font-medium">X-Axis (Average Spread Bias):</span>
-              <div className="ml-4">→ Right = Underrated — teams covering more often than expected.</div>
-              <div className="ml-4">→ Left = Overvalued — teams failing to cover consistently.</div>
-              <div className="ml-4">(Closer to the center means lines are more accurate.)</div>
+              <div className="ml-4 text-muted-foreground">→ Right = Underrated — teams covering more often than expected.</div>
+              <div className="ml-4 text-muted-foreground">→ Left = Overvalued — teams failing to cover consistently.</div>
+              <div className="ml-4 text-muted-foreground">(Closer to the center means lines are more accurate.)</div>
             </div>
             <div>
               <span className="font-medium">Y-Axis (Average Spread Error):</span>
-              <div className="ml-4">↓ Lower = Sharper — Vegas is tight on this team.</div>
-              <div className="ml-4">↑ Higher = Looser — spreads miss by more on average.</div>
+              <div className="ml-4 text-muted-foreground">↓ Lower = Sharper — Vegas is tight on this team.</div>
+              <div className="ml-4 text-muted-foreground">↑ Higher = Looser — spreads miss by more on average.</div>
             </div>
-            <div className="italic">Bottom-right = ideal zone → underrated teams with sharp, consistent lines.</div>
+            <div className="italic text-muted-foreground">Bottom-right = ideal zone → underrated teams with sharp, consistent lines.</div>
           </div>
         ) : (
-          <div className="mt-6 text-sm text-gray-800 space-y-2">
+          <div className="mt-6 text-sm text-foreground space-y-2">
             <div className="font-semibold">📊 Over/Under Sharpness — How to Read</div>
             <div>
               <span className="font-medium">X-Axis (Average O/U Bias):</span>
-              <div className="ml-4">→ Right = Overs hit more often — totals set too low.</div>
-              <div className="ml-4">→ Left = Unders hit more often — totals set too high.</div>
-              <div className="ml-4">(Center = balanced totals market.)</div>
+              <div className="ml-4 text-muted-foreground">→ Right = Overs hit more often — totals set too low.</div>
+              <div className="ml-4 text-muted-foreground">→ Left = Unders hit more often — totals set too high.</div>
+              <div className="ml-4 text-muted-foreground">(Center = balanced totals market.)</div>
             </div>
             <div>
               <span className="font-medium">Y-Axis (Average O/U Error):</span>
-              <div className="ml-4">↓ Lower = Sharper totals — Vegas is close on the number.</div>
-              <div className="ml-4">↑ Higher = Less predictable totals — larger misses on average.</div>
+              <div className="ml-4 text-muted-foreground">↓ Lower = Sharper totals — Vegas is close on the number.</div>
+              <div className="ml-4 text-muted-foreground">↑ Higher = Less predictable totals — larger misses on average.</div>
             </div>
-            <div className="italic">Bottom-center = most efficient zone → totals market is sharp and unbiased.</div>
+            <div className="italic text-muted-foreground">Bottom-center = most efficient zone → totals market is sharp and unbiased.</div>
           </div>
         )}
       </Card>

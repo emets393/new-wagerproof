@@ -6,6 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import CFBGameCard from '@/components/CFBGameCard';
+import { Button as MovingBorderButton } from '@/components/ui/moving-border';
+import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 
 interface CFBPrediction {
   id: string;
@@ -74,6 +77,7 @@ export default function CollegeFootball() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>(['All Games']);
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
+  const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const toggleGameSelection = (id: string) => {
     setSelectedGameIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
@@ -408,6 +412,156 @@ export default function CollegeFootball() {
     fetchData();
   }, []);
 
+  // Function to get CFB team colors
+  const getCFBTeamColors = (teamName: string): { primary: string; secondary: string } => {
+    const colorMap: { [key: string]: { primary: string; secondary: string } } = {
+      // SEC
+      'Alabama': { primary: '#9E1B32', secondary: '#FFFFFF' },
+      'Auburn': { primary: '#0C2340', secondary: '#E87722' },
+      'Georgia': { primary: '#BA0C2F', secondary: '#000000' },
+      'Florida': { primary: '#0021A5', secondary: '#FA4616' },
+      'LSU': { primary: '#461D7C', secondary: '#FDD023' },
+      'Texas A&M': { primary: '#500000', secondary: '#FFFFFF' },
+      'Ole Miss': { primary: '#CE1126', secondary: '#14213D' },
+      'Mississippi State': { primary: '#5D1725', secondary: '#FFFFFF' },
+      'Arkansas': { primary: '#9D2235', secondary: '#FFFFFF' },
+      'Kentucky': { primary: '#0033A0', secondary: '#FFFFFF' },
+      'Tennessee': { primary: '#FF8200', secondary: '#FFFFFF' },
+      'South Carolina': { primary: '#73000A', secondary: '#000000' },
+      'Missouri': { primary: '#F1B82D', secondary: '#000000' },
+      'Vanderbilt': { primary: '#866D4B', secondary: '#000000' },
+      
+      // Big Ten
+      'Ohio State': { primary: '#BB0000', secondary: '#666666' },
+      'Michigan': { primary: '#00274C', secondary: '#FFCB05' },
+      'Penn State': { primary: '#041E42', secondary: '#FFFFFF' },
+      'Michigan State': { primary: '#18453B', secondary: '#FFFFFF' },
+      'Wisconsin': { primary: '#C5050C', secondary: '#FFFFFF' },
+      'Iowa': { primary: '#FFCD00', secondary: '#000000' },
+      'Minnesota': { primary: '#7A0019', secondary: '#FFCC33' },
+      'Nebraska': { primary: '#E41C38', secondary: '#FFFFFF' },
+      'Illinois': { primary: '#13294B', secondary: '#E84A27' },
+      'Northwestern': { primary: '#4E2A84', secondary: '#FFFFFF' },
+      'Purdue': { primary: '#000000', secondary: '#CFB991' },
+      'Indiana': { primary: '#990000', secondary: '#FFFFFF' },
+      'Rutgers': { primary: '#CC0033', secondary: '#FFFFFF' },
+      'Maryland': { primary: '#E03A3E', secondary: '#FFD520' },
+      
+      // Big 12
+      'Oklahoma': { primary: '#841617', secondary: '#FDF9D8' },
+      'Texas': { primary: '#BF5700', secondary: '#FFFFFF' },
+      'Oklahoma State': { primary: '#FF6600', secondary: '#000000' },
+      'Baylor': { primary: '#003015', secondary: '#FFB81C' },
+      'TCU': { primary: '#4D1979', secondary: '#A3A9AC' },
+      'Texas Tech': { primary: '#CC0000', secondary: '#000000' },
+      'Kansas State': { primary: '#512888', secondary: '#FFFFFF' },
+      'Iowa State': { primary: '#C8102E', secondary: '#F1BE48' },
+      'Kansas': { primary: '#0051BA', secondary: '#E8000D' },
+      'West Virginia': { primary: '#002855', secondary: '#EAAA00' },
+      'BYU': { primary: '#002E5D', secondary: '#FFFFFF' },
+      'Cincinnati': { primary: '#E00122', secondary: '#000000' },
+      'UCF': { primary: '#BA9B37', secondary: '#000000' },
+      'Houston': { primary: '#C8102E', secondary: '#FFFFFF' },
+      
+      // ACC
+      'Clemson': { primary: '#F56600', secondary: '#522D80' },
+      'Florida State': { primary: '#782F40', secondary: '#CEB888' },
+      'Miami': { primary: '#F47321', secondary: '#005030' },
+      'North Carolina': { primary: '#7BAFD4', secondary: '#13294B' },
+      'NC State': { primary: '#CC0000', secondary: '#FFFFFF' },
+      'Virginia Tech': { primary: '#630031', secondary: '#CF4420' },
+      'Virginia': { primary: '#232D4B', secondary: '#E57200' },
+      'Duke': { primary: '#003087', secondary: '#FFFFFF' },
+      'Wake Forest': { primary: '#9E7E38', secondary: '#000000' },
+      'Georgia Tech': { primary: '#B3A369', secondary: '#003057' },
+      'Boston College': { primary: '#98002E', secondary: '#FFB81C' },
+      'Pitt': { primary: '#003594', secondary: '#FFB81C' },
+      'Syracuse': { primary: '#F76900', secondary: '#000E54' },
+      'Louisville': { primary: '#AD0000', secondary: '#000000' },
+      
+      // Pac-12
+      'USC': { primary: '#990000', secondary: '#FFCC00' },
+      'UCLA': { primary: '#2D68C4', secondary: '#FFD100' },
+      'Oregon': { primary: '#007030', secondary: '#FEE123' },
+      'Washington': { primary: '#4B2E83', secondary: '#B7A57A' },
+      'Utah': { primary: '#CC0000', secondary: '#FFFFFF' },
+      'Arizona State': { primary: '#8C1D40', secondary: '#FFC627' },
+      'Arizona': { primary: '#003366', secondary: '#CC0033' },
+      'Colorado': { primary: '#000000', secondary: '#CFB87C' },
+      'Stanford': { primary: '#8C1515', secondary: '#FFFFFF' },
+      'California': { primary: '#003262', secondary: '#FDB515' },
+      'Oregon State': { primary: '#DC4405', secondary: '#000000' },
+      'Washington State': { primary: '#981E32', secondary: '#5E6A71' },
+      
+      // Independents
+      'Notre Dame': { primary: '#0C2340', secondary: '#C99700' },
+      'Army': { primary: '#000000', secondary: '#D4AF37' },
+      'Navy': { primary: '#000080', secondary: '#C5B783' },
+      
+      // Other notable programs
+      'Boise State': { primary: '#0033A0', secondary: '#D64309' },
+      'San Diego State': { primary: '#A6192E', secondary: '#000000' },
+      'Fresno State': { primary: '#DB0032', secondary: '#003A70' },
+      'Utah State': { primary: '#003057', secondary: '#FFFFFF' },
+      'Wyoming': { primary: '#492F24', secondary: '#FFC425' },
+      'Colorado State': { primary: '#1E4D2B', secondary: '#C8C372' },
+      'Nevada': { primary: '#003366', secondary: '#A2AAAD' },
+      'UNLV': { primary: '#CF0A2C', secondary: '#A7A8AA' },
+      'New Mexico': { primary: '#BA0C2F', secondary: '#A7A8AA' },
+      'Hawaii': { primary: '#024731', secondary: '#FFFFFF' },
+      'San Jose State': { primary: '#0055A2', secondary: '#E5A823' },
+      
+      'Memphis': { primary: '#003087', secondary: '#808285' },
+      'SMU': { primary: '#CC0033', secondary: '#0033A0' },
+      'Tulane': { primary: '#006747', secondary: '#418FDE' },
+      'Tulsa': { primary: '#002D72', secondary: '#C8102E' },
+      'East Carolina': { primary: '#592A8A', secondary: '#FFC845' },
+      'Temple': { primary: '#9D2235', secondary: '#FFFFFF' },
+      'South Florida': { primary: '#006747', secondary: '#CFC493' },
+      'Charlotte': { primary: '#046A38', secondary: '#FFFFFF' },
+      'Florida Atlantic': { primary: '#003366', secondary: '#CC0000' },
+      'Florida International': { primary: '#081E3F', secondary: '#B6862C' },
+      'Marshall': { primary: '#00B140', secondary: '#FFFFFF' },
+      'Old Dominion': { primary: '#003057', secondary: '#A2AAAD' },
+      'Middle Tennessee': { primary: '#0066CC', secondary: '#FFFFFF' },
+      'Western Kentucky': { primary: '#C8102E', secondary: '#FFFFFF' },
+      'North Texas': { primary: '#00853E', secondary: '#FFFFFF' },
+      'UTSA': { primary: '#0C2340', secondary: '#F15A22' },
+      'Rice': { primary: '#00205B', secondary: '#8996A0' },
+      'Louisiana Tech': { primary: '#00338D', secondary: '#EB1C2D' },
+      'Southern Miss': { primary: '#FFAA3C', secondary: '#000000' },
+      'UTEP': { primary: '#FF8200', secondary: '#041E42' },
+      'New Mexico State': { primary: '#BA0C2F', secondary: '#FFFFFF' },
+      'Liberty': { primary: '#002D72', secondary: '#C8102E' },
+      'James Madison': { primary: '#450084', secondary: '#FFB612' },
+      'Appalachian State': { primary: '#000000', secondary: '#FFCC00' },
+      'Coastal Carolina': { primary: '#006F71', secondary: '#A27752' },
+      'Georgia Southern': { primary: '#003A70', secondary: '#FFFFFF' },
+      'Georgia State': { primary: '#0033A0', secondary: '#C8102E' },
+      'Troy': { primary: '#8B0015', secondary: '#A7A8AA' },
+      'South Alabama': { primary: '#004B8D', secondary: '#C8102E' },
+      'Louisiana': { primary: '#CE181E', secondary: '#FFFFFF' },
+      'Louisiana Monroe': { primary: '#8B0015', secondary: '#FFC82E' },
+      'Arkansas State': { primary: '#CC092F', secondary: '#000000' },
+      'Texas State': { primary: '#501214', secondary: '#B29369' },
+      
+      'Buffalo': { primary: '#005BBB', secondary: '#FFFFFF' },
+      'Akron': { primary: '#041E42', secondary: '#A89968' },
+      'Kent State': { primary: '#002664', secondary: '#EEB111' },
+      'Ohio': { primary: '#00694E', secondary: '#FFFFFF' },
+      'Miami (OH)': { primary: '#C8102E', secondary: '#FFFFFF' },
+      'Bowling Green': { primary: '#FE5000', secondary: '#4F2C1D' },
+      'Toledo': { primary: '#003E7E', secondary: '#F7B718' },
+      'Central Michigan': { primary: '#6A0032', secondary: '#FFC82E' },
+      'Eastern Michigan': { primary: '#006633', secondary: '#FFFFFF' },
+      'Western Michigan': { primary: '#5B4638', secondary: '#FFCB05' },
+      'Northern Illinois': { primary: '#BA0C2F', secondary: '#000000' },
+      'Ball State': { primary: '#BA0C2F', secondary: '#FFFFFF' },
+    };
+    
+    return colorMap[teamName] || { primary: '#6B7280', secondary: '#9CA3AF' };
+  };
+
   const getTeamLogo = (teamName: string): string => {
     const mapping = teamMappings.find(m => m.api === teamName);
     return mapping?.logo_light || '';
@@ -619,13 +773,13 @@ export default function CollegeFootball() {
 
     return (
       <div className="flex justify-center mt-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white shadow-sm">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-background shadow-sm">
           {iconPath && (
             <img src={`/weather-icons/${iconPath}`} alt={code || 'weather'} className="h-5 w-5 object-contain" />
           )}
-          <div className="text-xs font-medium text-gray-700">
+          <div className="text-xs font-medium text-foreground">
             {typeof tempF === 'number' ? `Temp: ${Math.round(tempF)}°F` : 'Temp: --'}
-            <span className="mx-2 text-gray-300">•</span>
+            <span className="mx-2 text-muted-foreground">•</span>
             {typeof windMph === 'number' ? `Wind: ${Math.round(windMph)} mph` : 'Wind: --'}
           </div>
         </div>
@@ -817,23 +971,23 @@ export default function CollegeFootball() {
   return (
     <div className="container mx-auto px-4 py-6">
 
-      {/* Game selection dropdown (multi) */}
-      <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-gray-50 rounded-lg border relative">
-        <span className="text-sm font-medium text-gray-700">Select games:</span>
+      {/* Game selection dropdown (multi) - Aligned with sort buttons */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <span className="text-sm font-medium text-foreground">Select games:</span>
         <div ref={dropdownRef} className="relative">
-          <button
-            type="button"
+          <Button
+            variant="outline"
             onClick={() => setGameDropdownOpen(o => !o)}
-            className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-2 bg-white border rounded-md shadow-sm text-sm"
+            className="bg-white dark:bg-gray-800 text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700"
           >
             {selectedGameIds.length === 0 ? 'All Games' : `${selectedGameIds.length} selected`}
-            <span className={`text-gray-400 transition-transform ${gameDropdownOpen ? 'rotate-180' : ''}`}>▾</span>
-          </button>
+            <span className={`ml-2 text-muted-foreground transition-transform ${gameDropdownOpen ? 'rotate-180' : ''}`}>▾</span>
+          </Button>
           {gameDropdownOpen && (
-          <div className="absolute z-10 mt-2 w-[320px] max-h-72 overflow-auto bg-white border rounded-md shadow-lg p-2">
+          <div className="absolute z-50 mt-2 w-[320px] max-h-72 overflow-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg p-2">
             <div className="flex items-center justify-between mb-2">
-              <Button variant="outline" className="text-xs" onClick={() => setSelectedGameIds(predictions.map(p => String(p.id)))}>Select All</Button>
-              <Button variant="outline" className="text-xs" onClick={() => setSelectedGameIds([])}>Clear</Button>
+              <Button variant="outline" className="text-xs bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" onClick={() => setSelectedGameIds(predictions.map(p => String(p.id)))}>Select All</Button>
+              <Button variant="outline" className="text-xs bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" onClick={() => setSelectedGameIds([])}>Clear</Button>
             </div>
             <ul className="space-y-1">
               {predictions
@@ -843,14 +997,15 @@ export default function CollegeFootball() {
                 const id = String(p.id);
                 const checked = selectedGameIds.includes(id);
                 return (
-                  <li key={id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50">
+                  <li key={id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                     <input
                       id={`game-${id}`}
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggleGameSelection(id)}
+                      className="cursor-pointer"
                     />
-                    <label htmlFor={`game-${id}`} className="text-sm cursor-pointer select-none">
+                    <label htmlFor={`game-${id}`} className="text-sm cursor-pointer select-none text-foreground">
                       {p.away_team} @ {p.home_team}
                     </label>
                   </li>
@@ -866,32 +1021,43 @@ export default function CollegeFootball() {
       {/* Sort Controls with Refresh and Last Updated */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <span className="text-sm font-medium text-gray-700">Sort:</span>
           <Button
             variant={sortMode === 'time' ? 'default' : 'outline'}
-            className={`${sortMode === 'time' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
+            className={`${
+              sortMode === 'time' 
+                ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40' 
+                : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
+            } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
             onClick={() => setSortMode('time')}
             title="Sort by game time"
           >
-            <span className="hidden sm:inline">Time</span>
+            <span className="hidden sm:inline">Sort: Time</span>
             <span className="sm:hidden">Time</span>
           </Button>
           <Button
             variant={sortMode === 'spread' ? 'default' : 'outline'}
-            className={`${sortMode === 'spread' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
+            className={`${
+              sortMode === 'spread' 
+                ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40' 
+                : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
+            } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
             onClick={() => setSortMode('spread')}
             title="Sort by highest Spread edge"
           >
-            <span className="hidden sm:inline">Spread Edge</span>
+            <span className="hidden sm:inline">Sort: Spread</span>
             <span className="sm:hidden">Spread</span>
           </Button>
           <Button
             variant={sortMode === 'ou' ? 'default' : 'outline'}
-            className={`${sortMode === 'ou' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
+            className={`${
+              sortMode === 'ou' 
+                ? 'bg-gradient-to-r from-green-600 to-emerald-700 text-white shadow-md shadow-green-500/30 hover:shadow-lg hover:shadow-green-500/40' 
+                : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
+            } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
             onClick={() => setSortMode('ou')}
             title="Sort by highest Over/Under edge"
           >
-            <span className="hidden sm:inline">O/U Edge</span>
+            <span className="hidden sm:inline">Sort: O/U</span>
             <span className="sm:hidden">O/U</span>
           </Button>
         </div>
@@ -903,10 +1069,15 @@ export default function CollegeFootball() {
               Last Updated: {convertUTCToEST(lastUpdated.toISOString())}
             </span>
           )}
-          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2">
+          <LiquidButton 
+            onClick={fetchData} 
+            disabled={loading} 
+            variant="outline"
+            className="bg-slate-50 dark:bg-muted text-foreground border-border text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2"
+          >
             <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
-          </Button>
+          </LiquidButton>
         </div>
       </div>
 
@@ -961,10 +1132,21 @@ export default function CollegeFootball() {
               const idB = String(b.id || '');
               return idA.localeCompare(idB);
             })
-            .map((prediction) => (
-              <Card key={prediction.id} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white via-gray-50 to-white border-4 border-gray-200 hover:border-blue-300 shadow-lg">
-                {/* Gradient accent line at top */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
+            .map((prediction) => {
+              const awayTeamColors = getCFBTeamColors(prediction.away_team);
+              const homeTeamColors = getCFBTeamColors(prediction.home_team);
+              
+              return (
+                <CFBGameCard
+                  key={prediction.id}
+                  isHovered={focusedCardId === prediction.id}
+                  onMouseEnter={() => setFocusedCardId(prediction.id)}
+                  onMouseLeave={() => setFocusedCardId(null)}
+                  awayTeamColors={awayTeamColors}
+                  homeTeamColors={homeTeamColors}
+                  homeSpread={prediction.api_spread}
+                  awaySpread={prediction.api_spread ? -prediction.api_spread : null}
+                >
                 <CardContent className="space-y-3 sm:space-y-5 pt-3 pb-3 sm:pt-5 sm:pb-5">
                   {/* Game Date and Time */}
                   {(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime) && (
@@ -1000,14 +1182,14 @@ export default function CollegeFootball() {
                             className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-2">
+                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
                           {prediction.away_team}
                         </div>
                       </div>
 
                       {/* @ Symbol */}
                       <div className="text-center">
-                        <span className="text-xl sm:text-2xl font-bold text-gray-400">@</span>
+                        <span className="text-xl sm:text-2xl font-bold text-muted-foreground">@</span>
                       </div>
 
                       {/* Home Team Logo */}
@@ -1019,7 +1201,7 @@ export default function CollegeFootball() {
                             className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-gray-800 leading-tight text-center break-words px-1 pt-2">
+                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
                           {prediction.home_team}
                         </div>
                       </div>
@@ -1029,15 +1211,15 @@ export default function CollegeFootball() {
                     <div className="flex justify-between items-center">
                       {/* Away Team Betting */}
                       <div className="text-center flex-1">
-                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600 dark:text-blue-400">
                           {formatMoneyline(prediction.away_moneyline)}
                         </div>
-                        <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-gray-800">
+                        <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-foreground">
                           {formatSpread(prediction.api_spread ? -prediction.api_spread : null)}
                         </div>
                         {typeof prediction.opening_spread === 'number' && (
                           <div className="mt-1 flex justify-center">
-                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
+                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-background text-foreground border-border">
                               Open: {formatSpread(prediction.opening_spread ? -prediction.opening_spread : null)}
                             </span>
                           </div>
@@ -1046,22 +1228,22 @@ export default function CollegeFootball() {
 
                       {/* Total */}
                       <div className="text-center px-2 sm:px-4">
-                        <div className="text-xs sm:text-sm font-bold text-gray-700 bg-blue-50 px-2 sm:px-3 py-1 rounded-full border border-blue-200">
+                        <div className="text-xs sm:text-sm font-bold text-foreground bg-primary/10 dark:bg-primary/20 px-2 sm:px-3 py-1 rounded-full border border-primary/30">
                           Total: {prediction.api_over_line || '-'}
                         </div>
                       </div>
 
                       {/* Home Team Betting */}
                       <div className="text-center flex-1">
-                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600">
+                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600 dark:text-green-400">
                           {formatMoneyline(prediction.home_moneyline)}
                         </div>
-                        <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-gray-800">
+                        <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-foreground">
                           {formatSpread(prediction.api_spread)}
                         </div>
                         {typeof prediction.opening_spread === 'number' && (
                           <div className="mt-1 flex justify-center">
-                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-white text-gray-700 border-gray-200">
+                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-background text-foreground border-border">
                               Open: {formatSpread(prediction.opening_spread)}
                             </span>
                           </div>
@@ -1072,18 +1254,18 @@ export default function CollegeFootball() {
 
                   {/* Betting Split Labels Section */}
                   {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
-                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
+                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-border">
                       <div className="text-center">
-                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-indigo-50 to-blue-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Public Betting Facts</h4>
+                        <h4 className="text-xs sm:text-sm font-bold text-foreground bg-gradient-to-r from-primary/10 to-primary/10 dark:from-primary/20 dark:to-primary/20 px-2 sm:px-3 py-1 rounded-full border border-border">Public Betting Facts</h4>
                       </div>
-                      <div className="space-y-1.5 sm:space-y-2 bg-gradient-to-br from-indigo-50 to-blue-50 p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm">
+                      <div className="space-y-1.5 sm:space-y-2 bg-gradient-to-br from-primary/10 to-primary/10 dark:from-primary/20 dark:to-primary/20 p-3 sm:p-4 rounded-lg border border-border shadow-sm">
                         {prediction.ml_splits_label && (
                           <Badge 
                             variant="outline" 
                             className={`w-full justify-center text-xs ${
                               shouldHighlightLabel(prediction.ml_splits_label) 
-                                ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                                : 'bg-white border-gray-300 text-gray-700'
+                                ? 'bg-primary/20 border-primary text-primary-foreground dark:bg-primary/30' 
+                                : 'bg-background border-border text-foreground'
                             }`}
                           >
                             ML: {prediction.ml_splits_label}
@@ -1094,8 +1276,8 @@ export default function CollegeFootball() {
                             variant="outline" 
                             className={`w-full justify-center text-xs ${
                               shouldHighlightLabel(prediction.spread_splits_label) 
-                                ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                                : 'bg-white border-gray-300 text-gray-700'
+                                ? 'bg-primary/20 border-primary text-primary-foreground dark:bg-primary/30' 
+                                : 'bg-background border-border text-foreground'
                             }`}
                           >
                             Spread: {prediction.spread_splits_label}
@@ -1106,8 +1288,8 @@ export default function CollegeFootball() {
                             variant="outline" 
                             className={`w-full justify-center text-xs ${
                               shouldHighlightLabel(prediction.total_splits_label) 
-                                ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                                : 'bg-white border-gray-300 text-gray-700'
+                                ? 'bg-primary/20 border-primary text-primary-foreground dark:bg-primary/30' 
+                                : 'bg-background border-border text-foreground'
                             }`}
                           >
                             Total: {prediction.total_splits_label}
@@ -1119,9 +1301,9 @@ export default function CollegeFootball() {
 
                   {/* Model Predictions Section */}
                   {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
-                    <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t-2 border-gray-200">
+                    <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t-2 border-border">
                       <div className="text-center">
-                        <h4 className="text-sm sm:text-base font-bold text-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-4 py-2 rounded-full border border-blue-200">Model Predictions</h4>
+                        <h4 className="text-sm sm:text-base font-bold text-foreground bg-gradient-to-r from-primary/10 to-primary/10 dark:from-primary/20 dark:to-primary/20 px-3 sm:px-4 py-2 rounded-full border border-primary/30">Model Predictions</h4>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -1131,13 +1313,13 @@ export default function CollegeFootball() {
 
                           if (!edgeInfo) {
                             return (
-                              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4 sm:p-6">
+                              <div className="bg-gradient-to-r from-muted/20 to-muted/20 rounded-xl border border-border p-4 sm:p-6">
                                 <div className="text-center">
-                                  <h5 className="text-sm sm:text-base font-bold text-gray-800 mb-3 pb-2 border-b border-gray-200">Spread</h5>
-                                  <div className="text-sm text-gray-500">Edge calculation unavailable</div>
+                                  <h5 className="text-sm sm:text-base font-bold text-foreground mb-3 pb-2 border-b border-border">Spread</h5>
+                                  <div className="text-sm text-muted-foreground">Edge calculation unavailable</div>
                                   <div className="mt-3">
-                                    <div className="text-xs sm:text-sm font-semibold text-gray-600 mb-1">Model Spread</div>
-                                    <div className="text-2xl sm:text-3xl font-bold text-gray-700">
+                                    <div className="text-xs sm:text-sm font-semibold text-muted-foreground mb-1">Model Spread</div>
+                                    <div className="text-2xl sm:text-3xl font-bold text-foreground">
                                       {formatSignedHalf(prediction.pred_spread)}
                                     </div>
                                   </div>
@@ -1147,9 +1329,9 @@ export default function CollegeFootball() {
                           }
 
                           return (
-                            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 h-full flex flex-col">
+                            <div className="bg-slate-50 dark:bg-muted/20 rounded-xl border border-border shadow-sm p-4 sm:p-6 h-full flex flex-col">
                               <div className="text-center">
-                                <h5 className="text-base sm:text-lg font-bold text-gray-900 mb-3 pb-2 border-b border-gray-200">Spread</h5>
+                                <h5 className="text-base sm:text-lg font-bold text-foreground mb-3 pb-2 border-b border-border">Spread</h5>
 
                                 <div className="flex-1 flex items-center justify-center space-x-5 min-h-[120px]">
                                   {/* Team Logo */}
@@ -1165,23 +1347,23 @@ export default function CollegeFootball() {
 
                                   {/* Edge Value */}
                                   <div className="text-center">
-                                    <div className="text-3xl sm:text-4xl font-bold text-gray-800 mb-1">
+                                    <div className="text-3xl sm:text-4xl font-bold text-foreground mb-1">
                                       {edgeInfo.displayEdge}
                                     </div>
-                                    <div className="text-xs sm:text-sm font-medium text-gray-600">Edge to {getTeamAcronym(edgeInfo.teamName)}</div>
+                                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Edge to {getTeamAcronym(edgeInfo.teamName)}</div>
                                   </div>
                                 </div>
 
                                 {/* Model Spread Only */}
                                 <div className="mt-4">
-                                  <div className="text-sm sm:text-base font-semibold text-gray-700 mb-1">Model Spread</div>
+                                  <div className="text-sm sm:text-base font-semibold text-muted-foreground mb-1">Model Spread</div>
                                   {(() => {
                                     let modelSpreadDisplay = prediction.pred_spread;
                                     if (!edgeInfo.isHomeEdge) {
                                       if (modelSpreadDisplay !== null) modelSpreadDisplay = -modelSpreadDisplay;
                                     }
                                     return (
-                                      <div className="text-3xl sm:text-4xl font-bold text-gray-800">
+                                      <div className="text-3xl sm:text-4xl font-bold text-foreground">
                                         {formatSignedHalf(modelSpreadDisplay)}
                                       </div>
                                     );
@@ -1199,10 +1381,10 @@ export default function CollegeFootball() {
 
                           if (!hasOuData) {
                             return (
-                              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4 sm:p-6">
+                              <div className="bg-gradient-to-r from-muted/20 to-muted/20 rounded-xl border border-border p-4 sm:p-6">
                                 <div className="text-center">
-                                  <div className="text-xs sm:text-sm font-semibold text-gray-600 mb-3">Over/Under Edge</div>
-                                  <div className="text-sm text-gray-500">No O/U data available</div>
+                                  <div className="text-xs sm:text-sm font-semibold text-muted-foreground mb-3">Over/Under Edge</div>
+                                  <div className="text-sm text-muted-foreground">No O/U data available</div>
                                 </div>
                               </div>
                             );
@@ -1214,9 +1396,9 @@ export default function CollegeFootball() {
                           const modelValue = prediction.pred_over_line;
 
                           return (
-                            <div className={`rounded-xl border p-4 sm:p-6 h-full flex flex-col bg-white border-gray-200`}>
+                            <div className={`rounded-xl border p-4 sm:p-6 h-full flex flex-col bg-slate-50 dark:bg-muted/20 border-border shadow-sm`}>
                               <div className="text-center">
-                                <h5 className={`text-base sm:text-lg font-bold mb-3 pb-2 border-b ${isOver ? 'text-emerald-800' : 'text-rose-800'} border-gray-200`}>Over/Under</h5>
+                                <h5 className={`text-base sm:text-lg font-bold mb-3 pb-2 border-b ${isOver ? 'text-emerald-800 dark:text-emerald-400' : 'text-rose-800 dark:text-rose-400'} border-border`}>Over/Under</h5>
 
                                 <div className="flex-1 flex items-center justify-center space-x-5 min-h-[120px]">
                                   {/* Arrow Indicator */}
@@ -1243,8 +1425,8 @@ export default function CollegeFootball() {
 
                                 {/* Model O/U Only */}
                                 <div className="mt-4">
-                                  <div className={`text-sm sm:text-base font-semibold mb-1 ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Model O/U</div>
-                                  <div className={`text-3xl sm:text-4xl font-bold ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>{formatHalfNoSign(modelValue)}</div>
+                                  <div className={`text-sm sm:text-base font-semibold mb-1 ${isOver ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>Model O/U</div>
+                                  <div className={`text-3xl sm:text-4xl font-bold ${isOver ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>{formatHalfNoSign(modelValue)}</div>
                                 </div>
                               </div>
                             </div>
@@ -1255,39 +1437,65 @@ export default function CollegeFootball() {
                   )}
 
                   {/* Match Simulator Section */}
-                  <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-gray-200">
+                  <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-border">
                     <div className="text-center">
-                      <h4 className="text-xs sm:text-sm font-bold text-gray-700 bg-gradient-to-r from-orange-50 to-red-50 px-2 sm:px-3 py-1 rounded-full border border-gray-200">Match Simulator</h4>
+                      <h4 className="text-xs sm:text-sm font-bold text-foreground bg-gradient-to-r from-orange-50 to-orange-50 dark:from-orange-950/30 dark:to-orange-950/30 px-2 sm:px-3 py-1 rounded-full border border-border">Match Simulator</h4>
                     </div>
 
                     {/* Simulate Button or Loading */}
                     {!simRevealedById[prediction.id] && (
                       <div className="flex justify-center">
-                        <Button
-                          disabled={!!simLoadingById[prediction.id]}
-                          onClick={() => {
-                            setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
-                            setTimeout(() => {
-                              setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
-                              setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
-                            }, 2500);
-                          }}
-                          className="px-6 py-6 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md"
-                        >
-                          {simLoadingById[prediction.id] ? (
-                            <span className="flex items-center">
-                              <FootballLoader /> Simulating…
-                            </span>
-                          ) : (
-                            'Simulate Match'
-                          )}
-                        </Button>
+                        {focusedCardId === prediction.id ? (
+                          <MovingBorderButton
+                            borderRadius="0.5rem"
+                            containerClassName="h-auto w-auto"
+                            borderClassName="bg-[radial-gradient(hsl(var(--primary))_40%,transparent_60%)]"
+                            duration={3000}
+                            className="bg-card dark:bg-card text-foreground dark:text-foreground border-border px-6 py-6 text-lg font-bold h-full w-full"
+                            disabled={!!simLoadingById[prediction.id]}
+                            onClick={() => {
+                              setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
+                              setTimeout(() => {
+                                setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
+                                setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
+                              }, 2500);
+                            }}
+                          >
+                            {simLoadingById[prediction.id] ? (
+                              <span className="flex items-center">
+                                <FootballLoader /> Simulating…
+                              </span>
+                            ) : (
+                              'Simulate Match'
+                            )}
+                          </MovingBorderButton>
+                        ) : (
+                          <Button
+                            disabled={!!simLoadingById[prediction.id]}
+                            onClick={() => {
+                              setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
+                              setTimeout(() => {
+                                setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
+                                setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
+                              }, 2500);
+                            }}
+                            className="px-6 py-6 text-lg font-bold bg-card dark:bg-card text-foreground dark:text-foreground border-2 border-border shadow-md hover:bg-muted/50"
+                          >
+                            {simLoadingById[prediction.id] ? (
+                              <span className="flex items-center">
+                                <FootballLoader /> Simulating…
+                              </span>
+                            ) : (
+                              'Simulate Match'
+                            )}
+                          </Button>
+                        )}
                       </div>
                     )}
 
                     {/* Revealed Score Layout */}
                     {simRevealedById[prediction.id] && (
-                      <div className="flex justify-between items-center bg-gradient-to-br from-orange-50 to-red-50 p-3 sm:p-4 rounded-lg border border-gray-200">
+                      <div className="flex justify-between items-center bg-gradient-to-br from-orange-50 to-orange-50 dark:from-orange-950/30 dark:to-orange-950/30 p-3 sm:p-4 rounded-lg border border-border">
                         {/* Away Team Score */}
                         <div className="text-center flex-1">
                           {getTeamLogo(prediction.away_team) && (
@@ -1297,7 +1505,7 @@ export default function CollegeFootball() {
                               className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-1 sm:mb-2 drop-shadow-md"
                             />
                           )}
-                          <div className="text-xl sm:text-2xl font-bold text-gray-800">
+                          <div className="text-xl sm:text-2xl font-bold text-foreground">
                             {(() => {
                               const val = prediction.pred_away_points ?? prediction.pred_away_score;
                               return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
@@ -1307,7 +1515,7 @@ export default function CollegeFootball() {
 
                         {/* VS Separator */}
                         <div className="text-center px-3 sm:px-4">
-                          <div className="text-base sm:text-lg font-bold text-gray-500">VS</div>
+                          <div className="text-base sm:text-lg font-bold text-muted-foreground">VS</div>
                         </div>
 
                         {/* Home Team Score */}
@@ -1319,7 +1527,7 @@ export default function CollegeFootball() {
                               className="h-12 w-12 mx-auto mb-2 drop-shadow-md"
                             />
                           )}
-                          <div className="text-xl sm:text-2xl font-bold text-gray-800">
+                          <div className="text-xl sm:text-2xl font-bold text-foreground">
                             {(() => {
                               const val = prediction.pred_home_points ?? prediction.pred_home_score;
                               return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
@@ -1332,8 +1540,9 @@ export default function CollegeFootball() {
 
                   {/* Bottom Weather section removed; using compact WeatherPill above */}
                 </CardContent>
-              </Card>
-            ))}
+              </CFBGameCard>
+            );
+            })}
         </div>
       </div>
 

@@ -20,9 +20,9 @@ const getColorClass = (value1: any, value2: any) => {
   const v1 = parseFloat(value1 || 0);
   const v2 = parseFloat(value2 || 0);
   
-  if (v1 > v2) return 'text-green-600';
-  if (v1 < v2) return 'text-red-600';
-  return 'text-yellow-600'; // Equal values (around 50%)
+  if (v1 > v2) return 'text-green-600 dark:text-green-400';
+  if (v1 < v2) return 'text-red-600 dark:text-red-400';
+  return 'text-yellow-600 dark:text-yellow-400'; // Equal values (around 50%)
 };
 
 // NFL team logo helper (matches NFL page mapping)
@@ -444,7 +444,7 @@ export default function NFLAnalytics() {
   };
 
   const renderIndividualTeamView = () => (
-    <Card>
+    <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
       <CardHeader className="pb-3">
         <CardTitle className="text-base sm:text-lg">Individual Team Performance</CardTitle>
       </CardHeader>
@@ -571,33 +571,25 @@ export default function NFLAnalytics() {
     return (
       <>
         {/* Mobile: compact summary card replacing donuts */}
-        <div className="block sm:hidden sticky top-0 z-10 bg-white border-b pb-2 mb-4">
-          <Card className="shadow-sm">
+        <div className="block sm:hidden sticky top-0 z-10 bg-background border-b pb-2 mb-4">
+          <Card className="shadow-sm bg-slate-50 dark:bg-muted/20 border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">Summary</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              {/* Total Games Count */}
-              <div className="mb-3 p-2 bg-slate-50 rounded-md border">
-                <div className="text-center">
-                  <div className="text-[11px] text-slate-600 mb-1">Total Games</div>
-                  <div className="font-bold text-slate-900 text-lg">{summary.totalGames}</div>
-                </div>
-              </div>
-              
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {/* Container 1: Home/Away Win */}
-                <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600 mb-1">Wins</div>
+                <div className="bg-card border border-border rounded-md p-2">
+                  <div className="text-[11px] text-muted-foreground mb-1">Wins</div>
                   <div className="flex justify-between">
                     <div>
-                      <div className="text-[10px] text-slate-500">Home</div>
+                      <div className="text-[10px] text-muted-foreground/70">Home</div>
                       <div className={`font-bold ${getColorClass(summary.homeWinPercentage, summary.awayWinPercentage)}`}>
                         {pct(summary.homeWinPercentage)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-slate-500">Away</div>
+                      <div className="text-[10px] text-muted-foreground/70">Away</div>
                       <div className={`font-bold ${getColorClass(summary.awayWinPercentage, summary.homeWinPercentage)}`}>
                         {pct(summary.awayWinPercentage)}
                       </div>
@@ -606,17 +598,17 @@ export default function NFLAnalytics() {
                 </div>
 
                 {/* Container 2: Home/Away Cover */}
-                <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600 mb-1">Covers</div>
+                <div className="bg-card border border-border rounded-md p-2">
+                  <div className="text-[11px] text-muted-foreground mb-1">Covers</div>
                   <div className="flex justify-between">
                     <div>
-                      <div className="text-[10px] text-slate-500">Home</div>
+                      <div className="text-[10px] text-muted-foreground/70">Home</div>
                       <div className={`font-bold ${getColorClass(summary.homeCoverPercentage, summary.awayCoverPercentage)}`}>
                         {pct(summary.homeCoverPercentage)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-slate-500">Away</div>
+                      <div className="text-[10px] text-muted-foreground/70">Away</div>
                       <div className={`font-bold ${getColorClass(summary.awayCoverPercentage, summary.homeCoverPercentage)}`}>
                         {pct(summary.awayCoverPercentage)}
                       </div>
@@ -625,17 +617,17 @@ export default function NFLAnalytics() {
                 </div>
 
                 {/* Container 3: Favorite/Underdog Cover */}
-                <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600 mb-1">Fav/Dog</div>
+                <div className="bg-card border border-border rounded-md p-2">
+                  <div className="text-[11px] text-muted-foreground mb-1">Fav/Dog</div>
                   <div className="flex justify-between">
                     <div>
-                      <div className="text-[10px] text-slate-500">Fav</div>
+                      <div className="text-[10px] text-muted-foreground/70">Fav</div>
                       <div className={`font-bold ${getColorClass(summary.favoriteCoverPercentage, summary.underdogCoverPercentage)}`}>
                         {pct(summary.favoriteCoverPercentage)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-slate-500">Dog</div>
+                      <div className="text-[10px] text-muted-foreground/70">Dog</div>
                       <div className={`font-bold ${getColorClass(summary.underdogCoverPercentage, summary.favoriteCoverPercentage)}`}>
                         {pct(summary.underdogCoverPercentage)}
                       </div>
@@ -644,17 +636,17 @@ export default function NFLAnalytics() {
                 </div>
 
                 {/* Container 4: Over/Under */}
-                <div className="bg-white border rounded-md p-2">
-                  <div className="text-[11px] text-slate-600 mb-1">O/U</div>
+                <div className="bg-card border border-border rounded-md p-2">
+                  <div className="text-[11px] text-muted-foreground mb-1">O/U</div>
                   <div className="flex justify-between">
                     <div>
-                      <div className="text-[10px] text-slate-500">Over</div>
+                      <div className="text-[10px] text-muted-foreground/70">Over</div>
                       <div className={`font-bold ${getColorClass(summary.overPercentage, summary.underPercentage)}`}>
                         {pct(summary.overPercentage)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-slate-500">Under</div>
+                      <div className="text-[10px] text-muted-foreground/70">Under</div>
                       <div className={`font-bold ${getColorClass(summary.underPercentage, summary.overPercentage)}`}>
                         {pct(summary.underPercentage)}
                       </div>
@@ -666,19 +658,10 @@ export default function NFLAnalytics() {
           </Card>
         </div>
 
-        {/* Desktop/tablet: small centered Total Games box above donuts */}
-        <div className="hidden sm:block">
-          <div className="w-full flex justify-center mb-2 sm:mb-3">
-            <div className="px-3 py-2 bg-slate-50 rounded-md border text-center shadow-sm w-40">
-              <div className="text-[11px] text-slate-600 mb-1">Total Games</div>
-              <div className="font-bold text-slate-900 text-lg">{summary.totalGames}</div>
-            </div>
-          </div>
-        </div>
 
         <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {blocks.map((b, i) => (
-            <Card key={i}>
+            <Card key={i} className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
               <CardHeader className="pb-2 text-center">
                 <CardTitle className="text-sm sm:text-base font-semibold text-center tracking-tight">{b.title}</CardTitle>
               </CardHeader>
@@ -767,27 +750,60 @@ export default function NFLAnalytics() {
         `
       }} />
       <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
-      <div className="mb-6 sm:mb-8">
-        <div className="flex items-center gap-3 mb-2 sm:mb-4">
-          <Link to="/nfl">
-            <Button variant="outline" size="sm" className="text-sm">
-              ← Back to NFL Predictions
-            </Button>
-          </Link>
-          <h1 className="text-2xl sm:text-4xl font-bold text-primary">NFL Analytics</h1>
-        </div>
-        <p className="text-sm sm:text-lg text-muted-foreground">
-          Analyze NFL team and game performance with advanced filtering options. 
-        </p>
-      </div>
       
-      {/* Summary Donuts */}
-      {renderGameLevelView()}
+      {/* Main Layout: Results Left, Filters Right */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        
+        {/* Left Column: Results (2/3 width) */}
+        <div className="xl:col-span-2 space-y-6">
+          {/* Summary Donuts */}
+          {renderGameLevelView()}
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+          {/* Loading State */}
+          {isLoading && (
+            <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
+              <CardContent className="text-center py-8">
+                <p>Loading data...</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
+              <CardContent className="text-center py-8">
+                <p className="text-destructive">Error: {error}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Team Table */}
+          {!isLoading && !error && renderIndividualTeamView()}
+        </div>
+
+        {/* Right Column: Filters (1/3 width) */}
+        <div className="space-y-4">
+          <div className="sticky top-4 space-y-4">
+            
+                {/* Action Buttons and Total Games */}
+                <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
+                  <CardContent className="pt-4 pb-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button onClick={clearFilters} className="text-white text-xs sm:text-sm">
+                        Clear Filters
+                      </Button>
+                      <div className="px-3 py-2 bg-slate-100 dark:bg-muted/40 rounded-md border border-border text-center shadow-sm">
+                        <div className="text-[11px] text-muted-foreground mb-1">Total Games</div>
+                        <div className="font-bold text-foreground text-lg">{summary.totalGames}</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+            {/* Filters */}
+            <div className="space-y-4">
         {/* Schedule Group */}
-        <Card>
+        <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base sm:text-lg">Schedule</CardTitle>
           </CardHeader>
@@ -813,7 +829,7 @@ export default function NFLAnalytics() {
               <Label>Season Range: {seasonRange[0]} - {seasonRange[1]}</Label>
               <div className="px-2 py-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <span className="text-xs text-muted-foreground w-12">Min:</span>
                   <input
                     type="range"
                     min="2018"
@@ -825,12 +841,12 @@ export default function NFLAnalytics() {
                         setSeasonRange([value, seasonRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{seasonRange[0]}</span>
+                  <span className="text-xs text-muted-foreground w-8">{seasonRange[0]}</span>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <span className="text-xs text-muted-foreground w-12">Max:</span>
                   <input
                     type="range"
                     min="2018"
@@ -842,9 +858,9 @@ export default function NFLAnalytics() {
                         setSeasonRange([seasonRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{seasonRange[1]}</span>
+                  <span className="text-xs text-muted-foreground w-8">{seasonRange[1]}</span>
                 </div>
               </div>
             </div>
@@ -853,7 +869,7 @@ export default function NFLAnalytics() {
               <Label>Week Range: {weekRange[0]} - {weekRange[1]}</Label>
               <div className="px-2 py-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <span className="text-xs text-muted-foreground w-12">Min:</span>
                   <input
                     type="range"
                     min="1"
@@ -865,12 +881,12 @@ export default function NFLAnalytics() {
                         setWeekRange([value, weekRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{weekRange[0]}</span>
+                  <span className="text-xs text-muted-foreground w-8">{weekRange[0]}</span>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <span className="text-xs text-muted-foreground w-12">Max:</span>
                   <input
                     type="range"
                     min="1"
@@ -882,9 +898,9 @@ export default function NFLAnalytics() {
                         setWeekRange([weekRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{weekRange[1]}</span>
+                  <span className="text-xs text-muted-foreground w-8">{weekRange[1]}</span>
                 </div>
               </div>
             </div>
@@ -907,7 +923,7 @@ export default function NFLAnalytics() {
         </Card>
 
         {/* Betting Lines Group */}
-        <Card>
+        <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base sm:text-lg">Betting Lines</CardTitle>
           </CardHeader>
@@ -917,7 +933,7 @@ export default function NFLAnalytics() {
                 <Label>Spread Range: {spreadRange[0]} to {spreadRange[1]}</Label>
                 <div className="px-2 py-2">
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500 w-12">Min:</span>
+                    <span className="text-xs text-muted-foreground w-12">Min:</span>
                     <input
                       type="range"
                       min="0"
@@ -929,12 +945,12 @@ export default function NFLAnalytics() {
                           setSpreadRange([value, spreadRange[1]]);
                         }
                       }}
-                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                     />
-                    <span className="text-xs text-gray-500 w-8">{spreadRange[0]}</span>
+                    <span className="text-xs text-muted-foreground w-8">{spreadRange[0]}</span>
                   </div>
                   <div className="flex items-center space-x-2 mt-2">
-                    <span className="text-xs text-gray-500 w-12">Max:</span>
+                    <span className="text-xs text-muted-foreground w-12">Max:</span>
                     <input
                       type="range"
                       min="0"
@@ -946,9 +962,9 @@ export default function NFLAnalytics() {
                           setSpreadRange([spreadRange[0], value]);
                         }
                       }}
-                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                     />
-                    <span className="text-xs text-gray-500 w-8">{spreadRange[1]}</span>
+                    <span className="text-xs text-muted-foreground w-8">{spreadRange[1]}</span>
                   </div>
                 </div>
               </div>
@@ -958,7 +974,7 @@ export default function NFLAnalytics() {
               <Label>O/U Line Range: {ouLineRange[0]} - {ouLineRange[1]}</Label>
               <div className="px-2 py-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <span className="text-xs text-muted-foreground w-12">Min:</span>
                   <input
                     type="range"
                     min="30"
@@ -970,12 +986,12 @@ export default function NFLAnalytics() {
                         setOuLineRange([value, ouLineRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{ouLineRange[0]}</span>
+                  <span className="text-xs text-muted-foreground w-8">{ouLineRange[0]}</span>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <span className="text-xs text-muted-foreground w-12">Max:</span>
                   <input
                     type="range"
                     min="30"
@@ -987,9 +1003,9 @@ export default function NFLAnalytics() {
                         setOuLineRange([ouLineRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{ouLineRange[1]}</span>
+                  <span className="text-xs text-muted-foreground w-8">{ouLineRange[1]}</span>
                 </div>
               </div>
             </div>
@@ -997,7 +1013,7 @@ export default function NFLAnalytics() {
         </Card>
 
         {/* Game Time Conditions Group */}
-        <Card>
+        <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base sm:text-lg">Game Time Conditions</CardTitle>
           </CardHeader>
@@ -1020,7 +1036,7 @@ export default function NFLAnalytics() {
               <Label>Wind Speed Range: {windSpeedRange[0]} mph - {windSpeedRange[1]} mph</Label>
               <div className="px-2 py-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <span className="text-xs text-muted-foreground w-12">Min:</span>
                   <input
                     type="range"
                     min="0"
@@ -1032,12 +1048,12 @@ export default function NFLAnalytics() {
                         setWindSpeedRange([value, windSpeedRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{windSpeedRange[0]}</span>
+                  <span className="text-xs text-muted-foreground w-8">{windSpeedRange[0]}</span>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <span className="text-xs text-muted-foreground w-12">Max:</span>
                   <input
                     type="range"
                     min="0"
@@ -1049,9 +1065,9 @@ export default function NFLAnalytics() {
                         setWindSpeedRange([windSpeedRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{windSpeedRange[1]}</span>
+                  <span className="text-xs text-muted-foreground w-8">{windSpeedRange[1]}</span>
                 </div>
               </div>
             </div>
@@ -1060,7 +1076,7 @@ export default function NFLAnalytics() {
               <Label>Temperature Range: {temperatureRange[0]}°F - {temperatureRange[1]}°F</Label>
               <div className="px-2 py-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500 w-12">Min:</span>
+                  <span className="text-xs text-muted-foreground w-12">Min:</span>
                   <input
                     type="range"
                     min="-20"
@@ -1072,12 +1088,12 @@ export default function NFLAnalytics() {
                         setTemperatureRange([value, temperatureRange[1]]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{temperatureRange[0]}°</span>
+                  <span className="text-xs text-muted-foreground w-8">{temperatureRange[0]}°</span>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-gray-500 w-12">Max:</span>
+                  <span className="text-xs text-muted-foreground w-12">Max:</span>
                   <input
                     type="range"
                     min="-20"
@@ -1089,9 +1105,9 @@ export default function NFLAnalytics() {
                         setTemperatureRange([temperatureRange[0], value]);
                       }
                     }}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-500 w-8">{temperatureRange[1]}°</span>
+                  <span className="text-xs text-muted-foreground w-8">{temperatureRange[1]}°</span>
                 </div>
               </div>
             </div>
@@ -1125,7 +1141,7 @@ export default function NFLAnalytics() {
         </Card>
 
         {/* Select Team(s) Group */}
-        <Card>
+        <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base sm:text-lg">Select Team(s)</CardTitle>
           </CardHeader>
@@ -1379,12 +1395,12 @@ export default function NFLAnalytics() {
 
         {/* Last Game Results/Conditions Group */}
         {viewType === "individual" && (
-          <Card className="lg:col-span-2">
+          <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base sm:text-lg">Last Game Results/Conditions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 <div>
                   <Label htmlFor="team_last_spread">Team Last Spread</Label>
                   <Select value={filters.team_last_spread || "any"} onValueChange={(value) => handleFilterChange('team_last_spread', value)}>
@@ -1500,39 +1516,10 @@ export default function NFLAnalytics() {
             </CardContent>
           </Card>
         )}
-      </div>
-
-      {/* Action Buttons */}
-      <Card className="mb-4 sm:mb-6">
-        <CardContent className="pt-4 sm:pt-6">
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={clearFilters} className="text-white text-xs sm:text-sm">
-              Clear Filters
-            </Button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Loading State */}
-      {isLoading && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p>Loading data...</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Error State */}
-      {error && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-red-500">Error: {error}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Team Table (non-deduped) */}
-      {!isLoading && !error && renderIndividualTeamView()}
+        </div>
+      </div>
       </div>
     </>
   );

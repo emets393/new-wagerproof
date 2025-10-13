@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart } from 'lucide-react';
+import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { Link } from 'react-router-dom';
 import H2HModal from '@/components/H2HModal';
 import LineMovementModal from '@/components/LineMovementModal';
@@ -728,14 +729,15 @@ export default function NFL() {
               Last updated: {lastUpdated.toLocaleTimeString()}
             </span>
           )}
-          <Button 
+          <LiquidButton 
             onClick={fetchData} 
             disabled={loading} 
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2 shadow-md hover:shadow-lg transition-all duration-200"
+            variant="outline"
+            className="bg-slate-50 dark:bg-muted text-foreground border-border text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2"
           >
             <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
-          </Button>
+          </LiquidButton>
         </div>
       </div>
 

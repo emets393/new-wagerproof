@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Trash2, RefreshCw, Eye, Calendar } from 'lucide-react';
+import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { format } from 'date-fns';
 
 interface SavedPattern {
@@ -170,14 +171,14 @@ const SavedPatterns: React.FC = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Saved Trend Patterns</h1>
-        <Button
+        <LiquidButton
           onClick={checkTodayMatches}
           disabled={isChecking}
           className="flex items-center gap-2"
         >
           <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
           {isChecking ? 'Checking...' : 'Check Today\'s Matches'}
-        </Button>
+        </LiquidButton>
       </div>
 
       {/* Today's Matches */}
