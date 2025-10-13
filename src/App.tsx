@@ -2,9 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Landing from "./pages/Landing";
-import { navItems } from "./nav-items";
 import { GameAnalysis, Account, Welcome } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
@@ -12,87 +11,61 @@ import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import Admin from "./pages/Admin";
 import AccessDenied from "./pages/AccessDenied";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Menu, User, LogOut } from "lucide-react";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { useIsAdmin } from "./hooks/useIsAdmin";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { AppLayout } from "./components/AppLayout";
+import { MinimalHeader } from "./components/MinimalHeader";
+import { ThemeProvider } from "./components/ThemeProvider";
 
 const queryClient = new QueryClient();
 
-function AppHeader() {
-  const { user, signOut } = useAuth();
-  const { isAdmin } = useIsAdmin();
-
-  // Filter nav items based on admin status
-  const visibleNavItems = navItems.filter(item => {
-    if (item.requiresAdmin) {
-      return isAdmin;
-    }
-    return true;
-  });
-
+// Layout wrapper for authenticated pages
+function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-2 mb-4 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Sheet>
-          <SheetTrigger asChild>
-            <button className="p-2 rounded hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring" aria-label="Open navigation">
-              <Menu className="h-6 w-6" />
-            </button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64">
-            <nav className="flex flex-col gap-1 p-4">
-              {visibleNavItems.map(({ to, title, icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="flex items-center gap-2 px-3 py-2 rounded hover:bg-accent transition-colors text-base font-medium"
-                >
-                  {icon}
-                  <span>{title}</span>
-                </Link>
-              ))}
-            </nav>
-          </SheetContent>
-        </Sheet>
-        <span className="text-lg font-bold">Wagerproof</span>
-      </div>
-      
-      <div className="flex items-center gap-2">
-        {user ? (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">{user.email}</span>
-            <Button variant="outline" size="sm" onClick={signOut}>
-              <LogOut className="h-4 w-4" />
-            </Button>
+    <SidebarProvider defaultOpen={true}>
+      <AppLayout />
+      <SidebarInset>
+        <MinimalHeader />
+        <main className="flex flex-1 flex-col overflow-auto">
+          <div className="w-full px-4 py-6 md:px-8 md:py-8">
+            {children}
           </div>
-        ) : (
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/account">
-              <User className="h-4 w-4 mr-2" />
-              Sign In
-            </Link>
-          </Button>
-        )}
-      </div>
-    </header>
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
-function AppWithHeader() {
-  const location = useLocation();
-  const showHeader = location.pathname !== '/welcome';
+// Layout wrapper for public pages (no sidebar/header)
+function PublicLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
 
+function AppRoutes() {
+  const location = useLocation();
+  
+  // Determine if current route should use authenticated layout
+  const isPublicRoute = ['/welcome', '/home', '/access-denied'].includes(location.pathname);
+
+  // Pages that should not have the layout (landing, welcome, access denied)
+  if (isPublicRoute) {
+    return (
+      <PublicLayout>
+        <Routes>
+          <Route path="/home" element={<Landing />} />
+          <Route path="/welcome" element={<Welcome />} />
+          <Route path="/access-denied" element={<AccessDenied />} />
+        </Routes>
+      </PublicLayout>
+    );
+  }
+
+  // All other routes get the authenticated layout
   return (
-    <>
-      {showHeader && <AppHeader />}
+    <AuthenticatedLayout>
       <Routes>
-        <Route path="/home" element={<Landing />} />
-        <Route path="/welcome" element={<Welcome />} />
         <Route path="/account" element={<Account />} />
-        <Route path="/access-denied" element={<AccessDenied />} />
         <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
         <Route path="/college-football" element={<ProtectedRoute><CollegeFootball /></ProtectedRoute>} />
         <Route path="/nfl" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
@@ -100,25 +73,24 @@ function AppWithHeader() {
         <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
-        {navItems.map(({ to, page }) => (
-          <Route key={to} path={to} element={page} />
-        ))}
       </Routes>
-    </>
+    </AuthenticatedLayout>
   );
 }
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppWithHeader />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

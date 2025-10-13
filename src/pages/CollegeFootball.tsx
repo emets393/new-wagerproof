@@ -816,29 +816,6 @@ export default function CollegeFootball() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-0">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center">
-            <img 
-              src="/wagerproof-landing.png?v=2024" 
-              alt="WagerProof Logo" 
-              className="h-40 w-40 sm:h-48 sm:w-48 object-contain -mr-2" 
-            />
-            College Football Predictions
-          </h1>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-          {lastUpdated && (
-            <span className="text-xs sm:text-sm text-muted-foreground">
-              Last Updated: {convertUTCToEST(lastUpdated.toISOString())}
-            </span>
-          )}
-          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md w-full sm:w-auto">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
 
       {/* Game selection dropdown (multi) */}
       <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-gray-50 rounded-lg border relative">
@@ -884,15 +861,28 @@ export default function CollegeFootball() {
           )}
         </div>
 
-        {/* Sorting controls - wrap on mobile, align right on desktop */}
-        <div className="w-full sm:w-auto sm:ml-auto flex flex-wrap items-center gap-1.5 sm:gap-2">
+      </div>
+
+      {/* Sort Controls with Refresh and Last Updated */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="text-sm font-medium text-gray-700">Sort:</span>
+          <Button
+            variant={sortMode === 'time' ? 'default' : 'outline'}
+            className={`${sortMode === 'time' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
+            onClick={() => setSortMode('time')}
+            title="Sort by game time"
+          >
+            <span className="hidden sm:inline">Time</span>
+            <span className="sm:hidden">Time</span>
+          </Button>
           <Button
             variant={sortMode === 'spread' ? 'default' : 'outline'}
             className={`${sortMode === 'spread' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
             onClick={() => setSortMode('spread')}
             title="Sort by highest Spread edge"
           >
-            <span className="hidden sm:inline">Sort: Spread Edge</span>
+            <span className="hidden sm:inline">Spread Edge</span>
             <span className="sm:hidden">Spread</span>
           </Button>
           <Button
@@ -901,17 +891,21 @@ export default function CollegeFootball() {
             onClick={() => setSortMode('ou')}
             title="Sort by highest Over/Under edge"
           >
-            <span className="hidden sm:inline">Sort: O/U Edge</span>
+            <span className="hidden sm:inline">O/U Edge</span>
             <span className="sm:hidden">O/U</span>
           </Button>
-          <Button
-            variant={sortMode === 'time' ? 'default' : 'outline'}
-            className={`${sortMode === 'time' ? 'bg-blue-600 text-white' : ''} text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap`}
-            onClick={() => setSortMode('time')}
-            title="Sort by game time"
-          >
-            <span className="hidden sm:inline">Sort: Time</span>
-            <span className="sm:hidden">Time</span>
+        </div>
+        
+        {/* Refresh and Last Updated */}
+        <div className="flex flex-wrap items-center gap-2">
+          {lastUpdated && (
+            <span className="text-xs sm:text-sm text-muted-foreground">
+              Last Updated: {convertUTCToEST(lastUpdated.toISOString())}
+            </span>
+          )}
+          <Button onClick={fetchData} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2">
+            <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
           </Button>
         </div>
       </div>

@@ -1,17 +1,32 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Volleyball, School, Star } from "lucide-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
+import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import NotFound from "./pages/NotFound";
 import { Account } from "./pages";
 import Landing from "./pages/Landing";
 import Admin from "./pages/Admin";
 
+export interface NavItem {
+  title: string;
+  to: string;
+  icon: React.ReactNode;
+  page?: React.ReactNode;
+  requiresAdmin?: boolean;
+  comingSoon?: boolean;
+  subItems?: Array<{
+    title: string;
+    to: string;
+    icon?: React.ReactNode;
+  }>;
+}
+
 /**
  * Central place for defining the navigation items. Used for navigation components and routing.
  */
-export const navItems = [
+export const navItems: NavItem[] = [
   // Hiding Today's Games and Win Rates (keep code, remove from nav)
   {
     title: "Home",
@@ -30,6 +45,36 @@ export const navItems = [
     to: "/nfl",
     icon: <ShieldIcon className="h-4 w-4" />,
     page: <NFL />,
+    subItems: [
+      {
+        title: "Analytics",
+        to: "/nfl-analytics",
+        icon: <BarChart className="h-4 w-4" />,
+      },
+      {
+        title: "Teaser Tool",
+        to: "/nfl/teaser-sharpness",
+        icon: <ScatterChart className="h-4 w-4" />,
+      },
+    ],
+  },
+  {
+    title: "NBA",
+    to: "/nba",
+    icon: <Volleyball className="h-4 w-4" />,
+    comingSoon: true,
+  },
+  {
+    title: "NCAAB",
+    to: "/ncaab",
+    icon: <School className="h-4 w-4" />,
+    comingSoon: true,
+  },
+  {
+    title: "Editors Picks",
+    to: "/editors-picks",
+    icon: <Star className="h-4 w-4" />,
+    comingSoon: true,
   },
   {
     title: "Admin",
