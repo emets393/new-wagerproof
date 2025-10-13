@@ -39,17 +39,31 @@ export function ModernAuthForm({
 
   return (
     <div className="shadow-input mx-auto w-full max-w-md rounded-2xl bg-white p-8 dark:bg-black">
-      <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-200">
-        {mode === 'login' ? 'Welcome Back' : 'Welcome to WagerProof'}
+      {/* Logo Section */}
+      <div className="flex justify-center mb-6">
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-indigo-500 rounded-xl blur-md opacity-30"></div>
+          <div className="relative p-3 bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-neutral-100 dark:to-neutral-200 rounded-xl">
+            <img 
+              src="/lovable-uploads/40569607-0bf3-433c-a0f5-bca0ee0de005.png" 
+              alt="WAGERPROOF" 
+              className="h-16 w-auto" 
+            />
+          </div>
+        </div>
+      </div>
+
+      <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-200">
+        {mode === 'login' ? 'Sign In' : 'Create Account'}
       </h2>
-      <p className="mt-2 max-w-sm text-sm text-neutral-600 dark:text-neutral-300">
+      <p className="mt-2 text-center max-w-sm mx-auto text-sm text-neutral-600 dark:text-neutral-300">
         {mode === 'login' 
-          ? 'Sign in to access your account and advanced analytics'
-          : 'Create an account to get started with professional sports betting analytics'
+          ? 'Access your account'
+          : 'Get started with professional sports betting analytics'
         }
       </p>
 
-      <form className="my-8" onSubmit={handleSubmit}>
+      <form className="mt-8" onSubmit={handleSubmit}>
         {mode === 'signup' && (
           <div className="mb-4 flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
             <LabelInputContainer>
@@ -171,16 +185,17 @@ export function ModernAuthForm({
           </button>
         </div>
 
-        <div className="mt-8 text-center">
+        {/* Mode Switcher Link */}
+        <div className="mt-6 text-center">
           <button
             type="button"
             onClick={() => onModeChange(mode === 'login' ? 'signup' : 'login')}
-            className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+            className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 transition-colors"
             disabled={isLoading}
           >
             {mode === 'login' 
-              ? "Don't have an account? Sign up"
-              : "Already have an account? Sign in"
+              ? "Create Account?"
+              : "Already have an account?"
             }
           </button>
         </div>

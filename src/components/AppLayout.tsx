@@ -20,11 +20,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { SettingsModal } from "./SettingsModal";
+import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useNavigate } from "react-router-dom";
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [signInPromptOpen, setSignInPromptOpen] = useState(false);
 
   // Filter nav items based on admin status and exclude Home/Account from sidebar
   const visibleNavItems = navItems.filter(item => {
@@ -41,6 +56,19 @@ export function AppLayout() {
 
   const isActivePath = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
+
+  const handleSettingsClick = () => {
+    if (!user) {
+      setSignInPromptOpen(true);
+    } else {
+      setSettingsOpen(true);
+    }
+  };
+
+  const handleSignIn = () => {
+    setSignInPromptOpen(false);
+    navigate('/account');
   };
 
   return (
@@ -159,11 +187,12 @@ export function AppLayout() {
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center justify-between px-2 py-1.5">
-              <SidebarMenuButton asChild className="text-sm flex-1">
-                <Link to="/account">
-                  <Settings className="h-4 w-4" />
-                  <span>Settings</span>
-                </Link>
+              <SidebarMenuButton 
+                onClick={handleSettingsClick} 
+                className="text-sm flex-1 cursor-pointer"
+              >
+                <Settings className="h-4 w-4" />
+                <span>Settings</span>
               </SidebarMenuButton>
               <ThemeToggle />
             </div>
@@ -199,6 +228,27 @@ export function AppLayout() {
           )}
         </SidebarMenu>
       </SidebarFooter>
+      
+      {user && <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />}
+      
+      <AlertDialog open={signInPromptOpen} onOpenChange={setSignInPromptOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign In Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please sign in to access your settings and manage your account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setSignInPromptOpen(false)}>
+              Cancel
+            </Button>
+            <AlertDialogAction onClick={handleSignIn}>
+              Sign In
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sidebar>
   );
 }
