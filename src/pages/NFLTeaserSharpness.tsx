@@ -229,13 +229,13 @@ export default function NFLTeaserSharpness() {
       <Card className="p-6 max-w-7xl mx-auto bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
           <div className="flex items-center gap-3">
-            <button onClick={() => window.history.back()} className="text-sm px-3 py-2 rounded border bg-background hover:bg-muted text-foreground border-border">← Back</button>
+            <button onClick={() => window.history.back()} className="text-sm px-3 py-2 rounded border bg-white dark:bg-background hover:bg-gray-50 dark:hover:bg-muted text-gray-900 dark:text-foreground border-gray-300 dark:border-border transition-colors">← Back</button>
             <h1 className="text-lg sm:text-2xl font-bold text-foreground">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
-            <div className="inline-flex rounded-full overflow-hidden border border-border">
-              <button onClick={() => setMode('ou')} className={`px-3 py-2 text-sm transition-colors ${mode==='ou'?'bg-primary text-primary-foreground':'bg-background text-foreground hover:bg-muted'}`}>Over/Under</button>
-              <button onClick={() => setMode('spread')} className={`px-3 py-2 text-sm transition-colors ${mode==='spread'?'bg-primary text-primary-foreground':'bg-background text-foreground hover:bg-muted'}`}>Spread</button>
+            <div className="inline-flex rounded-full overflow-hidden border border-gray-300 dark:border-border bg-white dark:bg-background">
+              <button onClick={() => setMode('ou')} className={`px-3 py-2 text-sm transition-colors ${mode==='ou'?'bg-honeydew-600 text-white dark:bg-primary dark:text-primary-foreground':'bg-white dark:bg-background text-gray-900 dark:text-foreground hover:bg-gray-100 dark:hover:bg-muted'}`}>Over/Under</button>
+              <button onClick={() => setMode('spread')} className={`px-3 py-2 text-sm transition-colors ${mode==='spread'?'bg-honeydew-600 text-white dark:bg-primary dark:text-primary-foreground':'bg-white dark:bg-background text-gray-900 dark:text-foreground hover:bg-gray-100 dark:hover:bg-muted'}`}>Spread</button>
             </div>
             <div className="inline-flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Filter by Matchups</span>

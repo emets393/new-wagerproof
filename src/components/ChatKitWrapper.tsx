@@ -83,7 +83,7 @@ Use this data to provide insightful analysis, identify value bets, explain model
         colorScheme: theme === 'dark' ? 'dark' : 'light',
         color: {
           accent: {
-            primary: theme === 'dark' ? '#3B82F6' : '#2563EB', // Blue accent that works in both themes
+            primary: theme === 'dark' ? '#22c55e' : '#16a34a', // Green accent that matches our theme (light/dark variants)
             level: 2
           }
         },

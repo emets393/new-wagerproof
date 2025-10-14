@@ -7,6 +7,7 @@ import { Bot, X, Loader2 } from 'lucide-react';
 import { chatSessionManager, ChatSession } from '@/utils/chatSession';
 import { ChatKitWrapper } from '@/components/ChatKitWrapper';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import GlassIcon from '@/components/magicui/glass-icon';
 
 interface MiniWagerBotChatProps {
   pageContext?: string;
@@ -83,7 +84,7 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
     <>
       {/* Chat Popup Overlay */}
       {isOpen && (
-        <Card className="fixed bottom-24 right-6 w-[400px] h-[600px] flex flex-col shadow-2xl rounded-xl z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden">
+        <Card className="fixed bottom-24 right-32 w-[400px] h-[600px] flex flex-col shadow-2xl rounded-xl z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden bg-gradient-to-br from-green-500/10 to-green-600/10 backdrop-blur-sm">
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b">
             <div className="flex items-center gap-2">
@@ -128,27 +129,40 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
       )}
 
       {/* Floating Action Button */}
-      <Button
+      <div
         onClick={toggleChat}
-        size="lg"
-        className={`fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl z-50 hover:scale-110 transition-all duration-200 ${
-          theme === 'dark' 
-            ? 'bg-white hover:bg-zinc-50 text-zinc-900' 
-            : 'bg-zinc-800 hover:bg-zinc-700 text-white'
-        }`}
-        style={{
-          boxShadow: theme === 'dark' 
-            ? '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4)' 
-            : '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
-        }}
+        className="fixed bottom-6 right-6 h-24 w-24 rounded-lg z-50 cursor-pointer"
         aria-label="Toggle WagerBot Chat"
       >
-        {isOpen ? (
-          <X className="h-7 w-7" />
-        ) : (
-          <Bot className="h-10 w-10" />
-        )}
-      </Button>
+        <div className="relative bg-transparent outline-none w-24 h-24 [perspective:24em] [transform-style:preserve-3d]">
+          <span
+            className={`absolute top-0 left-0 w-full h-full rounded-[1.25em] block transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.83,0,0.17,1)] origin-[100%_100%] ${
+              isOpen ? '[transform:rotate(25deg)_translate3d(-0.5em,-0.5em,0.5em)]' : 'rotate-[15deg]'
+            }`}
+            style={{
+              background: 'linear-gradient(hsl(123, 90%, 40%), hsl(108, 90%, 40%))',
+              boxShadow: '0.5em -0.5em 0.75em hsla(223, 10%, 10%, 0.15)'
+            }}
+          ></span>
+
+          <span
+            className={`absolute top-0 left-0 w-full h-full rounded-[1.25em] bg-[hsla(0,0%,100%,0.15)] transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.83,0,0.17,1)] origin-[80%_50%] flex backdrop-blur-[0.75em] [-webkit-backdrop-filter:blur(0.75em)] ${
+              isOpen ? '[transform:translateZ(2em)]' : 'transform'
+            }`}
+            style={{
+              boxShadow: '0 0 0 0.1em hsla(0, 0%, 100%, 0.3) inset'
+            }}
+          >
+            <span className="m-auto flex items-center justify-center text-white">
+              {isOpen ? (
+                <X className="h-12 w-12 text-white" />
+              ) : (
+                <Bot className="h-12 w-12 text-white" />
+              )}
+            </span>
+          </span>
+        </div>
+      </div>
     </>
   );
 }

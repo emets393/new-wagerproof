@@ -56,6 +56,12 @@ export function AppLayout() {
   });
 
   const isActivePath = (path: string) => {
+    // Handle both /nfl/teaser-sharpness and /nfl-analytics patterns
+    if (path === '/nfl') {
+      return location.pathname === path || 
+             location.pathname.startsWith(path + '/') || 
+             location.pathname === '/nfl-analytics';
+    }
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
@@ -73,9 +79,9 @@ export function AppLayout() {
   };
 
   return (
-    <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border">
+    <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border bg-sidebar overflow-hidden">
       {/* Header Section */}
-      <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
+      <SidebarHeader className="border-b border-sidebar-border bg-sidebar px-4 py-4">
         <Link to="/home" className="flex items-center gap-2 group">
           <div className="flex items-center justify-center w-8 h-8">
             <img 
@@ -118,7 +124,7 @@ export function AppLayout() {
       </SidebarHeader>
 
       {/* Navigation Content */}
-      <SidebarContent className="px-2 py-2">
+      <SidebarContent className="px-2 py-2 bg-sidebar">
         <SidebarMenu>
           {visibleNavItems.map((item) => {
             const { to, title, icon, comingSoon, subItems } = item;
@@ -150,15 +156,17 @@ export function AppLayout() {
                       <SidebarMenuButton
                         asChild
                         isActive={isActivePath(to)}
-                        className={`text-sm font-medium transition-all duration-200 ${
+                        className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 ${
                           isActivePath(to) 
-                            ? 'bg-gradient-to-r from-honeydew-100 to-honeydew-50 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-700 dark:text-honeydew-300 border-r-2 border-honeydew-500 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
-                            : 'hover:bg-honeydew-50 dark:hover:bg-honeydew-900/10 hover:text-honeydew-600 dark:hover:text-honeydew-400'
+                            ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
+                            : subItems?.some(subItem => isActivePath(subItem.to))
+                              ? 'bg-gradient-to-r from-honeydew-100 to-honeydew-50 dark:from-honeydew-900/20 dark:to-honeydew-800/10 text-honeydew-700 dark:text-honeydew-400 border-r-2 border-honeydew-500 shadow-md shadow-honeydew-400/15 dark:shadow-honeydew-400/8'
+                              : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
                         }`}
                       >
                         <Link to={to}>
                           <span className={`transition-colors duration-200 ${
-                            isActivePath(to) ? 'text-honeydew-600 dark:text-honeydew-400' : ''
+                            isActivePath(to) || subItems?.some(subItem => isActivePath(subItem.to)) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
                           }`}>
                             {icon}
                           </span>
@@ -167,7 +175,7 @@ export function AppLayout() {
                             <div className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50 mr-2"></div>
                           )}
                           <ChevronRight className={`ml-auto h-4 w-4 transition-all duration-200 group-data-[state=open]/collapsible:rotate-90 ${
-                            isActivePath(to) ? 'text-honeydew-600 dark:text-honeydew-400' : ''
+                            isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
                           }`} />
                         </Link>
                       </SidebarMenuButton>
@@ -179,15 +187,15 @@ export function AppLayout() {
                             <SidebarMenuSubButton
                               asChild
                               isActive={isActivePath(subItem.to)}
-                              className={`transition-all duration-200 ${
+                              className={`transition-all duration-200 rounded-md mr-2 ${
                                 isActivePath(subItem.to) 
-                                  ? 'bg-gradient-to-r from-honeydew-50 to-white dark:from-honeydew-900/20 dark:to-honeydew-800/10 text-honeydew-700 dark:text-honeydew-300 border-r-2 border-honeydew-400 shadow-md shadow-honeydew-400/15 dark:shadow-honeydew-400/8' 
-                                  : 'hover:bg-honeydew-50 dark:hover:bg-honeydew-900/10 hover:text-honeydew-600 dark:hover:text-honeydew-400'
+                                  ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
+                                  : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
                               }`}
                             >
                               <Link to={subItem.to}>
                                 <span className={`transition-colors duration-200 ${
-                                  isActivePath(subItem.to) ? 'text-honeydew-600 dark:text-honeydew-400' : ''
+                                  isActivePath(subItem.to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
                                 }`}>
                                   {subItem.icon}
                                 </span>
@@ -209,15 +217,15 @@ export function AppLayout() {
                 <SidebarMenuButton
                   asChild
                   isActive={isActivePath(to)}
-                  className={`text-sm font-medium transition-all duration-200 ${
+                  className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 ${
                     isActivePath(to) 
-                      ? 'bg-gradient-to-r from-honeydew-100 to-honeydew-50 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-700 dark:text-honeydew-300 border-r-2 border-honeydew-500 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
-                      : 'hover:bg-honeydew-50 dark:hover:bg-honeydew-900/10 hover:text-honeydew-600 dark:hover:text-honeydew-400'
+                      ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
+                      : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
                   }`}
                 >
                   <Link to={to}>
                     <span className={`transition-colors duration-200 ${
-                      isActivePath(to) ? 'text-honeydew-600 dark:text-honeydew-400' : ''
+                      isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
                     }`}>
                       {icon}
                     </span>
@@ -234,7 +242,7 @@ export function AppLayout() {
       </SidebarContent>
 
       {/* Footer Section */}
-      <SidebarFooter className="border-t border-sidebar-border px-2 py-3">
+      <SidebarFooter className="border-t border-sidebar-border bg-sidebar px-2 py-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center justify-between px-2 py-1.5">
@@ -251,7 +259,7 @@ export function AppLayout() {
 
           {user && (
             <>
-              <SidebarSeparator className="my-2" />
+              <SidebarSeparator className="my-2 bg-sidebar-border" />
               <SidebarMenuItem>
                 <div className="flex items-center justify-between px-2 py-1.5">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
