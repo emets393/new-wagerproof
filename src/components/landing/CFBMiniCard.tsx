@@ -183,7 +183,7 @@ export default function CFBMiniCard({
               <img 
                 src={getTeamLogo(prediction.away_team)} 
                 alt={`${prediction.away_team} logo`}
-                className="h-8 w-8 drop-shadow-sm"
+                className="h-10 w-10 drop-shadow-sm"
               />
             )}
             <div className="min-w-0 flex-1">
@@ -198,7 +198,7 @@ export default function CFBMiniCard({
 
           {/* @ Symbol */}
           <div className="px-2">
-            <span className="text-sm font-bold text-gray-500">@</span>
+            <span className="text-lg font-bold text-gray-400 dark:text-gray-500">@</span>
           </div>
 
           {/* Home Team */}
@@ -215,7 +215,7 @@ export default function CFBMiniCard({
               <img 
                 src={getTeamLogo(prediction.home_team)} 
                 alt={`${prediction.home_team} logo`}
-                className="h-8 w-8 drop-shadow-sm"
+                className="h-10 w-10 drop-shadow-sm"
               />
             )}
           </div>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { RefreshCw, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import CFBGameCard from '@/components/CFBGameCard';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
@@ -1216,7 +1216,7 @@ ${contextParts}
 
                       {/* @ Symbol */}
                       <div className="text-center">
-                        <span className="text-xl sm:text-2xl font-bold text-muted-foreground">@</span>
+                        <span className="text-4xl sm:text-5xl font-bold text-gray-400 dark:text-gray-500">@</span>
                       </div>
 
                       {/* Home Team Logo */}
@@ -1328,10 +1328,10 @@ ${contextParts}
 
                   {/* Model Predictions Section */}
                   {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
-                    <div className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 border-t-2 border-border">
-                      <div className="text-center">
-                        <h4 className="text-sm sm:text-base font-bold text-foreground bg-gradient-to-r from-primary/10 to-primary/10 dark:from-primary/20 dark:to-primary/20 px-3 sm:px-4 py-2 rounded-full border border-primary/30">Model Predictions</h4>
-                      </div>
+                    <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
+                      <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+                        {/* Header */}
+                        <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Model Predictions</h4>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                         {/* Spread Edge Display (left) */}
@@ -1432,12 +1432,12 @@ ${contextParts}
                                   <div className="flex-shrink-0">
                                     {isOver ? (
                                       <div className="flex flex-col items-center">
-                                        <ArrowUp className="h-14 w-14 sm:h-20 sm:w-20 text-emerald-600" />
+                                        <ChevronUp className="h-14 w-14 sm:h-20 sm:w-20 text-emerald-600" />
                                         <div className="text-xs font-bold text-emerald-700 -mt-2">Over</div>
                                       </div>
                                     ) : (
                                       <div className="flex flex-col items-center">
-                                        <ArrowDown className="h-14 w-14 sm:h-20 sm:w-20 text-rose-600" />
+                                        <ChevronDown className="h-14 w-14 sm:h-20 sm:w-20 text-rose-600" />
                                         <div className="text-xs font-bold text-rose-700 -mt-2">Under</div>
                                       </div>
                                     )}
@@ -1460,14 +1460,15 @@ ${contextParts}
                           );
                         })()}
                       </div>
+                      </div>
                     </div>
                   )}
 
                   {/* Match Simulator Section */}
-                  <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-border">
-                    <div className="text-center">
-                      <h4 className="text-xs sm:text-sm font-bold text-foreground bg-gradient-to-r from-orange-50 to-orange-50 dark:from-orange-950/30 dark:to-orange-950/30 px-2 sm:px-3 py-1 rounded-full border border-border">Match Simulator</h4>
-                    </div>
+                  <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
+                    <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+                      {/* Header */}
+                      <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Match Simulator</h4>
 
                     {/* Simulate Button or Loading */}
                     {!simRevealedById[prediction.id] && (
@@ -1529,7 +1530,7 @@ ${contextParts}
                             <img 
                               src={getTeamLogo(prediction.away_team)} 
                               alt={`${prediction.away_team} logo`}
-                              className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-1 sm:mb-2 drop-shadow-md"
+                              className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-1 sm:mb-2 drop-shadow-md"
                             />
                           )}
                           <div className="text-xl sm:text-2xl font-bold text-foreground">
@@ -1551,7 +1552,7 @@ ${contextParts}
                             <img 
                               src={getTeamLogo(prediction.home_team)} 
                               alt={`${prediction.home_team} logo`}
-                              className="h-12 w-12 mx-auto mb-2 drop-shadow-md"
+                              className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 drop-shadow-md"
                             />
                           )}
                           <div className="text-xl sm:text-2xl font-bold text-foreground">
@@ -1563,6 +1564,7 @@ ${contextParts}
                         </div>
                       </div>
                     )}
+                    </div>
                   </div>
 
                   {/* Bottom Weather section removed; using compact WeatherPill above */}
