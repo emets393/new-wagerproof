@@ -311,42 +311,162 @@ export default function NFLTeaserSharpness() {
           </ResponsiveContainer>
         </div>
 
-        <p className="text-sm text-center mt-4 text-muted-foreground">
-          Green band marks teams closest to zero bias and low error — safest teaser targets.
-        </p>
-
         {/* Reading guide */}
         {mode === 'spread' ? (
-          <div className="mt-6 text-sm text-foreground space-y-2">
-            <div className="font-semibold">🏈 Spread Sharpness — How to Read</div>
-            <div>
-              <span className="font-medium">X-Axis (Average Spread Bias):</span>
-              <div className="ml-4 text-muted-foreground">→ Right = Underrated — teams covering more often than expected.</div>
-              <div className="ml-4 text-muted-foreground">→ Left = Overvalued — teams failing to cover consistently.</div>
-              <div className="ml-4 text-muted-foreground">(Closer to the center means lines are more accurate.)</div>
+          <div className="mt-6 border-t border-border pt-6">
+            <div className="text-lg font-bold mb-4 text-foreground">🏈 How to Read This Chart</div>
+            
+            {/* Quick Summary */}
+            <div className="mb-6 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="font-semibold text-green-900 dark:text-green-100 mb-2">✓ What to Look For:</div>
+              <div className="text-sm text-green-800 dark:text-green-200">
+                <strong>Best Teaser Targets:</strong> Teams in the green zone (especially bottom-center and bottom-right) have the most predictable spread outcomes.
+              </div>
             </div>
-            <div>
-              <span className="font-medium">Y-Axis (Average Spread Error):</span>
-              <div className="ml-4 text-muted-foreground">↓ Lower = Sharper — Vegas is tight on this team.</div>
-              <div className="ml-4 text-muted-foreground">↑ Higher = Looser — spreads miss by more on average.</div>
+
+            {/* Axis Explanations */}
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              {/* X-Axis */}
+              <div className="space-y-3">
+                <div className="font-semibold text-base text-foreground flex items-center gap-2">
+                  <span className="text-xl">↔️</span>
+                  <span>Horizontal (X-Axis): Spread Bias</span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-blue-600 dark:text-blue-400 min-w-[60px]">Left Side:</span>
+                    <span className="text-muted-foreground">Teams that <strong>fail to cover</strong> spreads consistently (overvalued by the market)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-gray-600 dark:text-gray-400 min-w-[60px]">Center:</span>
+                    <span className="text-muted-foreground">Teams with <strong>balanced</strong> cover rates (lines are accurate)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[60px]">Right Side:</span>
+                    <span className="text-muted-foreground">Teams that <strong>cover often</strong> (undervalued by the market)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Y-Axis */}
+              <div className="space-y-3">
+                <div className="font-semibold text-base text-foreground flex items-center gap-2">
+                  <span className="text-xl">↕️</span>
+                  <span>Vertical (Y-Axis): Spread Error</span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-green-600 dark:text-green-400 min-w-[60px]">Bottom:</span>
+                    <span className="text-muted-foreground"><strong>Low error</strong> — spreads are sharp, outcomes are predictable</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-yellow-600 dark:text-yellow-400 min-w-[60px]">Middle:</span>
+                    <span className="text-muted-foreground"><strong>Moderate error</strong> — some volatility in results</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-red-600 dark:text-red-400 min-w-[60px]">Top:</span>
+                    <span className="text-muted-foreground"><strong>High error</strong> — unpredictable, spreads miss by large margins</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="italic text-muted-foreground">Bottom-right = ideal zone → underrated teams with sharp, consistent lines.</div>
+
+            {/* Zone Guide */}
+            <div className="border-t border-border pt-4">
+              <div className="font-semibold text-sm text-foreground mb-3">📍 Key Zones:</div>
+              <div className="grid sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded">
+                  <div className="font-bold text-green-900 dark:text-green-100 mb-1">🟢 Green Zone</div>
+                  <div className="text-green-800 dark:text-green-200">Low error + near-center bias = Most reliable teaser targets</div>
+                </div>
+                <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded">
+                  <div className="font-bold text-orange-900 dark:text-orange-100 mb-1">🟠 Bottom-Right</div>
+                  <div className="text-orange-800 dark:text-orange-200">Undervalued + predictable = Strong teaser candidates</div>
+                </div>
+                <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded">
+                  <div className="font-bold text-red-900 dark:text-red-100 mb-1">🔴 Top Area</div>
+                  <div className="text-red-800 dark:text-red-200">High error = Avoid — too unpredictable for teasers</div>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="mt-6 text-sm text-foreground space-y-2">
-            <div className="font-semibold">📊 Over/Under Sharpness — How to Read</div>
-            <div>
-              <span className="font-medium">X-Axis (Average O/U Bias):</span>
-              <div className="ml-4 text-muted-foreground">→ Right = Overs hit more often — totals set too low.</div>
-              <div className="ml-4 text-muted-foreground">→ Left = Unders hit more often — totals set too high.</div>
-              <div className="ml-4 text-muted-foreground">(Center = balanced totals market.)</div>
+          <div className="mt-6 border-t border-border pt-6">
+            <div className="text-lg font-bold mb-4 text-foreground">📊 How to Read This Chart</div>
+            
+            {/* Quick Summary */}
+            <div className="mb-6 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="font-semibold text-green-900 dark:text-green-100 mb-2">✓ What to Look For:</div>
+              <div className="text-sm text-green-800 dark:text-green-200">
+                <strong>Best Teaser Targets:</strong> Teams in the green zone (bottom-center) have the most predictable totals. Look for low error regardless of bias direction.
+              </div>
             </div>
-            <div>
-              <span className="font-medium">Y-Axis (Average O/U Error):</span>
-              <div className="ml-4 text-muted-foreground">↓ Lower = Sharper totals — Vegas is close on the number.</div>
-              <div className="ml-4 text-muted-foreground">↑ Higher = Less predictable totals — larger misses on average.</div>
+
+            {/* Axis Explanations */}
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              {/* X-Axis */}
+              <div className="space-y-3">
+                <div className="font-semibold text-base text-foreground flex items-center gap-2">
+                  <span className="text-xl">↔️</span>
+                  <span>Horizontal (X-Axis): O/U Bias</span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-blue-600 dark:text-blue-400 min-w-[60px]">Left Side:</span>
+                    <span className="text-muted-foreground"><strong>Unders hit</strong> more often — totals are set too high</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-gray-600 dark:text-gray-400 min-w-[60px]">Center:</span>
+                    <span className="text-muted-foreground"><strong>Balanced</strong> — overs and unders hit at expected rates</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[60px]">Right Side:</span>
+                    <span className="text-muted-foreground"><strong>Overs hit</strong> more often — totals are set too low</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Y-Axis */}
+              <div className="space-y-3">
+                <div className="font-semibold text-base text-foreground flex items-center gap-2">
+                  <span className="text-xl">↕️</span>
+                  <span>Vertical (Y-Axis): Total Error</span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-green-600 dark:text-green-400 min-w-[60px]">Bottom:</span>
+                    <span className="text-muted-foreground"><strong>Low error</strong> — totals are sharp, final scores stay close to the line</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-yellow-600 dark:text-yellow-400 min-w-[60px]">Middle:</span>
+                    <span className="text-muted-foreground"><strong>Moderate error</strong> — some volatility in scoring</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-red-600 dark:text-red-400 min-w-[60px]">Top:</span>
+                    <span className="text-muted-foreground"><strong>High error</strong> — unpredictable scoring, totals miss by wide margins</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="italic text-muted-foreground">Bottom-center = most efficient zone → totals market is sharp and unbiased.</div>
+
+            {/* Zone Guide */}
+            <div className="border-t border-border pt-4">
+              <div className="font-semibold text-sm text-foreground mb-3">📍 Key Zones:</div>
+              <div className="grid sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded">
+                  <div className="font-bold text-green-900 dark:text-green-100 mb-1">🟢 Green Zone</div>
+                  <div className="text-green-800 dark:text-green-200">Low error + balanced bias = Most reliable for O/U teasers</div>
+                </div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded">
+                  <div className="font-bold text-blue-900 dark:text-blue-100 mb-1">🔵 Bottom Areas</div>
+                  <div className="text-blue-800 dark:text-blue-200">Low error on either side = Predictable totals (bias shows market direction)</div>
+                </div>
+                <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded">
+                  <div className="font-bold text-red-900 dark:text-red-100 mb-1">🔴 Top Area</div>
+                  <div className="text-red-800 dark:text-red-200">High error = Avoid — scoring too volatile for teasing</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </Card>
