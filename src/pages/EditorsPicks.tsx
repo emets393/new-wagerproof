@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Star } from 'lucide-react';
 import { EditorPickCard } from '@/components/EditorPickCard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useAdminMode } from '@/contexts/AdminModeContext';
 import { Badge } from '@/components/ui/badge';
 
 interface EditorPick {
@@ -34,10 +35,12 @@ interface GameData {
   over_line?: number | null;
   away_ml?: number | null;
   home_ml?: number | null;
+  opening_spread?: number | null; // For CFB games
 }
 
 export default function EditorsPicks() {
   const { isAdmin } = useIsAdmin();
+  const { adminModeEnabled } = useAdminMode();
   const [picks, setPicks] = useState<EditorPick[]>([]);
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -51,8 +54,8 @@ export default function EditorsPicks() {
       // Fetch editor picks
       let query = supabase.from('editors_picks').select('*');
       
-      // Non-admins only see published picks
-      if (!isAdmin) {
+      // Only show draft picks if admin mode is enabled, otherwise only show published
+      if (!adminModeEnabled) {
         query = query.eq('is_published', true);
       }
 
@@ -286,7 +289,8 @@ export default function EditorsPicks() {
                 }
               }
               
-              gameDataMap.set(game.id, {
+              // Convert game.id to string to match how it's stored in editors_picks
+              gameDataMap.set(String(game.id), {
                 away_team: game.away_team,
                 home_team: game.home_team,
                 away_logo: getCFBTeamLogo(game.away_team),
@@ -298,6 +302,7 @@ export default function EditorsPicks() {
                 over_line: game.api_over_line,
                 away_ml: game.away_moneyline || game.away_ml,
                 home_ml: game.home_moneyline || game.home_ml,
+                opening_spread: (game as any).spread ?? null, // Opening spread from 'spread' column
               });
             });
           }
@@ -305,6 +310,8 @@ export default function EditorsPicks() {
 
         console.log('🗺️ Final game data map size:', gameDataMap.size);
         console.log('🗺️ Game data map keys:', Array.from(gameDataMap.keys()));
+        console.log('🗺️ Game data map keys types:', Array.from(gameDataMap.keys()).map(k => `${k} (${typeof k})`));
+        console.log('🗺️ Pick game_ids to match:', picksData.map(p => `${p.game_id} (${typeof p.game_id}) - ${p.game_type}`));
         setGamesData(gameDataMap);
       }
     } catch (err) {
@@ -317,7 +324,7 @@ export default function EditorsPicks() {
 
   useEffect(() => {
     fetchPicks();
-  }, [isAdmin]);
+  }, [adminModeEnabled]);
 
   if (loading) {
     return (
@@ -369,7 +376,7 @@ export default function EditorsPicks() {
               <Star className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Editor Picks Yet</h3>
               <p className="text-muted-foreground">
-                {isAdmin 
+                {adminModeEnabled 
                   ? 'Start by starring games on the NFL or College Football pages to create your first pick.'
                   : 'Check back soon for expert picks from our editors!'}
               </p>
@@ -378,8 +385,8 @@ export default function EditorsPicks() {
         </Card>
       )}
 
-      {/* Draft Picks (Admin Only) */}
-      {isAdmin && draftPicks.length > 0 && (
+      {/* Draft Picks (Admin Mode Only) */}
+      {adminModeEnabled && draftPicks.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-2xl font-bold">Drafts</h2>
@@ -391,7 +398,10 @@ export default function EditorsPicks() {
             {draftPicks.map(pick => {
               const gameData = gamesData.get(pick.game_id);
               
-              console.log(`🎯 Looking for game ${pick.game_id} (${pick.game_type}):`, gameData ? 'FOUND' : 'NOT FOUND');
+              console.log(`🎯 Draft: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
+              if (!gameData) {
+                console.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
+              }
               
               if (!gameData) {
                 // Show placeholder card for missing game data
@@ -408,7 +418,7 @@ export default function EditorsPicks() {
                         <p className="text-xs text-muted-foreground mb-4">
                           The game may have been removed or the ID doesn't match any current games.
                         </p>
-                        {isAdmin && (
+                        {adminModeEnabled && (
                           <Button
                             variant="destructive"
                             size="sm"
@@ -454,7 +464,7 @@ export default function EditorsPicks() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-2xl font-bold">Published Picks</h2>
-            <Badge variant="default">
+            <Badge variant="secondary" className="bg-green-500 text-white">
               {publishedPicks.length}
             </Badge>
           </div>
@@ -462,7 +472,10 @@ export default function EditorsPicks() {
             {publishedPicks.map(pick => {
               const gameData = gamesData.get(pick.game_id);
               
-              console.log(`🎯 Looking for game ${pick.game_id} (${pick.game_type}):`, gameData ? 'FOUND' : 'NOT FOUND');
+              console.log(`🎯 Published: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
+              if (!gameData) {
+                console.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
+              }
               
               if (!gameData) {
                 // Show placeholder card for missing game data
@@ -479,7 +492,7 @@ export default function EditorsPicks() {
                         <p className="text-xs text-muted-foreground mb-4">
                           The game may have been removed or the ID doesn't match any current games.
                         </p>
-                        {isAdmin && (
+                        {adminModeEnabled && (
                           <Button
                             variant="destructive"
                             size="sm"

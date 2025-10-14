@@ -3,19 +3,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, Trash2, Edit, Send } from 'lucide-react';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useAdminMode } from '@/contexts/AdminModeContext';
 
 interface EditorPickCardProps {
   pick: {
     id: string;
     game_id: string;
     game_type: 'nfl' | 'cfb';
-    selected_bet_type: 'spread' | 'over_under' | 'moneyline';
+    selected_bet_type: string; // Can be single string or comma-separated string
     editors_notes: string | null;
     is_published: boolean;
     editor_id: string;
@@ -32,18 +32,49 @@ interface EditorPickCardProps {
     over_line?: number | null;
     away_ml?: number | null;
     home_ml?: number | null;
+    opening_spread?: number | null; // For CFB games
   };
   onUpdate?: () => void;
   onDelete?: () => void;
 }
 
 export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPickCardProps) {
-  const { isAdmin } = useIsAdmin();
+  const { adminModeEnabled } = useAdminMode();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(!pick.is_published);
-  const [selectedBetType, setSelectedBetType] = useState(pick.selected_bet_type);
+  
+  // Parse bet types - handle both single strings and comma-separated strings
+  const parseBetTypes = (betTypeString: string): string[] => {
+    if (!betTypeString) return ['spread_home'];
+    
+    // Split by comma if it's a comma-separated list
+    const types = betTypeString.includes(',') 
+      ? betTypeString.split(',').map(t => t.trim())
+      : [betTypeString];
+    
+    // Normalize old bet types to new format
+    return types.map(betType => {
+      if (betType === 'spread') return 'spread_home';
+      if (betType === 'moneyline') return 'ml_home';
+      if (betType === 'over_under') return 'over';
+      return betType;
+    });
+  };
+  
+  const [selectedBetTypes, setSelectedBetTypes] = useState<string[]>(parseBetTypes(pick.selected_bet_type));
   const [notes, setNotes] = useState(pick.editors_notes || '');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Toggle a bet type selection
+  const toggleBetType = (betType: string) => {
+    setSelectedBetTypes(prev => {
+      if (prev.includes(betType)) {
+        return prev.filter(t => t !== betType);
+      } else {
+        return [...prev, betType];
+      }
+    });
+  };
 
   const formatSpread = (spread: number | null | undefined): string => {
     if (spread === null || spread === undefined) return '-';
@@ -67,19 +98,35 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
       return;
     }
 
+    if (selectedBetTypes.length === 0) {
+      toast({
+        title: 'Bet Selection Required',
+        description: 'Please select at least one bet type.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
+      const updateData = {
+        selected_bet_type: selectedBetTypes.join(','), // Store as comma-separated string
+        editors_notes: notes.trim(),
+        is_published: true,
+        updated_at: new Date().toISOString(),
+      };
+      
+      console.log('📤 Publishing with data:', updateData);
+      
       const { error } = await supabase
         .from('editors_picks')
-        .update({
-          selected_bet_type: selectedBetType,
-          editors_notes: notes.trim(),
-          is_published: true,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', pick.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        throw error;
+      }
 
       toast({
         title: 'Pick Published',
@@ -89,9 +136,11 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
       onUpdate?.();
     } catch (error) {
       console.error('Error publishing pick:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast({
         title: 'Error',
-        description: 'Failed to publish pick. Please try again.',
+        description: `Failed to publish pick: ${errorMessage}`,
         variant: 'destructive',
       });
     } finally {
@@ -100,18 +149,35 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
   };
 
   const handleSaveDraft = async () => {
+    if (selectedBetTypes.length === 0) {
+      toast({
+        title: 'Bet Selection Required',
+        description: 'Please select at least one bet type.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
+      const updateData = {
+        selected_bet_type: selectedBetTypes.join(','), // Store as comma-separated string
+        editors_notes: notes.trim(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      console.log('💾 Saving draft with data:', updateData);
+      
       const { error } = await supabase
         .from('editors_picks')
-        .update({
-          selected_bet_type: selectedBetType,
-          editors_notes: notes.trim(),
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', pick.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        throw error;
+      }
 
       toast({
         title: 'Draft Saved',
@@ -218,65 +284,170 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
           </div>
         )}
 
-        {/* Team Logos and Names */}
-        <div className="space-y-3 sm:space-y-4 pt-2">
-          <div className="flex justify-between items-start">
-            {/* Away Team */}
-            <div className="text-center flex-1">
+        {/* Team Logos and Betting Info - Horizontal Layout */}
+        <div className="space-y-2 sm:space-y-4 pt-1.5">
+          {/* Team Logos Row */}
+          <div className="flex justify-center items-center space-x-4 sm:space-x-6">
+            {/* Away Team Logo */}
+            <div className="text-center w-[140px] sm:w-[160px]">
               {gameData.away_logo && (
-                <div className="h-16 w-16 mx-auto mb-3 rounded-full flex items-center justify-center">
-                  <img src={gameData.away_logo} alt={gameData.away_team} className="h-full w-full object-contain" />
-                </div>
+                <img 
+                  src={gameData.away_logo} 
+                  alt={`${gameData.away_team} logo`}
+                  className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                />
               )}
-              <div className="text-xl font-bold mb-2 text-gray-900 dark:text-gray-100">
+              <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
                 {gameData.away_team}
               </div>
             </div>
 
             {/* @ Symbol */}
-            <div className="text-center px-4 flex flex-col items-center justify-center">
-              <span className="text-5xl font-bold text-gray-400 dark:text-gray-500">@</span>
+            <div className="text-center">
+              <span className="text-4xl sm:text-5xl font-bold text-gray-400 dark:text-gray-500">@</span>
             </div>
 
-            {/* Home Team */}
-            <div className="text-center flex-1">
+            {/* Home Team Logo */}
+            <div className="text-center w-[140px] sm:w-[160px]">
               {gameData.home_logo && (
-                <div className="h-16 w-16 mx-auto mb-3 rounded-full flex items-center justify-center">
-                  <img src={gameData.home_logo} alt={gameData.home_team} className="h-full w-full object-contain" />
-                </div>
+                <img 
+                  src={gameData.home_logo} 
+                  alt={`${gameData.home_team} logo`}
+                  className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                />
               )}
-              <div className="text-xl font-bold mb-2 text-gray-900 dark:text-gray-100">
+              <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
                 {gameData.home_team}
               </div>
+            </div>
+          </div>
+
+          {/* Betting Lines Row */}
+          <div className="flex justify-between items-center">
+            {/* Away Team Betting */}
+            <div className="text-center flex-1">
+              <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                {formatMoneyline(gameData.away_ml)}
+              </div>
+              <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-foreground">
+                {formatSpread(gameData.away_spread)}
+              </div>
+              {pick.game_type === 'cfb' && typeof gameData.opening_spread === 'number' && (
+                <div className="mt-1 flex justify-center">
+                  <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-background text-foreground border-border">
+                    Open: {formatSpread(gameData.opening_spread ? -gameData.opening_spread : null)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Total */}
+            <div className="text-center px-2 sm:px-4">
+              <div className="text-xs sm:text-sm font-bold text-foreground bg-primary/10 dark:bg-primary/20 px-2 sm:px-3 py-1 rounded-full border border-primary/30">
+                Total: {gameData.over_line || '-'}
+              </div>
+            </div>
+
+            {/* Home Team Betting */}
+            <div className="text-center flex-1">
+              <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600 dark:text-green-400">
+                {formatMoneyline(gameData.home_ml)}
+              </div>
+              <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-foreground">
+                {formatSpread(gameData.home_spread)}
+              </div>
+              {pick.game_type === 'cfb' && typeof gameData.opening_spread === 'number' && (
+                <div className="mt-1 flex justify-center">
+                  <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-background text-foreground border-border">
+                    Open: {formatSpread(gameData.opening_spread)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Selected Bet Section */}
-        {isEditing && isAdmin ? (
+        {isEditing && adminModeEnabled ? (
           <div className="space-y-4 pt-4 border-t-2 border-gray-200 dark:border-gray-700">
             <div>
-              <Label className="text-sm font-bold text-gray-900 dark:text-gray-100">Select Bet Type</Label>
-              <RadioGroup value={selectedBetType} onValueChange={(value) => setSelectedBetType(value as typeof selectedBetType)} className="mt-2 space-y-2">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="spread" id="spread" />
-                  <Label htmlFor="spread" className="cursor-pointer">
-                    Spread: {gameData.away_team} {formatSpread(gameData.away_spread)} / {gameData.home_team} {formatSpread(gameData.home_spread)}
-                  </Label>
+              <Label className="text-sm font-bold text-gray-900 dark:text-gray-100">Select Bet Types (Multiple Allowed)</Label>
+              <div className="mt-2 space-y-3">
+                {/* Spread Options */}
+                <div className="space-y-2 pl-2 border-l-2 border-blue-300 dark:border-blue-700">
+                  <div className="text-xs font-semibold text-muted-foreground mb-1">SPREAD</div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="spread_away" 
+                      checked={selectedBetTypes.includes('spread_away')}
+                      onCheckedChange={() => toggleBetType('spread_away')}
+                    />
+                    <Label htmlFor="spread_away" className="cursor-pointer font-normal">
+                      {gameData.away_team} {formatSpread(gameData.away_spread)}
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="spread_home" 
+                      checked={selectedBetTypes.includes('spread_home')}
+                      onCheckedChange={() => toggleBetType('spread_home')}
+                    />
+                    <Label htmlFor="spread_home" className="cursor-pointer font-normal">
+                      {gameData.home_team} {formatSpread(gameData.home_spread)}
+                    </Label>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="over_under" id="over_under" />
-                  <Label htmlFor="over_under" className="cursor-pointer">
-                    Over/Under: {gameData.over_line || 'N/A'}
-                  </Label>
+
+                {/* Moneyline Options */}
+                <div className="space-y-2 pl-2 border-l-2 border-green-300 dark:border-green-700">
+                  <div className="text-xs font-semibold text-muted-foreground mb-1">MONEYLINE</div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="ml_away" 
+                      checked={selectedBetTypes.includes('ml_away')}
+                      onCheckedChange={() => toggleBetType('ml_away')}
+                    />
+                    <Label htmlFor="ml_away" className="cursor-pointer font-normal">
+                      {gameData.away_team} {formatMoneyline(gameData.away_ml)}
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="ml_home" 
+                      checked={selectedBetTypes.includes('ml_home')}
+                      onCheckedChange={() => toggleBetType('ml_home')}
+                    />
+                    <Label htmlFor="ml_home" className="cursor-pointer font-normal">
+                      {gameData.home_team} {formatMoneyline(gameData.home_ml)}
+                    </Label>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="moneyline" id="moneyline" />
-                  <Label htmlFor="moneyline" className="cursor-pointer">
-                    Moneyline: {gameData.away_team} {formatMoneyline(gameData.away_ml)} / {gameData.home_team} {formatMoneyline(gameData.home_ml)}
-                  </Label>
+
+                {/* Over/Under Options */}
+                <div className="space-y-2 pl-2 border-l-2 border-purple-300 dark:border-purple-700">
+                  <div className="text-xs font-semibold text-muted-foreground mb-1">OVER/UNDER</div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="over" 
+                      checked={selectedBetTypes.includes('over')}
+                      onCheckedChange={() => toggleBetType('over')}
+                    />
+                    <Label htmlFor="over" className="cursor-pointer font-normal">
+                      Over {gameData.over_line || 'N/A'}
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="under" 
+                      checked={selectedBetTypes.includes('under')}
+                      onCheckedChange={() => toggleBetType('under')}
+                    />
+                    <Label htmlFor="under" className="cursor-pointer font-normal">
+                      Under {gameData.over_line || 'N/A'}
+                    </Label>
+                  </div>
                 </div>
-              </RadioGroup>
+              </div>
             </div>
 
             <div>
@@ -295,7 +466,11 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
             <div className="flex gap-2">
               {!pick.is_published ? (
                 <>
-                  <Button onClick={handlePublish} disabled={isLoading} className="flex-1">
+                  <Button 
+                    onClick={handlePublish} 
+                    disabled={isLoading} 
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700"
+                  >
                     {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                     Publish
                   </Button>
@@ -316,19 +491,45 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
           </div>
         ) : (
           <div className="space-y-4 pt-4 border-t-2 border-gray-200 dark:border-gray-700">
-            {/* Display Selected Bet */}
+            {/* Display Selected Bets */}
             <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border-2 border-blue-200 dark:border-blue-700">
-              <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100 mb-2">Editor's Pick</h4>
-              <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                {selectedBetType === 'spread' && (
-                  <span>Spread: {gameData.away_team} {formatSpread(gameData.away_spread)} / {gameData.home_team} {formatSpread(gameData.home_spread)}</span>
-                )}
-                {selectedBetType === 'over_under' && (
-                  <span>Over/Under: {gameData.over_line || 'N/A'}</span>
-                )}
-                {selectedBetType === 'moneyline' && (
-                  <span>Moneyline: {gameData.away_team} {formatMoneyline(gameData.away_ml)} / {gameData.home_team} {formatMoneyline(gameData.home_ml)}</span>
-                )}
+              <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100 mb-3">Editor's Picks</h4>
+              <div className="space-y-2">
+                {selectedBetTypes.map((betType, index) => {
+                  // Helper function to get bet display text
+                  const getBetDisplay = (type: string) => {
+                    switch(type) {
+                      case 'spread_away':
+                        return `Spread: ${gameData.away_team} ${formatSpread(gameData.away_spread)}`;
+                      case 'spread_home':
+                        return `Spread: ${gameData.home_team} ${formatSpread(gameData.home_spread)}`;
+                      case 'ml_away':
+                        return `Moneyline: ${gameData.away_team} ${formatMoneyline(gameData.away_ml)}`;
+                      case 'ml_home':
+                        return `Moneyline: ${gameData.home_team} ${formatMoneyline(gameData.home_ml)}`;
+                      case 'over':
+                        return `Over ${gameData.over_line || 'N/A'}`;
+                      case 'under':
+                        return `Under ${gameData.over_line || 'N/A'}`;
+                      // Legacy support
+                      case 'spread':
+                        return `Spread: ${gameData.home_team} ${formatSpread(gameData.home_spread)}`;
+                      case 'moneyline':
+                        return `Moneyline: ${gameData.home_team} ${formatMoneyline(gameData.home_ml)}`;
+                      case 'over_under':
+                        return `Over ${gameData.over_line || 'N/A'}`;
+                      default:
+                        return type;
+                    }
+                  };
+
+                  return (
+                    <div key={index} className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center">
+                      <span className="text-blue-600 dark:text-blue-400 mr-2">•</span>
+                      {getBetDisplay(betType)}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -341,7 +542,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
             )}
 
             {/* Admin Actions for Published Picks */}
-            {isAdmin && pick.is_published && (
+            {adminModeEnabled && pick.is_published && (
               <div className="flex gap-2">
                 <Button onClick={() => setIsEditing(true)} variant="outline" className="flex-1">
                   <Edit className="h-4 w-4 mr-2" />

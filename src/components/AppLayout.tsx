@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAdminMode } from "@/contexts/AdminModeContext";
 import { navItems } from "@/nav-items";
 import { GradientText } from "@/components/ui/gradient-text";
 import {
@@ -36,21 +36,21 @@ import { useNavigate } from "react-router-dom";
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
-  const { isAdmin } = useIsAdmin();
+  const { adminModeEnabled } = useAdminMode();
   const location = useLocation();
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
 
-  // Filter nav items based on admin status and exclude Home/Account from sidebar
+  // Filter nav items based on admin mode and exclude Home/Account from sidebar
   const visibleNavItems = navItems.filter(item => {
     // Exclude Home and Account from sidebar navigation
     if (item.to === '/home' || item.to === '/account') {
       return false;
     }
-    // Filter admin-only items
+    // Filter admin-only items - only show when admin mode is enabled
     if (item.requiresAdmin) {
-      return isAdmin;
+      return adminModeEnabled;
     }
     return true;
   });

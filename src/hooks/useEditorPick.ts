@@ -102,7 +102,7 @@ export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb') {
             game_id: gameId,
             game_type: gameType,
             editor_id: user.id,
-            selected_bet_type: 'spread', // Default to spread
+            selected_bet_type: 'spread_home', // Default to home spread
             is_published: false,
           })
           .select()
