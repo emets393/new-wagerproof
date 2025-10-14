@@ -200,9 +200,13 @@ How might weather affect these games?`,
     hookResult = { control: null };
   }
   
-  const { control } = hookResult;
+  const { control, sendUserMessage } = hookResult as any;
 
-  console.log('📦 Hook result:', { hasControl: !!control, hookResultKeys: Object.keys(hookResult) });
+  console.log('📦 Hook result:', { 
+    hasControl: !!control, 
+    hasSendUserMessage: !!sendUserMessage,
+    hookResultKeys: Object.keys(hookResult) 
+  });
 
   // Log control object when ready
   useEffect(() => {
@@ -293,45 +297,35 @@ How might weather affect these games?`,
     };
   }, [control]);
 
-  // Auto-send welcome message on first login
+  // Auto-send welcome message on first login - use ChatKit's sendUserMessage API
   useEffect(() => {
-    if (control && autoSendWelcome && !hasAutoSent) {
-      console.log('🎉 First login detected! Sending welcome message...');
+    if (control && autoSendWelcome && !hasAutoSent && sendUserMessage) {
+      console.log('🎉 Auto-welcome triggered! Using sendUserMessage API...');
       
-      // Wait a short moment for ChatKit to fully initialize
-      const timer = setTimeout(() => {
+      const welcomeMessage = "What did I miss today in sports news? Give me a quick rundown of the biggest stories and developments.";
+      
+      // Method 1: Use ChatKit's sendUserMessage API (the proper way!)
+      const sendViaChatKitAPI = async () => {
         try {
-          // Try to find and click the first starter prompt, or send a custom message
-          const welcomeMessage = "What did I miss today in sports news? Give me a quick rundown of the biggest stories and developments.";
-          
-          // Check if control has a method to send messages
-          if (typeof control.sendMessage === 'function') {
-            control.sendMessage(welcomeMessage);
-            console.log('✅ Welcome message sent via control.sendMessage');
-          } else if (typeof control.composer?.sendMessage === 'function') {
-            control.composer.sendMessage(welcomeMessage);
-            console.log('✅ Welcome message sent via control.composer.sendMessage');
-          } else {
-            // Fallback: Try to programmatically click the first starter prompt
-            const prompts = document.querySelectorAll('[data-testid="starter-prompt"], [class*="starter"], [class*="prompt-button"]');
-            if (prompts.length > 0) {
-              (prompts[0] as HTMLElement).click();
-              console.log('✅ Clicked first starter prompt');
-            } else {
-              console.log('ℹ️ No starter prompts found, user will see default greeting');
-            }
-          }
-          
+          console.log('📤 Attempting to send message via ChatKit API...');
+          await sendUserMessage({ text: welcomeMessage });
+          console.log('✅ Message sent successfully via sendUserMessage!');
           setHasAutoSent(true);
+          return true;
         } catch (error) {
-          console.error('❌ Error sending welcome message:', error);
-          console.log('ℹ️ Welcome message failed, but chat is still functional');
+          console.error('❌ Failed to send via sendUserMessage:', error);
+          return false;
         }
-      }, 1500); // Wait 1.5 seconds for ChatKit to fully render
+      };
+      
+      // Wait a moment for ChatKit to fully initialize, then send
+      const timer = setTimeout(async () => {
+        await sendViaChatKitAPI();
+      }, 2000); // Wait 2 seconds for ChatKit to initialize
       
       return () => clearTimeout(timer);
     }
-  }, [control, autoSendWelcome, hasAutoSent]);
+  }, [control, autoSendWelcome, hasAutoSent, sendUserMessage]);
 
   if (initError) {
     return (
@@ -364,7 +358,7 @@ How might weather affect these games?`,
   
   return (
     <ChatKitErrorBoundary>
-      <div ref={chatContainerRef} className="h-full w-full">
+      <div ref={chatContainerRef} className="h-full w-full chatkit-centered-container">
         <ChatKit 
           control={control}
           className="h-full w-full"

@@ -18,10 +18,14 @@ export default function WagerBotChat() {
   // Check for first login welcome flag
   useEffect(() => {
     const showWelcome = localStorage.getItem('wagerproof_show_welcome');
+    console.log('🔍 WagerBotChat checking welcome flag:', showWelcome);
     if (showWelcome === 'true') {
+      console.log('✅ Welcome flag detected! Setting shouldShowWelcome to true');
       setShouldShowWelcome(true);
       // Clear the flag so it doesn't show again
       localStorage.removeItem('wagerproof_show_welcome');
+    } else {
+      console.log('ℹ️ No welcome flag found');
     }
   }, []);
 
@@ -111,6 +115,8 @@ export default function WagerBotChat() {
       </div>
     );
   }
+
+  console.log('🎯 WagerBotChat rendering with shouldShowWelcome:', shouldShowWelcome);
 
   return (
     <div className="h-[calc(100vh-8rem)] w-full overflow-hidden rounded-lg">
