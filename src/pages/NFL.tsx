@@ -120,7 +120,7 @@ export default function NFL() {
     setSelectedAwayTeam('');
   };
 
-  // Build context for WagerBot with all current game data
+  // Build context for WagerBot with all current game data (formatted as markdown)
   const buildNFLContext = (preds: NFLPrediction[]): string => {
     try {
       if (!preds || preds.length === 0) return '';
@@ -133,30 +133,41 @@ export default function NFL() {
           const gameTime = pred.game_time || 'TBD';
           
           return `
-Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
-- Date/Time: ${gameDate} ${gameTime}
+### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
+
+**Date/Time:** ${gameDate} ${gameTime}
+
+**Betting Lines:**
 - Spread: ${homeTeam} ${pred.home_spread || 'N/A'}
 - Moneyline: Away ${pred.away_ml || 'N/A'} / Home ${pred.home_ml || 'N/A'}
 - Over/Under: ${pred.over_line || 'N/A'}
-- Model Predictions:
-  * ML Probability: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
-  * Spread Cover Probability: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}
-  * O/U Probability: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
-- Weather: ${pred.temperature ? pred.temperature + '°F' : 'N/A'}, Wind: ${pred.wind_speed ? pred.wind_speed + ' mph' : 'N/A'}
-- Public Betting Splits:
-  * Spread: ${pred.spread_splits_label || 'N/A'}
-  * Total: ${pred.total_splits_label || 'N/A'}
-  * ML: ${pred.ml_splits_label || 'N/A'}`;
+
+**Model Predictions (EPA Model):**
+- ML Probability: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
+- Spread Cover Probability: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}
+- O/U Probability: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
+
+**Weather:** ${pred.temperature ? pred.temperature + '°F' : 'N/A'}, Wind: ${pred.wind_speed ? pred.wind_speed + ' mph' : 'N/A'}
+
+**Public Betting Splits:**
+- Spread: ${pred.spread_splits_label || 'N/A'}
+- Total: ${pred.total_splits_label || 'N/A'}
+- Moneyline: ${pred.ml_splits_label || 'N/A'}
+
+---`;
         } catch (err) {
           console.error('Error building context for game:', pred, err);
           return '';
         }
       }).filter(Boolean).join('\n');
       
-      return `## NFL Games Data (${preds.length} total games)
+      return `# 🏈 NFL Games Data
+
+I have access to **${preds.length} total games**. Here's the detailed breakdown:
+
 ${contextParts}
 
-Note: Probabilities are from the EPA model. Use this data to provide specific insights about matchups, value opportunities, and betting recommendations.`;
+*Note: Probabilities are from the EPA model. I can help you analyze these matchups, identify value opportunities, and answer questions about specific games.*`;
     } catch (error) {
       console.error('Error building NFL context:', error);
       return ''; // Return empty string if there's an error
@@ -168,14 +179,44 @@ Note: Probabilities are from the EPA model. Use this data to provide specific in
   const nflContext = useMemo(() => {
     const context = buildNFLContext(predictions);
     
-    // Debug logging for context
-    if (context) {
-      console.log('🏈 NFL Context Generated:', {
-        length: context.length,
-        gameCount: predictions.length,
-        preview: context.substring(0, 300) + '...',
-        fullContext: context // Full context for debugging
+    // Debug logging for context - Show what we're sending to the AI
+    if (context && predictions.length > 0) {
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #3b82f6; font-weight: bold');
+      console.log('%c🏈 NFL - DATA SENT TO AI', 'color: #3b82f6; font-weight: bold; font-size: 14px');
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #3b82f6; font-weight: bold');
+      console.log(`\n📈 Total Games: ${predictions.length}\n`);
+      
+      // Show summary of each game
+      predictions.slice(0, 10).forEach((pred, idx) => {
+        const gameDate = pred.game_date ? new Date(pred.game_date).toLocaleDateString() : 'TBD';
+        const gameTime = pred.game_time || 'TBD';
+        console.log(`%c🏈 Game ${idx + 1}: ${pred.away_team} @ ${pred.home_team}`, 'color: #f59e0b; font-weight: bold');
+        console.log(`   📅 Date/Time: ${gameDate} ${gameTime}`);
+        console.log(`   📊 Lines:`);
+        console.log(`      • Spread: ${pred.home_team} ${pred.home_spread || 'N/A'}`);
+        console.log(`      • Moneyline: Away ${pred.away_ml || 'N/A'} / Home ${pred.home_ml || 'N/A'}`);
+        console.log(`      • Over/Under: ${pred.over_line || 'N/A'}`);
+        console.log(`   🤖 Model Predictions (EPA Model):`);
+        console.log(`      • ML Probability: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}`);
+        console.log(`      • Spread Cover Prob: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}`);
+        console.log(`      • O/U Probability: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}`);
+        console.log(`   ⛅ Weather: ${pred.temperature || 'N/A'}°F, Wind: ${pred.wind_speed || 'N/A'} mph`);
+        console.log(`   📈 Public Splits: Spread: ${pred.spread_splits_label || 'N/A'}, Total: ${pred.total_splits_label || 'N/A'}`);
+        console.log('');
       });
+      
+      if (predictions.length > 10) {
+        console.log(`   ... and ${predictions.length - 10} more games`);
+      }
+      
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #3b82f6; font-weight: bold');
+      console.log(`%c✅ Full context length: ${context.length} characters`, 'color: #3b82f6');
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'color: #3b82f6; font-weight: bold');
+      
+      // Also log raw context for copy-paste debugging
+      console.groupCollapsed('📋 Raw Context (click to expand)');
+      console.log(context);
+      console.groupEnd();
     }
     
     return context;

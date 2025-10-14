@@ -133,6 +133,7 @@ export class ChatSessionManager {
       console.log('Calling BuildShip workflow for client secret...');
 
       // Call BuildShip workflow to generate client secret
+      // Metadata is sent by ChatKit client, not in this call
       const response = await fetch('https://xna68l.buildship.run/chatKitSessionGenerator-2fc1c5152ebf', {
         method: 'POST',
         headers: {
@@ -142,9 +143,8 @@ export class ChatSessionManager {
           userId: user.id,
           userEmail: user.email,
           workflowId: 'wf_68ed847d7a44819095f0e8eca93bfd660fc4b093b131f0f0',
-          // version: '1', // Omitted to use production agent
           timestamp: new Date().toISOString(),
-          stream: true, // Enable streaming responses
+          stream: true,
         }),
       });
 

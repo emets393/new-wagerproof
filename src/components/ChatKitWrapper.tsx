@@ -23,6 +23,31 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext 
   
   let hookResult;
   try {
+    // Build the system message with context
+    const systemMessage = systemContext 
+      ? `You are WagerBot, an expert sports betting analyst. You have access to detailed game data and predictions for the games the user is currently viewing.
+
+${systemContext}
+
+Use this data to provide insightful analysis, identify value bets, explain model predictions, and answer questions about specific matchups. Be specific and reference the actual data provided when answering questions.`
+      : "You are WagerBot, an expert sports betting analyst. Help users understand betting strategies and make informed decisions.";
+
+    console.log('🔧 Building ChatKit config with system context:', {
+      hasContext: !!systemContext,
+      contextLength: systemContext?.length || 0,
+      systemMessageLength: systemMessage.length
+    });
+
+    if (systemContext) {
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6; font-weight: bold');
+      console.log('%c📤 CONFIGURING CHATKIT WITH METADATA', 'color: #8b5cf6; font-weight: bold; font-size: 14px');
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6; font-weight: bold');
+      console.log('System prompt will be sent with each message via ChatKit metadata');
+      console.log('System prompt length:', systemMessage.length);
+      console.log('System prompt preview:', systemMessage.substring(0, 300) + '...');
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6; font-weight: bold');
+    }
+
     const chatKitConfig: any = {
       api: {
         async getClientSecret(existing) {
@@ -125,53 +150,39 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext 
 
   console.log('📦 Hook result:', { hasControl: !!control, hookResultKeys: Object.keys(hookResult) });
 
-  // Track if we've initialized the thread for this context
-  const [initializedContext, setInitializedContext] = React.useState<string | null>(null);
+  // Track if we've sent the initial context message
+  const [contextSent, setContextSent] = React.useState<boolean>(false);
 
-  // Log control object when ready and initialize with system context
+  // Send initial context message when control is ready
   useEffect(() => {
-    if (control && systemContext) {
-      console.log('🎯 Control object ready:', {
-        hasControl: !!control,
-        controlKeys: Object.keys(control),
-        contextLength: systemContext.length,
-        alreadyInitialized: initializedContext === systemContext
-      });
-
-      // Only create thread if we haven't initialized this context yet
-      if (initializedContext !== systemContext && typeof control.createThread === 'function') {
-        console.log('📝 Creating NEW thread with system context (context changed or first time)');
-        console.log('📊 Context preview:', systemContext.substring(0, 200) + '...');
-        
+    if (control && systemContext && !contextSent) {
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
+      console.log('%c📨 SENDING INITIAL CONTEXT MESSAGE', 'color: #10b981; font-weight: bold; font-size: 14px');
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
+      console.log('Context length:', systemContext.length);
+      
+      // Send the context as the first message
+      if (typeof control.sendMessage === 'function') {
         try {
-          control.createThread({
-            messages: [
-              {
-                role: "system",
-                content: `You are WagerBot, an expert sports betting analyst. You have access to detailed game data and predictions for the games the user is currently viewing.
-
-${systemContext}
-
-Use this data to provide insightful analysis, identify value bets, explain model predictions, and answer questions about specific matchups. Be specific and reference the actual data provided when answering questions.`
-              }
-            ]
-          });
-          
-          setInitializedContext(systemContext);
-          console.log('✅ Thread created successfully with page-specific context');
+          control.sendMessage(systemContext);
+          setContextSent(true);
+          console.log('✅ Initial context message sent successfully');
         } catch (error) {
-          console.error('❌ Error creating thread with system context:', error);
+          console.error('❌ Error sending initial context message:', error);
         }
-      } else if (initializedContext === systemContext) {
-        console.log('⏭️  Skipping thread creation - already initialized with this context');
+      } else {
+        console.warn('⚠️  control.sendMessage not available');
       }
+      
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'color: #10b981; font-weight: bold');
     }
-  }, [control, systemContext]);
+  }, [control, systemContext, contextSent]);
 
   useEffect(() => {
     console.log('🔵 ChatKit control state:', { hasControl: !!control });
     if (control) {
       console.log('✅ ChatKit control object:', control);
+      console.log('Available control methods:', Object.keys(control));
     }
   }, [control]);
 

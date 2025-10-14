@@ -127,7 +127,7 @@ export default function CollegeFootball() {
     }
   };
 
-  // Build context for WagerBot with all current game data
+  // Build context for WagerBot with all current game data (formatted as markdown)
   const buildCFBContext = (preds: CFBPrediction[]): string => {
     try {
       if (!preds || preds.length === 0) return '';
@@ -140,31 +140,42 @@ export default function CollegeFootball() {
           const gameDate = gameTime !== 'TBD' ? new Date(gameTime).toLocaleDateString() : 'TBD';
           
           return `
-Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
-- Date/Time: ${gameDate}
+### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
+
+**Date/Time:** ${gameDate}
+
+**Betting Lines:**
 - Spread: ${homeTeam} ${pred.home_spread || pred.api_spread || 'N/A'}
 - Moneyline: Away ${pred.away_moneyline || pred.away_ml || 'N/A'} / Home ${pred.home_moneyline || pred.home_ml || 'N/A'}
 - Over/Under: ${pred.total_line || pred.api_over_line || 'N/A'}
-- Model Predictions:
-  * ML Probability: ${pred.pred_ml_proba ? (pred.pred_ml_proba * 100).toFixed(1) + '%' : 'N/A'}
-  * Spread Cover Probability: ${pred.pred_spread_proba ? (pred.pred_spread_proba * 100).toFixed(1) + '%' : 'N/A'}
-  * Total Probability: ${pred.pred_total_proba ? (pred.pred_total_proba * 100).toFixed(1) + '%' : 'N/A'}
-- Predicted Scores: Away ${pred.pred_away_score || pred.pred_away_points || 'N/A'} - Home ${pred.pred_home_score || pred.pred_home_points || 'N/A'}
-- Weather: ${pred.weather_temp_f || pred.temperature ? (pred.weather_temp_f || pred.temperature) + '°F' : 'N/A'}, Wind: ${pred.weather_windspeed_mph || pred.wind_speed ? (pred.weather_windspeed_mph || pred.wind_speed) + ' mph' : 'N/A'}
-- Public Betting Splits:
-  * Spread: ${pred.spread_splits_label || 'N/A'}
-  * Total: ${pred.total_splits_label || 'N/A'}
-  * ML: ${pred.ml_splits_label || 'N/A'}`;
+
+**Model Predictions:**
+- ML Probability: ${pred.pred_ml_proba ? (pred.pred_ml_proba * 100).toFixed(1) + '%' : 'N/A'}
+- Spread Cover Probability: ${pred.pred_spread_proba ? (pred.pred_spread_proba * 100).toFixed(1) + '%' : 'N/A'}
+- Total Probability: ${pred.pred_total_proba ? (pred.pred_total_proba * 100).toFixed(1) + '%' : 'N/A'}
+- Predicted Score: ${awayTeam} ${pred.pred_away_score || pred.pred_away_points || 'N/A'} - ${homeTeam} ${pred.pred_home_score || pred.pred_home_points || 'N/A'}
+
+**Weather:** ${pred.weather_temp_f || pred.temperature ? (pred.weather_temp_f || pred.temperature) + '°F' : 'N/A'}, Wind: ${pred.weather_windspeed_mph || pred.wind_speed ? (pred.weather_windspeed_mph || pred.wind_speed) + ' mph' : 'N/A'}
+
+**Public Betting Splits:**
+- Spread: ${pred.spread_splits_label || 'N/A'}
+- Total: ${pred.total_splits_label || 'N/A'}
+- Moneyline: ${pred.ml_splits_label || 'N/A'}
+
+---`;
         } catch (err) {
           console.error('Error building context for game:', pred, err);
           return '';
         }
       }).filter(Boolean).join('\n');
       
-      return `## College Football Games Data (${preds.length} total games)
+      return `# 🏈 College Football Games Data
+
+I have access to **${preds.length} total games**. Here's the detailed breakdown:
+
 ${contextParts}
 
-Note: Probabilities are from the predictive model. Use this data to provide specific insights about matchups, value opportunities, and betting recommendations.`;
+*Note: Probabilities are from the predictive model. I can help you analyze these matchups, identify value opportunities, and answer questions about specific games.*`;
     } catch (error) {
       console.error('Error building CFB context:', error);
       return ''; // Return empty string if there's an error
@@ -176,14 +187,44 @@ Note: Probabilities are from the predictive model. Use this data to provide spec
   const cfbContext = useMemo(() => {
     const context = buildCFBContext(predictions);
     
-    // Debug logging for context
-    if (context) {
-      console.log('📊 CFB Context Generated:', {
-        length: context.length,
-        gameCount: predictions.length,
-        preview: context.substring(0, 300) + '...',
-        fullContext: context // Full context for debugging
+    // Debug logging for context - Show what we're sending to the AI
+    if (context && predictions.length > 0) {
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
+      console.log('%c📊 COLLEGE FOOTBALL - DATA SENT TO AI', 'color: #10b981; font-weight: bold; font-size: 14px');
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
+      console.log(`\n📈 Total Games: ${predictions.length}\n`);
+      
+      // Show summary of each game
+      predictions.slice(0, 10).forEach((pred, idx) => {
+        const gameTime = pred.start_time || pred.game_datetime || pred.datetime || 'TBD';
+        console.log(`%c🏈 Game ${idx + 1}: ${pred.away_team} @ ${pred.home_team}`, 'color: #3b82f6; font-weight: bold');
+        console.log(`   📅 Time: ${gameTime}`);
+        console.log(`   📊 Lines:`);
+        console.log(`      • Spread: ${pred.home_team} ${pred.home_spread || pred.api_spread || 'N/A'}`);
+        console.log(`      • Moneyline: Away ${pred.away_moneyline || pred.away_ml || 'N/A'} / Home ${pred.home_moneyline || pred.home_ml || 'N/A'}`);
+        console.log(`      • Over/Under: ${pred.total_line || pred.api_over_line || 'N/A'}`);
+        console.log(`   🤖 Model Predictions:`);
+        console.log(`      • ML Probability: ${pred.pred_ml_proba ? (pred.pred_ml_proba * 100).toFixed(1) + '%' : 'N/A'}`);
+        console.log(`      • Spread Cover Prob: ${pred.pred_spread_proba ? (pred.pred_spread_proba * 100).toFixed(1) + '%' : 'N/A'}`);
+        console.log(`      • Total Probability: ${pred.pred_total_proba ? (pred.pred_total_proba * 100).toFixed(1) + '%' : 'N/A'}`);
+        console.log(`      • Predicted Scores: Away ${pred.pred_away_score || pred.pred_away_points || 'N/A'} - Home ${pred.pred_home_score || pred.pred_home_points || 'N/A'}`);
+        console.log(`   ⛅ Weather: ${pred.weather_temp_f || pred.temperature || 'N/A'}°F, Wind: ${pred.weather_windspeed_mph || pred.wind_speed || 'N/A'} mph`);
+        console.log(`   📈 Public Splits: Spread: ${pred.spread_splits_label || 'N/A'}, Total: ${pred.total_splits_label || 'N/A'}`);
+        console.log('');
       });
+      
+      if (predictions.length > 10) {
+        console.log(`   ... and ${predictions.length - 10} more games`);
+      }
+      
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
+      console.log(`%c✅ Full context length: ${context.length} characters`, 'color: #10b981');
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'color: #10b981; font-weight: bold');
+      
+      // Also log raw context for copy-paste debugging
+      console.groupCollapsed('📋 Raw Context (click to expand)');
+      console.log(context);
+      console.groupEnd();
     }
     
     return context;

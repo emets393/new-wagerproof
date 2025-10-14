@@ -110,13 +110,43 @@ This ensures:
 
 ## Testing & Debugging
 
-### Console Output to Look For:
+### Enhanced Console Output
+
+The console now shows a **beautifully formatted summary** of exactly what data is being sent to the AI:
 
 **When opening chat on NFL page:**
 ```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏈 NFL - DATA SENT TO AI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📈 Total Games: 16
+
+🏈 Game 1: Buffalo @ Kansas City
+   📅 Date/Time: 1/26/2025 18:30:00
+   📊 Lines:
+      • Spread: Kansas City -2.5
+      • Moneyline: Away +120 / Home -145
+      • Over/Under: 48.5
+   🤖 Model Predictions (EPA Model):
+      • ML Probability: 58.3%
+      • Spread Cover Prob: 54.2%
+      • O/U Probability: 62.1%
+   ⛅ Weather: 35°F, Wind: 12 mph
+   📈 Public Splits: Spread: 65% on Chiefs, Total: 58% on Over
+
+🏈 Game 2: Philadelphia @ Washington
+   ... (continues for all games)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Full context length: 5234 characters
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 Raw Context (click to expand)
+  [Full text context that's sent to AI]
+
 📊 MiniWagerBotChat pageContext length: 5234
 📄 MiniWagerBotChat pageId: nfl
-🏈 NFL Context Generated: { length: 5234, gameCount: 16, ... }
 🆕 Creating new session for page: nfl
 💾 Set current session for page nfl: session_1234567890_abc123
 📝 Creating NEW thread with system context
@@ -125,10 +155,35 @@ This ensures:
 
 **When switching to CFB page:**
 ```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 COLLEGE FOOTBALL - DATA SENT TO AI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📈 Total Games: 25
+
+🏈 Game 1: Alabama @ Georgia
+   📅 Time: 2025-10-03 20:00:00+00
+   📊 Lines:
+      • Spread: Georgia -7.0
+      • Moneyline: Away +240 / Home -290
+      • Over/Under: 54.5
+   🤖 Model Predictions:
+      • ML Probability: 72.5%
+      • Spread Cover Prob: 65.8%
+      • Total Probability: 58.9%
+      • Predicted Scores: Away 24 - Home 31
+   ⛅ Weather: 72°F, Wind: 8 mph
+   📈 Public Splits: Spread: 78% on Georgia, Total: 61% on Over
+
+   ... (continues for all games)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Full context length: 6789 characters
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 🔄 Page changed, clearing session to force new thread
 📊 MiniWagerBotChat pageContext length: 6789
 📄 MiniWagerBotChat pageId: college-football
-📊 CFB Context Generated: { length: 6789, gameCount: 25, ... }
 🆕 Creating new session for page: college-football
 💾 Set current session for page college-football: session_1234567891_def456
 📝 Creating NEW thread with system context
