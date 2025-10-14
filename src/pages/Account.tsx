@@ -52,8 +52,8 @@ export default function Account() {
       } else if (action === 'signup') {
         setSuccess('Check your email for the confirmation link!');
       } else if (action === 'login') {
-        // Redirect to homepage after successful login
-        navigate('/', { replace: true });
+        // Redirect to NFL page after successful login
+        navigate('/nfl', { replace: true });
       }
     } catch (err) {
       setError('An unexpected error occurred');

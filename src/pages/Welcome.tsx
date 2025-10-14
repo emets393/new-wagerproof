@@ -19,10 +19,10 @@ export default function Welcome() {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  // Redirect authenticated users to home
+  // Redirect authenticated users to NFL page
   useEffect(() => {
     if (user && !loading) {
-      navigate('/', { replace: true });
+      navigate('/nfl', { replace: true });
     }
   }, [user, loading, navigate]);
 
