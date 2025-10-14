@@ -5,6 +5,7 @@ import LightRays from "@/components/magicui/light-rays";
 import { Button } from "@/components/ui/button";
 import { Button as MovingBorderButton } from "@/components/ui/moving-border";
 import { Link } from "react-router-dom";
+import CFBPreview from "./CFBPreview";
 const wagerProofIcon = "/wagerproof-landing.png";
 const Hero = () => {
   return <section className="relative min-h-screen pt-24 md:pt-32 px-4 md:px-6 pb-16 overflow-hidden transition-colors duration-500">
@@ -73,69 +74,8 @@ const Hero = () => {
           </p>
         </div>
 
-        {/* Dashboard Preview Placeholder */}
-        <div className="w-full max-w-6xl mx-auto mt-8 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-          <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-2xl bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-            {/* Dashboard Header */}
-            <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <img src={wagerProofIcon} alt="WagerProof" className="w-8 h-8 rounded" />
-                <span className="font-semibold text-gray-900 dark:text-gray-100">wagerproof.bet</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-3 py-1 rounded bg-honeydew-100 dark:bg-honeydew-900/30 text-honeydew-700 dark:text-honeydew-400 text-sm font-medium">
-                  <span className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse"></span>
-                  Live
-                </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">Today</span>
-              </div>
-            </div>
-            
-            {/* Dashboard Content Placeholder */}
-            <div className="p-6 md:p-8 lg:p-10 min-h-[500px] flex flex-col gap-6">
-              {/* Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Win Rate</div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">64.2%</div>
-                  <div className="text-xs text-honeydew-600 dark:text-honeydew-400 mt-1">↑ 12.4%</div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Active Bets</div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">127</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">This week</div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">ROI</div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">+18.3%</div>
-                  <div className="text-xs text-honeydew-600 dark:text-honeydew-400 mt-1">↑ 5.2%</div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Sharp Plays</div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">23</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Today</div>
-                </div>
-              </div>
-
-              {/* Chart Placeholder */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 flex-1 min-h-[300px]">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Performance Analytics</h3>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Last 30 days</div>
-                </div>
-                <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-600">
-                  <div className="text-center">
-                    <svg className="w-16 h-16 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <p className="text-sm">Live Analytics Dashboard</p>
-                    <p className="text-xs mt-1">Track your betting performance in real-time</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Live College Football Preview */}
+        <CFBPreview />
       </div>
     </section>;
 };
