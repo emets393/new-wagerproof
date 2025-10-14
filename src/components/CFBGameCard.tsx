@@ -45,7 +45,7 @@ export default function CFBGameCard({
   
   return (
     <div 
-      className="relative"
+      className="relative w-full"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -55,7 +55,7 @@ export default function CFBGameCard({
         borderWidth={1}
         duration={18}
         color={["#93c5fd", "#c4b5fd", "#93c5fd"]}
-        className="relative z-10 bg-transparent p-0 min-h-0 w-full"
+        className="relative z-10 !bg-transparent p-0 min-h-0 w-full max-w-full min-w-0"
       >
         {/* Aurora Effect - Only visible when this card is hovered */}
         <AnimatePresence>
@@ -65,7 +65,7 @@ export default function CFBGameCard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg"
+              className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-xl"
               style={{ 
                 mixBlendMode: 'screen',
                 filter: 'brightness(1.2) contrast(1.1)'
@@ -86,11 +86,12 @@ export default function CFBGameCard({
             transition: { duration: 0.2, ease: [0.4, 0, 0.2, 1] }
           }}
           whileTap={{ scale: 0.995 }}
+          className="w-full"
         >
-          <Card className={`relative overflow-hidden ${isHovered ? 'bg-gradient-to-br from-gray-200/80 via-gray-300/80 to-gray-200/80 dark:from-gray-900/70 dark:via-gray-800/70 dark:to-gray-900/70 backdrop-blur-sm' : 'bg-gradient-to-br from-gray-100/90 via-gray-200/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 backdrop-blur-sm'} border-0 shadow-lg transition-all duration-300 z-[2] ${isHovered ? 'shadow-2xl shadow-blue-200/50 dark:shadow-blue-900/30' : ''} ${className}`}>
+          <Card className={`relative overflow-hidden w-full ${isHovered ? 'bg-gradient-to-br from-gray-200/80 via-gray-300/80 to-gray-200/80 dark:from-gray-900/70 dark:via-gray-800/70 dark:to-gray-900/70 backdrop-blur-sm' : 'bg-gradient-to-br from-gray-100/90 via-gray-200/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 backdrop-blur-sm'} border-0 shadow-lg transition-all duration-300 z-[2] ${isHovered ? 'shadow-2xl shadow-blue-200/50 dark:shadow-blue-900/30' : ''} ${className}`}>
             {/* Dynamic team colors gradient top border */}
             <div 
-              className="absolute top-0 left-0 right-0 h-1"
+              className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
               style={{
                 background: `linear-gradient(to right, ${awayTeamColors.primary}, ${awayTeamColors.secondary}, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
                 opacity: 0.9

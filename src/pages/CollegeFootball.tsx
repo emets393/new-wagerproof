@@ -996,7 +996,7 @@ ${contextParts}
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-2 sm:px-4 py-6 w-full max-w-full overflow-x-hidden">
 
       {/* Game selection dropdown (multi) - Aligned with sort buttons */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -1137,9 +1137,9 @@ ${contextParts}
         </Card>
       )}
 
-      <div className="space-y-6 sm:space-y-8">
+      <div className="space-y-6 sm:space-y-8 w-full">
         {/* Display all games in a single grid, ordered by date and time */}
-        <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 w-full auto-rows-fr">
           {predictions
             .filter(shouldDisplaySelected)
             .sort((a, b) => {
@@ -1174,7 +1174,7 @@ ${contextParts}
                   homeSpread={prediction.api_spread}
                   awaySpread={prediction.api_spread ? -prediction.api_spread : null}
                 >
-                <CardContent className="space-y-3 sm:space-y-5 pt-3 pb-3 sm:pt-5 sm:pb-5">
+                <CardContent className="space-y-3 sm:space-y-5 pt-3 pb-3 sm:pt-5 sm:pb-5 px-3 sm:px-4 md:px-6">
                   {/* Game Date and Time */}
                   {(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime) && (
                     <div className="text-center">

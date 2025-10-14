@@ -49,7 +49,7 @@ export const navItems: NavItem[] = [
     page: <NFL />,
     subItems: [
       {
-        title: "Analytics",
+        title: "Historical Analytics",
         to: "/nfl-analytics",
         icon: <BarChart className="h-4 w-4" />,
       },
