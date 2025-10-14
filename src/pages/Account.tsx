@@ -64,10 +64,18 @@ export default function Account() {
   };
 
   const handleSignOut = async () => {
-    // Clear the welcome flag so next login will show it
-    localStorage.removeItem('wagerproof_show_welcome');
-    await signOut();
-    navigate('/', { replace: true });
+    try {
+      console.log('Account page: Starting handleSignOut...');
+      // Clear the welcome flag so next login will show it
+      localStorage.removeItem('wagerproof_show_welcome');
+      console.log('Account page: Calling signOut...');
+      await signOut();
+      console.log('Account page: signOut completed, navigating to /...');
+      navigate('/', { replace: true });
+      console.log('Account page: Navigation completed');
+    } catch (error) {
+      console.error('Account page: Error in handleSignOut:', error);
+    }
   };
 
   if (loading) {

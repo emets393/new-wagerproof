@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email || 'no user');
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -91,10 +92,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      console.log('Starting sign out process...');
       setSigningOut(true);
       // Clear the welcome flag so next login will show welcome message
       localStorage.removeItem('wagerproof_show_welcome');
-      await supabase.auth.signOut();
+      console.log('Calling supabase.auth.signOut()...');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Supabase sign out error:', error);
+        throw error;
+      }
+      console.log('Sign out successful');
     } catch (error) {
       console.error('Sign out error:', error);
       // Clear local state even if server logout fails
@@ -102,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
     } finally {
       setSigningOut(false);
+      console.log('Sign out process completed');
     }
   };
 

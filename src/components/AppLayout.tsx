@@ -216,7 +216,10 @@ export function AppLayout() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={signOut}
+                    onClick={() => {
+                      console.log('Sidebar: Logout button clicked');
+                      signOut();
+                    }}
                     className="h-6 w-6 flex-shrink-0 hover:bg-sidebar-accent"
                     title="Sign out"
                   >
