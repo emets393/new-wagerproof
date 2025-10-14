@@ -7,8 +7,21 @@ import { Button as MovingBorderButton } from "@/components/ui/moving-border";
 import { Link } from "react-router-dom";
 import CFBPreview from "./CFBPreview";
 import { GradientText } from "@/components/ui/gradient-text";
-const wagerProofIcon = "/wagerproof-landing.png";
+import { useTheme } from "@/contexts/ThemeContext";
+
 const Hero = () => {
+  const { theme } = useTheme();
+  
+  // Darker colors for better contrast in light mode
+  const lightModeGradient = "linear-gradient(90deg, #15803d 0%, #22c55e 20%, #166534 50%, #22c55e 80%, #15803d 100%)";
+  // Original colors for dark mode
+  const darkModeGradient = "linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)";
+  
+  const gradientToUse = theme === 'light' ? lightModeGradient : darkModeGradient;
+  
+  // Slower, more elegant animation
+  const slowTransition = { duration: 6, repeat: Infinity, ease: "linear" as const };
+
   return <section className="relative min-h-screen pt-24 md:pt-32 px-4 md:px-6 pb-16 overflow-hidden transition-colors duration-500">
       {/* Light Rays Background Effect */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
@@ -47,13 +60,15 @@ const Hero = () => {
           }}>
             Turn <GradientText 
               text="Real Data" 
-              gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
+              gradient={gradientToUse}
+              transition={slowTransition}
               className="font-bold"
             />
             <br />
             Into Your <GradientText 
               text="Betting Edge" 
-              gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
+              gradient={gradientToUse}
+              transition={slowTransition}
               className="font-bold"
             />
           </h1>
@@ -63,7 +78,7 @@ const Hero = () => {
 
           {/* CTA Button */}
           <div className="flex items-center justify-center mb-4">
-            <Link to="/account">
+            <Link to="/wagerbot-chat">
               <MovingBorderButton
                 borderRadius="1.5rem"
                 containerClassName="h-16 w-auto"

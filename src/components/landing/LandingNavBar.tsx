@@ -52,11 +52,16 @@ const NavBar = () => {
           {/* LOGO + TITLE */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center px-2">
-              <img src="/wagerproof-logo-main.png" alt="WagerProof Logo" style={{
+              <img src="/wagerproofGreenLight.png" alt="WagerProof Logo" style={{
               width: 36,
               height: 36,
               marginRight: 8
-            }} className="object-contain rounded-lg" />
+            }} className="object-contain rounded-lg dark:hidden" />
+              <img src="/wagerproofGreenDark.png" alt="WagerProof Logo" style={{
+              width: 36,
+              height: 36,
+              marginRight: 8
+            }} className="object-contain rounded-lg hidden dark:block" />
               <span className="text-2xl font-bold select-none" style={{
               letterSpacing: "-1px"
             }}>
@@ -89,7 +94,7 @@ const NavBar = () => {
               }} onClick={() => window.open('/press-kit', '_self')}>
                 Press Kit
             </Button>
-            <Link to="/account">
+            <Link to="/wagerbot-chat">
               <MovingBorderButton
                 borderRadius={BTN_RADIUS}
                 containerClassName="h-[2.3rem] w-auto"

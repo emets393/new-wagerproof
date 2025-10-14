@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 
 interface TrueFocusProps {
   sentence?: string;
+  customWords?: string[]; // Allow custom word groupings
   manualMode?: boolean;
   blurAmount?: number;
   borderColor?: string;
@@ -20,6 +21,7 @@ interface FocusRect {
 
 const TrueFocus: React.FC<TrueFocusProps> = ({
   sentence = 'True Focus',
+  customWords,
   manualMode = false,
   blurAmount = 5,
   borderColor = '#39ff14',
@@ -27,7 +29,7 @@ const TrueFocus: React.FC<TrueFocusProps> = ({
   animationDuration = 0.5,
   pauseBetweenAnimations = 1
 }) => {
-  const words = sentence.split(' ');
+  const words = customWords || sentence.split(' ');
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [lastActiveIndex, setLastActiveIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);

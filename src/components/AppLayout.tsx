@@ -79,9 +79,21 @@ export function AppLayout() {
         <Link to="/home" className="flex items-center gap-2 group">
           <div className="flex items-center justify-center w-8 h-8">
             <img 
-              src="/wagerproof-logo-main.png" 
+              src="/wagerproofGreenLight.png" 
               alt="Wagerproof Logo" 
-              className="w-8 h-8 object-contain rounded-lg"
+              className="w-8 h-8 object-contain rounded-lg dark:hidden"
+              onError={(e) => {
+                // Fallback to letter W if icon fails to load
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const fallback = target.nextElementSibling as HTMLElement;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+            />
+            <img 
+              src="/wagerproofGreenDark.png" 
+              alt="Wagerproof Logo" 
+              className="w-8 h-8 object-contain rounded-lg hidden dark:block"
               onError={(e) => {
                 // Fallback to letter W if icon fails to load
                 const target = e.target as HTMLImageElement;
@@ -138,12 +150,25 @@ export function AppLayout() {
                       <SidebarMenuButton
                         asChild
                         isActive={isActivePath(to)}
-                        className="text-sm font-medium"
+                        className={`text-sm font-medium transition-all duration-200 ${
+                          isActivePath(to) 
+                            ? 'bg-gradient-to-r from-honeydew-100 to-honeydew-50 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-700 dark:text-honeydew-300 border-r-2 border-honeydew-500 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
+                            : 'hover:bg-honeydew-50 dark:hover:bg-honeydew-900/10 hover:text-honeydew-600 dark:hover:text-honeydew-400'
+                        }`}
                       >
                         <Link to={to}>
-                          {icon}
+                          <span className={`transition-colors duration-200 ${
+                            isActivePath(to) ? 'text-honeydew-600 dark:text-honeydew-400' : ''
+                          }`}>
+                            {icon}
+                          </span>
                           <span>{title}</span>
-                          <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                          {(isActivePath(to) || subItems?.some(subItem => isActivePath(subItem.to))) && (
+                            <div className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50 mr-2"></div>
+                          )}
+                          <ChevronRight className={`ml-auto h-4 w-4 transition-all duration-200 group-data-[state=open]/collapsible:rotate-90 ${
+                            isActivePath(to) ? 'text-honeydew-600 dark:text-honeydew-400' : ''
+                          }`} />
                         </Link>
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
@@ -154,9 +179,18 @@ export function AppLayout() {
                             <SidebarMenuSubButton
                               asChild
                               isActive={isActivePath(subItem.to)}
+                              className={`transition-all duration-200 ${
+                                isActivePath(subItem.to) 
+                                  ? 'bg-gradient-to-r from-honeydew-50 to-white dark:from-honeydew-900/20 dark:to-honeydew-800/10 text-honeydew-700 dark:text-honeydew-300 border-r-2 border-honeydew-400 shadow-md shadow-honeydew-400/15 dark:shadow-honeydew-400/8' 
+                                  : 'hover:bg-honeydew-50 dark:hover:bg-honeydew-900/10 hover:text-honeydew-600 dark:hover:text-honeydew-400'
+                              }`}
                             >
                               <Link to={subItem.to}>
-                                {subItem.icon}
+                                <span className={`transition-colors duration-200 ${
+                                  isActivePath(subItem.to) ? 'text-honeydew-600 dark:text-honeydew-400' : ''
+                                }`}>
+                                  {subItem.icon}
+                                </span>
                                 <span>{subItem.title}</span>
                               </Link>
                             </SidebarMenuSubButton>
@@ -175,11 +209,22 @@ export function AppLayout() {
                 <SidebarMenuButton
                   asChild
                   isActive={isActivePath(to)}
-                  className="text-sm font-medium"
+                  className={`text-sm font-medium transition-all duration-200 ${
+                    isActivePath(to) 
+                      ? 'bg-gradient-to-r from-honeydew-100 to-honeydew-50 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-700 dark:text-honeydew-300 border-r-2 border-honeydew-500 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
+                      : 'hover:bg-honeydew-50 dark:hover:bg-honeydew-900/10 hover:text-honeydew-600 dark:hover:text-honeydew-400'
+                  }`}
                 >
                   <Link to={to}>
-                    {icon}
+                    <span className={`transition-colors duration-200 ${
+                      isActivePath(to) ? 'text-honeydew-600 dark:text-honeydew-400' : ''
+                    }`}>
+                      {icon}
+                    </span>
                     <span>{title}</span>
+                    {isActivePath(to) && (
+                      <div className="ml-auto w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50"></div>
+                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

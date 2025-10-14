@@ -43,11 +43,16 @@ export function ModernAuthForm({
       <div className="flex justify-center mb-6">
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-indigo-500 rounded-xl blur-md opacity-30"></div>
-          <div className="relative p-3 bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-neutral-100 dark:to-neutral-200 rounded-xl">
+          <div className="relative p-3 bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-neutral-100 dark:to-neutral-200 rounded-lg">
             <img 
-              src="/wagerproof-logo-main.png" 
+              src="/wagerproofGreenLight.png" 
               alt="WAGERPROOF" 
-              className="h-16 w-auto" 
+              className="h-16 w-auto object-contain rounded-lg dark:hidden" 
+            />
+            <img 
+              src="/wagerproofGreenDark.png" 
+              alt="WAGERPROOF" 
+              className="h-16 w-auto object-contain rounded-lg hidden dark:block" 
             />
           </div>
         </div>

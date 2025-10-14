@@ -33,7 +33,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
         name: 'WagerProof',
         description: 'Data-driven sports betting analytics and predictions platform',
         url: baseUrl,
-        logo: `${baseUrl}/wagerproof-logo-main.png`,
+        logo: `${baseUrl}/wagerproofGreenLight.png`,
         sameAs: [
           'https://twitter.com/wagerproof',
           'https://instagram.com/wagerproof',
@@ -71,7 +71,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
         '@type': 'Article',
         headline: props.title,
         description: props.description,
-        image: props.image || `${baseUrl}/wagerproof-landing.png`,
+        image: props.image || `${baseUrl}/wagerproofGreenLight.png`,
         datePublished: props.datePublished,
         dateModified: props.dateModified || props.datePublished,
         author: {
@@ -83,7 +83,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
           name: 'WagerProof',
           logo: {
             '@type': 'ImageObject',
-            url: `${baseUrl}/wagerproof-landing.png`,
+            url: `${baseUrl}/wagerproofGreenLight.png`,
           },
         },
         mainEntityOfPage: {

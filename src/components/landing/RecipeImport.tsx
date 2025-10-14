@@ -38,13 +38,13 @@ const RecipeImport = () => {
           <div className="text-center max-w-5xl mx-auto transition-all duration-700">
             <div className="flex justify-center items-center mb-8">
               <TrueFocus
-                sentence="Find Alpha Instead of Noise"
+                customWords={["Find", "Alpha", "Instead", "Of Noise"]}
                 manualMode={false}
                 blurAmount={5}
                 borderColor="#39ff14"
                 glowColor="rgba(57, 255, 20, 0.6)"
-                animationDuration={0.8}
-                pauseBetweenAnimations={1.5}
+                animationDuration={0.5}
+                pauseBetweenAnimations={0.8}
               />
             </div>
           </div>

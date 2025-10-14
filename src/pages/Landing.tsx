@@ -32,9 +32,14 @@ export default function Landing() {
           <div className="flex flex-col items-center text-center gap-3">
             {/* Brand logo (large) */}
             <img
-              src="/wagerproof-logo-main.png"
+              src="/wagerproofGreenLight.png"
               alt="WAGER PROOF"
-              className="h-56 sm:h-72 w-auto drop-shadow-xl -mb-4 sm:-mb-6"
+              className="h-56 sm:h-72 w-auto object-contain rounded-lg drop-shadow-xl -mb-4 sm:-mb-6 dark:hidden"
+            />
+            <img
+              src="/wagerproofGreenDark.png"
+              alt="WAGER PROOF"
+              className="h-56 sm:h-72 w-auto object-contain rounded-lg drop-shadow-xl -mb-4 sm:-mb-6 hidden dark:block"
             />
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
               <span className="text-white">Wager</span>
