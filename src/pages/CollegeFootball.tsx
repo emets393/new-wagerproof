@@ -9,6 +9,7 @@ import { RefreshCw, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import CFBGameCard from '@/components/CFBGameCard';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
+import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
 
 interface CFBPrediction {
   id: string;
@@ -1553,6 +1554,9 @@ export default function CollegeFootball() {
           </p>
         </div>
       )}
+
+      {/* Mini WagerBot Chat */}
+      <MiniWagerBotChat />
     </div>
   );
 } 

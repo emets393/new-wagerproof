@@ -14,6 +14,7 @@ import NFLGameCard from '@/components/NFLGameCard';
 import HistoricalDataSection from '@/components/HistoricalDataSection';
 import { BackgroundGradient } from '@/components/ui/background-gradient';
 import ElectricBorder from '@/components/ui/electric-border';
+import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
 
 interface NFLPrediction {
   id: string;
@@ -1103,6 +1104,9 @@ export default function NFL() {
         awayTeam={selectedAwayTeam}
         teamMappings={teamMappings}
       />
+
+      {/* Mini WagerBot Chat */}
+      <MiniWagerBotChat />
     </div>
   );
 }
