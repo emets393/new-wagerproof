@@ -16,6 +16,7 @@ import { BackgroundGradient } from '@/components/ui/background-gradient';
 import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatSessionManager } from '@/utils/chatSession';
+import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
 
 interface NFLPrediction {
   id: string;
@@ -549,7 +550,7 @@ ${contextParts}
     return mapping?.logo_url || '/placeholder.svg';
   };
 
-  // Weather icons (reusing from college football)
+  // Weather display component using Tabler icons
   const WeatherIcon = ({ iconCode, temperature, windSpeed }: { 
     iconCode: string | null; 
     temperature: number | null; 
@@ -557,83 +558,14 @@ ${contextParts}
   }) => {
     if (!iconCode) return null;
 
-    const getWeatherIconPath = (code: string): string => {
-      const iconMap: { [key: string]: string } = {
-        'clear-day': 'clear-day.svg',
-        'clear-night': 'clear-night.svg',
-        'partly-cloudy-day': 'partly-cloudy-day.svg',
-        'partly-cloudy-night': 'partly-cloudy-night.svg',
-        'cloudy': 'cloudy.svg',
-        'rain': 'rain.svg',
-        'showers-day': 'showers-day.svg',
-        'showers-night': 'showers-night.svg',
-        'snow': 'snow.svg',
-        'snow-showers-day': 'snow-showers-day.svg',
-        'snow-showers-night': 'snow-showers-night.svg',
-        'sleet': 'sleet.svg',
-        'fog': 'fog.svg',
-        'thunder': 'thunder.svg',
-        'thunder-showers-day': 'thunder-showers-day.svg',
-        'thunder-showers-night': 'thunder-showers-night.svg',
-        'thunder-rain': 'thunder-rain.svg',
-        'rain-snow': 'rain-snow.svg',
-        'rain-snow-showers-day': 'rain-snow-showers-day.svg',
-        'rain-snow-showers-night': 'rain-snow-showers-night.svg',
-        'hail': 'hail.svg'
-      };
-
-      if (iconMap[code]) {
-        return iconMap[code];
-      }
-
-      // Fallback logic
-      if (code.includes('clear')) {
-        return code.includes('night') ? 'clear-night.svg' : 'clear-day.svg';
-      }
-      if (code.includes('partly')) {
-        return code.includes('night') ? 'partly-cloudy-night.svg' : 'partly-cloudy-day.svg';
-      }
-      if (code.includes('rain') && code.includes('snow')) {
-        return code.includes('night') ? 'rain-snow-showers-night.svg' : 'rain-snow-showers-day.svg';
-      }
-      if (code.includes('rain')) {
-        return code.includes('night') ? 'showers-night.svg' : 'showers-day.svg';
-      }
-      if (code.includes('snow')) {
-        return code.includes('night') ? 'snow-showers-night.svg' : 'snow-showers-day.svg';
-      }
-      if (code.includes('thunder')) {
-        if (code.includes('rain')) return 'thunder-rain.svg';
-        return code.includes('night') ? 'thunder-showers-night.svg' : 'thunder-showers-day.svg';
-      }
-      if (code.includes('cloudy') || code.includes('cloud')) {
-        return 'cloudy.svg';
-      }
-      if (code.includes('fog') || code.includes('mist') || code.includes('haze')) {
-        return 'fog.svg';
-      }
-
-      return 'clear-day.svg';
-    };
-
-    const iconPath = getWeatherIconPath(iconCode);
-
     return (
       <div className="text-center">
         <div className="flex items-center justify-center space-x-4 mb-2">
           <div className="w-16 h-16 flex items-center justify-center">
-            <img 
-              src={`/weather-icons/${iconPath}`}
-              alt={iconCode}
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const fallback = document.createElement('div');
-                fallback.className = 'w-full h-full flex items-center justify-center text-2xl';
-                fallback.textContent = iconCode.includes('night') ? '🌙' : '☀️';
-                target.parentNode?.appendChild(fallback);
-              }}
+            <WeatherIconComponent 
+              code={iconCode}
+              size={64}
+              className="stroke-current text-foreground"
             />
           </div>
 
@@ -645,7 +577,7 @@ ${contextParts}
 
           {windSpeed !== null && windSpeed > 0 && (
             <div className="flex items-center space-x-2 min-w-[70px]">
-              <div className="text-2xl text-blue-500">💨</div>
+              <IconWind size={24} className="stroke-current text-blue-500" />
               <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                 {Math.round(windSpeed)} mph
               </span>
@@ -1145,7 +1077,18 @@ ${contextParts}
                         </div>
                       ) : (
                         <div className="flex justify-center">
-                          <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-bold">Indoor Game</span>
+                          <div className="text-center">
+                            <div className="flex items-center justify-center mb-2">
+                              <WeatherIconComponent 
+                                code="indoor"
+                                size={64}
+                                className="stroke-current text-foreground"
+                              />
+                            </div>
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                              Indoor Game
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

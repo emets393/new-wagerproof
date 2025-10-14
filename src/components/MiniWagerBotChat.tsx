@@ -21,6 +21,16 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  
+  // Drag functionality state
+  const getInitialPosition = () => ({
+    x: window.innerWidth - 480,
+    y: window.innerHeight - 700
+  });
+  
+  const [position, setPosition] = useState(getInitialPosition);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   // Log context for debugging
   React.useEffect(() => {
@@ -44,6 +54,13 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
       setCurrentSession(null);
     }
   }, [pageId]);
+
+  // Reset position to initial when chat is opened
+  useEffect(() => {
+    if (isOpen) {
+      setPosition(getInitialPosition());
+    }
+  }, [isOpen]);
 
   const loadOrCreateSession = async () => {
     if (!user) return;
@@ -76,6 +93,55 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
     setIsOpen(!isOpen);
   };
 
+  // Drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only drag if clicking on the header (not on buttons)
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    });
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+
+    // Keep window within viewport bounds
+    const maxX = window.innerWidth - 400; // Window width
+    const maxY = window.innerHeight - 600; // Window height
+    
+    const boundedX = Math.max(0, Math.min(newX, maxX));
+    const boundedY = Math.max(0, Math.min(newY, maxY));
+
+    setPosition({ x: boundedX, y: boundedY });
+  };
+
+  const handleMouseUp = () => {
+    if (isDragging) {
+      setIsDragging(false);
+    }
+  };
+
+  // Add/remove mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, dragOffset, position]);
+
   if (!user) {
     return null; // Don't show if user is not authenticated
   }
@@ -84,9 +150,19 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
     <>
       {/* Chat Popup Overlay */}
       {isOpen && (
-        <Card className="fixed bottom-24 right-32 w-[400px] h-[600px] flex flex-col shadow-2xl rounded-xl z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden bg-gradient-to-br from-green-500/10 to-green-600/10 backdrop-blur-sm">
+        <Card 
+          className="fixed w-[400px] h-[600px] flex flex-col shadow-2xl rounded-xl z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden bg-gradient-to-br from-green-500/10 to-green-600/10 backdrop-blur-sm"
+          style={{ 
+            left: `${position.x}px`, 
+            top: `${position.y}px`,
+            cursor: isDragging ? 'grabbing' : 'default'
+          }}
+        >
           {/* Header */}
-          <div className="flex items-center justify-between p-3 border-b">
+          <div 
+            className="flex items-center justify-between p-3 border-b cursor-move select-none"
+            onMouseDown={handleMouseDown}
+          >
             <div className="flex items-center gap-2">
               <Bot className="h-4 w-4" />
               <span className="font-semibold text-sm">WagerBot</span>
@@ -131,10 +207,10 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
       {/* Floating Action Button */}
       <div
         onClick={toggleChat}
-        className="fixed bottom-6 right-6 h-24 w-24 rounded-lg z-50 cursor-pointer"
+        className="fixed bottom-6 right-6 h-16 w-16 rounded-lg z-50 cursor-pointer"
         aria-label="Toggle WagerBot Chat"
       >
-        <div className="relative bg-transparent outline-none w-24 h-24 [perspective:24em] [transform-style:preserve-3d]">
+        <div className="relative bg-transparent outline-none w-16 h-16 [perspective:16em] [transform-style:preserve-3d]">
           <span
             className={`absolute top-0 left-0 w-full h-full rounded-[1.25em] block transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.83,0,0.17,1)] origin-[100%_100%] ${
               isOpen ? '[transform:rotate(25deg)_translate3d(-0.5em,-0.5em,0.5em)]' : 'rotate-[15deg]'
@@ -155,9 +231,9 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
           >
             <span className="m-auto flex items-center justify-center text-white">
               {isOpen ? (
-                <X className="h-12 w-12 text-white" />
+                <X className="h-8 w-8 text-white" />
               ) : (
-                <Bot className="h-12 w-12 text-white" />
+                <Bot className="h-8 w-8 text-white" />
               )}
             </span>
           </span>
