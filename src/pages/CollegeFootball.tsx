@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import CFBGameCard from '@/components/CFBGameCard';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
+import { useAuth } from '@/contexts/AuthContext';
+import { chatSessionManager } from '@/utils/chatSession';
 
 interface CFBPrediction {
   id: string;
@@ -71,6 +73,7 @@ interface TeamMapping {
 }
 
 export default function CollegeFootball() {
+  const { user } = useAuth();
   const [predictions, setPredictions] = useState<CFBPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +126,68 @@ export default function CollegeFootball() {
       });
     }
   };
+
+  // Build context for WagerBot with all current game data
+  const buildCFBContext = (preds: CFBPrediction[]): string => {
+    try {
+      if (!preds || preds.length === 0) return '';
+      
+      const contextParts = preds.slice(0, 20).map((pred, idx) => { // Limit to 20 games to manage token count
+        try {
+          const awayTeam = pred.away_team || 'Unknown';
+          const homeTeam = pred.home_team || 'Unknown';
+          const gameTime = pred.start_time || pred.game_datetime || pred.datetime || 'TBD';
+          const gameDate = gameTime !== 'TBD' ? new Date(gameTime).toLocaleDateString() : 'TBD';
+          
+          return `
+Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
+- Date/Time: ${gameDate}
+- Spread: ${homeTeam} ${pred.home_spread || pred.api_spread || 'N/A'}
+- Moneyline: Away ${pred.away_moneyline || pred.away_ml || 'N/A'} / Home ${pred.home_moneyline || pred.home_ml || 'N/A'}
+- Over/Under: ${pred.total_line || pred.api_over_line || 'N/A'}
+- Model Predictions:
+  * ML Probability: ${pred.pred_ml_proba ? (pred.pred_ml_proba * 100).toFixed(1) + '%' : 'N/A'}
+  * Spread Cover Probability: ${pred.pred_spread_proba ? (pred.pred_spread_proba * 100).toFixed(1) + '%' : 'N/A'}
+  * Total Probability: ${pred.pred_total_proba ? (pred.pred_total_proba * 100).toFixed(1) + '%' : 'N/A'}
+- Predicted Scores: Away ${pred.pred_away_score || pred.pred_away_points || 'N/A'} - Home ${pred.pred_home_score || pred.pred_home_points || 'N/A'}
+- Weather: ${pred.weather_temp_f || pred.temperature ? (pred.weather_temp_f || pred.temperature) + '°F' : 'N/A'}, Wind: ${pred.weather_windspeed_mph || pred.wind_speed ? (pred.weather_windspeed_mph || pred.wind_speed) + ' mph' : 'N/A'}
+- Public Betting Splits:
+  * Spread: ${pred.spread_splits_label || 'N/A'}
+  * Total: ${pred.total_splits_label || 'N/A'}
+  * ML: ${pred.ml_splits_label || 'N/A'}`;
+        } catch (err) {
+          console.error('Error building context for game:', pred, err);
+          return '';
+        }
+      }).filter(Boolean).join('\n');
+      
+      return `## College Football Games Data (${preds.length} total games)
+${contextParts}
+
+Note: Probabilities are from the predictive model. Use this data to provide specific insights about matchups, value opportunities, and betting recommendations.`;
+    } catch (error) {
+      console.error('Error building CFB context:', error);
+      return ''; // Return empty string if there's an error
+    }
+  };
+
+  // Memoize the context to prevent infinite re-renders
+  // Use predictions.length and first game ID as dependency to avoid array reference issues
+  const cfbContext = useMemo(() => {
+    const context = buildCFBContext(predictions);
+    
+    // Debug logging for context
+    if (context) {
+      console.log('📊 CFB Context Generated:', {
+        length: context.length,
+        gameCount: predictions.length,
+        preview: context.substring(0, 300) + '...',
+        fullContext: context // Full context for debugging
+      });
+    }
+    
+    return context;
+  }, [predictions.length, predictions[0]?.id]);
 
   // Check if a game should be displayed based on dropdown selections
   const shouldDisplaySelected = (prediction: CFBPrediction): boolean => {
@@ -317,6 +382,12 @@ export default function CollegeFootball() {
     try {
       setLoading(true);
       setError(null);
+      
+      // Force new chat session on refresh
+      console.log('🔄 Refresh triggered - clearing chat session to force new context');
+      if (user) {
+        chatSessionManager.clearPageSession(user.id, 'college-football');
+      }
       
       console.log('Fetching college football data...');
       
@@ -904,11 +975,17 @@ export default function CollegeFootball() {
     };
   };
 
-  const formatStartTime = (startTimeString: string | null | undefined): { date: string; time: string } => {
-    console.log('formatStartTime called with:', startTimeString); // Debug logging
-    if (!startTimeString) {
-      return { date: 'TBD', time: 'TBD' };
-    }
+  const formatStartTime = useMemo(() => {
+    const cache = new Map<string, { date: string; time: string }>();
+    return (startTimeString: string | null | undefined): { date: string; time: string } => {
+      if (!startTimeString) {
+        return { date: 'TBD', time: 'TBD' };
+      }
+      
+      // Return cached result if available
+      if (cache.has(startTimeString)) {
+        return cache.get(startTimeString)!;
+      }
 
     try {
       // Parse the start_time string (format: "2025-10-03 01:00:00+00")
@@ -937,12 +1014,17 @@ export default function CollegeFootball() {
         hour12: true
       }) + ' EST';
       
-      return { date: estDate, time: estTime };
+      const result = { date: estDate, time: estTime };
+      cache.set(startTimeString, result);
+      return result;
     } catch (error) {
       console.error('Error formatting start time:', error);
-      return { date: 'TBD', time: 'TBD' };
+      const fallback = { date: 'TBD', time: 'TBD' };
+      cache.set(startTimeString, fallback);
+      return fallback;
     }
-  };
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -1556,7 +1638,7 @@ export default function CollegeFootball() {
       )}
 
       {/* Mini WagerBot Chat */}
-      <MiniWagerBotChat />
+      <MiniWagerBotChat pageContext={cfbContext} pageId="college-football" />
     </div>
   );
 } 

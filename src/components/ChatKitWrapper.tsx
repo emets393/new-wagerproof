@@ -10,9 +10,10 @@ interface ChatKitWrapperProps {
   user: User;
   sessionId: string;
   theme?: 'light' | 'dark';
+  systemContext?: string;
 }
 
-export function ChatKitWrapper({ user, sessionId, theme = 'dark' }: ChatKitWrapperProps) {
+export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext }: ChatKitWrapperProps) {
   console.log('🔵 ChatKitWrapper rendering', { userId: user.id, sessionId });
   
   // Use workflow ID as the identifier for ChatKit
@@ -22,7 +23,7 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark' }: ChatKitWrapp
   
   let hookResult;
   try {
-    hookResult = useChatKit({
+    const chatKitConfig: any = {
       api: {
         async getClientSecret(existing) {
           try {
@@ -38,7 +39,8 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark' }: ChatKitWrapp
             
             console.log('✅ Client secret obtained:', {
               length: result.clientSecret.length,
-              prefix: result.clientSecret.substring(0, 20) + '...'
+              prefix: result.clientSecret.substring(0, 20) + '...',
+              hasContext: !!systemContext
             });
             
             return result.clientSecret;
@@ -64,11 +66,31 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark' }: ChatKitWrapp
         },
       },
       composer: {
-        placeholder: "Ask WagerBot about sports betting insights...",
+        placeholder: systemContext 
+          ? "Ask about the games and predictions on this page..." 
+          : "Ask WagerBot about sports betting insights...",
       },
       startScreen: {
-        greeting: "Welcome to WagerBot!",
-        prompts: [
+        greeting: systemContext 
+          ? "I can help you analyze the games on this page! I have access to all the game data and predictions." 
+          : "Welcome to WagerBot!",
+        prompts: systemContext ? [
+          {
+            label: "Compare Games",
+            prompt: "Which games have the best value according to the model?",
+            icon: "search"
+          },
+          {
+            label: "Betting Edges", 
+            prompt: "Where do you see the biggest edges in these matchups?",
+            icon: "chart"
+          },
+          {
+            label: "Weather Impact",
+            prompt: "How might weather affect these games?",
+            icon: "info"
+          },
+        ] : [
           {
             label: "NFL Analysis",
             prompt: "What are your thoughts on this week's NFL games?",
@@ -86,7 +108,13 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark' }: ChatKitWrapp
           },
         ],
       },
-    });
+    };
+
+    // Note: ChatKit doesn't support setting system messages via config
+    // The system context needs to be handled by the BuildShip workflow backend
+    // For now, we'll inform users about the context in the greeting
+
+    hookResult = useChatKit(chatKitConfig);
   } catch (error: any) {
     console.error('❌ useChatKit hook error:', error);
     setInitError(`ChatKit initialization error: ${error.message || error}`);
@@ -97,15 +125,48 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark' }: ChatKitWrapp
 
   console.log('📦 Hook result:', { hasControl: !!control, hookResultKeys: Object.keys(hookResult) });
 
-  // Log control object when ready
+  // Track if we've initialized the thread for this context
+  const [initializedContext, setInitializedContext] = React.useState<string | null>(null);
+
+  // Log control object when ready and initialize with system context
   useEffect(() => {
-    if (control) {
+    if (control && systemContext) {
       console.log('🎯 Control object ready:', {
         hasControl: !!control,
-        controlKeys: Object.keys(control)
+        controlKeys: Object.keys(control),
+        contextLength: systemContext.length,
+        alreadyInitialized: initializedContext === systemContext
       });
+
+      // Only create thread if we haven't initialized this context yet
+      if (initializedContext !== systemContext && typeof control.createThread === 'function') {
+        console.log('📝 Creating NEW thread with system context (context changed or first time)');
+        console.log('📊 Context preview:', systemContext.substring(0, 200) + '...');
+        
+        try {
+          control.createThread({
+            messages: [
+              {
+                role: "system",
+                content: `You are WagerBot, an expert sports betting analyst. You have access to detailed game data and predictions for the games the user is currently viewing.
+
+${systemContext}
+
+Use this data to provide insightful analysis, identify value bets, explain model predictions, and answer questions about specific matchups. Be specific and reference the actual data provided when answering questions.`
+              }
+            ]
+          });
+          
+          setInitializedContext(systemContext);
+          console.log('✅ Thread created successfully with page-specific context');
+        } catch (error) {
+          console.error('❌ Error creating thread with system context:', error);
+        }
+      } else if (initializedContext === systemContext) {
+        console.log('⏭️  Skipping thread creation - already initialized with this context');
+      }
     }
-  }, [control]);
+  }, [control, systemContext]);
 
   useEffect(() => {
     console.log('🔵 ChatKit control state:', { hasControl: !!control });

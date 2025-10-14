@@ -8,7 +8,12 @@ import { chatSessionManager, ChatSession } from '@/utils/chatSession';
 import { ChatKitWrapper } from '@/components/ChatKitWrapper';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-export function MiniWagerBotChat() {
+interface MiniWagerBotChatProps {
+  pageContext?: string;
+  pageId?: string; // Add pageId to distinguish between pages
+}
+
+export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerBotChatProps = {}) {
   const { user } = useAuth();
   const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
@@ -16,12 +21,28 @@ export function MiniWagerBotChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // Load or create session when opened
+  // Log context for debugging
+  React.useEffect(() => {
+    if (pageContext) {
+      console.log('📊 MiniWagerBotChat pageContext length:', pageContext.length);
+      console.log('📄 MiniWagerBotChat pageId:', pageId);
+    }
+  }, [pageContext, pageId]);
+
+  // Load or create session when opened or when page changes
   useEffect(() => {
-    if (isOpen && user && !currentSession && !isLoading) {
+    if (isOpen && user && !isLoading) {
       loadOrCreateSession();
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, pageId]);
+
+  // Clear session when page changes (force new thread)
+  useEffect(() => {
+    if (currentSession) {
+      console.log('🔄 Page changed, clearing session to force new thread');
+      setCurrentSession(null);
+    }
+  }, [pageId]);
 
   const loadOrCreateSession = async () => {
     if (!user) return;
@@ -30,12 +51,15 @@ export function MiniWagerBotChat() {
     setError('');
 
     try {
-      // Try to get current session
-      let session = chatSessionManager.getCurrentSession(user.id);
+      // Try to get page-specific session
+      let session = chatSessionManager.getCurrentSession(user.id, pageId);
       
-      // If no session exists, create one
+      // If no session exists, create one for this page
       if (!session) {
-        session = await chatSessionManager.createNewSession(user);
+        console.log('🆕 Creating new session for page:', pageId);
+        session = await chatSessionManager.createNewSession(user, pageId);
+      } else {
+        console.log('♻️ Reusing existing session for page:', pageId);
       }
       
       setCurrentSession(session);
@@ -96,6 +120,7 @@ export function MiniWagerBotChat() {
                 user={user}
                 sessionId={currentSession.id}
                 theme={theme === 'dark' ? 'dark' : 'light'}
+                systemContext={pageContext}
               />
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,8 @@ import HistoricalDataSection from '@/components/HistoricalDataSection';
 import { BackgroundGradient } from '@/components/ui/background-gradient';
 import ElectricBorder from '@/components/ui/electric-border';
 import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
+import { useAuth } from '@/contexts/AuthContext';
+import { chatSessionManager } from '@/utils/chatSession';
 
 interface NFLPrediction {
   id: string;
@@ -52,6 +54,7 @@ interface TeamMapping {
 }
 
 export default function NFL() {
+  const { user } = useAuth();
   const [predictions, setPredictions] = useState<NFLPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,6 +120,67 @@ export default function NFL() {
     setSelectedAwayTeam('');
   };
 
+  // Build context for WagerBot with all current game data
+  const buildNFLContext = (preds: NFLPrediction[]): string => {
+    try {
+      if (!preds || preds.length === 0) return '';
+      
+      const contextParts = preds.slice(0, 20).map((pred, idx) => { // Limit to 20 games to manage token count
+        try {
+          const awayTeam = pred.away_team || 'Unknown';
+          const homeTeam = pred.home_team || 'Unknown';
+          const gameDate = pred.game_date ? new Date(pred.game_date).toLocaleDateString() : 'TBD';
+          const gameTime = pred.game_time || 'TBD';
+          
+          return `
+Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
+- Date/Time: ${gameDate} ${gameTime}
+- Spread: ${homeTeam} ${pred.home_spread || 'N/A'}
+- Moneyline: Away ${pred.away_ml || 'N/A'} / Home ${pred.home_ml || 'N/A'}
+- Over/Under: ${pred.over_line || 'N/A'}
+- Model Predictions:
+  * ML Probability: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
+  * Spread Cover Probability: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}
+  * O/U Probability: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
+- Weather: ${pred.temperature ? pred.temperature + '°F' : 'N/A'}, Wind: ${pred.wind_speed ? pred.wind_speed + ' mph' : 'N/A'}
+- Public Betting Splits:
+  * Spread: ${pred.spread_splits_label || 'N/A'}
+  * Total: ${pred.total_splits_label || 'N/A'}
+  * ML: ${pred.ml_splits_label || 'N/A'}`;
+        } catch (err) {
+          console.error('Error building context for game:', pred, err);
+          return '';
+        }
+      }).filter(Boolean).join('\n');
+      
+      return `## NFL Games Data (${preds.length} total games)
+${contextParts}
+
+Note: Probabilities are from the EPA model. Use this data to provide specific insights about matchups, value opportunities, and betting recommendations.`;
+    } catch (error) {
+      console.error('Error building NFL context:', error);
+      return ''; // Return empty string if there's an error
+    }
+  };
+
+  // Memoize the context to prevent infinite re-renders
+  // Use predictions.length and first game ID as dependency to avoid array reference issues
+  const nflContext = useMemo(() => {
+    const context = buildNFLContext(predictions);
+    
+    // Debug logging for context
+    if (context) {
+      console.log('🏈 NFL Context Generated:', {
+        length: context.length,
+        gameCount: predictions.length,
+        preview: context.substring(0, 300) + '...',
+        fullContext: context // Full context for debugging
+      });
+    }
+    
+    return context;
+  }, [predictions.length, predictions[0]?.id]);
+
   // Helper function to calculate color luminance
   const getColorLuminance = (hexColor: string): number => {
     // Remove # if present
@@ -180,6 +244,12 @@ export default function NFL() {
     try {
       setLoading(true);
       setError(null);
+      
+      // Force new chat session on refresh
+      console.log('🔄 Refresh triggered - clearing chat session to force new context');
+      if (user) {
+        chatSessionManager.clearPageSession(user.id, 'nfl');
+      }
       
       console.log('Fetching NFL data...');
       
@@ -1106,7 +1176,7 @@ export default function NFL() {
       />
 
       {/* Mini WagerBot Chat */}
-      <MiniWagerBotChat />
+      <MiniWagerBotChat pageContext={nflContext} pageId="nfl" />
     </div>
   );
 }

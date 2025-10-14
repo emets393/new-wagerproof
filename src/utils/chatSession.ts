@@ -3,6 +3,7 @@ import { User } from '@supabase/supabase-js';
 export interface ChatSession {
   id: string;
   userId: string;
+  pageId?: string; // Add pageId to identify which page the session is for
   createdAt: string;
   lastActive: string;
   messages: ChatMessage[];
@@ -66,9 +67,28 @@ export class ChatSessionManager {
     }
   }
 
-  // Get current active session
-  getCurrentSession(userId: string): ChatSession | null {
+  // Get current active session (optionally page-specific)
+  getCurrentSession(userId: string, pageId?: string): ChatSession | null {
     try {
+      // If pageId is provided, look for a page-specific session
+      if (pageId) {
+        const pageSessionKey = `${CURRENT_SESSION_KEY}_${pageId}`;
+        const pageSessionId = localStorage.getItem(pageSessionKey);
+        
+        if (pageSessionId) {
+          const sessions = this.getUserSessions(userId);
+          const session = sessions.find(s => s.id === pageSessionId && s.pageId === pageId);
+          if (session) {
+            console.log(`✅ Found existing session for page: ${pageId}`);
+            return session;
+          }
+        }
+        
+        console.log(`❌ No existing session found for page: ${pageId}`);
+        return null;
+      }
+      
+      // Fallback to global session if no pageId provided
       const currentSessionId = localStorage.getItem(CURRENT_SESSION_KEY);
       if (!currentSessionId) return null;
       
@@ -81,12 +101,13 @@ export class ChatSessionManager {
   }
 
   // Create a new chat session using BuildShip workflow
-  async createNewSession(user: User): Promise<ChatSession> {
+  async createNewSession(user: User, pageId?: string): Promise<ChatSession> {
     // Create local session object first
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const newSession: ChatSession = {
       id: sessionId,
       userId: user.id,
+      pageId: pageId, // Store the pageId in the session
       createdAt: new Date().toISOString(),
       lastActive: new Date().toISOString(),
       messages: [],
@@ -94,7 +115,9 @@ export class ChatSessionManager {
 
     // Save to localStorage
     this.saveSession(newSession);
-    this.setCurrentSession(newSession.id);
+    this.setCurrentSession(newSession.id, pageId);
+
+    console.log(`🆕 Created new session: ${sessionId} for page: ${pageId || 'default'}`);
 
     return newSession;
   }
@@ -195,9 +218,15 @@ export class ChatSessionManager {
     }
   }
 
-  // Set current active session
-  setCurrentSession(sessionId: string): void {
-    localStorage.setItem(CURRENT_SESSION_KEY, sessionId);
+  // Set current active session (page-specific if pageId provided)
+  setCurrentSession(sessionId: string, pageId?: string): void {
+    if (pageId) {
+      const pageSessionKey = `${CURRENT_SESSION_KEY}_${pageId}`;
+      localStorage.setItem(pageSessionKey, sessionId);
+      console.log(`💾 Set current session for page ${pageId}: ${sessionId}`);
+    } else {
+      localStorage.setItem(CURRENT_SESSION_KEY, sessionId);
+    }
   }
 
   // Add message to session
@@ -260,6 +289,30 @@ export class ChatSessionManager {
       localStorage.removeItem(CURRENT_SESSION_KEY);
     } catch (error) {
       console.error('Error clearing user sessions:', error);
+    }
+  }
+
+  // Clear page-specific session (for forcing refresh)
+  clearPageSession(userId: string, pageId: string): void {
+    try {
+      const pageSessionKey = `${CURRENT_SESSION_KEY}_${pageId}`;
+      const pageSessionId = localStorage.getItem(pageSessionKey);
+      
+      if (pageSessionId) {
+        console.log(`🗑️  Clearing session for page: ${pageId}, sessionId: ${pageSessionId}`);
+        
+        // Remove the session from storage
+        this.deleteSession(pageSessionId);
+        
+        // Clear the page-specific current session key
+        localStorage.removeItem(pageSessionKey);
+        
+        console.log(`✅ Page session cleared successfully for: ${pageId}`);
+      } else {
+        console.log(`ℹ️  No existing session to clear for page: ${pageId}`);
+      }
+    } catch (error) {
+      console.error('Error clearing page session:', error);
     }
   }
 }
