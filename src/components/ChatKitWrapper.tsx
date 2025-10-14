@@ -49,6 +49,43 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark' }: ChatKitWrapp
           }
         },
       },
+      theme: {
+        colorScheme: theme === 'dark' ? 'dark' : 'light',
+        color: {
+          accent: {
+            primary: theme === 'dark' ? '#3B82F6' : '#2563EB', // Blue accent that works in both themes
+            level: 2
+          }
+        },
+        radius: 'round',
+        density: 'normal',
+        typography: { 
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+        },
+      },
+      composer: {
+        placeholder: "Ask WagerBot about sports betting insights...",
+      },
+      startScreen: {
+        greeting: "Welcome to WagerBot!",
+        prompts: [
+          {
+            label: "NFL Analysis",
+            prompt: "What are your thoughts on this week's NFL games?",
+            icon: "search"
+          },
+          {
+            label: "Betting Strategy", 
+            prompt: "Can you help me understand betting strategies?",
+            icon: "write"
+          },
+          {
+            label: "Line Movement",
+            prompt: "Explain how line movement affects betting decisions",
+            icon: "chart"
+          },
+        ],
+      },
     });
   } catch (error: any) {
     console.error('❌ useChatKit hook error:', error);

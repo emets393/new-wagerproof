@@ -121,6 +121,7 @@ export class ChatSessionManager {
           workflowId: 'wf_68ed847d7a44819095f0e8eca93bfd660fc4b093b131f0f0',
           // version: '1', // Omitted to use production agent
           timestamp: new Date().toISOString(),
+          stream: true, // Enable streaming responses
         }),
       });
 
