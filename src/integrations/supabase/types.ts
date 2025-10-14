@@ -2280,6 +2280,50 @@ export type Database = {
         }
         Relationships: []
       }
+      editors_picks: {
+        Row: {
+          id: string
+          game_id: string
+          game_type: string
+          editor_id: string
+          selected_bet_type: string
+          editors_notes: string | null
+          is_published: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          game_id: string
+          game_type: string
+          editor_id: string
+          selected_bet_type: string
+          editors_notes?: string | null
+          is_published?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          game_id?: string
+          game_type?: string
+          editor_id?: string
+          selected_bet_type?: string
+          editors_notes?: string | null
+          is_published?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "editors_picks_editor_id_fkey"
+            columns: ["editor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           id: string

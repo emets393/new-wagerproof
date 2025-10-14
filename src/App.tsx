@@ -11,9 +11,12 @@ import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import WagerBotChat from "./pages/WagerBotChat";
+import LearnWagerProof from "./pages/LearnWagerProof";
 import Admin from "./pages/Admin";
+import EditorsPicks from "./pages/EditorsPicks";
 import AccessDenied from "./pages/AccessDenied";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppLayout } from "./components/AppLayout";
@@ -75,6 +78,8 @@ function AppRoutes() {
         <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
         <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
         <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
+        <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
+        <Route path="/editors-picks" element={<EditorsPicks />} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       </Routes>
     </AuthenticatedLayout>
@@ -90,7 +95,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
-              <AppRoutes />
+              <AdminModeProvider>
+                <AppRoutes />
+              </AdminModeProvider>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>

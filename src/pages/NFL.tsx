@@ -14,6 +14,7 @@ import NFLGameCard from '@/components/NFLGameCard';
 import HistoricalDataSection from '@/components/HistoricalDataSection';
 import { BackgroundGradient } from '@/components/ui/background-gradient';
 import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
+import { StarButton } from '@/components/StarButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatSessionManager } from '@/utils/chatSession';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
@@ -817,6 +818,18 @@ ${contextParts}
               const awayTeamColors = getNFLTeamColors(prediction.away_team);
               const homeTeamColors = getNFLTeamColors(prediction.home_team);
               
+              // Debug log to check what ID fields are available
+              if (index === 0) {
+                console.log('🏈 NFL Prediction sample:', {
+                  id: prediction.id,
+                  unique_id: prediction.unique_id,
+                  training_key: prediction.training_key,
+                  away_team: prediction.away_team,
+                  home_team: prediction.home_team,
+                  allKeys: Object.keys(prediction)
+                });
+              }
+              
               return (
                 <NFLGameCard
                   key={prediction.id}
@@ -828,6 +841,9 @@ ${contextParts}
                   homeSpread={prediction.home_spread}
                   awaySpread={prediction.away_spread}
                 >
+                {/* Star Button for Admin Mode */}
+                <StarButton gameId={prediction.training_key} gameType="nfl" />
+                
                 <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
                   {/* Game Date and Time */}
                   <div className="text-center space-y-2">

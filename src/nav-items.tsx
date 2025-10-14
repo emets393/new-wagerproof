@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import { Account } from "./pages";
 import Landing from "./pages/Landing";
 import Admin from "./pages/Admin";
+import EditorsPicks from "./pages/EditorsPicks";
 
 export interface NavItem {
   title: string;
@@ -76,7 +77,7 @@ export const navItems: NavItem[] = [
     title: "Editors Picks",
     to: "/editors-picks",
     icon: <Star className="h-4 w-4" />,
-    comingSoon: true,
+    page: <EditorsPicks />,
   },
   {
     title: "Feature Requests",
@@ -88,7 +89,6 @@ export const navItems: NavItem[] = [
     title: "Learn WagerProof",
     to: "/learn",
     icon: <GraduationCap className="h-4 w-4" />,
-    comingSoon: true,
   },
   {
     title: "WagerBot Chat",

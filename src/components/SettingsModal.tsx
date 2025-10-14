@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAdminMode } from '@/contexts/AdminModeContext';
 import { createCustomerPortalSession } from '@/lib/stripe';
 import {
   User,
@@ -40,6 +41,7 @@ interface SettingsModalProps {
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { user, updatePassword, sendPasswordReset } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
   const [activeTab, setActiveTab] = useState('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -267,6 +269,30 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     onCheckedChange={toggleTheme}
                   />
                 </div>
+
+                {canEnableAdminMode && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Shield className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <Label htmlFor="admin-mode" className="text-sm font-medium">
+                            Admin Mode
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Enable admin-only features
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="admin-mode"
+                        checked={adminModeEnabled}
+                        onCheckedChange={toggleAdminMode}
+                      />
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

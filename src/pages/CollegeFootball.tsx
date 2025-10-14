@@ -10,6 +10,7 @@ import CFBGameCard from '@/components/CFBGameCard';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
+import { StarButton } from '@/components/StarButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatSessionManager } from '@/utils/chatSession';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
@@ -1174,6 +1175,9 @@ ${contextParts}
                   homeSpread={prediction.api_spread}
                   awaySpread={prediction.api_spread ? -prediction.api_spread : null}
                 >
+                {/* Star Button for Admin Mode */}
+                <StarButton gameId={prediction.id} gameType="cfb" />
+                
                 <CardContent className="space-y-3 sm:space-y-5 pt-3 pb-3 sm:pt-5 sm:pb-5 px-3 sm:px-4 md:px-6">
                   {/* Game Date and Time */}
                   {(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime) && (
