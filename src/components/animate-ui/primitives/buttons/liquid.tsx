@@ -58,7 +58,7 @@ function LiquidButton({
           gap: 'inherit',
         }}
       >
-        {children}
+        {children as React.ReactNode}
       </span>
     </motion.button>
   );

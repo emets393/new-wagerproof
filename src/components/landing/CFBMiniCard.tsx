@@ -187,12 +187,12 @@ export default function CFBMiniCard({
               />
             )}
             <div className="min-w-0 flex-1">
-              <AuroraText 
+              <div 
                 className="text-sm font-bold truncate"
                 style={{ color: awayTeamColors.primary }}
               >
                 {getTeamAcronym(prediction.away_team)}
-              </AuroraText>
+              </div>
             </div>
           </div>
 
@@ -204,12 +204,12 @@ export default function CFBMiniCard({
           {/* Home Team */}
           <div className="flex items-center space-x-2 flex-1 justify-end">
             <div className="min-w-0 flex-1 text-right">
-              <AuroraText 
+              <div 
                 className="text-sm font-bold truncate"
                 style={{ color: homeTeamColors.primary }}
               >
                 {getTeamAcronym(prediction.home_team)}
-              </AuroraText>
+              </div>
             </div>
             {getTeamLogo(prediction.home_team) && (
               <img 
@@ -255,14 +255,11 @@ export default function CFBMiniCard({
         {/* Model Confidence Indicator */}
         {modelConfidence > 0 && (
           <div className="flex justify-center">
-            <ElectricBorder
-              className="px-3 py-1 rounded-full bg-background/80 backdrop-blur-sm"
-              borderClassName="bg-gradient-to-r from-blue-500 to-purple-500"
-            >
+            <div className="px-3 py-1 rounded-full bg-background/80 backdrop-blur-sm border border-primary/20">
               <div className="text-xs font-bold text-foreground">
                 Model Confidence: {modelConfidence}%
               </div>
-            </ElectricBorder>
+            </div>
           </div>
         )}
 

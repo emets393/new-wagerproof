@@ -35,6 +35,7 @@ export default function NFLTeaserSharpness() {
   const chartRef = useRef<HTMLDivElement>(null);
   const [matchups, setMatchups] = useState<Array<{ label: string; teams: [string, string] }>>([]);
   const [selectedMatchup, setSelectedMatchup] = useState<string>('');
+  const [maxWeek, setMaxWeek] = useState<number>(5);
 
   useEffect(() => {
     const load = async () => {
@@ -54,11 +55,23 @@ export default function NFLTeaserSharpness() {
             setError(vErr.message);
           } else {
             console.log('Sharpness rows loaded (view):', vdata?.length);
-            setRows((vdata || []) as SharpnessRow[]);
+            const loadedRows = (vdata || []) as SharpnessRow[];
+            setRows(loadedRows);
+            // Calculate max week from games_ou_2025 column
+            if (loadedRows.length > 0) {
+              const maxGames = Math.max(...loadedRows.map(r => r.games_ou_2025 || 0));
+              setMaxWeek(maxGames);
+            }
           }
         } else {
           console.log('Sharpness rows loaded (rpc):', data?.length);
-          setRows((data || []) as SharpnessRow[]);
+          const loadedRows = (data || []) as SharpnessRow[];
+          setRows(loadedRows);
+          // Calculate max week from games_ou_2025 column
+          if (loadedRows.length > 0) {
+            const maxGames = Math.max(...loadedRows.map(r => r.games_ou_2025 || 0));
+            setMaxWeek(maxGames);
+          }
         }
         // Load upcoming matchups for filter
         const { data: games, error: gamesErr } = await (collegeFootballSupabase as any)
@@ -230,7 +243,7 @@ export default function NFLTeaserSharpness() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
           <div className="flex items-center gap-3">
             <button onClick={() => window.history.back()} className="text-sm px-3 py-2 rounded border bg-background hover:bg-muted text-foreground border-border">← Back</button>
-            <h1 className="text-lg sm:text-2xl font-bold text-foreground">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-foreground">NFL Teaser Sharpness (Weeks 1–{maxWeek} 2025)</h1>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
             <div className="inline-flex rounded-full overflow-hidden border border-border">
