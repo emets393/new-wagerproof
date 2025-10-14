@@ -5,6 +5,7 @@ import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
+import WagerBotChat from "./pages/WagerBotChat";
 import NotFound from "./pages/NotFound";
 import { Account } from "./pages";
 import Landing from "./pages/Landing";
@@ -93,7 +94,7 @@ export const navItems: NavItem[] = [
     title: "WagerBot Chat",
     to: "/wagerbot-chat",
     icon: <Bot className="h-4 w-4" />,
-    comingSoon: true,
+    page: <WagerBotChat />,
   },
   {
     title: "Admin",

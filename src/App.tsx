@@ -10,6 +10,7 @@ import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
+import WagerBotChat from "./pages/WagerBotChat";
 import Admin from "./pages/Admin";
 import AccessDenied from "./pages/AccessDenied";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="/nfl" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
         <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
         <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
+        <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       </Routes>
     </AuthenticatedLayout>
