@@ -12,6 +12,8 @@ import { Loader2 } from "lucide-react";
 
 interface ModernAuthFormProps {
   onSubmit: (email: string, password: string, action: 'login' | 'signup') => Promise<void>;
+  onGoogleSignIn?: () => Promise<void>;
+  onAppleSignIn?: () => Promise<void>;
   isLoading: boolean;
   error: string;
   success: string;
@@ -20,7 +22,9 @@ interface ModernAuthFormProps {
 }
 
 export function ModernAuthForm({ 
-  onSubmit, 
+  onSubmit,
+  onGoogleSignIn,
+  onAppleSignIn,
   isLoading, 
   error, 
   success,
@@ -169,6 +173,7 @@ export function ModernAuthForm({
           <button
             className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
             type="button"
+            onClick={onGoogleSignIn}
             disabled={isLoading}
           >
             <IconBrandGoogle className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
@@ -180,6 +185,7 @@ export function ModernAuthForm({
           <button
             className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
             type="button"
+            onClick={onAppleSignIn}
             disabled={isLoading}
           >
             <IconBrandApple className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function Welcome() {
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, signIn, signUp, signInWithProvider } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +58,36 @@ export default function Welcome() {
         setError(error.message);
       } else if (action === 'signup') {
         setSuccess('Check your email for the confirmation link!');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const { error } = await signInWithProvider('google');
+      if (error) {
+        setError(error.message);
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const { error } = await signInWithProvider('apple');
+      if (error) {
+        setError(error.message);
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -237,6 +267,8 @@ export default function Welcome() {
             ) : (
               <ModernAuthForm
                 onSubmit={handleSubmit}
+                onGoogleSignIn={handleGoogleSignIn}
+                onAppleSignIn={handleAppleSignIn}
                 isLoading={isLoading}
                 error={error}
                 success={success}

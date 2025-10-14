@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function Account() {
-  const { user, loading, signIn, signUp, signOut } = useAuth();
+  const { user, loading, signIn, signUp, signOut, signInWithProvider } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,6 +55,36 @@ export default function Account() {
         // On every login, redirect to WagerBot Chat with welcome message
         localStorage.setItem('wagerproof_show_welcome', 'true');
         navigate('/wagerbot-chat', { replace: true });
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const { error } = await signInWithProvider('google');
+      if (error) {
+        setError(error.message);
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const { error } = await signInWithProvider('apple');
+      if (error) {
+        setError(error.message);
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -198,6 +228,8 @@ export default function Account() {
       ) : (
         <ModernAuthForm
           onSubmit={handleSubmit}
+          onGoogleSignIn={handleGoogleSignIn}
+          onAppleSignIn={handleAppleSignIn}
           isLoading={isLoading}
           error={error}
           success={success}
