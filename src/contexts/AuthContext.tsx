@@ -92,6 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       setSigningOut(true);
+      // Clear the welcome flag so next login will show welcome message
+      localStorage.removeItem('wagerproof_show_welcome');
       await supabase.auth.signOut();
     } catch (error) {
       console.error('Sign out error:', error);

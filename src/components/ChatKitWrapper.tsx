@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
 import { User } from '@supabase/supabase-js';
 import { chatSessionManager } from '@/utils/chatSession';
@@ -11,15 +11,18 @@ interface ChatKitWrapperProps {
   sessionId: string;
   theme?: 'light' | 'dark';
   systemContext?: string;
+  autoSendWelcome?: boolean;
 }
 
-export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext }: ChatKitWrapperProps) {
+export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext, autoSendWelcome = false }: ChatKitWrapperProps) {
   console.log('🔵 ChatKitWrapper rendering', { userId: user.id, sessionId });
   
   // Use workflow ID as the identifier for ChatKit
   const workflowId = 'wf_68ed847d7a44819095f0e8eca93bfd660fc4b093b131f0f0';
   
   const [initError, setInitError] = React.useState<string | null>(null);
+  const [hasAutoSent, setHasAutoSent] = React.useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   
   let hookResult;
   try {
@@ -30,7 +33,7 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext 
 ${systemContext}
 
 Use this data to provide insightful analysis, identify value bets, explain model predictions, and answer questions about specific matchups. Be specific and reference the actual data provided when answering questions.`
-      : "You are WagerBot, an expert sports betting analyst. Help users understand betting strategies and make informed decisions.";
+      : "You are WagerBot, an expert sports betting analyst specialized in NFL, College Football, and other major sports. Help users understand betting strategies, analyze games, and make informed decisions based on the latest sports news and trends.";
 
     console.log('🔧 Building ChatKit config with system context:', {
       hasContext: !!systemContext,
@@ -98,37 +101,88 @@ Use this data to provide insightful analysis, identify value bets, explain model
       startScreen: {
         greeting: systemContext 
           ? "I can help you analyze the games on this page! I have access to all the game data and predictions." 
-          : "Welcome to WagerBot!",
+          : "Welcome to WagerBot! I'm your AI sports betting analyst. Ask me about the latest sports news, game analysis, betting strategies, and more!",
         prompts: systemContext ? [
           {
             label: "Compare Games",
-            prompt: "Which games have the best value according to the model?",
+            prompt: `<context>
+You are WagerBot, an expert sports betting analyst. Here is the current game data:
+
+${systemContext}
+
+</context>
+
+
+
+
+
+
+
+
+
+
+
+Which games have the best value according to the model?`,
             icon: "search"
           },
           {
             label: "Betting Edges", 
-            prompt: "Where do you see the biggest edges in these matchups?",
+            prompt: `<context>
+You are WagerBot, an expert sports betting analyst. Here is the current game data:
+
+${systemContext}
+
+</context>
+
+
+
+
+
+
+
+
+
+
+
+Where do you see the biggest edges in these matchups?`,
             icon: "chart"
           },
           {
             label: "Weather Impact",
-            prompt: "How might weather affect these games?",
+            prompt: `<context>
+You are WagerBot, an expert sports betting analyst. Here is the current game data:
+
+${systemContext}
+
+</context>
+
+
+
+
+
+
+
+
+
+
+
+How might weather affect these games?`,
             icon: "info"
           },
         ] : [
           {
-            label: "NFL Analysis",
-            prompt: "What are your thoughts on this week's NFL games?",
+            label: "Today's Sports News",
+            prompt: "What did I miss today in sports news? Give me a quick rundown of the biggest stories and developments.",
+            icon: "info"
+          },
+          {
+            label: "NFL Updates",
+            prompt: "What are the latest NFL news and storylines I should know about?",
             icon: "search"
           },
           {
-            label: "Betting Strategy", 
-            prompt: "Can you help me understand betting strategies?",
-            icon: "write"
-          },
-          {
-            label: "Line Movement",
-            prompt: "Explain how line movement affects betting decisions",
+            label: "Betting Insights", 
+            prompt: "What are the key betting insights and trends in sports right now?",
             icon: "chart"
           },
         ],
@@ -150,33 +204,20 @@ Use this data to provide insightful analysis, identify value bets, explain model
 
   console.log('📦 Hook result:', { hasControl: !!control, hookResultKeys: Object.keys(hookResult) });
 
-  // Track if we've sent the initial context message
-  const [contextSent, setContextSent] = React.useState<boolean>(false);
-
-  // Send initial context message when control is ready
+  // Log control object when ready
   useEffect(() => {
-    if (control && systemContext && !contextSent) {
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
-      console.log('%c📨 SENDING INITIAL CONTEXT MESSAGE', 'color: #10b981; font-weight: bold; font-size: 14px');
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
-      console.log('Context length:', systemContext.length);
+    if (control) {
+      console.log('🎯 Control object ready:', {
+        hasControl: !!control,
+        controlKeys: Object.keys(control),
+        hasContext: !!systemContext
+      });
       
-      // Send the context as the first message
-      if (typeof control.sendMessage === 'function') {
-        try {
-          control.sendMessage(systemContext);
-          setContextSent(true);
-          console.log('✅ Initial context message sent successfully');
-        } catch (error) {
-          console.error('❌ Error sending initial context message:', error);
-        }
-      } else {
-        console.warn('⚠️  control.sendMessage not available');
+      if (systemContext) {
+        console.log('📊 Context will be appended to starter prompts and user messages');
       }
-      
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'color: #10b981; font-weight: bold');
     }
-  }, [control, systemContext, contextSent]);
+  }, [control, systemContext]);
 
   useEffect(() => {
     console.log('🔵 ChatKit control state:', { hasControl: !!control });
@@ -185,6 +226,112 @@ Use this data to provide insightful analysis, identify value bets, explain model
       console.log('Available control methods:', Object.keys(control));
     }
   }, [control]);
+
+  // Auto-scroll functionality
+  useEffect(() => {
+    if (!chatContainerRef.current) return;
+
+    const scrollToBottom = () => {
+      const chatContainer = chatContainerRef.current;
+      if (chatContainer) {
+        // Find the scrollable chat messages container within ChatKit
+        const messagesContainer = chatContainer.querySelector('[data-testid="messages"], [class*="messages"], [class*="chat-messages"], .chatkit-messages, [role="log"]');
+        if (messagesContainer) {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        } else {
+          // Fallback: scroll the main container
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+      }
+    };
+
+    // Create a MutationObserver to watch for new messages
+    const observer = new MutationObserver((mutations) => {
+      let shouldScroll = false;
+      
+      mutations.forEach((mutation) => {
+        // Check if new nodes were added (new messages)
+        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+          // Check if any added nodes contain message content
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const element = node as Element;
+              // Look for message-related classes or attributes
+              if (element.matches('[class*="message"], [class*="chat"], [data-testid*="message"]') ||
+                  element.querySelector('[class*="message"], [class*="chat"], [data-testid*="message"]')) {
+                shouldScroll = true;
+              }
+            }
+          });
+        }
+        
+        // Also check for text content changes (streaming text)
+        if (mutation.type === 'characterData' || 
+            (mutation.type === 'childList' && mutation.target.textContent)) {
+          shouldScroll = true;
+        }
+      });
+
+      if (shouldScroll) {
+        // Small delay to ensure content is rendered
+        setTimeout(scrollToBottom, 50);
+      }
+    });
+
+    // Start observing the chat container
+    observer.observe(chatContainerRef.current, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    // Initial scroll to bottom when component mounts
+    setTimeout(scrollToBottom, 1000);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [control]);
+
+  // Auto-send welcome message on first login
+  useEffect(() => {
+    if (control && autoSendWelcome && !hasAutoSent) {
+      console.log('🎉 First login detected! Sending welcome message...');
+      
+      // Wait a short moment for ChatKit to fully initialize
+      const timer = setTimeout(() => {
+        try {
+          // Try to find and click the first starter prompt, or send a custom message
+          const welcomeMessage = "What did I miss today in sports news? Give me a quick rundown of the biggest stories and developments.";
+          
+          // Check if control has a method to send messages
+          if (typeof control.sendMessage === 'function') {
+            control.sendMessage(welcomeMessage);
+            console.log('✅ Welcome message sent via control.sendMessage');
+          } else if (typeof control.composer?.sendMessage === 'function') {
+            control.composer.sendMessage(welcomeMessage);
+            console.log('✅ Welcome message sent via control.composer.sendMessage');
+          } else {
+            // Fallback: Try to programmatically click the first starter prompt
+            const prompts = document.querySelectorAll('[data-testid="starter-prompt"], [class*="starter"], [class*="prompt-button"]');
+            if (prompts.length > 0) {
+              (prompts[0] as HTMLElement).click();
+              console.log('✅ Clicked first starter prompt');
+            } else {
+              console.log('ℹ️ No starter prompts found, user will see default greeting');
+            }
+          }
+          
+          setHasAutoSent(true);
+        } catch (error) {
+          console.error('❌ Error sending welcome message:', error);
+          console.log('ℹ️ Welcome message failed, but chat is still functional');
+        }
+      }, 1500); // Wait 1.5 seconds for ChatKit to fully render
+      
+      return () => clearTimeout(timer);
+    }
+  }, [control, autoSendWelcome, hasAutoSent]);
 
   if (initError) {
     return (
@@ -217,7 +364,7 @@ Use this data to provide insightful analysis, identify value bets, explain model
   
   return (
     <ChatKitErrorBoundary>
-      <div className="h-full w-full">
+      <div ref={chatContainerRef} className="h-full w-full">
         <ChatKit 
           control={control}
           className="h-full w-full"

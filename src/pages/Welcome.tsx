@@ -19,10 +19,12 @@ export default function Welcome() {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  // Redirect authenticated users to NFL page
+  // Redirect authenticated users to WagerBot chat with welcome message
   useEffect(() => {
     if (user && !loading) {
-      navigate('/nfl', { replace: true });
+      // On every login, redirect to WagerBot Chat with welcome message
+      localStorage.setItem('wagerproof_show_welcome', 'true');
+      navigate('/wagerbot-chat', { replace: true });
     }
   }, [user, loading, navigate]);
 

@@ -13,7 +13,6 @@ import LineMovementModal from '@/components/LineMovementModal';
 import NFLGameCard from '@/components/NFLGameCard';
 import HistoricalDataSection from '@/components/HistoricalDataSection';
 import { BackgroundGradient } from '@/components/ui/background-gradient';
-import ElectricBorder from '@/components/ui/electric-border';
 import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatSessionManager } from '@/utils/chatSession';
@@ -1009,35 +1008,19 @@ ${contextParts}
                                   </span>
                                 </BackgroundGradient>
                                 {/* Right: Confidence % */}
-                                {confidencePct > 70 ? (
-                                  <ElectricBorder
-                                    color="#10b981"
-                                    speed={1.0}
-                                    chaos={0.3}
-                                    thickness={5}
-                                    className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
-                                    style={{ borderRadius: 24 }}
-                                  >
-                                    <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight text-emerald-600`}>
-                                      {confidencePct}%
-                                    </div>
-                                    <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
-                                  </ElectricBorder>
-                                ) : (
-                                  <BackgroundGradient 
-                                    className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
-                                    colors={
-                                      confidencePct <= 58 ? ['#dc2626', '#ef4444'] : // Red for low confidence
-                                      confidencePct <= 65 ? ['#ea580c', '#f97316'] : // Orange for medium confidence  
-                                      ['#059669', '#10b981'] // Green for high confidence
-                                    }
-                                  >
-                                    <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
-                                      {confidencePct}%
-                                    </div>
-                                    <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
-                                  </BackgroundGradient>
-                                )}
+                                <BackgroundGradient 
+                                  className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
+                                  colors={
+                                    confidencePct <= 58 ? ['#dc2626', '#ef4444'] : // Red for low confidence
+                                    confidencePct <= 65 ? ['#ea580c', '#f97316'] : // Orange for medium confidence  
+                                    ['#059669', '#10b981'] // Green for high confidence
+                                  }
+                                >
+                                  <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
+                                    {confidencePct}%
+                                  </div>
+                                  <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
+                                </BackgroundGradient>
                               </div>
                             );
                           })()}
@@ -1074,35 +1057,19 @@ ${contextParts}
                                   </div>
                                 </BackgroundGradient>
                                 {/* Right: Confidence % */}
-                                {confidencePct > 70 ? (
-                                  <ElectricBorder
-                                    color="#10b981"
-                                    speed={1.2}
-                                    chaos={0.3}
-                                    thickness={5}
-                                    className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
-                                    style={{ borderRadius: 24 }}
-                                  >
-                                    <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight text-emerald-600`}>
-                                      {confidencePct}%
-                                    </div>
-                                    <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
-                                  </ElectricBorder>
-                                ) : (
-                                  <BackgroundGradient 
-                                    className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
-                                    colors={
-                                      confidencePct <= 58 ? ['#dc2626', '#ef4444'] : // Red for low confidence
-                                      confidencePct <= 65 ? ['#ea580c', '#f97316'] : // Orange for medium confidence  
-                                      ['#059669', '#10b981'] // Green for high confidence
-                                    }
-                                  >
-                                    <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
-                                      {confidencePct}%
-                                    </div>
-                                    <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
-                                  </BackgroundGradient>
-                                )}
+                                <BackgroundGradient 
+                                  className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
+                                  colors={
+                                    confidencePct <= 58 ? ['#dc2626', '#ef4444'] : // Red for low confidence
+                                    confidencePct <= 65 ? ['#ea580c', '#f97316'] : // Orange for medium confidence  
+                                    ['#059669', '#10b981'] // Green for high confidence
+                                  }
+                                >
+                                  <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
+                                    {confidencePct}%
+                                  </div>
+                                  <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
+                                </BackgroundGradient>
                               </div>
                             );
                           })()}

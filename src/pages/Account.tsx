@@ -52,8 +52,9 @@ export default function Account() {
       } else if (action === 'signup') {
         setSuccess('Check your email for the confirmation link!');
       } else if (action === 'login') {
-        // Redirect to NFL page after successful login
-        navigate('/nfl', { replace: true });
+        // On every login, redirect to WagerBot Chat with welcome message
+        localStorage.setItem('wagerproof_show_welcome', 'true');
+        navigate('/wagerbot-chat', { replace: true });
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -63,6 +64,8 @@ export default function Account() {
   };
 
   const handleSignOut = async () => {
+    // Clear the welcome flag so next login will show it
+    localStorage.removeItem('wagerproof_show_welcome');
     await signOut();
     navigate('/', { replace: true });
   };

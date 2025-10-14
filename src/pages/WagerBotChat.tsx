@@ -13,6 +13,17 @@ export default function WagerBotChat() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [error, setError] = useState<string>('');
+  const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
+
+  // Check for first login welcome flag
+  useEffect(() => {
+    const showWelcome = localStorage.getItem('wagerproof_show_welcome');
+    if (showWelcome === 'true') {
+      setShouldShowWelcome(true);
+      // Clear the flag so it doesn't show again
+      localStorage.removeItem('wagerproof_show_welcome');
+    }
+  }, []);
 
   // Load user sessions on mount
   useEffect(() => {
@@ -107,6 +118,7 @@ export default function WagerBotChat() {
         user={user}
         sessionId={currentSession.id}
         theme={theme === 'dark' ? 'dark' : 'light'}
+        autoSendWelcome={shouldShowWelcome}
       />
     </div>
   );
