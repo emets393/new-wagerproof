@@ -114,7 +114,7 @@ export default function Welcome() {
               <div className="flex justify-center lg:justify-start">
                 <div className="p-6 bg-white rounded-xl shadow-lg">
                   <img 
-                    src="/lovable-uploads/40569607-0bf3-433c-a0f5-bca0ee0de005.png" 
+                    src="/wagerproof-logo-main.png" 
                     alt="WAGER PROOF" 
                     className="h-60 w-auto" 
                   />

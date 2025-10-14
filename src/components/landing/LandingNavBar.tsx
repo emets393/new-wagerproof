@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { scrollToElement } from "@/utils/scrollToElement";
 import { Menu, X } from "lucide-react";
 import { AnimatedThemeToggler } from "@/components/magicui/animated-theme-toggler";
+import { GradientText } from "@/components/ui/gradient-text";
 
 // Set constants
 const NAV_RADIUS = "1.2rem";
@@ -51,15 +52,20 @@ const NavBar = () => {
           {/* LOGO + TITLE */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center px-2">
-              <img src="/Wagerproof_v1-iOS-logoonly-1024x1024@1x copy.png" alt="WagerProof Logo" style={{
+              <img src="/wagerproof-logo-main.png" alt="WagerProof Logo" style={{
               width: 36,
               height: 36,
               marginRight: 8
             }} className="object-contain rounded-lg" />
-              <span className="text-2xl font-bold bg-gradient-to-r from-honeydew-500 to-honeydew-700 dark:from-honeydew-400 dark:to-honeydew-600 bg-clip-text text-transparent select-none" style={{
+              <span className="text-2xl font-bold select-none" style={{
               letterSpacing: "-1px"
             }}>
-                WagerProof
+                <span className="text-black dark:text-white">Wager</span>
+                <GradientText 
+                  text="Proof" 
+                  gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
+                  className="inline"
+                />
               </span>
             </Link>
           </div>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Button as MovingBorderButton } from "@/components/ui/moving-border";
 import { Link } from "react-router-dom";
 import CFBPreview from "./CFBPreview";
+import { GradientText } from "@/components/ui/gradient-text";
 const wagerProofIcon = "/wagerproof-landing.png";
 const Hero = () => {
   return <section className="relative min-h-screen pt-24 md:pt-32 px-4 md:px-6 pb-16 overflow-hidden transition-colors duration-500">
@@ -44,9 +45,17 @@ const Hero = () => {
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight font-extrabold leading-tight text-gray-900 dark:text-gray-100 mb-6" style={{
             fontFamily: "Inter, sans-serif"
           }}>
-            Turn <AuroraText className="font-bold text-honeydew-600 dark:text-honeydew-400">Real Data</AuroraText>
+            Turn <GradientText 
+              text="Real Data" 
+              gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
+              className="font-bold"
+            />
             <br />
-            Into Your <AuroraText className="font-bold text-honeydew-600 dark:text-honeydew-400">Betting Edge</AuroraText>
+            Into Your <GradientText 
+              text="Betting Edge" 
+              gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
+              className="font-bold"
+            />
           </h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
             Next-gen, open source, lightweight, data-driven sports betting analytics for everyone.

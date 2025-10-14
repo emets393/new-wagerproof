@@ -33,7 +33,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
         name: 'WagerProof',
         description: 'Data-driven sports betting analytics and predictions platform',
         url: baseUrl,
-        logo: `${baseUrl}/wagerproof-landing.png`,
+        logo: `${baseUrl}/wagerproof-logo-main.png`,
         sameAs: [
           'https://twitter.com/wagerproof',
           'https://instagram.com/wagerproof',

@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { scrollToElement } from "@/utils/scrollToElement";
 import { Twitter, Instagram } from "lucide-react";
+import { GradientText } from "@/components/ui/gradient-text";
 const Footer = () => {
   const TIKTOK_LINK = "https://www.tiktok.com/@wagerproof";
   const TWITTER_LINK = "https://twitter.com/wagerproof";
@@ -11,8 +12,13 @@ const Footer = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         <div className="col-span-1 md:col-span-2">
           <Link to="/" className="inline-block">
-            <span className="text-2xl font-bold bg-gradient-to-r from-honeydew-500 to-honeydew-700 bg-clip-text text-transparent mb-4 inline-block">
-              WagerProof
+            <span className="text-2xl font-bold mb-4 inline-block">
+              <span className="text-gray-900 dark:text-white">Wager</span>
+              <GradientText 
+                text="Proof" 
+                gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
+                className="inline"
+              />
             </span>
           </Link>
           <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md">

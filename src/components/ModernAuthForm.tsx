@@ -45,7 +45,7 @@ export function ModernAuthForm({
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-indigo-500 rounded-xl blur-md opacity-30"></div>
           <div className="relative p-3 bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-neutral-100 dark:to-neutral-200 rounded-xl">
             <img 
-              src="/lovable-uploads/40569607-0bf3-433c-a0f5-bca0ee0de005.png" 
+              src="/wagerproof-logo-main.png" 
               alt="WAGERPROOF" 
               className="h-16 w-auto" 
             />

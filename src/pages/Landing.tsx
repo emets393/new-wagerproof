@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { GradientText } from '@/components/ui/gradient-text';
 
 export default function Landing() {
   const { user, loading } = useAuth();
@@ -31,11 +32,18 @@ export default function Landing() {
           <div className="flex flex-col items-center text-center gap-3">
             {/* Brand logo (large) */}
             <img
-              src="/wagerproof-landing.png"
+              src="/wagerproof-logo-main.png"
               alt="WAGER PROOF"
               className="h-56 sm:h-72 w-auto drop-shadow-xl -mb-4 sm:-mb-6"
             />
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">WagerProof</h1>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              <span className="text-white">Wager</span>
+              <GradientText 
+                text="Proof" 
+                gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
+                className="inline"
+              />
+            </h1>
             <p className="max-w-2xl text-white/90 text-base sm:text-lg">
               {user ? 'Navigate to live predictions and tools across the site. Pick a sport to get started.' : 'Get started with data-driven sports betting insights. Sign in to access predictions and analytics.'}
             </p>

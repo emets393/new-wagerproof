@@ -223,7 +223,7 @@ export default function CFBPreview() {
         <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-2xl bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
           <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <img src="/wagerproof-landing.png" alt="WagerProof" className="w-8 h-8 rounded" />
+              <img src="/wagerproof-logo-main.png" alt="WagerProof" className="w-8 h-8 rounded" />
               <span className="font-semibold text-gray-900 dark:text-gray-100">wagerproof.bet</span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-sm font-medium">
@@ -296,7 +296,7 @@ export default function CFBPreview() {
         {/* Dashboard Header */}
         <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/wagerproof-landing.png" alt="WagerProof" className="w-8 h-8 rounded" />
+            <img src="/wagerproof-logo-main.png" alt="WagerProof" className="w-8 h-8 rounded" />
             <span className="font-semibold text-gray-900 dark:text-gray-100">wagerproof.bet</span>
           </div>
           <div className="flex items-center gap-4">

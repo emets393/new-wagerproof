@@ -21,7 +21,7 @@ export default function WinRates() {
           <div className="flex items-center gap-4">
             {/* Logo in white box */}
             <div className="bg-white rounded-xl shadow-lg p-2 flex items-center justify-center" style={{ width: 64, height: 64 }}>
-              <img src="/wagerproof-logo.png" alt="WagerProof Logo" className="object-contain w-12 h-12" />
+              <img src="/wagerproof-logo-main.png" alt="WagerProof Logo" className="object-contain w-12 h-12" />
             </div>
             <Link to="/">
               <Button variant="outline" className="flex items-center gap-2 bg-white/80 text-primary border-accent hover:bg-accent/10">

@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { navItems } from "@/nav-items";
+import { GradientText } from "@/components/ui/gradient-text";
 import {
   Sidebar,
   SidebarContent,
@@ -78,7 +79,7 @@ export function AppLayout() {
         <Link to="/home" className="flex items-center gap-2 group">
           <div className="flex items-center justify-center w-8 h-8">
             <img 
-              src="/Wagerproof_v1-iOS-logoonly-1024x1024@1x copy.png" 
+              src="/wagerproof-logo-main.png" 
               alt="Wagerproof Logo" 
               className="w-8 h-8 object-contain rounded-lg"
               onError={(e) => {
@@ -93,8 +94,13 @@ export function AppLayout() {
               <span className="text-lg font-bold">W</span>
             </div>
           </div>
-          <span className="text-base font-semibold text-black dark:text-white">
-            WagerProof
+          <span className="text-base font-semibold">
+            <span className="text-black dark:text-white">Wager</span>
+            <GradientText 
+              text="Proof" 
+              gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
+              className="inline"
+            />
           </span>
         </Link>
       </SidebarHeader>
