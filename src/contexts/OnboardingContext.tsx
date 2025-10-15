@@ -64,19 +64,33 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       return;
     }
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        onboarding_data: onboardingData,
-        onboarding_completed: true,
-      })
-      .eq('user_id', user.id);
+    console.log('Submitting onboarding data for user:', user.id);
+    console.log('Onboarding data:', onboardingData);
 
-    if (error) {
-      console.error('Error updating profile:', error);
-    } else {
-      console.log('Profile updated successfully!');
-      // Handle successful submission, e.g., redirect to the dashboard
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          onboarding_data: onboardingData,
+          onboarding_completed: true,
+        })
+        .eq('user_id', user.id)
+        .select();
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+      } else {
+        console.log('Profile updated successfully!');
+        console.log('Updated data:', data);
+      }
+    } catch (err) {
+      console.error('Unexpected error during onboarding submission:', err);
     }
   };
 

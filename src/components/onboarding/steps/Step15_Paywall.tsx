@@ -7,9 +7,20 @@ export function Paywall() {
   const { submitOnboardingData } = useOnboarding();
   const navigate = useNavigate();
 
-  const handleContinue = () => {
-    submitOnboardingData();
-    navigate("/wagerbot-chat"); // Navigate to WagerBot chat page where all logged in users go
+  const handleContinue = async () => {
+    try {
+      console.log('Starting onboarding completion...');
+      await submitOnboardingData();
+      console.log('Onboarding data submitted, navigating to chat...');
+      // Small delay to ensure database update completes
+      setTimeout(() => {
+        navigate("/wagerbot-chat"); // Navigate to WagerBot chat page where all logged in users go
+      }, 500);
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      // Still navigate even if there's an error, but log it
+      navigate("/wagerbot-chat");
+    }
   };
 
   const handleSeePlans = () => {

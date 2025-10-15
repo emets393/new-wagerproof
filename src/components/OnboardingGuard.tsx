@@ -23,6 +23,9 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
         return;
       }
 
+      console.log('Checking onboarding status for user:', user.id);
+      setOnboardingStatus(prev => ({ ...prev, loading: true }));
+
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
@@ -32,11 +35,13 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
 
         if (error) {
           console.error("Error fetching user profile:", error);
+          console.error("Error details:", error);
           // If there's an error, assume onboarding is not completed to be safe
           setOnboardingStatus({ completed: false, loading: false });
           return;
         }
 
+        console.log('Onboarding status from database:', profile?.onboarding_completed);
         setOnboardingStatus({ 
           completed: profile?.onboarding_completed ?? false, 
           loading: false 
@@ -48,7 +53,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     };
 
     checkOnboardingStatus();
-  }, [user]);
+  }, [user, location.pathname]); // Also check when location changes
 
   // Show loading while checking auth or onboarding status
   if (authLoading || onboardingStatus.loading) {
