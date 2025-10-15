@@ -28,7 +28,7 @@ const NewLanding = () => {
         <RecipeImport />
         <UserJourney />
         <Testimonials />
-        <Pricing />
+        {/* <Pricing /> */}
       </div>
       <Footer />
     </div>

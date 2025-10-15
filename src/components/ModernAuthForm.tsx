@@ -33,6 +33,7 @@ export function ModernAuthForm({
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [matchError, setMatchError] = useState('');
+  const [isEighteenPlus, setIsEighteenPlus] = useState(false); // New state for the checkbox
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,6 +42,11 @@ export function ModernAuthForm({
 
     if (mode === 'signup' && password !== confirmPassword) {
       setMatchError('Passwords do not match.');
+      return;
+    }
+
+    if (mode === 'signup' && !isEighteenPlus) {
+      setMatchError('You must confirm you are 18+ and understand the platform is for analytics only.');
       return;
     }
     
@@ -145,6 +151,22 @@ export function ModernAuthForm({
               required
             />
           </LabelInputContainer>
+        )}
+
+        {mode === 'signup' && (
+          <div className="mb-8 flex items-center">
+            <input
+              type="checkbox"
+              id="age-confirmation"
+              checked={isEighteenPlus}
+              onChange={(e) => setIsEighteenPlus(e.target.checked)}
+              className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+              disabled={isLoading}
+            />
+            <label htmlFor="age-confirmation" className="ml-2 block text-sm text-neutral-800 dark:text-neutral-300">
+              I am 18+ and understand this platform is for analytics only.
+            </label>
+          </div>
         )}
 
         {error && (

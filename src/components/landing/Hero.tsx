@@ -78,7 +78,7 @@ const Hero = () => {
 
           {/* CTA Button */}
           <div className="flex items-center justify-center mb-4">
-            <Link to="/wagerbot-chat">
+            <Link to="https://wagerproof.carrd.co/" target="_blank" rel="noopener noreferrer">
               <MovingBorderButton
                 borderRadius="1.5rem"
                 containerClassName="h-16 w-auto"
@@ -86,7 +86,7 @@ const Hero = () => {
                 borderClassName="bg-[radial-gradient(#73b69e_40%,transparent_60%)]"
                 duration={2500}
               >
-                <span className="px-6">See Todays Games and Picks</span>
+                <span className="px-6">Join the Waitlist</span>
               </MovingBorderButton>
             </Link>
           </div>
