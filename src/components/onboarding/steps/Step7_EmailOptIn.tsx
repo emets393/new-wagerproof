@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function EmailOptIn() {
@@ -24,7 +24,7 @@ export function EmailOptIn() {
   return (
     <div className="flex flex-col items-center justify-center text-center p-8 max-w-md mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-4"
+        className="text-5xl font-bold mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -32,7 +32,7 @@ export function EmailOptIn() {
         Want picks in your inbox?
       </motion.h1>
       <motion.p
-        className="text-lg text-muted-foreground mb-8"
+        className="text-lg text-white/80 mb-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -47,7 +47,7 @@ export function EmailOptIn() {
         transition={{ duration: 0.5, delay: 0.4 }}
       >
         <Checkbox id="opt-in" checked={optIn} onCheckedChange={(checked) => setOptIn(!!checked)} />
-        <Label htmlFor="opt-in" className="text-lg">Yes, sign me up!</Label>
+        <Label htmlFor="opt-in" className="text-lg text-white">Yes, sign me up!</Label>
       </motion.div>
       
       <motion.div 
@@ -77,7 +77,7 @@ export function EmailOptIn() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.6 }}
       >
-        <Button onClick={handleNext} size="lg">
+        <Button onClick={handleNext} size="lg" className="bg-green-500 hover:bg-green-600 text-white border-0">
           Next
         </Button>
       </motion.div>

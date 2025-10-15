@@ -6,6 +6,8 @@ import UserJourney from "@/components/landing/UserJourney";
 import Testimonials from "@/components/landing/Testimonials";
 import Pricing from "@/components/landing/Pricing";
 import Footer from "@/components/landing/Footer";
+import { FeatureDemo } from "@/components/landing/FeatureDemo";
+import { CompetitorComparison } from "@/components/landing/CompetitorComparison";
 import { useRandomNotifications } from "@/hooks/useRandomNotifications";
 import { SEO } from "@/components/landing/SEO";
 import { StructuredData } from "@/components/landing/StructuredData";
@@ -26,7 +28,9 @@ const NewLanding = () => {
       <Hero />
       <div className="space-y-6">
         <RecipeImport />
+        <FeatureDemo />
         <UserJourney />
+        <CompetitorComparison />
         <Testimonials />
         {/* <Pricing /> */}
       </div>

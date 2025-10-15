@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { cn } from "@/lib/utils";
 
 const sources = [
@@ -31,7 +31,7 @@ export function AcquisitionSource() {
   return (
     <div className="flex flex-col items-center justify-center text-center p-8 max-w-2xl mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-8"
+        className="text-5xl font-bold mb-8 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -57,8 +57,8 @@ export function AcquisitionSource() {
               size="lg"
               onClick={() => handleSelect(source)}
               className={cn(
-                "transition-all duration-200",
-                selectedSource === source && "bg-honeydew-500 text-white"
+                "transition-all duration-200 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white",
+                selectedSource === source && "bg-green-400 border-green-400 text-black hover:bg-green-400 hover:text-black"
               )}
             >
               {source}
@@ -72,7 +72,7 @@ export function AcquisitionSource() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.5 }}
       >
-        <Button onClick={handleNext} size="lg" disabled={!selectedSource}>
+        <Button onClick={handleNext} size="lg" disabled={!selectedSource} className="bg-green-500 hover:bg-green-600 text-white border-0 disabled:bg-gray-500 disabled:text-gray-300">
           Continue
         </Button>
       </motion.div>

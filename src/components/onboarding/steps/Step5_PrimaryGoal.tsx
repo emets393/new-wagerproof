@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { cn } from "@/lib/utils";
 
 const goals = [
@@ -30,12 +30,12 @@ export function PrimaryGoalSelection() {
   return (
     <div className="flex flex-col items-center justify-center text-center p-8 max-w-2xl mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-8"
+        className="text-5xl font-bold mb-8 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        What’s your main goal?
+        What's your main goal?
       </motion.h1>
       <motion.div
         className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full"
@@ -54,14 +54,14 @@ export function PrimaryGoalSelection() {
             <Card
               onClick={() => handleSelect(goal)}
               className={cn(
-                "cursor-pointer transition-all duration-200 hover:scale-105 h-full",
+                "cursor-pointer transition-all duration-200 hover:scale-105 h-full bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/20",
                 selectedGoal === goal
-                  ? "border-honeydew-500 ring-2 ring-honeydew-500"
-                  : "border-border"
+                  ? "border-green-400 ring-2 ring-green-400 bg-green-400/20"
+                  : "border-white/20"
               )}
             >
               <CardContent className="p-6 flex items-center justify-center">
-                <h3 className="text-xl font-semibold">{goal}</h3>
+                <h3 className="text-xl font-semibold text-white">{goal}</h3>
               </CardContent>
             </Card>
           </motion.div>
@@ -73,7 +73,7 @@ export function PrimaryGoalSelection() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.5 }}
       >
-        <Button onClick={handleNext} size="lg" disabled={!selectedGoal}>
+        <Button onClick={handleNext} size="lg" disabled={!selectedGoal} className="bg-green-500 hover:bg-green-600 text-white border-0 disabled:bg-gray-500 disabled:text-gray-300">
           Next
         </Button>
       </motion.div>

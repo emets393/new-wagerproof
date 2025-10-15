@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { cn } from "@/lib/utils";
 
 const sportsOptions = [
@@ -34,7 +34,7 @@ export function SportsSelection() {
   return (
     <div className="flex flex-col items-center justify-center text-center w-full">
       <motion.h1
-        className="text-3xl md:text-4xl font-bold mb-6"
+        className="text-3xl md:text-4xl font-bold mb-6 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -62,8 +62,8 @@ export function SportsSelection() {
               size="default"
               onClick={() => handleToggleSport(sport)}
               className={cn(
-                "transition-all duration-200",
-                selectedSports.includes(sport) && "bg-honeydew-500 text-white border-honeydew-500"
+                "transition-all duration-200 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white",
+                selectedSports.includes(sport) && "bg-green-400 border-green-400 text-black hover:bg-green-400 hover:text-black"
               )}
             >
               {sport}
@@ -72,7 +72,7 @@ export function SportsSelection() {
         ))}
       </motion.div>
       <motion.p
-        className="text-sm text-muted-foreground mb-6"
+        className="text-sm text-white/70 mb-6"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5, duration: 0.5 }}
@@ -85,10 +85,8 @@ export function SportsSelection() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.6 }}
       >
-        <Button onClick={nextStep} variant="ghost">
-          Skip
-        </Button>
-        <Button onClick={handleNext} size="lg" className="px-8">
+    
+        <Button onClick={handleNext} size="lg" className="px-8 bg-green-500 hover:bg-green-600 text-white border-0">
           Next
         </Button>
       </motion.div>

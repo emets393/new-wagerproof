@@ -1,20 +1,80 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useOnboarding } from "@/contexts/OnboardingContext";
+import { Marquee } from "@/components/magicui/marquee";
+import { cn } from "@/lib/utils";
+import { MessageCircle } from "lucide-react";
+
+const testimonials = [
+  {
+    name: "Sarah M.",
+    body: "WagerProof has transformed the way I bet. The data-driven predictions have improved my win rate significantly!",
+    img: "https://avatar.vercel.sh/sarah",
+  },
+  {
+    name: "Mark T.",
+    body: "I used to bet on gut feelings. Now with WagerProof's analytics, I'm making smarter bets and actually profitable!",
+    img: "https://avatar.vercel.sh/mark",
+  },
+  {
+    name: "Priya K.",
+    body: "The trend analysis tools have helped me find edges I never knew existed. This platform is a game-changer!",
+    img: "https://avatar.vercel.sh/priya",
+  },
+  {
+    name: "James L.",
+    body: "The model accuracy tracking gives me confidence in my bets. Finally, a transparent sports betting analytics platform!",
+    img: "https://avatar.vercel.sh/james",
+  },
+  {
+    name: "Maria R.",
+    body: "The historical data and trend tracking is incredibly accurate! Finally found a platform that's transparent about results.",
+    img: "https://avatar.vercel.sh/maria",
+  },
+  {
+    name: "David K.",
+    body: "WagerProof has made betting fun again. The interface is intuitive and the predictions are spot on!",
+    img: "https://avatar.vercel.sh/david",
+  },
+];
+
+const ReviewCard = ({
+  img,
+  name,
+  body,
+}: {
+  img: string;
+  name: string;
+  body: string;
+}) => {
+  return (
+    <figure
+      className={cn(
+        "relative h-full w-56 cursor-pointer overflow-hidden rounded-xl border p-3",
+        // Dark modal background - use white/light backgrounds for visibility
+        "border-white/20 bg-white/10 backdrop-blur-sm hover:bg-white/15",
+      )}
+    >
+      <div className="flex flex-row items-center gap-2">
+        <img className="rounded-full" width="32" height="32" alt="" src={img} />
+        <div className="flex flex-col">
+          <figcaption className="text-sm font-medium text-white">
+            {name}
+          </figcaption>
+        </div>
+      </div>
+      <blockquote className="mt-2 text-sm text-white/90">{body}</blockquote>
+    </figure>
+  );
+};
 
 export function SocialProof() {
   const { nextStep } = useOnboarding();
 
-  const handleJoinCommunity = () => {
-    // In a real app, this would navigate to a community page/Discord/etc.
-    console.log("Redirecting to community chat...");
-    nextStep();
-  };
-
   return (
     <div className="flex flex-col items-center justify-center text-center p-8 max-w-2xl mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-4"
+        className="text-5xl font-bold mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -22,7 +82,7 @@ export function SocialProof() {
         Trusted by data-driven bettors
       </motion.h1>
       <motion.p
-        className="text-lg text-muted-foreground mb-8"
+        className="text-lg text-white/80 mb-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -30,26 +90,40 @@ export function SocialProof() {
         See community results, discussions, and model transparency.
       </motion.p>
       
-      {/* Placeholder for reviews carousel */}
+      {/* Reviews carousel - edge to edge */}
       <motion.div 
-        className="w-full h-32 bg-muted rounded-lg flex items-center justify-center my-8"
+        className="w-screen -ml-[50vw] left-[50%] relative overflow-hidden my-8"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.4 }}
       >
-        <p className="text-muted-foreground">[Reviews Carousel Placeholder]</p>
+        <div className="flex w-full flex-col items-center justify-center overflow-hidden">
+          <Marquee className="[--duration:30s]">
+            {testimonials.map((review) => (
+              <ReviewCard key={review.name} {...review} />
+            ))}
+          </Marquee>
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-black/30 to-transparent"></div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-black/30 to-transparent"></div>
+        </div>
       </motion.div>
 
+      {/* Discord exclusive access notice */}
       <motion.div
-        className="flex flex-col sm:flex-row gap-4"
+        className="flex flex-col items-center gap-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.6 }}
       >
-        <Button onClick={handleJoinCommunity} size="lg" variant="outline">
-          Join Community Chat
-        </Button>
-        <Button onClick={nextStep} size="lg">
+        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-6 py-4">
+          <MessageCircle className="w-6 h-6 text-[#5865F2]" />
+          <div className="text-center">
+            <p className="text-white font-medium">All members get exclusive access to our Discord community</p>
+            <p className="text-white/70 text-sm">Connect with fellow data-driven bettors</p>
+          </div>
+        </div>
+        
+        <Button onClick={nextStep} size="lg" className="bg-green-500 hover:bg-green-600 text-white border-0">
           Continue
         </Button>
       </motion.div>

@@ -1,34 +1,68 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useOnboarding } from "@/contexts/OnboardingContext";
+import Lottie from "lottie-react";
+import { useState, useEffect } from "react";
 
 export function ValueClaim() {
   const { nextStep } = useOnboarding();
+  const [animationData, setAnimationData] = useState(null);
+
+  useEffect(() => {
+    // Fetch the Lottie animation data
+    fetch('/Statistics%20widget%20_%20Multi%20layout%20(9).json')
+      .then(response => response.json())
+      .then(data => setAnimationData(data))
+      .catch(error => console.error('Error loading animation:', error));
+  }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-8 max-w-2xl mx-auto">
+    <div className="flex flex-col items-center justify-center text-center  max-w-1xl mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-4"
+        className="text-5xl font-bold mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        Stop guessing. Start compounding.
+        Stop guessing.
       </motion.h1>
       <motion.p
-        className="text-lg text-muted-foreground mb-8"
+        className="text-lg text-white/80 mb-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        Users report cutting research time and improving closing-line value with our edge tracking and alerts.
+        Users report cutting research time and "wasting less on dumb bets." (their words not ours)
       </motion.p>
+      
+      
+      {/* Statistics Widget Animation */}
+      <motion.div
+        className="w-full max-w-md mx-auto mb-8"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
+      >
+        {animationData ? (
+          <Lottie
+            animationData={animationData}
+            loop={false}
+            autoplay={true}
+            style={{ width: '100%', height: '300px' }}
+          />
+        ) : (
+          <div className="w-full h-[300px] bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          </div>
+        )}
+      </motion.div>
+      
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
+        transition={{ duration: 0.5, delay: 0.8 }}
       >
-        <Button onClick={nextStep} size="lg">
+        <Button onClick={nextStep} size="lg" className="bg-green-500 hover:bg-green-600 text-white border-0">
           Continue
         </Button>
       </motion.div>

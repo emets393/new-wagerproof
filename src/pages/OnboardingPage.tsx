@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
 import { ProgressIndicator } from "@/components/onboarding/ProgressIndicator";
 import { PersonalizationIntro } from "@/components/onboarding/steps/Step1_PersonalizationIntro";
 import { SportsSelection } from "@/components/onboarding/steps/Step2_SportsSelection";
@@ -7,6 +7,7 @@ import { AgeConfirmation } from "@/components/onboarding/steps/Step3_AgeConfirma
 import { BettorTypeSelection } from "@/components/onboarding/steps/Step4_BettorType";
 import { PrimaryGoalSelection } from "@/components/onboarding/steps/Step5_PrimaryGoal";
 import { FeatureSpotlight } from "@/components/onboarding/steps/Step6_FeatureSpotlight";
+import { CompetitorComparison } from "@/components/onboarding/steps/Step6b_CompetitorComparison";
 import { EmailOptIn } from "@/components/onboarding/steps/Step7_EmailOptIn";
 import { SocialProof } from "@/components/onboarding/steps/Step8_SocialProof";
 import { ValueClaim } from "@/components/onboarding/steps/Step9_ValueClaim";
@@ -16,7 +17,7 @@ import { AcquisitionSource } from "@/components/onboarding/steps/Step12_Acquisit
 import { DataTransparency } from "@/components/onboarding/steps/Step13_DataTransparency";
 import { EarlyAccess } from "@/components/onboarding/steps/Step14_EarlyAccess";
 import { Paywall } from "@/components/onboarding/steps/Step15_Paywall";
-import Aurora from "@/components/magicui/aurora";
+import Dither from "@/components/Dither";
 
 const stepComponents = {
   1: PersonalizationIntro,
@@ -25,20 +26,21 @@ const stepComponents = {
   4: BettorTypeSelection,
   5: PrimaryGoalSelection,
   6: FeatureSpotlight,
-  7: EmailOptIn,
-  8: SocialProof,
-  9: ValueClaim,
-  10: MethodologyClaim1,
-  11: MethodologyClaim2,
-  12: AcquisitionSource,
-  13: DataTransparency,
-  14: EarlyAccess,
-  15: Paywall,
+  7: CompetitorComparison,
+  8: EmailOptIn,
+  9: SocialProof,
+  10: ValueClaim,
+  11: MethodologyClaim1,
+  12: MethodologyClaim2,
+  13: AcquisitionSource,
+  14: DataTransparency,
+  15: EarlyAccess,
+  16: Paywall,
 };
 
-const TOTAL_STEPS = 15;
+const TOTAL_STEPS = 16;
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const { currentStep, direction } = useOnboarding();
 
   const CurrentStepComponent = stepComponents[currentStep] || (() => <div>Step {currentStep} not found</div>);
@@ -64,14 +66,19 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      {/* Aurora Background Effect */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      {/* Dither Background Effect */}
       <div className="absolute inset-0 overflow-hidden">
-        <Aurora
-          colorStops={['#22c55e', '#4ade80', '#16a34a']}
-          amplitude={1.2}
-          blend={0.3}
-          speed={0.5}
+        <Dither
+          waveSpeed={0.05}
+          waveFrequency={3}
+          waveAmplitude={0.3}
+          waveColor={[0.13, 0.77, 0.37]}
+          colorNum={4}
+          pixelSize={2}
+          disableAnimation={false}
+          enableMouseInteraction={false}
+          mouseRadius={0}
         />
       </div>
       
@@ -80,7 +87,14 @@ export default function OnboardingPage() {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
-        className="relative z-10 w-full max-w-4xl mx-4 bg-card/95 backdrop-blur-md border border-border/50 rounded-2xl shadow-2xl overflow-hidden"
+        className="relative z-10 w-full max-w-4xl mx-4 bg-black/30 backdrop-blur-3xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden"
+        style={{
+          background: 'rgba(0, 0, 0, 0.3)',
+          backdropFilter: 'blur(40px)',
+          WebkitBackdropFilter: 'blur(40px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+        }}
       >
         {/* Progress Indicator */}
         <div className="p-6 pb-0">
@@ -88,7 +102,7 @@ export default function OnboardingPage() {
         </div>
         
         {/* Content Area */}
-        <div className="relative h-[600px] overflow-hidden">
+        <div className="relative h-[600px] overflow-y-auto overflow-x-hidden onboarding-scroll">
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
               key={currentStep}
@@ -102,13 +116,25 @@ export default function OnboardingPage() {
                 opacity: { duration: 0.2 },
                 scale: { duration: 0.2 },
               }}
-              className="absolute inset-0 flex items-center justify-center p-8"
+              className={`absolute inset-0 p-8 min-h-full flex justify-center ${
+                currentStep === 6 || currentStep === 7 ? 'items-start' : 'items-center'
+              }`}
             >
-              <CurrentStepComponent />
+              <div className="w-full">
+                <CurrentStepComponent />
+              </div>
             </motion.div>
           </AnimatePresence>
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <OnboardingProvider>
+      <OnboardingContent />
+    </OnboardingProvider>
   );
 }

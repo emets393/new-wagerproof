@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 
 export function AgeConfirmation() {
   const { nextStep, updateOnboardingData } = useOnboarding();
@@ -21,7 +21,7 @@ export function AgeConfirmation() {
   return (
     <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto">
       <motion.h1
-        className="text-3xl md:text-4xl font-bold mb-6"
+        className="text-3xl md:text-4xl font-bold mb-6 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -29,7 +29,7 @@ export function AgeConfirmation() {
         Confirm your age
       </motion.h1>
       <motion.p
-        className="text-lg text-muted-foreground mb-8"
+        className="text-lg text-white/80 mb-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -60,7 +60,7 @@ export function AgeConfirmation() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.6 }}
       >
-        <Button onClick={handleNext} size="lg" disabled={!age} className="px-8">
+        <Button onClick={handleNext} size="lg" disabled={!age} className="px-8 bg-green-500 hover:bg-green-600 text-white border-0 disabled:bg-gray-500 disabled:text-gray-300">
           Continue
         </Button>
       </motion.div>
