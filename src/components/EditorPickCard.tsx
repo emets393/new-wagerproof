@@ -9,6 +9,8 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminMode } from '@/contexts/AdminModeContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import Aurora from '@/components/magicui/aurora';
 
 interface EditorPickCardProps {
   pick: {
@@ -33,6 +35,8 @@ interface EditorPickCardProps {
     away_ml?: number | null;
     home_ml?: number | null;
     opening_spread?: number | null; // For CFB games
+    home_team_colors: { primary: string; secondary: string };
+    away_team_colors: { primary: string; secondary: string };
   };
   onUpdate?: () => void;
   onDelete?: () => void;
@@ -65,6 +69,29 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
   const [notes, setNotes] = useState(pick.editors_notes || '');
   const [isLoading, setIsLoading] = useState(false);
   
+  const getAuroraColors = (): string[] => {
+    const firstBet = selectedBetTypes[0];
+
+    if (firstBet?.includes('home')) {
+      return [gameData.home_team_colors.primary, gameData.home_team_colors.secondary, gameData.home_team_colors.primary];
+    }
+    if (firstBet?.includes('away')) {
+      return [gameData.away_team_colors.primary, gameData.away_team_colors.secondary, gameData.away_team_colors.primary];
+    }
+    if (firstBet === 'over' || firstBet === 'under') {
+      if (gameData.home_spread !== null && gameData.home_spread < 0) {
+        return [gameData.home_team_colors.primary, gameData.home_team_colors.secondary, gameData.home_team_colors.primary];
+      }
+      if (gameData.away_spread !== null && gameData.away_spread < 0) {
+        return [gameData.away_team_colors.primary, gameData.away_team_colors.secondary, gameData.away_team_colors.primary];
+      }
+    }
+    // Fallback
+    return [gameData.home_team_colors.primary, gameData.away_team_colors.primary, gameData.home_team_colors.secondary];
+  };
+
+  const auroraColors = getAuroraColors();
+
   // Toggle a bet type selection
   const toggleBetType = (betType: string) => {
     setSelectedBetTypes(prev => {
@@ -258,6 +285,29 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
 
   return (
     <Card className="relative overflow-hidden bg-gradient-to-br from-gray-100/90 via-gray-200/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-blue-200 dark:border-blue-800 shadow-xl">
+      {/* Aurora Effect */}
+      <AnimatePresence>
+        {pick.is_published && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+            className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg"
+            style={{ 
+              mixBlendMode: 'screen',
+              filter: 'brightness(1.2) contrast(1.1)'
+            }}
+          >
+            <Aurora
+              colorStops={auroraColors}
+              amplitude={1.2}
+              blend={0.6}
+              speed={0.8}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Status Badge */}
       {!pick.is_published && (
         <div className="absolute top-4 right-4 z-10">
