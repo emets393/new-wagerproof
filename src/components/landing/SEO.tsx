@@ -28,7 +28,7 @@ export const SEO: React.FC<SEOProps> = ({
   const siteUrl = 'https://www.wagerproof.bet';
   const defaultImage = `${siteUrl}/wagerproof-landing.png`;
   const fullTitle = title.includes('WagerProof') ? title : `${title} | WagerProof`;
-  const image = ogImage || defaultImage;
+  const image = ogImage ? (ogImage.startsWith('http') ? ogImage : `${siteUrl}${ogImage}`) : defaultImage;
   const canonicalUrl = canonical || `${siteUrl}${window.location.pathname}`;
 
   return (
@@ -51,6 +51,9 @@ export const SEO: React.FC<SEOProps> = ({
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={image} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content={fullTitle} />
       <meta property="og:site_name" content="WagerProof" />
       <meta property="og:locale" content="en_US" />
 
@@ -60,6 +63,7 @@ export const SEO: React.FC<SEOProps> = ({
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
+      <meta name="twitter:image:alt" content={fullTitle} />
       <meta name="twitter:site" content="@wagerproof" />
 
       {/* Article Specific */}

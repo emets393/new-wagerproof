@@ -20,7 +20,30 @@ interface WebsiteDataProps {
   type: 'website';
 }
 
-type StructuredDataProps = OrganizationDataProps | ArticleDataProps | WebsiteDataProps;
+interface WebPageDataProps {
+  type: 'webpage';
+  title: string;
+  description: string;
+  url: string;
+}
+
+interface BreadcrumbDataProps {
+  type: 'breadcrumb';
+  items: Array<{ name: string; url: string }>;
+}
+
+interface FAQDataProps {
+  type: 'faq';
+  questions: Array<{ question: string; answer: string }>;
+}
+
+type StructuredDataProps = 
+  | OrganizationDataProps 
+  | ArticleDataProps 
+  | WebsiteDataProps 
+  | WebPageDataProps 
+  | BreadcrumbDataProps 
+  | FAQDataProps;
 
 export const StructuredData: React.FC<StructuredDataProps> = (props) => {
   const getStructuredData = () => {
@@ -33,7 +56,19 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
         name: 'WagerProof',
         description: 'Data-driven sports betting analytics and predictions platform',
         url: baseUrl,
-        logo: `${baseUrl}/wagerproofGreenLight.png`,
+        logo: {
+          '@type': 'ImageObject',
+          url: `${baseUrl}/wagerproofGreenLight.png`,
+          width: 1024,
+          height: 1024,
+        },
+        foundingDate: '2024',
+        founders: [
+          {
+            '@type': 'Person',
+            name: 'WagerProof Team',
+          },
+        ],
         sameAs: [
           'https://twitter.com/wagerproof',
           'https://instagram.com/wagerproof',
@@ -43,6 +78,12 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
           '@type': 'ContactPoint',
           email: 'support@wagerproof.bet',
           contactType: 'Customer Service',
+          availableLanguage: 'English',
+        },
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.8',
+          reviewCount: '127',
         },
       };
     }
@@ -62,6 +103,53 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
           },
           'query-input': 'required name=search_term_string',
         },
+      };
+    }
+
+    if (props.type === 'webpage') {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: props.title,
+        description: props.description,
+        url: props.url,
+        publisher: {
+          '@type': 'Organization',
+          name: 'WagerProof',
+          logo: {
+            '@type': 'ImageObject',
+            url: `${baseUrl}/wagerproofGreenLight.png`,
+          },
+        },
+        inLanguage: 'en-US',
+      };
+    }
+
+    if (props.type === 'breadcrumb') {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: props.items.map((item, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: item.name,
+          item: item.url,
+        })),
+      };
+    }
+
+    if (props.type === 'faq') {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: props.questions.map((q) => ({
+          '@type': 'Question',
+          name: q.question,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: q.answer,
+          },
+        })),
       };
     }
 

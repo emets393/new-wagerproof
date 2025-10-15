@@ -1,10 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
+import { SEO } from '@/components/landing/SEO';
 
 const TermsAndConditions = () => {
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
+    <>
+      <SEO
+        title="Terms and Conditions"
+        description="Read WagerProof's terms and conditions. Understand our service disclaimers, user responsibilities, and legal agreements for using our sports betting analytics platform."
+        canonical="https://www.wagerproof.bet/terms-and-conditions"
+      />
+      <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="flex items-center mb-6">
         <Link to="/" className="text-muted-foreground hover:text-primary flex items-center">
           <ChevronLeft className="h-4 w-4 mr-1" /> Back to Home
@@ -75,7 +82,8 @@ const TermsAndConditions = () => {
 
       <h2 className="text-2xl font-bold mb-4 text-primary">11. Contact Us</h2>
       <p className="mb-4">If you have any questions about these Terms, please contact us at: admin@wagerproof.bet</p>
-    </div>
+      </div>
+    </>
   );
 };
 
