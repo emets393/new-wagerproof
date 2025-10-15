@@ -82,13 +82,13 @@ export function ProgressOutline({
                     }}
                     className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
                       isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80'
+                        ? 'bg-primary text-white'
+                        : 'bg-muted hover:bg-muted/80 text-foreground'
                     }`}
                   >
                     <div className="flex-shrink-0">
                       {isCompleted ? (
-                        <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <Check className="h-5 w-5 text-primary" />
                       ) : (
                         section.icon
                       )}
@@ -101,42 +101,16 @@ export function ProgressOutline({
           )}
         </div>
 
-        {/* Progress Bar */}
-        <div className="h-1 bg-muted">
-          <motion.div
-            className="h-full bg-primary"
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPercentage}%` }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
       </div>
     );
   }
 
   return (
-    <Card className="sticky top-6 p-6 space-y-6 shadow-lg">
-      <div>
-        <h3 className="font-bold text-lg mb-2">Learn WagerProof</h3>
-        <p className="text-sm text-muted-foreground">
-          {completedSections.length} of {sections.length} completed
-        </p>
+    <Card className="sticky top-6 p-6 space-y-6 shadow-lg bg-orange-50 dark:bg-orange-950/20 border-border">
+      <div className="pb-4">
+        <h3 className="font-bold text-lg">Learn WagerProof</h3>
       </div>
 
-      {/* Progress Bar */}
-      <div className="space-y-2">
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-primary rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPercentage}%` }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground text-right">
-          {Math.round(progressPercentage)}% Complete
-        </p>
-      </div>
 
       {/* Section Navigation */}
       <nav className="space-y-2">
@@ -150,17 +124,17 @@ export function ProgressOutline({
               onClick={() => onSectionClick(section.id)}
               className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
                 isActive
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'hover:bg-muted'
+                  ? 'bg-primary text-white shadow-md'
+                  : 'hover:bg-muted text-foreground'
               }`}
             >
               <div className="flex-shrink-0">
                 {isCompleted ? (
                   <div className="relative">
-                    <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <Check className="h-5 w-5 text-primary" />
                   </div>
                 ) : (
-                  <div className={isActive ? 'text-primary-foreground' : 'text-muted-foreground'}>
+                  <div className={isActive ? 'text-white' : 'text-muted-foreground'}>
                     {section.icon}
                   </div>
                 )}
@@ -170,7 +144,7 @@ export function ProgressOutline({
               </span>
               {isActive && (
                 <motion.div
-                  className="w-2 h-2 rounded-full bg-primary-foreground"
+                  className="w-2 h-2 rounded-full bg-white"
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ duration: 0.2 }}
@@ -186,13 +160,13 @@ export function ProgressOutline({
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center"
+          className="bg-primary/10 border border-primary/20 rounded-lg p-4 text-center"
         >
-          <Check className="h-8 w-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
-          <p className="font-semibold text-sm text-green-900 dark:text-green-100">
+          <Check className="h-8 w-8 text-primary mx-auto mb-2" />
+          <p className="font-semibold text-sm text-foreground">
             Tutorial Complete!
           </p>
-          <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             You're ready to use WagerProof
           </p>
         </motion.div>

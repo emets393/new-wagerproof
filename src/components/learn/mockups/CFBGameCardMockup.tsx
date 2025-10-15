@@ -10,7 +10,7 @@ export function CFBGameCardMockup() {
 
   return (
     <div className="relative max-w-md mx-auto opacity-95">
-      <Card className="relative overflow-hidden bg-gradient-to-br from-gray-100/90 via-gray-200/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-blue-200 dark:border-blue-800 shadow-xl">
+      <Card className="relative overflow-hidden bg-gradient-to-br from-gray-100/90 via-gray-200/90 to-gray-100/90 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 border-2 border-blue-200 dark:border-blue-400 shadow-xl">
         {/* Top color bar */}
         <div 
           className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"

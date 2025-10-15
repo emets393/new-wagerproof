@@ -13,7 +13,7 @@ export function LearnNFLAnalytics() {
       {/* Header */}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-          <BarChart className="h-8 w-8 text-primary" />
+          <BarChart className="h-8 w-8 text-primary dark:text-blue-400" />
         </div>
         <h2 className="text-4xl font-bold">Historical NFL Analytics</h2>
         <p className="text-lg text-muted-foreground max-w-3xl mx-auto">

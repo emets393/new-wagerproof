@@ -37,7 +37,7 @@ export function Touchpoint({ position, title, briefText, onClick, isActive = fal
         <Tooltip open={isHovered}>
           <TooltipTrigger asChild>
             <motion.button
-              className="relative w-8 h-8 rounded-full bg-primary/90 hover:bg-primary flex items-center justify-center cursor-pointer border-2 border-background shadow-lg"
+              className="relative w-12 h-12 rounded-full bg-primary/90 hover:bg-primary dark:bg-blue-400 dark:hover:bg-blue-300 flex items-center justify-center cursor-pointer border-3 border-background shadow-xl"
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
               onClick={() => {
@@ -48,8 +48,14 @@ export function Touchpoint({ position, title, briefText, onClick, isActive = fal
               whileTap={{ scale: 0.95 }}
               animate={{
                 boxShadow: isActive
-                  ? ['0 0 0 0 rgba(34, 197, 94, 0.7)', '0 0 0 10px rgba(34, 197, 94, 0)']
-                  : ['0 0 0 0 rgba(34, 197, 94, 0.4)', '0 0 0 8px rgba(34, 197, 94, 0)']
+                  ? [
+                      '0 0 0 0 rgba(59, 130, 246, 0.8), 0 0 20px rgba(59, 130, 246, 0.6)', 
+                      '0 0 0 20px rgba(59, 130, 246, 0), 0 0 40px rgba(59, 130, 246, 0)'
+                    ]
+                  : [
+                      '0 0 0 0 rgba(59, 130, 246, 0.6), 0 0 15px rgba(59, 130, 246, 0.4)', 
+                      '0 0 0 15px rgba(59, 130, 246, 0), 0 0 30px rgba(59, 130, 246, 0)'
+                    ]
               }}
               transition={{
                 boxShadow: {
@@ -59,17 +65,17 @@ export function Touchpoint({ position, title, briefText, onClick, isActive = fal
                 }
               }}
             >
-              <Info className="h-4 w-4 text-white" />
+              <Info className="h-6 w-6 text-white" />
             </motion.button>
           </TooltipTrigger>
           <TooltipContent 
-            side="top" 
-            className="max-w-xs bg-popover text-popover-foreground p-3 shadow-xl border-2 border-primary/20"
+            side="top"
+            className="max-w-md w-80 bg-popover dark:bg-gray-100 text-popover-foreground dark:text-gray-900 p-6 shadow-xl border-2 border-primary/20 dark:border-gray-300"
           >
-            <div className="space-y-1">
-              <p className="font-semibold text-sm">{title}</p>
-              <p className="text-xs text-muted-foreground">{briefText}</p>
-              <p className="text-xs text-primary mt-2">Click to learn more</p>
+            <div className="space-y-3">
+              <p className="font-semibold text-lg">{title}</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-700 leading-relaxed">{briefText}</p>
+              <p className="text-sm text-primary dark:text-blue-700 mt-3 font-medium">Click to learn more</p>
             </div>
           </TooltipContent>
         </Tooltip>

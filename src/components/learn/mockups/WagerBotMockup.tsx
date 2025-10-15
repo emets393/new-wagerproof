@@ -25,7 +25,7 @@ export function WagerBotMockup() {
               <div
                 className={`max-w-[80%] rounded-lg p-3 ${
                   message.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-background border border-border'
                 }`}
               >
@@ -44,10 +44,10 @@ export function WagerBotMockup() {
         {/* Input */}
         <div className="p-4 border-t bg-background">
           <div className="flex items-center gap-2">
-            <div className="flex-1 bg-muted rounded-lg px-4 py-2 text-sm text-muted-foreground flex items-center">
+            <div className="flex-1 bg-gray-100 dark:bg-muted rounded-lg px-4 py-2 text-sm text-muted-foreground flex items-center border border-gray-200 dark:border-border">
               Ask me anything about the games...
             </div>
-            <button className="p-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
+            <button className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
               <Send className="h-4 w-4" />
             </button>
           </div>

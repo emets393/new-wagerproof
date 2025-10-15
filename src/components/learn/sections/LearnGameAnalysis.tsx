@@ -13,7 +13,7 @@ export function LearnGameAnalysis() {
       {/* Header */}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-          <Target className="h-8 w-8 text-primary" />
+          <Target className="h-8 w-8 text-primary dark:text-blue-400" />
         </div>
         <h2 className="text-4xl font-bold">Game Analysis Deep Dive</h2>
         <p className="text-lg text-muted-foreground max-w-3xl mx-auto">

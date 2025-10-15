@@ -24,7 +24,7 @@ export function TeaserChartMockup() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">NFL Teaser Sharpness</h2>
           <div className="flex gap-2">
-            <button className="px-4 py-2 text-sm rounded-full bg-primary text-primary-foreground">
+            <button className="px-4 py-2 text-sm rounded-full bg-blue-600 hover:bg-blue-700 text-white">
               Over/Under
             </button>
             <button className="px-4 py-2 text-sm rounded-full bg-background border border-border">

@@ -47,17 +47,7 @@ export function FeatureDetailModal({ isOpen, onClose, title, steps }: FeatureDet
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">{title}</DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle className="text-2xl font-bold">{title}</DialogTitle>
         </DialogHeader>
 
         {/* Step Progress Indicator */}
@@ -135,7 +125,7 @@ export function FeatureDetailModal({ isOpen, onClose, title, steps }: FeatureDet
           {currentStep < steps.length - 1 ? (
             <Button
               onClick={handleNext}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
             >
               Next
               <ChevronRight className="h-4 w-4" />
@@ -144,7 +134,7 @@ export function FeatureDetailModal({ isOpen, onClose, title, steps }: FeatureDet
             <Button
               onClick={handleClose}
               variant="default"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
             >
               Done
             </Button>

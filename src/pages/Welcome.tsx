@@ -177,7 +177,6 @@ export default function Welcome() {
                   <div className="relative">
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-indigo-500 rounded-xl blur-md opacity-30"></div>
                     <div className="relative p-3 bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-neutral-100 dark:to-neutral-200 rounded-xl">
-                      <Lock className="h-16 w-16 text-white dark:text-black" />
                     </div>
                   </div>
                 </div>

@@ -45,8 +45,8 @@ export function GameAnalysisMockup() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center space-y-4">
-            <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
-              <span className="text-2xl font-bold text-primary">KC</span>
+            <div className="w-20 h-20 rounded-full bg-blue-50 border-2 border-blue-600 flex items-center justify-center">
+              <span className="text-2xl font-bold text-blue-600">KC</span>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-green-600 mb-2">
@@ -136,7 +136,7 @@ export function GameAnalysisMockup() {
             </div>
           </div>
 
-          <div className="mt-4 p-3 bg-muted rounded-lg">
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <p className="text-sm">
               <strong>Model Agreement:</strong> {data.consensus.confidence}%
             </p>
