@@ -80,8 +80,8 @@ const Footer = () => {
               </Link>
             </li>
             <li>
-              <Link to="/terms-of-service" className="text-gray-600 dark:text-gray-400 hover:text-honeydew-600 dark:hover:text-honeydew-400 transition-colors">
-                Terms of Service
+              <Link to="/terms-and-conditions" className="text-gray-600 dark:text-gray-400 hover:text-honeydew-600 dark:hover:text-honeydew-400 transition-colors">
+                Terms and Conditions
               </Link>
             </li>
           </ul>

@@ -15,6 +15,8 @@ import LearnWagerProof from "./pages/LearnWagerProof";
 import Admin from "./pages/Admin";
 import EditorsPicks from "./pages/EditorsPicks";
 import AccessDenied from "./pages/AccessDenied";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsAndConditions from "./pages/TermsAndConditions";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -51,7 +53,14 @@ function AppRoutes() {
   const location = useLocation();
   
   // Determine if current route should use authenticated layout
-  const isPublicRoute = ['/', '/welcome', '/home', '/access-denied'].includes(location.pathname);
+  const isPublicRoute = [
+    '/',
+    '/welcome',
+    '/home',
+    '/access-denied',
+    '/privacy-policy',
+    '/terms-and-conditions',
+  ].includes(location.pathname);
 
   // Pages that should not have the layout (landing, welcome, access denied)
   if (isPublicRoute) {
@@ -62,6 +71,8 @@ function AppRoutes() {
           <Route path="/home" element={<Landing />} />
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/access-denied" element={<AccessDenied />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
         </Routes>
       </PublicLayout>
     );
