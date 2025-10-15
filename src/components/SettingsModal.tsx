@@ -31,7 +31,9 @@ import {
   ExternalLink,
   CheckCircle2,
   Crown,
+  LogIn, // Import LogIn icon
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface SettingsModalProps {
   open: boolean;
@@ -42,6 +44,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { user, updatePassword, sendPasswordReset } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
+  const navigate = useNavigate(); // Initialize navigate
   const [activeTab, setActiveTab] = useState('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -290,6 +293,37 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         checked={adminModeEnabled}
                         onCheckedChange={toggleAdminMode}
                       />
+                    </div>
+                  </>
+                )}
+
+                {/* New Admin-only Onboarding Button */}
+                {adminModeEnabled && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <LogIn className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <Label htmlFor="onboarding-test" className="text-sm font-medium">
+                            Test Onboarding
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            (Admin) Restart the onboarding flow for testing.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        id="onboarding-test"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          onOpenChange(false); // Close the modal
+                          navigate('/onboarding');
+                        }}
+                      >
+                        Enter Flow
+                      </Button>
                     </div>
                   </>
                 )}

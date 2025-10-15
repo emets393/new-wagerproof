@@ -1,4 +1,6 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminMode } from "@/contexts/AdminModeContext";
 import { navItems } from "@/nav-items";
@@ -22,7 +24,6 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { SettingsModal } from "./SettingsModal";
-import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +33,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useNavigate } from "react-router-dom";
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
@@ -41,6 +41,31 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching user profile:", error);
+          // Don't redirect if there's an error, just log it.
+          return;
+        }
+
+        if (profile && !profile.onboarding_completed) {
+          // User is logged in but hasn't completed onboarding, redirect them.
+          navigate('/onboarding');
+        }
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [user, navigate]);
 
   // Filter nav items based on admin mode and exclude Home/Account from sidebar
   const visibleNavItems = navItems.filter(item => {

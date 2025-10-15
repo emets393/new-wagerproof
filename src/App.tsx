@@ -17,6 +17,7 @@ import EditorsPicks from "./pages/EditorsPicks";
 import AccessDenied from "./pages/AccessDenied";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -60,6 +61,7 @@ function AppRoutes() {
     '/access-denied',
     '/privacy-policy',
     '/terms-and-conditions',
+    '/onboarding', // Add onboarding to public routes to avoid nested layouts
   ].includes(location.pathname);
 
   // Pages that should not have the layout (landing, welcome, access denied)
@@ -73,6 +75,7 @@ function AppRoutes() {
           <Route path="/access-denied" element={<AccessDenied />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
         </Routes>
       </PublicLayout>
     );

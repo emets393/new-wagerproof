@@ -14,6 +14,11 @@ export default defineConfig(({ mode }) => ({
       key: fs.readFileSync(path.resolve(__dirname, 'localhost-key.pem')),
       cert: fs.readFileSync(path.resolve(__dirname, 'localhost-cert.pem')),
     },
+    // Add this hmr configuration
+    hmr: {
+      protocol: 'wss',
+      port: 8080,
+    },
   },
   plugins: [
     react(),
