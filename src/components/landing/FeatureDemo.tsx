@@ -92,12 +92,12 @@ export function FeatureDemo() {
             Professional-Grade Tools
           </motion.h2>
           <motion.p
-            className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto"
+            className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            Use <span className="font-semibold text-green-600 dark:text-green-400">Edge Finder</span> to spot model vs. market discrepancies. Use <span className="font-semibold text-purple-600 dark:text-purple-400">AI Game Simulator</span> for matchup outcomes and probabilities.
+            One of our many tools, use <span className="font-semibold text-green-600 dark:text-green-400">Edge Finder</span> to spot model vs. market discrepancies. <span className="font-semibold text-purple-600 dark:text-purple-400">AI Game Simulator</span> can show matchup outcomes and probabilities.
           </motion.p>
         </div>
 
