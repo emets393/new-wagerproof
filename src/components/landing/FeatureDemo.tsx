@@ -2,7 +2,6 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { GradientText } from "@/components/ui/gradient-text";
 import { 
   Target, 
   Brain, 
@@ -98,7 +97,7 @@ export function FeatureDemo() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            Use <GradientText text="Edge Finder" className="font-semibold" /> to spot model vs. market discrepancies. Use <GradientText text="AI Game Simulator" className="font-semibold" /> for matchup outcomes and probabilities.
+            Use <span className="font-semibold text-green-600 dark:text-green-400">Edge Finder</span> to spot model vs. market discrepancies. Use <span className="font-semibold text-purple-600 dark:text-purple-400">AI Game Simulator</span> for matchup outcomes and probabilities.
           </motion.p>
         </div>
 
@@ -145,7 +144,7 @@ export function FeatureDemo() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="max-w-4xl mx-auto"
+              className="max-w-2xl mx-auto"
             >
               {/* Mini Edge Finder Demo */}
               <div className="bg-white dark:bg-gray-800 border border-green-500/20 rounded-xl p-6 shadow-xl">
@@ -175,7 +174,7 @@ export function FeatureDemo() {
                 </div>
 
                 {/* Compact Edge Analysis */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-1 gap-4 mb-6">
                   <div className="bg-green-500/10 p-4 rounded-lg border border-green-500/20">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-medium text-green-600 dark:text-green-400">Spread Edge</span>
@@ -238,7 +237,7 @@ export function FeatureDemo() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="max-w-4xl mx-auto"
+              className="max-w-2xl mx-auto"
             >
               {/* Mini AI Game Simulator Demo */}
               <div className="bg-white dark:bg-gray-800 border border-purple-500/20 rounded-xl p-6 shadow-xl">

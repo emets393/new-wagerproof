@@ -1,6 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminMode } from "@/contexts/AdminModeContext";
 import { navItems } from "@/nav-items";
@@ -42,30 +41,7 @@ export function AppLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
 
-  useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      if (user) {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('onboarding_completed')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) {
-          console.error("Error fetching user profile:", error);
-          // Don't redirect if there's an error, just log it.
-          return;
-        }
-
-        if (profile && !profile.onboarding_completed) {
-          // User is logged in but hasn't completed onboarding, redirect them.
-          navigate('/onboarding');
-        }
-      }
-    };
-
-    checkOnboardingStatus();
-  }, [user, navigate]);
+  // Onboarding check is now handled by OnboardingGuard component
 
   // Filter nav items based on admin mode and exclude Home/Account from sidebar
   const visibleNavItems = navItems.filter(item => {

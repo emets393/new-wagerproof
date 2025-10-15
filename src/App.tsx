@@ -21,6 +21,7 @@ import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { OnboardingGuard } from "./components/OnboardingGuard";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppLayout } from "./components/AppLayout";
 import { MinimalHeader } from "./components/MinimalHeader";
@@ -81,22 +82,24 @@ function AppRoutes() {
     );
   }
 
-  // All other routes get the authenticated layout
+  // All other routes get the authenticated layout with onboarding guard
   return (
-    <AuthenticatedLayout>
-      <Routes>
-        <Route path="/account" element={<Account />} />
-        <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
-        <Route path="/college-football" element={<ProtectedRoute><CollegeFootball /></ProtectedRoute>} />
-        <Route path="/nfl" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
-        <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
-        <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
-        <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
-        <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
-        <Route path="/editors-picks" element={<EditorsPicks />} />
-        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-      </Routes>
-    </AuthenticatedLayout>
+    <OnboardingGuard>
+      <AuthenticatedLayout>
+        <Routes>
+          <Route path="/account" element={<Account />} />
+          <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
+          <Route path="/college-football" element={<ProtectedRoute><CollegeFootball /></ProtectedRoute>} />
+          <Route path="/nfl" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
+          <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
+          <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
+          <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
+          <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
+          <Route path="/editors-picks" element={<EditorsPicks />} />
+          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+        </Routes>
+      </AuthenticatedLayout>
+    </OnboardingGuard>
   );
 }
 

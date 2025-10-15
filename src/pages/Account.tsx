@@ -52,9 +52,8 @@ export default function Account() {
       } else if (action === 'signup') {
         setSuccess('Check your email for the confirmation link!');
       } else if (action === 'login') {
-        // On every login, redirect to WagerBot Chat with welcome message
+        // OnboardingGuard will handle redirection based on onboarding status
         localStorage.setItem('wagerproof_show_welcome', 'true');
-        navigate('/wagerbot-chat', { replace: true });
       }
     } catch (err) {
       setError('An unexpected error occurred');

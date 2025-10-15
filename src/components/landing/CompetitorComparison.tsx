@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { GradientText } from "@/components/ui/gradient-text";
 import { 
   CheckCircle, 
   AlertTriangle, 
@@ -209,8 +208,8 @@ export function CompetitorComparison() {
 
               {/* Bottom Summary */}
               <div className="mt-12 p-6 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h4 className="text-2xl font-bold text-center mb-6">
-                  <GradientText text="The WagerProof Advantage" />
+                <h4 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-gray-100">
+                  The WagerProof Advantage
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                   <div className="space-y-3">

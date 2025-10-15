@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Auth state change:', event, session?.user?.email || 'no user');
         
         // If user just signed in (including OAuth), set welcome flag
+        // OnboardingGuard will handle the redirection logic based on onboarding status
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in, setting welcome flag');
           localStorage.setItem('wagerproof_show_welcome', 'true');

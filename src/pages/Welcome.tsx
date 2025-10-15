@@ -19,11 +19,11 @@ export default function Welcome() {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  // Redirect authenticated users to WagerBot chat with welcome message
+  // OnboardingGuard will handle redirection based on onboarding status
   useEffect(() => {
     if (user && !loading) {
-      // On every login, redirect to WagerBot Chat with welcome message
       localStorage.setItem('wagerproof_show_welcome', 'true');
+      // Let OnboardingGuard handle the routing
       navigate('/wagerbot-chat', { replace: true });
     }
   }, [user, loading, navigate]);
