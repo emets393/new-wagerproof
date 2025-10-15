@@ -46,8 +46,8 @@ BEGIN
   INSERT INTO public.profiles (user_id, username, display_name)
   VALUES (
     NEW.id, 
-    COALESCE(NEW.raw_user_meta_data ->> 'username', split_part(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data ->> 'display_name', split_part(NEW.email, '@', 1))
+    COALESCE(NEW.raw_user_meta_data ->> 'username', split_part(NEW.email, '@', 1)) || '_' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 6),
+    COALESCE(NEW.raw_user_meta_data ->> 'full_name', NEW.raw_user_meta_data ->> 'display_name', split_part(NEW.email, '@', 1))
   )
   ON CONFLICT (user_id) DO NOTHING;
   

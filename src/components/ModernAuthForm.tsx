@@ -3,9 +3,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { cn } from "@/lib/utils";
 import {
-  IconBrandGithub,
   IconBrandGoogle,
-  IconBrandApple,
 } from "@tabler/icons-react";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Loader2 } from "lucide-react";
@@ -13,7 +11,6 @@ import { Loader2 } from "lucide-react";
 interface ModernAuthFormProps {
   onSubmit: (email: string, password: string, action: 'login' | 'signup') => Promise<void>;
   onGoogleSignIn?: () => Promise<void>;
-  onAppleSignIn?: () => Promise<void>;
   isLoading: boolean;
   error: string;
   success: string;
@@ -24,7 +21,6 @@ interface ModernAuthFormProps {
 export function ModernAuthForm({ 
   onSubmit,
   onGoogleSignIn,
-  onAppleSignIn,
   isLoading, 
   error, 
   success,
@@ -162,35 +158,12 @@ export function ModernAuthForm({
           <button
             className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
             type="button"
-            disabled={isLoading}
-          >
-            <IconBrandGithub className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
-            <span className="text-sm text-neutral-700 dark:text-neutral-300">
-              GitHub
-            </span>
-            <BottomGradient />
-          </button>
-          <button
-            className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
-            type="button"
             onClick={onGoogleSignIn}
             disabled={isLoading}
           >
             <IconBrandGoogle className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
             <span className="text-sm text-neutral-700 dark:text-neutral-300">
               Google
-            </span>
-            <BottomGradient />
-          </button>
-          <button
-            className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
-            type="button"
-            onClick={onAppleSignIn}
-            disabled={isLoading}
-          >
-            <IconBrandApple className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
-            <span className="text-sm text-neutral-700 dark:text-neutral-300">
-              Apple
             </span>
             <BottomGradient />
           </button>

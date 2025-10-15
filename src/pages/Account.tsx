@@ -78,21 +78,6 @@ export default function Account() {
     }
   };
 
-  const handleAppleSignIn = async () => {
-    setError('');
-    setIsLoading(true);
-    try {
-      const { error } = await signInWithProvider('apple');
-      if (error) {
-        setError(error.message);
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSignOut = async () => {
     try {
       console.log('Account page: Starting handleSignOut...');
@@ -229,7 +214,6 @@ export default function Account() {
         <ModernAuthForm
           onSubmit={handleSubmit}
           onGoogleSignIn={handleGoogleSignIn}
-          onAppleSignIn={handleAppleSignIn}
           isLoading={isLoading}
           error={error}
           success={success}

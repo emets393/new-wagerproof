@@ -81,21 +81,6 @@ export default function Welcome() {
     }
   };
 
-  const handleAppleSignIn = async () => {
-    setError('');
-    setIsLoading(true);
-    try {
-      const { error } = await signInWithProvider('apple');
-      if (error) {
-        setError(error.message);
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
@@ -268,7 +253,6 @@ export default function Welcome() {
               <ModernAuthForm
                 onSubmit={handleSubmit}
                 onGoogleSignIn={handleGoogleSignIn}
-                onAppleSignIn={handleAppleSignIn}
                 isLoading={isLoading}
                 error={error}
                 success={success}

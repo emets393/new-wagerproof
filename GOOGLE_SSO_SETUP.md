@@ -82,7 +82,9 @@ The following code changes have been implemented:
 
 3. **Enter OAuth Credentials**
    - Paste **Client ID** from Step 1
+   [YOUR_CLIENT_ID]
    - Paste **Client Secret** from Step 1
+   [YOUR_CLIENT_SECRET]
    - Click **Save**
 
 4. **Verify Configuration**
