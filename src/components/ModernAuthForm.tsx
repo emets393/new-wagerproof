@@ -29,11 +29,21 @@ export function ModernAuthForm({
 }: ModernAuthFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [matchError, setMatchError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    setMatchError(''); // Clear previous password mismatch error
+
+    if (mode === 'signup' && password !== confirmPassword) {
+      setMatchError('Passwords do not match.');
+      return;
+    }
+    
     await onSubmit(email, password, mode);
   };
 
@@ -122,6 +132,21 @@ export function ModernAuthForm({
           />
         </LabelInputContainer>
 
+        {mode === 'signup' && (
+          <LabelInputContainer className="mb-8">
+            <Label htmlFor="confirm-password">Confirm Password</Label>
+            <Input
+              id="confirm-password"
+              placeholder="••••••••"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={isLoading}
+              required
+            />
+          </LabelInputContainer>
+        )}
+
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>{error}</AlertDescription>
@@ -131,6 +156,12 @@ export function ModernAuthForm({
         {success && (
           <Alert className="mb-4">
             <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        )}
+
+        {matchError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{matchError}</AlertDescription>
           </Alert>
         )}
 
