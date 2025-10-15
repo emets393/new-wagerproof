@@ -296,6 +296,18 @@ export function AppLayout() {
       <AlertDialog open={signInPromptOpen} onOpenChange={setSignInPromptOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <div className="flex flex-col items-center justify-center p-4">
+              <img
+                src="/wagerproofGreenLight.png"
+                alt="Wagerproof Logo"
+                className="w-12 h-12 object-contain rounded-lg mb-2 dark:hidden"
+              />
+              <img
+                src="/wagerproofGreenDark.png"
+                alt="Wagerproof Logo"
+                className="w-12 h-12 object-contain rounded-lg mb-2 hidden dark:block"
+              />
+            </div>
             <AlertDialogTitle>Sign In Required</AlertDialogTitle>
             <AlertDialogDescription>
               Please sign in to access your settings and manage your account.
@@ -305,8 +317,10 @@ export function AppLayout() {
             <Button variant="outline" onClick={() => setSignInPromptOpen(false)}>
               Cancel
             </Button>
-            <AlertDialogAction onClick={handleSignIn}>
-              Sign In
+            <AlertDialogAction asChild>
+              <Button variant="outline" onClick={handleSignIn} className="bg-white text-foreground dark:bg-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">
+                Sign In
+              </Button>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

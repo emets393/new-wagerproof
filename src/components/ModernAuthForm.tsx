@@ -43,7 +43,7 @@ export function ModernAuthForm({
       <div className="flex justify-center mb-6">
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-indigo-500 rounded-xl blur-md opacity-30"></div>
-          <div className="relative p-3 bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-neutral-100 dark:to-neutral-200 rounded-lg">
+          <div className="relative p-3 bg-gradient-to-br from-gray-100 to-white dark:from-neutral-900 dark:to-neutral-800 rounded-lg">
             <img 
               src="/wagerproofGreenLight.png" 
               alt="WAGERPROOF" 
@@ -163,7 +163,7 @@ export function ModernAuthForm({
           >
             <IconBrandGoogle className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
             <span className="text-sm text-neutral-700 dark:text-neutral-300">
-              Google
+              Sign in with Google
             </span>
             <BottomGradient />
           </button>

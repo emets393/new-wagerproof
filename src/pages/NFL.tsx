@@ -880,7 +880,7 @@ ${contextParts}
 
                       {/* @ Symbol and Total */}
                       <div className="text-center px-2 sm:px-4 flex flex-col items-center justify-center">
-                        <span className="text-4xl sm:text-5xl font-bold text-gray-400 dark:text-gray-500 mb-2 sm:mb-3">@</span>
+                        <span className="text-4xl sm:text-5xl font-bold text-white dark:text-gray-500 mb-2 sm:mb-3">@</span>
                         <div className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 bg-blue-50 dark:bg-blue-900/30 px-2 sm:px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800">
                           Total: {prediction.over_line || '-'}
                         </div>

@@ -28,6 +28,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state change:', event, session?.user?.email || 'no user');
+        
+        // If user just signed in (including OAuth), set welcome flag
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('✅ User signed in, setting welcome flag');
+          localStorage.setItem('wagerproof_show_welcome', 'true');
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);

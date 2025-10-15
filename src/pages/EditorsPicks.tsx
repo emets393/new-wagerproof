@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Star } from 'lucide-react';
+import { AlertCircle, Star, Loader2 } from 'lucide-react';
 import { EditorPickCard } from '@/components/EditorPickCard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useAdminMode } from '@/contexts/AdminModeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 
 interface EditorPick {
@@ -232,12 +234,21 @@ const getCFBTeamColors = (teamName: string): { primary: string; secondary: strin
 };
 
 export default function EditorsPicks() {
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const { adminModeEnabled } = useAdminMode();
   const [picks, setPicks] = useState<EditorPick[]>([]);
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect to welcome page if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/');
+    }
+  }, [user, authLoading, navigate]);
 
   const fetchPicks = async () => {
     try {
@@ -520,8 +531,27 @@ export default function EditorsPicks() {
   };
 
   useEffect(() => {
-    fetchPicks();
-  }, [adminModeEnabled]);
+    if (user) {
+      fetchPicks();
+    }
+  }, [adminModeEnabled, user]);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="container mx-auto px-4 py-6 min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (redirect will happen)
+  if (!user) {
+    return null;
+  }
 
   if (loading) {
     return (

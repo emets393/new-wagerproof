@@ -30,12 +30,28 @@ export interface NavItem {
  * Central place for defining the navigation items. Used for navigation components and routing.
  */
 export const navItems: NavItem[] = [
-  // Hiding Today's Games and Win Rates (keep code, remove from nav)
   {
     title: "Home",
     to: "/home",
     icon: <HomeIcon className="h-4 w-4" />,
     page: <Landing />,
+  },
+  {
+    title: "Learn WagerProof",
+    to: "/learn",
+    icon: <GraduationCap className="h-4 w-4" />,
+  },
+  {
+    title: "WagerBot Chat",
+    to: "/wagerbot-chat",
+    icon: <Bot className="h-4 w-4" />,
+    page: <WagerBotChat />,
+  },
+  {
+    title: "Editors Picks",
+    to: "/editors-picks",
+    icon: <Star className="h-4 w-4" />,
+    page: <EditorsPicks />,
   },
   {
     title: "College Football",
@@ -74,27 +90,10 @@ export const navItems: NavItem[] = [
     comingSoon: true,
   },
   {
-    title: "Editors Picks",
-    to: "/editors-picks",
-    icon: <Star className="h-4 w-4" />,
-    page: <EditorsPicks />,
-  },
-  {
     title: "Feature Requests",
     to: "/feature-requests",
     icon: <MessageSquare className="h-4 w-4" />,
     comingSoon: true,
-  },
-  {
-    title: "Learn WagerProof",
-    to: "/learn",
-    icon: <GraduationCap className="h-4 w-4" />,
-  },
-  {
-    title: "WagerBot Chat",
-    to: "/wagerbot-chat",
-    icon: <Bot className="h-4 w-4" />,
-    page: <WagerBotChat />,
   },
   {
     title: "Admin",

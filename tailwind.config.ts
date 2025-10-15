@@ -38,7 +38,7 @@ export default {
 					foreground: 'hsl(var(--destructive-foreground))'
 				},
 				muted: '#58585c',
-				accent: '#f7d648',
+				accent: 'hsl(var(--accent))',
 				success: '#7ac268',
 				info: '#6db8e0',
 				honeydew: {

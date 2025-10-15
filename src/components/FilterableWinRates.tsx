@@ -697,10 +697,10 @@ export default function FilterableWinRates() {
 
             {/* Home Pitcher Hand Filter */}
             {homePitcherHand !== "all" && (
-              <Badge variant="secondary" className="flex items-center gap-2 bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200">
+              <Badge variant="secondary" className="flex items-center gap-2 bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200">
                 Home Pitcher: {homePitcherHand === "right" ? "Right" : "Left"}
                 <X 
-                  className="h-3 w-3 cursor-pointer hover:text-amber-600" 
+                  className="h-3 w-3 cursor-pointer hover:text-gray-600" 
                   onClick={() => setHomePitcherHand("all")}
                 />
               </Badge>
@@ -769,10 +769,10 @@ export default function FilterableWinRates() {
             ) : null}
 
             {homeRlBetsRange[0] !== 0 || homeRlBetsRange[1] !== 100 ? (
-              <Badge variant="secondary" className="flex items-center gap-2 bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200">
+              <Badge variant="secondary" className="flex items-center gap-2 bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200">
                 Home RL Bets: {homeRlBetsRange[0]}% - {homeRlBetsRange[1]}%
                 <X 
-                  className="h-3 w-3 cursor-pointer hover:text-yellow-600" 
+                  className="h-3 w-3 cursor-pointer hover:text-gray-600" 
                   onClick={() => setHomeRlBetsRange([0, 100])}
                 />
               </Badge>

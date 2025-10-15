@@ -284,7 +284,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
   };
 
   return (
-    <Card className="relative overflow-hidden bg-gradient-to-br from-gray-100/90 via-gray-200/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-blue-200 dark:border-blue-800 shadow-xl">
+    <Card className="relative overflow-hidden bg-gradient-to-b from-gray-600/95 via-gray-300/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-blue-200 dark:border-blue-800 shadow-xl">
       {/* Aurora Effect */}
       <AnimatePresence>
         {pick.is_published && (

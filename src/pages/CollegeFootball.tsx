@@ -1178,7 +1178,7 @@ ${contextParts}
                 {/* Star Button for Admin Mode */}
                 <StarButton gameId={prediction.id} gameType="cfb" />
                 
-                <CardContent className="space-y-3 sm:space-y-5 pt-3 pb-3 sm:pt-5 sm:pb-5 px-3 sm:px-4 md:px-6">
+                <CardContent className="space-y-3 sm:space-y-4 pt-3 pb-3 sm:pt-4 sm:pb-4 px-3 sm:px-4">
                   {/* Game Date and Time */}
                   {(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime) && (
                     <div className="text-center">
@@ -1201,38 +1201,38 @@ ${contextParts}
                   )}
 
                   {/* Team Logos and Betting Info - Horizontal Layout */}
-                  <div className="space-y-2 sm:space-y-4 pt-1.5">
+                  <div className="space-y-2 sm:space-y-3 pt-1">
                     {/* Team Logos Row */}
-                    <div className="flex justify-center items-center space-x-4 sm:space-x-6">
+                    <div className="flex justify-center items-center space-x-3 sm:space-x-4">
                       {/* Away Team Logo */}
-                      <div className="text-center w-[140px] sm:w-[160px]">
+                      <div className="text-center w-[120px] sm:w-[140px]">
                         {getTeamLogo(prediction.away_team) && (
                           <img 
                             src={getTeamLogo(prediction.away_team)} 
                             alt={`${prediction.away_team} logo`}
-                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
+                        <div className="text-xs sm:text-sm font-bold mb-1 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-1">
                           {prediction.away_team}
                         </div>
                       </div>
 
                       {/* @ Symbol */}
                       <div className="text-center">
-                        <span className="text-4xl sm:text-5xl font-bold text-gray-400 dark:text-gray-500">@</span>
+                        <span className="text-3xl sm:text-4xl font-bold text-white dark:text-gray-500">@</span>
                       </div>
 
                       {/* Home Team Logo */}
-                      <div className="text-center w-[140px] sm:w-[160px]">
+                      <div className="text-center w-[120px] sm:w-[140px]">
                         {getTeamLogo(prediction.home_team) && (
                           <img 
                             src={getTeamLogo(prediction.home_team)} 
                             alt={`${prediction.home_team} logo`}
-                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                            className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                           />
                         )}
-                        <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
+                        <div className="text-xs sm:text-sm font-bold mb-1 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-1">
                           {prediction.home_team}
                         </div>
                       </div>
@@ -1285,11 +1285,11 @@ ${contextParts}
 
                   {/* Betting Split Labels Section */}
                   {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
-                    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6 border-t-2 border-border">
+                    <div className="space-y-2 pt-3 sm:pt-4 border-t-2 border-border">
                       <div className="text-center">
-                        <h4 className="text-xs sm:text-sm font-bold text-foreground bg-gradient-to-r from-primary/10 to-primary/10 dark:from-primary/20 dark:to-primary/20 px-2 sm:px-3 py-1 rounded-full border border-border">Public Betting Facts</h4>
+                        <h4 className="text-xs font-bold text-foreground bg-gradient-to-r from-primary/10 to-primary/10 dark:from-primary/20 dark:to-primary/20 px-2 py-0.5 rounded-full border border-border">Public Betting Facts</h4>
                       </div>
-                      <div className="space-y-1.5 sm:space-y-2 bg-gradient-to-br from-primary/10 to-primary/10 dark:from-primary/20 dark:to-primary/20 p-3 sm:p-4 rounded-lg border border-border shadow-sm">
+                      <div className="space-y-1 sm:space-y-1.5 bg-gradient-to-br from-primary/10 to-primary/10 dark:from-primary/20 dark:to-primary/20 p-2 sm:p-3 rounded-lg border border-border shadow-sm">
                         {prediction.ml_splits_label && (
                           <Badge 
                             variant="outline" 
@@ -1332,25 +1332,25 @@ ${contextParts}
 
                   {/* Model Predictions Section */}
                   {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
-                    <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
-                      <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+                    <div className="text-center pt-3 sm:pt-4 border-t-2 border-gray-200 dark:border-gray-700">
+                      <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-2 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
                         {/* Header */}
-                        <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Model Predictions</h4>
+                        <h4 className="text-base sm:text-lg font-bold text-gray-400 dark:text-gray-500">Model Predictions</h4>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
                         {/* Spread Edge Display (left) */}
                         {(() => {
                           const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
 
                           if (!edgeInfo) {
                             return (
-                              <div className="bg-gradient-to-r from-muted/20 to-muted/20 rounded-xl border border-border p-4 sm:p-6">
+                              <div className="bg-gradient-to-r from-muted/20 to-muted/20 rounded-xl border border-border p-3 sm:p-4">
                                 <div className="text-center">
-                                  <h5 className="text-sm sm:text-base font-bold text-foreground mb-3 pb-2 border-b border-border">Spread</h5>
-                                  <div className="text-sm text-muted-foreground">Edge calculation unavailable</div>
-                                  <div className="mt-3">
-                                    <div className="text-xs sm:text-sm font-semibold text-muted-foreground mb-1">Model Spread</div>
-                                    <div className="text-2xl sm:text-3xl font-bold text-foreground">
+                                  <h5 className="text-xs sm:text-sm font-bold text-foreground mb-2 pb-1.5 border-b border-border">Spread</h5>
+                                  <div className="text-xs text-muted-foreground">Edge calculation unavailable</div>
+                                  <div className="mt-2">
+                                    <div className="text-xs font-semibold text-muted-foreground mb-1">Model Spread</div>
+                                    <div className="text-xl sm:text-2xl font-bold text-foreground">
                                       {formatSignedHalf(prediction.pred_spread)}
                                     </div>
                                   </div>
@@ -1360,41 +1360,41 @@ ${contextParts}
                           }
 
                           return (
-                            <div className="bg-slate-50 dark:bg-muted/20 rounded-xl border border-border shadow-sm p-4 sm:p-6 h-full flex flex-col">
+                            <div className="bg-slate-50 dark:bg-muted/20 rounded-xl border border-border shadow-sm p-3 sm:p-4 h-full flex flex-col">
                               <div className="text-center">
-                                <h5 className="text-base sm:text-lg font-bold text-foreground mb-3 pb-2 border-b border-border">Spread</h5>
+                                <h5 className="text-sm sm:text-base font-bold text-foreground mb-2 pb-1.5 border-b border-border">Spread</h5>
 
-                                <div className="flex-1 flex items-center justify-center space-x-5 min-h-[120px]">
+                                <div className="flex-1 flex items-center justify-center space-x-3 sm:space-x-4 min-h-[80px] sm:min-h-[100px]">
                                   {/* Team Logo */}
                                   <div className="flex-shrink-0">
                                     {getTeamLogo(edgeInfo.teamName) && (
                                       <img
                                         src={getTeamLogo(edgeInfo.teamName)}
                                         alt={`${edgeInfo.teamName} logo`}
-                                        className="h-14 w-14 sm:h-20 sm:w-20 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                                        className="h-10 w-10 sm:h-16 sm:w-16 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
                                       />
                                     )}
                                   </div>
 
                                   {/* Edge Value */}
                                   <div className="text-center">
-                                    <div className="text-3xl sm:text-4xl font-bold text-foreground mb-1">
+                                    <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">
                                       {edgeInfo.displayEdge}
                                     </div>
-                                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Edge to {getTeamAcronym(edgeInfo.teamName)}</div>
+                                    <div className="text-[10px] sm:text-xs font-medium text-muted-foreground">Edge to {getTeamAcronym(edgeInfo.teamName)}</div>
                                   </div>
                                 </div>
 
                                 {/* Model Spread Only */}
-                                <div className="mt-4">
-                                  <div className="text-sm sm:text-base font-semibold text-muted-foreground mb-1">Model Spread</div>
+                                <div className="mt-2 sm:mt-3">
+                                  <div className="text-xs sm:text-sm font-semibold text-muted-foreground mb-0.5">Model Spread</div>
                                   {(() => {
                                     let modelSpreadDisplay = prediction.pred_spread;
                                     if (!edgeInfo.isHomeEdge) {
                                       if (modelSpreadDisplay !== null) modelSpreadDisplay = -modelSpreadDisplay;
                                     }
                                     return (
-                                      <div className="text-3xl sm:text-4xl font-bold text-foreground">
+                                      <div className="text-2xl sm:text-3xl font-bold text-foreground">
                                         {formatSignedHalf(modelSpreadDisplay)}
                                       </div>
                                     );
@@ -1412,10 +1412,10 @@ ${contextParts}
 
                           if (!hasOuData) {
                             return (
-                              <div className="bg-gradient-to-r from-muted/20 to-muted/20 rounded-xl border border-border p-4 sm:p-6">
+                              <div className="bg-gradient-to-r from-muted/20 to-muted/20 rounded-xl border border-border p-3 sm:p-4">
                                 <div className="text-center">
-                                  <div className="text-xs sm:text-sm font-semibold text-muted-foreground mb-3">Over/Under Edge</div>
-                                  <div className="text-sm text-muted-foreground">No O/U data available</div>
+                                  <div className="text-xs font-semibold text-muted-foreground mb-2">Over/Under Edge</div>
+                                  <div className="text-xs text-muted-foreground">No O/U data available</div>
                                 </div>
                               </div>
                             );
@@ -1427,37 +1427,37 @@ ${contextParts}
                           const modelValue = prediction.pred_over_line;
 
                           return (
-                            <div className={`rounded-xl border p-4 sm:p-6 h-full flex flex-col bg-slate-50 dark:bg-muted/20 border-border shadow-sm`}>
+                            <div className={`rounded-xl border p-3 sm:p-4 h-full flex flex-col bg-slate-50 dark:bg-muted/20 border-border shadow-sm`}>
                               <div className="text-center">
-                                <h5 className={`text-base sm:text-lg font-bold mb-3 pb-2 border-b ${isOver ? 'text-emerald-800 dark:text-emerald-400' : 'text-rose-800 dark:text-rose-400'} border-border`}>Over/Under</h5>
+                                <h5 className={`text-sm sm:text-base font-bold mb-2 pb-1.5 border-b ${isOver ? 'text-emerald-800 dark:text-emerald-400' : 'text-rose-800 dark:text-rose-400'} border-border`}>Over/Under</h5>
 
-                                <div className="flex-1 flex items-center justify-center space-x-5 min-h-[120px]">
+                                <div className="flex-1 flex items-center justify-center space-x-3 sm:space-x-4 min-h-[80px] sm:min-h-[100px]">
                                   {/* Arrow Indicator */}
                                   <div className="flex-shrink-0">
                                     {isOver ? (
                                       <div className="flex flex-col items-center">
-                                        <ChevronUp className="h-14 w-14 sm:h-20 sm:w-20 text-emerald-600" />
-                                        <div className="text-xs font-bold text-emerald-700 -mt-2">Over</div>
+                                        <ChevronUp className="h-10 w-10 sm:h-16 sm:w-16 text-emerald-600" />
+                                        <div className="text-[10px] sm:text-xs font-bold text-emerald-700 -mt-1">Over</div>
                                       </div>
                                     ) : (
                                       <div className="flex flex-col items-center">
-                                        <ChevronDown className="h-14 w-14 sm:h-20 sm:w-20 text-rose-600" />
-                                        <div className="text-xs font-bold text-rose-700 -mt-2">Under</div>
+                                        <ChevronDown className="h-10 w-10 sm:h-16 sm:w-16 text-rose-600" />
+                                        <div className="text-[10px] sm:text-xs font-bold text-rose-700 -mt-1">Under</div>
                                       </div>
                                     )}
                                   </div>
 
                                   {/* Edge Value */}
                                   <div className="text-center">
-                                    <div className={`text-3xl sm:text-4xl font-bold mb-1 ${isOver ? 'text-emerald-600' : 'text-rose-600'}`}>{displayMagnitude}</div>
-                                    <div className={`text-xs sm:text-sm font-medium ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Edge to {isOver ? 'Over' : 'Under'}</div>
+                                    <div className={`text-2xl sm:text-3xl font-bold mb-0.5 ${isOver ? 'text-emerald-600' : 'text-rose-600'}`}>{displayMagnitude}</div>
+                                    <div className={`text-[10px] sm:text-xs font-medium ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Edge to {isOver ? 'Over' : 'Under'}</div>
                                   </div>
                                 </div>
 
                                 {/* Model O/U Only */}
-                                <div className="mt-4">
-                                  <div className={`text-sm sm:text-base font-semibold mb-1 ${isOver ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>Model O/U</div>
-                                  <div className={`text-3xl sm:text-4xl font-bold ${isOver ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>{formatHalfNoSign(modelValue)}</div>
+                                <div className="mt-2 sm:mt-3">
+                                  <div className={`text-xs sm:text-sm font-semibold mb-0.5 ${isOver ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>Model O/U</div>
+                                  <div className={`text-2xl sm:text-3xl font-bold ${isOver ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>{formatHalfNoSign(modelValue)}</div>
                                 </div>
                               </div>
                             </div>
@@ -1469,10 +1469,10 @@ ${contextParts}
                   )}
 
                   {/* Match Simulator Section */}
-                  <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
-                    <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+                  <div className="text-center pt-3 sm:pt-4 border-t-2 border-gray-200 dark:border-gray-700">
+                    <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-2 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
                       {/* Header */}
-                      <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Match Simulator</h4>
+                      <h4 className="text-base sm:text-lg font-bold text-gray-400 dark:text-gray-500">Match Simulator</h4>
 
                     {/* Simulate Button or Loading */}
                     {!simRevealedById[prediction.id] && (

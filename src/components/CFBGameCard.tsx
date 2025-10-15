@@ -88,7 +88,7 @@ export default function CFBGameCard({
           whileTap={{ scale: 0.995 }}
           className="w-full"
         >
-          <Card className={`relative overflow-hidden w-full ${isHovered ? 'bg-gradient-to-br from-gray-200/80 via-gray-300/80 to-gray-200/80 dark:from-gray-900/70 dark:via-gray-800/70 dark:to-gray-900/70 backdrop-blur-sm' : 'bg-gradient-to-br from-gray-100/90 via-gray-200/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 backdrop-blur-sm'} border-0 shadow-lg transition-all duration-300 z-[2] ${isHovered ? 'shadow-2xl shadow-blue-200/50 dark:shadow-blue-900/30' : ''} ${className}`}>
+          <Card className={`relative overflow-hidden w-full ${isHovered ? 'bg-gradient-to-b from-gray-600/80 via-gray-300/80 to-gray-100/80 dark:from-gray-900/70 dark:via-gray-800/70 dark:to-gray-900/70 backdrop-blur-sm' : 'bg-gradient-to-b from-gray-600/95 via-gray-300/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 backdrop-blur-sm'} border-0 shadow-lg transition-all duration-300 z-[2] ${isHovered ? 'shadow-2xl shadow-blue-200/50 dark:shadow-blue-900/30' : ''} ${className}`}>
             {/* Dynamic team colors gradient top border */}
             <div 
               className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
