@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithProvider = async (provider: 'google' | 'apple') => {
-    const redirectUrl = `${window.location.origin}/account`;
+    const redirectUrl = `${window.location.origin}/wagerbot-chat`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {

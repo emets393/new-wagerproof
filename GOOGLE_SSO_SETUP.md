@@ -120,7 +120,7 @@ If you need to override the default redirect URL for development:
    - You should be redirected to Google's OAuth consent screen
    - Authorize the application
    - Verify you're redirected back and logged in
-   - Check that you land on `/account` page
+   - Check that you land on `/wagerbot-chat` page with automatic welcome message
 
 4. **Verify User Data**:
    - Open Supabase Dashboard → Authentication → Users
@@ -261,9 +261,9 @@ Before deploying to production:
 5. User authorizes on Google's page
 6. Google redirects to: `https://gnjrklxotmbvnxbnnqgq.supabase.co/auth/v1/callback`
 7. Supabase exchanges auth code for user info
-8. Supabase creates session and redirects to `/account`
+8. Supabase creates session and redirects to `/wagerbot-chat`
 9. `AuthContext` detects session change
-10. User is logged in and redirected to WagerBot Chat
+10. User is logged in and automatic welcome message is triggered
 
 ### Code Locations
 
