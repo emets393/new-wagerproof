@@ -8,37 +8,31 @@ import CountUp from "./CountUp";
 const testimonials = [
   {
     name: "Sarah M.",
-    username: "@sarah_bets",
     body: "WagerProof has transformed the way I bet. The data-driven predictions have improved my win rate significantly!",
     img: "https://avatar.vercel.sh/sarah",
   },
   {
     name: "Mark T.",
-    username: "@mark_sharp",
     body: "I used to bet on gut feelings. Now with WagerProof's analytics, I'm making smarter bets and actually profitable!",
     img: "https://avatar.vercel.sh/mark",
   },
   {
     name: "Priya K.",
-    username: "@priya_sports",
     body: "The trend analysis tools have helped me find edges I never knew existed. This platform is a game-changer!",
     img: "https://avatar.vercel.sh/priya",
   },
   {
     name: "James L.",
-    username: "@james_picks",
     body: "The model accuracy tracking gives me confidence in my bets. Finally, a transparent sports betting analytics platform!",
     img: "https://avatar.vercel.sh/james",
   },
   {
     name: "Maria R.",
-    username: "@maria_analytics",
     body: "The historical data and trend tracking is incredibly accurate! Finally found a platform that's transparent about results.",
     img: "https://avatar.vercel.sh/maria",
   },
   {
     name: "David K.",
-    username: "@david_sharp",
     body: "WagerProof has made betting fun again. The interface is intuitive and the predictions are spot on!",
     img: "https://avatar.vercel.sh/david",
   },
@@ -50,12 +44,10 @@ const secondRow = testimonials.slice(testimonials.length / 2);
 const ReviewCard = ({
   img,
   name,
-  username,
   body,
 }: {
   img: string;
   name: string;
-  username: string;
   body: string;
 }) => {
   return (
@@ -74,7 +66,6 @@ const ReviewCard = ({
           <figcaption className="text-sm font-medium dark:text-white">
             {name}
           </figcaption>
-          <p className="text-xs font-medium dark:text-white/40">{username}</p>
         </div>
       </div>
       <blockquote className="mt-2 text-sm">{body}</blockquote>
@@ -107,12 +98,12 @@ const Testimonials = () => {
         <div className="flex w-full flex-col items-center justify-center overflow-hidden">
           <Marquee className="[--duration:30s]">
             {firstRow.map((review) => (
-              <ReviewCard key={review.username} {...review} />
+              <ReviewCard key={review.name} {...review} />
             ))}
           </Marquee>
           <Marquee reverse className="[--duration:30s]">
             {secondRow.map((review) => (
-              <ReviewCard key={review.username} {...review} />
+              <ReviewCard key={review.name} {...review} />
             ))}
           </Marquee>
           <div className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-gray-100 dark:from-gray-950"></div>
