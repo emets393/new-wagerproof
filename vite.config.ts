@@ -5,29 +5,33 @@ import { componentTagger } from "lovable-tagger";
 import fs from "fs";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-    strictPort: true,
-    https: {
-      key: fs.readFileSync(path.resolve(__dirname, 'localhost-key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, 'localhost-cert.pem')),
-    },
-    // Add this hmr configuration
-    hmr: {
-      protocol: 'wss',
+export default defineConfig(({ mode }) => {
+  const isDevelopment = mode === 'development';
+  
+  return {
+    server: {
+      host: "::",
       port: 8080,
+      strictPort: true,
+      ...(isDevelopment && {
+        https: {
+          key: fs.readFileSync(path.resolve(__dirname, 'localhost-key.pem')),
+          cert: fs.readFileSync(path.resolve(__dirname, 'localhost-cert.pem')),
+        },
+        hmr: {
+          protocol: 'wss',
+          port: 8080,
+        },
+      }),
     },
-  },
-  plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+    plugins: [
+      react(),
+      isDevelopment && componentTagger(),
+    ].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
     },
-  },
-}));
+  };
+});
