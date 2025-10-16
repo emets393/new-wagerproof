@@ -34,7 +34,7 @@ export function SportsSelection() {
   return (
     <div className="flex flex-col items-center justify-center text-center w-full">
       <motion.h1
-        className="text-3xl md:text-4xl font-bold mb-6 text-white"
+        className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -42,7 +42,7 @@ export function SportsSelection() {
         Which sports do you follow most?
       </motion.h1>
       <motion.div
-        className="flex flex-wrap justify-center gap-3 my-6 max-w-2xl"
+        className="flex flex-wrap justify-center gap-2 sm:gap-3 my-4 sm:my-6 max-w-2xl px-2"
         initial="hidden"
         animate="visible"
         variants={{
@@ -72,7 +72,7 @@ export function SportsSelection() {
         ))}
       </motion.div>
       <motion.p
-        className="text-sm text-white/70 mb-6"
+        className="text-xs sm:text-sm text-white/70 mb-4 sm:mb-6 px-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5, duration: 0.5 }}

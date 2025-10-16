@@ -22,9 +22,9 @@ export function EmailOptIn() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-8 max-w-md mx-auto">
+    <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 max-w-md mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-4 text-white"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -32,7 +32,7 @@ export function EmailOptIn() {
         Want picks in your inbox?
       </motion.h1>
       <motion.p
-        className="text-lg text-white/80 mb-8"
+        className="text-sm sm:text-base md:text-lg text-white/80 mb-6 sm:mb-8 px-2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -47,7 +47,7 @@ export function EmailOptIn() {
         transition={{ duration: 0.5, delay: 0.4 }}
       >
         <Checkbox id="opt-in" checked={optIn} onCheckedChange={(checked) => setOptIn(!!checked)} />
-        <Label htmlFor="opt-in" className="text-lg text-white">Yes, sign me up!</Label>
+        <Label htmlFor="opt-in" className="text-base sm:text-lg text-white">Yes, sign me up!</Label>
       </motion.div>
       
       <motion.div 
@@ -72,7 +72,7 @@ export function EmailOptIn() {
       </motion.div>
 
       <motion.div
-        className="mt-8"
+        className="mt-6 sm:mt-8"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.6 }}

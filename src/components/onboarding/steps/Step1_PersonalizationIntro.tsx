@@ -13,7 +13,7 @@ export function PersonalizationIntro() {
   return (
     <div className="flex flex-col items-center justify-center text-center w-full">
       <motion.h1
-        className="text-4xl md:text-5xl font-bold mb-6 text-white"
+        className="text-2xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -22,7 +22,7 @@ export function PersonalizationIntro() {
       </motion.h1>
       
       <motion.h1
-        className="text-2xl md:text-5xl font-bold mb-6 text-white"
+        className="text-xl sm:text-2xl md:text-5xl font-bold mb-4 sm:mb-6 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -30,7 +30,7 @@ export function PersonalizationIntro() {
         Let's personalize your experience.
       </motion.h1>
       <motion.p
-        className="text-lg text-white/80 mb-8 max-w-lg"
+        className="text-sm sm:text-base md:text-lg text-white/80 mb-6 sm:mb-8 max-w-full sm:max-w-lg px-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}

@@ -17,9 +17,9 @@ export function ValueClaim() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center text-center  max-w-1xl mx-auto">
+    <div className="flex flex-col items-center justify-center text-center max-w-1xl mx-auto px-4">
       <motion.h1
-        className="text-5xl font-bold mb-4 text-white"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -27,7 +27,7 @@ export function ValueClaim() {
         Stop guessing.
       </motion.h1>
       <motion.p
-        className="text-lg text-white/80 mb-8"
+        className="text-sm sm:text-base md:text-lg text-white/80 mb-6 sm:mb-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -38,7 +38,7 @@ export function ValueClaim() {
       
       {/* Statistics Widget Animation */}
       <motion.div
-        className="w-full max-w-md mx-auto mb-8"
+        className="w-full max-w-md mx-auto mb-6 sm:mb-8"
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.4 }}
@@ -48,10 +48,11 @@ export function ValueClaim() {
             animationData={animationData}
             loop={false}
             autoplay={true}
-            style={{ width: '100%', height: '300px' }}
+            style={{ width: '100%', height: '250px' }}
+            className="sm:h-[300px]"
           />
         ) : (
-          <div className="w-full h-[300px] bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center">
+          <div className="w-full h-[250px] sm:h-[300px] bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
           </div>
         )}

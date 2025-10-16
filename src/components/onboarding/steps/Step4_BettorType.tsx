@@ -29,9 +29,9 @@ export function BettorTypeSelection() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-8 max-w-2xl mx-auto">
+    <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 max-w-2xl mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-8 text-white"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-6 sm:mb-8 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -39,7 +39,7 @@ export function BettorTypeSelection() {
         What kind of bettor are you?
       </motion.h1>
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full"
+        className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 w-full"
         initial="hidden"
         animate="visible"
         variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
@@ -61,16 +61,16 @@ export function BettorTypeSelection() {
                   : "border-white/20"
               )}
             >
-              <CardContent className="p-6">
-                <h3 className="text-xl font-semibold text-white">{title}</h3>
-                <p className="text-white/70 mt-2">{description}</p>
+              <CardContent className="p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-semibold text-white">{title}</h3>
+                <p className="text-sm sm:text-base text-white/70 mt-2">{description}</p>
               </CardContent>
             </Card>
           </motion.div>
         ))}
       </motion.div>
       <motion.div
-        className="mt-12"
+        className="mt-8 sm:mt-12"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.5 }}

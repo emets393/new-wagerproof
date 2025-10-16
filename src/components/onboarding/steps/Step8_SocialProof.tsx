@@ -72,9 +72,9 @@ export function SocialProof() {
   const { nextStep } = useOnboarding();
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-8 max-w-2xl mx-auto">
+    <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 max-w-2xl mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-4 text-white"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -82,7 +82,7 @@ export function SocialProof() {
         Trusted by data-driven bettors
       </motion.h1>
       <motion.p
-        className="text-lg text-white/80 mb-8"
+        className="text-sm sm:text-base md:text-lg text-white/80 mb-6 sm:mb-8 px-2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -92,7 +92,7 @@ export function SocialProof() {
       
       {/* Reviews carousel - edge to edge */}
       <motion.div 
-        className="w-screen -ml-[50vw] left-[50%] relative overflow-hidden my-8"
+        className="w-screen -ml-[50vw] left-[50%] relative overflow-hidden my-6 sm:my-8"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.4 }}
@@ -110,16 +110,16 @@ export function SocialProof() {
 
       {/* Discord exclusive access notice */}
       <motion.div
-        className="flex flex-col items-center gap-4 mb-6"
+        className="flex flex-col items-center gap-3 sm:gap-4 mb-4 sm:mb-6 px-2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.6 }}
       >
-        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-6 py-4">
-          <MessageCircle className="w-6 h-6 text-[#5865F2]" />
+        <div className="flex items-center gap-2 sm:gap-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-4 sm:px-6 py-3 sm:py-4">
+          <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-[#5865F2] flex-shrink-0" />
           <div className="text-center">
-            <p className="text-white font-medium">All members get exclusive access to our Discord community</p>
-            <p className="text-white/70 text-sm">Connect with fellow data-driven bettors</p>
+            <p className="text-sm sm:text-base text-white font-medium">All members get exclusive access to our Discord community</p>
+            <p className="text-xs sm:text-sm text-white/70">Connect with fellow data-driven bettors</p>
           </div>
         </div>
         

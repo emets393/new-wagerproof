@@ -14,9 +14,9 @@ export function MethodologyClaim1() {
   const { nextStep } = useOnboarding();
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-8 max-w-2xl mx-auto">
+    <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 max-w-2xl mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-4 text-white"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -24,7 +24,7 @@ export function MethodologyClaim1() {
         We use statistical modeling, not vibes
       </motion.h1>
       <motion.p
-        className="text-lg text-white/80 mb-8"
+        className="text-sm sm:text-base md:text-lg text-white/80 mb-6 sm:mb-8 px-2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -34,38 +34,38 @@ export function MethodologyClaim1() {
 
       {/* Micro Widgets Demo */}
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 max-w-3xl mx-auto"
+        className="grid grid-cols-1 gap-3 sm:gap-4 mb-6 sm:mb-8 max-w-3xl mx-auto w-full"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.4 }}
       >
         {/* Historical Game Data Widget */}
-        <div className="bg-white/5 backdrop-blur-sm border border-blue-500/20 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="h-4 w-4 text-blue-400" />
-            <h3 className="text-sm font-bold text-white">Historical Data</h3>
+        <div className="bg-white/5 backdrop-blur-sm border border-blue-500/20 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3">
+            <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 text-blue-400" />
+            <h3 className="text-xs sm:text-sm font-bold text-white">Historical Data</h3>
             <Badge className="bg-blue-500/20 text-blue-300 text-xs border border-blue-500/30">
               5 Years
             </Badge>
           </div>
 
           {/* Sample Historical Data */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center p-2 bg-white/5 rounded border border-white/10">
+          <div className="space-y-1.5 sm:space-y-2">
+            <div className="flex justify-between items-center p-1.5 sm:p-2 bg-white/5 rounded border border-white/10">
               <span className="text-xs text-white/70">Chiefs vs Bills </span>
               <span className="text-xs font-medium text-white">7-3 (Last 10)</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-white/5 rounded border border-white/10">
+            <div className="flex justify-between items-center p-1.5 sm:p-2 bg-white/5 rounded border border-white/10">
               <span className="text-xs text-white/70">Home Field Advantage</span>
               <span className="text-xs font-medium text-green-400">+3.2 pts</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-white/5 rounded border border-white/10">
+            <div className="flex justify-between items-center p-1.5 sm:p-2 bg-white/5 rounded border border-white/10">
               <span className="text-xs text-white/70">Weather Impact</span>
               <span className="text-xs font-medium text-blue-400">-1.8 pts</span>
             </div>
           </div>
 
-          <div className="mt-3 p-2 bg-white/5 rounded-lg border border-white/10">
+          <div className="mt-2 sm:mt-3 p-2 bg-white/5 rounded-lg border border-white/10">
             <div className="flex items-center gap-2 mb-1">
               <Calendar className="h-3 w-3 text-blue-400" />
               <span className="text-xs font-semibold text-white">Data Sources</span>
@@ -84,35 +84,35 @@ export function MethodologyClaim1() {
         </div>
 
         {/* Line Movement Widget */}
-        <div className="bg-white/5 backdrop-blur-sm border border-orange-500/20 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="h-4 w-4 text-orange-400" />
-            <h3 className="text-sm font-bold text-white">Line Movement</h3>
+        <div className="bg-white/5 backdrop-blur-sm border border-orange-500/20 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3">
+            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-orange-400" />
+            <h3 className="text-xs sm:text-sm font-bold text-white">Line Movement</h3>
             <Badge className="bg-orange-500/20 text-orange-300 text-xs border border-orange-500/30">
               Live
             </Badge>
           </div>
 
           {/* Sample Line Movement Data */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center p-2 bg-white/5 rounded border border-white/10">
+          <div className="space-y-1.5 sm:space-y-2">
+            <div className="flex justify-between items-center p-1.5 sm:p-2 bg-white/5 rounded border border-white/10">
               <span className="text-xs text-white/70">Opening Line</span>
               <span className="text-xs font-medium text-white">KC -2.5</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-orange-500/10 rounded border border-orange-500/20">
+            <div className="flex justify-between items-center p-1.5 sm:p-2 bg-orange-500/10 rounded border border-orange-500/20">
               <span className="text-xs text-white/70">Current Line</span>
               <div className="flex items-center gap-1">
                 <span className="text-xs font-medium text-white">KC -3.5</span>
                 <TrendingUp className="h-3 w-3 text-orange-400" />
               </div>
             </div>
-            <div className="flex justify-between items-center p-2 bg-white/5 rounded border border-white/10">
+            <div className="flex justify-between items-center p-1.5 sm:p-2 bg-white/5 rounded border border-white/10">
               <span className="text-xs text-white/70">Sharp Money</span>
               <span className="text-xs font-medium text-green-400">Buffalo +3.5</span>
             </div>
           </div>
 
-          <div className="mt-3 p-2 bg-white/5 rounded-lg border border-white/10">
+          <div className="mt-2 sm:mt-3 p-2 bg-white/5 rounded-lg border border-white/10">
             <div className="flex items-center gap-2 mb-1">
               <Activity className="h-3 w-3 text-orange-400" />
               <span className="text-xs font-semibold text-white">Market Signals</span>

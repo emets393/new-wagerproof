@@ -87,7 +87,7 @@ function OnboardingContent() {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
-        className="relative z-10 w-full max-w-4xl mx-4 bg-black/30 backdrop-blur-3xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden"
+        className="relative z-10 w-full max-w-4xl mx-2 sm:mx-4 bg-black/30 backdrop-blur-3xl border border-white/20 rounded-xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[95vh]"
         style={{
           background: 'rgba(0, 0, 0, 0.3)',
           backdropFilter: 'blur(40px)',
@@ -97,12 +97,12 @@ function OnboardingContent() {
         }}
       >
         {/* Progress Indicator */}
-        <div className="p-6 pb-0">
+        <div className="p-4 pb-0 sm:p-6">
           <ProgressIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} />
         </div>
         
         {/* Content Area */}
-        <div className="relative h-[600px] overflow-y-auto overflow-x-hidden onboarding-scroll">
+        <div className="relative h-[calc(100vh-12rem)] sm:h-[600px] overflow-y-auto overflow-x-hidden onboarding-scroll">
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
               key={currentStep}
@@ -116,7 +116,7 @@ function OnboardingContent() {
                 opacity: { duration: 0.2 },
                 scale: { duration: 0.2 },
               }}
-              className={`absolute inset-0 p-8 min-h-full flex justify-center ${
+              className={`absolute inset-0 p-4 sm:p-6 md:p-8 min-h-full flex justify-center ${
                 currentStep === 6 || currentStep === 7 ? 'items-start' : 'items-center'
               }`}
             >

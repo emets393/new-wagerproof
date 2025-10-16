@@ -13,10 +13,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
-    // Check for saved theme preference or default to dark
+    // Check if device is mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+    
+    // Check for saved theme preference
     const savedTheme = localStorage.getItem("theme") as Theme | null;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initialTheme = savedTheme || "dark";
+    
+    // Default to dark mode on mobile, or use saved preference
+    const initialTheme = savedTheme || (isMobile ? "dark" : "dark");
     
     setTheme(initialTheme);
     if (initialTheme === "dark") {

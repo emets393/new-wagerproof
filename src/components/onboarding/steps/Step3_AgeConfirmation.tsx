@@ -19,9 +19,9 @@ export function AgeConfirmation() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto">
+    <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto px-4">
       <motion.h1
-        className="text-3xl md:text-4xl font-bold mb-6 text-white"
+        className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -29,7 +29,7 @@ export function AgeConfirmation() {
         Confirm your age
       </motion.h1>
       <motion.p
-        className="text-lg text-white/80 mb-8"
+        className="text-sm sm:text-base md:text-lg text-white/80 mb-6 sm:mb-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -55,12 +55,12 @@ export function AgeConfirmation() {
         {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
       </motion.div>
       <motion.div
-        className="mt-8"
+        className="mt-6 sm:mt-8"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.6 }}
       >
-        <Button onClick={handleNext} size="lg" disabled={!age} className="px-8 bg-green-500 hover:bg-green-600 text-white border-0 disabled:bg-gray-500 disabled:text-gray-300">
+        <Button onClick={handleNext} size="lg" disabled={!age} className="px-6 sm:px-8 bg-green-500 hover:bg-green-600 text-white border-0 disabled:bg-gray-500 disabled:text-gray-300">
           Continue
         </Button>
       </motion.div>

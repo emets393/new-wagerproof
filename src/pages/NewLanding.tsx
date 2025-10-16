@@ -12,6 +12,7 @@ import { CompetitorComparison } from "@/components/landing/CompetitorComparison"
 import { useRandomNotifications } from "@/hooks/useRandomNotifications";
 import { SEO } from "@/components/landing/SEO";
 import { StructuredData } from "@/components/landing/StructuredData";
+import FloatingThemeToggle from "@/components/FloatingThemeToggle";
 
 const NewLanding = () => {
   useRandomNotifications();
@@ -65,6 +66,7 @@ const NewLanding = () => {
         {/* <Pricing /> */}
       </div>
       <Footer />
+      <FloatingThemeToggle />
     </div>
   );
 };

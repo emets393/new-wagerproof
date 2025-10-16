@@ -16,9 +16,9 @@ export function MethodologyClaim2() {
   const { nextStep } = useOnboarding();
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-8 pt-40 pb-16 max-w-2xl mx-auto">
+    <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 pt-20 sm:pt-40 pb-8 sm:pb-16 max-w-2xl mx-auto">
       <motion.h1
-        className="text-5xl font-bold mb-4 text-white"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -26,7 +26,7 @@ export function MethodologyClaim2() {
         AI, enhanced with statistics
       </motion.h1>
       <motion.p
-        className="text-lg text-white/80 mb-8"
+        className="text-sm sm:text-base md:text-lg text-white/80 mb-6 sm:mb-8 px-2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -36,23 +36,23 @@ export function MethodologyClaim2() {
 
       {/* AI Chat & Game Card Demo */}
       <motion.div
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8 max-w-4xl mx-auto"
+        className="grid grid-cols-1 gap-3 sm:gap-4 mb-6 sm:mb-8 max-w-4xl mx-auto w-full"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.4 }}
       >
         {/* AI Chat Window Widget */}
-        <div className="bg-white/5 backdrop-blur-sm border border-purple-500/20 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Bot className="h-4 w-4 text-purple-400" />
-            <h3 className="text-sm font-bold text-white">AI Assistant</h3>
+        <div className="bg-white/5 backdrop-blur-sm border border-purple-500/20 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3">
+            <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />
+            <h3 className="text-xs sm:text-sm font-bold text-white">AI Assistant</h3>
             <Badge className="bg-purple-500/20 text-purple-300 text-xs border border-purple-500/30">
               Live
             </Badge>
           </div>
 
           {/* Chat Messages */}
-          <div className="space-y-3 mb-3 max-h-48 overflow-y-auto">
+          <div className="space-y-2 sm:space-y-3 mb-2 sm:mb-3 max-h-48 overflow-y-auto">
             {/* User Message */}
             <div className="flex justify-end">
               <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-2 max-w-[80%]">
@@ -117,10 +117,10 @@ export function MethodologyClaim2() {
         </div>
 
         {/* Mini Game Card Widget */}
-        <div className="bg-white/5 backdrop-blur-sm border border-green-500/20 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Trophy className="h-4 w-4 text-green-400" />
-            <h3 className="text-sm font-bold text-white">Game Analysis</h3>
+        <div className="bg-white/5 backdrop-blur-sm border border-green-500/20 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3">
+            <Trophy className="h-3 w-3 sm:h-4 sm:w-4 text-green-400" />
+            <h3 className="text-xs sm:text-sm font-bold text-white">Game Analysis</h3>
             <Badge className="bg-green-500/20 text-green-300 text-xs border border-green-500/30">
               AI Powered
             </Badge>

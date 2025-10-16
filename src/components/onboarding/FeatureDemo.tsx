@@ -85,18 +85,18 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="text-center space-y-3">
+      <div className="text-center space-y-2 sm:space-y-3 px-2">
         <motion.h2
-          className="text-3xl font-bold text-white"
+          className="text-xl sm:text-2xl md:text-3xl font-bold text-white"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
         >
           Tools built for your goals
         </motion.h2>
         <motion.p
-          className="text-base text-white/80"
+          className="text-sm sm:text-base text-white/80"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -151,17 +151,17 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
             className="space-y-4"
           >
             {/* Mini Edge Finder Demo */}
-            <div className="bg-white/5 backdrop-blur-sm border border-green-500/20 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Target className="h-5 w-5 text-green-400" />
-                <h3 className="text-lg font-bold text-white">Edge Finder</h3>
+            <div className="bg-white/5 backdrop-blur-sm border border-green-500/20 rounded-lg p-3 sm:p-4">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                <Target className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
+                <h3 className="text-base sm:text-lg font-bold text-white">Edge Finder</h3>
                 <Badge className="bg-green-500/20 text-green-300 text-xs border border-green-500/30">
                   Live Demo
                 </Badge>
               </div>
 
               {/* Mini Game Header */}
-              <div className="flex justify-between items-center mb-4 p-3 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex justify-between items-center mb-3 sm:mb-4 p-2 sm:p-3 bg-white/5 rounded-lg border border-white/10">
                 <div className="text-center">
                   <div className="h-8 w-8 mx-auto mb-1 bg-red-500/20 rounded-full flex items-center justify-center border border-red-500/30">
                     <span className="text-xs font-bold text-red-300">KC</span>
@@ -178,8 +178,8 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
               </div>
 
               {/* Compact Edge Analysis */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-green-500/10 p-3 rounded-lg border border-green-500/20">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div className="bg-green-500/10 p-2 sm:p-3 rounded-lg border border-green-500/20">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-green-300">Spread Edge</span>
                     <Badge className="bg-green-500 text-white text-xs">1.5pt</Badge>
@@ -196,7 +196,7 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
                   </div>
                 </div>
 
-                <div className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/20">
+                <div className="bg-blue-500/10 p-2 sm:p-3 rounded-lg border border-blue-500/20">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-blue-300">Total Edge</span>
                     <Badge className="bg-blue-500 text-white text-xs">2.7pt</Badge>
@@ -215,7 +215,7 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
               </div>
 
               {/* Compact Benefits */}
-              <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
+              <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-white/5 rounded-lg border border-white/10">
                 <div className="flex items-center gap-2 mb-2">
                   <Zap className="h-3 w-3 text-yellow-400" />
                   <span className="text-xs font-semibold text-white">Why It's Superior</span>
@@ -244,17 +244,17 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
             className="space-y-4"
           >
             {/* Mini AI Game Simulator Demo */}
-            <div className="bg-white/5 backdrop-blur-sm border border-purple-500/20 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Brain className="h-5 w-5 text-purple-400" />
-                <h3 className="text-lg font-bold text-white">AI Game Simulator</h3>
+            <div className="bg-white/5 backdrop-blur-sm border border-purple-500/20 rounded-lg p-3 sm:p-4">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
+                <h3 className="text-base sm:text-lg font-bold text-white">AI Game Simulator</h3>
                 <Badge className="bg-purple-500/20 text-purple-300 text-xs border border-purple-500/30">
                   Live Demo
                 </Badge>
               </div>
 
               {/* Mini Consensus Prediction */}
-              <div className="text-center p-4 bg-white/5 rounded-lg mb-4 border border-white/10">
+              <div className="text-center p-3 sm:p-4 bg-white/5 rounded-lg mb-3 sm:mb-4 border border-white/10">
                 <div className="flex items-center justify-center gap-3 mb-3">
                   <div className="h-10 w-10 bg-red-500/20 rounded-full flex items-center justify-center border border-red-500/30">
                     <span className="text-sm font-bold text-red-300">KC</span>
@@ -272,13 +272,13 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
               </div>
 
               {/* Compact Models */}
-              <div className="space-y-2 mb-4">
-                <h4 className="text-sm font-semibold flex items-center gap-2 text-white">
+              <div className="space-y-2 mb-3 sm:mb-4">
+                <h4 className="text-xs sm:text-sm font-semibold flex items-center gap-2 text-white">
                   <Users className="h-3 w-3 text-blue-400" />
                   Contributing Models
                 </h4>
                 {aiSimulatorData.models.slice(0, 2).map((model, index) => (
-                  <div key={index} className="bg-white/5 rounded-lg p-3 border border-white/10">
+                  <div key={index} className="bg-white/5 rounded-lg p-2 sm:p-3 border border-white/10">
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h5 className="text-xs font-medium text-white">{model.name}</h5>
@@ -312,7 +312,7 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
               </div>
 
               {/* Compact Benefits */}
-              <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+              <div className="p-2 sm:p-3 bg-white/5 rounded-lg border border-white/10">
                 <div className="flex items-center gap-2 mb-2">
                   <Brain className="h-3 w-3 text-purple-400" />
                   <span className="text-xs font-semibold text-white">Why It's Superior</span>
@@ -335,7 +335,7 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
 
       {/* Continue Button */}
       <motion.div 
-        className="text-center pt-4 pb-8"
+        className="text-center pt-3 sm:pt-4 pb-4 sm:pb-8"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
