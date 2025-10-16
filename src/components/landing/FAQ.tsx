@@ -34,6 +34,10 @@ const defaultQuestions: FAQItem[] = [
     answer: "No! WagerProof is designed for both beginners and experienced bettors. Our platform provides easy-to-understand insights and recommendations, while also offering advanced analytics tools for those who want to dive deeper into the data."
   },
   {
+    question: "Do you have data on Player Props?",
+    answer: "No. Player Props are currently not covered by WagerProof. We focus on the highest probability bets that have the best value, not the lowest probability bets that have the best payouts."
+  },
+  {
     question: "Is WagerProof a gambling site?",
     answer: "No, WagerProof is not a gambling operator or bookmaker. We provide analytical tools, predictions, and insights to help you make informed decisions. You are responsible for your own betting decisions and compliance with local gambling laws."
   },

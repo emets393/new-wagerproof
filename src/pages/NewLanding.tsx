@@ -30,6 +30,10 @@ const NewLanding = () => {
       answer: "WagerProof currently covers NFL, College Football, NBA, and other major sports. We provide comprehensive analytics, predictions, and betting insights for each sport with dedicated tools and models."
     },
     {
+      question: "Do you have data on Player Props?",
+      answer: "No. Player Props are currently not covered by WagerProof. We focus on the highest probability bets that have the best value, not the lowest probability bets that have the best payouts."
+    },
+    {
       question: "Do I need to be an expert to use WagerProof?",
       answer: "No! WagerProof is designed for both beginners and experienced bettors. Our platform provides easy-to-understand insights and recommendations, while also offering advanced analytics tools for those who want to dive deeper into the data."
     },

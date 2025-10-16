@@ -7,7 +7,9 @@ import {
   ArrowRight,
   Target,
   Brain,
-  Zap
+  Zap,
+  Users,
+  Lightbulb
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -54,10 +56,56 @@ export function CompetitorComparison() {
                   </div>
                   
                   <div className="space-y-4">
+                    <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Lightbulb className="h-4 w-4 text-purple-400" />
+                        <span className="font-semibold text-purple-600 dark:text-purple-300">Easy to Use</span>
+                      </div>
+                      <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-purple-400" />
+                          <span>Data made transparent and simple</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-purple-400" />
+                          <span>Only highest value picks shown</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-purple-400" />
+                          <span>Rationale from real data analysts</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-purple-400" />
+                          <span>Teaches you to make smarter decisions</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="p-4 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Users className="h-4 w-4 text-indigo-400" />
+                        <span className="font-semibold text-indigo-600 dark:text-indigo-300">Access to Real Community</span>
+                      </div>
+                      <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-indigo-400" />
+                          <span>Curated picks from experts</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-indigo-400" />
+                          <span>Private Discord with committed bettors</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-indigo-400" />
+                          <span>Dedicated support from developers</span>
+                        </li>
+                      </ul>
+                    </div>
+
                     <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20">
                       <div className="flex items-center gap-2 mb-3">
                         <Target className="h-4 w-4 text-green-400" />
-                        <span className="font-semibold text-green-600 dark:text-green-300">Edge Finder</span>
+                        <span className="font-semibold text-green-600 dark:text-green-300">Transparent Tools</span>
                       </div>
                       <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                         <li className="flex items-center gap-2">
@@ -70,27 +118,14 @@ export function CompetitorComparison() {
                         </li>
                         <li className="flex items-center gap-2">
                           <CheckCircle className="h-3 w-3 flex-shrink-0 text-green-400" />
-                          <span>Professional-grade accuracy</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Brain className="h-4 w-4 text-purple-400" />
-                        <span className="font-semibold text-purple-600 dark:text-purple-300">AI Game Simulator</span>
-                      </div>
-                      <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-purple-400" />
                           <span>Multi-model consensus</span>
                         </li>
                         <li className="flex items-center gap-2">
-                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-purple-400" />
+                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-green-400" />
                           <span>Transparent methodology</span>
                         </li>
                         <li className="flex items-center gap-2">
-                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-purple-400" />
+                          <CheckCircle className="h-3 w-3 flex-shrink-0 text-green-400" />
                           <span>Live data integration</span>
                         </li>
                       </ul>
@@ -162,19 +197,19 @@ export function CompetitorComparison() {
                   </div>
                 </div>
 
-                {/* Traditional Sportsbooks */}
+                {/* Sportsbooks and Arbitrage Apps */}
                 <div className="space-y-6">
                   <div className="text-center">
                     <div className="h-20 w-20 mx-auto mb-4 bg-yellow-500/20 rounded-full flex items-center justify-center border border-yellow-500/30">
                       <AlertTriangle className="h-10 w-10 text-yellow-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-yellow-600 dark:text-yellow-400 mb-2">Traditional Sportsbooks</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">DraftKings, FanDuel, etc.</p>
+                    <h3 className="text-xl font-bold text-yellow-600 dark:text-yellow-400 mb-2">Sportsbooks and Arbitrage Apps</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">DraftKings, FanDuel, PrizePicks, etc.</p>
                   </div>
                   
                   <div className="space-y-4">
                     <div className="p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                      <h4 className="font-semibold text-yellow-600 dark:text-yellow-300 mb-3">What They Offer</h4>
+                      <h4 className="font-semibold text-yellow-600 dark:text-yellow-300 mb-3">The Problems</h4>
                       <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                         <li className="flex items-start gap-2">
                           <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0 text-yellow-400" />
@@ -200,52 +235,53 @@ export function CompetitorComparison() {
                           <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0 text-yellow-400" />
                           <span>Focus on entertainment, not profit</span>
                         </li>
+                        <li className="flex items-start gap-2">
+                          <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0 text-yellow-400" />
+                          <span>Firehose of confusing data</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0 text-yellow-400" />
+                          <span>Only focused on highest payouts, not probabilities</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0 text-yellow-400" />
+                          <span>Low-probability parlays promoted heavily</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0 text-yellow-400" />
+                          <span>Overwhelming options without clear direction</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0 text-yellow-400" />
+                          <span>Designed for max engagement, not user profit</span>
+                        </li>
                       </ul>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Bottom Summary */}
-              <div className="mt-12 p-6 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h4 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-gray-100">
-                  The WagerProof Advantage
+              {/* Message from Developers */}
+              <div className="mt-12 p-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 rounded-lg border-2 border-gray-300 dark:border-gray-600">
+                <h4 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-gray-100">
+                  A Message from the Developers
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                  <div className="space-y-3">
-                    <h5 className="font-semibold text-green-600 dark:text-green-300 text-base">What makes us different:</h5>
-                    <ul className="space-y-2 text-gray-600 dark:text-gray-300">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
-                        <span>Built specifically for serious bettors</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
-                        <span>Real-time data and live model calculations</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
-                        <span>Transparent, explainable AI predictions</span>
-                      </li>
-                    </ul>
-                  </div>
-                  <div className="space-y-3">
-                    <h5 className="font-semibold text-blue-600 dark:text-blue-300 text-base">Your competitive edge:</h5>
-                    <ul className="space-y-2 text-gray-600 dark:text-gray-300">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                        <span>Quantified betting advantages</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                        <span>Professional-grade analytics</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                        <span>Tools used by sharp bettors</span>
-                      </li>
-                    </ul>
-                  </div>
+                <div className="max-w-4xl mx-auto space-y-4 text-gray-700 dark:text-gray-300">
+                  <p className="text-base leading-relaxed">
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">Let's be honest:</span> If anyone tries to sell you guarantees in sports betting, they're just trying to take your money. We're data analysts and developers, not fortune tellers.
+                  </p>
+                  <p className="text-base leading-relaxed">
+                    At the end of the day, <span className="font-semibold text-gray-900 dark:text-gray-100">sports betting is always uncertain</span>—there's risk in every pick. But with smart decisions, transparent data, and disciplined value spotting, you can give yourself a real advantage over time.
+                  </p>
+                  <p className="text-base leading-relaxed">
+                    Sometimes <span className="font-semibold text-gray-900 dark:text-gray-100">avoiding a bad pick is more valuable</span> than chasing an influencer's "Latest Lock of the Week." We'll be the first to tell you that. Our goal isn't to hype you up—it's to give you the tools and insights to make smarter, more informed decisions on your own terms.
+                  </p>
+                  <p className="text-base leading-relaxed text-center mt-6 pt-4 border-t border-gray-300 dark:border-gray-600">
+                    <span className="italic text-gray-600 dark:text-gray-400">Build your edge with data, not empty promises.</span>
+                  </p>
+                  <p className="text-base leading-relaxed mt-6">
+                    We built this tool so we could have a little more fun watching games, and because we genuinely love data and sports. Inside, you'll find a <span className="font-semibold text-gray-900 dark:text-gray-100">community features voting section</span>—we'd love to hear what you want to see!
+                  </p>
                 </div>
               </div>
             </div>

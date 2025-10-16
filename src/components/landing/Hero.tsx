@@ -73,7 +73,7 @@ const Hero = () => {
             />
           </h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
-            Next-gen, open source, lightweight, data-driven sports betting analytics for everyone.
+            Value focused, lightweight, data-driven sports betting analytics for everyone.
           </p>
 
           {/* CTA Button */}

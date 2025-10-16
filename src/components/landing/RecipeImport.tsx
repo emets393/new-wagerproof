@@ -11,7 +11,8 @@ const importOptions = [
   "Historical Data",
   "Weather Stats",
   "Team Analytics",
-  "Player Props",
+  "NBA",
+  "NCAAB",
   "Betting Trends",
   "Market Lines",
   "Real-Time Updates"

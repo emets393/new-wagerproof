@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { BarChart3, TrendingUp, Target, Trophy } from "lucide-react";
+import { BarChart3, TrendingUp, Target, Bot } from "lucide-react";
 import { useInViewAnimation } from "@/hooks/useInViewAnimation";
 import ShineBorder from "@/components/magicui/shine-border";
 import GlassIcon from "@/components/magicui/glass-icon";
@@ -28,9 +28,9 @@ const steps = [
     borderColor: ["#a855f7", "#c084fc", "#a855f7"],
   },
   {
-    title: "Tune the Model",
-    description: "Customize your own betting model based on your risk preference and strategy",
-    icon: <Trophy />,
+    title: "Useful AI",
+    description: "Our chat assistant uses the real live model data to explain any line, percentage, or rationale to you",
+    icon: <Bot />,
     iconColor: "green",
     borderColor: ["#22c55e", "#4ade80", "#22c55e"],
   },
