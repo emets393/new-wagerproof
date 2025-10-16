@@ -22,7 +22,9 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext,
   
   const [initError, setInitError] = React.useState<string | null>(null);
   const [hasAutoSent, setHasAutoSent] = React.useState(false);
+  const [isTimedOut, setIsTimedOut] = React.useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   let hookResult;
   try {
@@ -220,16 +222,35 @@ How might weather affect these games?`,
       if (systemContext) {
         console.log('📊 Context will be appended to starter prompts and user messages');
       }
+      
+      // Clear timeout if control is ready
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
+        initTimeoutRef.current = null;
+      }
     }
   }, [control, systemContext]);
 
+  // Set timeout for ChatKit initialization
   useEffect(() => {
-    console.log('🔵 ChatKit control state:', { hasControl: !!control });
-    if (control) {
-      console.log('✅ ChatKit control object:', control);
-      console.log('Available control methods:', Object.keys(control));
+    if (!control && !initError && !isTimedOut) {
+      console.log('⏱️ Starting ChatKit initialization timeout (20s)');
+      
+      initTimeoutRef.current = setTimeout(() => {
+        if (!control) {
+          console.error('❌ ChatKit initialization timeout');
+          setIsTimedOut(true);
+          setInitError('ChatKit initialization is taking too long. This may be due to network issues or BuildShip configuration. Please try refreshing the page.');
+        }
+      }, 20000); // 20 second timeout
+
+      return () => {
+        if (initTimeoutRef.current) {
+          clearTimeout(initTimeoutRef.current);
+        }
+      };
     }
-  }, [control]);
+  }, [control, initError, isTimedOut]);
 
   // Auto-scroll functionality
   useEffect(() => {
@@ -308,19 +329,31 @@ How might weather affect these games?`,
       const sendViaChatKitAPI = async () => {
         try {
           console.log('📤 Attempting to send message via ChatKit API...');
-          await sendUserMessage({ text: welcomeMessage });
+          
+          // Add timeout to prevent hanging
+          const sendPromise = sendUserMessage({ text: welcomeMessage });
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Send timeout')), 5000)
+          );
+          
+          await Promise.race([sendPromise, timeoutPromise]);
           console.log('✅ Message sent successfully via sendUserMessage!');
           setHasAutoSent(true);
           return true;
         } catch (error) {
           console.error('❌ Failed to send via sendUserMessage:', error);
+          // Don't block the UI - just mark as attempted
+          setHasAutoSent(true);
           return false;
         }
       };
       
-      // Wait a moment for ChatKit to fully initialize, then send
-      const timer = setTimeout(async () => {
-        await sendViaChatKitAPI();
+      // Wait a moment for ChatKit to fully initialize, then send (non-blocking)
+      const timer = setTimeout(() => {
+        // Fire and forget - don't block UI
+        sendViaChatKitAPI().catch(err => {
+          console.warn('⚠️ Auto-send failed but UI will continue:', err);
+        });
       }, 2000); // Wait 2 seconds for ChatKit to initialize
       
       return () => clearTimeout(timer);

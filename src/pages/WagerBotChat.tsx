@@ -1,82 +1,112 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, MessageSquare, RefreshCw } from 'lucide-react';
 import { chatSessionManager, ChatSession } from '@/utils/chatSession';
 import { ChatKitWrapper } from '@/components/ChatKitWrapper';
+import { ChatKitErrorBoundary } from '@/components/ChatKitErrorBoundary';
 import { trackWagerBotOpened } from '@/lib/mixpanel';
 
 export default function WagerBotChat() {
-  const { user, session, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { theme } = useTheme();
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [error, setError] = useState<string>('');
-  const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const hasInitializedRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
 
-  // Check for first login welcome flag
+  // Clear welcome flag if present
   useEffect(() => {
     const showWelcome = localStorage.getItem('wagerproof_show_welcome');
-    console.log('🔍 WagerBotChat checking welcome flag:', showWelcome);
     if (showWelcome === 'true') {
-      console.log('✅ Welcome flag detected! Setting shouldShowWelcome to true');
-      setShouldShowWelcome(true);
-      // Clear the flag so it doesn't show again
       localStorage.removeItem('wagerproof_show_welcome');
-    } else {
-      console.log('ℹ️ No welcome flag found');
     }
   }, []);
 
   // Track WagerBot opened on mount
   useEffect(() => {
     trackWagerBotOpened();
+    console.log('🚀 WagerBotChat page loaded at', new Date().toISOString());
   }, []);
 
-  // Load user sessions on mount
-  useEffect(() => {
-    if (user && !authLoading) {
-      loadUserSessions();
+  // Simplified session initialization with better error handling
+  const initializeSession = useCallback(async () => {
+    if (!user) {
+      console.log('⏸️ No user, skipping initialization');
+      return;
     }
-  }, [user, authLoading]);
 
-  const loadUserSessions = useCallback(() => {
-    if (!user) return;
+    // Prevent re-initialization for the same user
+    if (hasInitializedRef.current && userIdRef.current === user.id) {
+      console.log('✅ Already initialized for user:', user.id);
+      return;
+    }
 
-    const userSessions = chatSessionManager.getUserSessions(user.id);
-    setSessions(userSessions);
+    console.log('🎬 Initializing WagerBot session for user:', user.id);
+    setIsInitializing(true);
+    setError('');
+    hasInitializedRef.current = true;
+    userIdRef.current = user.id;
 
-    // Load current session or create new one if none exists
-    const current = chatSessionManager.getCurrentSession(user.id);
-    if (current) {
-      setCurrentSession(current);
-    } else if (userSessions.length === 0) {
-      // Auto-create first session
-      handleCreateNewSession();
+    try {
+      // Try to get existing session first
+      let session = chatSessionManager.getCurrentSession(user.id);
+      
+      if (!session) {
+        console.log('📝 No existing session found, creating new one...');
+        // Create new session if none exists
+        session = await Promise.race([
+          chatSessionManager.createNewSession(user),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Session creation timeout')), 10000)
+          )
+        ]);
+        console.log('✅ Session created:', session.id);
+      } else {
+        console.log('✅ Using existing session:', session.id);
+      }
+
+      setCurrentSession(session);
+      setIsInitializing(false);
+      console.log('🎉 Initialization complete, session set');
+    } catch (err: any) {
+      console.error('❌ Session initialization error:', err);
+      setError(err.message || 'Failed to initialize chat. Please try again.');
+      setIsInitializing(false);
+      hasInitializedRef.current = false; // Allow retry
+      userIdRef.current = null;
     }
   }, [user]);
 
-  const handleCreateNewSession = async () => {
-    if (!user) return;
-
-    setIsCreatingSession(true);
-    setError('');
-
-    try {
-      const newSession = await chatSessionManager.createNewSession(user);
-      setCurrentSession(newSession);
-      setSessions(prev => [...prev, newSession]);
-    } catch (err) {
-      setError('Failed to create new chat session. Please try again.');
-      console.error('Session creation error:', err);
-    } finally {
-      setIsCreatingSession(false);
+  // Initialize when user is ready - only run once
+  useEffect(() => {
+    if (user && !authLoading && !hasInitializedRef.current) {
+      console.log('🔄 Effect triggering initialization');
+      initializeSession();
+    } else {
+      console.log('⏭️ Skipping initialization:', {
+        hasUser: !!user,
+        authLoading,
+        hasInitialized: hasInitializedRef.current
+      });
     }
-  };
+  }, [user, authLoading, initializeSession]);
+
+  // Manual retry handler
+  const handleRetry = useCallback(() => {
+    console.log('🔄 Manual retry triggered');
+    hasInitializedRef.current = false;
+    userIdRef.current = null;
+    setCurrentSession(null);
+    setError('');
+    initializeSession();
+  }, [initializeSession]);
 
 
+  // Show loading state while auth is loading
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -88,6 +118,7 @@ export default function WagerBotChat() {
     );
   }
 
+  // Show message if no user
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -101,37 +132,67 @@ export default function WagerBotChat() {
     );
   }
 
+  // Show error state with retry button
   if (error) {
     return (
       <div className="h-[calc(100vh-8rem)] flex items-center justify-center p-4">
         <Alert variant="destructive" className="max-w-md">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="space-y-4">
+            <div>{error}</div>
+            <Button
+              onClick={handleRetry}
+              className="flex items-center gap-2 mx-auto"
+              variant="default"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Button>
+          </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  if (!currentSession) {
+  // Show initializing state ONLY if we haven't successfully initialized yet
+  if (isInitializing && !currentSession) {
+    console.log('🔄 Rendering loading state (initializing)');
     return (
       <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto" />
           <p className="text-muted-foreground">Initializing WagerBot...</p>
+          <p className="text-xs text-muted-foreground">
+            This should only take a few seconds
+          </p>
         </div>
       </div>
     );
   }
 
-  console.log('🎯 WagerBotChat rendering with shouldShowWelcome:', shouldShowWelcome);
+  // If session exists, render it even if isInitializing is true (prevents flickering)
+  if (currentSession && user) {
+    console.log('✅ Rendering ChatKit with session:', currentSession.id);
+    return (
+      <ChatKitErrorBoundary>
+        <div className="h-[calc(100vh-8rem)] w-full overflow-hidden rounded-lg">
+          <ChatKitWrapper
+            user={user}
+            sessionId={currentSession.id}
+            theme={theme === 'dark' ? 'dark' : 'light'}
+          />
+        </div>
+      </ChatKitErrorBoundary>
+    );
+  }
 
+  // Fallback: something went wrong
+  console.warn('⚠️ Unexpected state - no session but not initializing');
   return (
-    <div className="h-[calc(100vh-8rem)] w-full overflow-hidden rounded-lg">
-      <ChatKitWrapper
-        user={user}
-        sessionId={currentSession.id}
-        theme={theme === 'dark' ? 'dark' : 'light'}
-        autoSendWelcome={shouldShowWelcome}
-      />
+    <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
     </div>
   );
 }

@@ -132,9 +132,13 @@ export class ChatSessionManager {
 
       console.log('Calling BuildShip workflow for client secret...');
 
-      // Call BuildShip workflow to generate client secret
-      // Metadata is sent by ChatKit client, not in this call
-      const response = await fetch('https://xna68l.buildship.run/chatKitSessionGenerator-2fc1c5152ebf', {
+      // Create a timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('BuildShip request timeout after 15 seconds')), 15000);
+      });
+
+      // Call BuildShip workflow with timeout
+      const fetchPromise = fetch('https://xna68l.buildship.run/chatKitSessionGenerator-2fc1c5152ebf', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,12 +152,15 @@ export class ChatSessionManager {
         }),
       });
 
+      // Race between fetch and timeout
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+
       console.log('BuildShip response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('BuildShip error response:', errorText);
-        throw new Error(`BuildShip workflow failed: ${response.statusText}`);
+        throw new Error(`BuildShip workflow failed: ${response.status} ${response.statusText}`);
       }
 
       const buildShipResult: BuildShipSessionResponse = await response.json();
