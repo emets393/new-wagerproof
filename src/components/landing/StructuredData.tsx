@@ -76,7 +76,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
         ],
         contactPoint: {
           '@type': 'ContactPoint',
-          email: 'support@wagerproof.bet',
+          email: 'admin@wagerproof.bet',
           contactType: 'Customer Service',
           availableLanguage: 'English',
         },
