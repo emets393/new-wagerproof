@@ -141,6 +141,7 @@ export class ChatSessionManager {
       });
 
       // Call BuildShip workflow with timeout
+      // NOTE: Do NOT include 'version' parameter - omitting it uses the production workflow
       const fetchPromise = fetch('https://xna68l.buildship.run/chatKitSessionGenerator-2fc1c5152ebf', {
         method: 'POST',
         headers: {
@@ -152,6 +153,7 @@ export class ChatSessionManager {
           workflowId: targetWorkflowId,
           timestamp: new Date().toISOString(),
           stream: true,
+          // version: "1" // NEVER include this - it forces test/dev version instead of production
         }),
       });
 
