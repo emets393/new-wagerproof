@@ -123,14 +123,17 @@ export class ChatSessionManager {
   }
 
   // Get client secret and agent ID for ChatKit - calls BuildShip workflow
-  async getClientSecret(user: User, existingSecret?: string): Promise<{ clientSecret: string; agentId?: string }> {
+  async getClientSecret(user: User, existingSecret?: string, workflowId?: string): Promise<{ clientSecret: string; agentId?: string }> {
     try {
       // If we have an existing secret, we could refresh it here
       if (existingSecret) {
         console.log('Existing client secret provided, attempting refresh...');
       }
 
-      console.log('Calling BuildShip workflow for client secret...');
+      // Default to WagerBot workflow if not specified
+      const targetWorkflowId = workflowId || 'wf_68ed847d7a44819095f0e8eca93bfd660fc4b093b131f0f0';
+      
+      console.log('Calling BuildShip workflow for client secret...', { workflowId: targetWorkflowId });
 
       // Create a timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -146,7 +149,7 @@ export class ChatSessionManager {
         body: JSON.stringify({
           userId: user.id,
           userEmail: user.email,
-          workflowId: 'wf_68ed847d7a44819095f0e8eca93bfd660fc4b093b131f0f0',
+          workflowId: targetWorkflowId,
           timestamp: new Date().toISOString(),
           stream: true,
         }),

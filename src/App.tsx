@@ -11,6 +11,7 @@ import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import WagerBotChat from "./pages/WagerBotChat";
+import BetSlipGrader from "./pages/BetSlipGrader";
 import LearnWagerProof from "./pages/LearnWagerProof";
 import Admin from "./pages/Admin";
 import EditorsPicks from "./pages/EditorsPicks";
@@ -96,6 +97,7 @@ function AppRoutes() {
           <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
           <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
           <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
+          <Route path="/bet-slip-grader" element={<ProtectedRoute><BetSlipGrader /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
           <Route path="/editors-picks" element={<EditorsPicks />} />
           <Route path="/discord" element={<Discord />} />

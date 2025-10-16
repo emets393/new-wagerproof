@@ -1,0 +1,194 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Loader2, FileImage, RefreshCw } from 'lucide-react';
+import { chatSessionManager, ChatSession } from '@/utils/chatSession';
+import { ChatKitWrapper } from '@/components/ChatKitWrapper';
+import { ChatKitErrorBoundary } from '@/components/ChatKitErrorBoundary';
+
+const BET_SLIP_GRADER_PAGE_ID = 'bet-slip-grader';
+const BET_SLIP_GRADER_WORKFLOW_ID = 'wf_68f14e36a2588190a185e02e637f163e086aff574c3be293';
+
+export default function BetSlipGrader() {
+  const { user, loading: authLoading } = useAuth();
+  const { theme } = useTheme();
+  const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
+  const [error, setError] = useState<string>('');
+  const [isInitializing, setIsInitializing] = useState(true);
+  const hasInitializedRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
+
+  // Track Bet Slip Grader opened on mount
+  useEffect(() => {
+    console.log('🚀 BetSlipGrader page loaded at', new Date().toISOString());
+  }, []);
+
+  // Simplified session initialization with better error handling
+  const initializeSession = useCallback(async () => {
+    if (!user) {
+      console.log('⏸️ No user, skipping initialization');
+      return;
+    }
+
+    // Prevent re-initialization for the same user
+    if (hasInitializedRef.current && userIdRef.current === user.id) {
+      console.log('✅ Already initialized for user:', user.id);
+      return;
+    }
+
+    console.log('🎬 Initializing Bet Slip Grader session for user:', user.id);
+    setIsInitializing(true);
+    setError('');
+    hasInitializedRef.current = true;
+    userIdRef.current = user.id;
+
+    try {
+      // Try to get existing session first (page-specific)
+      let session = chatSessionManager.getCurrentSession(user.id, BET_SLIP_GRADER_PAGE_ID);
+      
+      if (!session) {
+        console.log('📝 No existing session found, creating new one...');
+        // Create new session if none exists
+        session = await Promise.race([
+          chatSessionManager.createNewSession(user, BET_SLIP_GRADER_PAGE_ID),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Session creation timeout')), 10000)
+          )
+        ]);
+        console.log('✅ Session created:', session.id);
+      } else {
+        console.log('✅ Using existing session:', session.id);
+      }
+
+      setCurrentSession(session);
+      setIsInitializing(false);
+      console.log('🎉 Initialization complete, session set');
+    } catch (err: any) {
+      console.error('❌ Session initialization error:', err);
+      setError(err.message || 'Failed to initialize Bet Slip Grader. Please try again.');
+      setIsInitializing(false);
+      hasInitializedRef.current = false; // Allow retry
+      userIdRef.current = null;
+    }
+  }, [user]);
+
+  // Initialize when user is ready - only run once
+  useEffect(() => {
+    if (user && !authLoading && !hasInitializedRef.current) {
+      console.log('🔄 Effect triggering initialization');
+      initializeSession();
+    } else {
+      console.log('⏭️ Skipping initialization:', {
+        hasUser: !!user,
+        authLoading,
+        hasInitialized: hasInitializedRef.current
+      });
+    }
+  }, [user, authLoading, initializeSession]);
+
+  // Manual retry handler
+  const handleRetry = useCallback(() => {
+    console.log('🔄 Manual retry triggered');
+    hasInitializedRef.current = false;
+    userIdRef.current = null;
+    setCurrentSession(null);
+    setError('');
+    initializeSession();
+  }, [initializeSession]);
+
+
+  // Show loading state while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if no user
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Alert className="max-w-md">
+          <FileImage className="h-4 w-4" />
+          <AlertDescription>
+            Please sign in to access Bet Slip Grader.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Show error state with retry button
+  if (error) {
+    return (
+      <div className="h-[calc(100vh-8rem)] flex items-center justify-center p-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertDescription className="space-y-4">
+            <div>{error}</div>
+            <Button
+              onClick={handleRetry}
+              className="flex items-center gap-2 mx-auto"
+              variant="default"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Show initializing state ONLY if we haven't successfully initialized yet
+  if (isInitializing && !currentSession) {
+    console.log('🔄 Rendering loading state (initializing)');
+    return (
+      <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p className="text-muted-foreground">Initializing Bet Slip Grader...</p>
+          <p className="text-xs text-muted-foreground">
+            This should only take a few seconds
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // If session exists, render it even if isInitializing is true (prevents flickering)
+  if (currentSession && user) {
+    console.log('✅ Rendering ChatKit with session:', currentSession.id);
+    return (
+      <ChatKitErrorBoundary>
+        <div className="h-[calc(100vh-8rem)] w-full overflow-hidden rounded-lg">
+          <ChatKitWrapper
+            user={user}
+            sessionId={currentSession.id}
+            theme={theme === 'dark' ? 'dark' : 'light'}
+            workflowId={BET_SLIP_GRADER_WORKFLOW_ID}
+            enableImageUpload={true}
+          />
+        </div>
+      </ChatKitErrorBoundary>
+    );
+  }
+
+  // Fallback: something went wrong
+  console.warn('⚠️ Unexpected state - no session but not initializing');
+  return (
+    <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
+

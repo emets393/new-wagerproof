@@ -12,13 +12,20 @@ interface ChatKitWrapperProps {
   theme?: 'light' | 'dark';
   systemContext?: string;
   autoSendWelcome?: boolean;
+  workflowId?: string;
+  enableImageUpload?: boolean;
 }
 
-export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext, autoSendWelcome = false }: ChatKitWrapperProps) {
-  console.log('🔵 ChatKitWrapper rendering', { userId: user.id, sessionId });
-  
-  // Use workflow ID as the identifier for ChatKit
-  const workflowId = 'wf_68ed847d7a44819095f0e8eca93bfd660fc4b093b131f0f0';
+export function ChatKitWrapper({ 
+  user, 
+  sessionId, 
+  theme = 'dark', 
+  systemContext, 
+  autoSendWelcome = false,
+  workflowId = 'wf_68ed847d7a44819095f0e8eca93bfd660fc4b093b131f0f0',
+  enableImageUpload = false
+}: ChatKitWrapperProps) {
+  console.log('🔵 ChatKitWrapper rendering', { userId: user.id, sessionId, workflowId, enableImageUpload });
   
   const [initError, setInitError] = React.useState<string | null>(null);
   const [hasAutoSent, setHasAutoSent] = React.useState(false);
@@ -28,6 +35,9 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext,
   
   let hookResult;
   try {
+    // Determine if this is bet slip grader workflow
+    const isBetSlipGrader = workflowId === 'wf_68f14e36a2588190a185e02e637f163e086aff574c3be293';
+    
     // Build the system message with context
     const systemMessage = systemContext 
       ? `You are WagerBot, an expert sports betting analyst. You have access to detailed game data and predictions for the games the user is currently viewing.
@@ -35,7 +45,9 @@ export function ChatKitWrapper({ user, sessionId, theme = 'dark', systemContext,
 ${systemContext}
 
 Use this data to provide insightful analysis, identify value bets, explain model predictions, and answer questions about specific matchups. Be specific and reference the actual data provided when answering questions.`
-      : "You are WagerBot, an expert sports betting analyst specialized in NFL, College Football, and other major sports. Help users understand betting strategies, analyze games, and make informed decisions based on the latest sports news and trends.";
+      : isBetSlipGrader
+        ? "You are a Bet Slip Grader, an expert at analyzing betting slips and providing detailed feedback on bet quality, odds value, and potential outcomes. Analyze uploaded bet slip images and provide insights on the bets placed."
+        : "You are WagerBot, an expert sports betting analyst specialized in NFL, College Football, and other major sports. Help users understand betting strategies, analyze games, and make informed decisions based on the latest sports news and trends.";
 
     console.log('🔧 Building ChatKit config with system context:', {
       hasContext: !!systemContext,
@@ -65,12 +77,13 @@ Use this data to provide insightful analysis, identify value bets, explain model
             console.log('🔑 Getting client secret for workflow:', workflowId);
             
             // Get client secret from BuildShip workflow
-            const result = await chatSessionManager.getClientSecret(user, existing);
+            const result = await chatSessionManager.getClientSecret(user, existing, workflowId);
             
             console.log('✅ Client secret obtained:', {
               length: result.clientSecret.length,
               prefix: result.clientSecret.substring(0, 20) + '...',
-              hasContext: !!systemContext
+              hasContext: !!systemContext,
+              workflowId
             });
             
             return result.clientSecret;
@@ -96,15 +109,43 @@ Use this data to provide insightful analysis, identify value bets, explain model
         },
       },
       composer: {
-        placeholder: systemContext 
-          ? "Ask about the games and predictions on this page..." 
-          : "Ask WagerBot about sports betting insights...",
+        placeholder: isBetSlipGrader
+          ? "Upload a bet slip image or describe your bet..."
+          : systemContext 
+            ? "Ask about the games and predictions on this page..." 
+            : "Ask WagerBot about sports betting insights...",
+        ...(enableImageUpload && {
+          attachments: {
+            enabled: true,
+            accept: {
+              "image/*": []
+            }
+          }
+        })
       },
       startScreen: {
-        greeting: systemContext 
-          ? "I can help you analyze the games on this page! I have access to all the game data and predictions." 
-          : "Welcome to WagerBot! I'm your AI sports betting analyst. Ask me about the latest sports news, game analysis, betting strategies, and more!",
-        prompts: systemContext ? [
+        greeting: isBetSlipGrader
+          ? "Welcome to Bet Slip Grader! Upload an image of your bet slip and I'll analyze it for you, providing insights on bet quality, value, and potential outcomes."
+          : systemContext 
+            ? "I can help you analyze the games on this page! I have access to all the game data and predictions." 
+            : "Welcome to WagerBot! I'm your AI sports betting analyst. Ask me about the latest sports news, game analysis, betting strategies, and more!",
+        prompts: isBetSlipGrader ? [
+          {
+            label: "How does it work?",
+            prompt: "How do I use the Bet Slip Grader? What information will you provide?",
+            icon: "info"
+          },
+          {
+            label: "Tips for Best Results",
+            prompt: "What should I include when uploading a bet slip for the best analysis?",
+            icon: "chart"
+          },
+          {
+            label: "Sample Analysis",
+            prompt: "Can you give me an example of the type of analysis you provide for bet slips?",
+            icon: "search"
+          }
+        ] : systemContext ? [
           {
             label: "Compare Games",
             prompt: `<context>
