@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import CFBPreview from "./CFBPreview";
 import { GradientText } from "@/components/ui/gradient-text";
 import { useTheme } from "@/contexts/ThemeContext";
+import { trackCTAClick } from "@/lib/mixpanel";
 
 const Hero = () => {
   const { theme } = useTheme();
@@ -78,7 +79,12 @@ const Hero = () => {
 
           {/* CTA Button */}
           <div className="flex items-center justify-center mb-4">
-            <Link to="https://wagerproof.carrd.co/" target="_blank" rel="noopener noreferrer">
+            <Link 
+              to="https://wagerproof.carrd.co/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              onClick={() => trackCTAClick('Join the Waitlist', 'Hero', 'https://wagerproof.carrd.co/')}
+            >
               <MovingBorderButton
                 borderRadius="1.5rem"
                 containerClassName="h-16 w-auto"

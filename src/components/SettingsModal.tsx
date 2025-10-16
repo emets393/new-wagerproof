@@ -458,7 +458,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </TabsContent>
 
           {/* Billing Tab */}
-          <TabsContent value="billing" className="space-y-4 mt-4">
+          <TabsContent value="billing" className="space-y-4 mt-4 relative">
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+              <span className="text-2xl font-bold text-muted-foreground">Coming Soon</span>
+            </div>
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Current Plan</CardTitle>

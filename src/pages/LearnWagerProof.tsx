@@ -8,11 +8,17 @@ import { LearnNFLAnalytics } from '@/components/learn/sections/LearnNFLAnalytics
 import { LearnTeaserTool } from '@/components/learn/sections/LearnTeaserTool';
 import { LearnWagerBot } from '@/components/learn/sections/LearnWagerBot';
 import { LearnGameAnalysis } from '@/components/learn/sections/LearnGameAnalysis';
+import { trackLearnPageViewed, trackLearnSectionClicked } from '@/lib/mixpanel';
 
 export default function LearnWagerProof() {
   const [activeSection, setActiveSection] = useState<string>('cfb-predictions');
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // Track page view on mount
+  useEffect(() => {
+    trackLearnPageViewed();
+  }, []);
 
   // Scroll spy implementation
   useEffect(() => {
@@ -49,6 +55,12 @@ export default function LearnWagerProof() {
     const element = sectionRefs.current[sectionId];
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // Track section click
+      const section = SECTIONS.find(s => s.id === sectionId);
+      if (section) {
+        trackLearnSectionClicked(section.title, sectionId);
+      }
     }
   };
 
@@ -122,7 +134,7 @@ export default function LearnWagerProof() {
                 transition={{ duration: 0.5 }}
                 className="scroll-mt-24"
               >
-                <div className="bg-orange-50 dark:bg-orange-950/20 backdrop-blur-sm rounded-2xl shadow-xl border border-border p-8 md:p-12">
+                <div className="bg-card dark:bg-orange-950/20 backdrop-blur-sm rounded-2xl shadow-xl border border-border p-8 md:p-12">
                   {section.component}
                 </div>
               </motion.section>

@@ -32,6 +32,7 @@ interface GameData {
   home_logo?: string;
   game_date?: string;
   game_time?: string;
+  raw_game_date?: string; // Raw date for comparison (YYYY-MM-DD or ISO string)
   away_spread?: number | null;
   home_spread?: number | null;
   over_line?: number | null;
@@ -409,6 +410,7 @@ export default function EditorsPicks() {
                 home_logo: getNFLTeamLogo(line.home_team),
                 game_date: formattedDate,
                 game_time: formattedTime,
+                raw_game_date: line.game_date, // Store raw date (YYYY-MM-DD)
                 away_spread: line.away_spread,
                 home_spread: line.home_spread,
                 over_line: line.over_line,
@@ -503,6 +505,7 @@ export default function EditorsPicks() {
                 home_logo: getCFBTeamLogo(game.home_team),
                 game_date: formattedDate,
                 game_time: formattedTime,
+                raw_game_date: startTimeString, // Store raw ISO date string
                 away_spread: game.api_spread ? -game.api_spread : null,
                 home_spread: game.api_spread,
                 over_line: game.api_over_line,
@@ -575,8 +578,46 @@ export default function EditorsPicks() {
     );
   }
 
+  // Helper function to check if a game date has passed (next day or later)
+  const isGameExpired = (gameData: GameData | undefined): boolean => {
+    if (!gameData || !gameData.raw_game_date) {
+      return false; // If no date, don't filter it out
+    }
+
+    try {
+      // Parse the game date
+      const gameDate = new Date(gameData.raw_game_date);
+      
+      // Get today at midnight (local time)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Get game date at midnight (local time)
+      const gameDateOnly = new Date(gameDate);
+      gameDateOnly.setHours(0, 0, 0, 0);
+      
+      // Game is expired if it's before today (next day after game = today or later)
+      return gameDateOnly < today;
+    } catch (error) {
+      console.error('Error checking game expiration:', error);
+      return false; // Don't filter out if we can't parse the date
+    }
+  };
+
   const draftPicks = picks.filter(p => !p.is_published);
-  const publishedPicks = picks.filter(p => p.is_published);
+  
+  // Filter published picks to only show games that haven't expired
+  // In admin mode, show all picks; otherwise filter out expired ones
+  const publishedPicks = picks.filter(p => {
+    if (!p.is_published) return false;
+    
+    // In admin mode, show all published picks including expired ones
+    if (adminModeEnabled) return true;
+    
+    // For regular users, filter out expired games
+    const gameData = gamesData.get(p.game_id);
+    return !isGameExpired(gameData);
+  });
 
   return (
     <div className="container mx-auto px-4 py-6">

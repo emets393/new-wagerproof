@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { chatSessionManager, ChatSession } from '@/utils/chatSession';
 import { ChatKitWrapper } from '@/components/ChatKitWrapper';
+import { trackWagerBotOpened } from '@/lib/mixpanel';
 
 export default function WagerBotChat() {
   const { user, session, loading: authLoading } = useAuth();
@@ -27,6 +28,11 @@ export default function WagerBotChat() {
     } else {
       console.log('ℹ️ No welcome flag found');
     }
+  }, []);
+
+  // Track WagerBot opened on mount
+  useEffect(() => {
+    trackWagerBotOpened();
   }, []);
 
   // Load user sessions on mount

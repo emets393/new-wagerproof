@@ -1,5 +1,5 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot } from "lucide-react";
-import { Basketball } from "phosphor-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle } from "lucide-react";
+import { Basketball, DiscordLogo } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
@@ -11,6 +11,7 @@ import { Account } from "./pages";
 import Landing from "./pages/Landing";
 import Admin from "./pages/Admin";
 import EditorsPicks from "./pages/EditorsPicks";
+import Discord from "./pages/Discord";
 
 export interface NavItem {
   title: string;
@@ -93,7 +94,12 @@ export const navItems: NavItem[] = [
     title: "Feature Requests",
     to: "/feature-requests",
     icon: <MessageSquare className="h-4 w-4" />,
-    comingSoon: true,
+  },
+  {
+    title: "Discord Channel",
+    to: "/discord",
+    icon: <DiscordLogo className="h-4 w-4" weight="fill" />,
+    page: <Discord />,
   },
   {
     title: "Admin",

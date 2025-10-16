@@ -14,6 +14,8 @@ import WagerBotChat from "./pages/WagerBotChat";
 import LearnWagerProof from "./pages/LearnWagerProof";
 import Admin from "./pages/Admin";
 import EditorsPicks from "./pages/EditorsPicks";
+import Discord from "./pages/Discord";
+import FeatureRequests from "./pages/FeatureRequests";
 import AccessDenied from "./pages/AccessDenied";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
@@ -96,6 +98,8 @@ function AppRoutes() {
           <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
           <Route path="/editors-picks" element={<EditorsPicks />} />
+          <Route path="/discord" element={<Discord />} />
+          <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         </Routes>
       </AuthenticatedLayout>

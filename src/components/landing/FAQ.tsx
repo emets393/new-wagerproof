@@ -111,7 +111,7 @@ const FAQ: React.FC<FAQProps> = ({ questions = defaultQuestions }) => {
             Still have questions?
           </p>
           <a
-            href="mailto:admin@wagerproof.bet"
+            href="mailto:support@wagerproof.bet"
             className="text-[#4f9777] hover:text-[#3d7a5e] dark:text-[#6bb491] dark:hover:text-[#4f9777] font-medium transition-colors"
           >
             Contact our support team →

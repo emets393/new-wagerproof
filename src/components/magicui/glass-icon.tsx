@@ -7,6 +7,7 @@ export interface GlassIconProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
   isHovered?: boolean;
+  onClick?: () => void;
 }
 
 const gradientMapping: Record<string, string> = {
@@ -20,15 +21,15 @@ const gradientMapping: Record<string, string> = {
 };
 
 const sizeClasses = {
-  sm: 'w-12 h-12',
-  md: 'w-16 h-16',
-  lg: 'w-20 h-20'
+  sm: 'w-[3.5em] h-[3.5em]',
+  md: 'w-[4.5em] h-[4.5em]',
+  lg: 'w-[5.5em] h-[5.5em]'
 };
 
 const iconSizeClasses = {
-  sm: 'w-6 h-6',
-  md: 'w-8 h-8',
-  lg: 'w-10 h-10'
+  sm: 'w-[1.25em] h-[1.25em]',
+  md: 'w-[1.5em] h-[1.5em]',
+  lg: 'w-[1.75em] h-[1.75em]'
 };
 
 const GlassIcon: React.FC<GlassIconProps> = ({ 
@@ -37,7 +38,8 @@ const GlassIcon: React.FC<GlassIconProps> = ({
   label, 
   className = '',
   size = 'md',
-  isHovered = false
+  isHovered = false,
+  onClick
 }) => {
   const getBackgroundStyle = (color: string): React.CSSProperties => {
     if (gradientMapping[color]) {
@@ -47,14 +49,14 @@ const GlassIcon: React.FC<GlassIconProps> = ({
   };
 
   return (
-    <div
+    <button
+      type="button"
       aria-label={label}
-      className={`relative bg-transparent outline-none ${sizeClasses[size]} [perspective:24em] [transform-style:preserve-3d] [-webkit-tap-highlight-color:transparent] ${className}`}
+      onClick={onClick}
+      className={`relative bg-transparent outline-none ${sizeClasses[size]} [perspective:24em] [transform-style:preserve-3d] [-webkit-tap-highlight-color:transparent] group cursor-pointer ${className}`}
     >
       <span
-        className={`absolute top-0 left-0 w-full h-full rounded-[1.25em] block transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.83,0,0.17,1)] origin-[100%_100%] ${
-          isHovered ? '[transform:rotate(25deg)_translate3d(-0.5em,-0.5em,0.5em)]' : 'rotate-[15deg]'
-        }`}
+        className="absolute top-0 left-0 w-full h-full rounded-[1.25em] block transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.83,0,0.17,1)] origin-[100%_100%] rotate-[15deg] group-hover:[transform:rotate(25deg)_translate3d(-0.5em,-0.5em,0.5em)]"
         style={{
           ...getBackgroundStyle(color),
           boxShadow: '0.5em -0.5em 0.75em hsla(223, 10%, 10%, 0.15)'
@@ -62,18 +64,16 @@ const GlassIcon: React.FC<GlassIconProps> = ({
       ></span>
 
       <span
-        className={`absolute top-0 left-0 w-full h-full rounded-[1.25em] bg-[hsla(0,0%,100%,0.15)] transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.83,0,0.17,1)] origin-[80%_50%] flex backdrop-blur-[0.75em] [-webkit-backdrop-filter:blur(0.75em)] ${
-          isHovered ? '[transform:translateZ(2em)]' : 'transform'
-        }`}
+        className="absolute top-0 left-0 w-full h-full rounded-[1.25em] bg-gray-100/60 dark:bg-[hsla(0,0%,100%,0.15)] transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.83,0,0.17,1)] origin-[80%_50%] flex backdrop-blur-[0.75em] [-webkit-backdrop-filter:blur(0.75em)] transform group-hover:[transform:translateZ(2em)]"
         style={{
           boxShadow: '0 0 0 0.1em hsla(0, 0%, 100%, 0.3) inset'
         }}
       >
-        <span className={`m-auto ${iconSizeClasses[size]} flex items-center justify-center text-white`} aria-hidden="true">
-          {React.cloneElement(icon, { className: `${iconSizeClasses[size]} text-white` })}
+        <span className={`m-auto ${iconSizeClasses[size]} flex items-center justify-center text-gray-800 dark:text-white`} aria-hidden="true">
+          {icon}
         </span>
       </span>
-    </div>
+    </button>
   );
 };
 

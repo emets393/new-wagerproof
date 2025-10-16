@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart } from 'lucide-react';
+import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown } from 'lucide-react';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { Link } from 'react-router-dom';
 import H2HModal from '@/components/H2HModal';
@@ -18,6 +19,7 @@ import { StarButton } from '@/components/StarButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatSessionManager } from '@/utils/chatSession';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
+import { trackPredictionViewed, trackGameAnalysisOpened, trackFilterApplied, trackSortApplied } from '@/lib/mixpanel';
 
 interface NFLPrediction {
   id: string;
@@ -76,6 +78,15 @@ export default function NFL() {
   // Focused card state for light beams effect
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   
+  // Public Betting Facts expanded state - tracks which cards have expanded betting facts
+  const [expandedBettingFacts, setExpandedBettingFacts] = useState<Record<string, boolean>>({});
+  
+  // Track predictions viewed when loaded
+  useEffect(() => {
+    if (!loading && predictions.length > 0) {
+      trackPredictionViewed('NFL', predictions.length, activeFilters.join(','), sortKey);
+    }
+  }, [loading, predictions.length]);
 
   // Sorting helpers (displayed probability = max(p, 1-p))
   const getDisplayedMlProb = (p: number | null): number | null => {
@@ -237,6 +248,16 @@ ${contextParts}
     return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   };
 
+  // Helper function to get contrasting text color for team circles
+  const getContrastingTextColor = (bgColor1: string, bgColor2: string): string => {
+    const lum1 = getColorLuminance(bgColor1);
+    const lum2 = getColorLuminance(bgColor2);
+    const avgLuminance = (lum1 + lum2) / 2;
+    
+    // If average luminance is dark, use white text; if light, use dark text
+    return avgLuminance < 0.5 ? '#ffffff' : '#000000';
+  };
+
   // Get appropriate team color for dark mode
   const getTeamColorForMode = (teamColors: { primary: string; secondary: string }): string => {
     // In dark mode, always choose the brighter color
@@ -280,6 +301,48 @@ ${contextParts}
         label.toLowerCase().includes(pattern)
       );
     });
+  };
+
+  // Parse betting split labels to extract structured data
+  const parseBettingSplit = (label: string | null): { 
+    team: string; 
+    percentage: number; 
+    isSharp: boolean; 
+    isPublic: boolean;
+    direction?: string; // For totals: "over" or "under"
+  } | null => {
+    if (!label) return null;
+    
+    const lowerLabel = label.toLowerCase();
+    
+    // Extract percentage
+    const percentMatch = label.match(/(\d+)%/);
+    const percentage = percentMatch ? parseInt(percentMatch[1]) : 50;
+    
+    // Determine if sharp or public
+    const isSharp = lowerLabel.includes('sharp');
+    const isPublic = lowerLabel.includes('public');
+    
+    // Extract team name or direction
+    let team = '';
+    let direction = undefined;
+    
+    // Check for Over/Under (for totals)
+    if (lowerLabel.includes('over')) {
+      direction = 'over';
+      team = 'Over';
+    } else if (lowerLabel.includes('under')) {
+      direction = 'under';
+      team = 'Under';
+    } else {
+      // Extract team name (usually after "on" keyword)
+      const teamMatch = label.match(/on\s+([A-Za-z\s]+?)(?:\s*\(|$)/);
+      if (teamMatch) {
+        team = teamMatch[1].trim();
+      }
+    }
+    
+    return { team, percentage, isSharp, isPublic, direction };
   };
 
   const fetchData = async () => {
@@ -463,6 +526,91 @@ ${contextParts}
     fetchData();
   }, []);
 
+  // Function to get team initials for circle display
+  const getTeamInitials = (teamCity: string): string => {
+    const initialsMap: { [key: string]: string } = {
+      'Arizona': 'ARI',
+      'Atlanta': 'ATL',
+      'Baltimore': 'BAL',
+      'Buffalo': 'BUF',
+      'Carolina': 'CAR',
+      'Chicago': 'CHI',
+      'Cincinnati': 'CIN',
+      'Cleveland': 'CLE',
+      'Dallas': 'DAL',
+      'Denver': 'DEN',
+      'Detroit': 'DET',
+      'Green Bay': 'GB',
+      'Houston': 'HOU',
+      'Indianapolis': 'IND',
+      'Jacksonville': 'JAX',
+      'Kansas City': 'KC',
+      'Las Vegas': 'LV',
+      'Los Angeles Chargers': 'LAC',
+      'Los Angeles Rams': 'LAR',
+      'LA Chargers': 'LAC',
+      'LA Rams': 'LAR',
+      'Miami': 'MIA',
+      'Minnesota': 'MIN',
+      'New England': 'NE',
+      'New Orleans': 'NO',
+      'NY Giants': 'NYG',
+      'NY Jets': 'NYJ',
+      'Philadelphia': 'PHI',
+      'Pittsburgh': 'PIT',
+      'San Francisco': 'SF',
+      'Seattle': 'SEA',
+      'Tampa Bay': 'TB',
+      'Tennessee': 'TEN',
+      'Washington': 'WSH',
+    };
+    return initialsMap[teamCity] || teamCity.substring(0, 3).toUpperCase();
+  };
+
+  // Function to get full team name (city + team name)
+  const getFullTeamName = (teamCity: string): { city: string; name: string } => {
+    const teamNameMap: { [key: string]: string } = {
+      'Arizona': 'Cardinals',
+      'Atlanta': 'Falcons',
+      'Baltimore': 'Ravens',
+      'Buffalo': 'Bills',
+      'Carolina': 'Panthers',
+      'Chicago': 'Bears',
+      'Cincinnati': 'Bengals',
+      'Cleveland': 'Browns',
+      'Dallas': 'Cowboys',
+      'Denver': 'Broncos',
+      'Detroit': 'Lions',
+      'Green Bay': 'Packers',
+      'Houston': 'Texans',
+      'Indianapolis': 'Colts',
+      'Jacksonville': 'Jaguars',
+      'Kansas City': 'Chiefs',
+      'Las Vegas': 'Raiders',
+      'Los Angeles Chargers': 'Chargers',
+      'Los Angeles Rams': 'Rams',
+      'LA Chargers': 'Chargers',
+      'LA Rams': 'Rams',
+      'Miami': 'Dolphins',
+      'Minnesota': 'Vikings',
+      'New England': 'Patriots',
+      'New Orleans': 'Saints',
+      'NY Giants': 'Giants',
+      'NY Jets': 'Jets',
+      'Philadelphia': 'Eagles',
+      'Pittsburgh': 'Steelers',
+      'San Francisco': '49ers',
+      'Seattle': 'Seahawks',
+      'Tampa Bay': 'Buccaneers',
+      'Tennessee': 'Titans',
+      'Washington': 'Commanders',
+    };
+    return {
+      city: teamCity,
+      name: teamNameMap[teamCity] || ''
+    };
+  };
+
   // Function to get NFL team colors
   const getNFLTeamColors = (teamName: string): { primary: string; secondary: string } => {
     const colorMap: { [key: string]: { primary: string; secondary: string } } = {
@@ -566,27 +714,27 @@ ${contextParts}
             <WeatherIconComponent 
               code={iconCode}
               size={64}
-              className="stroke-current text-foreground"
+              className="stroke-current text-gray-800 dark:text-white"
             />
           </div>
 
           {temperature !== null && (
-            <div className="text-lg font-bold text-gray-900 dark:text-gray-100 min-w-[60px] text-center">
+            <div className="text-lg font-bold text-gray-900 dark:text-white min-w-[60px] text-center">
               {Math.round(temperature)}°F
             </div>
           )}
 
           {windSpeed !== null && windSpeed > 0 && (
             <div className="flex items-center space-x-2 min-w-[70px]">
-              <IconWind size={24} className="stroke-current text-blue-500" />
-              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+              <IconWind size={24} className="stroke-current text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-medium text-gray-700 dark:text-white/80">
                 {Math.round(windSpeed)} mph
               </span>
             </div>
           )}
         </div>
         
-        <div className="text-xs font-medium text-gray-700 dark:text-gray-300 capitalize">
+        <div className="text-xs font-medium text-gray-600 dark:text-white/70 capitalize">
           {iconCode.replace(/-/g, ' ')}
         </div>
       </div>
@@ -847,10 +995,10 @@ ${contextParts}
                 <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
                   {/* Game Date and Time */}
                   <div className="text-center space-y-2">
-                    <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">
+                    <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                       {formatCompactDate(prediction.game_date)}
                     </div>
-                    <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 sm:px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700 inline-block">
+                    <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-white/80 bg-gray-100/80 dark:bg-white/5 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full border border-gray-300 dark:border-white/20 inline-block">
                       {convertTimeToEST(prediction.game_time)}
                     </div>
                   </div>
@@ -860,48 +1008,70 @@ ${contextParts}
                     <div className="flex justify-between items-start">
                       {/* Away Team */}
                       <div className="text-center flex-1">
-                        {getTeamLogo(prediction.away_team) && (
-                          <img 
-                            src={getTeamLogo(prediction.away_team)} 
-                            alt={`${prediction.away_team} logo`}
-                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                          />
-                        )}
-                        <div className="hidden sm:flex text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 items-center justify-center text-gray-900 dark:text-gray-100">
-                          {prediction.away_team}
+                        {/* Logo kept in code for color reference: {getTeamLogo(prediction.away_team)} */}
+                        <div 
+                          className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
+                          style={{
+                            background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
+                            borderColor: `${awayTeamColors.primary}`
+                          }}
+                        >
+                          <span 
+                            className="text-xs sm:text-sm font-bold drop-shadow-md"
+                            style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
+                          >
+                            {getTeamInitials(prediction.away_team)}
+                          </span>
                         </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
+                        <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mb-0.5">
+                          {getFullTeamName(prediction.away_team).city}
+                        </div>
+                        <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-white/70 mb-2">
+                          {getFullTeamName(prediction.away_team).name}
+                        </div>
+                        <div className="text-xs sm:text-sm text-gray-500 dark:text-white/60 mb-1">
                           Spread: {formatSpread(prediction.away_spread)}
                         </div>
-                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600">
+                        <div className="text-sm sm:text-base font-bold text-blue-600 dark:text-blue-400">
                           {formatMoneyline(prediction.away_ml)}
                         </div>
                       </div>
 
                       {/* @ Symbol and Total */}
                       <div className="text-center px-2 sm:px-4 flex flex-col items-center justify-center">
-                        <span className="text-4xl sm:text-5xl font-bold text-white dark:text-gray-500 mb-2 sm:mb-3">@</span>
-                        <div className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 bg-blue-50 dark:bg-blue-900/30 px-2 sm:px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800">
+                        <span className="text-4xl sm:text-5xl font-bold text-gray-300 dark:text-white/40 mb-2 sm:mb-3">@</span>
+                        <div className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-white bg-gray-100/80 dark:bg-white/5 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full border border-gray-300 dark:border-white/20">
                           Total: {prediction.over_line || '-'}
                         </div>
                       </div>
 
                       {/* Home Team */}
                       <div className="text-center flex-1">
-                        {getTeamLogo(prediction.home_team) && (
-                          <img 
-                            src={getTeamLogo(prediction.home_team)} 
-                            alt={`${prediction.home_team} logo`}
-                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                          />
-                        )}
-                        <div className="hidden sm:flex text-lg sm:text-xl font-bold mb-1 sm:mb-2 h-6 sm:h-8 items-center justify-center text-gray-900 dark:text-gray-100">
-                          {prediction.home_team}
+                        {/* Logo kept in code for color reference: {getTeamLogo(prediction.home_team)} */}
+                        <div 
+                          className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
+                          style={{
+                            background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
+                            borderColor: `${homeTeamColors.primary}`
+                          }}
+                        >
+                          <span 
+                            className="text-xs sm:text-sm font-bold drop-shadow-md"
+                            style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
+                          >
+                            {getTeamInitials(prediction.home_team)}
+                          </span>
                         </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground h-5 sm:h-6 flex items-center justify-center">
+                        <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mb-0.5">
+                          {getFullTeamName(prediction.home_team).city}
+                        </div>
+                        <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-white/70 mb-2">
+                          {getFullTeamName(prediction.home_team).name}
+                        </div>
+                        <div className="text-xs sm:text-sm text-gray-500 dark:text-white/60 mb-1">
                           Spread: {formatSpread(prediction.home_spread)}
                         </div>
-                        <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600">
+                        <div className="text-sm sm:text-base font-bold text-green-600 dark:text-green-400">
                           {formatMoneyline(prediction.home_ml)}
                         </div>
                       </div>
@@ -918,58 +1088,93 @@ ${contextParts}
                   />
 
                   {/* Model Predictions Section */}
-                  <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
-                    <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+                  <div className="text-center pt-3 sm:pt-4">
+                    <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
                       {/* Header */}
-                      <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Model Predictions</h4>
+                      <div className="flex items-center justify-center gap-2">
+                        <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">Model Predictions</h4>
+                      </div>
                       
                       {/* Spread Predictions */}
                       {prediction.home_away_spread_cover_prob !== null && (
                         <div className="space-y-3">
-                          <h5 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">Spread</h5>
+                          <div className="flex items-center justify-center gap-2">
+                            <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Spread</h5>
+                          </div>
                           {(() => {
                             const isHome = prediction.home_away_spread_cover_prob > 0.5;
                             const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
+                            const predictedTeamColors = isHome ? homeTeamColors : awayTeamColors;
                             const predictedSpread = isHome ? prediction.home_spread : prediction.away_spread;
                             const confidencePct = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
                             const confidenceColorClass =
-                              confidencePct <= 58 ? 'text-rose-600' :
-                              confidencePct <= 65 ? 'text-orange-500' :
-                              'text-emerald-600';
-                            const teamColor = getTeamColorForMode(isHome ? homeTeamColors : awayTeamColors);
+                              confidencePct <= 58 ? 'text-red-400' :
+                              confidencePct <= 65 ? 'text-orange-400' :
+                              'text-green-400';
+                            const confidenceBgClass =
+                              confidencePct <= 58 ? 'bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/20' :
+                              confidencePct <= 65 ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300 dark:border-orange-500/20' :
+                              'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20';
+                            const confidenceLabel =
+                              confidencePct <= 58 ? 'Low Confidence' :
+                              confidencePct <= 65 ? 'Moderate Confidence' :
+                              'High Confidence';
+                            const spreadValue = Math.abs(Number(predictedSpread));
+                            const isNegativeSpread = Number(predictedSpread) < 0;
+                            const explanation =
+                              confidencePct <= 58 
+                                ? `For this bet to win, ${getFullTeamName(predictedTeam).city} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${confidencePct}% confidence, this is a toss-up where the model sees both outcomes as nearly equally likely.`
+                                : confidencePct <= 65
+                                ? `For this bet to win, ${getFullTeamName(predictedTeam).city} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. The model gives this a ${confidencePct}% chance, indicating a slight advantage but still plenty of risk.`
+                                : `For this bet to win, ${getFullTeamName(predictedTeam).city} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${confidencePct}% confidence, the model sees a strong likelihood they'll achieve this margin.`;
+                            
                             return (
-                              <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
-                                {/* Left: Logo + Team (spread) */}
-                                <BackgroundGradient 
-                                  className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center"
-                                  colors={[teamColor, teamColor]}
-                                >
-                                  <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 flex items-center justify-center mb-2">
-                                    <img
-                                      src={getTeamLogo(predictedTeam)}
-                                      alt={`${predictedTeam} logo`}
-                                      className="max-h-full max-w-full object-contain drop-shadow"
-                                    />
+                              <>
+                                <div className="grid grid-cols-2 items-stretch gap-3">
+                                  {/* Left: Team Circle + Name (spread) */}
+                                  <div className="bg-green-100 dark:bg-green-500/10 backdrop-blur-sm rounded-lg border border-green-300 dark:border-green-500/20 p-3 flex flex-col items-center justify-center">
+                                    <div 
+                                      className="h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center border-2 mb-2 shadow-lg"
+                                      style={{
+                                        background: `linear-gradient(135deg, ${predictedTeamColors.primary}, ${predictedTeamColors.secondary})`,
+                                        borderColor: `${predictedTeamColors.primary}`
+                                      }}
+                                    >
+                                      <span 
+                                        className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                        style={{ color: getContrastingTextColor(predictedTeamColors.primary, predictedTeamColors.secondary) }}
+                                      >
+                                        {getTeamInitials(predictedTeam)}
+                                      </span>
                                   </div>
-                                  <span className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 dark:text-gray-100 text-center leading-snug">
-                                    {predictedTeam} ({formatSpread(predictedSpread)})
+                                    <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white text-center leading-snug">
+                                      {getFullTeamName(predictedTeam).city}
                                   </span>
-                                </BackgroundGradient>
+                                    <span className="text-xs text-gray-600 dark:text-white/70">
+                                      ({formatSpread(predictedSpread)})
+                                    </span>
+                                  </div>
                                 {/* Right: Confidence % */}
-                                <BackgroundGradient 
-                                  className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
-                                  colors={
-                                    confidencePct <= 58 ? ['#dc2626', '#ef4444'] : // Red for low confidence
-                                    confidencePct <= 65 ? ['#ea580c', '#f97316'] : // Orange for medium confidence  
-                                    ['#059669', '#10b981'] // Green for high confidence
-                                  }
-                                >
-                                  <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
+                                  <div className={`${confidenceBgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
+                                    <div className={`text-2xl sm:text-3xl font-extrabold leading-tight ${confidenceColorClass}`}>
                                     {confidencePct}%
                                   </div>
-                                  <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
-                                </BackgroundGradient>
+                                    <div className="text-xs text-gray-600 dark:text-white/60 font-medium mt-1">{confidenceLabel}</div>
                               </div>
+                                </div>
+                                {/* What this means */}
+                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
+                                  </div>
+                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
+                                    {explanation}
+                                  </p>
+                                </div>
+                              </>
                             );
                           })()}
                         </div>
@@ -978,47 +1183,66 @@ ${contextParts}
                       {/* Over/Under Analysis */}
                       {prediction.ou_result_prob !== null && (
                         <div className="space-y-3">
-                          <h5 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">Over / Under</h5>
+                          <div className="flex items-center justify-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Over / Under</h5>
+                          </div>
                           {(() => {
                             const isOver = prediction.ou_result_prob! > 0.5;
                             const confidencePct = Math.round((isOver ? prediction.ou_result_prob! : 1 - prediction.ou_result_prob!) * 100);
                             const confidenceColorClass =
-                              confidencePct <= 58 ? 'text-rose-600' :
-                              confidencePct <= 65 ? 'text-orange-500' :
-                              'text-emerald-600';
+                              confidencePct <= 58 ? 'text-red-400' :
+                              confidencePct <= 65 ? 'text-orange-400' :
+                              'text-green-400';
+                            const confidenceBgClass =
+                              confidencePct <= 58 ? 'bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/20' :
+                              confidencePct <= 65 ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300 dark:border-orange-500/20' :
+                              'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20';
+                            const confidenceLabel =
+                              confidencePct <= 58 ? 'Low Confidence' :
+                              confidencePct <= 65 ? 'Moderate Confidence' :
+                              'High Confidence';
                             const arrow = isOver ? '▲' : '▼';
-                            const arrowColor = isOver ? 'text-emerald-600' : 'text-rose-600';
+                            const arrowColor = isOver ? 'text-green-400' : 'text-red-400';
+                            const arrowBg = isOver ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' : 'bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/20';
                             const label = isOver ? 'Over' : 'Under';
+                            const totalPoints = prediction.over_line;
+                            const explanation =
+                              confidencePct <= 58 
+                                ? `For this bet to win, the combined score of both teams needs to be ${isOver ? 'MORE' : 'LESS'} than ${totalPoints} points. With ${confidencePct}% confidence, the model sees this as a coin flip—the game could go either way in terms of total scoring.`
+                                : confidencePct <= 65
+                                ? `For this bet to win, the combined score needs to be ${isOver ? 'MORE' : 'LESS'} than ${totalPoints} points. The model gives this a ${confidencePct}% chance, suggesting a slight ${isOver ? 'offensive' : 'defensive'} edge but the scoring environment is still uncertain.`
+                                : `For this bet to win, the combined score needs to be ${isOver ? 'MORE' : 'LESS'} than ${totalPoints} points. With ${confidencePct}% confidence, the model expects a ${isOver ? 'high-scoring, offensive-oriented' : 'low-scoring, defense-dominated'} game that should clearly ${isOver ? 'exceed' : 'stay under'} this total.`;
+                            
                             return (
-                              <div className="grid grid-cols-2 items-stretch gap-4 sm:gap-6">
+                              <>
+                                <div className="grid grid-cols-2 items-stretch gap-3">
                                 {/* Left: Big arrow + OU line */}
-                                <BackgroundGradient 
-                                  className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center"
-                                  colors={
-                                    isOver ? ['#059669', '#10b981'] : // Green for Over
-                                    ['#dc2626', '#ef4444'] // Red for Under
-                                  }
-                                >
-                                  <div className={`text-4xl sm:text-5xl md:text-6xl font-black ${arrowColor}`}>{arrow}</div>
-                                  <div className="mt-2 text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100 text-center">
+                                  <div className={`${arrowBg} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
+                                    <div className={`text-4xl sm:text-5xl font-black ${arrowColor}`}>{arrow}</div>
+                                    <div className="mt-2 text-sm sm:text-base font-semibold text-gray-900 dark:text-white text-center">
                                     {label} {prediction.over_line || '-'}
                                   </div>
-                                </BackgroundGradient>
+                                  </div>
                                 {/* Right: Confidence % */}
-                                <BackgroundGradient 
-                                  className="h-28 sm:h-32 md:h-36 rounded-3xl bg-white dark:bg-gray-900 flex flex-col items-center justify-center text-center"
-                                  colors={
-                                    confidencePct <= 58 ? ['#dc2626', '#ef4444'] : // Red for low confidence
-                                    confidencePct <= 65 ? ['#ea580c', '#f97316'] : // Orange for medium confidence  
-                                    ['#059669', '#10b981'] // Green for high confidence
-                                  }
-                                >
-                                  <div className={`text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight ${confidenceColorClass}`}>
+                                  <div className={`${confidenceBgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
+                                    <div className={`text-2xl sm:text-3xl font-extrabold leading-tight ${confidenceColorClass}`}>
                                     {confidencePct}%
                                   </div>
-                                  <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Confidence</div>
-                                </BackgroundGradient>
+                                    <div className="text-xs text-gray-600 dark:text-white/60 font-medium mt-1">{confidenceLabel}</div>
                               </div>
+                                </div>
+                                {/* What this means */}
+                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
+                                  </div>
+                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
+                                    {explanation}
+                                  </p>
+                                </div>
+                              </>
                             );
                           })()}
                         </div>
@@ -1028,59 +1252,306 @@ ${contextParts}
 
                   {/* Betting Split Labels Section */}
                   {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
-                    <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
-                      <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
-                        {/* Header */}
-                        <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Public Betting Facts</h4>
+                    <div className="text-center pt-3 sm:pt-4">
+                      <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
+                        {/* Header - Clickable */}
+                        <button
+                          onClick={() => setExpandedBettingFacts(prev => ({
+                            ...prev,
+                            [prediction.id]: !prev[prediction.id]
+                          }))}
+                          className="w-full flex items-center justify-center gap-2 group hover:opacity-80 transition-opacity"
+                        >
+                          <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          <h4 className="text-lg font-bold text-gray-900 dark:text-white">Public Betting Facts</h4>
+                          <motion.div
+                            animate={{ rotate: expandedBettingFacts[prediction.id] ? 180 : 0 }}
+                            transition={{ duration: 0.3 }}
+                          >
+                            <ChevronDown className="h-5 w-5 text-gray-500 dark:text-white/60" />
+                          </motion.div>
+                        </button>
+
+                        {/* Mini Previews - Collapsed State */}
+                        {!expandedBettingFacts[prediction.id] && (
+                            <div className="flex flex-wrap justify-center gap-2">
+                              {prediction.ml_splits_label && (() => {
+                                const mlData = parseBettingSplit(prediction.ml_splits_label);
+                                if (!mlData || !mlData.team) return null;
+                                const colorTheme = mlData.isSharp ? 'green' :
+                                                  mlData.percentage >= 70 ? 'purple' :
+                                                  mlData.percentage >= 60 ? 'blue' : 'neutral';
+                                const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
+                                               colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
+                                               colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
+                                               'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
+                                return (
+                                  <div className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
+                                    <TrendingUp className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                                    <span className="text-xs font-semibold text-gray-900 dark:text-white">ML: {mlData.team}</span>
+                                  </div>
+                                );
+                              })()}
+                              
+                              {prediction.spread_splits_label && (() => {
+                                const spreadData = parseBettingSplit(prediction.spread_splits_label);
+                                if (!spreadData || !spreadData.team) return null;
+                                const isHomeTeam = spreadData.team === prediction.home_team;
+                                const isAwayTeam = spreadData.team === prediction.away_team;
+                                if (!isHomeTeam && !isAwayTeam) return null;
+                                const colorTheme = spreadData.isSharp ? 'green' :
+                                                  spreadData.percentage >= 70 ? 'purple' :
+                                                  spreadData.percentage >= 60 ? 'blue' : 'neutral';
+                                const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
+                                               colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
+                                               colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
+                                               'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
+                                return (
+                                  <div className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
+                                    <Target className="h-3 w-3 text-green-600 dark:text-green-400" />
+                                    <span className="text-xs font-semibold text-gray-900 dark:text-white">Spread: {spreadData.team}</span>
+                                  </div>
+                                );
+                              })()}
+                              
+                              {prediction.total_splits_label && (() => {
+                                const totalData = parseBettingSplit(prediction.total_splits_label);
+                                if (!totalData || !totalData.direction) return null;
+                                const isOver = totalData.direction === 'over';
+                                const colorTheme = totalData.isSharp ? 'green' :
+                                                  totalData.percentage >= 70 ? 'purple' :
+                                                  totalData.percentage >= 60 ? 'blue' : 'neutral';
+                                const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
+                                               colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
+                                               colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
+                                               'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
+                                const arrow = isOver ? '▲' : '▼';
+                                const arrowColor = isOver ? 'text-green-400' : 'text-red-400';
+                                return (
+                                  <div className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
+                                    <BarChart className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                                    <span className={`text-sm font-bold ${arrowColor}`}>{arrow}</span>
+                                    <span className="text-xs font-semibold text-gray-900 dark:text-white">{totalData.team}</span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+
+                        {/* Full Details - Expanded State */}
+                        {expandedBettingFacts[prediction.id] && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="space-y-4"
+                          >
                         
-                        {/* Badges */}
-                        <div className="space-y-1.5 sm:space-y-2">
-                          {prediction.ml_splits_label && (
-                            <Badge 
-                              variant="outline" 
-                              className={`w-full justify-center text-xs font-medium ${
-                                shouldHighlightLabel(prediction.ml_splits_label) 
-                                  ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
-                                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
-                              }`}
-                            >
-                              ML: {prediction.ml_splits_label}
-                            </Badge>
-                          )}
-                          {prediction.spread_splits_label && (
-                            <Badge 
-                              variant="outline" 
-                              className={`w-full justify-center text-xs font-medium ${
-                                shouldHighlightLabel(prediction.spread_splits_label) 
-                                  ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
-                                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
-                              }`}
-                            >
-                              Spread: {prediction.spread_splits_label}
-                            </Badge>
-                          )}
-                          {prediction.total_splits_label && (
-                            <Badge 
-                              variant="outline" 
-                              className={`w-full justify-center text-xs font-medium ${
-                                shouldHighlightLabel(prediction.total_splits_label) 
-                                  ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-200' 
-                                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200'
-                              }`}
-                            >
-                              Total: {prediction.total_splits_label}
-                            </Badge>
-                          )}
+                        {/* Moneyline Splits */}
+                        {prediction.ml_splits_label && (() => {
+                          const mlData = parseBettingSplit(prediction.ml_splits_label);
+                          if (!mlData || !mlData.team) return null;
+                          
+                          const teamColors = mlData.team === prediction.home_team ? homeTeamColors : 
+                                           mlData.team === prediction.away_team ? awayTeamColors : 
+                                           { primary: '#6B7280', secondary: '#9CA3AF' };
+                          const colorTheme = mlData.isSharp ? 'green' :
+                                            mlData.percentage >= 70 ? 'purple' :
+                                            mlData.percentage >= 60 ? 'blue' : 'neutral';
+                          const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
+                                         colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
+                                         colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
+                                         'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
+                          const explanation = mlData.isSharp 
+                            ? `Sharp bettors (professional, high-volume bettors) are heavily on ${mlData.team} ML. Sharp money often indicates where the true value lies, as these bettors have better information and analysis.`
+                            : mlData.percentage >= 70
+                            ? `There's a heavy public lean on ${mlData.team} ML. When public betting is this lopsided, there's often contrarian value on the other side, as sportsbooks adjust lines to balance their risk.`
+                            : mlData.percentage >= 60
+                            ? `Public bets show a moderate lean toward ${mlData.team} ML. This suggests some consensus, but the line likely still offers value on both sides.`
+                            : `Public betting is relatively balanced on ${mlData.team} ML. This split suggests no strong public bias, indicating the line is well-calibrated.`;
+                          
+                          return (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-center gap-2">
+                                <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Moneyline</h5>
+                              </div>
+                              <div className="grid grid-cols-2 items-stretch gap-3">
+                                <div className={`${bgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
+                                  {mlData.team !== 'Over' && mlData.team !== 'Under' && (
+                                    <div 
+                                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center border-2 mb-2 shadow-lg"
+                                      style={{
+                                        background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
+                                        borderColor: teamColors.primary
+                                      }}
+                                    >
+                                      <span 
+                                        className="text-xs font-bold drop-shadow-md"
+                                        style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
+                                      >
+                                        {getTeamInitials(mlData.team)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white text-center">
+                                    {mlData.team}
+                                  </span>
+                                  <span className="text-xs text-gray-600 dark:text-white/60">
+                                    {mlData.isSharp ? 'Sharp Money' : 'Public'}
+                                  </span>
                         </div>
+                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
+                      </div>
+                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
+                                    {explanation}
+                                  </p>
+                    </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Spread Splits */}
+                        {prediction.spread_splits_label && (() => {
+                          const spreadData = parseBettingSplit(prediction.spread_splits_label);
+                          if (!spreadData || !spreadData.team) return null;
+                          
+                          // Only show if we can match the team to home or away
+                          const isHomeTeam = spreadData.team === prediction.home_team;
+                          const isAwayTeam = spreadData.team === prediction.away_team;
+                          if (!isHomeTeam && !isAwayTeam) return null;
+                          
+                          const teamColors = isHomeTeam ? homeTeamColors : awayTeamColors;
+                          const teamSpread = isHomeTeam ? prediction.home_spread : prediction.away_spread;
+                          const colorTheme = spreadData.isSharp ? 'green' :
+                                            spreadData.percentage >= 70 ? 'purple' :
+                                            spreadData.percentage >= 60 ? 'blue' : 'neutral';
+                          const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
+                                         colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
+                                         colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
+                                         'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
+                          const explanation = spreadData.isSharp 
+                            ? `Sharp bettors are heavily on ${spreadData.team} ${formatSpread(teamSpread)}. Professional bettors backing this spread suggests it offers value relative to the true probability.`
+                            : spreadData.percentage >= 70
+                            ? `There's heavy public action on ${spreadData.team} ${formatSpread(teamSpread)}. This lopsided betting often causes sportsbooks to shade the line, potentially creating value on the less-popular side.`
+                            : spreadData.percentage >= 60
+                            ? `Public bets show a moderate lean toward ${spreadData.team} ${formatSpread(teamSpread)}. This is typical and suggests the spread is reasonably calibrated.`
+                            : `Public betting is relatively balanced on ${spreadData.team} ${formatSpread(teamSpread)}. A near even split indicates both sides have appeal.`;
+                          
+                          return (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-center gap-2">
+                                <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Spread</h5>
+                              </div>
+                              <div className="grid grid-cols-2 items-stretch gap-3">
+                                <div className={`${bgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
+                                  <div 
+                                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center border-2 mb-2 shadow-lg"
+                                    style={{
+                                      background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
+                                      borderColor: teamColors.primary
+                                    }}
+                                  >
+                                    <span 
+                                      className="text-xs font-bold drop-shadow-md"
+                                      style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
+                                    >
+                                      {getTeamInitials(spreadData.team)}
+                                    </span>
+                        </div>
+                                  <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white text-center">
+                                    {spreadData.team}
+                                  </span>
+                                  <span className="text-xs text-gray-600 dark:text-white/60">
+                                    {formatSpread(teamSpread)}
+                                  </span>
+                                </div>
+                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
+                                  </div>
+                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
+                                    {explanation}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Total Splits */}
+                        {prediction.total_splits_label && (() => {
+                          const totalData = parseBettingSplit(prediction.total_splits_label);
+                          if (!totalData || !totalData.direction) return null;
+                          
+                          const isOver = totalData.direction === 'over';
+                          const colorTheme = totalData.isSharp ? 'green' :
+                                            totalData.percentage >= 70 ? 'purple' :
+                                            totalData.percentage >= 60 ? 'blue' : 'neutral';
+                          const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
+                                         colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
+                                         colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
+                                         'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
+                          const arrowColor = isOver ? 'text-green-400' : 'text-red-400';
+                          const arrow = isOver ? '▲' : '▼';
+                          const explanation = totalData.isSharp 
+                            ? `Sharp bettors are heavily on the ${totalData.team.toLowerCase()} ${prediction.over_line}. Professional money on the ${totalData.team.toLowerCase()} suggests the total may be mispriced.`
+                            : totalData.percentage >= 70
+                            ? `There's heavy public action on the ${totalData.team.toLowerCase()} ${prediction.over_line}. Lopsided betting on totals often creates contrarian value, as books adjust the number to balance liability.`
+                            : totalData.percentage >= 60
+                            ? `Public bets show a moderate lean toward the ${totalData.team.toLowerCase()} ${prediction.over_line}. This suggests some public sentiment but the total is likely still fair.`
+                            : `Public betting is relatively balanced on the ${totalData.team.toLowerCase()}. A near even split indicates the total is well-set with no clear public bias.`;
+                          
+                          return (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-center gap-2">
+                                <BarChart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Total</h5>
+                              </div>
+                              <div className="grid grid-cols-2 items-stretch gap-3">
+                                <div className={`${bgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
+                                  <div className={`text-4xl font-black ${arrowColor}`}>{arrow}</div>
+                                  <span className="text-sm font-semibold text-gray-900 dark:text-white mt-2">
+                                    {totalData.team} {prediction.over_line}
+                                  </span>
+                                  <span className="text-xs text-gray-600 dark:text-white/60">
+                                    {totalData.isSharp ? 'Sharp Money' : 'Public'}
+                                  </span>
+                                </div>
+                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
+                                  </div>
+                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
+                                    {explanation}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                          </motion.div>
+                        )}
                       </div>
                     </div>
                   )}
 
                   {/* Weather Section */}
-                  <div className="text-center pt-4 sm:pt-6 border-t-2 border-gray-200 dark:border-gray-700">
-                    <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
+                  <div className="text-center pt-3 sm:pt-4">
+                    <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-3">
                       {/* Header */}
-                      <h4 className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">Weather</h4>
+                      <div className="flex items-center justify-center gap-2">
+                        <CloudRain className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">Weather</h4>
+                      </div>
                       
                       {/* Weather Content */}
                       {prediction.icon ? (
@@ -1098,10 +1569,10 @@ ${contextParts}
                               <WeatherIconComponent 
                                 code="indoor"
                                 size={64}
-                                className="stroke-current text-foreground"
+                                className="stroke-current text-gray-800 dark:text-white"
                               />
                             </div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            <div className="text-xs font-medium text-gray-700 dark:text-white/80">
                               Indoor Game
                             </div>
                           </div>

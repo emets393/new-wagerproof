@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles } from 'lucide-react';
 import CFBGameCard from '@/components/CFBGameCard';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
@@ -920,6 +920,30 @@ ${contextParts}
     };
   };
 
+  // Helper function to generate edge explanations
+  const getEdgeExplanation = (edge: number, team: string, type: 'spread' | 'ou', direction?: 'over' | 'under'): string => {
+    const absEdge = Math.abs(edge);
+    
+    if (type === 'spread') {
+      if (absEdge >= 7) {
+        return `Our model spread differs from the Vegas line by ${absEdge.toFixed(1)} points, favoring ${team}. This large discrepancy suggests Vegas may have significantly mispriced this matchup. When our model disagrees with the market by this much, it indicates strong betting value - the actual game outcome is likely to be closer to our projection than what the current spread reflects.`;
+      } else if (absEdge >= 3) {
+        return `Our model's ${absEdge.toFixed(1)}-point difference from the Vegas spread favors ${team}. This moderate edge shows our analytics see the game differently than the market. The gap between our model and Vegas suggests there's value here - we're projecting ${team} will perform better relative to the spread than the current line indicates.`;
+      } else {
+        return `Our model differs from Vegas by ${absEdge.toFixed(1)} points on ${team}. This small edge indicates our projection is fairly close to the market's assessment. While the value is limited, our model still sees ${team} as slightly better positioned than the Vegas spread suggests.`;
+      }
+    } else {
+      const dir = direction || 'over';
+      if (absEdge >= 7) {
+        return `Our model's projected total differs from the Vegas line by ${absEdge.toFixed(1)} points, leaning ${dir}. This significant gap between our analytics and the market total suggests Vegas has mispriced this game's scoring potential. When our model and the betting market disagree this strongly, it typically indicates real betting value on the ${dir}.`;
+      } else if (absEdge >= 3) {
+        return `Our model projects a total that's ${absEdge.toFixed(1)} points different from Vegas, favoring the ${dir}. This moderate discrepancy shows our scoring projection doesn't align with the market. The edge suggests the actual total is more likely to land on the ${dir} side than what the current Vegas number implies.`;
+      } else {
+        return `Our model's total is ${absEdge.toFixed(1)} points from the Vegas line, slightly favoring the ${dir}. This minimal difference means our projection closely matches the market's assessment. While the edge is small, our analytics still lean toward the ${dir} when compared to what Vegas expects.`;
+      }
+    }
+  };
+
   const formatStartTime = useMemo(() => {
     const cache = new Map<string, { date: string; time: string }>();
     return (startTimeString: string | null | undefined): { date: string; time: string } => {
@@ -1332,25 +1356,31 @@ ${contextParts}
 
                   {/* Model Predictions Section */}
                   {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
-                    <div className="text-center pt-3 sm:pt-4 border-t-2 border-gray-200 dark:border-gray-700">
-                      <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-2 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
+                    <div className="text-center pt-3 sm:pt-4">
+                      <div className="bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/20 space-y-4">
                         {/* Header */}
-                        <h4 className="text-base sm:text-lg font-bold text-gray-400 dark:text-gray-500">Model Predictions</h4>
+                        <div className="flex items-center justify-center gap-2">
+                          <Brain className="h-5 w-5 text-purple-400" />
+                          <h4 className="text-lg font-bold text-gray-900 dark:text-white">Model Predictions</h4>
+                        </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-                        {/* Spread Edge Display (left) */}
+                      <div className="space-y-3">
+                        {/* Spread Edge Display */}
                         {(() => {
                           const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
 
                           if (!edgeInfo) {
                             return (
-                              <div className="bg-gradient-to-r from-muted/20 to-muted/20 rounded-xl border border-border p-3 sm:p-4">
+                              <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/20 p-3 sm:p-4">
                                 <div className="text-center">
-                                  <h5 className="text-xs sm:text-sm font-bold text-foreground mb-2 pb-1.5 border-b border-border">Spread</h5>
-                                  <div className="text-xs text-muted-foreground">Edge calculation unavailable</div>
+                                  <div className="flex items-center justify-center gap-2 mb-2 pb-1.5 border-b border-white/10">
+                                    <Target className="h-4 w-4 text-green-400" />
+                                    <h5 className="text-sm font-semibold text-white/90">Spread</h5>
+                                  </div>
+                                  <div className="text-xs text-white/60">Edge calculation unavailable</div>
                                   <div className="mt-2">
-                                    <div className="text-xs font-semibold text-muted-foreground mb-1">Model Spread</div>
-                                    <div className="text-xl sm:text-2xl font-bold text-foreground">
+                                    <div className="text-xs font-semibold text-white/80 mb-1">Model Spread</div>
+                                    <div className="text-xl sm:text-2xl font-bold text-white">
                                       {formatSignedHalf(prediction.pred_spread)}
                                     </div>
                                   </div>
@@ -1360,41 +1390,42 @@ ${contextParts}
                           }
 
                           return (
-                            <div className="bg-slate-50 dark:bg-muted/20 rounded-xl border border-border shadow-sm p-3 sm:p-4 h-full flex flex-col">
-                              <div className="text-center">
-                                <h5 className="text-sm sm:text-base font-bold text-foreground mb-2 pb-1.5 border-b border-border">Spread</h5>
+                            <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 shadow-sm p-3 sm:p-4">
+                              <div className="flex items-center justify-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-white/10">
+                                <Target className="h-4 w-4 text-green-400" />
+                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Spread</h5>
+                              </div>
+                              
+                              <div className="flex items-center justify-between gap-4">
+                                {/* Team Logo */}
+                                <div className="flex-shrink-0">
+                                  {getTeamLogo(edgeInfo.teamName) && (
+                                    <img
+                                      src={getTeamLogo(edgeInfo.teamName)}
+                                      alt={`${edgeInfo.teamName} logo`}
+                                      className="h-12 w-12 sm:h-16 sm:w-16 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
+                                    />
+                                  )}
+                                </div>
 
-                                <div className="flex-1 flex items-center justify-center space-x-3 sm:space-x-4 min-h-[80px] sm:min-h-[100px]">
-                                  {/* Team Logo */}
-                                  <div className="flex-shrink-0">
-                                    {getTeamLogo(edgeInfo.teamName) && (
-                                      <img
-                                        src={getTeamLogo(edgeInfo.teamName)}
-                                        alt={`${edgeInfo.teamName} logo`}
-                                        className="h-10 w-10 sm:h-16 sm:w-16 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                                      />
-                                    )}
-                                  </div>
-
-                                  {/* Edge Value */}
-                                  <div className="text-center">
-                                    <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">
-                                      {edgeInfo.displayEdge}
-                                    </div>
-                                    <div className="text-[10px] sm:text-xs font-medium text-muted-foreground">Edge to {getTeamAcronym(edgeInfo.teamName)}</div>
+                                {/* Edge Value */}
+                                <div className="text-center flex-1">
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamAcronym(edgeInfo.teamName)}</div>
+                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                    {edgeInfo.displayEdge}
                                   </div>
                                 </div>
 
-                                {/* Model Spread Only */}
-                                <div className="mt-2 sm:mt-3">
-                                  <div className="text-xs sm:text-sm font-semibold text-muted-foreground mb-0.5">Model Spread</div>
+                                {/* Model Spread */}
+                                <div className="text-center flex-1">
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Model Spread</div>
                                   {(() => {
                                     let modelSpreadDisplay = prediction.pred_spread;
                                     if (!edgeInfo.isHomeEdge) {
                                       if (modelSpreadDisplay !== null) modelSpreadDisplay = -modelSpreadDisplay;
                                     }
                                     return (
-                                      <div className="text-2xl sm:text-3xl font-bold text-foreground">
+                                      <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                                         {formatSignedHalf(modelSpreadDisplay)}
                                       </div>
                                     );
@@ -1405,17 +1436,38 @@ ${contextParts}
                           );
                         })()}
 
-                        {/* Over/Under Edge Display (right) */}
+                        {/* Spread Explanation */}
+                        {(() => {
+                          const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
+                          if (!edgeInfo) return null;
+                          
+                          return (
+                            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Info className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                                <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
+                              </div>
+                              <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
+                                {getEdgeExplanation(edgeInfo.edgeValue, edgeInfo.teamName, 'spread')}
+                              </p>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Over/Under Edge Display */}
                         {(() => {
                           const ouDiff = prediction.over_line_diff;
                           const hasOuData = ouDiff !== null || prediction.pred_over_line !== null || prediction.api_over_line !== null;
 
                           if (!hasOuData) {
                             return (
-                              <div className="bg-gradient-to-r from-muted/20 to-muted/20 rounded-xl border border-border p-3 sm:p-4">
+                              <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/20 p-3 sm:p-4">
                                 <div className="text-center">
-                                  <div className="text-xs font-semibold text-muted-foreground mb-2">Over/Under Edge</div>
-                                  <div className="text-xs text-muted-foreground">No O/U data available</div>
+                                  <div className="flex items-center justify-center gap-2 mb-2 pb-1.5 border-b border-white/10">
+                                    <BarChart className="h-4 w-4 text-orange-400" />
+                                    <h5 className="text-sm font-semibold text-white/90">Over/Under</h5>
+                                  </div>
+                                  <div className="text-xs text-white/60">No O/U data available</div>
                                 </div>
                               </div>
                             );
@@ -1427,39 +1479,66 @@ ${contextParts}
                           const modelValue = prediction.pred_over_line;
 
                           return (
-                            <div className={`rounded-xl border p-3 sm:p-4 h-full flex flex-col bg-slate-50 dark:bg-muted/20 border-border shadow-sm`}>
-                              <div className="text-center">
-                                <h5 className={`text-sm sm:text-base font-bold mb-2 pb-1.5 border-b ${isOver ? 'text-emerald-800 dark:text-emerald-400' : 'text-rose-800 dark:text-rose-400'} border-border`}>Over/Under</h5>
+                            <div className={`rounded-xl border p-3 sm:p-4 backdrop-blur-sm shadow-sm ${
+                              isOver 
+                                ? 'bg-green-500/10 border-green-500/20' 
+                                : 'bg-red-500/10 border-red-500/20'
+                            }`}>
+                              <div className="flex items-center justify-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-white/10">
+                                <BarChart className={`h-4 w-4 ${isOver ? 'text-green-400' : 'text-red-400'}`} />
+                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Over/Under</h5>
+                              </div>
 
-                                <div className="flex-1 flex items-center justify-center space-x-3 sm:space-x-4 min-h-[80px] sm:min-h-[100px]">
-                                  {/* Arrow Indicator */}
-                                  <div className="flex-shrink-0">
-                                    {isOver ? (
-                                      <div className="flex flex-col items-center">
-                                        <ChevronUp className="h-10 w-10 sm:h-16 sm:w-16 text-emerald-600" />
-                                        <div className="text-[10px] sm:text-xs font-bold text-emerald-700 -mt-1">Over</div>
-                                      </div>
-                                    ) : (
-                                      <div className="flex flex-col items-center">
-                                        <ChevronDown className="h-10 w-10 sm:h-16 sm:w-16 text-rose-600" />
-                                        <div className="text-[10px] sm:text-xs font-bold text-rose-700 -mt-1">Under</div>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Edge Value */}
-                                  <div className="text-center">
-                                    <div className={`text-2xl sm:text-3xl font-bold mb-0.5 ${isOver ? 'text-emerald-600' : 'text-rose-600'}`}>{displayMagnitude}</div>
-                                    <div className={`text-[10px] sm:text-xs font-medium ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>Edge to {isOver ? 'Over' : 'Under'}</div>
-                                  </div>
+                              <div className="flex items-center justify-between gap-4">
+                                {/* Arrow Indicator */}
+                                <div className="flex-shrink-0">
+                                  {isOver ? (
+                                    <div className="flex flex-col items-center">
+                                      <ChevronUp className="h-12 w-12 sm:h-16 sm:w-16 text-green-400" />
+                                      <div className="text-xs font-bold text-green-400 -mt-1">Over</div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center">
+                                      <ChevronDown className="h-12 w-12 sm:h-16 sm:w-16 text-red-400" />
+                                      <div className="text-xs font-bold text-red-400 -mt-1">Under</div>
+                                    </div>
+                                  )}
                                 </div>
 
-                                {/* Model O/U Only */}
-                                <div className="mt-2 sm:mt-3">
-                                  <div className={`text-xs sm:text-sm font-semibold mb-0.5 ${isOver ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>Model O/U</div>
-                                  <div className={`text-2xl sm:text-3xl font-bold ${isOver ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>{formatHalfNoSign(modelValue)}</div>
+                                {/* Edge Value */}
+                                <div className="text-center flex-1">
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {isOver ? 'Over' : 'Under'}</div>
+                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{displayMagnitude}</div>
+                                </div>
+
+                                {/* Model O/U */}
+                                <div className="text-center flex-1">
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Model O/U</div>
+                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{formatHalfNoSign(modelValue)}</div>
                                 </div>
                               </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* O/U Explanation */}
+                        {(() => {
+                          const ouDiff = prediction.over_line_diff;
+                          const hasOuData = ouDiff !== null || prediction.pred_over_line !== null || prediction.api_over_line !== null;
+                          if (!hasOuData) return null;
+                          
+                          const isOver = (ouDiff ?? 0) > 0;
+                          const magnitude = Math.abs(ouDiff ?? 0);
+                          
+                          return (
+                            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Info className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                                <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
+                              </div>
+                              <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
+                                {getEdgeExplanation(magnitude, '', 'ou', isOver ? 'over' : 'under')}
+                              </p>
                             </div>
                           );
                         })()}
@@ -1469,10 +1548,13 @@ ${contextParts}
                   )}
 
                   {/* Match Simulator Section */}
-                  <div className="text-center pt-3 sm:pt-4 border-t-2 border-gray-200 dark:border-gray-700">
-                    <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-2 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
+                  <div className="text-center pt-3 sm:pt-4">
+                    <div className="bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/20 space-y-4">
                       {/* Header */}
-                      <h4 className="text-base sm:text-lg font-bold text-gray-400 dark:text-gray-500">Match Simulator</h4>
+                      <div className="flex items-center justify-center gap-2">
+                        <Sparkles className="h-5 w-5 text-amber-400" />
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">Match Simulator</h4>
+                      </div>
 
                     {/* Simulate Button or Loading */}
                     {!simRevealedById[prediction.id] && (
