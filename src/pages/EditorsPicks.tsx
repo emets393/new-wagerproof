@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Star, Loader2 } from 'lucide-react';
+import { AlertCircle, Star, Loader2, Sparkles, ExternalLink } from 'lucide-react';
 import { EditorPickCard } from '@/components/EditorPickCard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useAdminMode } from '@/contexts/AdminModeContext';
@@ -636,18 +636,48 @@ export default function EditorsPicks() {
         </Alert>
       )}
 
-      {/* Empty State */}
-      {picks.length === 0 && !error && (
-        <Card>
+      {/* Empty State - Show when there are no published picks for users or no picks at all for admins */}
+      {((publishedPicks.length === 0 && !adminModeEnabled) || (picks.length === 0 && adminModeEnabled)) && !error && (
+        <Card className="overflow-hidden">
           <CardContent className="pt-6">
-            <div className="text-center py-12">
-              <Star className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Editor Picks Yet</h3>
-              <p className="text-muted-foreground">
-                {adminModeEnabled 
-                  ? 'Start by starring games on the NFL or College Football pages to create your first pick.'
-                  : 'Check back soon for expert picks from our editors!'}
-              </p>
+            <div className="text-center py-12 px-4">
+              {adminModeEnabled ? (
+                <>
+                  <Star className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Editor Picks Yet</h3>
+                  <p className="text-muted-foreground">
+                    Start by starring games on the NFL or College Football pages to create your first pick.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="relative mb-6">
+                    <Sparkles className="h-20 w-20 text-yellow-500 mx-auto animate-pulse" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-3">Fresh Picks Coming Soon!</h3>
+                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                    We're preparing our latest expert picks for you. In the meantime, get daily betting insights and analysis from our main channel!
+                  </p>
+                  <Button 
+                    size="lg"
+                    className="gap-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold shadow-lg"
+                    onClick={() => window.open('https://www.tiktok.com/@wagerproof', '_blank')}
+                  >
+                    <svg 
+                      className="h-5 w-5" 
+                      fill="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                    </svg>
+                    Follow @wagerproof on TikTok
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                  <p className="text-sm text-muted-foreground mt-4">
+                    Daily picks • Analysis • Expert insights
+                  </p>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
