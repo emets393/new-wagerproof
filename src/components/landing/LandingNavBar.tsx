@@ -67,7 +67,7 @@ const NavBar = () => {
             }}>
                 <span className="text-black dark:text-white">Wager</span>
                 <GradientText 
-                  text="Proof" 
+                  text="Proof™" 
                   gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
                   className="inline"
                 />

@@ -15,7 +15,7 @@ const Footer = () => {
             <span className="text-2xl font-bold mb-4 inline-block">
               <span className="text-gray-900 dark:text-white">Wager</span>
               <GradientText 
-                text="Proof" 
+                text="Proof™" 
                 gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
                 className="inline"
               />
