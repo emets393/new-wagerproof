@@ -116,8 +116,10 @@ function OnboardingContent() {
                 opacity: { duration: 0.2 },
                 scale: { duration: 0.2 },
               }}
-              className={`absolute inset-0 p-4 sm:p-6 md:p-8 min-h-full flex justify-center ${
-                currentStep === 6 || currentStep === 7 ? 'items-start' : 'items-center'
+              className={`absolute inset-0 ${
+                currentStep === 9 || currentStep === 10 || currentStep === 11 ? '' : 'p-4 sm:p-6 md:p-8'
+              } min-h-full flex justify-center ${
+                currentStep === 6 || currentStep === 7 || currentStep === 9 || currentStep === 10 || currentStep === 11 ? 'items-start' : 'items-center'
               }`}
             >
               <div className="w-full">

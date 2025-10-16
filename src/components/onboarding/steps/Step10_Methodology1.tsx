@@ -14,7 +14,7 @@ export function MethodologyClaim1() {
   const { nextStep } = useOnboarding();
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 max-w-2xl mx-auto">
+    <div className="flex flex-col items-center text-center p-4 sm:p-6 md:p-8 pt-24 sm:pt-28 md:pt-20 max-w-2xl mx-auto">
       <motion.h1
         className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}

@@ -92,7 +92,7 @@ export function SocialProof() {
       
       {/* Reviews carousel - edge to edge */}
       <motion.div 
-        className="w-screen -ml-[50vw] left-[50%] relative overflow-hidden my-6 sm:my-8"
+        className="w-auto -mx-4 sm:-mx-6 md:-mx-8 relative overflow-hidden my-6 sm:my-8"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.4 }}

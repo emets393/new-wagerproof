@@ -6,9 +6,7 @@ import {
   Bot, 
   Brain, 
   MessageCircle, 
-  CheckCircle, 
-  TrendingUp,
-  Trophy,
+  CheckCircle,
   BarChart3
 } from "lucide-react";
 
@@ -16,9 +14,9 @@ export function MethodologyClaim2() {
   const { nextStep } = useOnboarding();
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 pt-20 sm:pt-40 pb-8 sm:pb-16 max-w-2xl mx-auto">
+    <div className="flex flex-col items-start text-center p-4 sm:p-6 md:p-8 pt-32 sm:pt-60 md:pt-24 pb-8 sm:pb-16 max-w-2xl mx-auto w-full">
       <motion.h1
-        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-white"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-white w-full"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -115,71 +113,10 @@ export function MethodologyClaim2() {
             <span className="text-xs text-white/40 flex-1">Ask about any game or stat...</span>
           </div>
         </div>
-
-        {/* Mini Game Card Widget */}
-        <div className="bg-white/5 backdrop-blur-sm border border-green-500/20 rounded-lg p-3 sm:p-4">
-          <div className="flex items-center gap-2 mb-2 sm:mb-3">
-            <Trophy className="h-3 w-3 sm:h-4 sm:w-4 text-green-400" />
-            <h3 className="text-xs sm:text-sm font-bold text-white">Game Analysis</h3>
-            <Badge className="bg-green-500/20 text-green-300 text-xs border border-green-500/30">
-              AI Powered
-            </Badge>
-          </div>
-
-          {/* Mini Game Header */}
-          <div className="flex justify-between items-center mb-3 p-2 bg-white/5 rounded border border-white/10">
-            <div className="text-center">
-              <div className="h-6 w-6 mx-auto mb-1 bg-red-500/20 rounded-full flex items-center justify-center border border-red-500/30">
-                <span className="text-xs font-bold text-red-300">KC</span>
-              </div>
-              <p className="text-xs font-medium text-white/80">Chiefs</p>
-            </div>
-            <span className="text-sm font-bold text-white/40">@</span>
-            <div className="text-center">
-              <div className="h-6 w-6 mx-auto mb-1 bg-blue-500/20 rounded-full flex items-center justify-center border border-blue-500/30">
-                <span className="text-xs font-bold text-blue-300">BUF</span>
-              </div>
-              <p className="text-xs font-medium text-white/80">Bills</p>
-            </div>
-          </div>
-
-          {/* AI Statistical Insights */}
-          <div className="space-y-2">
-            <div className="bg-green-500/10 p-2 rounded border border-green-500/20">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-green-300">AI Recommendation</span>
-                <TrendingUp className="h-3 w-3 text-green-400" />
-              </div>
-              <p className="text-xs text-white font-medium">Buffalo +3.5</p>
-              <p className="text-xs text-white/70">Based on 15 statistical factors</p>
-            </div>
-
-            <div className="bg-white/5 p-2 rounded border border-white/10">
-              <div className="flex items-center gap-2 mb-1">
-                <Brain className="h-3 w-3 text-purple-400" />
-                <span className="text-xs font-medium text-white">Key Insights</span>
-              </div>
-              <ul className="space-y-1 text-xs text-white/80">
-                <li>• Home field advantage: +2.8 pts</li>
-                <li>• Weather impact: -1.2 pts for KC</li>
-                <li>• Recent form favors Buffalo</li>
-              </ul>
-            </div>
-
-            <div className="bg-purple-500/10 p-2 rounded border border-purple-500/20">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-purple-300">Model Consensus</span>
-                <Badge className="bg-purple-500/20 text-purple-300 text-xs border border-purple-500/30">
-                  3/4 Models
-                </Badge>
-              </div>
-              <p className="text-xs text-white/70 mt-1">Agree on Buffalo coverage</p>
-            </div>
-          </div>
-        </div>
       </motion.div>
 
       <motion.div
+        className="w-full flex justify-center"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.8 }}

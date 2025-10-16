@@ -17,7 +17,7 @@ export function ValueClaim() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center text-center max-w-1xl mx-auto px-4">
+    <div className="flex flex-col items-center text-center max-w-1xl mx-auto px-4 pt-16 sm:pt-20">
       <motion.h1
         className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-white"
         initial={{ opacity: 0, y: -20 }}
