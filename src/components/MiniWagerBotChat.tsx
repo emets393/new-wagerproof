@@ -223,10 +223,12 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
         </Card>
       )}
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button - Hidden on mobile when chat is open */}
       <div
         onClick={toggleChat}
-        className="fixed bottom-6 right-6 h-16 w-16 rounded-lg z-50 cursor-pointer"
+        className={`fixed bottom-6 right-6 h-16 w-16 rounded-lg z-50 cursor-pointer ${
+          isOpen ? 'hidden md:block' : ''
+        }`}
         aria-label="Toggle WagerBot Chat"
       >
         <div className="relative bg-transparent outline-none w-16 h-16 [perspective:16em] [transform-style:preserve-3d]">

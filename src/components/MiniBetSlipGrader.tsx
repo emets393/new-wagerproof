@@ -265,12 +265,12 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
         </Card>
       )}
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button - Hidden on mobile when chat is open */}
       <div
         onClick={toggleChat}
         className={`
           fixed bottom-6 right-6 z-40
-          ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}
+          ${isOpen ? 'hidden md:block md:opacity-0 md:pointer-events-none' : 'block opacity-100'}
           transition-all duration-300 ease-in-out
           cursor-pointer group
         `}
