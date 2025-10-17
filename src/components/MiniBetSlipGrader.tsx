@@ -36,10 +36,13 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
 
   // Load or create session when opened
   useEffect(() => {
-    if (isOpen && user && !isLoading) {
-      loadOrCreateSession();
+    if (isOpen && !isLoading) {
+      // For inline mode (landing page), allow without user
+      if (inline || user) {
+        loadOrCreateSession();
+      }
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, inline]);
 
   // Reset position to initial when chat is opened (only for floating mode)
   useEffect(() => {
@@ -53,12 +56,23 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
     setError('');
 
     try {
+      // Create a guest user if no user is signed in (for landing page)
+      const guestUser = user || {
+        id: 'guest-' + Math.random().toString(36).substr(2, 9),
+        email: 'guest@wagerproof.com',
+        created_at: new Date().toISOString(),
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        updated_at: new Date().toISOString()
+      } as any;
+
       // Try to get existing session for this specific page
-      let session = chatSessionManager.getCurrentSession(user!.id, BET_SLIP_GRADER_PAGE_ID);
+      let session = chatSessionManager.getCurrentSession(guestUser.id, BET_SLIP_GRADER_PAGE_ID);
       
       if (!session) {
         console.log('Creating new Bet Slip Grader session...');
-        session = await chatSessionManager.createNewSession(user!, BET_SLIP_GRADER_PAGE_ID);
+        session = await chatSessionManager.createNewSession(guestUser, BET_SLIP_GRADER_PAGE_ID);
       }
 
       setCurrentSession(session);
@@ -115,6 +129,17 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
 
   // Inline mode - render directly in page
   if (inline) {
+    // Create guest user for rendering if needed
+    const renderUser = user || {
+      id: 'guest-render',
+      email: 'guest@wagerproof.com',
+      created_at: new Date().toISOString(),
+      app_metadata: {},
+      user_metadata: {},
+      aud: 'authenticated',
+      updated_at: new Date().toISOString()
+    } as any;
+
     return (
       <Card className="w-full h-[700px] shadow-xl flex flex-col overflow-hidden border-2 border-green-500/20">
         {/* Header */}
@@ -127,20 +152,7 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
 
         {/* Chat Content */}
         <div className="flex-1 overflow-hidden">
-          {!user ? (
-            <div className="h-full flex items-center justify-center p-4">
-              <div className="text-center space-y-4">
-                <FileImage className="h-12 w-12 mx-auto text-green-500" />
-                <p className="text-muted-foreground">Please sign in to use the Bet Slip Grader</p>
-                <Button
-                  onClick={() => window.location.href = '/welcome'}
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                >
-                  Sign In
-                </Button>
-              </div>
-            </div>
-          ) : error ? (
+          {error ? (
             <div className="h-full flex items-center justify-center p-4">
               <Alert variant="destructive" className="max-w-md">
                 <AlertDescription>{error}</AlertDescription>
@@ -155,7 +167,7 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
             </div>
           ) : (
             <ChatKitWrapper
-              user={user}
+              user={renderUser}
               sessionId={currentSession.id}
               theme={theme === 'dark' ? 'dark' : 'light'}
               workflowId={BET_SLIP_GRADER_WORKFLOW_ID}
