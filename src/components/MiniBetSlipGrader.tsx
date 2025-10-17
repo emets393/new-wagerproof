@@ -25,10 +25,25 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
   const [error, setError] = useState<string>('');
   
   // Drag functionality state
-  const getInitialPosition = () => ({
-    x: window.innerWidth - 480,
-    y: window.innerHeight - 700
-  });
+  const getInitialPosition = () => {
+    const isMobile = window.innerWidth < 768;
+    const chatWidth = isMobile ? Math.min(window.innerWidth * 0.95, 440) : 440;
+    const chatHeight = isMobile ? Math.min(window.innerHeight * 0.8, 650) : 650;
+    
+    if (isMobile) {
+      // Center on mobile devices
+      return {
+        x: Math.max(0, (window.innerWidth - chatWidth) / 2),
+        y: Math.max(0, (window.innerHeight - chatHeight) / 2)
+      };
+    }
+    
+    // Desktop positioning (bottom-right)
+    return {
+      x: window.innerWidth - 480,
+      y: window.innerHeight - 700
+    };
+  };
   
   const [position, setPosition] = useState(getInitialPosition);
   const [isDragging, setIsDragging] = useState(false);
@@ -104,12 +119,23 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
   };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (isDragging) {
-      setPosition({
-        x: e.clientX - dragOffset.x,
-        y: e.clientY - dragOffset.y
-      });
-    }
+    if (!isDragging) return;
+
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+
+    // Keep window within viewport bounds
+    const isMobile = window.innerWidth < 768;
+    const chatWidth = isMobile ? Math.min(window.innerWidth * 0.95, 440) : 440;
+    const chatHeight = isMobile ? Math.min(window.innerHeight * 0.8, 650) : 650;
+    
+    const maxX = window.innerWidth - chatWidth;
+    const maxY = window.innerHeight - chatHeight;
+    
+    const boundedX = Math.max(0, Math.min(newX, maxX));
+    const boundedY = Math.max(0, Math.min(newY, maxY));
+
+    setPosition({ x: boundedX, y: boundedY });
   };
 
   const handleMouseUp = () => {
@@ -185,7 +211,7 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
       {/* Floating Chat Window */}
       {isOpen && (
         <Card 
-          className="fixed z-50 w-[440px] h-[650px] shadow-2xl flex flex-col overflow-hidden border-2 border-green-500/20"
+          className="fixed z-50 w-[95vw] max-w-[440px] h-[80vh] max-h-[650px] md:w-[440px] md:h-[650px] shadow-2xl flex flex-col overflow-hidden border-2 border-green-500/20"
           style={{
             left: `${position.x}px`,
             top: `${position.y}px`,

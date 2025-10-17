@@ -17,7 +17,7 @@ export default function Discord() {
             Join Our Discord Community
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Connect with fellow WagerProof subscribers and get exclusive access to our community discussions
+            Connect with fellow WagerProof subscribers and get exclusive access to our community discussions and access to the development team.
           </p>
         </div>
 
@@ -29,7 +29,7 @@ export default function Discord() {
               </div>
               
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                This Discord Channel is for Subscribers Only
+                As a member of the WagerProof community, you have access to our private Discord server!
               </h2>
               
               <p className="text-lg text-gray-700 dark:text-gray-300 max-w-xl mx-auto leading-relaxed">
@@ -49,7 +49,7 @@ export default function Discord() {
                     className="flex items-center gap-3"
                   >
                     <DiscordLogo className="w-6 h-6" weight="fill" />
-                    <span>Join Discord Community</span>
+                    <span>Join Exclusive Discord Community</span>
                   </a>
                 </Button>
               </div>

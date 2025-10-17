@@ -23,10 +23,25 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
   const [error, setError] = useState<string>('');
   
   // Drag functionality state
-  const getInitialPosition = () => ({
-    x: window.innerWidth - 480,
-    y: window.innerHeight - 700
-  });
+  const getInitialPosition = () => {
+    const isMobile = window.innerWidth < 768;
+    const chatWidth = isMobile ? Math.min(window.innerWidth * 0.95, 400) : 400;
+    const chatHeight = isMobile ? Math.min(window.innerHeight * 0.8, 600) : 600;
+    
+    if (isMobile) {
+      // Center on mobile devices
+      return {
+        x: Math.max(0, (window.innerWidth - chatWidth) / 2),
+        y: Math.max(0, (window.innerHeight - chatHeight) / 2)
+      };
+    }
+    
+    // Desktop positioning (bottom-right)
+    return {
+      x: window.innerWidth - 480,
+      y: window.innerHeight - 700
+    };
+  };
   
   const [position, setPosition] = useState(getInitialPosition);
   const [isDragging, setIsDragging] = useState(false);
@@ -114,8 +129,12 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
     const newY = e.clientY - dragOffset.y;
 
     // Keep window within viewport bounds
-    const maxX = window.innerWidth - 400; // Window width
-    const maxY = window.innerHeight - 600; // Window height
+    const isMobile = window.innerWidth < 768;
+    const chatWidth = isMobile ? Math.min(window.innerWidth * 0.95, 400) : 400;
+    const chatHeight = isMobile ? Math.min(window.innerHeight * 0.8, 600) : 600;
+    
+    const maxX = window.innerWidth - chatWidth;
+    const maxY = window.innerHeight - chatHeight;
     
     const boundedX = Math.max(0, Math.min(newX, maxX));
     const boundedY = Math.max(0, Math.min(newY, maxY));
@@ -151,7 +170,7 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
       {/* Chat Popup Overlay */}
       {isOpen && (
         <Card 
-          className="fixed w-[400px] h-[600px] flex flex-col shadow-2xl rounded-xl z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden bg-gradient-to-br from-green-500/10 to-green-600/10 backdrop-blur-sm"
+          className="fixed w-[95vw] max-w-[400px] h-[80vh] max-h-[600px] md:w-[400px] md:h-[600px] flex flex-col shadow-2xl rounded-xl z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden bg-gradient-to-br from-green-500/10 to-green-600/10 backdrop-blur-sm"
           style={{ 
             left: `${position.x}px`, 
             top: `${position.y}px`,
