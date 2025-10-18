@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Shield, Trophy, BarChart, ScatterChart, School, Star, Bot } from 'lucide-react';
 import { Basketball } from 'phosphor-react';
 import CFBMiniCard from './CFBMiniCard';
+import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 
 interface CFBPrediction {
   id: string;
@@ -307,6 +308,11 @@ export default function CFBPreview() {
             </div>
             <span className="text-sm text-gray-500 dark:text-gray-400">Today's Games</span>
           </div>
+        </div>
+        
+        {/* Live Score Ticker - Demo in Hero */}
+        <div className="overflow-hidden">
+          <LiveScoreTicker />
         </div>
         
         {/* Main Content Area with Sidebar */}

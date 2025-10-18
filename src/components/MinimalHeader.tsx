@@ -40,7 +40,7 @@ export function MinimalHeader({ rightContent }: MinimalHeaderProps) {
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border bg-background px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="flex h-12 items-center justify-between border-b border-border bg-background px-4">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
         <div className="flex items-center gap-1.5 text-sm">

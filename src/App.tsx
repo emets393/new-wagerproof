@@ -29,6 +29,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppLayout } from "./components/AppLayout";
 import { MinimalHeader } from "./components/MinimalHeader";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { LiveScoreTicker } from "./components/LiveScoreTicker";
 
 const queryClient = new QueryClient();
 
@@ -37,13 +38,16 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={true}>
       <AppLayout />
-      <SidebarInset>
-        <MinimalHeader />
-        <main className="flex flex-1 flex-col overflow-auto">
-          <div className="w-full px-4 py-6 md:px-8 md:py-8">
-            {children}
-          </div>
-        </main>
+      <SidebarInset className="overflow-x-hidden">
+        <div className="overflow-x-hidden w-full">
+          <LiveScoreTicker />
+          <MinimalHeader />
+          <main className="flex flex-1 flex-col overflow-auto">
+            <div className="w-full px-4 py-6 md:px-8 md:py-8">
+              {children}
+            </div>
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

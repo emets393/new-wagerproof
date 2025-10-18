@@ -6,6 +6,10 @@
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. */
 
 @layer base {
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 10%;
@@ -100,6 +104,8 @@
   body {
     @apply bg-background text-foreground;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
 
   /* Claude.ai style smooth transitions */
