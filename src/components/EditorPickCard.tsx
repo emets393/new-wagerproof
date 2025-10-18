@@ -155,6 +155,54 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
         throw error;
       }
 
+      // Post to Discord after successful publish
+      try {
+        console.log('🔔 Posting to Discord...');
+        
+        const discordPayload = {
+          pickData: {
+            id: pick.id,
+            gameId: pick.game_id,
+            gameType: pick.game_type,
+            selectedBetTypes: selectedBetTypes,
+            editorNotes: notes.trim(),
+          },
+          gameData: {
+            awayTeam: gameData.away_team,
+            homeTeam: gameData.home_team,
+            awayLogo: gameData.away_logo,
+            homeLogo: gameData.home_logo,
+            gameDate: gameData.game_date,
+            gameTime: gameData.game_time,
+            awaySpread: gameData.away_spread,
+            homeSpread: gameData.home_spread,
+            awayMl: gameData.away_ml,
+            homeMl: gameData.home_ml,
+            overLine: gameData.over_line,
+            homeTeamColors: gameData.home_team_colors,
+            awayTeamColors: gameData.away_team_colors,
+          },
+          channelId: '1428843931889569893', // editors-picks channel
+        };
+
+        const discordResponse = await fetch('https://xna68l.buildship.run/discord-editor-pick-post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(discordPayload),
+        });
+
+        if (!discordResponse.ok) {
+          const errorText = await discordResponse.text();
+          console.error('❌ Discord post failed:', errorText);
+          // Don't throw - pick is published, Discord is secondary
+        } else {
+          console.log('✅ Posted to Discord successfully');
+        }
+      } catch (discordError) {
+        console.error('❌ Error posting to Discord:', discordError);
+        // Don't throw - pick is already published
+      }
+
       toast({
         title: 'Pick Published',
         description: 'Your editor pick is now visible to all users.',
