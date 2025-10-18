@@ -8,9 +8,9 @@ export default function Discord() {
   const discordInviteUrl = "https://discord.gg/Mc4ZcRpx9g";
 
   return (
-    <div className="min-h-screen relative bg-black/30 backdrop-blur-sm p-6 overflow-hidden">
+    <div className="min-h-screen relative bg-black/30 backdrop-blur-sm p-6 overflow-hidden rounded-3xl">
       {/* Dither Background Effect */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden rounded-3xl" style={{ clipPath: 'inset(0 round 1.5rem)' }}>
         <Dither
           waveSpeed={0.05}
           waveFrequency={3}
