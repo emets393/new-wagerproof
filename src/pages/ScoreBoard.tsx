@@ -68,49 +68,53 @@ export default function ScoreBoard() {
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Page Header */}
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Live Score Board</h1>
-          <p className="text-muted-foreground">
-            Real-time scores and model predictions for all live games
-          </p>
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Live Score Board</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Real-time scores and model predictions for all live games
+            </p>
+          </div>
+          <Button
+            variant={isExpanded ? "default" : "outline"}
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-2 self-start"
+          >
+            {isExpanded ? (
+              <>
+                <Minimize2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Compact</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Expand All</span>
+              </>
+            )}
+          </Button>
         </div>
-        <Button
-          variant={isExpanded ? "default" : "outline"}
-          size="sm"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2"
-        >
-          {isExpanded ? (
-            <>
-              <Minimize2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Compact</span>
-            </>
-          ) : (
-            <>
-              <Maximize2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Expand All</span>
-            </>
-          )}
-        </Button>
       </div>
 
       {/* NFL Section */}
       {nflGames.length > 0 && (
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold">NFL Games</h2>
             </div>
-            <Badge variant="secondary" className="text-xs">
-              {nflGames.length} {nflGames.length === 1 ? 'Game' : 'Games'}
-            </Badge>
-            {nflHitting > 0 && (
-              <Badge className="text-xs bg-honeydew-500/20 text-honeydew-500 border-honeydew-500/50">
-                {nflHitting} Hitting
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {nflGames.length} {nflGames.length === 1 ? 'Game' : 'Games'}
               </Badge>
-            )}
+              {nflHitting > 0 && (
+                <Badge className="text-xs bg-honeydew-500/20 text-honeydew-500 border-honeydew-500/50">
+                  {nflHitting} Hitting
+                </Badge>
+              )}
+            </div>
           </div>
           {isExpanded ? (
             // Expanded mode - show full prediction cards
@@ -137,19 +141,21 @@ export default function ScoreBoard() {
       {/* CFB Section */}
       {cfbGames.length > 0 && (
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
             <div className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold">College Football Games</h2>
             </div>
-            <Badge variant="secondary" className="text-xs">
-              {cfbGames.length} {cfbGames.length === 1 ? 'Game' : 'Games'}
-            </Badge>
-            {cfbHitting > 0 && (
-              <Badge className="text-xs bg-honeydew-500/20 text-honeydew-500 border-honeydew-500/50">
-                {cfbHitting} Hitting
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {cfbGames.length} {cfbGames.length === 1 ? 'Game' : 'Games'}
               </Badge>
-            )}
+              {cfbHitting > 0 && (
+                <Badge className="text-xs bg-honeydew-500/20 text-honeydew-500 border-honeydew-500/50">
+                  {cfbHitting} Hitting
+                </Badge>
+              )}
+            </div>
           </div>
           {isExpanded ? (
             // Expanded mode - show full prediction cards
@@ -175,7 +181,7 @@ export default function ScoreBoard() {
 
       {/* Summary Footer */}
       <div className="mt-8 pt-6 border-t border-border">
-        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-honeydew-500 animate-pulse"></div>
             <span>Prediction Hitting</span>
@@ -184,7 +190,7 @@ export default function ScoreBoard() {
             <div className="h-2 w-2 rounded-full bg-destructive"></div>
             <span>Prediction Not Hitting</span>
           </div>
-          <div className="ml-auto text-xs">
+          <div className="sm:ml-auto text-xs">
             Updates every 30 seconds
           </div>
         </div>
