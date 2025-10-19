@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useOnboarding } from "@/contexts/OnboardingContext";
@@ -6,7 +7,7 @@ export function PersonalizationIntro() {
   const { nextStep } = useOnboarding();
 
   const handleContinue = () => {
-    console.log('Continue button clicked!');
+    debug.log('Continue button clicked!');
     nextStep();
   };
 

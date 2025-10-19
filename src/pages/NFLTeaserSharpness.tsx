@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { useTheme } from '@/contexts/ThemeContext';
+import debug from '@/utils/debug';
 import {
   ResponsiveContainer,
   ScatterChart,
@@ -45,19 +46,19 @@ export default function NFLTeaserSharpness() {
         const { data, error: rpcErr } = await (collegeFootballSupabase as any)
           .rpc('get_nfl_teaser_sharpness');
         if (rpcErr) {
-          console.warn('RPC get_nfl_teaser_sharpness failed, falling back to direct view select:', rpcErr.message);
+          debug.warn('RPC get_nfl_teaser_sharpness failed, falling back to direct view select:', rpcErr.message);
           const { data: vdata, error: vErr } = await (collegeFootballSupabase as any)
             .from('v_nfl_spread_bias_sharpness_2025')
             .select('team_id,team_name,ou_bias_2025,ou_sharpness_2025,spread_bias_2025,spread_sharpness_2025,games_ou_2025');
           if (vErr) {
-            console.error('Error loading sharpness view:', vErr);
+            debug.error('Error loading sharpness view:', vErr);
             setError(vErr.message);
           } else {
-            console.log('Sharpness rows loaded (view):', vdata?.length);
+            debug.log('Sharpness rows loaded (view):', vdata?.length);
             setRows((vdata || []) as SharpnessRow[]);
           }
         } else {
-          console.log('Sharpness rows loaded (rpc):', data?.length);
+          debug.log('Sharpness rows loaded (rpc):', data?.length);
           setRows((data || []) as SharpnessRow[]);
         }
         // Load upcoming matchups for filter
@@ -81,7 +82,7 @@ export default function NFLTeaserSharpness() {
         // Temporarily skip team mapping fetch (404 in this environment).
         // We'll render initials when a logo is missing.
       } catch (e: any) {
-        console.error('Unexpected error loading data', e);
+        debug.error('Unexpected error loading data', e);
         setError(e?.message || 'Unexpected error');
       } finally {
         setLoading(false);

@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -20,17 +21,17 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
   const { data: moneylineData, isLoading } = useQuery({
     queryKey: ["circa_lines", uniqueId],
     queryFn: async () => {
-      console.log('Fetching circa_lines data for unique_id:', normalizedId);
+      debug.log('Fetching circa_lines data for unique_id:', normalizedId);
       const { data, error } = await supabase
         .from("circa_lines")
         .select("Handle_Home, Handle_Away, Bets_Home, Bets_Away, RL_Handle_Home, RL_Handle_Away, RL_Bets_Home, RL_Bets_Away, Total_Over_Handle, Total_Under_Handle, Total_Over_Bets, Total_Under_Bets")
         .eq("unique_id", normalizedId)
         .single();
       if (error) {
-        console.error("Error fetching circa_lines:", error);
+        debug.error("Error fetching circa_lines:", error);
         return null;
       }
-      console.log('Circa_lines data found:', data);
+      debug.log('Circa_lines data found:', data);
       return data;
     },
     enabled: isOpen,
@@ -46,7 +47,7 @@ const PredictionsModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam }: Pre
         .eq("unique_id", uniqueId)
         .single();
       if (error) {
-        console.error("Error fetching game stats:", error);
+        debug.error("Error fetching game stats:", error);
         return null;
       }
       return data;

@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles } from 'lucide-react';
 import CFBGameCard from '@/components/CFBGameCard';
+import debug from '@/utils/debug';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
@@ -166,7 +167,7 @@ export default function CollegeFootball() {
 
 ---`;
         } catch (err) {
-          console.error('Error building context for game:', pred, err);
+          debug.error('Error building context for game:', pred, err);
           return '';
         }
       }).filter(Boolean).join('\n');
@@ -179,7 +180,7 @@ ${contextParts}
 
 *Note: Probabilities are from the predictive model. I can help you analyze these matchups, identify value opportunities, and answer questions about specific games.*`;
     } catch (error) {
-      console.error('Error building CFB context:', error);
+      debug.error('Error building CFB context:', error);
       return ''; // Return empty string if there's an error
     }
   };
@@ -191,41 +192,41 @@ ${contextParts}
     
     // Debug logging for context - Show what we're sending to the AI
     if (context && predictions.length > 0) {
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
-      console.log('%c📊 COLLEGE FOOTBALL - DATA SENT TO AI', 'color: #10b981; font-weight: bold; font-size: 14px');
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
-      console.log(`\n📈 Total Games: ${predictions.length}\n`);
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
+      debug.log('%c📊 COLLEGE FOOTBALL - DATA SENT TO AI', 'color: #10b981; font-weight: bold; font-size: 14px');
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
+      debug.log(`\n📈 Total Games: ${predictions.length}\n`);
       
       // Show summary of each game
       predictions.slice(0, 10).forEach((pred, idx) => {
         const gameTime = pred.start_time || pred.game_datetime || pred.datetime || 'TBD';
-        console.log(`%c🏈 Game ${idx + 1}: ${pred.away_team} @ ${pred.home_team}`, 'color: #3b82f6; font-weight: bold');
-        console.log(`   📅 Time: ${gameTime}`);
-        console.log(`   📊 Lines:`);
-        console.log(`      • Spread: ${pred.home_team} ${pred.home_spread || pred.api_spread || 'N/A'}`);
-        console.log(`      • Moneyline: Away ${pred.away_moneyline || pred.away_ml || 'N/A'} / Home ${pred.home_moneyline || pred.home_ml || 'N/A'}`);
-        console.log(`      • Over/Under: ${pred.total_line || pred.api_over_line || 'N/A'}`);
-        console.log(`   🤖 Model Predictions:`);
-        console.log(`      • ML Probability: ${pred.pred_ml_proba ? (pred.pred_ml_proba * 100).toFixed(1) + '%' : 'N/A'}`);
-        console.log(`      • Spread Cover Prob: ${pred.pred_spread_proba ? (pred.pred_spread_proba * 100).toFixed(1) + '%' : 'N/A'}`);
-        console.log(`      • Total Probability: ${pred.pred_total_proba ? (pred.pred_total_proba * 100).toFixed(1) + '%' : 'N/A'}`);
-        console.log(`      • Predicted Scores: Away ${pred.pred_away_score || pred.pred_away_points || 'N/A'} - Home ${pred.pred_home_score || pred.pred_home_points || 'N/A'}`);
-        console.log(`   ⛅ Weather: ${pred.weather_temp_f || pred.temperature || 'N/A'}°F, Wind: ${pred.weather_windspeed_mph || pred.wind_speed || 'N/A'} mph`);
-        console.log(`   📈 Public Splits: Spread: ${pred.spread_splits_label || 'N/A'}, Total: ${pred.total_splits_label || 'N/A'}`);
-        console.log('');
+        debug.log(`%c🏈 Game ${idx + 1}: ${pred.away_team} @ ${pred.home_team}`, 'color: #3b82f6; font-weight: bold');
+        debug.log(`   📅 Time: ${gameTime}`);
+        debug.log(`   📊 Lines:`);
+        debug.log(`      • Spread: ${pred.home_team} ${pred.home_spread || pred.api_spread || 'N/A'}`);
+        debug.log(`      • Moneyline: Away ${pred.away_moneyline || pred.away_ml || 'N/A'} / Home ${pred.home_moneyline || pred.home_ml || 'N/A'}`);
+        debug.log(`      • Over/Under: ${pred.total_line || pred.api_over_line || 'N/A'}`);
+        debug.log(`   🤖 Model Predictions:`);
+        debug.log(`      • ML Probability: ${pred.pred_ml_proba ? (pred.pred_ml_proba * 100).toFixed(1) + '%' : 'N/A'}`);
+        debug.log(`      • Spread Cover Prob: ${pred.pred_spread_proba ? (pred.pred_spread_proba * 100).toFixed(1) + '%' : 'N/A'}`);
+        debug.log(`      • Total Probability: ${pred.pred_total_proba ? (pred.pred_total_proba * 100).toFixed(1) + '%' : 'N/A'}`);
+        debug.log(`      • Predicted Scores: Away ${pred.pred_away_score || pred.pred_away_points || 'N/A'} - Home ${pred.pred_home_score || pred.pred_home_points || 'N/A'}`);
+        debug.log(`   ⛅ Weather: ${pred.weather_temp_f || pred.temperature || 'N/A'}°F, Wind: ${pred.weather_windspeed_mph || pred.wind_speed || 'N/A'} mph`);
+        debug.log(`   📈 Public Splits: Spread: ${pred.spread_splits_label || 'N/A'}, Total: ${pred.total_splits_label || 'N/A'}`);
+        debug.log('');
       });
       
       if (predictions.length > 10) {
-        console.log(`   ... and ${predictions.length - 10} more games`);
+        debug.log(`   ... and ${predictions.length - 10} more games`);
       }
       
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
-      console.log(`%c✅ Full context length: ${context.length} characters`, 'color: #10b981');
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'color: #10b981; font-weight: bold');
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #10b981; font-weight: bold');
+      debug.log(`%c✅ Full context length: ${context.length} characters`, 'color: #10b981');
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'color: #10b981; font-weight: bold');
       
       // Also log raw context for copy-paste debugging
       console.groupCollapsed('📋 Raw Context (click to expand)');
-      console.log(context);
+      debug.log(context);
       console.groupEnd();
     }
     
@@ -427,12 +428,12 @@ ${contextParts}
       setError(null);
       
       // Force new chat session on refresh
-      console.log('🔄 Refresh triggered - clearing chat session to force new context');
+      debug.log('🔄 Refresh triggered - clearing chat session to force new context');
       if (user) {
         chatSessionManager.clearPageSession(user.id, 'college-football');
       }
       
-      console.log('Fetching college football data...');
+      debug.log('Fetching college football data...');
       
       // Fetch team mappings first
       const { data: mappings, error: mappingsError } = await collegeFootballSupabase
@@ -440,12 +441,12 @@ ${contextParts}
         .select('api, logo_light');
       
       if (mappingsError) {
-        console.error('Error fetching team mappings:', mappingsError);
+        debug.error('Error fetching team mappings:', mappingsError);
         setError(`Team mappings error: ${mappingsError.message}`);
         return;
       }
       
-      console.log('Team mappings fetched:', mappings?.length || 0);
+      debug.log('Team mappings fetched:', mappings?.length || 0);
       setTeamMappings(mappings || []);
 
         // Fetch predictions - no date filtering needed
@@ -454,13 +455,13 @@ ${contextParts}
           .select('*');
 
         if (predsError) {
-          console.error('Error fetching predictions:', predsError);
+          debug.error('Error fetching predictions:', predsError);
           setError(`Predictions error: ${predsError.message}`);
           return;
         }
 
-        console.log('Predictions fetched:', preds?.length || 0);
-        console.log('Sample prediction data:', preds?.[0]); // Log first prediction to see structure
+        debug.log('Predictions fetched:', preds?.length || 0);
+        debug.log('Sample prediction data:', preds?.[0]); // Log first prediction to see structure
 
         // Fetch prediction data from cfb_api_predictions
         const { data: apiPreds, error: apiPredsError } = await collegeFootballSupabase
@@ -468,13 +469,13 @@ ${contextParts}
           .select('*');
 
         if (apiPredsError) {
-          console.error('Error fetching API predictions:', apiPredsError);
+          debug.error('Error fetching API predictions:', apiPredsError);
           setError(`API predictions error: ${apiPredsError.message}`);
           return;
         }
 
-        console.log('API predictions fetched:', apiPreds?.length || 0);
-        console.log('Sample API prediction data:', apiPreds?.[0]); // Log first API prediction to see structure
+        debug.log('API predictions fetched:', apiPreds?.length || 0);
+        debug.log('Sample API prediction data:', apiPreds?.[0]); // Log first API prediction to see structure
 
         // Map API prediction data; weather display comes directly from cfb_live_weekly_inputs fields
         const predictionsWithWeather = (preds || []).map(prediction => {
@@ -482,9 +483,9 @@ ${contextParts}
           
           // Debug logging for first prediction
           if (prediction.id === preds?.[0]?.id) {
-            console.log('Mapping prediction:', prediction.id);
-            console.log('Found API pred:', apiPred);
-            console.log('All API pred columns:', Object.keys(apiPred || {}));
+            debug.log('Mapping prediction:', prediction.id);
+            debug.log('Found API pred:', apiPred);
+            debug.log('All API pred columns:', Object.keys(apiPred || {}));
           }
           
           return {
@@ -516,7 +517,7 @@ ${contextParts}
         setLastUpdated(new Date());
       }
     } catch (err) {
-      console.error('Error fetching data:', err);
+      debug.error('Error fetching data:', err);
       setError(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -856,7 +857,7 @@ ${contextParts}
         hour12: true
       }) + ' EST';
     } catch (error) {
-      console.error('Error formatting time:', error);
+      debug.error('Error formatting time:', error);
       return timeString; // Fallback to original time if formatting fails
     }
   };
@@ -873,7 +874,7 @@ ${contextParts}
       });
       return `${estTime} EST`;
     } catch (error) {
-      console.error('Error converting UTC to EST:', error);
+      debug.error('Error converting UTC to EST:', error);
       return utcTimeString; // Fallback to original time if conversion fails
     }
   };
@@ -987,7 +988,7 @@ ${contextParts}
       cache.set(startTimeString, result);
       return result;
     } catch (error) {
-      console.error('Error formatting start time:', error);
+      debug.error('Error formatting start time:', error);
       const fallback = { date: 'TBD', time: 'TBD' };
       cache.set(startTimeString, fallback);
       return fallback;

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import debug from '@/utils/debug';
 
 export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb') {
   const { adminModeEnabled } = useAdminMode();
@@ -35,7 +36,7 @@ export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb') {
 
       if (error && error.code !== 'PGRST116') {
         // PGRST116 is the "no rows returned" error, which is expected
-        console.error('Error checking if starred:', error);
+        debug.error('Error checking if starred:', error);
         return;
       }
 
@@ -47,18 +48,18 @@ export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb') {
         setPickId(null);
       }
     } catch (error) {
-      console.error('Error checking if starred:', error);
+      debug.error('Error checking if starred:', error);
     }
   };
 
   const toggleStar = async () => {
     if (!user) {
-      console.warn('No user logged in');
+      debug.warn('No user logged in');
       return;
     }
 
     if (!gameId) {
-      console.error('No gameId provided to useEditorPick hook');
+      debug.error('No gameId provided to useEditorPick hook');
       toast({
         title: 'Error',
         description: 'Game ID is missing. Cannot create pick.',
@@ -67,7 +68,7 @@ export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb') {
       return;
     }
 
-    console.log('🌟 Toggling star for:', { gameId, gameType, isStarred });
+    debug.log('🌟 Toggling star for:', { gameId, gameType, isStarred });
 
     setIsLoading(true);
     try {
@@ -88,7 +89,7 @@ export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb') {
         });
       } else {
         // Create a new draft pick
-        console.log('📝 Creating new pick with data:', {
+        debug.log('📝 Creating new pick with data:', {
           game_id: gameId,
           game_type: gameType,
           editor_id: user.id,
@@ -109,11 +110,11 @@ export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb') {
           .single();
 
         if (error) {
-          console.error('❌ Insert error:', error);
+          debug.error('❌ Insert error:', error);
           throw error;
         }
 
-        console.log('✅ Pick created:', data);
+        debug.log('✅ Pick created:', data);
 
         setIsStarred(true);
         setPickId(data.id);
@@ -123,7 +124,7 @@ export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb') {
         });
       }
     } catch (error) {
-      console.error('Error toggling star:', error);
+      debug.error('Error toggling star:', error);
       toast({
         title: 'Error',
         description: 'Failed to update editor pick. Please try again.',

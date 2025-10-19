@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import debug from '@/utils/debug';
 
 export interface OnboardingData {
   favoriteSports?: string[];
@@ -33,15 +34,15 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   const nextStep = () => {
     if (isTransitioning) {
-      console.log('Ignoring nextStep - already transitioning');
+      debug.log('Ignoring nextStep - already transitioning');
       return;
     }
     
-    console.log('nextStep called, current step:', currentStep);
+    debug.log('nextStep called, current step:', currentStep);
     setIsTransitioning(true);
     setDirection(1);
     setCurrentStep((prev) => {
-      console.log('Setting step from', prev, 'to', prev + 1);
+      debug.log('Setting step from', prev, 'to', prev + 1);
       return prev + 1;
     });
     
@@ -60,12 +61,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   const submitOnboardingData = async () => {
     if (!user) {
-      console.error("User not authenticated");
+      debug.error("User not authenticated");
       return;
     }
 
-    console.log('Submitting onboarding data for user:', user.id);
-    console.log('Onboarding data:', onboardingData);
+    debug.log('Submitting onboarding data for user:', user.id);
+    debug.log('Onboarding data:', onboardingData);
 
     try {
       const { data, error } = await supabase
@@ -78,19 +79,19 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         .select();
 
       if (error) {
-        console.error('Error updating profile:', error);
-        console.error('Error details:', {
+        debug.error('Error updating profile:', error);
+        debug.error('Error details:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
           code: error.code
         });
       } else {
-        console.log('Profile updated successfully!');
-        console.log('Updated data:', data);
+        debug.log('Profile updated successfully!');
+        debug.log('Updated data:', data);
       }
     } catch (err) {
-      console.error('Unexpected error during onboarding submission:', err);
+      debug.error('Unexpected error during onboarding submission:', err);
     }
   };
 

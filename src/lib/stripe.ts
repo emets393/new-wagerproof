@@ -1,4 +1,5 @@
 import { loadStripe } from '@stripe/stripe-js';
+import debug from '@/utils/debug';
 
 // Initialize Stripe
 export const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -87,7 +88,7 @@ export async function createCheckoutSession(planId: string, userId: string, bill
       window.location.href = url;
     }
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    debug.error('Error creating checkout session:', error);
     throw error;
   }
 }
@@ -111,7 +112,7 @@ export async function createCustomerPortalSession(userId: string) {
       window.location.href = url;
     }
   } catch (error) {
-    console.error('Error creating customer portal session:', error);
+    debug.error('Error creating customer portal session:', error);
     throw error;
   }
 }

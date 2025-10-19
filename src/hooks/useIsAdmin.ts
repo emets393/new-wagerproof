@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import debug from "@/utils/debug";
 
 export function useIsAdmin() {
   const { user } = useAuth();
@@ -14,7 +15,7 @@ export function useIsAdmin() {
         .rpc('has_role', { _user_id: user.id, _role: 'admin' });
       
       if (error) {
-        console.error('Admin check error:', error);
+        debug.error('Admin check error:', error);
         return false;
       }
       return data as boolean;

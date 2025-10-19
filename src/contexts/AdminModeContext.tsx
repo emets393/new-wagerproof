@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import debug from '@/utils/debug';
 
 interface AdminModeContextType {
   adminModeEnabled: boolean;
@@ -29,7 +30,7 @@ export function AdminModeProvider({ children }: { children: ReactNode }) {
 
   const toggleAdminMode = () => {
     if (!isAdmin) {
-      console.warn('Cannot enable admin mode: user is not an admin');
+      debug.warn('Cannot enable admin mode: user is not an admin');
       return;
     }
 

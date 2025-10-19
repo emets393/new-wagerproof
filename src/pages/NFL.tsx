@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown } from 'lucide-react';
+import debug from '@/utils/debug';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { Link } from 'react-router-dom';
 import H2HModal from '@/components/H2HModal';
@@ -168,7 +169,7 @@ export default function NFL() {
 
 ---`;
         } catch (err) {
-          console.error('Error building context for game:', pred, err);
+          debug.error('Error building context for game:', pred, err);
           return '';
         }
       }).filter(Boolean).join('\n');
@@ -181,7 +182,7 @@ ${contextParts}
 
 *Note: Probabilities are from the EPA model. I can help you analyze these matchups, identify value opportunities, and answer questions about specific games.*`;
     } catch (error) {
-      console.error('Error building NFL context:', error);
+      debug.error('Error building NFL context:', error);
       return ''; // Return empty string if there's an error
     }
   };
@@ -193,41 +194,41 @@ ${contextParts}
     
     // Debug logging for context - Show what we're sending to the AI
     if (context && predictions.length > 0) {
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #3b82f6; font-weight: bold');
-      console.log('%c🏈 NFL - DATA SENT TO AI', 'color: #3b82f6; font-weight: bold; font-size: 14px');
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #3b82f6; font-weight: bold');
-      console.log(`\n📈 Total Games: ${predictions.length}\n`);
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #3b82f6; font-weight: bold');
+      debug.log('%c🏈 NFL - DATA SENT TO AI', 'color: #3b82f6; font-weight: bold; font-size: 14px');
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #3b82f6; font-weight: bold');
+      debug.log(`\n📈 Total Games: ${predictions.length}\n`);
       
       // Show summary of each game
       predictions.slice(0, 10).forEach((pred, idx) => {
         const gameDate = pred.game_date ? new Date(pred.game_date).toLocaleDateString() : 'TBD';
         const gameTime = pred.game_time || 'TBD';
-        console.log(`%c🏈 Game ${idx + 1}: ${pred.away_team} @ ${pred.home_team}`, 'color: #f59e0b; font-weight: bold');
-        console.log(`   📅 Date/Time: ${gameDate} ${gameTime}`);
-        console.log(`   📊 Lines:`);
-        console.log(`      • Spread: ${pred.home_team} ${pred.home_spread || 'N/A'}`);
-        console.log(`      • Moneyline: Away ${pred.away_ml || 'N/A'} / Home ${pred.home_ml || 'N/A'}`);
-        console.log(`      • Over/Under: ${pred.over_line || 'N/A'}`);
-        console.log(`   🤖 Model Predictions (EPA Model):`);
-        console.log(`      • ML Probability: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}`);
-        console.log(`      • Spread Cover Prob: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}`);
-        console.log(`      • O/U Probability: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}`);
-        console.log(`   ⛅ Weather: ${pred.temperature || 'N/A'}°F, Wind: ${pred.wind_speed || 'N/A'} mph`);
-        console.log(`   📈 Public Splits: Spread: ${pred.spread_splits_label || 'N/A'}, Total: ${pred.total_splits_label || 'N/A'}`);
-        console.log('');
+        debug.log(`%c🏈 Game ${idx + 1}: ${pred.away_team} @ ${pred.home_team}`, 'color: #f59e0b; font-weight: bold');
+        debug.log(`   📅 Date/Time: ${gameDate} ${gameTime}`);
+        debug.log(`   📊 Lines:`);
+        debug.log(`      • Spread: ${pred.home_team} ${pred.home_spread || 'N/A'}`);
+        debug.log(`      • Moneyline: Away ${pred.away_ml || 'N/A'} / Home ${pred.home_ml || 'N/A'}`);
+        debug.log(`      • Over/Under: ${pred.over_line || 'N/A'}`);
+        debug.log(`   🤖 Model Predictions (EPA Model):`);
+        debug.log(`      • ML Probability: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}`);
+        debug.log(`      • Spread Cover Prob: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}`);
+        debug.log(`      • O/U Probability: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}`);
+        debug.log(`   ⛅ Weather: ${pred.temperature || 'N/A'}°F, Wind: ${pred.wind_speed || 'N/A'} mph`);
+        debug.log(`   📈 Public Splits: Spread: ${pred.spread_splits_label || 'N/A'}, Total: ${pred.total_splits_label || 'N/A'}`);
+        debug.log('');
       });
       
       if (predictions.length > 10) {
-        console.log(`   ... and ${predictions.length - 10} more games`);
+        debug.log(`   ... and ${predictions.length - 10} more games`);
       }
       
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #3b82f6; font-weight: bold');
-      console.log(`%c✅ Full context length: ${context.length} characters`, 'color: #3b82f6');
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'color: #3b82f6; font-weight: bold');
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #3b82f6; font-weight: bold');
+      debug.log(`%c✅ Full context length: ${context.length} characters`, 'color: #3b82f6');
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'color: #3b82f6; font-weight: bold');
       
       // Also log raw context for copy-paste debugging
       console.groupCollapsed('📋 Raw Context (click to expand)');
-      console.log(context);
+      debug.log(context);
       console.groupEnd();
     }
     
@@ -351,16 +352,16 @@ ${contextParts}
       setError(null);
       
       // Force new chat session on refresh
-      console.log('🔄 Refresh triggered - clearing chat session to force new context');
+      debug.log('🔄 Refresh triggered - clearing chat session to force new context');
       if (user) {
         chatSessionManager.clearPageSession(user.id, 'nfl');
       }
       
-      console.log('Fetching NFL data...');
+      debug.log('Fetching NFL data...');
       
       // Get today's date in YYYY-MM-DD format for filtering
       const today = new Date().toISOString().split('T')[0];
-      console.log('Filtering games from today onwards:', today);
+      debug.log('Filtering games from today onwards:', today);
       
       // Fetch team mappings from database (without logo_url since it doesn't exist)
       const { data: teamMappingsData, error: teamMappingsError } = await collegeFootballSupabase
@@ -368,12 +369,12 @@ ${contextParts}
         .select('city_and_name, team_name');
       
       if (teamMappingsError) {
-        console.error('Error fetching team mappings:', teamMappingsError);
+        debug.error('Error fetching team mappings:', teamMappingsError);
       } else {
-        console.log('Team mappings fetched:', teamMappingsData);
-        console.log('Number of team mappings:', teamMappingsData?.length);
+        debug.log('Team mappings fetched:', teamMappingsData);
+        debug.log('Number of team mappings:', teamMappingsData?.length);
         if (teamMappingsData && teamMappingsData.length > 0) {
-          console.log('First few team mappings:', teamMappingsData.slice(0, 3));
+          debug.log('First few team mappings:', teamMappingsData.slice(0, 3));
         }
       }
       
@@ -393,12 +394,12 @@ ${contextParts}
         .order('as_of_ts', { ascending: false });
 
       if (bettingError) {
-        console.error('Error fetching betting lines:', bettingError);
+        debug.error('Error fetching betting lines:', bettingError);
         setError(`Betting lines error: ${bettingError.message}`);
         return;
       }
 
-      console.log('Betting lines fetched:', bettingData?.length || 0);
+      debug.log('Betting lines fetched:', bettingData?.length || 0);
 
       // Create a map of most recent betting lines by training_key
       const bettingMap = new Map();
@@ -409,7 +410,7 @@ ${contextParts}
         }
       });
 
-      console.log('Betting map created with', bettingMap.size, 'entries');
+      debug.log('Betting map created with', bettingMap.size, 'entries');
 
       // Fetch predictions - only from today onwards
       // First get the most recent run_id
@@ -422,14 +423,14 @@ ${contextParts}
         .single();
 
       if (runError) {
-        console.error('Error fetching latest run_id:', runError);
+        debug.error('Error fetching latest run_id:', runError);
         setError(`Run ID error: ${runError.message}`);
         return;
       }
 
       const latestRunId = latestRun?.run_id;
       if (!latestRunId) {
-        console.log('No predictions found for today onwards');
+        debug.log('No predictions found for today onwards');
         setPredictions([]);
         setLoading(false);
         return;
@@ -444,15 +445,15 @@ ${contextParts}
         .order('game_date', { ascending: true });
 
       if (predsError) {
-        console.error('Error fetching predictions:', predsError);
+        debug.error('Error fetching predictions:', predsError);
         setError(`Predictions error: ${predsError.message}`);
         return;
       }
 
-      console.log('Predictions fetched:', preds?.length || 0);
+      debug.log('Predictions fetched:', preds?.length || 0);
       if (preds && preds.length > 0) {
-        console.log('Sample prediction data:', preds[0]);
-        console.log('Available columns in prediction:', Object.keys(preds[0]));
+        debug.log('Sample prediction data:', preds[0]);
+        debug.log('Available columns in prediction:', Object.keys(preds[0]));
       }
 
       // Fetch weather data
@@ -461,7 +462,7 @@ ${contextParts}
         .select('*');
 
       if (weatherError) {
-        console.error('Error fetching weather data:', weatherError);
+        debug.error('Error fetching weather data:', weatherError);
         console.warn('Weather data unavailable, continuing without weather info');
       }
 
@@ -484,11 +485,11 @@ ${contextParts}
         // Match betting data by training_key
         const betting = uniqueBettingData?.find(b => b.training_key === prediction.training_key);
         
-        console.log('=== DEBUGGING DATA MATCHING ===');
-        console.log('Prediction training_key:', prediction.training_key);
-        console.log('Weather match found:', !!weather);
-        console.log('Betting match found:', !!betting);
-        console.log('=====================================');
+        debug.log('=== DEBUGGING DATA MATCHING ===');
+        debug.log('Prediction training_key:', prediction.training_key);
+        debug.log('Weather match found:', !!weather);
+        debug.log('Betting match found:', !!betting);
+        debug.log('=====================================');
         
         return {
           ...betting, // Start with betting data as base
@@ -515,7 +516,7 @@ ${contextParts}
       setPredictions(predictionsWithData);
       setLastUpdated(new Date());
     } catch (err) {
-      console.error('Error fetching data:', err);
+      debug.error('Error fetching data:', err);
       setError(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -695,7 +696,7 @@ ${contextParts}
 
   const getTeamLogo = (teamName: string): string => {
     const mapping = teamMappings.find(m => m.team_name === teamName);
-    console.log(`Looking for logo for team: ${teamName}, found mapping:`, mapping);
+    debug.log(`Looking for logo for team: ${teamName}, found mapping:`, mapping);
     return mapping?.logo_url || '/placeholder.svg';
   };
 
@@ -778,7 +779,7 @@ ${contextParts}
         hour12: true
       }) + ' EST';
     } catch (error) {
-      console.error('Error formatting time:', error);
+      debug.error('Error formatting time:', error);
       return timeString;
     }
   };
@@ -968,7 +969,7 @@ ${contextParts}
               
               // Debug log to check what ID fields are available
               if (index === 0) {
-                console.log('🏈 NFL Prediction sample:', {
+                debug.log('🏈 NFL Prediction sample:', {
                   id: prediction.id,
                   unique_id: prediction.unique_id,
                   training_key: prediction.training_key,

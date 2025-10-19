@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import debug from '@/utils/debug';
 import {
   Dialog,
   DialogContent,
@@ -136,7 +137,7 @@ export default function FeatureRequests() {
         }
       }
     } catch (err) {
-      console.error('Error fetching feature requests:', err);
+      debug.error('Error fetching feature requests:', err);
       setError(`Failed to load feature requests: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -183,7 +184,7 @@ export default function FeatureRequests() {
       setSubmitDialogOpen(false);
       fetchRequests();
     } catch (err) {
-      console.error('Error submitting feature request:', err);
+      debug.error('Error submitting feature request:', err);
       toast.error('Failed to submit feature request. Please try again.');
     } finally {
       setSubmitting(false);
@@ -234,7 +235,7 @@ export default function FeatureRequests() {
 
       fetchRequests();
     } catch (err) {
-      console.error('Error voting:', err);
+      debug.error('Error voting:', err);
       toast.error('Failed to register vote. Please try again.');
     }
   };
@@ -251,7 +252,7 @@ export default function FeatureRequests() {
       toast.success('Feature request approved');
       fetchRequests();
     } catch (err) {
-      console.error('Error approving request:', err);
+      debug.error('Error approving request:', err);
       toast.error('Failed to approve request');
     }
   };
@@ -268,7 +269,7 @@ export default function FeatureRequests() {
       toast.success('Feature request rejected');
       fetchRequests();
     } catch (err) {
-      console.error('Error rejecting request:', err);
+      debug.error('Error rejecting request:', err);
       toast.error('Failed to reject request');
     }
   };
@@ -288,7 +289,7 @@ export default function FeatureRequests() {
       toast.success('Moved to roadmap');
       fetchRequests();
     } catch (err) {
-      console.error('Error moving to roadmap:', err);
+      debug.error('Error moving to roadmap:', err);
       toast.error('Failed to move to roadmap');
     }
   };
@@ -305,7 +306,7 @@ export default function FeatureRequests() {
       toast.success('Roadmap status updated');
       fetchRequests();
     } catch (err) {
-      console.error('Error updating roadmap status:', err);
+      debug.error('Error updating roadmap status:', err);
       toast.error('Failed to update roadmap status');
     }
   };
@@ -325,7 +326,7 @@ export default function FeatureRequests() {
       toast.success('Removed from roadmap');
       fetchRequests();
     } catch (err) {
-      console.error('Error removing from roadmap:', err);
+      debug.error('Error removing from roadmap:', err);
       toast.error('Failed to remove from roadmap');
     }
   };

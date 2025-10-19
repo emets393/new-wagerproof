@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 /* eslint-disable react/no-unknown-property */
 import React, { useRef, useEffect, Suspense } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
@@ -276,7 +277,7 @@ class DitherErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.warn('Dither component error:', error, errorInfo);
+    debug.warn('Dither component error:', error, errorInfo);
   }
 
   render() {

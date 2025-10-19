@@ -3,6 +3,8 @@
  * Handles variations in team names, abbreviations, and formats
  */
 
+import debug from '@/utils/debug';
+
 // Common team name variations and their normalizations
 const teamNameMappings: Record<string, string[]> = {
   // NFL Teams
@@ -116,7 +118,7 @@ export function teamsMatch(team1: string, team2: string): boolean {
   const city2 = extractCityName(team2);
   
   if (city1 && city2 && city1 === city2) {
-    console.log(`   🎯 City match: "${team1}" (${city1}) ↔ "${team2}" (${city2})`);
+    debug.log(`   🎯 City match: "${team1}" (${city1}) ↔ "${team2}" (${city2})`);
     return true;
   }
   

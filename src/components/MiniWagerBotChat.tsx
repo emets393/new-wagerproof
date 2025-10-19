@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -50,8 +51,8 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
   // Log context for debugging
   React.useEffect(() => {
     if (pageContext) {
-      console.log('📊 MiniWagerBotChat pageContext length:', pageContext.length);
-      console.log('📄 MiniWagerBotChat pageId:', pageId);
+      debug.log('📊 MiniWagerBotChat pageContext length:', pageContext.length);
+      debug.log('📄 MiniWagerBotChat pageId:', pageId);
     }
   }, [pageContext, pageId]);
 
@@ -65,7 +66,7 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
   // Clear session when page changes (force new thread)
   useEffect(() => {
     if (currentSession) {
-      console.log('🔄 Page changed, clearing session to force new thread');
+      debug.log('🔄 Page changed, clearing session to force new thread');
       setCurrentSession(null);
     }
   }, [pageId]);
@@ -89,16 +90,16 @@ export function MiniWagerBotChat({ pageContext, pageId = 'default' }: MiniWagerB
       
       // If no session exists, create one for this page
       if (!session) {
-        console.log('🆕 Creating new session for page:', pageId);
+        debug.log('🆕 Creating new session for page:', pageId);
         session = await chatSessionManager.createNewSession(user, pageId);
       } else {
-        console.log('♻️ Reusing existing session for page:', pageId);
+        debug.log('♻️ Reusing existing session for page:', pageId);
       }
       
       setCurrentSession(session);
     } catch (err) {
       setError('Failed to initialize chat. Please try again.');
-      console.error('Mini chat session error:', err);
+      debug.error('Mini chat session error:', err);
     } finally {
       setIsLoading(false);
     }

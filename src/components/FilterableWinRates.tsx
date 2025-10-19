@@ -1,4 +1,5 @@
-console.log("Loaded TOP-LEVEL src/components/FilterableWinRates.tsx");
+import debug from '@/utils/debug';
+debug.log("Loaded TOP-LEVEL src/components/FilterableWinRates.tsx");
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -465,8 +466,8 @@ export default function FilterableWinRates() {
 
   // Fetch summary and game details when filters change
   useEffect(() => {
-    console.log("Selected seasons:", selectedSeasons);
-    console.log("Selected months:", selectedMonths);
+    debug.log("Selected seasons:", selectedSeasons);
+    debug.log("Selected months:", selectedMonths);
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
@@ -493,8 +494,8 @@ export default function FilterableWinRates() {
           home_rl_bets_max: homeRlBetsRange[1] / 100
         };
 
-        console.log('Frontend: Sending filters to backend:', filters);
-        console.log('Frontend: O/U Line range:', ouLineRange);
+        debug.log('Frontend: Sending filters to backend:', filters);
+        debug.log('Frontend: O/U Line range:', ouLineRange);
 
         const { data, error } = await supabase.functions.invoke('filter-training-data', {
           body: { filters }
@@ -504,7 +505,7 @@ export default function FilterableWinRates() {
           throw error;
         }
 
-        console.log('Frontend: Received data from backend:', data);
+        debug.log('Frontend: Received data from backend:', data);
         
         // The backend returns { summary, gameRows }
         if (data && data.summary && data.gameRows) {
@@ -515,7 +516,7 @@ export default function FilterableWinRates() {
           setGameRows([]);
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        debug.error('Error fetching data:', error);
         setSummary(null);
         setGameRows([]);
       } finally {

@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import debug from '@/utils/debug';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -142,7 +143,7 @@ export default function NFLAnalytics() {
         else if (activeFilters.is_home.toLowerCase() === 'false') activeFilters.is_home = 'false';
       }
 
-      console.log('Sending filters to backend:', activeFilters);
+      debug.log('Sending filters to backend:', activeFilters);
       
       // Add range filters
       if (seasonRange[0] !== 2018 || seasonRange[1] !== 2025) {
@@ -164,7 +165,7 @@ export default function NFLAnalytics() {
         activeFilters.spread_closing = `${spreadRange[0]},${spreadRange[1]}`;
       }
       
-      console.log('Building client-side analytics with filters:', { view_type: viewType, ...activeFilters });
+      debug.log('Building client-side analytics with filters:', { view_type: viewType, ...activeFilters });
 
       // Client-side query of v_nfl_training_exploded to ensure local changes reflect immediately
       let q = collegeFootballSupabase
@@ -232,7 +233,7 @@ export default function NFLAnalytics() {
       const { data: rows, error: rowsError } = await q;
 
       if (rowsError) {
-        console.error('Supabase query error:', rowsError);
+        debug.error('Supabase query error:', rowsError);
         throw rowsError;
       }
 
@@ -324,7 +325,7 @@ export default function NFLAnalytics() {
       setSummary(builtSummary);
       
     } catch (err) {
-      console.error('Error fetching data:', err);
+      debug.error('Error fetching data:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -354,7 +355,7 @@ export default function NFLAnalytics() {
           .order('team_name');
         
         if (error) {
-          console.error('Error fetching NFL teams:', error);
+          debug.error('Error fetching NFL teams:', error);
           setError(`NFL teams error: ${error.message}`);
           return;
         }
@@ -375,7 +376,7 @@ export default function NFLAnalytics() {
         const uniqueTeams = Array.from(teamMap.values());
         setNflTeams(uniqueTeams);
       } catch (error) {
-        console.error('Error in fetchNFLTeams:', error);
+        debug.error('Error in fetchNFLTeams:', error);
         setError(`NFL teams error: ${error.message}`);
       } finally {
         setTeamsLoading(false);
@@ -388,20 +389,20 @@ export default function NFLAnalytics() {
   const handleFilterChange = (key: string, value: string) => {
     // Convert "any" back to empty string for filtering
     const filterValue = value === "any" ? "" : value;
-    console.log('Filter change:', key, 'value:', value, 'filterValue:', filterValue);
-    console.log('Current filters before update:', filters);
+    debug.log('Filter change:', key, 'value:', value, 'filterValue:', filterValue);
+    debug.log('Current filters before update:', filters);
     setFilters(prev => {
       const newFilters = { ...prev, [key]: filterValue };
-      console.log('New filters after update:', newFilters);
+      debug.log('New filters after update:', newFilters);
       return newFilters;
     });
   };
 
   const handleMultiSelectChange = (key: string, values: string[]) => {
-    console.log('Multi-select change:', key, 'values:', values);
+    debug.log('Multi-select change:', key, 'values:', values);
     setFilters(prev => {
       const newFilters = { ...prev, [key]: values };
-      console.log('New filters after multi-select update:', newFilters);
+      debug.log('New filters after multi-select update:', newFilters);
       return newFilters;
     });
   };

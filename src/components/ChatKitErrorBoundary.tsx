@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -25,9 +26,9 @@ export class ChatKitErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('❌ ChatKit Error Boundary caught error:', error, errorInfo);
-    console.error('Error stack:', error.stack);
-    console.error('Component stack:', errorInfo.componentStack);
+    debug.error('❌ ChatKit Error Boundary caught error:', error, errorInfo);
+    debug.error('Error stack:', error.stack);
+    debug.error('Component stack:', errorInfo.componentStack);
     
     this.setState(prevState => ({
       errorCount: prevState.errorCount + 1
@@ -35,7 +36,7 @@ export class ChatKitErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
-    console.log('🔄 Resetting ChatKit Error Boundary');
+    debug.log('🔄 Resetting ChatKit Error Boundary');
     this.setState({ hasError: false, error: null });
     // Refresh the page as a last resort
     window.location.reload();

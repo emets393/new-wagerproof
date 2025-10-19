@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -30,13 +31,13 @@ export default function NFLTeamSelector({ label, selectedTeams, onTeamsChange, c
           .order('team_name');
         
         if (error) {
-          console.error('Error fetching NFL teams:', error);
+          debug.error('Error fetching NFL teams:', error);
           return;
         }
         
         setTeams(data || []);
       } catch (error) {
-        console.error('Error in fetchTeams:', error);
+        debug.error('Error in fetchTeams:', error);
       } finally {
         setIsLoading(false);
       }

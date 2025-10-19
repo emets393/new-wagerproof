@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import debug from "@/utils/debug";
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
@@ -23,7 +24,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
         return;
       }
 
-      console.log('Checking onboarding status for user:', user.id);
+      debug.log('Checking onboarding status for user:', user.id);
       setOnboardingStatus(prev => ({ ...prev, loading: true }));
 
       try {
@@ -34,20 +35,20 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
           .single();
 
         if (error) {
-          console.error("Error fetching user profile:", error);
-          console.error("Error details:", error);
+          debug.error("Error fetching user profile:", error);
+          debug.error("Error details:", error);
           // If there's an error, assume onboarding is not completed to be safe
           setOnboardingStatus({ completed: false, loading: false });
           return;
         }
 
-        console.log('Onboarding status from database:', profile?.onboarding_completed);
+        debug.log('Onboarding status from database:', profile?.onboarding_completed);
         setOnboardingStatus({ 
           completed: profile?.onboarding_completed ?? false, 
           loading: false 
         });
       } catch (error) {
-        console.error("Unexpected error checking onboarding status:", error);
+        debug.error("Unexpected error checking onboarding status:", error);
         setOnboardingStatus({ completed: false, loading: false });
       }
     };

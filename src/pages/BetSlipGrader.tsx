@@ -7,6 +7,7 @@ import { Loader2, FileImage, RefreshCw } from 'lucide-react';
 import { chatSessionManager, ChatSession } from '@/utils/chatSession';
 import { ChatKitWrapper } from '@/components/ChatKitWrapper';
 import { ChatKitErrorBoundary } from '@/components/ChatKitErrorBoundary';
+import debug from '@/utils/debug';
 
 const BET_SLIP_GRADER_PAGE_ID = 'bet-slip-grader';
 const BET_SLIP_GRADER_WORKFLOW_ID = 'wf_68f14e36a2588190a185e02e637f163e086aff574c3be293';
@@ -22,23 +23,23 @@ export default function BetSlipGrader() {
 
   // Track Bet Slip Grader opened on mount
   useEffect(() => {
-    console.log('🚀 BetSlipGrader page loaded at', new Date().toISOString());
+    debug.log('🚀 BetSlipGrader page loaded at', new Date().toISOString());
   }, []);
 
   // Simplified session initialization with better error handling
   const initializeSession = useCallback(async () => {
     if (!user) {
-      console.log('⏸️ No user, skipping initialization');
+      debug.log('⏸️ No user, skipping initialization');
       return;
     }
 
     // Prevent re-initialization for the same user
     if (hasInitializedRef.current && userIdRef.current === user.id) {
-      console.log('✅ Already initialized for user:', user.id);
+      debug.log('✅ Already initialized for user:', user.id);
       return;
     }
 
-    console.log('🎬 Initializing Bet Slip Grader session for user:', user.id);
+    debug.log('🎬 Initializing Bet Slip Grader session for user:', user.id);
     setIsInitializing(true);
     setError('');
     hasInitializedRef.current = true;
@@ -49,7 +50,7 @@ export default function BetSlipGrader() {
       let session = chatSessionManager.getCurrentSession(user.id, BET_SLIP_GRADER_PAGE_ID);
       
       if (!session) {
-        console.log('📝 No existing session found, creating new one...');
+        debug.log('📝 No existing session found, creating new one...');
         // Create new session if none exists
         session = await Promise.race([
           chatSessionManager.createNewSession(user, BET_SLIP_GRADER_PAGE_ID),
@@ -57,16 +58,16 @@ export default function BetSlipGrader() {
             setTimeout(() => reject(new Error('Session creation timeout')), 10000)
           )
         ]);
-        console.log('✅ Session created:', session.id);
+        debug.log('✅ Session created:', session.id);
       } else {
-        console.log('✅ Using existing session:', session.id);
+        debug.log('✅ Using existing session:', session.id);
       }
 
       setCurrentSession(session);
       setIsInitializing(false);
-      console.log('🎉 Initialization complete, session set');
+      debug.log('🎉 Initialization complete, session set');
     } catch (err: any) {
-      console.error('❌ Session initialization error:', err);
+      debug.error('❌ Session initialization error:', err);
       setError(err.message || 'Failed to initialize Bet Slip Grader. Please try again.');
       setIsInitializing(false);
       hasInitializedRef.current = false; // Allow retry
@@ -77,10 +78,10 @@ export default function BetSlipGrader() {
   // Initialize when user is ready - only run once
   useEffect(() => {
     if (user && !authLoading && !hasInitializedRef.current) {
-      console.log('🔄 Effect triggering initialization');
+      debug.log('🔄 Effect triggering initialization');
       initializeSession();
     } else {
-      console.log('⏭️ Skipping initialization:', {
+      debug.log('⏭️ Skipping initialization:', {
         hasUser: !!user,
         authLoading,
         hasInitialized: hasInitializedRef.current
@@ -90,7 +91,7 @@ export default function BetSlipGrader() {
 
   // Manual retry handler
   const handleRetry = useCallback(() => {
-    console.log('🔄 Manual retry triggered');
+    debug.log('🔄 Manual retry triggered');
     hasInitializedRef.current = false;
     userIdRef.current = null;
     setCurrentSession(null);
@@ -148,7 +149,7 @@ export default function BetSlipGrader() {
 
   // Show initializing state ONLY if we haven't successfully initialized yet
   if (isInitializing && !currentSession) {
-    console.log('🔄 Rendering loading state (initializing)');
+    debug.log('🔄 Rendering loading state (initializing)');
     return (
       <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -164,7 +165,7 @@ export default function BetSlipGrader() {
 
   // If session exists, render it even if isInitializing is true (prevents flickering)
   if (currentSession && user) {
-    console.log('✅ Rendering ChatKit with session:', currentSession.id);
+    debug.log('✅ Rendering ChatKit with session:', currentSession.id);
     return (
       <ChatKitErrorBoundary>
         <div className="h-[calc(100vh-8rem)] w-full overflow-hidden rounded-lg">
@@ -181,7 +182,7 @@ export default function BetSlipGrader() {
   }
 
   // Fallback: something went wrong
-  console.warn('⚠️ Unexpected state - no session but not initializing');
+  debug.warn('⚠️ Unexpected state - no session but not initializing');
   return (
     <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
       <div className="text-center space-y-4">

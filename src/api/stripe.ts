@@ -1,6 +1,8 @@
 // This would be your backend API endpoint
 // For now, we'll create a simple mock implementation
 
+import debug from '@/utils/debug';
+
 export async function createCheckoutSession(planId: string, userId: string, trialDays: number) {
   // In a real implementation, you would:
   // 1. Create a Stripe checkout session
@@ -43,7 +45,7 @@ async function updateUserSubscription(session: any) {
   };
 
   // This would be called from your backend
-  console.log('Updating user subscription:', subscriptionData);
+  debug.log('Updating user subscription:', subscriptionData);
 }
 
 async function cancelUserSubscription(subscription: any) {
@@ -53,5 +55,5 @@ async function cancelUserSubscription(subscription: any) {
     is_active: false
   };
 
-  console.log('Cancelling user subscription:', subscriptionData);
+  debug.log('Cancelling user subscription:', subscriptionData);
 }

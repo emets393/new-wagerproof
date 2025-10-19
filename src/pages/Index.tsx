@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import GameCard from "@/components/GameCard";
 import { Button } from "@/components/ui/button";
 import { getTodayInET, getDateDebugInfo } from "@/utils/dateUtils";
+import debug from '@/utils/debug';
 
 interface TodaysGame {
   unique_id: string;
@@ -31,13 +32,13 @@ export default function Index() {
     queryKey: ['todays_games', today],
     queryFn: async () => {
       const debugInfo = getDateDebugInfo();
-      console.log('=== DATE DEBUG INFO ===');
-      console.log('Fetching games for ET date:', today);
-      console.log('UTC Time:', debugInfo.utcTime);
-      console.log('Local Time:', debugInfo.localTime);
-      console.log('ET Date:', debugInfo.etDate);
-      console.log('ET DateTime:', debugInfo.etDateTime);
-      console.log('======================');
+      debug.log('=== DATE DEBUG INFO ===');
+      debug.log('Fetching games for ET date:', today);
+      debug.log('UTC Time:', debugInfo.utcTime);
+      debug.log('Local Time:', debugInfo.localTime);
+      debug.log('ET Date:', debugInfo.etDate);
+      debug.log('ET DateTime:', debugInfo.etDateTime);
+      debug.log('======================');
       
       // First, let's check what dates are available in the database
       const { data: allDates, error: dateError } = await (supabase as any)
@@ -47,9 +48,9 @@ export default function Index() {
         .limit(10);
       
       if (dateError) {
-        console.error('Error fetching dates:', dateError);
+        debug.error('Error fetching dates:', dateError);
       } else {
-        console.log('Available dates in database:', allDates?.map((d: any) => d.date));
+        debug.log('Available dates in database:', allDates?.map((d: any) => d.date));
       }
       
       const { data, error } = await (supabase as any)
@@ -76,13 +77,13 @@ export default function Index() {
         .order('start_time_minutes', { ascending: true });
 
       if (error) {
-        console.error('Error fetching games:', error);
+        debug.error('Error fetching games:', error);
         throw new Error(error.message);
       }
 
-      console.log('Found games for today:', data?.length || 0);
+      debug.log('Found games for today:', data?.length || 0);
       if (data && data.length > 0) {
-        console.log('Sample game:', data[0]);
+        debug.log('Sample game:', data[0]);
       }
       return (data || []) as unknown as TodaysGame[];
     },

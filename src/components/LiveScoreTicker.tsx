@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { useLiveScores } from "@/hooks/useLiveScores";
 import { LiveScoreCard } from "./LiveScoreCard";
 import { Marquee } from "@/components/magicui/marquee";
@@ -15,7 +16,7 @@ export function LiveScoreTicker() {
   const gamesWithPredictions = games.filter(g => g.predictions).length;
   const gamesWithHitting = games.filter(g => g.predictions?.hasAnyHitting).length;
   
-  console.log(`🏈 Live Score Ticker: ${games.length} games, ${gamesWithPredictions} with predictions, ${gamesWithHitting} with hitting predictions`);
+  debug.log(`🏈 Live Score Ticker: ${games.length} games, ${gamesWithPredictions} with predictions, ${gamesWithHitting} with hitting predictions`);
 
   return (
     <div

@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,7 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
       
       return `${month}/${day} (${displayHours}:${displayMinutes}${ampm})`;
     } catch (error) {
-      console.error('Error formatting timestamp:', error);
+      debug.error('Error formatting timestamp:', error);
       return timestamp;
     }
   };
@@ -80,7 +81,7 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
           .order('as_of_ts', { ascending: true });
 
         if (error) {
-          console.error('Error fetching line movement data:', error);
+          debug.error('Error fetching line movement data:', error);
           setError('Failed to fetch line movement data');
           return;
         }
@@ -92,7 +93,7 @@ const LineMovementModal = ({ isOpen, onClose, uniqueId, homeTeam, awayTeam, team
 
         setLineData(data);
       } catch (err) {
-        console.error('Error fetching line data:', err);
+        debug.error('Error fetching line data:', err);
         setError('An unexpected error occurred');
       } finally {
         setLoading(false);

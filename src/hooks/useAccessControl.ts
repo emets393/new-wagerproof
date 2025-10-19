@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import debug from "@/utils/debug";
 
 export function useAccessControl() {
   const { user } = useAuth();
@@ -14,7 +15,7 @@ export function useAccessControl() {
         .rpc('user_has_access', { _user_id: user.id });
       
       if (error) {
-        console.error('Access check error:', error);
+        debug.error('Access check error:', error);
         return false;
       }
       return data as boolean;

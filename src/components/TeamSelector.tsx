@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -37,13 +38,13 @@ export default function TeamSelector({ label, selectedTeams, onTeamsChange, clas
           .order('short_name');
         
         if (error) {
-          console.error('Error fetching teams:', error);
+          debug.error('Error fetching teams:', error);
           return;
         }
         
         setTeams(data || []);
       } catch (error) {
-        console.error('Error in fetchTeams:', error);
+        debug.error('Error in fetchTeams:', error);
       } finally {
         setIsLoading(false);
       }

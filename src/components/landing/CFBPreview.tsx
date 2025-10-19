@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { useState, useEffect } from 'react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -153,7 +154,7 @@ export default function CFBPreview() {
         .select('api, logo_light');
       
       if (mappingsError) {
-        console.error('Error fetching team mappings:', mappingsError);
+        debug.error('Error fetching team mappings:', mappingsError);
         setError('Failed to load team data');
         return;
       }
@@ -167,14 +168,14 @@ export default function CFBPreview() {
         .limit(4);
 
       if (predsError) {
-        console.error('Error fetching predictions:', predsError);
+        debug.error('Error fetching predictions:', predsError);
         setError('Failed to load game data');
         return;
       }
 
       setPredictions(preds || []);
     } catch (err) {
-      console.error('Error fetching data:', err);
+      debug.error('Error fetching data:', err);
       setError('Failed to load data');
     } finally {
       setLoading(false);

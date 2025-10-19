@@ -7,6 +7,7 @@ import { ArrowLeft, TrendingUp, Users, Target, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ConfidenceChart from '@/components/ConfidenceChart';
 import PublicBettingDistribution from '@/components/PublicBettingDistribution';
+import debug from '@/utils/debug';
 
 interface GameMatch {
   unique_id: string;
@@ -62,14 +63,14 @@ const GameAnalysis: React.FC = () => {
 
   const loadGameAnalysisData = async () => {
     setIsLoading(true);
-    console.log('Loading game analysis data for:', gameId);
+    debug.log('Loading game analysis data for:', gameId);
     
     try {
       const target = searchParams.get('target');
       const modelsParam = searchParams.get('models');
       
       if (!target) {
-        console.error('Missing target parameter');
+        debug.error('Missing target parameter');
         setAnalysisData(null);
         setIsLoading(false);
         return;
@@ -80,11 +81,11 @@ const GameAnalysis: React.FC = () => {
         try {
           models = JSON.parse(decodeURIComponent(modelsParam));
         } catch (e) {
-          console.error('Failed to parse models parameter:', e);
+          debug.error('Failed to parse models parameter:', e);
         }
       }
 
-      console.log('Calling get-game-analysis-data with:', { unique_id: gameId, target, models });
+      debug.log('Calling get-game-analysis-data with:', { unique_id: gameId, target, models });
       
       const { data, error } = await supabase.functions.invoke('get-game-analysis-data', {
         body: {
@@ -95,17 +96,17 @@ const GameAnalysis: React.FC = () => {
       });
 
       if (error) {
-        console.error('Edge function error:', error);
+        debug.error('Edge function error:', error);
         setAnalysisData(null);
         setIsLoading(false);
         return;
       }
 
-      console.log('Received analysis data:', data);
+      debug.log('Received analysis data:', data);
       setAnalysisData(data);
 
     } catch (error) {
-      console.error('Error loading game analysis data:', error);
+      debug.error('Error loading game analysis data:', error);
       setAnalysisData(null);
     } finally {
       setIsLoading(false);
@@ -242,10 +243,10 @@ const GameAnalysis: React.FC = () => {
 
   // Debug logging for o_u_line
   if (analysisData) {
-    console.log("analysisData.game_info.o_u_line:", analysisData?.game_info?.o_u_line);
-    console.log("analysisData.matches:", analysisData?.matches);
+    debug.log("analysisData.game_info.o_u_line:", analysisData?.game_info?.o_u_line);
+    debug.log("analysisData.matches:", analysisData?.matches);
     const matchOULine = analysisData?.matches?.find(m => m.unique_id === analysisData?.game_info?.unique_id)?.o_u_line;
-    console.log("Current match o_u_line:", matchOULine);
+    debug.log("Current match o_u_line:", matchOULine);
   }
 
   if (isLoading) {

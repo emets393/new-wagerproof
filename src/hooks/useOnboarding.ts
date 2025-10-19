@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import debug from '@/utils/debug';
 
 export interface OnboardingData {
   favoriteSports?: string[];
@@ -19,10 +20,10 @@ export function useOnboarding() {
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
 
   const nextStep = () => {
-    console.log('nextStep called, current step:', currentStep);
+    debug.log('nextStep called, current step:', currentStep);
     setDirection(1);
     setCurrentStep((prev) => {
-      console.log('Setting step from', prev, 'to', prev + 1);
+      debug.log('Setting step from', prev, 'to', prev + 1);
       return prev + 1;
     });
   };
@@ -38,7 +39,7 @@ export function useOnboarding() {
 
   const submitOnboardingData = async () => {
     if (!user) {
-      console.error("User not authenticated");
+      debug.error("User not authenticated");
       return;
     }
 
@@ -51,9 +52,9 @@ export function useOnboarding() {
       .eq('user_id', user.id);
 
     if (error) {
-      console.error('Error updating profile:', error);
+      debug.error('Error updating profile:', error);
     } else {
-      console.log('Profile updated successfully!');
+      debug.log('Profile updated successfully!');
       // Handle successful submission, e.g., redirect to the dashboard
     }
   };

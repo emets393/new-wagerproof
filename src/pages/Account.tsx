@@ -7,6 +7,7 @@ import { Loader2, LogOut, User, Lock } from 'lucide-react';
 import { ModernAuthForm } from '@/components/ModernAuthForm';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { Input } from '@/components/ui/input';
+import debug from '@/utils/debug';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -79,16 +80,16 @@ export default function Account() {
 
   const handleSignOut = async () => {
     try {
-      console.log('Account page: Starting handleSignOut...');
+      debug.log('Account page: Starting handleSignOut...');
       // Clear the welcome flag so next login will show it
       localStorage.removeItem('wagerproof_show_welcome');
-      console.log('Account page: Calling signOut...');
+      debug.log('Account page: Calling signOut...');
       await signOut();
-      console.log('Account page: signOut completed, navigating to /...');
+      debug.log('Account page: signOut completed, navigating to /...');
       navigate('/', { replace: true });
-      console.log('Account page: Navigation completed');
+      debug.log('Account page: Navigation completed');
     } catch (error) {
-      console.error('Account page: Error in handleSignOut:', error);
+      debug.error('Account page: Error in handleSignOut:', error);
     }
   };
 

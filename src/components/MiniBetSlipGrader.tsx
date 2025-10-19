@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -86,13 +87,13 @@ export function MiniBetSlipGrader({ inline = false }: MiniBetSlipGraderProps = {
       let session = chatSessionManager.getCurrentSession(guestUser.id, BET_SLIP_GRADER_PAGE_ID);
       
       if (!session) {
-        console.log('Creating new Bet Slip Grader session...');
+        debug.log('Creating new Bet Slip Grader session...');
         session = await chatSessionManager.createNewSession(guestUser, BET_SLIP_GRADER_PAGE_ID);
       }
 
       setCurrentSession(session);
     } catch (err: any) {
-      console.error('Error loading session:', err);
+      debug.error('Error loading session:', err);
       setError(err.message || 'Failed to load chat session');
     } finally {
       setIsLoading(false);

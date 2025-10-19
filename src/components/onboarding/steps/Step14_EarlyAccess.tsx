@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useOnboarding } from "@/contexts/OnboardingContext";
@@ -7,7 +8,7 @@ export function EarlyAccess() {
 
   const handleFeatureRequest = () => {
     // In a real app, this would navigate to a feature request page or open a modal.
-    console.log("Navigating to feature request page...");
+    debug.log("Navigating to feature request page...");
     nextStep();
   };
 

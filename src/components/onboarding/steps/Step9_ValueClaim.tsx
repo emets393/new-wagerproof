@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useOnboarding } from "@/contexts/OnboardingContext";
@@ -13,7 +14,7 @@ export function ValueClaim() {
     fetch('/Statistics%20widget%20_%20Multi%20layout%20(9).json')
       .then(response => response.json())
       .then(data => setAnimationData(data))
-      .catch(error => console.error('Error loading animation:', error));
+      .catch(error => debug.error('Error loading animation:', error));
   }, []);
 
   return (

@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { ReactNode, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Aurora from '@/components/magicui/aurora';
@@ -45,7 +46,7 @@ export default function NFLGameCard({
   
   // Debug logging
   if (isHovered) {
-    console.log('Aurora should be visible!', {
+    debug.log('Aurora should be visible!', {
       auroraColors,
       homeSpread,
       awaySpread,

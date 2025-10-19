@@ -1,4 +1,5 @@
 import { User } from '@supabase/supabase-js';
+import debug from '@/utils/debug';
 
 export interface ChatSession {
   id: string;
@@ -62,7 +63,7 @@ export class ChatSessionManager {
       const allSessions: ChatSession[] = JSON.parse(sessions);
       return allSessions.filter(session => session.userId === userId);
     } catch (error) {
-      console.error('Error loading chat sessions:', error);
+      debug.error('Error loading chat sessions:', error);
       return [];
     }
   }
@@ -79,12 +80,12 @@ export class ChatSessionManager {
           const sessions = this.getUserSessions(userId);
           const session = sessions.find(s => s.id === pageSessionId && s.pageId === pageId);
           if (session) {
-            console.log(`✅ Found existing session for page: ${pageId}`);
+            debug.log(`✅ Found existing session for page: ${pageId}`);
             return session;
           }
         }
         
-        console.log(`❌ No existing session found for page: ${pageId}`);
+        debug.log(`❌ No existing session found for page: ${pageId}`);
         return null;
       }
       
@@ -95,7 +96,7 @@ export class ChatSessionManager {
       const sessions = this.getUserSessions(userId);
       return sessions.find(session => session.id === currentSessionId) || null;
     } catch (error) {
-      console.error('Error loading current session:', error);
+      debug.error('Error loading current session:', error);
       return null;
     }
   }
@@ -117,7 +118,7 @@ export class ChatSessionManager {
     this.saveSession(newSession);
     this.setCurrentSession(newSession.id, pageId);
 
-    console.log(`🆕 Created new session: ${sessionId} for page: ${pageId || 'default'}`);
+    debug.log(`🆕 Created new session: ${sessionId} for page: ${pageId || 'default'}`);
 
     return newSession;
   }
@@ -127,13 +128,13 @@ export class ChatSessionManager {
     try {
       // If we have an existing secret, we could refresh it here
       if (existingSecret) {
-        console.log('Existing client secret provided, attempting refresh...');
+        debug.log('Existing client secret provided, attempting refresh...');
       }
 
       // Default to WagerBot workflow if not specified
       const targetWorkflowId = workflowId || 'wf_68ed847d7a44819095f0e8eca93bfd660fc4b093b131f0f0';
       
-      console.log('Calling BuildShip workflow for client secret...', { workflowId: targetWorkflowId });
+      debug.log('Calling BuildShip workflow for client secret...', { workflowId: targetWorkflowId });
 
       // Create a timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -160,16 +161,16 @@ export class ChatSessionManager {
       // Race between fetch and timeout
       const response = await Promise.race([fetchPromise, timeoutPromise]);
 
-      console.log('BuildShip response status:', response.status);
+      debug.log('BuildShip response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('BuildShip error response:', errorText);
+        debug.error('BuildShip error response:', errorText);
         throw new Error(`BuildShip workflow failed: ${response.status} ${response.statusText}`);
       }
 
       const buildShipResult: BuildShipSessionResponse = await response.json();
-      console.log('BuildShip result received:', buildShipResult);
+      debug.log('BuildShip result received:', buildShipResult);
       
       // Handle different response formats for client secret
       let clientSecret: string | undefined;
@@ -192,11 +193,11 @@ export class ChatSessionManager {
       }
       
       if (!clientSecret) {
-        console.error('BuildShip result:', JSON.stringify(buildShipResult, null, 2));
+        debug.error('BuildShip result:', JSON.stringify(buildShipResult, null, 2));
         throw new Error('No client secret found in BuildShip workflow response');
       }
 
-      console.log('Client secret extracted successfully:', { 
+      debug.log('Client secret extracted successfully:', { 
         length: clientSecret.length,
         prefix: clientSecret.substring(0, 15) + '...',
         hasAgentId: !!agentId,
@@ -205,7 +206,7 @@ export class ChatSessionManager {
 
       return { clientSecret, agentId };
     } catch (error) {
-      console.error('Error getting client secret:', error);
+      debug.error('Error getting client secret:', error);
       throw error;
     }
   }
@@ -226,7 +227,7 @@ export class ChatSessionManager {
 
       localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(allSessions));
     } catch (error) {
-      console.error('Error saving chat session:', error);
+      debug.error('Error saving chat session:', error);
     }
   }
 
@@ -235,7 +236,7 @@ export class ChatSessionManager {
     if (pageId) {
       const pageSessionKey = `${CURRENT_SESSION_KEY}_${pageId}`;
       localStorage.setItem(pageSessionKey, sessionId);
-      console.log(`💾 Set current session for page ${pageId}: ${sessionId}`);
+      debug.log(`💾 Set current session for page ${pageId}: ${sessionId}`);
     } else {
       localStorage.setItem(CURRENT_SESSION_KEY, sessionId);
     }
@@ -263,7 +264,7 @@ export class ChatSessionManager {
         localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(allSessions));
       }
     } catch (error) {
-      console.error('Error adding message to session:', error);
+      debug.error('Error adding message to session:', error);
     }
   }
 
@@ -284,7 +285,7 @@ export class ChatSessionManager {
         localStorage.removeItem(CURRENT_SESSION_KEY);
       }
     } catch (error) {
-      console.error('Error deleting session:', error);
+      debug.error('Error deleting session:', error);
     }
   }
 
@@ -300,7 +301,7 @@ export class ChatSessionManager {
       localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(otherUserSessions));
       localStorage.removeItem(CURRENT_SESSION_KEY);
     } catch (error) {
-      console.error('Error clearing user sessions:', error);
+      debug.error('Error clearing user sessions:', error);
     }
   }
 
@@ -311,7 +312,7 @@ export class ChatSessionManager {
       const pageSessionId = localStorage.getItem(pageSessionKey);
       
       if (pageSessionId) {
-        console.log(`🗑️  Clearing session for page: ${pageId}, sessionId: ${pageSessionId}`);
+        debug.log(`🗑️  Clearing session for page: ${pageId}, sessionId: ${pageSessionId}`);
         
         // Remove the session from storage
         this.deleteSession(pageSessionId);
@@ -319,12 +320,12 @@ export class ChatSessionManager {
         // Clear the page-specific current session key
         localStorage.removeItem(pageSessionKey);
         
-        console.log(`✅ Page session cleared successfully for: ${pageId}`);
+        debug.log(`✅ Page session cleared successfully for: ${pageId}`);
       } else {
-        console.log(`ℹ️  No existing session to clear for page: ${pageId}`);
+        debug.log(`ℹ️  No existing session to clear for page: ${pageId}`);
       }
     } catch (error) {
-      console.error('Error clearing page session:', error);
+      debug.error('Error clearing page session:', error);
     }
   }
 }

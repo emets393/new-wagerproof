@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,7 +50,7 @@ const PatternMatchCard: React.FC<PatternMatchProps> = ({ match, target, onViewMa
       // For moneyline and runline, use the dominant_side field to determine which team to predict
       const dominantSide = match.dominant_side || (match.win_pct > match.opponent_win_pct ? 'primary' : 'opponent');
       
-      console.log('PatternMatchCard Debug:', {
+      debug.log('PatternMatchCard Debug:', {
         pattern_name: match.pattern_name,
         primary_team: match.primary_team,
         opponent_team: match.opponent_team,

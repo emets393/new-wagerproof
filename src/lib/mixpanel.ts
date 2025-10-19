@@ -5,6 +5,8 @@
  * All tracking calls should go through these functions for consistency.
  */
 
+import debug from '@/utils/debug';
+
 // Extend Window interface to include Mixpanel
 declare global {
   interface Window {
@@ -39,7 +41,7 @@ export const trackEvent = (
   properties?: Record<string, any>
 ): void => {
   if (!isMixpanelLoaded()) {
-    console.warn('[Mixpanel] Not loaded, skipping event:', eventName);
+    debug.warn('[Mixpanel] Not loaded, skipping event:', eventName);
     return;
   }
 
@@ -48,9 +50,9 @@ export const trackEvent = (
       ...properties,
       timestamp: new Date().toISOString(),
     });
-    console.log('[Mixpanel] Event tracked:', eventName, properties);
+    debug.log('[Mixpanel] Event tracked:', eventName, properties);
   } catch (error) {
-    console.error('[Mixpanel] Error tracking event:', error);
+    debug.error('[Mixpanel] Error tracking event:', error);
   }
 };
 
@@ -60,15 +62,15 @@ export const trackEvent = (
  */
 export const setUserProperties = (properties: Record<string, any>): void => {
   if (!isMixpanelLoaded()) {
-    console.warn('[Mixpanel] Not loaded, skipping user properties');
+    debug.warn('[Mixpanel] Not loaded, skipping user properties');
     return;
   }
 
   try {
     window.mixpanel!.people.set(properties);
-    console.log('[Mixpanel] User properties set:', properties);
+    debug.log('[Mixpanel] User properties set:', properties);
   } catch (error) {
-    console.error('[Mixpanel] Error setting user properties:', error);
+    debug.error('[Mixpanel] Error setting user properties:', error);
   }
 };
 
@@ -78,15 +80,15 @@ export const setUserProperties = (properties: Record<string, any>): void => {
  */
 export const setUserPropertiesOnce = (properties: Record<string, any>): void => {
   if (!isMixpanelLoaded()) {
-    console.warn('[Mixpanel] Not loaded, skipping user properties (once)');
+    debug.warn('[Mixpanel] Not loaded, skipping user properties (once)');
     return;
   }
 
   try {
     window.mixpanel!.people.set_once(properties);
-    console.log('[Mixpanel] User properties set once:', properties);
+    debug.log('[Mixpanel] User properties set once:', properties);
   } catch (error) {
-    console.error('[Mixpanel] Error setting user properties once:', error);
+    debug.error('[Mixpanel] Error setting user properties once:', error);
   }
 };
 
@@ -97,15 +99,15 @@ export const setUserPropertiesOnce = (properties: Record<string, any>): void => 
  */
 export const incrementUserProperty = (property: string, value: number = 1): void => {
   if (!isMixpanelLoaded()) {
-    console.warn('[Mixpanel] Not loaded, skipping increment');
+    debug.warn('[Mixpanel] Not loaded, skipping increment');
     return;
   }
 
   try {
     window.mixpanel!.people.increment(property, value);
-    console.log(`[Mixpanel] Incremented ${property} by ${value}`);
+    debug.log(`[Mixpanel] Incremented ${property} by ${value}`);
   } catch (error) {
-    console.error('[Mixpanel] Error incrementing property:', error);
+    debug.error('[Mixpanel] Error incrementing property:', error);
   }
 };
 
@@ -119,7 +121,7 @@ export const identifyUser = (
   properties?: Record<string, any>
 ): void => {
   if (!isMixpanelLoaded()) {
-    console.warn('[Mixpanel] Not loaded, skipping identify');
+    debug.warn('[Mixpanel] Not loaded, skipping identify');
     return;
   }
 
@@ -128,9 +130,9 @@ export const identifyUser = (
     if (properties) {
       window.mixpanel!.people.set(properties);
     }
-    console.log('[Mixpanel] User identified:', userId);
+    debug.log('[Mixpanel] User identified:', userId);
   } catch (error) {
-    console.error('[Mixpanel] Error identifying user:', error);
+    debug.error('[Mixpanel] Error identifying user:', error);
   }
 };
 
@@ -139,15 +141,15 @@ export const identifyUser = (
  */
 export const resetTracking = (): void => {
   if (!isMixpanelLoaded()) {
-    console.warn('[Mixpanel] Not loaded, skipping reset');
+    debug.warn('[Mixpanel] Not loaded, skipping reset');
     return;
   }
 
   try {
     window.mixpanel!.reset();
-    console.log('[Mixpanel] Tracking reset');
+    debug.log('[Mixpanel] Tracking reset');
   } catch (error) {
-    console.error('[Mixpanel] Error resetting:', error);
+    debug.error('[Mixpanel] Error resetting:', error);
   }
 };
 
@@ -157,15 +159,15 @@ export const resetTracking = (): void => {
  */
 export const registerSuperProperties = (properties: Record<string, any>): void => {
   if (!isMixpanelLoaded()) {
-    console.warn('[Mixpanel] Not loaded, skipping super properties');
+    debug.warn('[Mixpanel] Not loaded, skipping super properties');
     return;
   }
 
   try {
     window.mixpanel!.register(properties);
-    console.log('[Mixpanel] Super properties registered:', properties);
+    debug.log('[Mixpanel] Super properties registered:', properties);
   } catch (error) {
-    console.error('[Mixpanel] Error registering super properties:', error);
+    debug.error('[Mixpanel] Error registering super properties:', error);
   }
 };
 

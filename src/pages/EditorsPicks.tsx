@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Star, Loader2, Sparkles, ExternalLink } from 'lucide-react';
+import debug from '@/utils/debug';
 import { EditorPickCard } from '@/components/EditorPickCard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useAdminMode } from '@/contexts/AdminModeContext';
@@ -274,12 +275,12 @@ export default function EditorsPicks() {
 
       // Fetch game data for all picks
       if (picksData && picksData.length > 0) {
-        console.log('📊 Editor Picks found:', picksData);
+        debug.log('📊 Editor Picks found:', picksData);
         const nflGameIds = picksData.filter(p => p.game_type === 'nfl').map(p => p.game_id);
         const cfbGameIds = picksData.filter(p => p.game_type === 'cfb').map(p => p.game_id);
 
-        console.log('🏈 NFL Game IDs to fetch:', nflGameIds);
-        console.log('🏈 CFB Game IDs to fetch:', cfbGameIds);
+        debug.log('🏈 NFL Game IDs to fetch:', nflGameIds);
+        debug.log('🏈 CFB Game IDs to fetch:', cfbGameIds);
 
         const gameDataMap = new Map<string, GameData>();
 
@@ -329,9 +330,9 @@ export default function EditorsPicks() {
           .from('cfb_team_mapping')
           .select('api, logo_light');
 
-        console.log('🏈 CFB Team Mappings fetched:', cfbTeamMappings?.length || 0);
+        debug.log('🏈 CFB Team Mappings fetched:', cfbTeamMappings?.length || 0);
         if (cfbMappingError) {
-          console.error('CFB team mapping error:', cfbMappingError);
+          debug.error('CFB team mapping error:', cfbMappingError);
         }
 
         // Helper function to get CFB team logo
@@ -348,8 +349,8 @@ export default function EditorsPicks() {
             .select('*')
             .in('training_key', nflGameIds);
 
-          console.log('🏈 NFL Betting Lines fetched:', bettingLines);
-          console.log('🏈 NFL Betting Lines error:', linesError);
+          debug.log('🏈 NFL Betting Lines fetched:', bettingLines);
+          debug.log('🏈 NFL Betting Lines error:', linesError);
 
           // Then get predictions
           const { data: nflPredictions, error: predsError } = await collegeFootballSupabase
@@ -357,15 +358,15 @@ export default function EditorsPicks() {
             .select('*')
             .in('training_key', nflGameIds);
 
-          console.log('🏈 NFL Predictions fetched:', nflPredictions);
-          console.log('🏈 NFL Predictions error:', predsError);
+          debug.log('🏈 NFL Predictions fetched:', nflPredictions);
+          debug.log('🏈 NFL Predictions error:', predsError);
 
           if (!linesError && bettingLines) {
             bettingLines.forEach((line: any) => {
               // Find matching prediction if it exists
               const prediction = nflPredictions?.find((p: any) => p.training_key === line.training_key);
               
-              console.log('Adding NFL game to map:', line.training_key, line.away_team, '@', line.home_team);
+              debug.log('Adding NFL game to map:', line.training_key, line.away_team, '@', line.home_team);
               
               // Format NFL date
               let formattedDate = line.game_date;
@@ -379,7 +380,7 @@ export default function EditorsPicks() {
                     day: 'numeric'
                   });
                 } catch (error) {
-                  console.error('Error formatting NFL date:', error);
+                  debug.error('Error formatting NFL date:', error);
                 }
               }
               
@@ -399,7 +400,7 @@ export default function EditorsPicks() {
                     hour12: true
                   }) + ' EST';
                 } catch (error) {
-                  console.error('Error formatting NFL time:', error);
+                  debug.error('Error formatting NFL time:', error);
                 }
               }
               
@@ -425,8 +426,8 @@ export default function EditorsPicks() {
 
         // Fetch CFB games
         if (cfbGameIds.length > 0) {
-          console.log('🏈 Querying CFB games with IDs:', cfbGameIds);
-          console.log('🏈 ID types:', cfbGameIds.map(id => `${id} (${typeof id})`));
+          debug.log('🏈 Querying CFB games with IDs:', cfbGameIds);
+          debug.log('🏈 ID types:', cfbGameIds.map(id => `${id} (${typeof id})`));
           
           // Try converting IDs to numbers in case the database uses numeric type
           const numericIds = cfbGameIds.map(id => {
@@ -434,16 +435,16 @@ export default function EditorsPicks() {
             return isNaN(parsed) ? id : parsed;
           });
           
-          console.log('🏈 Numeric IDs:', numericIds);
+          debug.log('🏈 Numeric IDs:', numericIds);
           
           const { data: cfbGames, error: cfbError } = await collegeFootballSupabase
             .from('cfb_live_weekly_inputs')
             .select('*')
             .in('id', numericIds);
 
-          console.log('🏈 CFB Games fetched:', cfbGames);
-          console.log('🏈 CFB Games count:', cfbGames?.length || 0);
-          console.log('🏈 CFB Fetch error:', cfbError);
+          debug.log('🏈 CFB Games fetched:', cfbGames);
+          debug.log('🏈 CFB Games count:', cfbGames?.length || 0);
+          debug.log('🏈 CFB Fetch error:', cfbError);
           
           // Debug: Let's also try fetching all CFB games to see what IDs are available
           if (!cfbGames || cfbGames.length === 0) {
@@ -451,13 +452,13 @@ export default function EditorsPicks() {
               .from('cfb_live_weekly_inputs')
               .select('id, away_team, home_team')
               .limit(10);
-            console.log('🏈 Sample CFB games in DB (first 10):', allCfbGames);
-            console.log('🏈 Sample ID types:', allCfbGames?.map(g => `${g.id} (${typeof g.id})`));
+            debug.log('🏈 Sample CFB games in DB (first 10):', allCfbGames);
+            debug.log('🏈 Sample ID types:', allCfbGames?.map(g => `${g.id} (${typeof g.id})`));
           }
 
           if (!cfbError && cfbGames) {
             cfbGames.forEach(game => {
-              console.log('Adding CFB game to map:', game.id, game.away_team, '@', game.home_team);
+              debug.log('Adding CFB game to map:', game.id, game.away_team, '@', game.home_team);
               
               // Get the start time from any available field
               const startTimeString = game.start_time || game.start_date || game.game_datetime || game.datetime;
@@ -493,7 +494,7 @@ export default function EditorsPicks() {
                     hour12: true
                   }) + ' EST';
                 } catch (error) {
-                  console.error('Error formatting CFB date/time:', error);
+                  debug.error('Error formatting CFB date/time:', error);
                 }
               }
               
@@ -519,14 +520,14 @@ export default function EditorsPicks() {
           }
         }
 
-        console.log('🗺️ Final game data map size:', gameDataMap.size);
-        console.log('🗺️ Game data map keys:', Array.from(gameDataMap.keys()));
-        console.log('🗺️ Game data map keys types:', Array.from(gameDataMap.keys()).map(k => `${k} (${typeof k})`));
-        console.log('🗺️ Pick game_ids to match:', picksData.map(p => `${p.game_id} (${typeof p.game_id}) - ${p.game_type}`));
+        debug.log('🗺️ Final game data map size:', gameDataMap.size);
+        debug.log('🗺️ Game data map keys:', Array.from(gameDataMap.keys()));
+        debug.log('🗺️ Game data map keys types:', Array.from(gameDataMap.keys()).map(k => `${k} (${typeof k})`));
+        debug.log('🗺️ Pick game_ids to match:', picksData.map(p => `${p.game_id} (${typeof p.game_id}) - ${p.game_type}`));
         setGamesData(gameDataMap);
       }
     } catch (err) {
-      console.error('Error fetching editor picks:', err);
+      debug.error('Error fetching editor picks:', err);
       setError(`Failed to load editor picks: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -599,7 +600,7 @@ export default function EditorsPicks() {
       // Game is expired if it's before today (next day after game = today or later)
       return gameDateOnly < today;
     } catch (error) {
-      console.error('Error checking game expiration:', error);
+      debug.error('Error checking game expiration:', error);
       return false; // Don't filter out if we can't parse the date
     }
   };
@@ -696,9 +697,9 @@ export default function EditorsPicks() {
             {draftPicks.map(pick => {
               const gameData = gamesData.get(pick.game_id);
               
-              console.log(`🎯 Draft: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
+              debug.log(`🎯 Draft: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
               if (!gameData) {
-                console.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
+                debug.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
               }
               
               if (!gameData) {
@@ -730,7 +731,7 @@ export default function EditorsPicks() {
                                 if (error) throw error;
                                 fetchPicks();
                               } catch (err) {
-                                console.error('Error deleting pick:', err);
+                                debug.error('Error deleting pick:', err);
                               }
                             }}
                           >
@@ -770,9 +771,9 @@ export default function EditorsPicks() {
             {publishedPicks.map(pick => {
               const gameData = gamesData.get(pick.game_id);
               
-              console.log(`🎯 Published: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
+              debug.log(`🎯 Published: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
               if (!gameData) {
-                console.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
+                debug.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
               }
               
               if (!gameData) {
@@ -804,7 +805,7 @@ export default function EditorsPicks() {
                                 if (error) throw error;
                                 fetchPicks();
                               } catch (err) {
-                                console.error('Error deleting pick:', err);
+                                debug.error('Error deleting pick:', err);
                               }
                             }}
                           >

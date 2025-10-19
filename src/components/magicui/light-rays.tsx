@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { useRef, useEffect, useState } from 'react';
 import { Renderer, Program, Triangle, Mesh } from 'ogl';
 
@@ -336,7 +337,7 @@ void main() {
           renderer.render({ scene: mesh });
           animationIdRef.current = requestAnimationFrame(loop);
         } catch (error) {
-          console.warn('WebGL rendering error:', error);
+          debug.warn('WebGL rendering error:', error);
           return;
         }
       };
@@ -365,7 +366,7 @@ void main() {
               canvas.parentNode.removeChild(canvas);
             }
           } catch (error) {
-            console.warn('Error during WebGL cleanup:', error);
+            debug.warn('Error during WebGL cleanup:', error);
           }
         }
 

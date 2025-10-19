@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { Shield, Users, TrendingUp, Settings as SettingsIcon, Loader2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import debug from '@/utils/debug';
 
 export default function Admin() {
   const { user } = useAuth();
@@ -29,7 +30,7 @@ export default function Admin() {
         .rpc('has_role', { _user_id: user.id, _role: 'admin' });
 
       if (error) {
-        console.error('Error checking admin status:', error);
+        debug.error('Error checking admin status:', error);
         setIsAdmin(false);
       } else {
         setIsAdmin(data || false);

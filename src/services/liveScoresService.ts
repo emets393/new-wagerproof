@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { collegeFootballSupabase } from "@/integrations/supabase/college-football-client";
 import { LiveGame, GamePredictions, PredictionStatus } from "@/types/liveScores";
 import { gamesMatch } from "@/utils/teamMatching";
+import debug from "@/utils/debug";
 
 interface NFLPrediction {
   training_key: string;
@@ -72,7 +73,7 @@ function calculatePredictionStatus(
     if (cfbPred.pred_home_score !== null && cfbPred.pred_away_score !== null) {
       // If home predicted score > away predicted score, model picks home
       mlProb = cfbPred.pred_home_score > cfbPred.pred_away_score ? 0.6 : 0.4;
-      console.log(`      📊 CFB ML: Derived from predicted scores (Home: ${cfbPred.pred_home_score}, Away: ${cfbPred.pred_away_score})`);
+      debug.log(`      📊 CFB ML: Derived from predicted scores (Home: ${cfbPred.pred_home_score}, Away: ${cfbPred.pred_away_score})`);
     }
   }
 
@@ -81,7 +82,7 @@ function calculatePredictionStatus(
     const isHitting = (predictedWinner === 'Home' && homeScore > awayScore) ||
                      (predictedWinner === 'Away' && awayScore > homeScore);
     
-    console.log(`      📊 ML: prob=${mlProb}, predicted=${predictedWinner}, awayScore=${awayScore}, homeScore=${homeScore}, hitting=${isHitting}`);
+    debug.log(`      📊 ML: prob=${mlProb}, predicted=${predictedWinner}, awayScore=${awayScore}, homeScore=${homeScore}, hitting=${isHitting}`);
     
     predictions.moneyline = {
       predicted: predictedWinner,
@@ -108,7 +109,7 @@ function calculatePredictionStatus(
     if (cfbPred.home_spread_diff !== null) {
       // Positive home_spread_diff = edge to home, negative = edge to away
       spreadProb = cfbPred.home_spread_diff > 0 ? 0.6 : 0.4;
-      console.log(`      📊 CFB Spread: Derived from home_spread_diff (${cfbPred.home_spread_diff})`);
+      debug.log(`      📊 CFB Spread: Derived from home_spread_diff (${cfbPred.home_spread_diff})`);
     }
   }
 
@@ -122,7 +123,7 @@ function calculatePredictionStatus(
     const isHitting = (predictedCover === 'Home' && adjustedDiff > 0) ||
                      (predictedCover === 'Away' && adjustedDiff < 0);
 
-    console.log(`      📊 Spread: prob=${spreadProb}, line=${spreadLine}, predicted=${predictedCover}, scoreDiff=${scoreDiff}, adjustedDiff=${adjustedDiff}, hitting=${isHitting}`);
+    debug.log(`      📊 Spread: prob=${spreadProb}, line=${spreadLine}, predicted=${predictedCover}, scoreDiff=${scoreDiff}, adjustedDiff=${adjustedDiff}, hitting=${isHitting}`);
 
     predictions.spread = {
       predicted: predictedCover,
@@ -150,7 +151,7 @@ function calculatePredictionStatus(
     if (cfbPred.over_line_diff !== null) {
       // Positive over_line_diff = edge to over, negative = edge to under
       ouProb = cfbPred.over_line_diff > 0 ? 0.6 : 0.4;
-      console.log(`      📊 CFB O/U: Derived from over_line_diff (${cfbPred.over_line_diff})`);
+      debug.log(`      📊 CFB O/U: Derived from over_line_diff (${cfbPred.over_line_diff})`);
     }
   }
 
@@ -159,7 +160,7 @@ function calculatePredictionStatus(
     const isHitting = (predictedResult === 'Over' && totalScore > ouLine) ||
                      (predictedResult === 'Under' && totalScore < ouLine);
 
-    console.log(`      📊 O/U: prob=${ouProb}, line=${ouLine}, predicted=${predictedResult}, total=${totalScore}, hitting=${isHitting}`);
+    debug.log(`      📊 O/U: prob=${ouProb}, line=${ouLine}, predicted=${predictedResult}, total=${totalScore}, hitting=${isHitting}`);
 
     predictions.overUnder = {
       predicted: predictedResult,
@@ -193,7 +194,7 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
       .single();
 
     if (runError || !latestRun?.run_id) {
-      console.log('No NFL predictions found for today');
+      debug.log('No NFL predictions found for today');
       return [];
     }
 
@@ -205,7 +206,7 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
       .eq('run_id', latestRun.run_id);
 
     if (predsError) {
-      console.error('Error fetching NFL predictions:', predsError);
+      debug.error('Error fetching NFL predictions:', predsError);
       return [];
     }
 
@@ -215,7 +216,7 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
       .select('training_key, home_team, away_team, home_spread, away_spread, over_line');
 
     if (linesError) {
-      console.error('Error fetching NFL betting lines:', linesError);
+      debug.error('Error fetching NFL betting lines:', linesError);
     }
 
     // Merge predictions with betting lines
@@ -229,16 +230,16 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
       } as NFLPredictionWithLines;
     });
 
-    console.log(`📊 Fetched ${merged.length} NFL predictions with lines`);
+    debug.log(`📊 Fetched ${merged.length} NFL predictions with lines`);
     if (merged.length > 0) {
-      console.log(`📊 Sample NFL prediction teams:`, {
+      debug.log(`📊 Sample NFL prediction teams:`, {
         home: merged[0].home_team,
         away: merged[0].away_team
       });
     }
     return merged;
   } catch (error) {
-    console.error('Error in fetchNFLPredictions:', error);
+    debug.error('Error in fetchNFLPredictions:', error);
     return [];
   }
 }
@@ -254,14 +255,14 @@ async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
       .select('*');
 
     if (error) {
-      console.error('❌ Error fetching CFB predictions:', error);
+      debug.error('❌ Error fetching CFB predictions:', error);
       return [];
     }
 
-    console.log(`📊 Fetched ${(data || []).length} CFB predictions from cfb_live_weekly_inputs`);
+    debug.log(`📊 Fetched ${(data || []).length} CFB predictions from cfb_live_weekly_inputs`);
     if (data && data.length > 0) {
-      console.log(`📊 Sample CFB prediction row (all columns):`, data[0]);
-      console.log(`📊 CFB column names:`, Object.keys(data[0]));
+      debug.log(`📊 Sample CFB prediction row (all columns):`, data[0]);
+      debug.log(`📊 CFB column names:`, Object.keys(data[0]));
     }
 
     // Fetch API predictions to get edge data
@@ -270,10 +271,10 @@ async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
       .select('*');
 
     if (apiPredsError) {
-      console.error('❌ Error fetching CFB API predictions:', apiPredsError);
+      debug.error('❌ Error fetching CFB API predictions:', apiPredsError);
     }
 
-    console.log(`📊 Fetched ${apiPreds?.length || 0} CFB API predictions with edge data`);
+    debug.log(`📊 Fetched ${apiPreds?.length || 0} CFB API predictions with edge data`);
 
     // Map to our CFBPrediction interface - include edge data from cfb_api_predictions
     const predictions = (data || []).map((row: any) => {
@@ -296,14 +297,14 @@ async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
       };
     }) as CFBPrediction[];
 
-    console.log(`📊 Mapped ${predictions.length} CFB predictions with edge data`);
+    debug.log(`📊 Mapped ${predictions.length} CFB predictions with edge data`);
     if (predictions.length > 0) {
-      console.log(`📊 Sample CFB prediction:`, predictions[0]);
+      debug.log(`📊 Sample CFB prediction:`, predictions[0]);
     }
     
     return predictions;
   } catch (error) {
-    console.error('❌ Error in fetchCFBPredictions:', error);
+    debug.error('❌ Error in fetchCFBPredictions:', error);
     return [];
   }
 }
@@ -320,14 +321,14 @@ async function enrichGamesWithPredictions(games: LiveGame[]): Promise<LiveGame[]
     fetchCFBPredictions()
   ]);
 
-  console.log(`Fetched ${nflPredictions.length} NFL predictions and ${cfbPredictions.length} CFB predictions`);
+  debug.log(`Fetched ${nflPredictions.length} NFL predictions and ${cfbPredictions.length} CFB predictions`);
 
   // Enrich each game with its predictions
   return games.map(game => {
     let matchedPrediction: NFLPredictionWithLines | CFBPrediction | null = null;
 
     if (game.league === 'NFL') {
-      console.log(`🔍 Trying to match NFL game: ${game.away_team} @ ${game.home_team}`);
+      debug.log(`🔍 Trying to match NFL game: ${game.away_team} @ ${game.home_team}`);
       
       matchedPrediction = nflPredictions.find(pred => {
         const matches = gamesMatch(
@@ -336,21 +337,21 @@ async function enrichGamesWithPredictions(games: LiveGame[]): Promise<LiveGame[]
         );
         
         if (!matches) {
-          console.log(`   ❌ No match with prediction: ${pred.away_team} @ ${pred.home_team}`);
+          debug.log(`   ❌ No match with prediction: ${pred.away_team} @ ${pred.home_team}`);
         }
         return matches;
       }) || null;
       
       if (matchedPrediction) {
-        console.log(`   ✅ Matched NFL game: ${game.away_team} @ ${game.home_team}`, {
+        debug.log(`   ✅ Matched NFL game: ${game.away_team} @ ${game.home_team}`, {
           prediction: matchedPrediction,
           scores: { away: game.away_score, home: game.home_score }
         });
       } else {
-        console.log(`   ⚠️  No prediction found for NFL game: ${game.away_team} @ ${game.home_team}`);
+        debug.log(`   ⚠️  No prediction found for NFL game: ${game.away_team} @ ${game.home_team}`);
       }
     } else if (game.league === 'NCAAF') {
-      console.log(`🔍 Trying to match CFB game: ${game.away_team} @ ${game.home_team}`);
+      debug.log(`🔍 Trying to match CFB game: ${game.away_team} @ ${game.home_team}`);
       
       matchedPrediction = cfbPredictions.find(pred => {
         const matches = gamesMatch(
@@ -359,25 +360,25 @@ async function enrichGamesWithPredictions(games: LiveGame[]): Promise<LiveGame[]
         );
         
         if (!matches) {
-          console.log(`   ❌ No match with prediction: ${pred.away_team} @ ${pred.home_team}`);
+          debug.log(`   ❌ No match with prediction: ${pred.away_team} @ ${pred.home_team}`);
         }
         return matches;
       }) || null;
       
       if (matchedPrediction) {
-        console.log(`   ✅ Matched CFB game: ${game.away_team} @ ${game.home_team}`, {
+        debug.log(`   ✅ Matched CFB game: ${game.away_team} @ ${game.home_team}`, {
           prediction: matchedPrediction,
           scores: { away: game.away_score, home: game.home_score }
         });
       } else {
-        console.log(`   ⚠️  No prediction found for CFB game: ${game.away_team} @ ${game.home_team}`);
+        debug.log(`   ⚠️  No prediction found for CFB game: ${game.away_team} @ ${game.home_team}`);
       }
     }
 
     if (matchedPrediction) {
-      console.log(`   📊 Calculating prediction status for: ${game.away_abbr} ${game.away_score} @ ${game.home_abbr} ${game.home_score}`);
+      debug.log(`   📊 Calculating prediction status for: ${game.away_abbr} ${game.away_score} @ ${game.home_abbr} ${game.home_score}`);
       const predictions = calculatePredictionStatus(game, matchedPrediction);
-      console.log(`   ✅ Result:`, predictions);
+      debug.log(`   ✅ Result:`, predictions);
       return { ...game, predictions };
     }
 
@@ -394,15 +395,15 @@ export async function getLiveScores(): Promise<LiveGame[]> {
     .order('away_abbr', { ascending: true });
   
   if (error) {
-    console.error('Error fetching live scores:', error);
+    debug.error('Error fetching live scores:', error);
     return [];
   }
   
   const games = (data || []) as LiveGame[];
   
-  console.log(`📺 Fetched ${games.length} live games from ESPN`);
+  debug.log(`📺 Fetched ${games.length} live games from ESPN`);
   if (games.length > 0) {
-    console.log(`📺 Sample live game teams:`, {
+    debug.log(`📺 Sample live game teams:`, {
       league: games[0].league,
       home: games[0].home_team,
       away: games[0].away_team
@@ -419,7 +420,7 @@ export async function refreshLiveScores(): Promise<{ success: boolean; liveGames
     const { data, error } = await supabase.functions.invoke('fetch-live-scores');
     
     if (error) {
-      console.error('Error refreshing live scores:', error);
+      debug.error('Error refreshing live scores:', error);
       return { success: false, liveGames: 0 };
     }
     
@@ -428,7 +429,7 @@ export async function refreshLiveScores(): Promise<{ success: boolean; liveGames
       liveGames: data?.liveGames || 0
     };
   } catch (error) {
-    console.error('Error calling refresh function:', error);
+    debug.error('Error calling refresh function:', error);
     return { success: false, liveGames: 0 };
   }
 }
@@ -444,7 +445,7 @@ export async function checkIfRefreshNeeded(): Promise<boolean> {
     .limit(1);
   
   if (error) {
-    console.error('Error checking refresh status:', error);
+    debug.error('Error checking refresh status:', error);
     return true; // Refresh on error
   }
   

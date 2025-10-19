@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import debug from '@/utils/debug';
 
 interface AuthContextType {
   user: User | null;
@@ -27,12 +28,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email || 'no user');
+        debug.log('Auth state change:', event, session?.user?.email || 'no user');
         
         // If user just signed in (including OAuth), set welcome flag
         // OnboardingGuard will handle the redirection logic based on onboarding status
         if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ User signed in, setting welcome flag');
+          debug.log('✅ User signed in, setting welcome flag');
           localStorage.setItem('wagerproof_show_welcome', 'true');
         }
         
@@ -100,25 +101,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      console.log('Starting sign out process...');
+      debug.log('Starting sign out process...');
       setSigningOut(true);
       // Clear the welcome flag so next login will show welcome message
       localStorage.removeItem('wagerproof_show_welcome');
-      console.log('Calling supabase.auth.signOut()...');
+      debug.log('Calling supabase.auth.signOut()...');
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Supabase sign out error:', error);
+        debug.error('Supabase sign out error:', error);
         throw error;
       }
-      console.log('Sign out successful');
+      debug.log('Sign out successful');
     } catch (error) {
-      console.error('Sign out error:', error);
+      debug.error('Sign out error:', error);
       // Clear local state even if server logout fails
       setSession(null);
       setUser(null);
     } finally {
       setSigningOut(false);
-      console.log('Sign out process completed');
+      debug.log('Sign out process completed');
     }
   };
 

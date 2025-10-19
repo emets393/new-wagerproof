@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Trophy, Target, ArrowUp, ArrowDown } from 'lucide-react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
@@ -36,7 +37,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
 
   useEffect(() => {
     if (isOpen && homeTeam && awayTeam) {
-      console.log('H2HModal: Opening modal for', homeTeam, 'vs', awayTeam);
+      debug.log('H2HModal: Opening modal for', homeTeam, 'vs', awayTeam);
       fetchH2HData();
     }
   }, [isOpen, homeTeam, awayTeam]);
@@ -46,7 +47,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
     setError(null);
     
     try {
-      console.log('Fetching H2H data for:', homeTeam, 'vs', awayTeam);
+      debug.log('Fetching H2H data for:', homeTeam, 'vs', awayTeam);
       
       const { data, error } = await collegeFootballSupabase
         .from('nfl_training_data')
@@ -55,16 +56,16 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
         .order('game_date', { ascending: false })
         .limit(5);
 
-      console.log('Query result:', { data, error });
+      debug.log('Query result:', { data, error });
 
       if (error) {
-        console.error('Supabase error:', error);
+        debug.error('Supabase error:', error);
         throw error;
       }
       
       setGames(data || []);
     } catch (err) {
-      console.error('Error fetching H2H data:', err);
+      debug.error('Error fetching H2H data:', err);
       setError('Failed to load historical data');
     } finally {
       setLoading(false);
@@ -131,7 +132,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
   };
 
   const getTeamLogo = (teamName: string) => {
-    console.log('Getting logo for team:', teamName); // Debug log
+    debug.log('Getting logo for team:', teamName); // Debug log
     
     // Use the same mapping as the main NFL page
     const logoMap: { [key: string]: string } = {
@@ -216,7 +217,7 @@ const H2HModal: React.FC<H2HModalProps> = ({ isOpen, onClose, homeTeam, awayTeam
       }
     }
     
-    console.log('No logo found for team:', teamName); // Debug log
+    debug.log('No logo found for team:', teamName); // Debug log
     return 'https://a.espncdn.com/i/teamlogos/nfl/500/default.png';
   };
 

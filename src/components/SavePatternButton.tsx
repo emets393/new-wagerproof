@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -66,8 +67,8 @@ const SavePatternButton: React.FC<SavePatternButtonProps> = ({
       // Determine dominant side if not provided
       const calculatedDominantSide = dominantSide || (winPct > opponentWinPct ? 'primary' : 'opponent');
       
-      console.log('Saving pattern with dominant_side:', calculatedDominantSide);
-      console.log('Pattern details:', { winPct, opponentWinPct, dominantSide });
+      debug.log('Saving pattern with dominant_side:', calculatedDominantSide);
+      debug.log('Pattern details:', { winPct, opponentWinPct, dominantSide });
       
       const { error } = await supabase
         .from('saved_trend_patterns')
@@ -97,7 +98,7 @@ const SavePatternButton: React.FC<SavePatternButtonProps> = ({
       setIsOpen(false);
       setPatternName('');
     } catch (error) {
-      console.error('Error saving pattern:', error);
+      debug.error('Error saving pattern:', error);
       toast({
         title: "Error saving pattern",
         description: "Please try again later.",

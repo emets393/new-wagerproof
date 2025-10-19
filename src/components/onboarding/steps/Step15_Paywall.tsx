@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useOnboarding } from "@/contexts/OnboardingContext";
@@ -9,15 +10,15 @@ export function Paywall() {
 
   const handleContinue = async () => {
     try {
-      console.log('Starting onboarding completion...');
+      debug.log('Starting onboarding completion...');
       await submitOnboardingData();
-      console.log('Onboarding data submitted, navigating to chat...');
+      debug.log('Onboarding data submitted, navigating to chat...');
       // Small delay to ensure database update completes
       setTimeout(() => {
         navigate("/wagerbot-chat"); // Navigate to WagerBot chat page where all logged in users go
       }, 500);
     } catch (error) {
-      console.error('Error completing onboarding:', error);
+      debug.error('Error completing onboarding:', error);
       // Still navigate even if there's an error, but log it
       navigate("/wagerbot-chat");
     }
@@ -25,7 +26,7 @@ export function Paywall() {
 
   const handleSeePlans = () => {
     // In a real app, this would navigate to the pricing/subscription page.
-    console.log("Navigating to plans page...");
+    debug.log("Navigating to plans page...");
     handleContinue(); // For now, just continue to the site.
   };
 

@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import React, { useEffect, useRef } from 'react';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
 import { User } from '@supabase/supabase-js';
@@ -25,7 +26,7 @@ export function ChatKitWrapper({
   workflowId = 'wf_68ed847d7a44819095f0e8eca93bfd660fc4b093b131f0f0',
   enableImageUpload = false
 }: ChatKitWrapperProps) {
-  console.log('🔵 ChatKitWrapper rendering', { userId: user.id, sessionId, workflowId, enableImageUpload });
+  debug.log('🔵 ChatKitWrapper rendering', { userId: user.id, sessionId, workflowId, enableImageUpload });
   
   const [initError, setInitError] = React.useState<string | null>(null);
   const [hasAutoSent, setHasAutoSent] = React.useState(false);
@@ -49,20 +50,20 @@ Use this data to provide insightful analysis, identify value bets, explain model
         ? "You are a Bet Slip Grader, an expert at analyzing betting slips and providing detailed feedback on bet quality, odds value, and potential outcomes. Analyze uploaded bet slip images and provide insights on the bets placed."
         : "You are WagerBot, an expert sports betting analyst specialized in NFL, College Football, and other major sports. Help users understand betting strategies, analyze games, and make informed decisions based on the latest sports news and trends.";
 
-    console.log('🔧 Building ChatKit config with system context:', {
+    debug.log('🔧 Building ChatKit config with system context:', {
       hasContext: !!systemContext,
       contextLength: systemContext?.length || 0,
       systemMessageLength: systemMessage.length
     });
 
     if (systemContext) {
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6; font-weight: bold');
-      console.log('%c📤 CONFIGURING CHATKIT WITH METADATA', 'color: #8b5cf6; font-weight: bold; font-size: 14px');
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6; font-weight: bold');
-      console.log('System prompt will be sent with each message via ChatKit metadata');
-      console.log('System prompt length:', systemMessage.length);
-      console.log('System prompt preview:', systemMessage.substring(0, 300) + '...');
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6; font-weight: bold');
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6; font-weight: bold');
+      debug.log('%c📤 CONFIGURING CHATKIT WITH METADATA', 'color: #8b5cf6; font-weight: bold; font-size: 14px');
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6; font-weight: bold');
+      debug.log('System prompt will be sent with each message via ChatKit metadata');
+      debug.log('System prompt length:', systemMessage.length);
+      debug.log('System prompt preview:', systemMessage.substring(0, 300) + '...');
+      debug.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6; font-weight: bold');
     }
 
     const chatKitConfig: any = {
@@ -71,15 +72,15 @@ Use this data to provide insightful analysis, identify value bets, explain model
           try {
             // If we have an existing secret, we could refresh it here
             if (existing) {
-              console.log('🔄 Using existing client secret');
+              debug.log('🔄 Using existing client secret');
             }
 
-            console.log('🔑 Getting client secret for workflow:', workflowId);
+            debug.log('🔑 Getting client secret for workflow:', workflowId);
             
             // Get client secret from BuildShip workflow
             const result = await chatSessionManager.getClientSecret(user, existing, workflowId);
             
-            console.log('✅ Client secret obtained:', {
+            debug.log('✅ Client secret obtained:', {
               length: result.clientSecret.length,
               prefix: result.clientSecret.substring(0, 20) + '...',
               hasContext: !!systemContext,
@@ -88,7 +89,7 @@ Use this data to provide insightful analysis, identify value bets, explain model
             
             return result.clientSecret;
           } catch (error) {
-            console.error('❌ Error getting client secret:', error);
+            debug.error('❌ Error getting client secret:', error);
             setInitError(`Failed to get client secret: ${error}`);
             throw error;
           }
@@ -238,14 +239,14 @@ How might weather affect these games?`,
 
     hookResult = useChatKit(chatKitConfig);
   } catch (error: any) {
-    console.error('❌ useChatKit hook error:', error);
+    debug.error('❌ useChatKit hook error:', error);
     setInitError(`ChatKit initialization error: ${error.message || error}`);
     hookResult = { control: null };
   }
   
   const { control, sendUserMessage } = hookResult as any;
 
-  console.log('📦 Hook result:', { 
+  debug.log('📦 Hook result:', { 
     hasControl: !!control, 
     hasSendUserMessage: !!sendUserMessage,
     hookResultKeys: Object.keys(hookResult) 
@@ -254,14 +255,14 @@ How might weather affect these games?`,
   // Log control object when ready
   useEffect(() => {
     if (control) {
-      console.log('🎯 Control object ready:', {
+      debug.log('🎯 Control object ready:', {
         hasControl: !!control,
         controlKeys: Object.keys(control),
         hasContext: !!systemContext
       });
       
       if (systemContext) {
-        console.log('📊 Context will be appended to starter prompts and user messages');
+        debug.log('📊 Context will be appended to starter prompts and user messages');
       }
       
       // Clear timeout if control is ready
@@ -275,11 +276,11 @@ How might weather affect these games?`,
   // Set timeout for ChatKit initialization
   useEffect(() => {
     if (!control && !initError && !isTimedOut) {
-      console.log('⏱️ Starting ChatKit initialization timeout (20s)');
+      debug.log('⏱️ Starting ChatKit initialization timeout (20s)');
       
       initTimeoutRef.current = setTimeout(() => {
         if (!control) {
-          console.error('❌ ChatKit initialization timeout');
+          debug.error('❌ ChatKit initialization timeout');
           setIsTimedOut(true);
           setInitError('ChatKit initialization is taking too long. This may be due to network issues or BuildShip configuration. Please try refreshing the page.');
         }
@@ -362,14 +363,14 @@ How might weather affect these games?`,
   // Auto-send welcome message on first login - use ChatKit's sendUserMessage API
   useEffect(() => {
     if (control && autoSendWelcome && !hasAutoSent && sendUserMessage) {
-      console.log('🎉 Auto-welcome triggered! Using sendUserMessage API...');
+      debug.log('🎉 Auto-welcome triggered! Using sendUserMessage API...');
       
       const welcomeMessage = "What did I miss today in sports news? Give me a quick rundown of the biggest stories and developments.";
       
       // Method 1: Use ChatKit's sendUserMessage API (the proper way!)
       const sendViaChatKitAPI = async () => {
         try {
-          console.log('📤 Attempting to send message via ChatKit API...');
+          debug.log('📤 Attempting to send message via ChatKit API...');
           
           // Add timeout to prevent hanging
           const sendPromise = sendUserMessage({ text: welcomeMessage });
@@ -378,11 +379,11 @@ How might weather affect these games?`,
           );
           
           await Promise.race([sendPromise, timeoutPromise]);
-          console.log('✅ Message sent successfully via sendUserMessage!');
+          debug.log('✅ Message sent successfully via sendUserMessage!');
           setHasAutoSent(true);
           return true;
         } catch (error) {
-          console.error('❌ Failed to send via sendUserMessage:', error);
+          debug.error('❌ Failed to send via sendUserMessage:', error);
           // Don't block the UI - just mark as attempted
           setHasAutoSent(true);
           return false;
@@ -393,7 +394,7 @@ How might weather affect these games?`,
       const timer = setTimeout(() => {
         // Fire and forget - don't block UI
         sendViaChatKitAPI().catch(err => {
-          console.warn('⚠️ Auto-send failed but UI will continue:', err);
+          debug.warn('⚠️ Auto-send failed but UI will continue:', err);
         });
       }, 2000); // Wait 2 seconds for ChatKit to initialize
       
@@ -414,7 +415,7 @@ How might weather affect these games?`,
   }
 
   if (!control) {
-    console.log('⏳ Waiting for ChatKit control...');
+    debug.log('⏳ Waiting for ChatKit control...');
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -428,7 +429,7 @@ How might weather affect these games?`,
     );
   }
 
-  console.log('🎉 ChatKit ready, rendering component');
+  debug.log('🎉 ChatKit ready, rendering component');
   
   return (
     <ChatKitErrorBoundary>

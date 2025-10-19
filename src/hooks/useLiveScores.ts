@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getLiveScores, refreshLiveScores, checkIfRefreshNeeded } from "@/services/liveScoresService";
 import { useEffect, useRef } from "react";
+import debug from "@/utils/debug";
 
 export function useLiveScores() {
   const hasTriggeredRefresh = useRef(false);
@@ -24,9 +25,9 @@ export function useLiveScores() {
       
       checkIfRefreshNeeded().then((needsRefresh) => {
         if (needsRefresh) {
-          console.log('Triggering live scores refresh...');
+          debug.log('Triggering live scores refresh...');
           refreshLiveScores().then((result) => {
-            console.log('Live scores refresh result:', result);
+            debug.log('Live scores refresh result:', result);
             // Refetch from cache after refresh
             refetch();
           });

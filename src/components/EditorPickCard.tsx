@@ -1,3 +1,4 @@
+import debug from '@/utils/debug';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -143,7 +144,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
         updated_at: new Date().toISOString(),
       };
       
-      console.log('📤 Publishing with data:', updateData);
+      debug.log('📤 Publishing with data:', updateData);
       
       const { error } = await supabase
         .from('editors_picks')
@@ -151,13 +152,13 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
         .eq('id', pick.id);
 
       if (error) {
-        console.error('❌ Supabase error:', error);
+        debug.error('❌ Supabase error:', error);
         throw error;
       }
 
       // Post to Discord after successful publish
       try {
-        console.log('🔔 Posting to Discord...');
+        debug.log('🔔 Posting to Discord...');
         
         const discordPayload = {
           pickData: {
@@ -193,13 +194,13 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
 
         if (!discordResponse.ok) {
           const errorText = await discordResponse.text();
-          console.error('❌ Discord post failed:', errorText);
+          debug.error('❌ Discord post failed:', errorText);
           // Don't throw - pick is published, Discord is secondary
         } else {
-          console.log('✅ Posted to Discord successfully');
+          debug.log('✅ Posted to Discord successfully');
         }
       } catch (discordError) {
-        console.error('❌ Error posting to Discord:', discordError);
+        debug.error('❌ Error posting to Discord:', discordError);
         // Don't throw - pick is already published
       }
 
@@ -210,8 +211,8 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
       setIsEditing(false);
       onUpdate?.();
     } catch (error) {
-      console.error('Error publishing pick:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+      debug.error('Error publishing pick:', error);
+      debug.error('Error details:', JSON.stringify(error, null, 2));
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast({
         title: 'Error',
@@ -241,7 +242,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
         updated_at: new Date().toISOString(),
       };
       
-      console.log('💾 Saving draft with data:', updateData);
+      debug.log('💾 Saving draft with data:', updateData);
       
       const { error } = await supabase
         .from('editors_picks')
@@ -249,8 +250,8 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
         .eq('id', pick.id);
 
       if (error) {
-        console.error('❌ Supabase error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
+        debug.error('❌ Supabase error:', error);
+        debug.error('Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
 
@@ -260,7 +261,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
       });
       onUpdate?.();
     } catch (error) {
-      console.error('Error saving draft:', error);
+      debug.error('Error saving draft:', error);
       toast({
         title: 'Error',
         description: 'Failed to save draft. Please try again.',
@@ -291,7 +292,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
       setIsEditing(true);
       onUpdate?.();
     } catch (error) {
-      console.error('Error unpublishing pick:', error);
+      debug.error('Error unpublishing pick:', error);
       toast({
         title: 'Error',
         description: 'Failed to unpublish pick. Please try again.',
@@ -320,7 +321,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
       });
       onDelete?.();
     } catch (error) {
-      console.error('Error deleting pick:', error);
+      debug.error('Error deleting pick:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete pick. Please try again.',
