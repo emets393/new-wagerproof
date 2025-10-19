@@ -11,6 +11,12 @@ export function LiveScoreTicker() {
     return null;
   }
 
+  // Count games with predictions for debugging
+  const gamesWithPredictions = games.filter(g => g.predictions).length;
+  const gamesWithHitting = games.filter(g => g.predictions?.hasAnyHitting).length;
+  
+  console.log(`🏈 Live Score Ticker: ${games.length} games, ${gamesWithPredictions} with predictions, ${gamesWithHitting} with hitting predictions`);
+
   return (
     <div
       className={cn(
@@ -20,20 +26,20 @@ export function LiveScoreTicker() {
       )}
       style={{ 
         zIndex: 40,
-        overflow: 'hidden',
+        overflow: 'visible', // Changed from 'hidden' to allow HoverCard to show
         maxWidth: '100%'
       }}
     >
       <div 
         className="py-1"
         style={{
-          overflow: 'hidden',
+          overflow: 'visible', // Changed from 'hidden' to allow HoverCard to show
           maxWidth: '100%'
         }}
       >
         <Marquee
           pauseOnHover
-          className="[--duration:40s]"
+          className="[--duration:40s] !overflow-visible"
           repeat={3}
         >
           {games.map((game) => (

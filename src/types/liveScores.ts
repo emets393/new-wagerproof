@@ -15,6 +15,22 @@ export interface LiveGame {
   time_remaining?: string;
   is_live: boolean;
   last_updated?: string;
+  predictions?: GamePredictions;
+}
+
+export interface GamePredictions {
+  moneyline?: PredictionStatus;
+  spread?: PredictionStatus;
+  overUnder?: PredictionStatus;
+  hasAnyHitting?: boolean;
+}
+
+export interface PredictionStatus {
+  predicted: string; // e.g., "Away", "Home", "Over", "Under"
+  isHitting: boolean;
+  probability?: number;
+  line?: number; // For spread/over-under
+  currentDifferential?: number; // Current score differential for context
 }
 
 export interface ESPNCompetition {
