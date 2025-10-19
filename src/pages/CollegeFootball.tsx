@@ -1244,7 +1244,7 @@ ${contextParts}
 
                       {/* @ Symbol */}
                       <div className="text-center">
-                        <span className="text-3xl sm:text-4xl font-bold text-white dark:text-gray-500">@</span>
+                        <span className="text-3xl sm:text-4xl font-bold text-gray-300 dark:text-gray-500">@</span>
                       </div>
 
                       {/* Home Team Logo */}

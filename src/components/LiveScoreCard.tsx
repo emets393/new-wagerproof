@@ -95,20 +95,33 @@ export function LiveScoreCard({ game }: LiveScoreCardProps) {
       {/* Model Predictions */}
       {hasPredictions && (
         <div className="flex flex-col gap-0.5 text-[8px] md:text-[9px] whitespace-nowrap">
-          {/* Spread Prediction */}
+          {/* Spread Prediction - Show team model picked + their line */}
           {game.predictions?.spread && (
             <div className={cn(
               "font-semibold",
               game.predictions.spread.isHitting ? "text-honeydew-500" : "text-destructive/70"
             )}>
-              {game.predictions.spread.predicted === 'Home' ? game.home_abbr : game.away_abbr}
-              {' '}
-              {game.predictions.spread.line !== null && game.predictions.spread.line !== undefined
-                ? (game.predictions.spread.line > 0 ? `+${game.predictions.spread.line}` : game.predictions.spread.line)
-                : ''}
+              {(() => {
+                const pickedTeam = game.predictions.spread.predicted === 'Home' ? game.home_abbr : game.away_abbr;
+                const spreadLine = game.predictions.spread.line;
+                
+                // If home is picked and line is negative, show "KC -3"
+                // If home is picked and line is positive, show "KC +3" 
+                // If away is picked, invert the line sign
+                let displayLine = spreadLine;
+                if (game.predictions.spread.predicted === 'Away' && spreadLine !== null) {
+                  displayLine = -spreadLine; // Invert for away team perspective
+                }
+                
+                const lineStr = displayLine !== null && displayLine !== undefined
+                  ? (displayLine > 0 ? `+${displayLine}` : `${displayLine}`)
+                  : '';
+                
+                return `${pickedTeam} ${lineStr}`;
+              })()}
             </div>
           )}
-          {/* Over/Under Prediction */}
+          {/* Over/Under Prediction - Show O or U + line */}
           {game.predictions?.overUnder && (
             <div className={cn(
               "font-semibold",

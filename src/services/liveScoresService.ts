@@ -35,6 +35,11 @@ interface CFBPrediction {
   pred_total_proba: number | null;
   api_spread: number | null;
   api_over_line: number | null;
+  // CFB-specific fields from cfb_api_predictions
+  home_spread_diff: number | null; // Spread edge
+  over_line_diff: number | null; // O/U edge
+  pred_away_score: number | null; // Predicted away score
+  pred_home_score: number | null; // Predicted home score
 }
 
 /**
@@ -53,15 +58,30 @@ function calculatePredictionStatus(
     hasAnyHitting: false
   };
 
+  // Check if this is a CFB prediction with score/edge data
+  const isCFB = 'pred_home_score' in prediction && prediction.pred_home_score !== null;
+
   // Moneyline prediction
-  const mlProb = 'home_away_ml_prob' in prediction 
+  let mlProb = 'home_away_ml_prob' in prediction 
     ? prediction.home_away_ml_prob 
     : prediction.pred_ml_proba;
+
+  // For CFB, derive moneyline from predicted scores if probability not available
+  if (mlProb === null && isCFB) {
+    const cfbPred = prediction as CFBPrediction;
+    if (cfbPred.pred_home_score !== null && cfbPred.pred_away_score !== null) {
+      // If home predicted score > away predicted score, model picks home
+      mlProb = cfbPred.pred_home_score > cfbPred.pred_away_score ? 0.6 : 0.4;
+      console.log(`      📊 CFB ML: Derived from predicted scores (Home: ${cfbPred.pred_home_score}, Away: ${cfbPred.pred_away_score})`);
+    }
+  }
 
   if (mlProb !== null) {
     const predictedWinner = mlProb > 0.5 ? 'Home' : 'Away';
     const isHitting = (predictedWinner === 'Home' && homeScore > awayScore) ||
                      (predictedWinner === 'Away' && awayScore > homeScore);
+    
+    console.log(`      📊 ML: prob=${mlProb}, predicted=${predictedWinner}, awayScore=${awayScore}, homeScore=${homeScore}, hitting=${isHitting}`);
     
     predictions.moneyline = {
       predicted: predictedWinner,
@@ -74,13 +94,23 @@ function calculatePredictionStatus(
   }
 
   // Spread prediction
-  const spreadProb = 'home_away_spread_cover_prob' in prediction
+  let spreadProb = 'home_away_spread_cover_prob' in prediction
     ? prediction.home_away_spread_cover_prob
     : prediction.pred_spread_proba;
 
   const spreadLine = 'home_spread' in prediction
     ? prediction.home_spread
     : prediction.api_spread;
+
+  // For CFB, derive spread pick from home_spread_diff if probability not available
+  if (spreadProb === null && isCFB) {
+    const cfbPred = prediction as CFBPrediction;
+    if (cfbPred.home_spread_diff !== null) {
+      // Positive home_spread_diff = edge to home, negative = edge to away
+      spreadProb = cfbPred.home_spread_diff > 0 ? 0.6 : 0.4;
+      console.log(`      📊 CFB Spread: Derived from home_spread_diff (${cfbPred.home_spread_diff})`);
+    }
+  }
 
   if (spreadProb !== null && spreadLine !== null) {
     const predictedCover = spreadProb > 0.5 ? 'Home' : 'Away';
@@ -91,6 +121,8 @@ function calculatePredictionStatus(
     const adjustedDiff = scoreDiff + spreadLine; // Adjust score diff by spread
     const isHitting = (predictedCover === 'Home' && adjustedDiff > 0) ||
                      (predictedCover === 'Away' && adjustedDiff < 0);
+
+    console.log(`      📊 Spread: prob=${spreadProb}, line=${spreadLine}, predicted=${predictedCover}, scoreDiff=${scoreDiff}, adjustedDiff=${adjustedDiff}, hitting=${isHitting}`);
 
     predictions.spread = {
       predicted: predictedCover,
@@ -104,7 +136,7 @@ function calculatePredictionStatus(
   }
 
   // Over/Under prediction
-  const ouProb = 'ou_result_prob' in prediction
+  let ouProb = 'ou_result_prob' in prediction
     ? prediction.ou_result_prob
     : prediction.pred_total_proba;
 
@@ -112,10 +144,22 @@ function calculatePredictionStatus(
     ? prediction.over_line
     : prediction.api_over_line;
 
+  // For CFB, derive O/U pick from over_line_diff if probability not available
+  if (ouProb === null && isCFB) {
+    const cfbPred = prediction as CFBPrediction;
+    if (cfbPred.over_line_diff !== null) {
+      // Positive over_line_diff = edge to over, negative = edge to under
+      ouProb = cfbPred.over_line_diff > 0 ? 0.6 : 0.4;
+      console.log(`      📊 CFB O/U: Derived from over_line_diff (${cfbPred.over_line_diff})`);
+    }
+  }
+
   if (ouProb !== null && ouLine !== null) {
     const predictedResult = ouProb > 0.5 ? 'Over' : 'Under';
     const isHitting = (predictedResult === 'Over' && totalScore > ouLine) ||
                      (predictedResult === 'Under' && totalScore < ouLine);
+
+    console.log(`      📊 O/U: prob=${ouProb}, line=${ouLine}, predicted=${predictedResult}, total=${totalScore}, hitting=${isHitting}`);
 
     predictions.overUnder = {
       predicted: predictedResult,
@@ -220,16 +264,44 @@ async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
       console.log(`📊 CFB column names:`, Object.keys(data[0]));
     }
 
-    // Map to our CFBPrediction interface
-    return (data || []).map((row: any) => ({
-      home_team: row.home_team,
-      away_team: row.away_team,
-      pred_ml_proba: row.pred_ml_proba,
-      pred_spread_proba: row.pred_spread_proba,
-      pred_total_proba: row.pred_total_proba,
-      api_spread: row.api_spread,
-      api_over_line: row.api_over_line
-    })) as CFBPrediction[];
+    // Fetch API predictions to get edge data
+    const { data: apiPreds, error: apiPredsError } = await collegeFootballSupabase
+      .from('cfb_api_predictions')
+      .select('*');
+
+    if (apiPredsError) {
+      console.error('❌ Error fetching CFB API predictions:', apiPredsError);
+    }
+
+    console.log(`📊 Fetched ${apiPreds?.length || 0} CFB API predictions with edge data`);
+
+    // Map to our CFBPrediction interface - include edge data from cfb_api_predictions
+    const predictions = (data || []).map((row: any) => {
+      const apiPred: any = apiPreds?.find((ap: any) => ap.id === row.id);
+      
+      return {
+        home_team: row.home_team,
+        away_team: row.away_team,
+        pred_ml_proba: row.pred_ml_proba ?? null,
+        pred_spread_proba: row.pred_spread_proba ?? null,
+        pred_total_proba: row.pred_total_proba ?? null,
+        api_spread: row.api_spread ?? null,
+        api_over_line: row.api_over_line ?? null,
+        // Edge data from cfb_api_predictions
+        home_spread_diff: apiPred?.home_spread_diff ?? null,
+        over_line_diff: apiPred?.over_line_diff ?? null,
+        // Score predictions
+        pred_away_score: apiPred?.pred_away_score ?? row.pred_away_score ?? (apiPred as any)?.pred_away_points ?? null,
+        pred_home_score: apiPred?.pred_home_score ?? row.pred_home_score ?? (apiPred as any)?.pred_home_points ?? null
+      };
+    }) as CFBPrediction[];
+
+    console.log(`📊 Mapped ${predictions.length} CFB predictions with edge data`);
+    if (predictions.length > 0) {
+      console.log(`📊 Sample CFB prediction:`, predictions[0]);
+    }
+    
+    return predictions;
   } catch (error) {
     console.error('❌ Error in fetchCFBPredictions:', error);
     return [];
@@ -303,8 +375,9 @@ async function enrichGamesWithPredictions(games: LiveGame[]): Promise<LiveGame[]
     }
 
     if (matchedPrediction) {
+      console.log(`   📊 Calculating prediction status for: ${game.away_abbr} ${game.away_score} @ ${game.home_abbr} ${game.home_score}`);
       const predictions = calculatePredictionStatus(game, matchedPrediction);
-      console.log(`   📊 Prediction status:`, predictions);
+      console.log(`   ✅ Result:`, predictions);
       return { ...game, predictions };
     }
 
