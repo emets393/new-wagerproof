@@ -21,6 +21,7 @@ import AccessDenied from "./pages/AccessDenied";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
+import ScoreBoard from "./pages/ScoreBoard";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -101,6 +102,7 @@ function AppRoutes() {
           <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
           <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
           <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
+          <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
           <Route path="/bet-slip-grader" element={<ProtectedRoute><BetSlipGrader /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
           <Route path="/editors-picks" element={<EditorsPicks />} />

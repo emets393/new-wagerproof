@@ -463,7 +463,7 @@ ${contextParts}
 
       if (weatherError) {
         debug.error('Error fetching weather data:', weatherError);
-        console.warn('Weather data unavailable, continuing without weather info');
+        debug.warn('Weather data unavailable, continuing without weather info');
       }
 
       // Get most recent betting data per training_key

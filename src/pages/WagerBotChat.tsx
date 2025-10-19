@@ -187,7 +187,7 @@ export default function WagerBotChat() {
   }
 
   // Fallback: something went wrong
-  console.warn('⚠️ Unexpected state - no session but not initializing');
+  debug.warn('⚠️ Unexpected state - no session but not initializing');
   return (
     <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
       <div className="text-center space-y-4">

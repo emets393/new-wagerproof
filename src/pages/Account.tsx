@@ -117,12 +117,6 @@ export default function Account() {
               <CardTitle>Welcome Back!</CardTitle>
               <CardDescription>You're signed in as {user.email}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Button onClick={handleSignOut} className="w-full" variant="outline">
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
-            </CardContent>
           </Card>
         </div>
       </div>
