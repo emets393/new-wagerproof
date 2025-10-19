@@ -21,8 +21,8 @@ export function LiveScoreTicker() {
     <div
       className={cn(
         "sticky top-0 w-full",
-        "bg-background/95 backdrop-blur-sm border-b border-honeydew-500/20",
-        "hidden sm:block"
+        "bg-background/95 backdrop-blur-sm border-b border-honeydew-500/20"
+        // Removed "hidden sm:block" to show on mobile
       )}
       style={{ 
         zIndex: 40,

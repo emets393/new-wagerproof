@@ -2,13 +2,16 @@ import { motion } from "motion/react";
 import { LiveGame } from "@/types/liveScores";
 import { cn } from "@/lib/utils";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LiveScorePredictionCard } from "./LiveScorePredictionCard";
+import { useState } from "react";
 
 interface LiveScoreCardProps {
   game: LiveGame;
 }
 
 export function LiveScoreCard({ game }: LiveScoreCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
   // Create gradient from team colors if available
   const getGradient = () => {
     if (game.away_color && game.home_color) {
@@ -30,14 +33,14 @@ export function LiveScoreCard({ game }: LiveScoreCardProps) {
       whileHover={{ scale: 1.01 }}
       transition={{ duration: 0.15 }}
       className={cn(
-        "relative flex items-center gap-2 h-[36px]",
+        "relative flex items-center gap-1.5 md:gap-2 h-[32px] md:h-[36px]",
         "rounded-md border",
         "bg-card/80 backdrop-blur-sm",
-        "px-2.5 py-1.5",
+        "px-2 md:px-2.5 py-1 md:py-1.5",
         "hover:bg-card transition-all",
         "cursor-pointer", // Add cursor pointer to indicate interactivity
         // Adjust width based on whether we have predictions
-        hasPredictions ? "min-w-[200px]" : "min-w-[160px]",
+        hasPredictions ? "min-w-[180px] md:min-w-[200px]" : "min-w-[140px] md:min-w-[160px]",
         // Border color based on prediction status
         hasPredictions && hasHittingPredictions
           ? "border-honeydew-500/60 shadow-[0_0_12px_rgba(191,239,119,0.3)] animate-pulse"
@@ -68,30 +71,30 @@ export function LiveScoreCard({ game }: LiveScoreCardProps) {
       </div>
 
       {/* Teams and Scores */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="flex items-center gap-1.5 md:gap-2 flex-1 min-w-0">
         {/* Away Team */}
-        <span className="text-[11px] font-bold text-foreground whitespace-nowrap">
+        <span className="text-[10px] md:text-[11px] font-bold text-foreground whitespace-nowrap">
           {game.away_abbr}
         </span>
-        <span className="text-sm font-bold text-foreground tabular-nums">
+        <span className="text-xs md:text-sm font-bold text-foreground tabular-nums">
           {game.away_score}
         </span>
 
         {/* Separator */}
-        <span className="text-[10px] text-muted-foreground">-</span>
+        <span className="text-[9px] md:text-[10px] text-muted-foreground">-</span>
 
         {/* Home Team */}
-        <span className="text-sm font-bold text-foreground tabular-nums">
+        <span className="text-xs md:text-sm font-bold text-foreground tabular-nums">
           {game.home_score}
         </span>
-        <span className="text-[11px] font-bold text-foreground whitespace-nowrap">
+        <span className="text-[10px] md:text-[11px] font-bold text-foreground whitespace-nowrap">
           {game.home_abbr}
         </span>
       </div>
 
       {/* Model Predictions */}
       {hasPredictions && (
-        <div className="flex flex-col gap-0.5 text-[9px] whitespace-nowrap">
+        <div className="flex flex-col gap-0.5 text-[8px] md:text-[9px] whitespace-nowrap">
           {/* Spread Prediction */}
           {game.predictions?.spread && (
             <div className={cn(
@@ -133,22 +136,44 @@ export function LiveScoreCard({ game }: LiveScoreCardProps) {
     </motion.div>
   );
 
-  // If game has predictions, wrap with HoverCard for expandable view
+  // If game has predictions, wrap with both HoverCard (desktop) and Popover (mobile)
   if (hasPredictions) {
     return (
-      <HoverCard openDelay={200} closeDelay={100}>
-        <HoverCardTrigger asChild>
-          {cardContent}
-        </HoverCardTrigger>
-        <HoverCardContent 
-          side="bottom" 
-          align="center" 
-          className="w-auto p-0 border-border/60 z-[100]"
-          sideOffset={8}
-        >
-          <LiveScorePredictionCard game={game} />
-        </HoverCardContent>
-      </HoverCard>
+      <>
+        {/* Desktop: Hover to expand */}
+        <div className="hidden md:block">
+          <HoverCard openDelay={200} closeDelay={100}>
+            <HoverCardTrigger asChild>
+              {cardContent}
+            </HoverCardTrigger>
+            <HoverCardContent 
+              side="bottom" 
+              align="center" 
+              className="w-auto p-0 border-border/60 z-[100]"
+              sideOffset={8}
+            >
+              <LiveScorePredictionCard game={game} />
+            </HoverCardContent>
+          </HoverCard>
+        </div>
+
+        {/* Mobile: Tap to expand */}
+        <div className="block md:hidden">
+          <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+              {cardContent}
+            </PopoverTrigger>
+            <PopoverContent 
+              side="bottom" 
+              align="center" 
+              className="w-auto p-0 border-border/60 z-[100]"
+              sideOffset={8}
+            >
+              <LiveScorePredictionCard game={game} />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </>
     );
   }
 

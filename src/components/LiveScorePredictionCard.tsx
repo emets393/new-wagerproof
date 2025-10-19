@@ -25,14 +25,14 @@ export function LiveScorePredictionCard({ game }: LiveScorePredictionCardProps) 
   };
 
   return (
-    <div className="w-[320px] bg-card border border-border/60 rounded-lg shadow-lg overflow-hidden">
+    <div className="w-[280px] md:w-[320px] bg-card border border-border/60 rounded-lg shadow-lg overflow-hidden">
       {/* Header with team info */}
-      <div className="p-4 border-b border-border/40 bg-gradient-to-br from-background to-muted/20">
-        <div className="flex items-center justify-between mb-3">
+      <div className="p-3 md:p-4 border-b border-border/40 bg-gradient-to-br from-background to-muted/20">
+        <div className="flex items-center justify-between mb-2 md:mb-3">
           {/* Away Team Circle */}
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1">
             <div 
-              className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 border-border/40"
+              className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-xs md:text-sm font-bold border-2 border-border/40"
               style={{ 
                 backgroundColor: game.away_color ? `${game.away_color}30` : 'hsl(var(--muted))',
                 borderColor: game.away_color || 'hsl(var(--border))'
@@ -45,10 +45,10 @@ export function LiveScorePredictionCard({ game }: LiveScorePredictionCardProps) 
 
           {/* Score Display */}
           <div className="flex flex-col items-center gap-1">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl font-bold tabular-nums">{game.away_score}</span>
-              <span className="text-muted-foreground text-sm">-</span>
-              <span className="text-2xl font-bold tabular-nums">{game.home_score}</span>
+            <div className="flex items-center gap-2 md:gap-3">
+              <span className="text-xl md:text-2xl font-bold tabular-nums">{game.away_score}</span>
+              <span className="text-muted-foreground text-xs md:text-sm">-</span>
+              <span className="text-xl md:text-2xl font-bold tabular-nums">{game.home_score}</span>
             </div>
             {game.period && (
               <div className="text-xs text-muted-foreground flex items-center gap-1">
@@ -61,9 +61,9 @@ export function LiveScorePredictionCard({ game }: LiveScorePredictionCardProps) 
           </div>
 
           {/* Home Team Circle */}
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1">
             <div 
-              className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 border-border/40"
+              className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-xs md:text-sm font-bold border-2 border-border/40"
               style={{ 
                 backgroundColor: game.home_color ? `${game.home_color}30` : 'hsl(var(--muted))',
                 borderColor: game.home_color || 'hsl(var(--border))'
@@ -77,8 +77,8 @@ export function LiveScorePredictionCard({ game }: LiveScorePredictionCardProps) 
       </div>
 
       {/* Predictions Section */}
-      <div className="p-4 space-y-3">
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+      <div className="p-3 md:p-4 space-y-2 md:space-y-3">
+        <div className="text-[10px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 md:mb-2">
           AI Model Predictions
         </div>
 
