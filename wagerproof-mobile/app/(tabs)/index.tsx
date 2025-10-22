@@ -348,7 +348,7 @@ export default function FeedScreen() {
           <TextInput
             style={[styles.searchInput, { color: theme.colors.onSurface }]}
             placeholder="Search teams or cities..."
-            placeholderTextColor={theme.colors.onSurfaceVariant}
+            placeholderTextColor="#FFFFFF60"
             value={searchText}
             onChangeText={setSearchText}
           />
@@ -465,6 +465,7 @@ export default function FeedScreen() {
               <Chip
                 key={sport.id}
                 selected={selectedSport === sport.id}
+                showSelectedCheck={false}
                 onPress={() => sport.available && setSelectedSport(sport.id)}
                 disabled={!sport.available}
                 style={[
@@ -474,7 +475,7 @@ export default function FeedScreen() {
                 ]}
                 textStyle={[
                   styles.sportChipText,
-                  selectedSport === sport.id && { color: theme.colors.onPrimary }
+                  selectedSport === sport.id && { color: '#FFFFFF' }
                 ]}
               >
                 {sport.label}

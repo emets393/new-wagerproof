@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { Card, useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
+import { useReducedMotion } from 'react-native-reanimated';
 import { NFLPrediction } from '@/types/nfl';
 import { 
   formatMoneyline, 
@@ -24,13 +26,22 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
   const { isDark } = useThemeContext();
   const bettingColors = getBettingColors(isDark);
   const [expanded, setExpanded] = useState(false);
+  const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
+  const [ouExplanationExpanded, setOuExplanationExpanded] = useState(false);
   const awayColors = getNFLTeamColors(game.away_team);
   const homeColors = getNFLTeamColors(game.home_team);
   const awayTeamParts = getTeamParts(game.away_team);
   const homeTeamParts = getTeamParts(game.home_team);
+  const reducedMotion = useReducedMotion();
 
   const toggleExpanded = () => {
     setExpanded(!expanded);
+  };
+
+  // Animation config - smooth timing with no bounce
+  const animationConfig = {
+    type: 'timing' as const,
+    duration: reducedMotion ? 0 : 300,
   };
 
   // Calculate predictions for expanded view
@@ -75,25 +86,44 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
             {/* Away Team */}
             <View style={styles.teamColumn}>
               {/* Team Circle */}
-              <LinearGradient
-                colors={[awayColors.primary, awayColors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.teamCircle, { borderColor: awayColors.primary }]}
-              >
-                <Text style={[styles.teamInitials, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
-                  {getTeamInitials(game.away_team)}
-                </Text>
-              </LinearGradient>
+              <View style={styles.teamCircleContainer}>
+                <MotiView
+                  animate={{
+                    rotate: expanded ? '25deg' : '0deg',
+                  }}
+                  transition={{
+                    type: 'timing',
+                    duration: 300,
+                  }}
+                  style={StyleSheet.absoluteFill}
+                >
+                  <LinearGradient
+                    colors={[awayColors.primary, awayColors.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.teamCircle, { borderColor: awayColors.primary }]}
+                  />
+                </MotiView>
+                <View style={styles.teamCircleContent}>
+                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
+                    {getTeamInitials(game.away_team)}
+                  </Text>
+                </View>
+              </View>
               {expanded && (
-                <>
+                <MotiView
+                  from={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'timing', duration: 250, delay: 100 }}
+                  style={{ alignItems: 'center' }}
+                >
                   <Text style={[styles.teamCity, { color: theme.colors.onSurface }]}>
                     {awayTeamParts.city}
                   </Text>
                   <Text style={[styles.teamNickname, { color: theme.colors.onSurfaceVariant }]}>
                     {awayTeamParts.name}
                   </Text>
-                </>
+                </MotiView>
               )}
               <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
                 {formatSpread(game.away_spread)}
@@ -116,25 +146,44 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
             {/* Home Team */}
             <View style={styles.teamColumn}>
               {/* Team Circle */}
-              <LinearGradient
-                colors={[homeColors.primary, homeColors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.teamCircle, { borderColor: homeColors.primary }]}
-              >
-                <Text style={[styles.teamInitials, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
-                  {getTeamInitials(game.home_team)}
-                </Text>
-              </LinearGradient>
+              <View style={styles.teamCircleContainer}>
+                <MotiView
+                  animate={{
+                    rotate: expanded ? '25deg' : '0deg',
+                  }}
+                  transition={{
+                    type: 'timing',
+                    duration: 300,
+                  }}
+                  style={StyleSheet.absoluteFill}
+                >
+                  <LinearGradient
+                    colors={[homeColors.primary, homeColors.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.teamCircle, { borderColor: homeColors.primary }]}
+                  />
+                </MotiView>
+                <View style={styles.teamCircleContent}>
+                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
+                    {getTeamInitials(game.home_team)}
+                  </Text>
+                </View>
+              </View>
               {expanded && (
-                <>
+                <MotiView
+                  from={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'timing', duration: 250, delay: 100 }}
+                  style={{ alignItems: 'center' }}
+                >
                   <Text style={[styles.teamCity, { color: theme.colors.onSurface }]}>
                     {homeTeamParts.city}
                   </Text>
                   <Text style={[styles.teamNickname, { color: theme.colors.onSurfaceVariant }]}>
                     {homeTeamParts.name}
                   </Text>
-                </>
+                </MotiView>
               )}
               <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
                 {formatSpread(game.home_spread)}
@@ -178,28 +227,44 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
           )}
 
           {/* Expanded State - Full Predictions */}
-          {expanded && (
-            <>
-              {/* Model Predictions Header */}
-              <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surfaceVariant }]}>
-                <MaterialCommunityIcons name="brain" size={20} color={bettingColors.purple} />
-                <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                  Model Predictions
-                </Text>
-              </View>
+          <MotiView
+            animate={{
+              maxHeight: expanded ? 2000 : 0,
+              opacity: expanded ? 1 : 0,
+            }}
+            transition={animationConfig}
+            style={{ overflow: 'hidden' }}
+          >
+            {expanded && (
+              <MotiView
+                from={{ opacity: 0, translateY: -10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'timing', duration: 300, delay: 150 }}
+              >
+                {/* Model Predictions Header */}
+                <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surfaceVariant }]}>
+                  <MaterialCommunityIcons name="brain" size={20} color={bettingColors.purple} />
+                  <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+                    Model Predictions
+                  </Text>
+                </View>
 
               {/* Spread Prediction */}
               {spreadPrediction && (
                 <View style={styles.predictionContainer}>
-                  <View style={styles.predictionHeader}>
-                    <MaterialCommunityIcons name="target" size={16} color={bettingColors.success} />
-                    <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
-                      Spread
-                    </Text>
-                  </View>
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => setSpreadExplanationExpanded(!spreadExplanationExpanded)}
+                  >
+                    <View style={styles.predictionHeader}>
+                      <MaterialCommunityIcons name="target" size={16} color={bettingColors.success} />
+                      <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
+                        Spread
+                      </Text>
+                    </View>
                   <View style={styles.predictionGrid}>
                     {/* Team Prediction */}
-                    <View style={[styles.predictionBox, { backgroundColor: bettingColors.successLight }]}>
+                    <View style={[styles.predictionBox, { backgroundColor: bettingColors.successLight, borderColor: bettingColors.success, borderWidth: 1 }]}>
                       <LinearGradient
                         colors={[spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary]}
                         start={{ x: 0, y: 0 }}
@@ -218,7 +283,11 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
                       </Text>
                     </View>
                     {/* Confidence */}
-                    <View style={[styles.predictionBox, { backgroundColor: spreadPrediction.confidence <= 58 ? bettingColors.dangerLight : spreadPrediction.confidence <= 65 ? bettingColors.warningLight : bettingColors.successLight }]}>
+                    <View style={[styles.predictionBox, { 
+                      backgroundColor: spreadPrediction.confidence <= 58 ? bettingColors.dangerLight : spreadPrediction.confidence <= 65 ? bettingColors.warningLight : bettingColors.successLight,
+                      borderColor: spreadPrediction.confidence <= 58 ? bettingColors.danger : spreadPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success,
+                      borderWidth: 1
+                    }]}>
                       <Text style={[styles.confidencePercent, { color: spreadPrediction.confidence <= 58 ? bettingColors.danger : spreadPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success }]}>
                         {spreadPrediction.confidence}%
                       </Text>
@@ -227,45 +296,68 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
                       </Text>
                     </View>
                   </View>
+                  </TouchableOpacity>
                   {/* What This Means */}
-                  <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
-                    <View style={styles.explanationHeader}>
-                      <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
-                      <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
-                        What This Means
-                      </Text>
-                    </View>
-                    <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
-                      {(() => {
-                        const spreadValue = Math.abs(Number(spreadPrediction.spread));
-                        const isNegativeSpread = Number(spreadPrediction.spread) < 0;
-                        const teamCity = getTeamParts(spreadPrediction.team).city;
-                        
-                        if (spreadPrediction.confidence <= 58) {
-                          return `For this bet to win, ${teamCity} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${spreadPrediction.confidence}% confidence, this is a toss-up where the model sees both outcomes as nearly equally likely.`;
-                        } else if (spreadPrediction.confidence <= 65) {
-                          return `For this bet to win, ${teamCity} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. The model gives this a ${spreadPrediction.confidence}% chance, indicating a slight advantage but still plenty of risk.`;
-                        } else {
-                          return `For this bet to win, ${teamCity} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${spreadPrediction.confidence}% confidence, the model sees a strong likelihood they'll achieve this margin.`;
-                        }
-                      })()}
-                    </Text>
-                  </View>
+                  {spreadExplanationExpanded && (
+                    <MotiView
+                      from={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{
+                        type: 'spring',
+                        damping: 20,
+                        stiffness: 300,
+                      }}
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
+                        <View style={styles.explanationHeader}>
+                          <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
+                          <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
+                            What This Means
+                          </Text>
+                        </View>
+                        <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
+                          {(() => {
+                            const spreadValue = Math.abs(Number(spreadPrediction.spread));
+                            const isNegativeSpread = Number(spreadPrediction.spread) < 0;
+                            const teamCity = getTeamParts(spreadPrediction.team).city;
+                            
+                            if (spreadPrediction.confidence <= 58) {
+                              return `For this bet to win, ${teamCity} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${spreadPrediction.confidence}% confidence, this is a toss-up where the model sees both outcomes as nearly equally likely.`;
+                            } else if (spreadPrediction.confidence <= 65) {
+                              return `For this bet to win, ${teamCity} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. The model gives this a ${spreadPrediction.confidence}% chance, indicating a slight advantage but still plenty of risk.`;
+                            } else {
+                              return `For this bet to win, ${teamCity} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${spreadPrediction.confidence}% confidence, the model sees a strong likelihood they'll achieve this margin.`;
+                            }
+                          })()}
+                        </Text>
+                      </View>
+                    </MotiView>
+                  )}
                 </View>
               )}
 
               {/* O/U Prediction */}
               {ouPrediction && (
                 <View style={styles.predictionContainer}>
-                  <View style={styles.predictionHeader}>
-                    <MaterialCommunityIcons name="chart-line-variant" size={16} color={bettingColors.info} />
-                    <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
-                      Over / Under
-                    </Text>
-                  </View>
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => setOuExplanationExpanded(!ouExplanationExpanded)}
+                  >
+                    <View style={styles.predictionHeader}>
+                      <MaterialCommunityIcons name="chart-line-variant" size={16} color={bettingColors.info} />
+                      <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
+                        Over / Under
+                      </Text>
+                    </View>
                   <View style={styles.predictionGrid}>
                     {/* Direction */}
-                    <View style={[styles.predictionBox, { backgroundColor: ouPrediction.isOver ? bettingColors.successLight : bettingColors.dangerLight }]}>
+                    <View style={[styles.predictionBox, { 
+                      backgroundColor: ouPrediction.isOver ? bettingColors.successLight : bettingColors.dangerLight,
+                      borderColor: ouPrediction.isOver ? bettingColors.success : bettingColors.danger,
+                      borderWidth: 1
+                    }]}>
                       <Text style={[styles.ouArrow, { color: ouPrediction.isOver ? bettingColors.success : bettingColors.danger }]}>
                         {ouPrediction.isOver ? '▲' : '▼'}
                       </Text>
@@ -274,7 +366,11 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
                       </Text>
                     </View>
                     {/* Confidence */}
-                    <View style={[styles.predictionBox, { backgroundColor: ouPrediction.confidence <= 58 ? bettingColors.dangerLight : ouPrediction.confidence <= 65 ? bettingColors.warningLight : bettingColors.successLight }]}>
+                    <View style={[styles.predictionBox, { 
+                      backgroundColor: ouPrediction.confidence <= 58 ? bettingColors.dangerLight : ouPrediction.confidence <= 65 ? bettingColors.warningLight : bettingColors.successLight,
+                      borderColor: ouPrediction.confidence <= 58 ? bettingColors.danger : ouPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success,
+                      borderWidth: 1
+                    }]}>
                       <Text style={[styles.confidencePercent, { color: ouPrediction.confidence <= 58 ? bettingColors.danger : ouPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success }]}>
                         {ouPrediction.confidence}%
                       </Text>
@@ -283,29 +379,44 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
                       </Text>
                     </View>
                   </View>
+                  </TouchableOpacity>
                   {/* What This Means */}
-                  <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
-                    <View style={styles.explanationHeader}>
-                      <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
-                      <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
-                        What This Means
-                      </Text>
-                    </View>
-                    <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
-                      {(() => {
-                        const totalPoints = game.over_line;
-                        const direction = ouPrediction.isOver ? 'MORE' : 'LESS';
-                        
-                        if (ouPrediction.confidence <= 58) {
-                          return `For this bet to win, the combined score of both teams needs to be ${direction} than ${totalPoints} points. With ${ouPrediction.confidence}% confidence, the model sees this as a coin flip—the game could go either way in terms of total scoring.`;
-                        } else if (ouPrediction.confidence <= 65) {
-                          return `For this bet to win, the combined score needs to be ${direction} than ${totalPoints} points. The model gives this a ${ouPrediction.confidence}% chance, suggesting a slight ${ouPrediction.isOver ? 'offensive' : 'defensive'} edge but the scoring environment is still uncertain.`;
-                        } else {
-                          return `For this bet to win, the combined score needs to be ${direction} than ${totalPoints} points. With ${ouPrediction.confidence}% confidence, the model expects a ${ouPrediction.isOver ? 'high-scoring, offensive-oriented' : 'low-scoring, defense-dominated'} game that should clearly ${ouPrediction.isOver ? 'exceed' : 'stay under'} this total.`;
-                        }
-                      })()}
-                    </Text>
-                  </View>
+                  {ouExplanationExpanded && (
+                    <MotiView
+                      from={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{
+                        type: 'spring',
+                        damping: 20,
+                        stiffness: 300,
+                      }}
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
+                        <View style={styles.explanationHeader}>
+                          <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
+                          <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
+                            What This Means
+                          </Text>
+                        </View>
+                        <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
+                          {(() => {
+                            const totalPoints = game.over_line;
+                            const direction = ouPrediction.isOver ? 'MORE' : 'LESS';
+                            
+                            if (ouPrediction.confidence <= 58) {
+                              return `For this bet to win, the combined score of both teams needs to be ${direction} than ${totalPoints} points. With ${ouPrediction.confidence}% confidence, the model sees this as a coin flip—the game could go either way in terms of total scoring.`;
+                            } else if (ouPrediction.confidence <= 65) {
+                              return `For this bet to win, the combined score needs to be ${direction} than ${totalPoints} points. The model gives this a ${ouPrediction.confidence}% chance, suggesting a slight ${ouPrediction.isOver ? 'offensive' : 'defensive'} edge but the scoring environment is still uncertain.`;
+                            } else {
+                              return `For this bet to win, the combined score needs to be ${direction} than ${totalPoints} points. With ${ouPrediction.confidence}% confidence, the model expects a ${ouPrediction.isOver ? 'high-scoring, offensive-oriented' : 'low-scoring, defense-dominated'} game that should clearly ${ouPrediction.isOver ? 'exceed' : 'stay under'} this total.`;
+                            }
+                          })()}
+                        </Text>
+                      </View>
+                    </MotiView>
+                  )}
                 </View>
               )}
 
@@ -347,22 +458,17 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
                 </>
               )}
 
-              {/* Tap to Collapse Hint */}
-              <View style={styles.collapseHint}>
-                <MaterialCommunityIcons name="chevron-up" size={20} color={theme.colors.onSurfaceVariant} />
-                <Text style={[styles.collapseText, { color: theme.colors.onSurfaceVariant }]}>
-                  Tap to collapse
-                </Text>
-              </View>
-            </>
-          )}
+                {/* Tap to Collapse Hint */}
+                <View style={styles.collapseHint}>
+                  <MaterialCommunityIcons name="chevron-up" size={20} color={theme.colors.onSurfaceVariant} />
+                </View>
+              </MotiView>
+            )}
+          </MotiView>
 
           {/* Tap to Expand Hint (collapsed state) */}
           {!expanded && (
             <View style={styles.expandHint}>
-              <Text style={[styles.expandText, { color: theme.colors.onSurfaceVariant }]}>
-                Tap for details
-              </Text>
               <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.onSurfaceVariant} />
             </View>
           )}
@@ -417,19 +523,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  teamCircleContainer: {
+    width: 48,
+    height: 48,
+    marginBottom: 4,
+    position: 'relative',
+  },
   teamCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    marginBottom: 4,
+  },
+  teamCircleContent: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   teamInitials: {
     fontSize: 14,
@@ -520,6 +636,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     marginBottom: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
   },
   predictionLabel: {
     fontSize: 13,

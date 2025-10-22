@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, useTheme, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
+import { useReducedMotion } from 'react-native-reanimated';
 import { CFBPrediction } from '@/types/cfb';
 import { 
   formatMoneyline, 
@@ -24,11 +26,20 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
   const { isDark } = useThemeContext();
   const bettingColors = getBettingColors(isDark);
   const [expanded, setExpanded] = useState(false);
+  const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
+  const [ouExplanationExpanded, setOuExplanationExpanded] = useState(false);
   const awayColors = getCFBTeamColors(game.away_team);
   const homeColors = getCFBTeamColors(game.home_team);
+  const reducedMotion = useReducedMotion();
 
   const toggleExpanded = () => {
     setExpanded(!expanded);
+  };
+
+  // Animation config - smooth timing with no bounce
+  const animationConfig = {
+    type: 'timing' as const,
+    duration: reducedMotion ? 0 : 300,
   };
 
   // Calculate predictions for expanded view
@@ -96,26 +107,33 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
             {/* Away Team */}
             <View style={styles.teamColumn}>
               {/* Team Circle */}
-              <LinearGradient
-                colors={[awayColors.primary, awayColors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.teamCircle, { borderColor: awayColors.primary }]}
-              >
-                <Text style={[styles.teamInitials, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
-                  {getCFBTeamInitials(game.away_team)}
-                </Text>
-              </LinearGradient>
-              {!expanded && (
-                <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
-                  {game.away_team}
-                </Text>
-              )}
-              {expanded && (
-                <Text style={[styles.teamNameExpanded, { color: theme.colors.onSurface }]} numberOfLines={2}>
-                  {game.away_team}
-                </Text>
-              )}
+              <View style={styles.teamCircleContainer}>
+                <MotiView
+                  animate={{
+                    rotate: expanded ? '25deg' : '0deg',
+                  }}
+                  transition={{
+                    type: 'timing',
+                    duration: 300,
+                  }}
+                  style={StyleSheet.absoluteFill}
+                >
+                  <LinearGradient
+                    colors={[awayColors.primary, awayColors.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.teamCircle, { borderColor: awayColors.primary }]}
+                  />
+                </MotiView>
+                <View style={styles.teamCircleContent}>
+                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
+                    {getCFBTeamInitials(game.away_team)}
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
+                {game.away_team}
+              </Text>
               <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
                 {formatSpread(game.away_spread)}
               </Text>
@@ -137,26 +155,33 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
             {/* Home Team */}
             <View style={styles.teamColumn}>
               {/* Team Circle */}
-              <LinearGradient
-                colors={[homeColors.primary, homeColors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.teamCircle, { borderColor: homeColors.primary }]}
-              >
-                <Text style={[styles.teamInitials, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
-                  {getCFBTeamInitials(game.home_team)}
-                </Text>
-              </LinearGradient>
-              {!expanded && (
-                <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
-                  {game.home_team}
-                </Text>
-              )}
-              {expanded && (
-                <Text style={[styles.teamNameExpanded, { color: theme.colors.onSurface }]} numberOfLines={2}>
-                  {game.home_team}
-                </Text>
-              )}
+              <View style={styles.teamCircleContainer}>
+                <MotiView
+                  animate={{
+                    rotate: expanded ? '25deg' : '0deg',
+                  }}
+                  transition={{
+                    type: 'timing',
+                    duration: 300,
+                  }}
+                  style={StyleSheet.absoluteFill}
+                >
+                  <LinearGradient
+                    colors={[homeColors.primary, homeColors.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.teamCircle, { borderColor: homeColors.primary }]}
+                  />
+                </MotiView>
+                <View style={styles.teamCircleContent}>
+                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
+                    {getCFBTeamInitials(game.home_team)}
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
+                {game.home_team}
+              </Text>
               <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
                 {formatSpread(game.home_spread)}
               </Text>
@@ -191,21 +216,33 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
           )}
 
           {/* Expanded State - Full Predictions */}
-          {expanded && (
-            <>
-              {/* Predicted Scores */}
-              {(game.pred_away_score !== null && game.pred_home_score !== null && 
-                game.pred_away_score !== undefined && game.pred_home_score !== undefined) && (
-                <View style={[styles.scoreSection, { backgroundColor: theme.colors.surfaceVariant }]}>
-                  <MaterialCommunityIcons name="scoreboard-outline" size={16} color={theme.colors.primary} />
-                  <Text style={[styles.scoreLabel, { color: theme.colors.onSurfaceVariant }]}>
-                    Predicted Score:
-                  </Text>
-                  <Text style={[styles.scorePredict, { color: theme.colors.primary }]}>
-                    {Math.round(Number(game.pred_away_score))} - {Math.round(Number(game.pred_home_score))}
-                  </Text>
-                </View>
-              )}
+          <MotiView
+            animate={{
+              maxHeight: expanded ? 3000 : 0,
+              opacity: expanded ? 1 : 0,
+            }}
+            transition={animationConfig}
+            style={{ overflow: 'hidden' }}
+          >
+            {expanded && (
+              <MotiView
+                from={{ opacity: 0, translateY: -10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'timing', duration: 300, delay: 150 }}
+              >
+                {/* Predicted Scores */}
+                {(game.pred_away_score !== null && game.pred_home_score !== null && 
+                  game.pred_away_score !== undefined && game.pred_home_score !== undefined) && (
+                  <View style={[styles.scoreSection, { backgroundColor: theme.colors.surfaceVariant }]}>
+                    <MaterialCommunityIcons name="scoreboard-outline" size={16} color={theme.colors.primary} />
+                    <Text style={[styles.scoreLabel, { color: theme.colors.onSurfaceVariant }]}>
+                      Predicted Score:
+                    </Text>
+                    <Text style={[styles.scorePredict, { color: theme.colors.primary }]}>
+                      {Math.round(Number(game.pred_away_score))} - {Math.round(Number(game.pred_home_score))}
+                    </Text>
+                  </View>
+                )}
 
               {/* Model Predictions Section Header */}
               <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surfaceVariant }]}>
@@ -228,7 +265,11 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
               {/* Spread Prediction */}
               {(game.home_spread_diff !== null && game.home_spread_diff !== undefined) && (
                 <View style={styles.predictionContainer}>
-                  <View style={[styles.predictionCard, { backgroundColor: bettingColors.successLight, borderColor: bettingColors.success }]}>
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => setSpreadExplanationExpanded(!spreadExplanationExpanded)}
+                  >
+                    <View style={[styles.predictionCard, { backgroundColor: bettingColors.successLight, borderColor: bettingColors.success }]}>
                     <View style={styles.predictionHeader}>
                       <MaterialCommunityIcons name="target" size={16} color={bettingColors.success} />
                       <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
@@ -269,7 +310,8 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
                         <Text style={[styles.valueLarge, { color: theme.colors.onSurface }]}>
                           {(() => {
                             // Calculate model spread display like web version
-                            let modelSpread = game.pred_spread || game.home_spread || 0;
+                            const baseSpread = game.pred_spread || game.home_spread || 0;
+                            let modelSpread = Number(baseSpread);
                             // If edge is to away team, flip the sign
                             if (spreadPrediction && !spreadPrediction.isHome) {
                               modelSpread = -modelSpread;
@@ -280,19 +322,34 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
                       </View>
                     </View>
                   </View>
+                  </TouchableOpacity>
 
                   {/* What This Means */}
-                  <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
-                    <View style={styles.explanationHeader}>
-                      <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
-                      <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
-                        What This Means
-                      </Text>
-                    </View>
-                    <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
-                      Our model's {roundToNearestHalf(Math.abs(Number(game.home_spread_diff)))}-point difference from the Vegas spread favors {spreadPrediction?.team || game.home_team}. This {Math.abs(Number(game.home_spread_diff)) > 3 ? 'significant' : Math.abs(Number(game.home_spread_diff)) > 2 ? 'moderate' : 'slight'} edge shows our analytics see the game differently than the market. The gap between our model and Vegas suggests there's value here – we're projecting {spreadPrediction?.team || game.home_team} will perform {Math.abs(Number(game.home_spread_diff)) > 3 ? 'significantly' : 'better'} relative to the spread than the current line indicates.
-                    </Text>
-                  </View>
+                  {spreadExplanationExpanded && (
+                    <MotiView
+                      from={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{
+                        type: 'spring',
+                        damping: 20,
+                        stiffness: 300,
+                      }}
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
+                        <View style={styles.explanationHeader}>
+                          <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
+                          <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
+                            What This Means
+                          </Text>
+                        </View>
+                        <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
+                          Our model's {roundToNearestHalf(Math.abs(Number(game.home_spread_diff)))}-point difference from the Vegas spread favors {spreadPrediction?.team || game.home_team}. This {Math.abs(Number(game.home_spread_diff)) > 3 ? 'significant' : Math.abs(Number(game.home_spread_diff)) > 2 ? 'moderate' : 'slight'} edge shows our analytics see the game differently than the market. The gap between our model and Vegas suggests there's value here – we're projecting {spreadPrediction?.team || game.home_team} will perform {Math.abs(Number(game.home_spread_diff)) > 3 ? 'significantly' : 'better'} relative to the spread than the current line indicates.
+                        </Text>
+                      </View>
+                    </MotiView>
+                  )}
                 </View>
               )}
 
@@ -305,7 +362,11 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
                     
                     return (
                       <>
-                        <View style={[styles.predictionCard, { backgroundColor: isOver ? bettingColors.successLight : bettingColors.dangerLight, borderColor: isOver ? bettingColors.success : bettingColors.danger }]}>
+                        <TouchableOpacity 
+                          activeOpacity={0.7}
+                          onPress={() => setOuExplanationExpanded(!ouExplanationExpanded)}
+                        >
+                          <View style={[styles.predictionCard, { backgroundColor: isOver ? bettingColors.successLight : bettingColors.dangerLight, borderColor: isOver ? bettingColors.success : bettingColors.danger }]}>
                           <View style={styles.predictionHeader}>
                             <MaterialCommunityIcons name="chart-line-variant" size={16} color={isOver ? bettingColors.success : bettingColors.danger} />
                             <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
@@ -347,19 +408,34 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
                             </View>
                           </View>
                         </View>
+                        </TouchableOpacity>
 
                         {/* What This Means */}
-                        <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
-                          <View style={styles.explanationHeader}>
-                            <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
-                            <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
-                              What This Means
-                            </Text>
-                          </View>
-                          <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
-                            Our model's total is {roundToNearestHalf(magnitude)} {roundToNearestHalf(magnitude) === 1 ? 'point' : 'points'} {isOver ? 'higher than' : 'lower than'} the Vegas line, {magnitude < 2 ? 'slightly' : magnitude < 4 ? 'moderately' : 'strongly'} favoring the {isOver ? 'over' : 'under'}. This {magnitude < 2 ? 'minimal' : magnitude < 4 ? 'moderate' : 'significant'} edge means our projection {magnitude < 2 ? 'closely matches' : magnitude < 4 ? 'noticeably differs from' : 'significantly diverges from'} what Vegas expects. While the edge is {magnitude < 2 ? 'small' : magnitude < 4 ? 'moderate' : 'substantial'}, our analytics {magnitude < 2 ? 'slightly lean' : 'lean'} toward the {isOver ? 'under' : 'over'} when compared to what Vegas expects.
-                          </Text>
-                        </View>
+                        {ouExplanationExpanded && (
+                          <MotiView
+                            from={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{
+                              type: 'spring',
+                              damping: 20,
+                              stiffness: 300,
+                            }}
+                            style={{ overflow: 'hidden' }}
+                          >
+                            <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
+                              <View style={styles.explanationHeader}>
+                                <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
+                                <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
+                                  What This Means
+                                </Text>
+                              </View>
+                              <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
+                                Our model's total is {roundToNearestHalf(magnitude)} {roundToNearestHalf(magnitude) === 1 ? 'point' : 'points'} {isOver ? 'higher than' : 'lower than'} the Vegas line, {magnitude < 2 ? 'slightly' : magnitude < 4 ? 'moderately' : 'strongly'} favoring the {isOver ? 'over' : 'under'}. This {magnitude < 2 ? 'minimal' : magnitude < 4 ? 'moderate' : 'significant'} edge means our projection {magnitude < 2 ? 'closely matches' : magnitude < 4 ? 'noticeably differs from' : 'significantly diverges from'} what Vegas expects. While the edge is {magnitude < 2 ? 'small' : magnitude < 4 ? 'moderate' : 'substantial'}, our analytics {magnitude < 2 ? 'slightly lean' : 'lean'} toward the {isOver ? 'under' : 'over'} when compared to what Vegas expects.
+                              </Text>
+                            </View>
+                          </MotiView>
+                        )}
                       </>
                     );
                   })()}
@@ -404,22 +480,17 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
                 </>
               )}
 
-              {/* Tap to Collapse Hint */}
-              <View style={styles.collapseHint}>
-                <MaterialCommunityIcons name="chevron-up" size={20} color={theme.colors.onSurfaceVariant} />
-                <Text style={[styles.collapseText, { color: theme.colors.onSurfaceVariant }]}>
-                  Tap to collapse
-                </Text>
-              </View>
-            </>
-          )}
+                {/* Tap to Collapse Hint */}
+                <View style={styles.collapseHint}>
+                  <MaterialCommunityIcons name="chevron-up" size={20} color={theme.colors.onSurfaceVariant} />
+                </View>
+              </MotiView>
+            )}
+          </MotiView>
 
           {/* Tap to Expand Hint (collapsed state) */}
           {!expanded && (
             <View style={styles.expandHint}>
-              <Text style={[styles.expandText, { color: theme.colors.onSurfaceVariant }]}>
-                Tap for details
-              </Text>
               <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.onSurfaceVariant} />
             </View>
           )}
@@ -473,21 +544,31 @@ const styles = StyleSheet.create({
   teamColumn: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
+  },
+  teamCircleContainer: {
+    width: 48,
+    height: 48,
+    marginBottom: 4,
+    position: 'relative',
   },
   teamCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    marginBottom: 4,
+  },
+  teamCircleContent: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   teamInitials: {
     fontSize: 13,
@@ -607,9 +688,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
     marginBottom: 12,
   },
   predictionLabel: {
