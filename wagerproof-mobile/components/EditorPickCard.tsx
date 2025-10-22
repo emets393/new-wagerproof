@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { getBettingColors } from '@/constants/theme';
+import { getTeamInitials, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 
 interface EditorPickCardProps {
   pick: EditorPick;
@@ -15,6 +16,11 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const bettingColors = getBettingColors(isDark);
+  
+  // Get team initials based on game type
+  const getInitials = (teamName: string) => {
+    return pick.game_type === 'nfl' ? getTeamInitials(teamName) : getCFBTeamInitials(teamName);
+  };
 
   const formatSpread = (spread: number | null | undefined): string => {
     if (spread === null || spread === undefined) return '-';
@@ -72,28 +78,14 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
 
   const selectedBetTypes = parseBetTypes(pick.selected_bet_type);
 
-  // Get aurora gradient colors based on first bet type
-  const getGradientColors = (): string[] => {
-    const firstBet = selectedBetTypes[0];
-    if (firstBet?.includes('home')) {
-      return [gameData.home_team_colors.primary, gameData.home_team_colors.secondary];
-    }
-    if (firstBet?.includes('away')) {
-      return [gameData.away_team_colors.primary, gameData.away_team_colors.secondary];
-    }
-    return [gameData.home_team_colors.primary, gameData.away_team_colors.primary];
-  };
-
-  const gradientColors = getGradientColors();
-
   return (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-      {/* Gradient Header */}
+      {/* Thin Gradient Border at Top */}
       <LinearGradient
-        colors={[...gradientColors, 'rgba(0,0,0,0)']}
+        colors={[gameData.away_team_colors.primary, gameData.away_team_colors.secondary, gameData.home_team_colors.primary, gameData.home_team_colors.secondary]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradientHeader}
+        end={{ x: 1, y: 0 }}
+        style={styles.gradientBorder}
       />
 
       <Card.Content style={styles.content}>
@@ -122,10 +114,21 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
           </View>
         )}
 
-        {/* Teams */}
+        {/* Teams with Color Circles */}
         <View style={styles.teamsRow}>
           {/* Away Team */}
           <View style={styles.teamColumn}>
+            {/* Team Circle with Initials */}
+            <LinearGradient
+              colors={[gameData.away_team_colors.primary, gameData.away_team_colors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.teamCircle, { borderColor: gameData.away_team_colors.primary }]}
+            >
+              <Text style={[styles.teamInitials, { color: getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary) }]}>
+                {getInitials(gameData.away_team)}
+              </Text>
+            </LinearGradient>
             <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
               {gameData.away_team}
             </Text>
@@ -149,6 +152,17 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
 
           {/* Home Team */}
           <View style={styles.teamColumn}>
+            {/* Team Circle with Initials */}
+            <LinearGradient
+              colors={[gameData.home_team_colors.primary, gameData.home_team_colors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.teamCircle, { borderColor: gameData.home_team_colors.primary }]}
+            >
+              <Text style={[styles.teamInitials, { color: getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary) }]}>
+                {getInitials(gameData.home_team)}
+              </Text>
+            </LinearGradient>
             <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
               {gameData.home_team}
             </Text>
@@ -201,9 +215,8 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: 'hidden',
   },
-  gradientHeader: {
-    height: 80,
-    opacity: 0.3,
+  gradientBorder: {
+    height: 4,
   },
   content: {
     paddingVertical: 12,
@@ -239,6 +252,19 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: 4,
+  },
+  teamCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  teamInitials: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   teamName: {
     fontSize: 13,

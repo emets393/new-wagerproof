@@ -40,7 +40,8 @@ export default function FeedScreen() {
   // Calculate header and tab bar heights
   const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
   const PILLS_HEIGHT = 72;
-  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT;
+  const SEARCH_BAR_HEIGHT = 60; // Search bar height
+  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT + SEARCH_BAR_HEIGHT;
   
   // Header translates up as user scrolls up
   const headerTranslate = scrollYClamped.interpolate({
@@ -267,15 +268,18 @@ export default function FeedScreen() {
     return [];
   }, [selectedSport, nflGames, cfbGames]);
 
-  // Filter games by search text
+  // Filter games by search text (team names and cities)
   const filteredGames = useMemo(() => {
     if (!searchText.trim()) return currentGames;
     
     const search = searchText.toLowerCase();
-    return currentGames.filter(game =>
-      game.home_team.toLowerCase().includes(search) ||
-      game.away_team.toLowerCase().includes(search)
-    );
+    return currentGames.filter(game => {
+      const homeTeam = game.home_team.toLowerCase();
+      const awayTeam = game.away_team.toLowerCase();
+      
+      // Search in full team names
+      return homeTeam.includes(search) || awayTeam.includes(search);
+    });
   }, [currentGames, searchText]);
 
   // Sort games
@@ -332,28 +336,30 @@ export default function FeedScreen() {
     return <CFBGameCard game={item as CFBPrediction} />;
   };
 
-  const renderListHeader = () => (
-    <View style={styles.searchWrapper}>
-      <View style={[styles.searchContainer, { borderColor: theme.colors.outline }]}>
-        <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
-        <TextInput
-          style={[styles.searchInput, { color: theme.colors.onSurface }]}
-          placeholder="Search teams..."
-          placeholderTextColor={theme.colors.onSurfaceVariant}
-          value={searchText}
-          onChangeText={setSearchText}
-        />
-        {searchText.length > 0 && (
-          <MaterialCommunityIcons
-            name="close-circle"
-            size={20}
-            color={theme.colors.onSurfaceVariant}
-            onPress={() => setSearchText('')}
+  const renderSearchBar = () => {
+    return (
+      <View style={styles.searchWrapper}>
+        <View style={[styles.searchContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+          <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.colors.onSurface }]}
+            placeholder="Search teams or cities..."
+            placeholderTextColor={theme.colors.onSurfaceVariant}
+            value={searchText}
+            onChangeText={setSearchText}
           />
-        )}
+          {searchText.length > 0 && (
+            <MaterialCommunityIcons
+              name="close-circle"
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+              onPress={() => setSearchText('')}
+            />
+          )}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -417,10 +423,11 @@ export default function FeedScreen() {
           <Menu
             visible={sortMenuVisible}
             onDismiss={() => setSortMenuVisible(false)}
+            contentStyle={{ marginTop: 48 }}
             anchor={
               <TouchableOpacity 
                 style={[styles.sortButton, { backgroundColor: theme.colors.surfaceVariant }]}
-                onPress={() => setSortMenuVisible(true)}
+                onPress={() => setSortMenuVisible(!sortMenuVisible)}
               >
                 <MaterialCommunityIcons 
                   name={sortMode === 'time' ? 'clock-outline' : sortMode === 'spread' ? 'chart-line' : 'numeric'} 
@@ -430,6 +437,7 @@ export default function FeedScreen() {
                 <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.onSurfaceVariant} />
               </TouchableOpacity>
             }
+            anchorPosition="bottom"
           >
             <Menu.Item
               onPress={() => {
@@ -457,6 +465,9 @@ export default function FeedScreen() {
             />
           </Menu>
         </View>
+
+        {/* Search Bar - Part of collapsible header */}
+        {renderSearchBar()}
       </Animated.View>
 
       {/* Games List */}
@@ -484,7 +495,6 @@ export default function FeedScreen() {
           data={sortedGames}
           renderItem={renderGameCard}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={renderListHeader}
           contentContainerStyle={[
             styles.listContent,
             { 
@@ -498,7 +508,11 @@ export default function FeedScreen() {
           overScrollMode="never"
           showsVerticalScrollIndicator={true}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              colors={[theme.colors.primary]} 
+            />
           }
         />
       )}
@@ -547,10 +561,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 16,
   },
   searchInput: {
     flex: 1,

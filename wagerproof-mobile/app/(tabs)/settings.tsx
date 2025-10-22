@@ -2,25 +2,16 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useTheme, List, Switch, Divider, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { supabase } from '@/services/supabase';
-import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const router = useRouter();
   const { isDark, toggleTheme } = useThemeContext();
+  const { user, signOut, signingOut } = useAuth();
   const insets = useSafeAreaInsets();
   const [scoreboardEnabled, setScoreboardEnabled] = React.useState(true);
-  const [user, setUser] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    // Get current user
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
-  }, []);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -32,8 +23,8 @@ export default function SettingsScreen() {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            await supabase.auth.signOut();
-            // Navigate to auth screen if needed
+            await signOut();
+            // Navigation will be handled by route protection in _layout.tsx
           },
         },
       ]
@@ -180,8 +171,10 @@ export default function SettingsScreen() {
               style={[styles.logoutButton, { backgroundColor: theme.colors.error }]}
               labelStyle={{ color: theme.colors.onError }}
               icon="logout"
+              loading={signingOut}
+              disabled={signingOut}
             >
-              Logout
+              {signingOut ? 'Logging out...' : 'Logout'}
             </Button>
           </View>
         )}

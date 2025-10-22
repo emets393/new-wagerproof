@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { useTheme, Card, ActivityIndicator } from 'react-native-paper';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Linking } from 'react-native';
+import { useTheme, Card, ActivityIndicator, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '@/services/supabase';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
@@ -8,6 +8,7 @@ import { EditorPick, GameData } from '@/types/editorsPicks';
 import { EditorPickCard } from '@/components/EditorPickCard';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getNFLTeamColors, getCFBTeamColors } from '@/constants/teamColors';
 
 export default function PicksScreen() {
   const theme = useTheme();
@@ -45,18 +46,53 @@ export default function PicksScreen() {
               const { data: gameData, error: gameError } = await collegeFootballSupabase
                 .from('nfl_betting_lines')
                 .select('*')
-                .eq('id', pick.game_id)
+                .eq('training_key', pick.game_id)
                 .single();
 
               if (!gameError && gameData) {
                 const away_colors = getNFLTeamColors(gameData.away_team);
                 const home_colors = getNFLTeamColors(gameData.home_team);
 
+                // Format NFL date
+                let formattedDate = gameData.game_date;
+                if (gameData.game_date) {
+                  try {
+                    const [year, month, day] = gameData.game_date.split('-').map(Number);
+                    const date = new Date(year, month - 1, day);
+                    formattedDate = date.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric'
+                    });
+                  } catch (error) {
+                    console.error('Error formatting NFL date:', error);
+                  }
+                }
+                
+                // Format NFL time
+                let formattedTime = gameData.game_time;
+                if (gameData.game_time) {
+                  try {
+                    const [hours, minutes] = gameData.game_time.split(':').map(Number);
+                    const estHours = hours + 4;
+                    const finalHours = estHours >= 24 ? estHours - 24 : estHours;
+                    const today = new Date();
+                    const estDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), finalHours, minutes, 0);
+                    formattedTime = estDate.toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    }) + ' EST';
+                  } catch (error) {
+                    console.error('Error formatting NFL time:', error);
+                  }
+                }
+
                 gameDataMap.set(pick.id, {
                   away_team: gameData.away_team,
                   home_team: gameData.home_team,
-                  game_date: gameData.game_date,
-                  game_time: gameData.game_time,
+                  game_date: formattedDate,
+                  game_time: formattedTime,
                   away_spread: gameData.away_spread,
                   home_spread: gameData.home_spread,
                   over_line: gameData.over_line,
@@ -78,11 +114,49 @@ export default function PicksScreen() {
                 const away_colors = getCFBTeamColors(gameData.away_team);
                 const home_colors = getCFBTeamColors(gameData.home_team);
 
+                // Get the start time from any available field
+                const startTimeString = gameData.start_time || gameData.start_date || gameData.game_datetime || gameData.datetime;
+                
+                // Format date and time
+                let formattedDate = 'TBD';
+                let formattedTime = 'TBD';
+                
+                if (startTimeString) {
+                  try {
+                    const utcDate = new Date(startTimeString);
+                    
+                    // Format date
+                    const estMonth = utcDate.toLocaleString('en-US', {
+                      timeZone: 'America/New_York',
+                      month: 'short'
+                    }).toUpperCase();
+                    const estDay = utcDate.toLocaleString('en-US', {
+                      timeZone: 'America/New_York',
+                      day: 'numeric'
+                    });
+                    const estYear = utcDate.toLocaleString('en-US', {
+                      timeZone: 'America/New_York',
+                      year: 'numeric'
+                    });
+                    formattedDate = `${estMonth} ${estDay}, ${estYear}`;
+                    
+                    // Format time
+                    formattedTime = utcDate.toLocaleTimeString('en-US', {
+                      timeZone: 'America/New_York',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    }) + ' EST';
+                  } catch (error) {
+                    console.error('Error formatting CFB date/time:', error);
+                  }
+                }
+
                 gameDataMap.set(pick.id, {
                   away_team: gameData.away_team,
                   home_team: gameData.home_team,
-                  game_date: gameData.start_time || gameData.game_date,
-                  game_time: gameData.start_time || gameData.game_time,
+                  game_date: formattedDate,
+                  game_time: formattedTime,
                   away_spread: gameData.api_spread ? -gameData.api_spread : null,
                   home_spread: gameData.api_spread,
                   over_line: gameData.api_over_line,
@@ -119,29 +193,8 @@ export default function PicksScreen() {
     fetchPicks();
   };
 
-  // Helper color functions (simplified versions)
-  const getNFLTeamColors = (team: string): { primary: string; secondary: string } => {
-    // Add basic NFL team colors - simplified for mobile
-    const colors: Record<string, { primary: string; secondary: string }> = {
-      'Kansas City': { primary: '#E31837', secondary: '#FFB612' },
-      'Buffalo': { primary: '#00338D', secondary: '#C60C30' },
-      'San Francisco': { primary: '#AA0000', secondary: '#B3995D' },
-      'Philadelphia': { primary: '#004C54', secondary: '#A5ACAF' },
-      // Add more as needed...
-    };
-    return colors[team] || { primary: '#6B7280', secondary: '#9CA3AF' };
-  };
-
-  const getCFBTeamColors = (team: string): { primary: string; secondary: string } => {
-    // Add basic CFB team colors - simplified for mobile
-    const colors: Record<string, { primary: string; secondary: string }> = {
-      'Georgia': { primary: '#BA0C2F', secondary: '#000000' },
-      'Alabama': { primary: '#9E1B32', secondary: '#FFFFFF' },
-      'Ohio State': { primary: '#BB0000', secondary: '#666666' },
-      'Michigan': { primary: '#00274C', secondary: '#FFCB05' },
-      // Add more as needed...
-    };
-    return colors[team] || { primary: '#6B7280', secondary: '#9CA3AF' };
+  const handleOpenTikTok = () => {
+    Linking.openURL('https://www.tiktok.com/@wagerproof');
   };
 
   const renderPickCard = ({ item }: { item: EditorPick }) => {
@@ -186,10 +239,38 @@ export default function PicksScreen() {
         </View>
       ) : picks.length === 0 ? (
         <View style={styles.centerContainer}>
-          <MaterialCommunityIcons name="star-off" size={60} color={theme.colors.onSurfaceVariant} />
-          <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-            No picks available
-          </Text>
+          <Card style={[styles.emptyCard, { backgroundColor: theme.colors.surface }]}>
+            <Card.Content>
+              <View style={styles.emptyContent}>
+                <MaterialCommunityIcons 
+                  name="sparkles" 
+                  size={80} 
+                  color={isDark ? '#FFD700' : '#FFB81C'} 
+                  style={styles.sparkleIcon}
+                />
+                <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
+                  Fresh Picks Coming Soon!
+                </Text>
+                <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                  We're preparing our latest expert picks for you. In the meantime, get daily betting insights and analysis from our main channel!
+                </Text>
+                <Button 
+                  mode="contained" 
+                  onPress={handleOpenTikTok}
+                  style={styles.tiktokButton}
+                  contentStyle={styles.tiktokButtonContent}
+                  labelStyle={styles.tiktokButtonLabel}
+                  buttonColor="#E91E63"
+                  icon={() => <MaterialCommunityIcons name="music-note" size={20} color="white" />}
+                >
+                  Follow @wagerproof on TikTok
+                </Button>
+                <Text style={[styles.emptyFooter, { color: theme.colors.onSurfaceVariant }]}>
+                  Daily picks • Analysis • Expert insights
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
         </View>
       ) : (
         <FlatList
@@ -251,6 +332,46 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 15,
     fontSize: 16,
+    textAlign: 'center',
+  },
+  emptyCard: {
+    margin: 16,
+    borderRadius: 12,
+    elevation: 4,
+  },
+  emptyContent: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  sparkleIcon: {
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  tiktokButton: {
+    marginBottom: 16,
+    borderRadius: 24,
+  },
+  tiktokButtonContent: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  tiktokButtonLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyFooter: {
+    fontSize: 14,
     textAlign: 'center',
   },
 });
