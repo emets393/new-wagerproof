@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider, useThemeContext } from '../contexts/ThemeContext';
 import { SettingsProvider } from '../contexts/SettingsContext';
+import { OnboardingGuard } from '../components/OnboardingGuard';
 import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 
@@ -20,13 +21,15 @@ function RootNavigator() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inOnboardingGroup = segments[0] === '(onboarding)';
 
     if (!user && !inAuthGroup) {
       // Redirect to login if not authenticated
       router.replace('/(auth)/login');
     } else if (user && inAuthGroup) {
-      // Redirect to main app if authenticated and in auth screens
-      router.replace('/(tabs)');
+      // Don't redirect immediately - let OnboardingGuard handle it
+      // This allows checking onboarding status first
+      return;
     }
   }, [user, loading, segments]);
 
@@ -39,22 +42,31 @@ function RootNavigator() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: theme.colors.background },
-      }}
-    >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen 
-        name="(modals)" 
-        options={{ 
-          presentation: 'modal',
-          headerShown: false 
-        }} 
-      />
-    </Stack>
+    <OnboardingGuard>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.colors.background },
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="(onboarding)" 
+          options={{ 
+            headerShown: false,
+            presentation: 'modal'
+          }} 
+        />
+        <Stack.Screen 
+          name="(modals)" 
+          options={{ 
+            presentation: 'modal',
+            headerShown: false 
+          }} 
+        />
+      </Stack>
+    </OnboardingGuard>
   );
 }
 

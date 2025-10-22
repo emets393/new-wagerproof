@@ -16,6 +16,8 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [scoreboardEnabled, setScoreboardEnabled] = React.useState(true);
+  const [tapCount, setTapCount] = React.useState(0);
+  const tapTimer = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -55,6 +57,39 @@ export default function SettingsScreen() {
   const handleFeatureRequest = () => {
     router.push('/feature-requests');
   };
+
+  const handleVersionTap = () => {
+    setTapCount(prev => prev + 1);
+    
+    // Clear existing timer
+    if (tapTimer.current) {
+      clearTimeout(tapTimer.current);
+    }
+    
+    // Set new timer to reset tap count after 500ms
+    tapTimer.current = setTimeout(() => {
+      setTapCount(0);
+    }, 500);
+    
+    // Check if we've reached double tap
+    if (tapCount + 1 >= 2) {
+      setTapCount(0);
+      if (tapTimer.current) {
+        clearTimeout(tapTimer.current);
+      }
+      // Open secret settings
+      router.push('/(modals)/secret-settings');
+    }
+  };
+
+  // Cleanup timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (tapTimer.current) {
+        clearTimeout(tapTimer.current);
+      }
+    };
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -116,25 +151,6 @@ export default function SettingsScreen() {
         </List.Section>
         <Divider />
 
-        {/* Developer Section */}
-        <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>Developer Options</List.Subheader>
-          <List.Item
-            title="Use Dummy Data"
-            description={useDummyData ? "Showing dummy data for testing" : "Using live data from API"}
-            left={props => <List.Icon {...props} icon="test-tube" color={theme.colors.primary} />}
-            right={() => (
-              <Switch
-                value={useDummyData}
-                onValueChange={setUseDummyData}
-                color={theme.colors.primary}
-              />
-            )}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-        </List.Section>
-        <Divider />
-
         {/* Support Section */}
         <List.Section>
           <List.Item
@@ -174,6 +190,7 @@ export default function SettingsScreen() {
             title="App Version"
             description="1.0.0"
             left={props => <List.Icon {...props} icon="information" color={theme.colors.primary} />}
+            onPress={handleVersionTap}
             style={{ backgroundColor: theme.colors.surface }}
           />
           

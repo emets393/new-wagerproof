@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, Image, TouchableOpacity } from 'react-native';
 import { useTheme, Chip, ActivityIndicator, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { NFLGameCard } from '@/components/NFLGameCard';
 import { CFBGameCard } from '@/components/CFBGameCard';
@@ -24,6 +25,7 @@ interface SportOption {
 
 export default function FeedScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const { scrollY, scrollYClamped } = useScroll();
   const insets = useSafeAreaInsets();
   const { hasLiveGames } = useLiveScores();
@@ -393,8 +395,7 @@ export default function FeedScreen() {
             {hasLiveGames && (
               <View style={styles.inlineTickerContainer}>
                 <LiveScoreTicker onNavigateToScoreboard={() => {
-                  // TODO: Navigate to full scoreboard page
-                  console.log('Navigate to scoreboard');
+                  router.push('/(modals)/scoreboard');
                 }} />
               </View>
             )}
