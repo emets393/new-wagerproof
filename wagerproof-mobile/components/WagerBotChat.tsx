@@ -44,6 +44,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  // Note: threadId no longer used with Responses API (kept for backward compatibility)
   const [threadId, setThreadId] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -338,9 +339,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     }).start();
 
     try {
-      console.log('📤 Sending message to BuildShip...');
+      console.log('📤 Sending message to BuildShip (Responses API)...');
 
-      // BuildShip REST API expects: message, conversationId (optional), and SystemPrompt
+      // BuildShip Responses API expects: message, conversationHistory, and SystemPrompt
       const requestBody: any = {
         message: messageText,
       };
@@ -351,23 +352,29 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         console.log(`📊 Including game context (${gameContext.length} chars)`);
       }
 
-      // Only send conversationId if it's a valid OpenAI thread ID (starts with "thread_")
-      if (threadId && threadId.startsWith('thread_')) {
-        requestBody.conversationId = threadId;
-        console.log('🔗 Including existing thread ID:', threadId);
-      } else {
-        console.log('ℹ️ No thread ID - BuildShip will create a new thread');
+      // Include conversation history (last 20 messages = 10 exchanges)
+      // Responses API is stateless, so we send history with each request
+      const conversationHistory = messages
+        .slice(-20)  // Last 20 messages to stay within context limits
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+
+      if (conversationHistory.length > 0) {
+        requestBody.conversationHistory = conversationHistory;
+        console.log(`📝 Including conversation history (${conversationHistory.length} messages)`);
       }
 
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('📦 REQUEST PAYLOAD TO BUILDSHIP');
+      console.log('📦 REQUEST PAYLOAD TO BUILDSHIP (RESPONSES API)');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('Full payload:', JSON.stringify(requestBody, null, 2));
       console.log('');
       console.log('Payload structure:');
       console.log('  - message:', requestBody.message ? `"${requestBody.message}"` : 'UNDEFINED');
       console.log('  - message type:', typeof requestBody.message);
-      console.log('  - conversationId:', requestBody.conversationId || 'NOT_PRESENT');
+      console.log('  - conversationHistory:', requestBody.conversationHistory ? `${requestBody.conversationHistory.length} messages` : 'EMPTY');
       console.log('  - SystemPrompt:', requestBody.SystemPrompt ? `(${requestBody.SystemPrompt.length} chars)` : 'NOT_PRESENT');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
@@ -386,90 +393,75 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         let parsedLength = 0;
         let currentContent = '';
         let lastUpdateTime = 0;
-        let threadIdSet = false;
-        let receivedThreadId: string | null = null;
+        let progressEventCount = 0;
+        const startTime = Date.now();
         
         // Real-time streaming as chunks arrive!
+        // Responses API streams plain text directly (no thread IDs needed)
         xhr.onprogress = () => {
+          progressEventCount++;
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+          
           const newText = xhr.responseText.substring(parsedLength);
           parsedLength = xhr.responseText.length;
           
-          if (!newText) return;
+          console.log(`🔄 Progress event #${progressEventCount} at ${elapsed}s - Total bytes: ${parsedLength}, New bytes: ${newText.length}`);
           
-          // Parse SSE events as they arrive
-          const lines = newText.split('\n');
-          let contentUpdated = false;
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const jsonStr = line.substring(6).trim();
-                if (!jsonStr) continue;
-                
-                const eventData = JSON.parse(jsonStr);
-                
-                // Extract thread ID from first event
-                if (eventData.threadId && !threadIdSet) {
-                  receivedThreadId = eventData.threadId;
-                  setValidatedThreadId(eventData.threadId);
-                  console.log('✅ Thread ID from SSE (real-time):', eventData.threadId);
-                  threadIdSet = true;
-                }
-                
-                // Extract text and UPDATE IMMEDIATELY
-                if (eventData.delta?.content?.[0]?.text?.value) {
-                  const textChunk = eventData.delta.content[0].text.value;
-                  currentContent += textChunk;
-                  contentUpdated = true;
-                  
-                  console.log('📝 Received chunk:', textChunk.substring(0, 50));
-                }
-              } catch (parseError) {
-                // Skip invalid JSON lines
-              }
-            }
+          if (!newText) {
+            console.log('⚠️ No new text in this progress event');
+            return;
           }
+          
+          // With Responses API, we get plain text chunks directly
+          // No need to parse SSE format or extract thread IDs
+          currentContent += newText;
+          
+          console.log('📝 Received chunk:', newText.substring(0, 50));
+          console.log(`   Content so far: ${currentContent.length} chars`);
           
           // Update UI immediately with new content!
-          if (contentUpdated) {
-            const currentTime = Date.now();
-            
-            setMessages(prev =>
-              prev.map(msg =>
-                msg.id === assistantMessageId
-                  ? { ...msg, content: currentContent }
-                  : msg
-              )
-            );
-            
-            // Haptic feedback every 100ms max (smooth but not overwhelming)
-            if (currentTime - lastUpdateTime > 100) {
-              Vibration.vibrate(1);
-              lastUpdateTime = currentTime;
-            }
-            
-            setIsStreaming(true);
-            console.log('✅ UI updated in real-time, total length:', currentContent.length);
+          const currentTime = Date.now();
+          
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: currentContent }
+                : msg
+            )
+          );
+          
+          // Haptic feedback every 100ms max (smooth but not overwhelming)
+          if (currentTime - lastUpdateTime > 100) {
+            Vibration.vibrate(1);
+            lastUpdateTime = currentTime;
           }
+          
+          setIsStreaming(true);
+          console.log('✅ UI updated in real-time, total length:', currentContent.length);
         };
         
         xhr.onload = async () => {
+          const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           console.log('✅ Stream complete!');
+          console.log(`📊 STREAMING STATS:`);
+          console.log(`   - Total time: ${totalTime}s`);
+          console.log(`   - Progress events: ${progressEventCount}`);
+          console.log(`   - Final content length: ${currentContent.length} chars`);
+          console.log(`   - Average chars per event: ${(currentContent.length / Math.max(1, progressEventCount)).toFixed(0)}`);
+          if (progressEventCount === 1) {
+            console.log('⚠️ WARNING: Only 1 progress event! Streaming may not be working.');
+            console.log('   This means the entire response arrived at once.');
+          } else {
+            console.log(`✅ Multiple progress events detected - streaming is working!`);
+          }
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           setIsStreaming(false);
           
           if (xhr.status !== 200) {
             console.error('❌ BuildShip error response:', xhr.responseText);
             reject(new Error(`API request failed: ${xhr.status}. ${xhr.responseText.substring(0, 100)}`));
             return;
-          }
-          
-          // Extract thread ID from header if available
-          const headerThreadId = xhr.getResponseHeader('x-thread-id');
-          let openaiThreadId = receivedThreadId;
-          if (headerThreadId && !threadIdSet) {
-            setValidatedThreadId(headerThreadId);
-            openaiThreadId = headerThreadId;
-            console.log('✅ Thread ID from header:', headerThreadId);
           }
           
           if (!currentContent) {
@@ -479,27 +471,21 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           
           console.log('✅ Final message length:', currentContent.length);
           
-          // Save to Supabase
+          // Save to Supabase (Responses API doesn't use OpenAI thread IDs)
           try {
             console.log('💾 Starting Supabase save...');
             console.log('  - Current sessionId:', sessionId);
-            console.log('  - sessionId type:', typeof sessionId);
-            console.log('  - sessionId is null?', sessionId === null);
-            console.log('  - sessionId is undefined?', sessionId === undefined);
-            console.log('  - sessionId falsy?', !sessionId);
-            console.log('  - OpenAI thread ID:', openaiThreadId);
             console.log('  - User ID:', userId);
             console.log('  - Message text length:', messageText.length);
             console.log('  - Assistant content length:', currentContent.length);
             
             // If this is the first message, create a new thread in Supabase
             if (!sessionId) {
-              console.log('🔍 No sessionId found - will CREATE NEW THREAD');
               console.log('🆕 Creating new thread in Supabase...');
               const thread = await chatThreadService.createThread(
                 userId,
                 messageText,
-                openaiThreadId || undefined
+                undefined  // No OpenAI thread ID with Responses API
               );
               setSessionId(thread.id);
               console.log('✅ Created new Supabase thread:', thread.id);
@@ -521,15 +507,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 currentContent
               ).catch(err => console.error('❌ Failed to generate title:', err));
             } else {
-              console.log('🔍 SessionId EXISTS - will UPDATE EXISTING THREAD');
               console.log('📝 Updating existing thread:', sessionId);
-              
-              // Update existing thread with OpenAI thread ID if we got one
-              if (openaiThreadId) {
-                console.log('🔗 Updating OpenAI thread ID...');
-                await chatThreadService.updateOpenAIThreadId(sessionId, openaiThreadId);
-                console.log('✅ OpenAI thread ID updated');
-              }
               
               // Save new messages to existing thread
               console.log('💾 Saving user message to existing thread...');
