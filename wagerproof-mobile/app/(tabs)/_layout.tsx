@@ -14,13 +14,16 @@ function FloatingTabBar() {
   const pathname = usePathname();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
+  
   const tabs = [
     { name: 'index', path: '/', title: 'Feed', icon: 'view-dashboard' },
     { name: 'chat', path: '/chat', title: 'Chat', icon: 'message-text' },
     { name: 'picks', path: '/picks', title: 'Picks', icon: 'star' },
     { name: 'settings', path: '/settings', title: 'Settings', icon: 'cog' },
   ];
+  
+  // Hide tab bar completely when on chat screen
+  const isChatScreen = pathname === '/chat' || pathname.startsWith('/chat');
 
   // Calculate collapsible height (must match the feed screen)
   const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
@@ -29,25 +32,22 @@ function FloatingTabBar() {
   const TAB_BAR_BASE_HEIGHT = 65;
   const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
 
-  // Tab bar translates down as user scrolls up
+  // Simple scroll-based animations for feed screen only
   const tabBarTranslate = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [0, TAB_BAR_HEIGHT + 20], // Extra pixels to ensure it's fully hidden
+    outputRange: [0, TAB_BAR_HEIGHT + 20],
     extrapolate: 'clamp',
   });
 
-  // Tab bar opacity fades out progressively
   const tabBarOpacity = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
-  // Hide tab bar completely when on chat screen
-  const isChatScreen = pathname === '/chat' || pathname.startsWith('/chat');
-
+  // Hide tab bar on chat screen
   if (isChatScreen) {
-    return null; // Don't render tab bar on chat screen
+    return null;
   }
 
   return (

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
 import { chatSessionManager, ChatMessage } from '../utils/chatSessionManager';
 import { chatThreadService } from '../services/chatThreadService';
@@ -26,6 +27,8 @@ interface WagerBotChatProps {
   gameContext?: string;
   onRefresh?: () => void;
   onBack?: () => void;
+  scrollY?: Animated.Value;
+  headerHeight?: number;
 }
 
 const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
@@ -34,9 +37,28 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   gameContext = '',
   onRefresh,
   onBack,
+  scrollY,
+  headerHeight = 0,
 }, ref) => {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Handle scroll event for header animation
+  const handleScroll = scrollY 
+    ? Animated.event(
+        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+        { useNativeDriver: true }
+      )
+    : null;
+
+  // Build scroll props conditionally
+  const scrollProps = handleScroll 
+    ? { 
+        onScroll: handleScroll,
+        scrollEventThrottle: 16 
+      }
+    : {};
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -56,6 +78,16 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   // Animation values for message appearance
   const messageAnimations = useRef<{ [key: string]: Animated.Value }>({});
   const drawerAnimation = useRef(new Animated.Value(300)).current; // Positive for right side
+  
+  // Suggested messages
+  const suggestedMessages = [
+    { label: '📰 Check News', message: 'What are the latest news and updates affecting today\'s games?' },
+    { label: '🎯 Model Predictions', message: 'Show me the model predictions and confidence levels for today\'s games' },
+    { label: '🌤️ Weather Impact', message: 'How is the weather affecting today\'s games and what should I consider?' },
+    { label: '💰 Best Bets', message: 'What are your best betting recommendations for today based on all available data?' },
+    { label: '📊 Stats Breakdown', message: 'Give me a detailed statistical breakdown of the key matchups today' },
+    { label: '🔥 Hot Takes', message: 'What are some contrarian or undervalued betting opportunities today?' },
+  ];
   
   const getMessageAnimation = (messageId: string) => {
     if (!messageAnimations.current[messageId]) {
@@ -284,11 +316,22 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     clearChat,
   }));
 
+  const handleSuggestedMessage = (message: string) => {
+    if (isSending) return;
+    setInputText(message);
+    // Small delay to show the text before sending
+    setTimeout(() => {
+      sendMessageWithText(message);
+    }, 100);
+  };
+
   const sendMessage = async () => {
     if (!inputText.trim() || isSending) return;
+    await sendMessageWithText(inputText.trim());
+  };
 
-    // Capture the message text before clearing
-    const messageText = inputText.trim();
+  const sendMessageWithText = async (messageText: string) => {
+    if (!messageText || isSending) return;
     
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
@@ -376,6 +419,19 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       console.log('  - message type:', typeof requestBody.message);
       console.log('  - conversationHistory:', requestBody.conversationHistory ? `${requestBody.conversationHistory.length} messages` : 'EMPTY');
       console.log('  - SystemPrompt:', requestBody.SystemPrompt ? `(${requestBody.SystemPrompt.length} chars)` : 'NOT_PRESENT');
+      
+      // Enhanced debugging for SystemPrompt
+      if (requestBody.SystemPrompt) {
+        console.log('');
+        console.log('📊 SYSTEM PROMPT CONTENT PREVIEW:');
+        console.log('First 500 chars:', requestBody.SystemPrompt.substring(0, 500));
+        console.log('...');
+        console.log('Last 200 chars:', requestBody.SystemPrompt.substring(requestBody.SystemPrompt.length - 200));
+      } else {
+        console.log('');
+        console.log('⚠️ WARNING: NO SYSTEM PROMPT INCLUDED!');
+        console.log('   gameContext prop value:', gameContext ? `${gameContext.length} chars` : 'EMPTY/NULL');
+      }
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // BuildShip mobile chat endpoint
@@ -609,6 +665,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           styles.historyDrawer,
           {
             backgroundColor: theme.colors.surface,
+            paddingTop: insets.top,
             transform: [{ translateX: drawerAnimation }],
           }
         ]}
@@ -688,8 +745,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       >
         {/* Welcome Screen (shows when no messages) */}
         {showWelcome && (
-          <ScrollView
-            contentContainerStyle={styles.welcomeContainer}
+          <Animated.ScrollView
+            contentContainerStyle={[styles.welcomeContainer, { paddingTop: headerHeight }]}
+            {...scrollProps}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -715,17 +773,18 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 </Text>
               )}
             </View>
-          </ScrollView>
+          </Animated.ScrollView>
         )}
 
         {/* Messages View (shows when there are messages) */}
         {!showWelcome && (
-          <ScrollView
+          <Animated.ScrollView
             ref={scrollViewRef}
             style={styles.messagesContainer}
-            contentContainerStyle={styles.messagesContent}
+            contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight }]}
             showsVerticalScrollIndicator={true}
             keyboardShouldPersistTaps="handled"
+            {...scrollProps}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -895,7 +954,38 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 </Animated.View>
               );
             })}
-          </ScrollView>
+          </Animated.ScrollView>
+        )}
+
+        {/* Suggested Messages - Show when welcome or no messages */}
+        {(showWelcome || messages.length === 0) && (
+          <View style={styles.suggestedMessagesWrapper}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.suggestedMessagesContent}
+            >
+              {suggestedMessages.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.suggestedMessageBubble,
+                    { 
+                      backgroundColor: theme.colors.surfaceVariant,
+                      borderColor: theme.colors.outline,
+                    }
+                  ]}
+                  onPress={() => handleSuggestedMessage(item.message)}
+                  disabled={isSending}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.suggestedMessageText, { color: theme.colors.onSurface }]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         )}
 
         {/* Input Area - Always visible at bottom */}
@@ -1195,6 +1285,31 @@ const styles = StyleSheet.create({
   },
   sendButtonActive: {
     backgroundColor: '#2e7d32',
+  },
+  // Suggested Messages Styles
+  suggestedMessagesWrapper: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  suggestedMessagesContent: {
+    gap: 8,
+    paddingRight: 16,
+  },
+  suggestedMessageBubble: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  suggestedMessageText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

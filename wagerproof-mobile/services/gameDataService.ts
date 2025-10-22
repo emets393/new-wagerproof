@@ -1,9 +1,6 @@
-import { supabase } from './supabase';
+import { collegeFootballSupabase } from './supabase';
 import { NFLPrediction } from '../types/nfl';
 import { CFBPrediction } from '../types/cfb';
-
-// Get college football supabase client (same as web implementation)
-const collegeFootballSupabase = supabase;
 
 /**
  * Fetch NFL predictions from nfl_predictions_epa table and betting lines
@@ -29,7 +26,7 @@ export async function fetchNFLPredictions(): Promise<NFLPrediction[]> {
     // Fetch predictions with the latest run_id
     const { data: predictions, error: predsError } = await collegeFootballSupabase
       .from('nfl_predictions_epa')
-      .select('training_key, home_team, away_team, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, game_date, game_time')
+      .select('training_key, home_team, away_team, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, game_date')
       .gte('game_date', today)
       .eq('run_id', latestRun.run_id);
 
@@ -53,6 +50,7 @@ export async function fetchNFLPredictions(): Promise<NFLPrediction[]> {
       return {
         id: pred.training_key,
         ...pred,
+        game_time: pred.game_date || 'TBD', // Use game_date as game_time fallback
         home_spread: line?.home_spread || null,
         away_spread: line?.away_spread || null,
         over_line: line?.over_line || null,
@@ -160,6 +158,25 @@ function formatNFLContext(predictions: NFLPrediction[]): string {
       const gameDate = pred.game_date ? new Date(pred.game_date).toLocaleDateString() : 'TBD';
       const gameTime = pred.game_time || 'TBD';
 
+      // Calculate predictions
+      const mlWinner = pred.home_away_ml_prob 
+        ? pred.home_away_ml_prob > 0.5 
+          ? `${homeTeam} (${(pred.home_away_ml_prob * 100).toFixed(1)}% confidence)`
+          : `${awayTeam} (${((1 - pred.home_away_ml_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      const spreadPick = pred.home_away_spread_cover_prob
+        ? pred.home_away_spread_cover_prob > 0.5
+          ? `${homeTeam} to cover ${pred.home_spread} (${(pred.home_away_spread_cover_prob * 100).toFixed(1)}% confidence)`
+          : `${awayTeam} to cover ${pred.away_spread} (${((1 - pred.home_away_spread_cover_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      const ouPick = pred.ou_result_prob
+        ? pred.ou_result_prob > 0.5
+          ? `OVER ${pred.over_line} (${(pred.ou_result_prob * 100).toFixed(1)}% confidence)`
+          : `UNDER ${pred.over_line} (${((1 - pred.ou_result_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
       return `
 ### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
 
@@ -171,9 +188,10 @@ function formatNFLContext(predictions: NFLPrediction[]): string {
 - Over/Under: ${pred.over_line || 'N/A'}
 
 **Model Predictions (EPA Model):**
-- ML Probability: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
-- Spread Cover Probability: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}
-- O/U Probability: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
+- **Moneyline Pick:** ${mlWinner}
+- **Spread Pick:** ${spreadPick}
+- **Over/Under Pick:** ${ouPick}
+- Raw Probabilities: ML ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'} | Spread ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'} | O/U ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
 
 **Weather:** ${pred.temperature ? pred.temperature + '°F' : 'N/A'}, Wind: ${pred.wind_speed ? pred.wind_speed + ' mph' : 'N/A'}
 
@@ -191,7 +209,7 @@ function formatNFLContext(predictions: NFLPrediction[]): string {
 
   return `# 🏈 NFL Games Data
 
-I have access to **${predictions.length} NFL games** with complete betting lines, model predictions, weather data, and public betting splits.
+I have access to **${predictions.length} NFL games** with complete betting lines, model predictions (EPA Model), weather data, and public betting splits.
 
 ${contextParts}`;
 }
@@ -209,8 +227,37 @@ function formatCFBContext(predictions: CFBPrediction[]): string {
       const gameTime = pred.game_time || pred.game_date || 'TBD';
       const gameDate = gameTime !== 'TBD' ? new Date(gameTime).toLocaleDateString() : 'TBD';
 
+      // Calculate predictions
+      const mlWinner = pred.home_away_ml_prob 
+        ? pred.home_away_ml_prob > 0.5 
+          ? `${homeTeam} (${(pred.home_away_ml_prob * 100).toFixed(1)}% confidence)`
+          : `${awayTeam} (${((1 - pred.home_away_ml_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      const spreadPick = pred.home_away_spread_cover_prob
+        ? pred.home_away_spread_cover_prob > 0.5
+          ? `${homeTeam} to cover ${pred.home_spread} (${(pred.home_away_spread_cover_prob * 100).toFixed(1)}% confidence)`
+          : `${awayTeam} to cover ${pred.away_spread} (${((1 - pred.home_away_spread_cover_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      const ouPick = pred.ou_result_prob
+        ? pred.ou_result_prob > 0.5
+          ? `OVER ${pred.over_line} (${(pred.ou_result_prob * 100).toFixed(1)}% confidence)`
+          : `UNDER ${pred.over_line} (${((1 - pred.ou_result_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      // Value analysis - critical for betting decisions
+      const spreadValue = pred.home_spread_diff !== null && pred.home_spread_diff !== undefined
+        ? `${pred.home_spread_diff > 0 ? '+' : ''}${pred.home_spread_diff.toFixed(1)} points (${pred.home_spread_diff > 0 ? 'FAVORABLE to Home' : 'FAVORABLE to Away'})`
+        : 'N/A';
+
+      const totalValue = pred.total_diff !== null && pred.total_diff !== undefined
+        ? `${pred.total_diff > 0 ? '+' : ''}${pred.total_diff.toFixed(1)} points (${pred.total_diff > 0 ? 'OVER has VALUE' : 'UNDER has VALUE'})`
+        : 'N/A';
+
       return `
 ### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
+${pred.conference ? `**Conference:** ${pred.conference}` : ''}
 
 **Date/Time:** ${gameDate}
 
@@ -220,10 +267,24 @@ function formatCFBContext(predictions: CFBPrediction[]): string {
 - Over/Under: ${pred.over_line || 'N/A'}
 
 **Model Predictions:**
-- ML Probability: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
-- Spread Cover Probability: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}
-- Total Probability: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
-- Predicted Score: ${awayTeam} ${pred.pred_away_score || 'N/A'} - ${homeTeam} ${pred.pred_home_score || 'N/A'}
+- **Predicted Score:** ${awayTeam} ${pred.pred_away_score !== null ? Math.round(pred.pred_away_score) : 'N/A'} - ${homeTeam} ${pred.pred_home_score !== null ? Math.round(pred.pred_home_score) : 'N/A'}
+- **Predicted Spread:** ${pred.pred_spread !== null && pred.pred_spread !== undefined ? `${pred.pred_spread > 0 ? homeTeam : awayTeam} ${Math.abs(pred.pred_spread).toFixed(1)}` : 'N/A'}
+- **Predicted Total:** ${pred.pred_total !== null && pred.pred_total !== undefined ? pred.pred_total.toFixed(1) : 'N/A'}
+
+**Model Picks:**
+- **Moneyline:** ${mlWinner}
+- **Spread:** ${spreadPick}
+- **Over/Under:** ${ouPick}
+
+**VALUE ANALYSIS (Model vs. Market):**
+- **Spread Difference:** ${spreadValue}
+- **Total Difference:** ${totalValue}
+${pred.over_line_diff !== null && pred.over_line_diff !== undefined ? `- **O/U Line Diff:** ${pred.over_line_diff > 0 ? '+' : ''}${pred.over_line_diff.toFixed(1)}` : ''}
+
+**Confidence Levels:**
+- ML: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
+- Spread: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}
+- Total: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
 
 **Weather:** ${pred.temperature ? pred.temperature + '°F' : 'N/A'}, Wind: ${pred.wind_speed ? pred.wind_speed + ' mph' : 'N/A'}
 
@@ -241,7 +302,9 @@ function formatCFBContext(predictions: CFBPrediction[]): string {
 
   return `# 🏈 College Football Games Data
 
-I have access to **${predictions.length} College Football games** with complete betting lines, model predictions, weather data, and public betting splits.
+I have access to **${predictions.length} College Football games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), weather data, and public betting splits.
+
+**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER.
 
 ${contextParts}`;
 }
@@ -257,13 +320,28 @@ export async function fetchAndFormatGameContext(): Promise<string> {
     fetchCFBPredictions(),
   ]);
 
+  console.log(`📊 Fetched predictions:`);
+  console.log(`   - NFL: ${nflPredictions.length} games`);
+  console.log(`   - CFB: ${cfbPredictions.length} games`);
+
   const nflContext = formatNFLContext(nflPredictions);
   const cfbContext = formatCFBContext(cfbPredictions);
+
+  console.log(`📝 Formatted contexts:`);
+  console.log(`   - NFL context: ${nflContext.length} chars`);
+  console.log(`   - CFB context: ${cfbContext.length} chars`);
 
   const fullContext = [nflContext, cfbContext].filter(Boolean).join('\n\n');
 
   console.log(`✅ Game context generated: ${fullContext.length} characters`);
   console.log(`📊 Total games: ${nflPredictions.length} NFL + ${cfbPredictions.length} CFB`);
+
+  if (fullContext.length === 0) {
+    console.warn('⚠️ WARNING: Generated context is EMPTY!');
+    console.warn('   This means no game data was found or formatting failed.');
+  } else {
+    console.log('📄 Context preview (first 200 chars):', fullContext.substring(0, 200));
+  }
 
   return fullContext;
 }
