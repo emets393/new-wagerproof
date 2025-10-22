@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { chatThreadService, ChatThread, ChatMessage as ChatThreadMessage } from '../services/chatThreadService';
 
 export interface ChatSession {
   id: string;
@@ -56,15 +57,25 @@ export class ChatSessionManager {
   }
 
   /**
-   * Get all chat sessions for a user
+   * Get all chat sessions for a user (from Supabase)
    */
   async getUserSessions(userId: string): Promise<ChatSession[]> {
     try {
-      const sessions = await AsyncStorage.getItem(CHAT_SESSIONS_KEY);
-      if (!sessions) return [];
-
-      const allSessions: ChatSession[] = JSON.parse(sessions);
-      return allSessions.filter(session => session.userId === userId);
+      const threads = await chatThreadService.getThreads(userId);
+      
+      // Convert ChatThread format to ChatSession format
+      return threads.map(thread => ({
+        id: thread.id,
+        userId: thread.user_id,
+        createdAt: thread.created_at,
+        lastActive: thread.updated_at,
+        messages: thread.messages?.map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.created_at,
+        })) || [],
+      }));
     } catch (error) {
       console.error('Error loading chat sessions:', error);
       return [];
@@ -82,11 +93,22 @@ export class ChatSessionManager {
         const pageSessionId = await AsyncStorage.getItem(pageSessionKey);
 
         if (pageSessionId) {
-          const sessions = await this.getUserSessions(userId);
-          const session = sessions.find(s => s.id === pageSessionId && s.pageId === pageId);
-          if (session) {
+          const thread = await chatThreadService.getThread(pageSessionId);
+          if (thread && thread.user_id === userId) {
             console.log(`✅ Found existing session for page: ${pageId}`);
-            return session;
+            return {
+              id: thread.id,
+              userId: thread.user_id,
+              pageId: pageId,
+              createdAt: thread.created_at,
+              lastActive: thread.updated_at,
+              messages: thread.messages?.map(msg => ({
+                id: msg.id,
+                role: msg.role,
+                content: msg.content,
+                timestamp: msg.created_at,
+              })) || [],
+            };
           }
         }
 
@@ -98,8 +120,21 @@ export class ChatSessionManager {
       const currentSessionId = await AsyncStorage.getItem(CURRENT_SESSION_KEY);
       if (!currentSessionId) return null;
 
-      const sessions = await this.getUserSessions(userId);
-      return sessions.find(session => session.id === currentSessionId) || null;
+      const thread = await chatThreadService.getThread(currentSessionId);
+      if (!thread || thread.user_id !== userId) return null;
+
+      return {
+        id: thread.id,
+        userId: thread.user_id,
+        createdAt: thread.created_at,
+        lastActive: thread.updated_at,
+        messages: thread.messages?.map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.created_at,
+        })) || [],
+      };
     } catch (error) {
       console.error('Error loading current session:', error);
       return null;
@@ -107,24 +142,25 @@ export class ChatSessionManager {
   }
 
   /**
-   * Create a new chat session
+   * Create a new chat session (in Supabase)
    */
   async createNewSession(userId: string, pageId?: string): Promise<ChatSession> {
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Create thread in Supabase
+    const thread = await chatThreadService.createThread(userId);
+    
     const newSession: ChatSession = {
-      id: sessionId,
-      userId: userId,
+      id: thread.id,
+      userId: thread.user_id,
       pageId: pageId,
-      createdAt: new Date().toISOString(),
-      lastActive: new Date().toISOString(),
+      createdAt: thread.created_at,
+      lastActive: thread.updated_at,
       messages: [],
     };
 
-    // Save to AsyncStorage
-    await this.saveSession(newSession);
+    // Save to AsyncStorage for current session tracking
     await this.setCurrentSession(newSession.id, pageId);
 
-    console.log(`🆕 Created new session: ${sessionId} for page: ${pageId || 'default'}`);
+    console.log(`🆕 Created new session: ${thread.id} for page: ${pageId || 'default'}`);
 
     return newSession;
   }
@@ -235,22 +271,12 @@ export class ChatSessionManager {
   }
 
   /**
-   * Save a session to AsyncStorage
+   * Save a session (updates thread activity in Supabase)
    */
   async saveSession(session: ChatSession): Promise<void> {
     try {
-      const sessions = await AsyncStorage.getItem(CHAT_SESSIONS_KEY);
-      const allSessions: ChatSession[] = sessions ? JSON.parse(sessions) : [];
-
-      // Update existing session or add new one
-      const existingIndex = allSessions.findIndex(s => s.id === session.id);
-      if (existingIndex >= 0) {
-        allSessions[existingIndex] = { ...session, lastActive: new Date().toISOString() };
-      } else {
-        allSessions.push(session);
-      }
-
-      await AsyncStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(allSessions));
+      // Update thread activity timestamp in Supabase
+      await chatThreadService.updateThreadActivity(session.id);
     } catch (error) {
       console.error('Error saving chat session:', error);
     }
@@ -274,17 +300,12 @@ export class ChatSessionManager {
   }
 
   /**
-   * Delete a session
+   * Delete a session (from Supabase)
    */
   async deleteSession(sessionId: string): Promise<void> {
     try {
-      const sessions = await AsyncStorage.getItem(CHAT_SESSIONS_KEY);
-      if (!sessions) return;
-
-      const allSessions: ChatSession[] = JSON.parse(sessions);
-      const filteredSessions = allSessions.filter(s => s.id !== sessionId);
-
-      await AsyncStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(filteredSessions));
+      // Delete from Supabase
+      await chatThreadService.deleteThread(sessionId);
 
       // Clear current session if it was deleted
       const currentSessionId = await AsyncStorage.getItem(CURRENT_SESSION_KEY);
@@ -297,17 +318,17 @@ export class ChatSessionManager {
   }
 
   /**
-   * Clear all sessions for a user
+   * Clear all sessions for a user (from Supabase)
    */
   async clearUserSessions(userId: string): Promise<void> {
     try {
-      const sessions = await AsyncStorage.getItem(CHAT_SESSIONS_KEY);
-      if (!sessions) return;
+      const threads = await chatThreadService.getThreads(userId);
+      
+      // Delete all threads for this user
+      await Promise.all(
+        threads.map(thread => chatThreadService.deleteThread(thread.id))
+      );
 
-      const allSessions: ChatSession[] = JSON.parse(sessions);
-      const otherUserSessions = allSessions.filter(s => s.userId !== userId);
-
-      await AsyncStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(otherUserSessions));
       await AsyncStorage.removeItem(CURRENT_SESSION_KEY);
     } catch (error) {
       console.error('Error clearing user sessions:', error);

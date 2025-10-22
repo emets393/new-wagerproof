@@ -12,11 +12,13 @@ import {
   RefreshControl,
   Animated,
   Vibration,
+  Alert,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import { chatSessionManager, ChatMessage } from '../utils/chatSessionManager';
+import { chatThreadService } from '../services/chatThreadService';
 
 interface WagerBotChatProps {
   userId: string;
@@ -83,6 +85,16 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     }
   }, [threadId]);
 
+  // Debug: Log sessionId changes to track thread creation
+  useEffect(() => {
+    console.log('📝 Session ID changed:', sessionId || 'NULL');
+    if (sessionId) {
+      console.log('   ✅ Session ID set - will update existing thread');
+    } else {
+      console.log('   🆕 Session ID null - will create new thread on next message');
+    }
+  }, [sessionId]);
+
   // Animate existing messages when loaded from history
   useEffect(() => {
     messages.forEach((message, index) => {
@@ -130,14 +142,8 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
       console.log('🔄 Initializing WagerBot chat...');
 
-      // Create or get existing session
-      const session = await chatSessionManager.createNewSession(userId, 'mobile-chat');
-      setSessionId(session.id);
-      setMessages(session.messages || []);
-
-      console.log(`📝 Session created: ${session.id}`);
-
-      // Get client secret from BuildShip with game context
+      // Don't create thread yet - wait for first message
+      // Just get client secret for BuildShip
       const { clientSecret: secret } = await chatSessionManager.getClientSecret(
         userId,
         userEmail,
@@ -145,13 +151,10 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       );
 
       setClientSecret(secret);
-      console.log('✅ Chat initialized successfully');
-
-      // Check if there are existing messages
-      if (session.messages && session.messages.length > 0) {
-        setMessages(session.messages);
-        setShowWelcome(false);
-      }
+      console.log('✅ Chat initialized successfully (no thread created yet)');
+      
+      // Show welcome screen - no messages yet
+      setShowWelcome(true);
     } catch (err) {
       console.error('❌ Error initializing chat:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize chat');
@@ -171,14 +174,15 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
   const loadChatHistories = async () => {
     try {
-      const sessions = await chatSessionManager.getUserSessions(userId);
-      const histories = sessions.map((session: any) => ({
-        id: session.id,
-        title: session.messages[0]?.content.substring(0, 50) || 'New Chat',
-        timestamp: session.createdAt,
-        threadId: session.threadId || null,
+      const threads = await chatThreadService.getThreads(userId);
+      const histories = threads.map(thread => ({
+        id: thread.id,
+        title: thread.title || thread.openai_thread_id || 'New Chat',
+        timestamp: thread.updated_at,
+        threadId: thread.openai_thread_id,
       }));
       setChatHistories(histories);
+      console.log('✅ Loaded', histories.length, 'chat histories');
     } catch (err) {
       console.error('Error loading chat histories:', err);
     }
@@ -186,28 +190,43 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
   const clearChat = async () => {
     try {
-      // Create a new session
-      await initializeChat();
+      console.log('🧹 Clearing chat...');
+      console.log('  - Old sessionId:', sessionId);
+      console.log('  - Old threadId:', threadId);
+      
+      // Reset all state
       setMessages([]);
+      setSessionId(null);
       setThreadId(null);
       setShowWelcome(true);
-      console.log('✅ Chat cleared');
+      
+      // Re-initialize to get fresh client secret
+      await initializeChat();
+      
+      console.log('✅ Chat cleared - ready for new conversation');
     } catch (err) {
       console.error('Error clearing chat:', err);
     }
   };
 
-  const switchToChat = async (historyId: string, historyThreadId: string | null) => {
+  const switchToChat = async (historyId: string, openaiThreadId: string | null) => {
     try {
-      const sessions = await chatSessionManager.getUserSessions(userId);
-      const session = sessions.find((s: any) => s.id === historyId);
-      if (session) {
-        setMessages(session.messages || []);
-        setThreadId(historyThreadId);
+      const thread = await chatThreadService.getThread(historyId);
+      if (thread) {
+        // Convert thread messages to component format
+        const loadedMessages = thread.messages?.map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.created_at,
+        })) || [];
+        
+        setMessages(loadedMessages);
+        setThreadId(openaiThreadId);
         setSessionId(historyId);
-        setShowWelcome(session.messages.length === 0);
+        setShowWelcome(loadedMessages.length === 0);
         setShowHistoryDrawer(false);
-        console.log('✅ Switched to chat:', historyId);
+        console.log('✅ Switched to chat:', historyId, 'with', loadedMessages.length, 'messages');
       }
     } catch (err) {
       console.error('Error switching chat:', err);
@@ -221,6 +240,43 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     }
   };
 
+  const deleteThread = async (threadId: string, threadTitle: string) => {
+    Alert.alert(
+      'Delete Chat',
+      `Are you sure you want to delete "${threadTitle}"? This cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await chatThreadService.deleteThread(threadId);
+              console.log('✅ Deleted thread:', threadId);
+              
+              // If we're currently viewing this thread, clear the chat
+              if (sessionId === threadId) {
+                setMessages([]);
+                setSessionId(null);
+                setThreadId(null);
+                setShowWelcome(true);
+              }
+              
+              // Reload history
+              await loadChatHistories();
+            } catch (error) {
+              console.error('❌ Error deleting thread:', error);
+              Alert.alert('Error', 'Failed to delete chat. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Expose functions to parent via ref
   useImperativeHandle(ref, () => ({
     toggleHistoryDrawer,
@@ -230,22 +286,25 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const sendMessage = async () => {
     if (!inputText.trim() || isSending) return;
 
+    // Capture the message text before clearing
+    const messageText = inputText.trim();
+    
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
       role: 'user',
-      content: inputText.trim(),
+      content: messageText,
       timestamp: new Date().toISOString(),
     };
 
     console.log('🎬 Starting sendMessage function');
-    console.log('  - Input text:', inputText.trim());
+    console.log('  - Input text:', messageText);
     console.log('  - Message content:', userMessage.content);
     console.log('  - Message content length:', userMessage.content.length);
 
-    // Hide welcome screen and add user message to UI
+    // Clear input immediately and update UI
+    setInputText('');
     setShowWelcome(false);
     setMessages(prev => [...prev, userMessage]);
-    setInputText('');
     setIsSending(true);
 
     // Animate user message appearance
@@ -283,7 +342,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
       // BuildShip REST API expects: message, conversationId (optional), and SystemPrompt
       const requestBody: any = {
-        message: userMessage.content,
+        message: messageText,
       };
 
       // Always include SystemPrompt if available (game context)
@@ -328,6 +387,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         let currentContent = '';
         let lastUpdateTime = 0;
         let threadIdSet = false;
+        let receivedThreadId: string | null = null;
         
         // Real-time streaming as chunks arrive!
         xhr.onprogress = () => {
@@ -350,6 +410,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 
                 // Extract thread ID from first event
                 if (eventData.threadId && !threadIdSet) {
+                  receivedThreadId = eventData.threadId;
                   setValidatedThreadId(eventData.threadId);
                   console.log('✅ Thread ID from SSE (real-time):', eventData.threadId);
                   threadIdSet = true;
@@ -392,7 +453,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           }
         };
         
-        xhr.onload = () => {
+        xhr.onload = async () => {
           console.log('✅ Stream complete!');
           setIsStreaming(false);
           
@@ -404,8 +465,10 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           
           // Extract thread ID from header if available
           const headerThreadId = xhr.getResponseHeader('x-thread-id');
+          let openaiThreadId = receivedThreadId;
           if (headerThreadId && !threadIdSet) {
             setValidatedThreadId(headerThreadId);
+            openaiThreadId = headerThreadId;
             console.log('✅ Thread ID from header:', headerThreadId);
           }
           
@@ -415,6 +478,79 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           }
           
           console.log('✅ Final message length:', currentContent.length);
+          
+          // Save to Supabase
+          try {
+            console.log('💾 Starting Supabase save...');
+            console.log('  - Current sessionId:', sessionId);
+            console.log('  - sessionId type:', typeof sessionId);
+            console.log('  - sessionId is null?', sessionId === null);
+            console.log('  - sessionId is undefined?', sessionId === undefined);
+            console.log('  - sessionId falsy?', !sessionId);
+            console.log('  - OpenAI thread ID:', openaiThreadId);
+            console.log('  - User ID:', userId);
+            console.log('  - Message text length:', messageText.length);
+            console.log('  - Assistant content length:', currentContent.length);
+            
+            // If this is the first message, create a new thread in Supabase
+            if (!sessionId) {
+              console.log('🔍 No sessionId found - will CREATE NEW THREAD');
+              console.log('🆕 Creating new thread in Supabase...');
+              const thread = await chatThreadService.createThread(
+                userId,
+                messageText,
+                openaiThreadId || undefined
+              );
+              setSessionId(thread.id);
+              console.log('✅ Created new Supabase thread:', thread.id);
+              
+              // Save both messages to the thread
+              console.log('💾 Saving user message...');
+              await chatThreadService.saveMessage(thread.id, 'user', messageText);
+              console.log('✅ User message saved');
+              
+              console.log('💾 Saving assistant message...');
+              await chatThreadService.saveMessage(thread.id, 'assistant', currentContent);
+              console.log('✅ Assistant message saved');
+              
+              // Generate AI title asynchronously (don't wait)
+              console.log('🤖 Triggering AI title generation...');
+              chatThreadService.generateThreadTitle(
+                thread.id,
+                messageText,
+                currentContent
+              ).catch(err => console.error('❌ Failed to generate title:', err));
+            } else {
+              console.log('🔍 SessionId EXISTS - will UPDATE EXISTING THREAD');
+              console.log('📝 Updating existing thread:', sessionId);
+              
+              // Update existing thread with OpenAI thread ID if we got one
+              if (openaiThreadId) {
+                console.log('🔗 Updating OpenAI thread ID...');
+                await chatThreadService.updateOpenAIThreadId(sessionId, openaiThreadId);
+                console.log('✅ OpenAI thread ID updated');
+              }
+              
+              // Save new messages to existing thread
+              console.log('💾 Saving user message to existing thread...');
+              await chatThreadService.saveMessage(sessionId, 'user', messageText);
+              console.log('✅ User message saved');
+              
+              console.log('💾 Saving assistant message to existing thread...');
+              await chatThreadService.saveMessage(sessionId, 'assistant', currentContent);
+              console.log('✅ Assistant message saved');
+            }
+            
+            console.log('✅ All messages saved to Supabase successfully!');
+          } catch (error: any) {
+            console.error('❌❌❌ FAILED TO SAVE TO SUPABASE ❌❌❌');
+            console.error('Error type:', error?.constructor?.name);
+            console.error('Error message:', error?.message);
+            console.error('Full error:', JSON.stringify(error, null, 2));
+            console.error('Stack:', error?.stack);
+            // Non-critical, don't reject the whole operation
+          }
+          
           resolve();
         };
         
@@ -512,32 +648,47 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             </Text>
           ) : (
             chatHistories.map((history) => (
-              <TouchableOpacity
+              <View
                 key={history.id}
                 style={[
                   styles.historyItem,
                   sessionId === history.id && { backgroundColor: theme.colors.primaryContainer },
                 ]}
-                onPress={() => switchToChat(history.id, history.threadId)}
               >
-                <MaterialCommunityIcons 
-                  name="message-text-outline" 
-                  size={20} 
-                  color={theme.colors.primary} 
-                  style={styles.historyIcon}
-                />
-                <View style={styles.historyTextContainer}>
-                  <Text 
-                    style={[styles.historyTitle, { color: theme.colors.onSurface }]}
-                    numberOfLines={1}
-                  >
-                    {history.title}
-                  </Text>
-                  <Text style={[styles.historyTimestamp, { color: theme.colors.onSurfaceVariant }]}>
-                    {new Date(history.timestamp).toLocaleDateString()}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.historyItemContent}
+                  onPress={() => switchToChat(history.id, history.threadId)}
+                >
+                  <MaterialCommunityIcons 
+                    name="message-text-outline" 
+                    size={20} 
+                    color={theme.colors.primary} 
+                    style={styles.historyIcon}
+                  />
+                  <View style={styles.historyTextContainer}>
+                    <Text 
+                      style={[styles.historyTitle, { color: theme.colors.onSurface }]}
+                      numberOfLines={1}
+                    >
+                      {history.title}
+                    </Text>
+                    <Text style={[styles.historyTimestamp, { color: theme.colors.onSurfaceVariant }]}>
+                      {new Date(history.timestamp).toLocaleDateString()}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => deleteThread(history.id, history.title)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons 
+                    name="trash-can-outline" 
+                    size={20} 
+                    color={theme.colors.error} 
+                  />
+                </TouchableOpacity>
+              </View>
             ))
           )}
         </ScrollView>
@@ -772,45 +923,49 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         {/* Input Area - Always visible at bottom */}
         <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background }]}>
           <View style={[styles.inputContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
-            <TouchableOpacity
-              style={styles.attachButton}
-              onPress={() => {
-                // TODO: Implement attachment functionality
-                console.log('Attach button pressed');
-              }}
-            >
-              <MaterialCommunityIcons name="plus" size={24} color={theme.colors.onSurfaceVariant} />
-            </TouchableOpacity>
-            
             <TextInput
               style={[styles.input, { color: theme.colors.onSurface }]}
               value={inputText}
               onChangeText={setInputText}
               placeholder="Chat with WagerBot"
               placeholderTextColor={theme.colors.onSurfaceVariant}
-              multiline
+              multiline={true}
               maxLength={500}
               editable={!isSending}
+              textAlignVertical="top"
             />
             
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                (!inputText.trim() || isSending) && styles.sendButtonDisabled,
-              ]}
-              onPress={sendMessage}
-              disabled={!inputText.trim() || isSending}
-            >
-              {isSending ? (
-                <ActivityIndicator size="small" color={theme.colors.onSurfaceVariant} />
-              ) : (
-                <MaterialCommunityIcons 
-                  name="arrow-up" 
-                  size={24} 
-                  color={inputText.trim() ? theme.colors.primary : theme.colors.onSurfaceVariant} 
-                />
-              )}
-            </TouchableOpacity>
+            {/* Bottom row with icons */}
+            <View style={styles.inputBottomRow}>
+              <TouchableOpacity
+                style={styles.attachButton}
+                onPress={() => {
+                  // TODO: Implement attachment functionality
+                  console.log('Attach button pressed');
+                }}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color={theme.colors.onSurfaceVariant} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  inputText.trim() && styles.sendButtonActive,
+                ]}
+                onPress={sendMessage}
+                disabled={!inputText.trim() || isSending}
+              >
+                {isSending ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <MaterialCommunityIcons 
+                    name="arrow-up" 
+                    size={18} 
+                    color="#ffffff"
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -857,15 +1012,25 @@ const styles = StyleSheet.create({
   historyItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  historyItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
   },
   historyIcon: {
     marginRight: 12,
   },
   historyTextContainer: {
     flex: 1,
+  },
+  deleteButton: {
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   historyTitle: {
     fontSize: 14,
@@ -1008,40 +1173,50 @@ const styles = StyleSheet.create({
   // Input Area Styles (Claude-like)
   inputWrapper: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     borderRadius: 24,
+    paddingTop: 14,
+    paddingBottom: 8,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 48,
-  },
-  attachButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 4,
+    minHeight: 72,
   },
   input: {
-    flex: 1,
-    maxHeight: 100,
     fontSize: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    lineHeight: 20,
+    minHeight: 20,
+    maxHeight: 80,
+    paddingTop: 2,
+    paddingBottom: 6,
+    paddingHorizontal: 4,
+    marginBottom: 2,
   },
-  sendButton: {
-    width: 36,
-    height: 36,
+  inputBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  attachButton: {
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 4,
+    marginLeft: -4,
   },
-  sendButtonDisabled: {
-    opacity: 0.5,
+  sendButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(128,128,128,0.3)',
+    marginRight: -4,
+  },
+  sendButtonActive: {
+    backgroundColor: '#2e7d32',
   },
 });
 

@@ -89,7 +89,7 @@ export default function ChatScreen() {
               style={styles.headerIcon}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MaterialCommunityIcons name="trash-can-outline" size={24} color={theme.colors.onSurface} />
+              <MaterialCommunityIcons name="message-plus-outline" size={24} color={theme.colors.onSurface} />
             </TouchableOpacity>
           </View>
         </View>
