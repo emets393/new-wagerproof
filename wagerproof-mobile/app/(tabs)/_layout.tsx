@@ -43,6 +43,13 @@ function FloatingTabBar() {
     extrapolate: 'clamp',
   });
 
+  // Hide tab bar completely when on chat screen
+  const isChatScreen = pathname === '/chat' || pathname.startsWith('/chat');
+
+  if (isChatScreen) {
+    return null; // Don't render tab bar on chat screen
+  }
+
   return (
     <Animated.View
       style={[

@@ -395,9 +395,60 @@ export default function FeedScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.pillsContainer}
             contentContainerStyle={styles.pillsContent}
           >
+            {/* Sort Dropdown */}
+            <Menu
+              visible={sortMenuVisible}
+              onDismiss={() => setSortMenuVisible(false)}
+              contentStyle={{ marginTop: 48 }}
+              anchor={
+                <TouchableOpacity 
+                  style={[styles.sortButton, { backgroundColor: theme.colors.surfaceVariant }]}
+                  onPress={() => setSortMenuVisible(!sortMenuVisible)}
+                >
+                  <MaterialCommunityIcons 
+                    name={sortMode === 'time' ? 'clock-outline' : sortMode === 'spread' ? 'chart-line' : 'numeric'} 
+                    size={20} 
+                    color={theme.colors.primary} 
+                  />
+                  <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              }
+              anchorPosition="bottom"
+            >
+              <Menu.Item
+                onPress={() => {
+                  setSortMode('time');
+                  setSortMenuVisible(false);
+                }}
+                title="Time"
+                leadingIcon="clock-outline"
+                style={styles.menuItem}
+                trailingIcon=""
+              />
+              <Menu.Item
+                onPress={() => {
+                  setSortMode('spread');
+                  setSortMenuVisible(false);
+                }}
+                title="Spread"
+                leadingIcon="chart-line"
+                style={styles.menuItem}
+                trailingIcon=""
+              />
+              <Menu.Item
+                onPress={() => {
+                  setSortMode('ou');
+                  setSortMenuVisible(false);
+                }}
+                title="O/U"
+                leadingIcon="numeric"
+                style={styles.menuItem}
+                trailingIcon=""
+              />
+            </Menu>
+
             {sports.map((sport) => (
               <Chip
                 key={sport.id}
@@ -418,52 +469,6 @@ export default function FeedScreen() {
               </Chip>
             ))}
           </ScrollView>
-          
-          {/* Sort Dropdown */}
-          <Menu
-            visible={sortMenuVisible}
-            onDismiss={() => setSortMenuVisible(false)}
-            contentStyle={{ marginTop: 48 }}
-            anchor={
-              <TouchableOpacity 
-                style={[styles.sortButton, { backgroundColor: theme.colors.surfaceVariant }]}
-                onPress={() => setSortMenuVisible(!sortMenuVisible)}
-              >
-                <MaterialCommunityIcons 
-                  name={sortMode === 'time' ? 'clock-outline' : sortMode === 'spread' ? 'chart-line' : 'numeric'} 
-                  size={20} 
-                  color={theme.colors.primary} 
-                />
-                <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.onSurfaceVariant} />
-              </TouchableOpacity>
-            }
-            anchorPosition="bottom"
-          >
-            <Menu.Item
-              onPress={() => {
-                setSortMode('time');
-                setSortMenuVisible(false);
-              }}
-              title="Time"
-              leadingIcon="clock-outline"
-            />
-            <Menu.Item
-              onPress={() => {
-                setSortMode('spread');
-                setSortMenuVisible(false);
-              }}
-              title="Spread"
-              leadingIcon="chart-line"
-            />
-            <Menu.Item
-              onPress={() => {
-                setSortMode('ou');
-                setSortMenuVisible(false);
-              }}
-              title="O/U"
-              leadingIcon="numeric"
-            />
-          </Menu>
         </View>
 
         {/* Search Bar - Part of collapsible header */}
@@ -571,14 +576,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   pillsWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    gap: 12,
-  },
-  pillsContainer: {
-    flex: 1,
   },
   pillsContent: {
     gap: 8,
@@ -586,7 +585,7 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   sportChip: {
-    marginRight: 8,
+    borderRadius: 20,
   },
   sportChipText: {
     fontSize: 13,
@@ -599,6 +598,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
+  },
+  menuItem: {
+    maxHeight: 48,
   },
   listContent: {
     padding: 16,

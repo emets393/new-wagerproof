@@ -1,69 +1,101 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useTheme, Card, Button } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import WagerBotChat from '../../components/WagerBotChat';
+import { fetchAndFormatGameContext } from '../../services/gameDataService';
 
 export default function ChatScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const [gameContext, setGameContext] = useState<string>('');
+  const [isLoadingContext, setIsLoadingContext] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [isActive, setIsActive] = useState(false);
+
+  // Fetch game data on mount
+  useEffect(() => {
+    loadGameContext();
+  }, []);
+
+  const loadGameContext = async () => {
+    try {
+      setIsLoadingContext(true);
+      setContextError(null);
+      console.log('🔄 Loading game context for WagerBot...');
+      
+      const context = await fetchAndFormatGameContext();
+      setGameContext(context);
+      
+      console.log('✅ Game context loaded successfully');
+    } catch (error) {
+      console.error('❌ Error loading game context:', error);
+      setContextError('Failed to load game data. Chat will work without game context.');
+      // Don't block chat from loading - it can still work without context
+    } finally {
+      setIsLoadingContext(false);
+    }
+  };
+
+  // Show loading while checking auth
+  if (!user) {
+    return (
+      <View style={[styles.centerContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
+  const handleBack = () => {
+    // Navigate back to feed
+    router.push('/(tabs)/');
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.background, paddingTop: insets.top + 16 }]}>
+      {/* Custom Header with Back Button */}
+      <View style={[styles.header, { backgroundColor: theme.colors.background, paddingTop: insets.top + 8 }]}>
         <View style={styles.headerContent}>
-          <MaterialCommunityIcons name="robot" size={32} color={theme.colors.primary} />
+          <TouchableOpacity 
+            onPress={handleBack}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={28} color={theme.colors.onSurface} />
+          </TouchableOpacity>
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            WagerBot Chat
+            WagerBot
           </Text>
+          <View style={styles.headerRight}>
+            {/* Placeholder for right side icons if needed */}
+          </View>
         </View>
+        {contextError && (
+          <Text style={[styles.contextWarning, { color: theme.colors.error }]}>
+            {contextError}
+          </Text>
+        )}
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 65 + insets.bottom + 20 }]}>
-        <Card style={[styles.card, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <Card.Content style={styles.cardContent}>
-            <MaterialCommunityIcons 
-              name="chat-processing" 
-              size={80} 
-              color={theme.colors.primary} 
-              style={styles.icon}
-            />
-            <Text style={[styles.comingSoonText, { color: theme.colors.onSurface }]}>
-              Coming Soon
-            </Text>
-            <Text style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>
-              WagerBot AI chat will help you analyze games, get insights, and make informed betting decisions.
-            </Text>
-            <View style={styles.featuresList}>
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="check-circle" size={20} color={theme.colors.primary} />
-                <Text style={[styles.featureText, { color: theme.colors.onSurfaceVariant }]}>
-                  Real-time game analysis
-                </Text>
-              </View>
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="check-circle" size={20} color={theme.colors.primary} />
-                <Text style={[styles.featureText, { color: theme.colors.onSurfaceVariant }]}>
-                  Betting insights & recommendations
-                </Text>
-              </View>
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="check-circle" size={20} color={theme.colors.primary} />
-                <Text style={[styles.featureText, { color: theme.colors.onSurfaceVariant }]}>
-                  Historical data queries
-                </Text>
-              </View>
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="check-circle" size={20} color={theme.colors.primary} />
-                <Text style={[styles.featureText, { color: theme.colors.onSurfaceVariant }]}>
-                  Streamed AI responses
-                </Text>
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
-      </ScrollView>
+      {/* Chat Component */}
+      <View style={styles.chatContainer}>
+        <WagerBotChat
+          userId={user.id}
+          userEmail={user.email || ''}
+          gameContext={gameContext}
+          onRefresh={loadGameContext}
+          onBack={handleBack}
+        />
+      </View>
     </View>
   );
 }
@@ -72,58 +104,50 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
   header: {
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingBottom: 12,
     paddingHorizontal: 16,
-    elevation: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    height: 44,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  content: {
-    padding: 16,
+    fontSize: 20,
+    fontWeight: '600',
     flex: 1,
-    justifyContent: 'center',
-  },
-  card: {
-    elevation: 4,
-  },
-  cardContent: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  icon: {
-    marginBottom: 16,
-  },
-  comingSoonText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 16,
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
   },
-  featuresList: {
-    alignSelf: 'stretch',
-    gap: 12,
+  headerRight: {
+    width: 44,
+    height: 44,
   },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  contextWarning: {
+    fontSize: 11,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  featureText: {
-    fontSize: 14,
+  chatContainer: {
     flex: 1,
   },
 });
