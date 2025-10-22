@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated } from 'react-native';
 import { useTheme, Chip, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
@@ -8,6 +8,7 @@ import { CFBGameCard } from '@/components/CFBGameCard';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
+import { useScroll } from '@/contexts/ScrollContext';
 
 type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
 type SortMode = 'time' | 'spread' | 'ou';
@@ -21,6 +22,7 @@ interface SportOption {
 
 export default function FeedScreen() {
   const theme = useTheme();
+  const { scrollY, scrollYClamped } = useScroll();
   
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
@@ -31,6 +33,33 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Calculate header and tab bar heights
+  const HEADER_HEIGHT = 50 + 36 + 16; // title padding
+  const SEARCH_HEIGHT = 48;
+  const PILLS_HEIGHT = 72;
+  const SORT_HEIGHT = 48;
+  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + SEARCH_HEIGHT + PILLS_HEIGHT + SORT_HEIGHT;
+  
+  // Header translates up as user scrolls up
+  const headerTranslate = scrollYClamped.interpolate({
+    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [0, -TOTAL_COLLAPSIBLE_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  // Header opacity fades out progressively
+  const headerOpacity = scrollYClamped.interpolate({
+    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Handle scroll event
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: true }
+  );
 
   const sports: SportOption[] = [
     { id: 'nfl', label: 'NFL', available: true },
@@ -304,95 +333,106 @@ export default function FeedScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header with Title and Live Ticker */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
-        <View style={styles.headerTop}>
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feed</Text>
+      {/* Animated Collapsible Header */}
+      <Animated.View
+        style={[
+          styles.collapsibleHeader,
+          {
+            transform: [{ translateY: headerTranslate }],
+            opacity: headerOpacity,
+          },
+        ]}
+      >
+        {/* Header with Title and Live Ticker */}
+        <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+          <View style={styles.headerTop}>
+            <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feed</Text>
+          </View>
+          <LiveScoreTicker />
         </View>
-        <LiveScoreTicker />
-      </View>
 
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]}>
-        <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
-        <TextInput
-          style={[styles.searchInput, { color: theme.colors.onSurface }]}
-          placeholder="Search teams..."
-          placeholderTextColor={theme.colors.onSurfaceVariant}
-          value={searchText}
-          onChangeText={setSearchText}
-        />
-        {searchText.length > 0 && (
-          <MaterialCommunityIcons
-            name="close-circle"
-            size={20}
-            color={theme.colors.onSurfaceVariant}
-            onPress={() => setSearchText('')}
+        {/* Search Bar */}
+        <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]}>
+          <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.colors.onSurface }]}
+            placeholder="Search teams..."
+            placeholderTextColor={theme.colors.onSurfaceVariant}
+            value={searchText}
+            onChangeText={setSearchText}
           />
-        )}
-      </View>
+          {searchText.length > 0 && (
+            <MaterialCommunityIcons
+              name="close-circle"
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+              onPress={() => setSearchText('')}
+            />
+          )}
+        </View>
 
-      {/* Sport Pills */}
-      <View style={[styles.pillsWrapper, { backgroundColor: theme.colors.surfaceVariant }]}>
-        <Text style={[styles.pillsLabel, { color: theme.colors.onSurfaceVariant }]}>Sport:</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.pillsContainer}
-          contentContainerStyle={styles.pillsContent}
-        >
-          {sports.map((sport) => (
-            <Chip
-              key={sport.id}
-              selected={selectedSport === sport.id}
-              onPress={() => sport.available && setSelectedSport(sport.id)}
-              disabled={!sport.available}
-              style={[
-                styles.sportChip,
-                selectedSport === sport.id && { backgroundColor: theme.colors.primary },
-                !sport.available && { opacity: 0.5 }
-              ]}
-              textStyle={[
-                styles.sportChipText,
-                selectedSport === sport.id && { color: theme.colors.onPrimary }
-              ]}
-            >
-              {sport.label} {sport.badge && `(${sport.badge})`}
-            </Chip>
-          ))}
-        </ScrollView>
-      </View>
+        {/* Sport Pills */}
+        <View style={[styles.pillsWrapper, { backgroundColor: theme.colors.surfaceVariant }]}>
+          <Text style={[styles.pillsLabel, { color: theme.colors.onSurfaceVariant }]}>Sport:</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.pillsContainer}
+            contentContainerStyle={styles.pillsContent}
+          >
+            {sports.map((sport) => (
+              <Chip
+                key={sport.id}
+                selected={selectedSport === sport.id}
+                onPress={() => sport.available && setSelectedSport(sport.id)}
+                disabled={!sport.available}
+                style={[
+                  styles.sportChip,
+                  selectedSport === sport.id && { backgroundColor: theme.colors.primary },
+                  !sport.available && { opacity: 0.5 }
+                ]}
+                textStyle={[
+                  styles.sportChipText,
+                  selectedSport === sport.id && { color: theme.colors.onPrimary }
+                ]}
+              >
+                {sport.label} {sport.badge && `(${sport.badge})`}
+              </Chip>
+            ))}
+          </ScrollView>
+        </View>
 
-      {/* Sort Options */}
-      <View style={[styles.sortContainer, { backgroundColor: theme.colors.surface }]}>
-        <Chip
-          selected={sortMode === 'time'}
-          onPress={() => setSortMode('time')}
-          style={[styles.sortChip, sortMode === 'time' && { backgroundColor: theme.colors.primary }]}
-          textStyle={[sortMode === 'time' && { color: theme.colors.onPrimary }]}
-          icon={() => <MaterialCommunityIcons name="clock-outline" size={16} color={sortMode === 'time' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant} />}
-        >
-          Time
-        </Chip>
-        <Chip
-          selected={sortMode === 'spread'}
-          onPress={() => setSortMode('spread')}
-          style={[styles.sortChip, sortMode === 'spread' && { backgroundColor: theme.colors.primary }]}
-          textStyle={[sortMode === 'spread' && { color: theme.colors.onPrimary }]}
-          icon={() => <MaterialCommunityIcons name="chart-line" size={16} color={sortMode === 'spread' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant} />}
-        >
-          Spread
-        </Chip>
-        <Chip
-          selected={sortMode === 'ou'}
-          onPress={() => setSortMode('ou')}
-          style={[styles.sortChip, sortMode === 'ou' && { backgroundColor: theme.colors.primary }]}
-          textStyle={[sortMode === 'ou' && { color: theme.colors.onPrimary }]}
-          icon={() => <MaterialCommunityIcons name="numeric" size={16} color={sortMode === 'ou' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant} />}
-        >
-          O/U
-        </Chip>
-      </View>
+        {/* Sort Options */}
+        <View style={[styles.sortContainer, { backgroundColor: theme.colors.surface }]}>
+          <Chip
+            selected={sortMode === 'time'}
+            onPress={() => setSortMode('time')}
+            style={[styles.sortChip, sortMode === 'time' && { backgroundColor: theme.colors.primary }]}
+            textStyle={[sortMode === 'time' && { color: theme.colors.onPrimary }]}
+            icon={() => <MaterialCommunityIcons name="clock-outline" size={16} color={sortMode === 'time' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant} />}
+          >
+            Time
+          </Chip>
+          <Chip
+            selected={sortMode === 'spread'}
+            onPress={() => setSortMode('spread')}
+            style={[styles.sortChip, sortMode === 'spread' && { backgroundColor: theme.colors.primary }]}
+            textStyle={[sortMode === 'spread' && { color: theme.colors.onPrimary }]}
+            icon={() => <MaterialCommunityIcons name="chart-line" size={16} color={sortMode === 'spread' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant} />}
+          >
+            Spread
+          </Chip>
+          <Chip
+            selected={sortMode === 'ou'}
+            onPress={() => setSortMode('ou')}
+            style={[styles.sortChip, sortMode === 'ou' && { backgroundColor: theme.colors.primary }]}
+            textStyle={[sortMode === 'ou' && { color: theme.colors.onPrimary }]}
+            icon={() => <MaterialCommunityIcons name="numeric" size={16} color={sortMode === 'ou' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant} />}
+          >
+            O/U
+          </Chip>
+        </View>
+      </Animated.View>
 
       {/* Games List */}
       {loading ? (
@@ -415,11 +455,13 @@ export default function FeedScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
           data={sortedGames}
           renderItem={renderGameCard}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
           }
@@ -432,6 +474,14 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  collapsibleHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    elevation: 8,
   },
   header: {
     paddingTop: 50,
@@ -497,12 +547,15 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingTop: 270, // Account for collapsible header height
+    paddingBottom: 85, // Account for tab bar height
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    marginTop: 270, // Account for collapsible header height
   },
   loadingText: {
     marginTop: 15,

@@ -1,23 +1,115 @@
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname, useRouter } from 'expo-router';
 import { useTheme } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import React from 'react';
+import { ScrollProvider, useScroll } from '@/contexts/ScrollContext';
+import { Animated, TouchableOpacity, Text, StyleSheet } from 'react-native';
 
-export default function TabsLayout() {
+function FloatingTabBar() {
+  const theme = useTheme();
+  const { scrollYClamped } = useScroll();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const tabs = [
+    { name: 'index', path: '/', title: 'Feed', icon: 'view-dashboard' },
+    { name: 'chat', path: '/chat', title: 'Chat', icon: 'message-text' },
+    { name: 'picks', path: '/picks', title: 'Picks', icon: 'star' },
+    { name: 'settings', path: '/settings', title: 'Settings', icon: 'cog' },
+  ];
+
+  // Calculate collapsible height (must match the feed screen)
+  const HEADER_HEIGHT = 50 + 36 + 16;
+  const SEARCH_HEIGHT = 48;
+  const PILLS_HEIGHT = 72;
+  const SORT_HEIGHT = 48;
+  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + SEARCH_HEIGHT + PILLS_HEIGHT + SORT_HEIGHT;
+  const TAB_BAR_HEIGHT = 65;
+
+  // Tab bar translates down as user scrolls up
+  const tabBarTranslate = scrollYClamped.interpolate({
+    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [0, TAB_BAR_HEIGHT + 20], // Extra pixels to ensure it's fully hidden
+    extrapolate: 'clamp',
+  });
+
+  // Tab bar opacity fades out progressively
+  const tabBarOpacity = scrollYClamped.interpolate({
+    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.floatingTabBar,
+        {
+          transform: [{ translateY: tabBarTranslate }],
+          opacity: tabBarOpacity,
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.outline,
+        },
+      ]}
+    >
+      {tabs.map((tab) => {
+        const isActive = pathname === tab.path || pathname.startsWith(`/${tab.name}`);
+        const color = isActive ? theme.colors.primary : theme.colors.onSurfaceVariant;
+
+        return (
+          <TouchableOpacity
+            key={tab.name}
+            style={styles.tabButton}
+            onPress={() => router.push(tab.path as any)}
+          >
+            <MaterialCommunityIcons name={tab.icon as any} size={24} color={color} />
+            <Text style={[styles.tabLabel, { color }]}>{tab.title}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  floatingTabBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 65,
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    elevation: 8,
+    zIndex: 1000,
+  },
+  tabButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  tabLabel: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+});
+
+function TabsContent() {
   const theme = useTheme();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.outline,
-          borderTopWidth: 1,
-        },
-      }}
-    >
+    <>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+          tabBarStyle: {
+            display: 'none', // Hide the default tab bar
+          },
+        }}
+      >
       <Tabs.Screen
         name="index"
         options={{
@@ -55,6 +147,16 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    <FloatingTabBar />
+    </>
+  );
+}
+
+export default function TabsLayout() {
+  return (
+    <ScrollProvider>
+      <TabsContent />
+    </ScrollProvider>
   );
 }
 

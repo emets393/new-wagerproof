@@ -142,3 +142,25 @@ export const layout = {
   },
 };
 
+// Semantic colors for betting displays (theme-aware)
+export const getBettingColors = (isDark: boolean) => ({
+  awayMoneyline: isDark ? '#60A5FA' : '#2563EB',    // Blue
+  homeMoneyline: isDark ? '#4ADE80' : '#16A34A',    // Green
+  success: isDark ? '#4ADE80' : '#16A34A',          // Green
+  successLight: isDark ? '#166534' : '#DEF7EC',
+  successDark: isDark ? '#BBF7D0' : '#047857',
+  warning: isDark ? '#FBBF24' : '#F59E0B',          // Amber/Orange
+  warningLight: isDark ? '#78350F' : '#FED7AA',
+  warningDark: isDark ? '#FDE68A' : '#EA580C',
+  danger: isDark ? '#F87171' : '#DC2626',           // Red
+  dangerLight: isDark ? '#7F1D1D' : '#FEE2E2',
+  dangerDark: isDark ? '#FCA5A5' : '#991B1B',
+  info: isDark ? '#60A5FA' : '#2563EB',             // Blue
+  infoLight: isDark ? '#1E3A8A' : '#DBEAFE',
+  infoDark: isDark ? '#93C5FD' : '#1E40AF',
+  purple: isDark ? '#A78BFA' : '#9333EA',           // Purple
+  purpleLight: isDark ? '#4C1D95' : '#F3E8FF',
+  gold: '#FFD700',
+  neutral: isDark ? '#9CA3AF' : '#6B7280',
+});
+

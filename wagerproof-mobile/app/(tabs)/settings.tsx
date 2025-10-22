@@ -4,11 +4,12 @@ import { useTheme, List, Switch, Divider, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '@/services/supabase';
 import { useRouter } from 'expo-router';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const [darkMode, setDarkMode] = React.useState(false);
+  const { isDark, toggleTheme } = useThemeContext();
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
   const [user, setUser] = React.useState<any>(null);
 
@@ -72,13 +73,13 @@ export default function SettingsScreen() {
           
           <List.Item
             title="Dark Mode"
-            description="Coming soon"
+            description={isDark ? "Dark theme enabled" : "Light theme enabled"}
             left={props => <List.Icon {...props} icon="theme-light-dark" color={theme.colors.primary} />}
             right={() => (
               <Switch
-                value={darkMode}
-                onValueChange={setDarkMode}
-                disabled
+                value={isDark}
+                onValueChange={toggleTheme}
+                color={theme.colors.primary}
               />
             )}
             style={{ backgroundColor: theme.colors.surface }}

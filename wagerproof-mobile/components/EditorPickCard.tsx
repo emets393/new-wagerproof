@@ -3,6 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Card, useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
+import { useThemeContext } from '@/contexts/ThemeContext';
+import { getBettingColors } from '@/constants/theme';
 
 interface EditorPickCardProps {
   pick: EditorPick;
@@ -11,6 +13,8 @@ interface EditorPickCardProps {
 
 export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
   const theme = useTheme();
+  const { isDark } = useThemeContext();
+  const bettingColors = getBettingColors(isDark);
 
   const formatSpread = (spread: number | null | undefined): string => {
     if (spread === null || spread === undefined) return '-';
@@ -128,7 +132,7 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
             <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
               {formatSpread(gameData.away_spread)}
             </Text>
-            <Text style={[styles.mlText, { color: '#2563EB' }]}>
+            <Text style={[styles.mlText, { color: bettingColors.awayMoneyline }]}>
               {formatMoneyline(gameData.away_ml)}
             </Text>
           </View>
@@ -151,7 +155,7 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
             <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
               {formatSpread(gameData.home_spread)}
             </Text>
-            <Text style={[styles.mlText, { color: '#16A34A' }]}>
+            <Text style={[styles.mlText, { color: bettingColors.homeMoneyline }]}>
               {formatMoneyline(gameData.home_ml)}
             </Text>
           </View>

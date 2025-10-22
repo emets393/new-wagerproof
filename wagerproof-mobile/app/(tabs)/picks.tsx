@@ -6,9 +6,11 @@ import { supabase } from '@/services/supabase';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
 import { EditorPickCard } from '@/components/EditorPickCard';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 export default function PicksScreen() {
   const theme = useTheme();
+  const { isDark } = useThemeContext();
   const [picks, setPicks] = useState<EditorPick[]>([]);
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -168,7 +170,7 @@ export default function PicksScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
         <View style={styles.headerContent}>
-          <MaterialCommunityIcons name="star" size={32} color="#FFD700" style={styles.starIcon} />
+          <MaterialCommunityIcons name="star" size={32} color={isDark ? '#FFD700' : '#FFD700'} style={styles.starIcon} />
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
             Editor's Picks
           </Text>
