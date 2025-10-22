@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, Image } from 'react-native';
 import { useTheme, Chip, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
@@ -64,8 +64,8 @@ export default function FeedScreen() {
   const sports: SportOption[] = [
     { id: 'nfl', label: 'NFL', available: true },
     { id: 'cfb', label: 'CFB', available: true },
-    { id: 'nba', label: 'NBA', available: false, badge: 'Coming Soon' },
-    { id: 'ncaab', label: 'NCAAB', available: false, badge: 'Coming Soon' },
+    { id: 'nba', label: 'NBA', available: false },
+    { id: 'ncaab', label: 'NCAAB', available: false },
   ];
 
   // Fetch NFL data
@@ -346,34 +346,42 @@ export default function FeedScreen() {
         {/* Header with Title and Live Ticker */}
         <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
           <View style={styles.headerTop}>
-            <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feed</Text>
+            <View style={styles.titleContainer}>
+              <Image
+                source={require('@/assets/wagerproof-logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feed</Text>
+            </View>
           </View>
           <LiveScoreTicker />
         </View>
 
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]}>
-          <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.colors.onSurface }]}
-            placeholder="Search teams..."
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            value={searchText}
-            onChangeText={setSearchText}
-          />
-          {searchText.length > 0 && (
-            <MaterialCommunityIcons
-              name="close-circle"
-              size={20}
-              color={theme.colors.onSurfaceVariant}
-              onPress={() => setSearchText('')}
+        <View style={[styles.searchWrapper, { backgroundColor: theme.colors.surface }]}>
+          <View style={[styles.searchContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+            <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
+            <TextInput
+              style={[styles.searchInput, { color: theme.colors.onSurface }]}
+              placeholder="Search teams..."
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              value={searchText}
+              onChangeText={setSearchText}
             />
-          )}
+            {searchText.length > 0 && (
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+                onPress={() => setSearchText('')}
+              />
+            )}
+          </View>
         </View>
 
         {/* Sport Pills */}
-        <View style={[styles.pillsWrapper, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <Text style={[styles.pillsLabel, { color: theme.colors.onSurfaceVariant }]}>Sport:</Text>
+        <View style={[styles.pillsWrapper, { backgroundColor: theme.colors.surface }]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -389,14 +397,14 @@ export default function FeedScreen() {
                 style={[
                   styles.sportChip,
                   selectedSport === sport.id && { backgroundColor: theme.colors.primary },
-                  !sport.available && { opacity: 0.5 }
+                  !sport.available && { opacity: 0.4 }
                 ]}
                 textStyle={[
                   styles.sportChipText,
                   selectedSport === sport.id && { color: theme.colors.onPrimary }
                 ]}
               >
-                {sport.label} {sport.badge && `(${sport.badge})`}
+                {sport.label}
               </Chip>
             ))}
           </ScrollView>
@@ -492,17 +500,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
+  },
+  searchWrapper: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    elevation: 2,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     gap: 8,
-    elevation: 2,
+    borderRadius: 12,
   },
   searchInput: {
     flex: 1,
@@ -513,13 +536,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     elevation: 1,
-  },
-  pillsLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   pillsContainer: {
     flexGrow: 0,

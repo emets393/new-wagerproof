@@ -10,7 +10,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { isDark, toggleTheme } = useThemeContext();
-  const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
+  const [scoreboardEnabled, setScoreboardEnabled] = React.useState(true);
   const [user, setUser] = React.useState<any>(null);
 
   React.useEffect(() => {
@@ -55,7 +55,6 @@ export default function SettingsScreen() {
         {user && (
           <>
             <List.Section>
-              <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>Account</List.Subheader>
               <List.Item
                 title={user.email || 'Not logged in'}
                 description="Email"
@@ -69,8 +68,6 @@ export default function SettingsScreen() {
 
         {/* Preferences Section */}
         <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>Preferences</List.Subheader>
-          
           <List.Item
             title="Dark Mode"
             description={isDark ? "Dark theme enabled" : "Light theme enabled"}
@@ -86,14 +83,14 @@ export default function SettingsScreen() {
           />
           
           <List.Item
-            title="Notifications"
-            description="Coming soon"
-            left={props => <List.Icon {...props} icon="bell" color={theme.colors.primary} />}
+            title="ScoreBoard"
+            description={scoreboardEnabled ? "Enabled" : "Disabled"}
+            left={props => <List.Icon {...props} icon="scoreboard" color={theme.colors.primary} />}
             right={() => (
               <Switch
-                value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
-                disabled
+                value={scoreboardEnabled}
+                onValueChange={setScoreboardEnabled}
+                color={theme.colors.primary}
               />
             )}
             style={{ backgroundColor: theme.colors.surface }}
@@ -101,10 +98,45 @@ export default function SettingsScreen() {
         </List.Section>
         <Divider />
 
+        {/* Support Section */}
+        <List.Section>
+          <List.Item
+            title="Contact Us"
+            description="Send us feedback"
+            left={props => <List.Icon {...props} icon="email" color={theme.colors.primary} />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => {
+              Alert.alert('Contact Us', 'Opening contact form...');
+            }}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+          
+          <List.Item
+            title="Feature Requests"
+            description="Suggest new features"
+            left={props => <List.Icon {...props} icon="lightbulb-on" color={theme.colors.primary} />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => {
+              Alert.alert('Feature Requests', 'Opening feature requests...');
+            }}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+          
+          <List.Item
+            title="Discord Channel"
+            description="Join our community"
+            left={props => <List.Icon {...props} icon="discord" color={theme.colors.primary} />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => {
+              Alert.alert('Discord', 'Opening Discord channel...');
+            }}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+        </List.Section>
+        <Divider />
+
         {/* About Section */}
         <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>About</List.Subheader>
-          
           <List.Item
             title="App Version"
             description="1.0.0"
@@ -132,34 +164,6 @@ export default function SettingsScreen() {
             onPress={() => {
               // Open terms
               Alert.alert('Terms & Conditions', 'Opening terms and conditions...');
-            }}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-        </List.Section>
-        <Divider />
-
-        {/* Support Section */}
-        <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>Support</List.Subheader>
-          
-          <List.Item
-            title="Help Center"
-            description="Get help and support"
-            left={props => <List.Icon {...props} icon="help-circle" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              Alert.alert('Help Center', 'Opening help center...');
-            }}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Contact Us"
-            description="Send us feedback"
-            left={props => <List.Icon {...props} icon="email" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              Alert.alert('Contact Us', 'Opening contact form...');
             }}
             style={{ backgroundColor: theme.colors.surface }}
           />
