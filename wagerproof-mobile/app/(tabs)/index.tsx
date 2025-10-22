@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, Image } from 'react-native';
-import { useTheme, Chip, ActivityIndicator } from 'react-native-paper';
+import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, Image, TouchableOpacity } from 'react-native';
+import { useTheme, Chip, ActivityIndicator, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { NFLGameCard } from '@/components/NFLGameCard';
@@ -9,6 +9,7 @@ import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
 import { useScroll } from '@/contexts/ScrollContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
 type SortMode = 'time' | 'spread' | 'ou';
@@ -23,11 +24,13 @@ interface SportOption {
 export default function FeedScreen() {
   const theme = useTheme();
   const { scrollY, scrollYClamped } = useScroll();
+  const insets = useSafeAreaInsets();
   
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
   const [sortMode, setSortMode] = useState<SortMode>('time');
   const [searchText, setSearchText] = useState('');
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [nflGames, setNflGames] = useState<NFLPrediction[]>([]);
   const [cfbGames, setCfbGames] = useState<CFBPrediction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,11 +38,9 @@ export default function FeedScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Calculate header and tab bar heights
-  const HEADER_HEIGHT = 50 + 36 + 16; // title padding
-  const SEARCH_HEIGHT = 48;
+  const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
   const PILLS_HEIGHT = 72;
-  const SORT_HEIGHT = 48;
-  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + SEARCH_HEIGHT + PILLS_HEIGHT + SORT_HEIGHT;
+  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT;
   
   // Header translates up as user scrolls up
   const headerTranslate = scrollYClamped.interpolate({
@@ -331,6 +332,29 @@ export default function FeedScreen() {
     return <CFBGameCard game={item as CFBPrediction} />;
   };
 
+  const renderListHeader = () => (
+    <View style={styles.searchWrapper}>
+      <View style={[styles.searchContainer, { borderColor: theme.colors.outline }]}>
+        <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.onSurface }]}
+          placeholder="Search teams..."
+          placeholderTextColor={theme.colors.onSurfaceVariant}
+          value={searchText}
+          onChangeText={setSearchText}
+        />
+        {searchText.length > 0 && (
+          <MaterialCommunityIcons
+            name="close-circle"
+            size={20}
+            color={theme.colors.onSurfaceVariant}
+            onPress={() => setSearchText('')}
+          />
+        )}
+      </View>
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Animated Collapsible Header */}
@@ -340,11 +364,13 @@ export default function FeedScreen() {
           {
             transform: [{ translateY: headerTranslate }],
             opacity: headerOpacity,
+            paddingTop: insets.top,
+            backgroundColor: theme.colors.background,
           },
         ]}
       >
         {/* Header with Title and Live Ticker */}
-        <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
           <View style={styles.headerTop}>
             <View style={styles.titleContainer}>
               <Image
@@ -358,30 +384,8 @@ export default function FeedScreen() {
           <LiveScoreTicker />
         </View>
 
-        {/* Search Bar */}
-        <View style={[styles.searchWrapper, { backgroundColor: theme.colors.surface }]}>
-          <View style={[styles.searchContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
-            <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
-            <TextInput
-              style={[styles.searchInput, { color: theme.colors.onSurface }]}
-              placeholder="Search teams..."
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              value={searchText}
-              onChangeText={setSearchText}
-            />
-            {searchText.length > 0 && (
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={20}
-                color={theme.colors.onSurfaceVariant}
-                onPress={() => setSearchText('')}
-              />
-            )}
-          </View>
-        </View>
-
-        {/* Sport Pills */}
-        <View style={[styles.pillsWrapper, { backgroundColor: theme.colors.surface }]}>
+        {/* Sport Pills with Sort Dropdown */}
+        <View style={[styles.pillsWrapper, { backgroundColor: theme.colors.background }]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -408,55 +412,68 @@ export default function FeedScreen() {
               </Chip>
             ))}
           </ScrollView>
-        </View>
-
-        {/* Sort Options */}
-        <View style={[styles.sortContainer, { backgroundColor: theme.colors.surface }]}>
-          <Chip
-            selected={sortMode === 'time'}
-            onPress={() => setSortMode('time')}
-            style={[styles.sortChip, sortMode === 'time' && { backgroundColor: theme.colors.primary }]}
-            textStyle={[sortMode === 'time' && { color: theme.colors.onPrimary }]}
-            icon={() => <MaterialCommunityIcons name="clock-outline" size={16} color={sortMode === 'time' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant} />}
+          
+          {/* Sort Dropdown */}
+          <Menu
+            visible={sortMenuVisible}
+            onDismiss={() => setSortMenuVisible(false)}
+            anchor={
+              <TouchableOpacity 
+                style={[styles.sortButton, { backgroundColor: theme.colors.surfaceVariant }]}
+                onPress={() => setSortMenuVisible(true)}
+              >
+                <MaterialCommunityIcons 
+                  name={sortMode === 'time' ? 'clock-outline' : sortMode === 'spread' ? 'chart-line' : 'numeric'} 
+                  size={20} 
+                  color={theme.colors.primary} 
+                />
+                <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            }
           >
-            Time
-          </Chip>
-          <Chip
-            selected={sortMode === 'spread'}
-            onPress={() => setSortMode('spread')}
-            style={[styles.sortChip, sortMode === 'spread' && { backgroundColor: theme.colors.primary }]}
-            textStyle={[sortMode === 'spread' && { color: theme.colors.onPrimary }]}
-            icon={() => <MaterialCommunityIcons name="chart-line" size={16} color={sortMode === 'spread' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant} />}
-          >
-            Spread
-          </Chip>
-          <Chip
-            selected={sortMode === 'ou'}
-            onPress={() => setSortMode('ou')}
-            style={[styles.sortChip, sortMode === 'ou' && { backgroundColor: theme.colors.primary }]}
-            textStyle={[sortMode === 'ou' && { color: theme.colors.onPrimary }]}
-            icon={() => <MaterialCommunityIcons name="numeric" size={16} color={sortMode === 'ou' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant} />}
-          >
-            O/U
-          </Chip>
+            <Menu.Item
+              onPress={() => {
+                setSortMode('time');
+                setSortMenuVisible(false);
+              }}
+              title="Time"
+              leadingIcon="clock-outline"
+            />
+            <Menu.Item
+              onPress={() => {
+                setSortMode('spread');
+                setSortMenuVisible(false);
+              }}
+              title="Spread"
+              leadingIcon="chart-line"
+            />
+            <Menu.Item
+              onPress={() => {
+                setSortMode('ou');
+                setSortMenuVisible(false);
+              }}
+              title="O/U"
+              leadingIcon="numeric"
+            />
+          </Menu>
         </View>
       </Animated.View>
 
       {/* Games List */}
       {loading ? (
-        <View style={styles.centerContainer}>
+        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT }]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
             Loading games...
           </Text>
         </View>
       ) : error ? (
-        <View style={styles.centerContainer}>
+        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT }]}>
           <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
           <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
         </View>
       ) : sortedGames.length === 0 ? (
-        <View style={styles.centerContainer}>
+        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT }]}>
           <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
           <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
             {searchText ? 'No games match your search' : 'No games available'}
@@ -467,9 +484,19 @@ export default function FeedScreen() {
           data={sortedGames}
           renderItem={renderGameCard}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={renderListHeader}
+          contentContainerStyle={[
+            styles.listContent,
+            { 
+              paddingTop: TOTAL_COLLAPSIBLE_HEIGHT + 16,
+              paddingBottom: 65 + insets.bottom + 20 
+            }
+          ]}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          bounces={false}
+          overScrollMode="never"
+          showsVerticalScrollIndicator={true}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
           }
@@ -489,12 +516,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
-    elevation: 8,
   },
   header: {
-    paddingTop: 50,
+    paddingTop: 8,
     paddingBottom: 8,
-    elevation: 4,
   },
   headerTop: {
     paddingHorizontal: 16,
@@ -517,7 +542,6 @@ const styles = StyleSheet.create({
   searchWrapper: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    elevation: 2,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -526,6 +550,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 8,
     borderRadius: 12,
+    borderWidth: 1,
   },
   searchInput: {
     flex: 1,
@@ -533,16 +558,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   pillsWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    elevation: 1,
+    gap: 12,
   },
   pillsContainer: {
-    flexGrow: 0,
+    flex: 1,
   },
   pillsContent: {
     gap: 8,
     alignItems: 'center',
+    paddingRight: 8,
   },
   sportChip: {
     marginRight: 8,
@@ -551,27 +579,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  sortContainer: {
+  sortButton: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-    elevation: 1,
-  },
-  sortChip: {
-    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   listContent: {
     padding: 16,
-    paddingTop: 270, // Account for collapsible header height
-    paddingBottom: 85, // Account for tab bar height
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    marginTop: 270, // Account for collapsible header height
   },
   loadingText: {
     marginTop: 15,

@@ -7,10 +7,12 @@ import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
 import { EditorPickCard } from '@/components/EditorPickCard';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function PicksScreen() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const insets = useSafeAreaInsets();
   const [picks, setPicks] = useState<EditorPick[]>([]);
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -168,7 +170,7 @@ export default function PicksScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.background, paddingTop: insets.top + 16 }]}>
         <View style={styles.headerContent}>
           <MaterialCommunityIcons name="star" size={32} color={isDark ? '#FFD700' : '#FFD700'} style={styles.starIcon} />
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
@@ -194,7 +196,7 @@ export default function PicksScreen() {
           data={picks}
           renderItem={renderPickCard}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: 65 + insets.bottom + 20 }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
           }

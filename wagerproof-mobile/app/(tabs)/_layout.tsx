@@ -3,13 +3,17 @@ import { useTheme } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React from 'react';
 import { ScrollProvider, useScroll } from '@/contexts/ScrollContext';
-import { Animated, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Animated, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 function FloatingTabBar() {
   const theme = useTheme();
+  const { isDark } = useThemeContext();
   const { scrollYClamped } = useScroll();
   const pathname = usePathname();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const tabs = [
     { name: 'index', path: '/', title: 'Feed', icon: 'view-dashboard' },
@@ -19,12 +23,11 @@ function FloatingTabBar() {
   ];
 
   // Calculate collapsible height (must match the feed screen)
-  const HEADER_HEIGHT = 50 + 36 + 16;
-  const SEARCH_HEIGHT = 48;
+  const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
   const PILLS_HEIGHT = 72;
-  const SORT_HEIGHT = 48;
-  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + SEARCH_HEIGHT + PILLS_HEIGHT + SORT_HEIGHT;
-  const TAB_BAR_HEIGHT = 65;
+  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT;
+  const TAB_BAR_BASE_HEIGHT = 65;
+  const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
 
   // Tab bar translates down as user scrolls up
   const tabBarTranslate = scrollYClamped.interpolate({
@@ -47,8 +50,14 @@ function FloatingTabBar() {
         {
           transform: [{ translateY: tabBarTranslate }],
           opacity: tabBarOpacity,
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.outline,
+          backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF',
+          borderTopColor: theme.colors.outlineVariant,
+          height: TAB_BAR_HEIGHT,
+          paddingBottom: insets.bottom,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: isDark ? 0.5 : 0.15,
+          shadowRadius: 12,
         },
       ]}
     >
@@ -77,10 +86,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 65,
     flexDirection: 'row',
     borderTopWidth: 1,
-    elevation: 8,
+    elevation: 12,
     zIndex: 1000,
   },
   tabButton: {

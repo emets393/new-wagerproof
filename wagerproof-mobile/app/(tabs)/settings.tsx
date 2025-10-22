@@ -5,11 +5,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '@/services/supabase';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { isDark, toggleTheme } = useThemeContext();
+  const insets = useSafeAreaInsets();
   const [scoreboardEnabled, setScoreboardEnabled] = React.useState(true);
   const [user, setUser] = React.useState<any>(null);
 
@@ -41,7 +43,7 @@ export default function SettingsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.background, paddingTop: insets.top + 16 }]}>
         <View style={styles.headerContent}>
           <MaterialCommunityIcons name="cog" size={32} color={theme.colors.primary} />
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
@@ -50,7 +52,7 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 65 + insets.bottom + 20 }}>
         {/* Account Section */}
         {user && (
           <>

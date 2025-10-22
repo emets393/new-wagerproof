@@ -2,14 +2,16 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme, Card, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ChatScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.background, paddingTop: insets.top + 16 }]}>
         <View style={styles.headerContent}>
           <MaterialCommunityIcons name="robot" size={32} color={theme.colors.primary} />
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
@@ -18,7 +20,7 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 65 + insets.bottom + 20 }]}>
         <Card style={[styles.card, { backgroundColor: theme.colors.surfaceVariant }]}>
           <Card.Content style={styles.cardContent}>
             <MaterialCommunityIcons 
