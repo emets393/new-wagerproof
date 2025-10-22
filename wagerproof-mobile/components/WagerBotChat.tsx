@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Animated,
+  Vibration,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,13 +26,13 @@ interface WagerBotChatProps {
   onBack?: () => void;
 }
 
-export default function WagerBotChat({
+const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   userId,
   userEmail,
   gameContext = '',
   onRefresh,
   onBack,
-}: WagerBotChatProps) {
+}, ref) => {
   const theme = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -46,6 +47,19 @@ export default function WagerBotChat({
   const [refreshing, setRefreshing] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+  const [chatHistories, setChatHistories] = useState<Array<{ id: string; title: string; timestamp: string; threadId: string | null }>>([]);
+  
+  // Animation values for message appearance
+  const messageAnimations = useRef<{ [key: string]: Animated.Value }>({});
+  const drawerAnimation = useRef(new Animated.Value(300)).current; // Positive for right side
+  
+  const getMessageAnimation = (messageId: string) => {
+    if (!messageAnimations.current[messageId]) {
+      messageAnimations.current[messageId] = new Animated.Value(0);
+    }
+    return messageAnimations.current[messageId];
+  };
 
   // Validate and clean threadId whenever it's set
   const setValidatedThreadId = (newThreadId: string | null) => {
@@ -68,6 +82,41 @@ export default function WagerBotChat({
       console.error('   This should never happen - thread ID validation failed!');
     }
   }, [threadId]);
+
+  // Animate existing messages when loaded from history
+  useEffect(() => {
+    messages.forEach((message, index) => {
+      const animation = getMessageAnimation(message.id || `msg_${index}`);
+      const currentValue = (animation as any)._value;
+      
+      if (currentValue === 0) {
+        // Stagger animations for existing messages
+        setTimeout(() => {
+          Animated.spring(animation, {
+            toValue: 1,
+            useNativeDriver: true,
+            tension: 100,
+            friction: 8,
+          }).start();
+        }, index * 50);
+      }
+    });
+  }, [messages.length]);
+
+  // Load chat histories on mount
+  useEffect(() => {
+    loadChatHistories();
+  }, []);
+
+  // Animate drawer open/close (right side)
+  useEffect(() => {
+    Animated.spring(drawerAnimation, {
+      toValue: showHistoryDrawer ? 0 : 300,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 10,
+    }).start();
+  }, [showHistoryDrawer]);
 
   // Initialize chat session and get client secret
   useEffect(() => {
@@ -120,6 +169,64 @@ export default function WagerBotChat({
     setRefreshing(false);
   };
 
+  const loadChatHistories = async () => {
+    try {
+      const sessions = await chatSessionManager.getUserSessions(userId);
+      const histories = sessions.map((session: any) => ({
+        id: session.id,
+        title: session.messages[0]?.content.substring(0, 50) || 'New Chat',
+        timestamp: session.createdAt,
+        threadId: session.threadId || null,
+      }));
+      setChatHistories(histories);
+    } catch (err) {
+      console.error('Error loading chat histories:', err);
+    }
+  };
+
+  const clearChat = async () => {
+    try {
+      // Create a new session
+      await initializeChat();
+      setMessages([]);
+      setThreadId(null);
+      setShowWelcome(true);
+      console.log('✅ Chat cleared');
+    } catch (err) {
+      console.error('Error clearing chat:', err);
+    }
+  };
+
+  const switchToChat = async (historyId: string, historyThreadId: string | null) => {
+    try {
+      const sessions = await chatSessionManager.getUserSessions(userId);
+      const session = sessions.find((s: any) => s.id === historyId);
+      if (session) {
+        setMessages(session.messages || []);
+        setThreadId(historyThreadId);
+        setSessionId(historyId);
+        setShowWelcome(session.messages.length === 0);
+        setShowHistoryDrawer(false);
+        console.log('✅ Switched to chat:', historyId);
+      }
+    } catch (err) {
+      console.error('Error switching chat:', err);
+    }
+  };
+
+  const toggleHistoryDrawer = () => {
+    setShowHistoryDrawer(!showHistoryDrawer);
+    if (!showHistoryDrawer) {
+      loadChatHistories();
+    }
+  };
+
+  // Expose functions to parent via ref
+  useImperativeHandle(ref, () => ({
+    toggleHistoryDrawer,
+    clearChat,
+  }));
+
   const sendMessage = async () => {
     if (!inputText.trim() || isSending) return;
 
@@ -140,6 +247,36 @@ export default function WagerBotChat({
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsSending(true);
+
+    // Animate user message appearance
+    const userAnimation = getMessageAnimation(userMessage.id);
+    Animated.spring(userAnimation, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+
+    // Add empty assistant message after a short delay (for fluid feel)
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const assistantMessageId = `msg_${Date.now()}_assistant`;
+    const emptyAssistantMessage: ChatMessage = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, emptyAssistantMessage]);
+    
+    // Animate assistant thinking bubble appearance
+    const assistantAnimation = getMessageAnimation(assistantMessageId);
+    Animated.spring(assistantAnimation, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
 
     try {
       console.log('📤 Sending message to BuildShip...');
@@ -180,132 +317,127 @@ export default function WagerBotChat({
 
       console.log('🌐 Sending to:', chatEndpoint);
 
-      const response = await fetch(chatEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
+      // ✅ REAL STREAMING using XMLHttpRequest with progress events
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.open('POST', chatEndpoint, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        
+        let parsedLength = 0;
+        let currentContent = '';
+        let lastUpdateTime = 0;
+        let threadIdSet = false;
+        
+        // Real-time streaming as chunks arrive!
+        xhr.onprogress = () => {
+          const newText = xhr.responseText.substring(parsedLength);
+          parsedLength = xhr.responseText.length;
+          
+          if (!newText) return;
+          
+          // Parse SSE events as they arrive
+          const lines = newText.split('\n');
+          let contentUpdated = false;
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const jsonStr = line.substring(6).trim();
+                if (!jsonStr) continue;
+                
+                const eventData = JSON.parse(jsonStr);
+                
+                // Extract thread ID from first event
+                if (eventData.threadId && !threadIdSet) {
+                  setValidatedThreadId(eventData.threadId);
+                  console.log('✅ Thread ID from SSE (real-time):', eventData.threadId);
+                  threadIdSet = true;
+                }
+                
+                // Extract text and UPDATE IMMEDIATELY
+                if (eventData.delta?.content?.[0]?.text?.value) {
+                  const textChunk = eventData.delta.content[0].text.value;
+                  currentContent += textChunk;
+                  contentUpdated = true;
+                  
+                  console.log('📝 Received chunk:', textChunk.substring(0, 50));
+                }
+              } catch (parseError) {
+                // Skip invalid JSON lines
+              }
+            }
+          }
+          
+          // Update UI immediately with new content!
+          if (contentUpdated) {
+            const currentTime = Date.now();
+            
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: currentContent }
+                  : msg
+              )
+            );
+            
+            // Haptic feedback every 100ms max (smooth but not overwhelming)
+            if (currentTime - lastUpdateTime > 100) {
+              Vibration.vibrate(1);
+              lastUpdateTime = currentTime;
+            }
+            
+            setIsStreaming(true);
+            console.log('✅ UI updated in real-time, total length:', currentContent.length);
+          }
+        };
+        
+        xhr.onload = () => {
+          console.log('✅ Stream complete!');
+          setIsStreaming(false);
+          
+          if (xhr.status !== 200) {
+            console.error('❌ BuildShip error response:', xhr.responseText);
+            reject(new Error(`API request failed: ${xhr.status}. ${xhr.responseText.substring(0, 100)}`));
+            return;
+          }
+          
+          // Extract thread ID from header if available
+          const headerThreadId = xhr.getResponseHeader('x-thread-id');
+          if (headerThreadId && !threadIdSet) {
+            setValidatedThreadId(headerThreadId);
+            console.log('✅ Thread ID from header:', headerThreadId);
+          }
+          
+          if (!currentContent) {
+            reject(new Error('No content received from BuildShip'));
+            return;
+          }
+          
+          console.log('✅ Final message length:', currentContent.length);
+          resolve();
+        };
+        
+        xhr.onerror = () => {
+          console.error('❌ XHR error');
+          setIsStreaming(false);
+          reject(new Error('Network request failed'));
+        };
+        
+        xhr.ontimeout = () => {
+          console.error('❌ XHR timeout');
+          setIsStreaming(false);
+          reject(new Error('Request timeout'));
+        };
+        
+        xhr.timeout = 30000; // 30 second timeout
+        
+        // Send the request
+        console.log('📤 Sending XHR request...');
+        xhr.send(JSON.stringify(requestBody));
       });
 
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ BuildShip error response:', errorText);
-        console.error('❌ Request that failed:', JSON.stringify({
-          message: requestBody.message,
-          hasSystemPrompt: !!requestBody.SystemPrompt,
-          systemPromptLength: requestBody.SystemPrompt?.length || 0,
-          hasConversationId: !!requestBody.conversationId,
-          conversationId: requestBody.conversationId || 'none'
-        }));
-        throw new Error(`API request failed: ${response.status}. ${errorText.substring(0, 100)}`);
-      }
-
-      console.log('📥 Response received, status:', response.status);
-      console.log('📋 Content-Type:', response.headers.get('content-type'));
-      
-      // ✅ EXTRACT THREAD ID FROM HEADER FIRST
-      const headerThreadId = response.headers.get('x-thread-id');
-      if (headerThreadId) {
-        setValidatedThreadId(headerThreadId);
-        console.log('✅ Thread ID from header:', headerThreadId);
-      } else {
-        console.log('⚠️ No x-thread-id header found');
-      }
-
-      const assistantMessageId = `msg_${Date.now()}_assistant`;
-
-      // Add empty assistant message that we'll update in real-time
-      const emptyAssistantMessage: ChatMessage = {
-        id: assistantMessageId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, emptyAssistantMessage]);
-
-      // React Native doesn't support response.body.getReader()
-      // Instead, read the entire response as text and parse SSE format
-      // Then simulate streaming word-by-word for better UX
-      console.log('📥 Reading response text...');
-      const responseText = await response.text();
-      console.log('📦 Response length:', responseText.length, 'chars');
-      console.log('📦 First 200 chars:', responseText.substring(0, 200));
-
-      // Parse SSE format to extract all text chunks
-      let fullContent = '';
-      const lines = responseText.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const jsonStr = line.substring(6).trim();
-            if (!jsonStr) continue;
-            
-            const eventData = JSON.parse(jsonStr);
-            
-            // Extract thread ID from first event
-            if (eventData.threadId && !threadId) {
-              setValidatedThreadId(eventData.threadId);
-              console.log('✅ Thread ID from SSE:', eventData.threadId);
-            }
-            
-            // Extract text from SSE delta
-            if (eventData.delta?.content?.[0]?.text?.value) {
-              const textChunk = eventData.delta.content[0].text.value;
-              fullContent += textChunk;
-            }
-          } catch (parseError) {
-            console.error('❌ Error parsing SSE line:', parseError);
-          }
-        }
-      }
-
-      console.log('✅ Parsed SSE complete');
-      console.log('💬 Full message length:', fullContent.length);
-
-      // Simulate word-by-word streaming for better UX
-      // Split by characters for faster, smoother streaming effect
-      const chars = fullContent.split('');
-      let currentIndex = 0;
-      
-      console.log('🎬 Starting simulated streaming animation...');
-      setIsStreaming(true);
-
-      const streamChars = () => {
-        if (currentIndex < chars.length) {
-          const charsToShow = chars.slice(0, currentIndex + 1).join('');
-          
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: charsToShow }
-                : msg
-            )
-          );
-          
-          currentIndex++;
-          
-          // Fast streaming: 20-40ms per character (feels like real-time)
-          // Slightly slower for punctuation to feel more natural
-          const currentChar = chars[currentIndex - 1];
-          const isPunctuation = ['.', '!', '?', ',', '\n'].includes(currentChar);
-          const delay = isPunctuation ? 50 : 20;
-          
-          setTimeout(streamChars, delay);
-        } else {
-          console.log('✅ Simulated streaming complete');
-          setIsStreaming(false);
-        }
-      };
-
-      // Start the animation
-      streamChars();
-
-      console.log('✅ Message parsing and streaming initiated');
+      console.log('✅ Real-time streaming complete!');
     } catch (err) {
       console.error('❌ Error sending message:', err);
       
@@ -357,6 +489,69 @@ export default function WagerBotChat({
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* History Drawer */}
+      <Animated.View 
+        style={[
+          styles.historyDrawer,
+          {
+            backgroundColor: theme.colors.surface,
+            transform: [{ translateX: drawerAnimation }],
+          }
+        ]}
+      >
+        <View style={[styles.drawerHeader, { borderBottomColor: theme.colors.outline }]}>
+          <Text style={[styles.drawerTitle, { color: theme.colors.onSurface }]}>Chat History</Text>
+          <TouchableOpacity onPress={toggleHistoryDrawer}>
+            <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={styles.drawerContent}>
+          {chatHistories.length === 0 ? (
+            <Text style={[styles.emptyHistoryText, { color: theme.colors.onSurfaceVariant }]}>
+              No chat history yet
+            </Text>
+          ) : (
+            chatHistories.map((history) => (
+              <TouchableOpacity
+                key={history.id}
+                style={[
+                  styles.historyItem,
+                  sessionId === history.id && { backgroundColor: theme.colors.primaryContainer },
+                ]}
+                onPress={() => switchToChat(history.id, history.threadId)}
+              >
+                <MaterialCommunityIcons 
+                  name="message-text-outline" 
+                  size={20} 
+                  color={theme.colors.primary} 
+                  style={styles.historyIcon}
+                />
+                <View style={styles.historyTextContainer}>
+                  <Text 
+                    style={[styles.historyTitle, { color: theme.colors.onSurface }]}
+                    numberOfLines={1}
+                  >
+                    {history.title}
+                  </Text>
+                  <Text style={[styles.historyTimestamp, { color: theme.colors.onSurfaceVariant }]}>
+                    {new Date(history.timestamp).toLocaleDateString()}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      </Animated.View>
+
+      {/* Drawer backdrop */}
+      {showHistoryDrawer && (
+        <TouchableOpacity 
+          style={styles.drawerBackdrop}
+          activeOpacity={1}
+          onPress={toggleHistoryDrawer}
+        />
+      )}
+
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -418,43 +613,80 @@ export default function WagerBotChat({
               const isLastMessage = index === messages.length - 1;
               const isEmptyAndStreaming = !message.content && isSending && isLastMessage;
               const isStreamingThis = isStreaming && isLastMessage && message.role === 'assistant';
+              
+              const animation = getMessageAnimation(message.id || `msg_${index}`);
+              const animatedStyle = {
+                opacity: animation,
+                transform: [
+                  {
+                    translateY: animation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                  {
+                    scale: animation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.95, 1],
+                    }),
+                  },
+                ],
+              };
 
               return (
-                <View
+                <Animated.View
                   key={message.id || index}
                   style={[
-                    styles.messageBubble,
-                    message.role === 'user'
-                      ? [styles.userMessage, { backgroundColor: theme.colors.primary }]
-                      : [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }],
+                    styles.messageRow,
+                    message.role === 'user' ? styles.userRow : styles.assistantRow,
+                    animatedStyle,
                   ]}
                 >
+                  {/* Robot icon OUTSIDE bubble for assistant messages */}
                   {message.role === 'assistant' && (
-                    <MaterialCommunityIcons
-                      name="robot"
-                      size={20}
-                      color={theme.colors.primary}
-                      style={styles.botIcon}
-                    />
+                    <View style={styles.botIconContainer}>
+                      <MaterialCommunityIcons
+                        name="robot"
+                        size={24}
+                        color={theme.colors.primary}
+                      />
+                    </View>
                   )}
                   
-                  {/* Show content or thinking indicator for empty streaming message */}
-                  {isEmptyAndStreaming ? (
-                    <View style={styles.thinkingContainer}>
-                      <ActivityIndicator size="small" color={theme.colors.primary} />
-                      <Text style={[styles.messageText, { color: theme.colors.onSurfaceVariant, marginLeft: 8 }]}>
-                        Thinking...
-                      </Text>
-                    </View>
-                  ) : message.role === 'assistant' ? (
-                    <View style={{ flex: 1, flexShrink: 1, flexDirection: 'row' }}>
+                  <View
+                    style={[
+                      styles.messageBubble,
+                      message.role === 'user'
+                        ? [styles.userMessage, { backgroundColor: theme.colors.primary }]
+                        : [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }],
+                    ]}
+                  >
+                    {/* Show content or thinking indicator for empty streaming message */}
+                    {isEmptyAndStreaming ? (
+                      <View style={styles.thinkingContainer}>
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                        <Text style={[styles.messageText, { color: theme.colors.onSurfaceVariant, marginLeft: 8 }]}>
+                          Thinking...
+                        </Text>
+                      </View>
+                    ) : message.role === 'assistant' ? (
+                    <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
                       <Markdown
                         style={{
                           body: {
                             color: theme.colors.onSurface,
                             fontSize: 15,
-                            lineHeight: 22,
+                            lineHeight: 20,
                             flexShrink: 1,
+                            flexWrap: 'wrap',
+                          },
+                          paragraph: {
+                            marginTop: 0,
+                            marginBottom: 8,
+                            flexWrap: 'wrap',
+                          },
+                          text: {
+                            flexWrap: 'wrap',
                           },
                         heading1: { fontSize: 22, fontWeight: 'bold', marginBottom: 8, color: theme.colors.onSurface },
                         heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 6, color: theme.colors.onSurface },
@@ -468,34 +700,37 @@ export default function WagerBotChat({
                           paddingVertical: 2,
                           borderRadius: 4,
                           fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                          fontSize: 14,
                         },
                         code_block: {
                           backgroundColor: '#1e1e1e',
-                          padding: 12,
-                          borderRadius: 8,
-                          marginVertical: 8,
+                          padding: 8,
+                          borderRadius: 6,
+                          marginVertical: 6,
                           fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                          fontSize: 13,
                         },
                         fence: {
                           backgroundColor: '#1e1e1e',
-                          padding: 12,
-                          borderRadius: 8,
-                          marginVertical: 8,
+                          padding: 8,
+                          borderRadius: 6,
+                          marginVertical: 6,
                           color: '#d4d4d4',
                           fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                          fontSize: 13,
                         },
                         link: { color: theme.colors.primary, textDecorationLine: 'underline' },
                         blockquote: {
                           backgroundColor: theme.colors.surfaceVariant,
-                          borderLeftWidth: 4,
+                          borderLeftWidth: 3,
                           borderLeftColor: theme.colors.primary,
-                          paddingLeft: 12,
-                          paddingVertical: 8,
-                          marginVertical: 8,
+                          paddingLeft: 10,
+                          paddingVertical: 6,
+                          marginVertical: 6,
                         },
-                        bullet_list: { marginBottom: 8 },
-                        ordered_list: { marginBottom: 8 },
-                        list_item: { marginBottom: 4 },
+                        bullet_list: { marginBottom: 4, marginTop: 0 },
+                        ordered_list: { marginBottom: 4, marginTop: 0 },
+                        list_item: { marginBottom: 2, lineHeight: 18 },
                         table: {
                           borderWidth: 1,
                           borderColor: theme.colors.outline,
@@ -514,18 +749,8 @@ export default function WagerBotChat({
                         },
                       }}
                     >
-                      {message.content}
+                      {message.content + (isStreamingThis ? ' ▊' : '')}
                     </Markdown>
-                    {isStreamingThis && (
-                      <Text style={{ 
-                        color: theme.colors.primary, 
-                        fontSize: 15,
-                        fontWeight: 'bold',
-                        marginLeft: 2,
-                      }}>
-                        ▊
-                      </Text>
-                    )}
                     </View>
                   ) : (
                     <Text
@@ -537,7 +762,8 @@ export default function WagerBotChat({
                       {message.content}
                     </Text>
                   )}
-                </View>
+                  </View>
+                </Animated.View>
               );
             })}
           </ScrollView>
@@ -590,7 +816,9 @@ export default function WagerBotChat({
       </KeyboardAvoidingView>
     </View>
   );
-}
+});
+
+export default WagerBotChat;
 
 const styles = StyleSheet.create({
   container: {
@@ -598,6 +826,68 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  historyDrawer: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 280,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: -2, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  drawerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  drawerContent: {
+    flex: 1,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  historyIcon: {
+    marginRight: 12,
+  },
+  historyTextContainer: {
+    flex: 1,
+  },
+  historyTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  historyTimestamp: {
+    fontSize: 12,
+  },
+  emptyHistoryText: {
+    textAlign: 'center',
+    padding: 32,
+    fontSize: 14,
+  },
+  drawerBackdrop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 999,
   },
   centerContainer: {
     flex: 1,
@@ -667,11 +957,32 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     flexGrow: 1,
   },
-  messageBubble: {
+  messageRow: {
+    flexDirection: 'row',
     marginBottom: 16,
-    padding: 14,
+    alignItems: 'flex-end',
+  },
+  userRow: {
+    justifyContent: 'flex-end',
+  },
+  assistantRow: {
+    justifyContent: 'flex-start',
+  },
+  botIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  messageBubble: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 18,
-    maxWidth: '85%',
+    maxWidth: '75%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -679,18 +990,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   userMessage: {
-    alignSelf: 'flex-end',
     borderBottomRightRadius: 4,
   },
   assistantMessage: {
-    alignSelf: 'flex-start',
     borderBottomLeftRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  botIcon: {
-    marginRight: 8,
-    marginTop: 2,
   },
   messageText: {
     fontSize: 15,

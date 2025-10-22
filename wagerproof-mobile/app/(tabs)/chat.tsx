@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ export default function ChatScreen() {
   const [isLoadingContext, setIsLoadingContext] = useState(true);
   const [contextError, setContextError] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(false);
+  const chatRef = useRef<any>(null);
 
   // Fetch game data on mount
   useEffect(() => {
@@ -76,7 +77,20 @@ export default function ChatScreen() {
             WagerBot
           </Text>
           <View style={styles.headerRight}>
-            {/* Placeholder for right side icons if needed */}
+            <TouchableOpacity 
+              onPress={() => chatRef.current?.toggleHistoryDrawer?.()}
+              style={styles.headerIcon}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialCommunityIcons name="history" size={24} color={theme.colors.onSurface} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => chatRef.current?.clearChat?.()}
+              style={styles.headerIcon}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={24} color={theme.colors.onSurface} />
+            </TouchableOpacity>
           </View>
         </View>
         {contextError && (
@@ -89,6 +103,7 @@ export default function ChatScreen() {
       {/* Chat Component */}
       <View style={styles.chatContainer}>
         <WagerBotChat
+          ref={chatRef}
           userId={user.id}
           userEmail={user.email || ''}
           gameContext={gameContext}
@@ -139,8 +154,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerRight: {
-    width: 44,
-    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIcon: {
+    padding: 4,
   },
   contextWarning: {
     fontSize: 11,
