@@ -153,6 +153,16 @@ function TabsContent() {
         }}
       />
       <Tabs.Screen
+        name="feature-requests"
+        options={{
+          title: 'Features',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="lightbulb-on" size={size} color={color} />
+          ),
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',

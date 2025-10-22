@@ -1,16 +1,20 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
 import { useTheme, List, Switch, Divider, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const { isDark, toggleTheme } = useThemeContext();
   const { user, signOut, signingOut } = useAuth();
+  const { useDummyData, setUseDummyData } = useSettings();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [scoreboardEnabled, setScoreboardEnabled] = React.useState(true);
 
   const handleLogout = async () => {
@@ -29,6 +33,27 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handleContactUs = async () => {
+    const email = 'admin@wagerproof.bet';
+    const subject = 'Contact Us - WagerProof Mobile';
+    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+    
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open email app. Please email us at admin@wagerproof.bet');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Unable to open email app. Please email us at admin@wagerproof.bet');
+    }
+  };
+
+  const handleFeatureRequest = () => {
+    router.push('/feature-requests');
   };
 
   return (
@@ -91,6 +116,25 @@ export default function SettingsScreen() {
         </List.Section>
         <Divider />
 
+        {/* Developer Section */}
+        <List.Section>
+          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>Developer Options</List.Subheader>
+          <List.Item
+            title="Use Dummy Data"
+            description={useDummyData ? "Showing dummy data for testing" : "Using live data from API"}
+            left={props => <List.Icon {...props} icon="test-tube" color={theme.colors.primary} />}
+            right={() => (
+              <Switch
+                value={useDummyData}
+                onValueChange={setUseDummyData}
+                color={theme.colors.primary}
+              />
+            )}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+        </List.Section>
+        <Divider />
+
         {/* Support Section */}
         <List.Section>
           <List.Item
@@ -98,9 +142,7 @@ export default function SettingsScreen() {
             description="Send us feedback"
             left={props => <List.Icon {...props} icon="email" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              Alert.alert('Contact Us', 'Opening contact form...');
-            }}
+            onPress={handleContactUs}
             style={{ backgroundColor: theme.colors.surface }}
           />
           
@@ -109,19 +151,17 @@ export default function SettingsScreen() {
             description="Suggest new features"
             left={props => <List.Icon {...props} icon="lightbulb-on" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              Alert.alert('Feature Requests', 'Opening feature requests...');
-            }}
+            onPress={handleFeatureRequest}
             style={{ backgroundColor: theme.colors.surface }}
           />
           
           <List.Item
             title="Discord Channel"
             description="Join our community"
-            left={props => <List.Icon {...props} icon="discord" color={theme.colors.primary} />}
+            left={props => <List.Icon {...props} icon="chat" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => {
-              Alert.alert('Discord', 'Opening Discord channel...');
+              router.push('/(modals)/discord');
             }}
             style={{ backgroundColor: theme.colors.surface }}
           />

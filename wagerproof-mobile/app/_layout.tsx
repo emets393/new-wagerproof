@@ -3,6 +3,7 @@ import { PaperProvider, ActivityIndicator } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider, useThemeContext } from '../contexts/ThemeContext';
+import { SettingsProvider } from '../contexts/SettingsContext';
 import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 
@@ -62,9 +63,11 @@ function RootLayoutContent() {
 
   return (
     <PaperProvider theme={theme}>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
+      <SettingsProvider>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </SettingsProvider>
     </PaperProvider>
   );
 }

@@ -10,6 +10,7 @@ import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLiveScores } from '@/hooks/useLiveScores';
 
 type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
 type SortMode = 'time' | 'spread' | 'ou';
@@ -25,6 +26,7 @@ export default function FeedScreen() {
   const theme = useTheme();
   const { scrollY, scrollYClamped } = useScroll();
   const insets = useSafeAreaInsets();
+  const { hasLiveGames } = useLiveScores();
   
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
@@ -375,7 +377,7 @@ export default function FeedScreen() {
           },
         ]}
       >
-        {/* Header with Title and Live Ticker */}
+        {/* Header with Title and Inline Live Ticker */}
         <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
           <View style={styles.headerTop}>
             <View style={styles.titleContainer}>
@@ -384,10 +386,19 @@ export default function FeedScreen() {
                 style={styles.logo}
                 resizeMode="contain"
               />
-              <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feed</Text>
+              {!hasLiveGames && (
+                <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feed</Text>
+              )}
             </View>
+            {hasLiveGames && (
+              <View style={styles.inlineTickerContainer}>
+                <LiveScoreTicker onNavigateToScoreboard={() => {
+                  // TODO: Navigate to full scoreboard page
+                  console.log('Navigate to scoreboard');
+                }} />
+              </View>
+            )}
           </View>
-          <LiveScoreTicker />
         </View>
 
         {/* Sport Pills with Sort Dropdown */}
@@ -543,11 +554,15 @@ const styles = StyleSheet.create({
   headerTop: {
     paddingHorizontal: 16,
     paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flexShrink: 0,
   },
   logo: {
     width: 40,
@@ -557,6 +572,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
+  },
+  inlineTickerContainer: {
+    flex: 1,
+    marginLeft: 12,
   },
   searchWrapper: {
     paddingHorizontal: 16,
