@@ -43,18 +43,12 @@ const stepComponents = {
 };
 
 function OnboardingContent() {
-  const { currentStep, direction, resetOnboarding } = useOnboarding();
+  const { currentStep, direction } = useOnboarding();
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   
   // Force dark mode colors for onboarding
   const darkBackgroundColor = '#121212';
-
-  // Reset to step 1 when component mounts
-  useEffect(() => {
-    console.log('Onboarding screen mounted, resetting to step 1');
-    resetOnboarding();
-  }, [resetOnboarding]);
 
   useEffect(() => {
     // Animate on step change

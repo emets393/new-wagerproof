@@ -70,7 +70,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const submitOnboardingData = async () => {
     if (!user) {
       console.error("User not authenticated");
-      return;
+      throw new Error("User not authenticated");
     }
 
     console.log('Submitting onboarding data for user:', user.id);
@@ -94,12 +94,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           hint: error.hint,
           code: error.code
         });
+        throw error;
       } else {
         console.log('Profile updated successfully!');
         console.log('Updated data:', data);
       }
     } catch (err) {
       console.error('Unexpected error during onboarding submission:', err);
+      throw err;
     }
   };
 

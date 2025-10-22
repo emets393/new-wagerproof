@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated
 import { useTheme, Chip, ActivityIndicator, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { NFLGameCard } from '@/components/NFLGameCard';
 import { CFBGameCard } from '@/components/CFBGameCard';
@@ -341,14 +342,19 @@ export default function FeedScreen() {
   };
 
   const renderSearchBar = () => {
+    // Use dark color with transparency for both light and dark modes
+    const iconColor = theme.colors.onSurfaceVariant;
+    const searchBgColor = theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)';
+    const placeholderColor = theme.dark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)';
+    
     return (
       <View style={styles.searchWrapper}>
-        <View style={[styles.searchContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
+        <View style={[styles.searchContainer, { backgroundColor: searchBgColor }]}>
+          <MaterialCommunityIcons name="magnify" size={20} color={iconColor} />
           <TextInput
             style={[styles.searchInput, { color: theme.colors.onSurface }]}
             placeholder="Search teams or cities..."
-            placeholderTextColor="#FFFFFF60"
+            placeholderTextColor={placeholderColor}
             value={searchText}
             onChangeText={setSearchText}
           />
@@ -356,7 +362,7 @@ export default function FeedScreen() {
             <MaterialCommunityIcons
               name="close-circle"
               size={20}
-              color={theme.colors.onSurfaceVariant}
+              color={iconColor}
               onPress={() => setSearchText('')}
             />
           )}
@@ -486,23 +492,33 @@ export default function FeedScreen() {
 
         {/* Search Bar - Part of collapsible header */}
         {renderSearchBar()}
+        
+        {/* Bottom gradient fade to transparent */}
+        <LinearGradient
+          colors={[
+            theme.colors.background,
+            theme.dark ? 'rgba(28, 28, 30, 0)' : 'rgba(246, 246, 246, 0)'
+          ]}
+          style={styles.headerGradient}
+          pointerEvents="none"
+        />
       </Animated.View>
 
       {/* Games List */}
       {loading ? (
-        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT }]}>
+        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT + 29 }]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
             Loading games...
           </Text>
         </View>
       ) : error ? (
-        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT }]}>
+        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT + 29 }]}>
           <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
           <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
         </View>
       ) : sortedGames.length === 0 ? (
-        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT }]}>
+        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT + 29 }]}>
           <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
           <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
             {searchText ? 'No games match your search' : 'No games available'}
@@ -516,7 +532,7 @@ export default function FeedScreen() {
           contentContainerStyle={[
             styles.listContent,
             { 
-              paddingTop: TOTAL_COLLAPSIBLE_HEIGHT + 16,
+              paddingTop: TOTAL_COLLAPSIBLE_HEIGHT + 40,
               paddingBottom: 65 + insets.bottom + 20 
             }
           ]}
@@ -529,7 +545,8 @@ export default function FeedScreen() {
             <RefreshControl 
               refreshing={refreshing} 
               onRefresh={onRefresh}
-              colors={[theme.colors.primary]} 
+              colors={[theme.colors.primary]}
+              progressViewOffset={TOTAL_COLLAPSIBLE_HEIGHT}
             />
           }
         />
@@ -548,6 +565,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
+  },
+  headerGradient: {
+    position: 'absolute',
+    bottom: -20,
+    left: 0,
+    right: 0,
+    height: 20,
   },
   header: {
     paddingTop: 8,

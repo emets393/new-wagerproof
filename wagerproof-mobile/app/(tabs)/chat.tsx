@@ -20,25 +20,14 @@ export default function ChatScreen() {
   const [isActive, setIsActive] = useState(false);
   const chatRef = useRef<any>(null);
 
-  // Scroll animation setup
+  // Scroll animation setup - disabled header collapsing for better UX
   const scrollY = useRef(new Animated.Value(0)).current;
   const HEADER_HEIGHT = insets.top + 8 + 44 + 12; // paddingTop + header content height + paddingBottom
-  const scrollYClamped = useRef(
-    Animated.diffClamp(scrollY, 0, HEADER_HEIGHT)
-  ).current;
 
-  // Header animations
-  const headerTranslate = scrollYClamped.interpolate({
-    inputRange: [0, HEADER_HEIGHT],
-    outputRange: [0, -HEADER_HEIGHT],
-    extrapolate: 'clamp',
-  });
-
-  const headerOpacity = scrollYClamped.interpolate({
-    inputRange: [0, HEADER_HEIGHT],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
+  // Keep header always visible - no collapsing animation
+  // This prevents the finicky behavior where header becomes unreachable
+  const headerTranslate = new Animated.Value(0);
+  const headerOpacity = new Animated.Value(1);
 
   // Fetch game data on mount
   useEffect(() => {
@@ -90,15 +79,13 @@ export default function ChatScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Animated Header with Back Button */}
-      <Animated.View 
+      {/* Fixed Header with Back Button - Always visible for better accessibility */}
+      <View 
         style={[
           styles.header, 
           { 
             backgroundColor: theme.colors.background, 
             paddingTop: insets.top + 8,
-            transform: [{ translateY: headerTranslate }],
-            opacity: headerOpacity,
           }
         ]}
       >
@@ -160,7 +147,7 @@ export default function ChatScreen() {
             {contextError}
           </Text>
         )}
-      </Animated.View>
+      </View>
 
       {/* Chat Component */}
       <View style={styles.chatContainer}>

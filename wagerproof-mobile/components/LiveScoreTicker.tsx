@@ -1,22 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { 
   useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withTiming, 
-  Easing,
-  cancelAnimation
+  useAnimatedStyle,
+  useFrameCallback
 } from 'react-native-reanimated';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { useSettings } from '@/contexts/SettingsContext';
 import { CompactLiveScorePill } from './CompactLiveScorePill';
 import { LiveScoreDetailModal } from './LiveScoreDetailModal';
 import { LiveGame } from '@/types/liveScores';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface LiveScoreTickerProps {
   onNavigateToScoreboard?: () => void;
@@ -26,11 +21,14 @@ export function LiveScoreTicker({ onNavigateToScoreboard }: LiveScoreTickerProps
   const theme = useTheme();
   const [selectedGame, setSelectedGame] = useState<LiveGame | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [contentWidth, setContentWidth] = useState(0);
+  const [parentWidth, setParentWidth] = useState(0);
+  const [childrenWidth, setChildrenWidth] = useState(0);
   const { useDummyData } = useSettings();
   
   const { games: liveGames, hasLiveGames: hasRealLiveGames } = useLiveScores();
-  const translateX = useSharedValue(0);
+  
+  const offset = useSharedValue(0);
+  const duration = 15000; // Duration in milliseconds for one full scroll
 
   // DUMMY DATA for testing - Only used when useDummyData is true
   const dummyGames: LiveGame[] = [
@@ -163,35 +161,24 @@ export function LiveScoreTicker({ onNavigateToScoreboard }: LiveScoreTickerProps
     onNavigateToScoreboard?.();
   };
 
-  // Setup marquee animation
-  useEffect(() => {
-    if (contentWidth > 0 && games.length > 0) {
-      // Start the continuous scroll animation
-      const distance = contentWidth;
-      const duration = distance * 40; // Multiplier for speed (higher = slower)
-      
-      // Start from 0
-      translateX.value = 0;
-      
-      // Animate continuously
-      translateX.value = withRepeat(
-        withTiming(-distance, {
-          duration: duration,
-          easing: Easing.linear,
-        }),
-        -1, // Infinite repeat
-        false // Don't reverse
-      );
+  // Seamless marquee animation using frame callback (based on React Native Reanimated docs)
+  // Reference: https://docs.swmansion.com/react-native-reanimated/examples/marquee/
+  useFrameCallback((frameInfo) => {
+    if (childrenWidth > 0) {
+      // Calculate offset based on time elapsed and duration
+      const timeDelta = frameInfo.timeSincePreviousFrame ?? 0;
+      offset.value -= (timeDelta * childrenWidth) / duration;
+      // Use modulo to create seamless loop
+      offset.value = offset.value % -childrenWidth;
     }
+  }, true);
 
-    return () => {
-      cancelAnimation(translateX);
-    };
-  }, [contentWidth, games]);
+  // Calculate how many clones we need to fill the screen
+  const cloneCount = childrenWidth > 0 ? Math.round(parentWidth / childrenWidth) + 2 : 0;
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateX: translateX.value }],
+      transform: [{ translateX: offset.value }],
     };
   });
 
@@ -200,35 +187,65 @@ export function LiveScoreTicker({ onNavigateToScoreboard }: LiveScoreTickerProps
     return null;
   }
 
-  // Duplicate games twice for seamless infinite loop
-  const duplicatedGames = [...games, ...games];
-
   return (
     <>
-      <View style={styles.container}>
-        <Animated.View 
-          style={[styles.scrollContent, animatedStyle]}
+      <View 
+        style={styles.container}
+        onLayout={(event) => {
+          setParentWidth(event.nativeEvent.layout.width);
+        }}
+      >
+        {/* Hidden measure element to get children width */}
+        <View 
+          style={styles.measureContainer}
           onLayout={(event) => {
-            const { width } = event.nativeEvent.layout;
-            // Divide by 2 since we doubled the games
-            const singleSetWidth = width / 2;
-            if (singleSetWidth !== contentWidth) {
-              setContentWidth(singleSetWidth);
-            }
+            setChildrenWidth(event.nativeEvent.layout.width);
           }}
         >
-          {duplicatedGames.map((game, index) => (
-            <CompactLiveScorePill 
-              key={`${game.id}-${index}`} 
-              game={game} 
-              onPress={() => handlePillPress(game)}
-            />
-          ))}
-        </Animated.View>
+          <View style={styles.scrollContent}>
+            {games.map((game) => (
+              <CompactLiveScorePill 
+                key={game.id} 
+                game={game} 
+                onPress={() => handlePillPress(game)}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Visible scrolling content - render clones */}
+        {childrenWidth > 0 && parentWidth > 0 && (
+          <View style={styles.scrollContainer}>
+            {Array.from({ length: cloneCount }).map((_, index) => (
+              <Animated.View
+                key={`clone-${index}`}
+                style={[
+                  styles.scrollContent,
+                  animatedStyle,
+                  {
+                    position: 'absolute',
+                    left: index * childrenWidth,
+                  }
+                ]}
+              >
+                {games.map((game) => (
+                  <CompactLiveScorePill 
+                    key={game.id} 
+                    game={game} 
+                    onPress={() => handlePillPress(game)}
+                  />
+                ))}
+              </Animated.View>
+            ))}
+          </View>
+        )}
         
         {/* Left gradient fade */}
         <LinearGradient
-          colors={[theme.colors.background, 'transparent']}
+          colors={[
+            theme.dark ? '#1C1C1E' : '#FFFFFF',
+            theme.dark ? 'rgba(28, 28, 30, 0)' : 'rgba(255, 255, 255, 0)'
+          ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.gradientLeft}
@@ -237,7 +254,10 @@ export function LiveScoreTicker({ onNavigateToScoreboard }: LiveScoreTickerProps
         
         {/* Right gradient fade */}
         <LinearGradient
-          colors={['transparent', theme.colors.background]}
+          colors={[
+            theme.dark ? 'rgba(28, 28, 30, 0)' : 'rgba(255, 255, 255, 0)',
+            theme.dark ? '#1C1C1E' : '#FFFFFF'
+          ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.gradientRight}
@@ -260,6 +280,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     height: 52,
     position: 'relative',
+  },
+  measureContainer: {
+    position: 'absolute',
+    opacity: 0,
+    zIndex: -1,
+  },
+  scrollContainer: {
+    flexDirection: 'row',
+    height: 52,
   },
   scrollContent: {
     flexDirection: 'row',

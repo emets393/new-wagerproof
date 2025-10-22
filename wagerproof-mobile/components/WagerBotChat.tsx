@@ -17,6 +17,12 @@ import {
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import ReanimatedAnimated, { 
+  useSharedValue, 
+  useAnimatedStyle,
+  useFrameCallback
+} from 'react-native-reanimated';
 import Markdown from 'react-native-markdown-display';
 import { chatSessionManager, ChatMessage } from '../utils/chatSessionManager';
 import { chatThreadService } from '../services/chatThreadService';
@@ -78,6 +84,12 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   // Animation values for message appearance
   const messageAnimations = useRef<{ [key: string]: Animated.Value }>({});
   const drawerAnimation = useRef(new Animated.Value(300)).current; // Positive for right side
+  
+  // Marquee animation state for suggested messages
+  const [marqueeParentWidth, setMarqueeParentWidth] = useState(0);
+  const [marqueeChildrenWidth, setMarqueeChildrenWidth] = useState(0);
+  const marqueeOffset = useSharedValue(0);
+  const marqueeDuration = 40000; // 40 seconds for one full scroll (slower)
   
   // Suggested messages
   const suggestedMessages = [
@@ -162,6 +174,24 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       friction: 10,
     }).start();
   }, [showHistoryDrawer]);
+
+  // Marquee animation for suggested messages
+  useFrameCallback((frameInfo) => {
+    if (marqueeChildrenWidth > 0) {
+      const timeDelta = frameInfo.timeSincePreviousFrame ?? 0;
+      marqueeOffset.value -= (timeDelta * marqueeChildrenWidth) / marqueeDuration;
+      marqueeOffset.value = marqueeOffset.value % -marqueeChildrenWidth;
+    }
+  }, true);
+
+  // Calculate clones needed for seamless looping
+  const marqueeCloneCount = marqueeChildrenWidth > 0 ? Math.round(marqueeParentWidth / marqueeChildrenWidth) + 2 : 0;
+
+  const marqueeAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: marqueeOffset.value }],
+    };
+  });
 
   // Initialize chat session and get client secret
   useEffect(() => {
@@ -959,32 +989,104 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
         {/* Suggested Messages - Show when welcome or no messages */}
         {(showWelcome || messages.length === 0) && (
-          <View style={styles.suggestedMessagesWrapper}>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.suggestedMessagesContent}
+          <View 
+            style={styles.suggestedMessagesWrapper}
+            onLayout={(event) => {
+              setMarqueeParentWidth(event.nativeEvent.layout.width);
+            }}
+          >
+            {/* Hidden measure element to get children width */}
+            <View 
+              style={styles.marqueeMeasureContainer}
+              onLayout={(event) => {
+                setMarqueeChildrenWidth(event.nativeEvent.layout.width);
+              }}
             >
-              {suggestedMessages.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.suggestedMessageBubble,
-                    { 
-                      backgroundColor: theme.colors.surfaceVariant,
-                      borderColor: theme.colors.outline,
-                    }
-                  ]}
-                  onPress={() => handleSuggestedMessage(item.message)}
-                  disabled={isSending}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.suggestedMessageText, { color: theme.colors.onSurface }]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+              <View style={styles.suggestedMessagesContent}>
+                {suggestedMessages.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.suggestedMessageBubble,
+                      { 
+                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                        borderColor: 'rgba(255, 255, 255, 0.25)',
+                      }
+                    ]}
+                    onPress={() => handleSuggestedMessage(item.message)}
+                    disabled={isSending}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.suggestedMessageText, { color: theme.colors.onSurface }]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Visible scrolling content - render clones */}
+            {marqueeChildrenWidth > 0 && marqueeParentWidth > 0 && (
+              <View style={styles.marqueeScrollContainer}>
+                {Array.from({ length: marqueeCloneCount }).map((_, index) => (
+                  <ReanimatedAnimated.View
+                    key={`clone-${index}`}
+                    style={[
+                      styles.suggestedMessagesContent,
+                      marqueeAnimatedStyle,
+                      {
+                        position: 'absolute',
+                        left: index * marqueeChildrenWidth,
+                      }
+                    ]}
+                  >
+                    {suggestedMessages.map((item, msgIndex) => (
+                      <TouchableOpacity
+                        key={msgIndex}
+                        style={[
+                          styles.suggestedMessageBubble,
+                          { 
+                            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                            borderColor: 'rgba(255, 255, 255, 0.25)',
+                          }
+                        ]}
+                        onPress={() => handleSuggestedMessage(item.message)}
+                        disabled={isSending}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.suggestedMessageText, { color: theme.colors.onSurface }]}>
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ReanimatedAnimated.View>
+                ))}
+              </View>
+            )}
+
+            {/* Left gradient fade */}
+            <LinearGradient
+              colors={[
+                theme.dark ? '#1C1C1E' : '#FFFFFF',
+                theme.dark ? 'rgba(28, 28, 30, 0)' : 'rgba(255, 255, 255, 0)'
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.marqueeGradientLeft}
+              pointerEvents="none"
+            />
+            
+            {/* Right gradient fade */}
+            <LinearGradient
+              colors={[
+                theme.dark ? 'rgba(28, 28, 30, 0)' : 'rgba(255, 255, 255, 0)',
+                theme.dark ? '#1C1C1E' : '#FFFFFF'
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.marqueeGradientRight}
+              pointerEvents="none"
+            />
           </View>
         )}
 
@@ -1150,12 +1252,11 @@ const styles = StyleSheet.create({
   },
   // Welcome Screen Styles
   welcomeContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
     paddingVertical: 48,
-    minHeight: '70%',
   },
   welcomeContent: {
     alignItems: 'center',
@@ -1286,30 +1387,59 @@ const styles = StyleSheet.create({
   sendButtonActive: {
     backgroundColor: '#2e7d32',
   },
-  // Suggested Messages Styles
+  // Suggested Messages Styles (with Marquee)
   suggestedMessagesWrapper: {
-    paddingHorizontal: 16,
     paddingVertical: 8,
+    overflow: 'hidden',
+    height: 52,
+    position: 'relative',
+  },
+  marqueeMeasureContainer: {
+    position: 'absolute',
+    opacity: 0,
+    zIndex: -1,
+  },
+  marqueeScrollContainer: {
+    flexDirection: 'row',
+    height: 52,
   },
   suggestedMessagesContent: {
-    gap: 8,
-    paddingRight: 16,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 4,
   },
   suggestedMessageBubble: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginRight: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginRight: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
   },
   suggestedMessageText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  marqueeGradientLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 40,
+    zIndex: 10,
+  },
+  marqueeGradientRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 40,
+    zIndex: 10,
   },
 });
 

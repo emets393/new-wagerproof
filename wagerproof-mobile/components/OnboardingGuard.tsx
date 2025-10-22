@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ActivityIndicator, useTheme } from 'react-native-paper';
 import { useRouter, useSegments } from 'expo-router';
@@ -18,6 +18,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     completed: boolean | null;
     loading: boolean;
   }>({ completed: null, loading: true });
+  const previousSegmentRef = useRef<string | null>(null);
 
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -56,7 +57,41 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     };
 
     checkOnboardingStatus();
-  }, [user]); // Only check when user changes, not on every navigation
+  }, [user]); // Only check when user changes
+
+  // Refetch when leaving onboarding route
+  useEffect(() => {
+    const currentSegment = segments[0];
+    const wasInOnboarding = previousSegmentRef.current === '(onboarding)';
+    const notInOnboardingAnymore = currentSegment !== '(onboarding)';
+    
+    // If we just left the onboarding screen, refetch the status
+    if (wasInOnboarding && notInOnboardingAnymore && user) {
+      console.log('Just left onboarding, refetching status...');
+      const refetchStatus = async () => {
+        try {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('onboarding_completed')
+            .eq('user_id', user.id)
+            .single();
+
+          if (!error && profile) {
+            console.log('Refetched onboarding status:', profile.onboarding_completed);
+            setOnboardingStatus({
+              completed: profile.onboarding_completed ?? false,
+              loading: false,
+            });
+          }
+        } catch (error) {
+          console.error('Error refetching onboarding status:', error);
+        }
+      };
+      refetchStatus();
+    }
+    
+    previousSegmentRef.current = currentSegment;
+  }, [segments, user]);
 
   useEffect(() => {
     if (authLoading || onboardingStatus.loading) return;

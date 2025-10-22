@@ -256,46 +256,46 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
                     activeOpacity={0.7}
                     onPress={() => setSpreadExplanationExpanded(!spreadExplanationExpanded)}
                   >
-                    <View style={styles.predictionHeader}>
-                      <MaterialCommunityIcons name="target" size={16} color={bettingColors.success} />
-                      <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
-                        Spread
-                      </Text>
-                    </View>
-                  <View style={styles.predictionGrid}>
-                    {/* Team Prediction */}
-                    <View style={[styles.predictionBox, { backgroundColor: bettingColors.successLight, borderColor: bettingColors.success, borderWidth: 1 }]}>
-                      <LinearGradient
-                        colors={[spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={[styles.teamCircleSmall, { borderColor: spreadPrediction.teamColors.primary }]}
-                      >
-                        <Text style={[styles.teamInitialsSmall, { color: getContrastingTextColor(spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary) }]}>
-                          {getTeamInitials(spreadPrediction.team)}
+                    <View style={[styles.predictionCard, { backgroundColor: bettingColors.successLight, borderColor: bettingColors.success }]}>
+                      <View style={styles.predictionHeader}>
+                        <MaterialCommunityIcons name="target" size={16} color={bettingColors.success} />
+                        <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
+                          Spread
                         </Text>
-                      </LinearGradient>
-                      <Text style={[styles.predictionTeam, { color: bettingColors.successDark }]}>
-                        {getTeamParts(spreadPrediction.team).city}
-                      </Text>
-                      <Text style={[styles.predictionSpread, { color: bettingColors.success }]}>
-                        ({formatSpread(spreadPrediction.spread)})
-                      </Text>
+                      </View>
+                      <View style={styles.predictionGrid}>
+                        {/* Team Prediction */}
+                        <View style={[styles.predictionBox, { backgroundColor: 'transparent' }]}>
+                          <LinearGradient
+                            colors={[spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[styles.teamCircleSmall, { borderColor: spreadPrediction.teamColors.primary }]}
+                          >
+                            <Text style={[styles.teamInitialsSmall, { color: getContrastingTextColor(spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary) }]}>
+                              {getTeamInitials(spreadPrediction.team)}
+                            </Text>
+                          </LinearGradient>
+                          <Text style={[styles.predictionTeam, { color: bettingColors.successDark }]}>
+                            {getTeamParts(spreadPrediction.team).city}
+                          </Text>
+                          <Text style={[styles.predictionSpread, { color: bettingColors.success }]}>
+                            ({formatSpread(spreadPrediction.spread)})
+                          </Text>
+                        </View>
+                        {/* Confidence */}
+                        <View style={[styles.predictionBox, { 
+                          backgroundColor: 'transparent'
+                        }]}>
+                          <Text style={[styles.confidencePercent, { color: spreadPrediction.confidence <= 58 ? bettingColors.danger : spreadPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success }]}>
+                            {spreadPrediction.confidence}%
+                          </Text>
+                          <Text style={[styles.confidenceLabel, { color: bettingColors.neutral }]}>
+                            {spreadPrediction.confidence <= 58 ? 'Low' : spreadPrediction.confidence <= 65 ? 'Moderate' : 'High'}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
-                    {/* Confidence */}
-                    <View style={[styles.predictionBox, { 
-                      backgroundColor: spreadPrediction.confidence <= 58 ? bettingColors.dangerLight : spreadPrediction.confidence <= 65 ? bettingColors.warningLight : bettingColors.successLight,
-                      borderColor: spreadPrediction.confidence <= 58 ? bettingColors.danger : spreadPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success,
-                      borderWidth: 1
-                    }]}>
-                      <Text style={[styles.confidencePercent, { color: spreadPrediction.confidence <= 58 ? bettingColors.danger : spreadPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success }]}>
-                        {spreadPrediction.confidence}%
-                      </Text>
-                      <Text style={[styles.confidenceLabel, { color: bettingColors.neutral }]}>
-                        {spreadPrediction.confidence <= 58 ? 'Low' : spreadPrediction.confidence <= 65 ? 'Moderate' : 'High'}
-                      </Text>
-                    </View>
-                  </View>
                   </TouchableOpacity>
                   {/* What This Means */}
                   {spreadExplanationExpanded && (
@@ -345,40 +345,41 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
                     activeOpacity={0.7}
                     onPress={() => setOuExplanationExpanded(!ouExplanationExpanded)}
                   >
-                    <View style={styles.predictionHeader}>
-                      <MaterialCommunityIcons name="chart-line-variant" size={16} color={bettingColors.info} />
-                      <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
-                        Over / Under
-                      </Text>
-                    </View>
-                  <View style={styles.predictionGrid}>
-                    {/* Direction */}
-                    <View style={[styles.predictionBox, { 
+                    <View style={[styles.predictionCard, { 
                       backgroundColor: ouPrediction.isOver ? bettingColors.successLight : bettingColors.dangerLight,
-                      borderColor: ouPrediction.isOver ? bettingColors.success : bettingColors.danger,
-                      borderWidth: 1
+                      borderColor: ouPrediction.isOver ? bettingColors.success : bettingColors.danger
                     }]}>
-                      <Text style={[styles.ouArrow, { color: ouPrediction.isOver ? bettingColors.success : bettingColors.danger }]}>
-                        {ouPrediction.isOver ? '▲' : '▼'}
-                      </Text>
-                      <Text style={[styles.ouLabel, { color: ouPrediction.isOver ? bettingColors.successDark : bettingColors.dangerDark }]}>
-                        {ouPrediction.isOver ? 'Over' : 'Under'} {game.over_line}
-                      </Text>
+                      <View style={styles.predictionHeader}>
+                        <MaterialCommunityIcons name="chart-line-variant" size={16} color={ouPrediction.isOver ? bettingColors.success : bettingColors.danger} />
+                        <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
+                          Over / Under
+                        </Text>
+                      </View>
+                      <View style={styles.predictionGrid}>
+                        {/* Direction */}
+                        <View style={[styles.predictionBox, { 
+                          backgroundColor: 'transparent'
+                        }]}>
+                          <Text style={[styles.ouArrow, { color: ouPrediction.isOver ? bettingColors.success : bettingColors.danger }]}>
+                            {ouPrediction.isOver ? '▲' : '▼'}
+                          </Text>
+                          <Text style={[styles.ouLabel, { color: ouPrediction.isOver ? bettingColors.successDark : bettingColors.dangerDark }]}>
+                            {ouPrediction.isOver ? 'Over' : 'Under'} {game.over_line}
+                          </Text>
+                        </View>
+                        {/* Confidence */}
+                        <View style={[styles.predictionBox, { 
+                          backgroundColor: 'transparent'
+                        }]}>
+                          <Text style={[styles.confidencePercent, { color: ouPrediction.confidence <= 58 ? bettingColors.danger : ouPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success }]}>
+                            {ouPrediction.confidence}%
+                          </Text>
+                          <Text style={[styles.confidenceLabel, { color: bettingColors.neutral }]}>
+                            {ouPrediction.confidence <= 58 ? 'Low' : ouPrediction.confidence <= 65 ? 'Moderate' : 'High'}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
-                    {/* Confidence */}
-                    <View style={[styles.predictionBox, { 
-                      backgroundColor: ouPrediction.confidence <= 58 ? bettingColors.dangerLight : ouPrediction.confidence <= 65 ? bettingColors.warningLight : bettingColors.successLight,
-                      borderColor: ouPrediction.confidence <= 58 ? bettingColors.danger : ouPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success,
-                      borderWidth: 1
-                    }]}>
-                      <Text style={[styles.confidencePercent, { color: ouPrediction.confidence <= 58 ? bettingColors.danger : ouPrediction.confidence <= 65 ? bettingColors.warning : bettingColors.success }]}>
-                        {ouPrediction.confidence}%
-                      </Text>
-                      <Text style={[styles.confidenceLabel, { color: bettingColors.neutral }]}>
-                        {ouPrediction.confidence <= 58 ? 'Low' : ouPrediction.confidence <= 65 ? 'Moderate' : 'High'}
-                      </Text>
-                    </View>
-                  </View>
                   </TouchableOpacity>
                   {/* What This Means */}
                   {ouExplanationExpanded && (
@@ -481,7 +482,7 @@ export function NFLGameCard({ game }: NFLGameCardProps) {
 const styles = StyleSheet.create({
   card: {
     marginBottom: 12,
-    borderRadius: 12,
+    borderRadius: 20,
     elevation: 3,
     overflow: 'hidden',
   },
@@ -600,7 +601,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingVertical: 6,
     paddingHorizontal: 8,
-    borderRadius: 8,
+    borderRadius: 20,
   },
   probItem: {
     flexDirection: 'row',
@@ -618,7 +619,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 20,
     marginTop: 12,
     marginBottom: 8,
   },
@@ -630,16 +631,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
   },
+  predictionCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
   predictionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginBottom: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: 'transparent',
+    marginBottom: 12,
   },
   predictionLabel: {
     fontSize: 13,
@@ -651,8 +658,6 @@ const styles = StyleSheet.create({
   },
   predictionBox: {
     flex: 1,
-    padding: 12,
-    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -709,7 +714,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 20,
   },
   bettingFactText: {
     fontSize: 12,
@@ -741,7 +746,7 @@ const styles = StyleSheet.create({
   explanationBox: {
     marginTop: 10,
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 20,
     borderWidth: 1,
   },
   explanationHeader: {

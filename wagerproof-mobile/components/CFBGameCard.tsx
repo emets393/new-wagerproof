@@ -503,7 +503,7 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
 const styles = StyleSheet.create({
   card: {
     marginBottom: 12,
-    borderRadius: 12,
+    borderRadius: 20,
     elevation: 3,
     overflow: 'hidden',
   },
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingVertical: 6,
     paddingHorizontal: 8,
-    borderRadius: 8,
+    borderRadius: 20,
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 20,
   },
   scoreLabel: {
     fontSize: 11,
@@ -661,7 +661,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 20,
     marginTop: 12,
     marginBottom: 8,
   },
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   predictionCard: {
-    borderRadius: 12,
+    borderRadius: 24,
     borderWidth: 1,
     padding: 12,
     shadowColor: '#000',
@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
   predictionBox: {
     flex: 1,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 20,
   },
   bettingFactText: {
     fontSize: 12,
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
   explanationBox: {
     marginTop: 10,
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 20,
     borderWidth: 1,
   },
   explanationHeader: {
@@ -877,7 +877,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 20,
     marginTop: 8,
   },
   noPredictionsText: {

@@ -16,7 +16,7 @@ export function CompactLiveScorePill({ game, onPress }: CompactLiveScorePillProp
   const getPillColors = () => {
     if (game.predictions?.hasAnyHitting) {
       return {
-        gradient: ['rgba(22, 163, 74, 0.15)', 'rgba(22, 163, 74, 0.25)'], // Green gradient
+        gradient: ['rgba(22, 163, 74, 0.15)', 'rgba(22, 163, 74, 0.25)'] as const, // Green gradient
         border: 'rgba(22, 163, 74, 0.4)',
         isHighlighted: true,
         textColor: '#16A34A'
@@ -30,7 +30,7 @@ export function CompactLiveScorePill({ game, onPress }: CompactLiveScorePillProp
     
     if (hasNotHitting) {
       return {
-        gradient: ['rgba(220, 38, 38, 0.15)', 'rgba(220, 38, 38, 0.25)'], // Red gradient
+        gradient: ['rgba(220, 38, 38, 0.15)', 'rgba(220, 38, 38, 0.25)'] as const, // Red gradient
         border: 'rgba(220, 38, 38, 0.4)',
         isHighlighted: true,
         textColor: '#DC2626'
@@ -39,7 +39,7 @@ export function CompactLiveScorePill({ game, onPress }: CompactLiveScorePillProp
     
     return {
       gradient: [theme.dark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.6)', 
-                 theme.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.4)'],
+                 theme.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.4)'] as const,
       border: theme.dark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.8)',
       isHighlighted: false,
       textColor: theme.colors.onSurface
@@ -55,7 +55,7 @@ export function CompactLiveScorePill({ game, onPress }: CompactLiveScorePillProp
       activeOpacity={0.7}
     >
       <LinearGradient
-        colors={pillColors.gradient}
+        colors={[pillColors.gradient[0], pillColors.gradient[1]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
