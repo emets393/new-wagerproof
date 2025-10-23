@@ -4,12 +4,10 @@ import { useTheme, Chip, ActivityIndicator, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import BottomSheet from '@gorhom/bottom-sheet';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { NFLGameCard } from '@/components/NFLGameCard';
 import { CFBGameCard } from '@/components/CFBGameCard';
-import { NFLGameBottomSheet } from '@/components/NFLGameBottomSheet';
+import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
@@ -33,6 +31,7 @@ export default function FeedScreen() {
   const { scrollY, scrollYClamped } = useScroll();
   const insets = useSafeAreaInsets();
   const { hasLiveGames } = useLiveScores();
+  const { openGameSheet } = useNFLGameSheet();
   
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
@@ -45,10 +44,6 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchBarVisible, setSearchBarVisible] = useState(false);
-  const [selectedGame, setSelectedGame] = useState<NFLPrediction | null>(null);
-  
-  // Refs
-  const bottomSheetRef = useRef<BottomSheet>(null);
   
   // Animated values for search bar
   const searchBarTranslateY = useRef(new Animated.Value(-72)).current;
@@ -444,12 +439,7 @@ export default function FeedScreen() {
   }, [filteredGames, sortMode, selectedSport]);
 
   const handleGamePress = (game: NFLPrediction) => {
-    setSelectedGame(game);
-    bottomSheetRef.current?.snapToIndex(0);
-  };
-
-  const handleCloseBottomSheet = () => {
-    setSelectedGame(null);
+    openGameSheet(game);
   };
 
   const renderGameCard = ({ item }: { item: NFLPrediction | CFBPrediction }) => {
@@ -505,8 +495,7 @@ export default function FeedScreen() {
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {/* Animated Collapsible Header */}
         <Animated.View
           style={[
@@ -699,15 +688,7 @@ export default function FeedScreen() {
           }
         />
       )}
-      </View>
-
-      {/* NFL Game Bottom Sheet */}
-      <NFLGameBottomSheet
-        ref={bottomSheetRef}
-        game={selectedGame}
-        onClose={handleCloseBottomSheet}
-      />
-    </GestureHandlerRootView>
+    </View>
   );
 }
 

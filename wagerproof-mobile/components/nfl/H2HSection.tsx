@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { fetchH2HData, H2HGame } from '@/utils/nflDataFetchers';
 import { getNFLTeamColors, getTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 
@@ -15,6 +16,7 @@ export function H2HSection({ homeTeam, awayTeam }: H2HSectionProps) {
   const theme = useTheme();
   const [games, setGames] = useState<H2HGame[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     loadH2HData();
@@ -28,6 +30,20 @@ export function H2HSection({ homeTeam, awayTeam }: H2HSectionProps) {
   };
 
   const formatDate = (dateString: string) => {
+    // Parse date string manually to avoid timezone issues
+    const parts = dateString.split('T')[0].split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // months are 0-indexed
+      const day = parseInt(parts[2], 10);
+      const date = new Date(year, month, day);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+    // Fallback to original behavior if format is unexpected
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
@@ -38,6 +54,27 @@ export function H2HSection({ homeTeam, awayTeam }: H2HSectionProps) {
 
   const getWinner = (game: H2HGame) => {
     return game.home_score > game.away_score ? game.home_team : game.away_team;
+  };
+
+  const getTeamRecord = () => {
+    let homeWins = 0;
+    let awayWins = 0;
+
+    games.forEach(game => {
+      const winner = getWinner(game);
+      // Check if current matchup's home team won or if it was the away team
+      if (game.home_team === homeTeam && winner === homeTeam) homeWins++;
+      else if (game.away_team === homeTeam && winner === homeTeam) homeWins++;
+      else if (game.home_team === awayTeam && winner === awayTeam) awayWins++;
+      else if (game.away_team === awayTeam && winner === awayTeam) awayWins++;
+    });
+
+    return { homeWins, awayWins };
+  };
+
+  const handleToggleExpand = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExpanded(!expanded);
   };
 
   const renderGame = (game: H2HGame, index: number) => {
@@ -122,10 +159,14 @@ export function H2HSection({ homeTeam, awayTeam }: H2HSectionProps) {
     );
   };
 
+  const record = getTeamRecord();
+  const homeColors = getNFLTeamColors(homeTeam);
+  const awayColors = getNFLTeamColors(awayTeam);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <MaterialCommunityIcons name="history" size={24} color="#3b82f6" />
+        <MaterialCommunityIcons name="history" size={20} color="#3b82f6" />
         <Text style={[styles.title, { color: theme.colors.onSurface }]}>
           Head-to-Head History
         </Text>
@@ -133,18 +174,85 @@ export function H2HSection({ homeTeam, awayTeam }: H2HSectionProps) {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="small" color={theme.colors.primary} />
         </View>
       ) : games.length === 0 ? (
         <View style={[styles.emptyContainer, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
-          <MaterialCommunityIcons name="information-outline" size={40} color={theme.colors.onSurfaceVariant} />
+          <MaterialCommunityIcons name="information-outline" size={32} color={theme.colors.onSurfaceVariant} />
           <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
             No previous matchups found
           </Text>
         </View>
       ) : (
-        <View style={styles.gamesContainer}>
-          {games.map((game, index) => renderGame(game, index))}
+        <View>
+          {/* Record Summary */}
+          <TouchableOpacity 
+            onPress={handleToggleExpand}
+            activeOpacity={0.7}
+            style={[styles.recordCard, { backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)' }]}
+          >
+            <View style={styles.recordRow}>
+              {/* Home Team */}
+              <View style={styles.recordTeam}>
+                <LinearGradient
+                  colors={[homeColors.primary, homeColors.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.recordCircle}
+                >
+                  <Text style={[
+                    styles.recordInitials,
+                    { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }
+                  ]}>
+                    {getTeamInitials(homeTeam)}
+                  </Text>
+                </LinearGradient>
+                <Text style={[styles.recordNumber, { color: theme.colors.onSurface }]}>
+                  {record.homeWins}
+                </Text>
+              </View>
+
+              <Text style={[styles.recordDash, { color: theme.colors.onSurfaceVariant }]}>-</Text>
+
+              {/* Away Team */}
+              <View style={styles.recordTeam}>
+                <Text style={[styles.recordNumber, { color: theme.colors.onSurface }]}>
+                  {record.awayWins}
+                </Text>
+                <LinearGradient
+                  colors={[awayColors.primary, awayColors.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.recordCircle}
+                >
+                  <Text style={[
+                    styles.recordInitials,
+                    { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }
+                  ]}>
+                    {getTeamInitials(awayTeam)}
+                  </Text>
+                </LinearGradient>
+              </View>
+            </View>
+
+            <View style={styles.expandHint}>
+              <MaterialCommunityIcons 
+                name={expanded ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={theme.colors.onSurfaceVariant} 
+              />
+              <Text style={[styles.expandText, { color: theme.colors.onSurfaceVariant }]}>
+                {expanded ? 'Hide' : 'View'} game history
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Game History */}
+          {expanded && (
+            <View style={styles.gamesContainer}>
+              {games.map((game, index) => renderGame(game, index))}
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -158,16 +266,64 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   loadingContainer: {
-    padding: 40,
+    padding: 20,
     alignItems: 'center',
+  },
+  recordCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  recordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  recordTeam: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  recordCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordInitials: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  recordNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  recordDash: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  expandHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  expandText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   emptyContainer: {
     padding: 32,
@@ -181,6 +337,7 @@ const styles = StyleSheet.create({
   },
   gamesContainer: {
     gap: 12,
+    marginTop: 12,
   },
   gameCard: {
     padding: 16,

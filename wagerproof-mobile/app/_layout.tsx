@@ -1,10 +1,13 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PaperProvider, ActivityIndicator } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider, useThemeContext } from '../contexts/ThemeContext';
 import { SettingsProvider } from '../contexts/SettingsContext';
+import { NFLGameSheetProvider } from '../contexts/NFLGameSheetContext';
 import { OnboardingGuard } from '../components/OnboardingGuard';
+import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 
@@ -43,29 +46,32 @@ function RootNavigator() {
 
   return (
     <OnboardingGuard>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: theme.colors.background },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen 
-          name="(onboarding)" 
-          options={{ 
+      <>
+        <Stack
+          screenOptions={{
             headerShown: false,
-            presentation: 'modal'
-          }} 
-        />
-        <Stack.Screen 
-          name="(modals)" 
-          options={{ 
-            presentation: 'modal',
-            headerShown: false 
-          }} 
-        />
-      </Stack>
+            contentStyle: { backgroundColor: theme.colors.background },
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen 
+            name="(onboarding)" 
+            options={{ 
+              headerShown: false,
+              presentation: 'modal'
+            }} 
+          />
+          <Stack.Screen 
+            name="(modals)" 
+            options={{ 
+              presentation: 'modal',
+              headerShown: false 
+            }} 
+          />
+        </Stack>
+        <NFLGameBottomSheet />
+      </>
     </OnboardingGuard>
   );
 }
@@ -74,13 +80,17 @@ function RootLayoutContent() {
   const { theme } = useThemeContext();
 
   return (
-    <PaperProvider theme={theme}>
-      <SettingsProvider>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
-      </SettingsProvider>
-    </PaperProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PaperProvider theme={theme}>
+        <SettingsProvider>
+          <AuthProvider>
+            <NFLGameSheetProvider>
+              <RootNavigator />
+            </NFLGameSheetProvider>
+          </AuthProvider>
+        </SettingsProvider>
+      </PaperProvider>
+    </GestureHandlerRootView>
   );
 }
 

@@ -11,13 +11,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Animated,
-  Vibration,
   Alert,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import ReanimatedAnimated, { 
   useSharedValue, 
   useAnimatedStyle,
@@ -518,7 +518,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           
           // Haptic feedback every 100ms max (smooth but not overwhelming)
           if (currentTime - lastUpdateTime > 100) {
-            Vibration.vibrate(1);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             lastUpdateTime = currentTime;
           }
           
@@ -771,7 +771,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={100}
+        keyboardVerticalOffset={0}
       >
         {/* Welcome Screen (shows when no messages) */}
         {showWelcome && (

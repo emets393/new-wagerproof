@@ -23,7 +23,7 @@ export function PublicBettingBars({
 }: PublicBettingBarsProps) {
   const theme = useTheme();
 
-  const renderBettingBar = (
+  const renderLeanIndicator = (
     label: string | null,
     title: string,
     icon: string,
@@ -40,92 +40,86 @@ export function PublicBettingBars({
     const isTotal = data.direction !== undefined;
     
     let teamColors = { primary: '#64748b', secondary: '#94a3b8' };
-    if (isHomeTeam) {
+    let bgColor = 'rgba(156, 163, 175, 0.15)';
+    let borderColor = 'rgba(156, 163, 175, 0.3)';
+    
+    if (isTotal) {
+      // Over/Under colors
+      if (data.team.toLowerCase().includes('over')) {
+        teamColors = { primary: '#f97316', secondary: '#fb923c' };
+        bgColor = 'rgba(249, 115, 22, 0.15)';
+        borderColor = 'rgba(249, 115, 22, 0.3)';
+      } else {
+        teamColors = { primary: '#3b82f6', secondary: '#60a5fa' };
+        bgColor = 'rgba(59, 130, 246, 0.15)';
+        borderColor = 'rgba(59, 130, 246, 0.3)';
+      }
+    } else if (isHomeTeam) {
       teamColors = getNFLTeamColors(homeTeam);
+      bgColor = `${teamColors.primary}26`;
+      borderColor = `${teamColors.primary}4D`;
     } else if (isAwayTeam) {
       teamColors = getNFLTeamColors(awayTeam);
+      bgColor = `${teamColors.primary}26`;
+      borderColor = `${teamColors.primary}4D`;
     }
 
-    const percentage = data.percentage;
-    const oppositePercentage = 100 - percentage;
-
     return (
-      <View key={title} style={styles.barSection}>
-        <View style={styles.barHeader}>
-          <MaterialCommunityIcons name={icon as any} size={18} color={iconColor} />
-          <Text style={[styles.barTitle, { color: theme.colors.onSurface }]}>{title}</Text>
+      <View key={title} style={styles.leanSection}>
+        <View style={styles.leanHeader}>
+          <MaterialCommunityIcons name={icon as any} size={16} color={iconColor} />
+          <Text style={[styles.leanTitle, { color: theme.colors.onSurfaceVariant }]}>{title}</Text>
         </View>
 
-        <View style={[styles.barContainer, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
-          {/* Team/Side with higher percentage */}
-          <View style={[styles.barSide, { alignItems: 'flex-start' }]}>
-            {!isTotal && (
-              <View style={styles.teamIndicator}>
-                <LinearGradient
-                  colors={[teamColors.primary, teamColors.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.teamCircleSmall}
-                >
-                  <Text style={[
-                    styles.teamInitialsSmall,
-                    { color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }
-                  ]}>
-                    {getTeamInitials(data.team)}
-                  </Text>
-                </LinearGradient>
-              </View>
-            )}
-            <Text style={[styles.percentageText, { color: theme.colors.onSurface }]}>
-              {percentage.toFixed(0)}%
-            </Text>
-          </View>
-
-          {/* Progress bar */}
-          <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { backgroundColor: 'rgba(100, 116, 139, 0.2)' }]}>
-              <LinearGradient
-                colors={[teamColors.primary, teamColors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.progressFill, { width: `${percentage}%` }]}
-              />
-            </View>
-            <Text style={[styles.barLabel, { color: theme.colors.onSurfaceVariant }]}>
-              {isTotal ? data.team : data.team}
-            </Text>
-          </View>
-
-          {/* Opposite side */}
-          <View style={[styles.barSide, { alignItems: 'flex-end' }]}>
-            <Text style={[styles.percentageTextSecondary, { color: theme.colors.onSurfaceVariant }]}>
-              {oppositePercentage.toFixed(0)}%
-            </Text>
-          </View>
-        </View>
-
-        {/* Type indicator */}
-        <View style={styles.typeIndicator}>
-          <Text style={[styles.typeText, { color: theme.colors.onSurfaceVariant }]}>
-            {data.isSharp ? '🟢 Sharp Money' : '👥 Public'}
+        <View style={[styles.leanPill, { backgroundColor: bgColor, borderColor: borderColor }]}>
+          {isTotal ? (
+            <MaterialCommunityIcons 
+              name={data.team.toLowerCase().includes('over') ? 'chevron-up' : 'chevron-down'} 
+              size={24} 
+              color={data.team.toLowerCase().includes('over') ? '#f97316' : '#3b82f6'} 
+            />
+          ) : (
+            <LinearGradient
+              colors={[teamColors.primary, teamColors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.leanCircle}
+            >
+              <Text style={[
+                styles.leanInitials,
+                { color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }
+              ]}>
+                {getTeamInitials(data.team)}
+              </Text>
+            </LinearGradient>
+          )}
+          <Text style={[styles.leanText, { color: theme.colors.onSurface }]}>
+            Leaning: <Text style={{ fontWeight: '700' }}>{data.team}</Text>
           </Text>
+          {data.isSharp && (
+            <View style={styles.sharpBadge}>
+              <Text style={styles.sharpText}>💎</Text>
+            </View>
+          )}
         </View>
       </View>
     );
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: 'rgba(100, 116, 139, 0.1)' }]}>
+    <View style={[styles.container, { backgroundColor: 'rgba(100, 116, 139, 0.1)', borderColor: 'rgba(100, 116, 139, 0.3)' }]}>
       <View style={styles.header}>
-        <MaterialCommunityIcons name="account-group" size={24} color="#64748b" />
+        <MaterialCommunityIcons name="account-group" size={20} color="#22c55e" />
         <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-          Public Betting Distribution
+          Public Lean
         </Text>
       </View>
 
-      {renderBettingBar(mlSplitsLabel, 'Moneyline', 'trending-up', '#3b82f6')}
-      {renderBettingBar(spreadSplitsLabel, 'Spread', 'target', '#22c55e')}
-      {renderBettingBar(totalSplitsLabel, 'Total', 'chart-bar', '#f97316')}
+      <View style={styles.leansContainer}>
+        {renderLeanIndicator(mlSplitsLabel, 'Moneyline', 'trending-up', '#3b82f6')}
+        {renderLeanIndicator(spreadSplitsLabel, 'Spread', 'target', '#22c55e')}
+        {renderLeanIndicator(totalSplitsLabel, 'Total', 'chart-bar', '#f97316')}
+      </View>
     </View>
   );
 }
@@ -133,89 +127,69 @@ export function PublicBettingBars({
 const styles = StyleSheet.create({
   container: {
     borderRadius: 16,
+    borderWidth: 1,
     padding: 16,
     marginVertical: 12,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
+    gap: 8,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  barSection: {
-    marginBottom: 20,
+  leansContainer: {
+    gap: 12,
   },
-  barHeader: {
+  leanSection: {
+    gap: 8,
+  },
+  leanHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: 6,
   },
-  barTitle: {
-    fontSize: 15,
+  leanTitle: {
+    fontSize: 13,
     fontWeight: '600',
   },
-  barContainer: {
+  leanPill: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderRadius: 12,
-    gap: 12,
+    borderWidth: 1,
+    gap: 10,
   },
-  barSide: {
-    minWidth: 50,
-  },
-  teamIndicator: {
-    marginBottom: 4,
-  },
-  teamCircleSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  leanCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  teamInitialsSmall: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  percentageText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  percentageTextSecondary: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  progressBarContainer: {
-    flex: 1,
-    gap: 4,
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  barLabel: {
+  leanInitials: {
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: 'bold',
   },
-  typeIndicator: {
-    marginTop: 6,
-    alignItems: 'flex-start',
-  },
-  typeText: {
-    fontSize: 11,
+  leanText: {
+    fontSize: 14,
     fontWeight: '500',
+    flex: 1,
+  },
+  sharpBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  sharpText: {
+    fontSize: 12,
   },
 });
 

@@ -69,8 +69,23 @@ export const formatCompactDate = (dateString: string | null | undefined): string
   if (!dateString) return 'TBD';
   
   try {
-    // Handle if it's already a Date object
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    let date: Date;
+    
+    if (typeof dateString === 'string') {
+      // Parse date string manually to avoid timezone issues
+      // Dates from DB are in YYYY-MM-DD format
+      const parts = dateString.split('T')[0].split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // months are 0-indexed
+        const day = parseInt(parts[2], 10);
+        date = new Date(year, month, day);
+      } else {
+        date = new Date(dateString);
+      }
+    } else {
+      date = dateString;
+    }
     
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
