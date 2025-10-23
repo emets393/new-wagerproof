@@ -25,13 +25,13 @@ export function CompetitorComparison() {
       </Text>
       
       {/* WagerProof */}
-      <View style={[styles.card, { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)' }]}>
+      <View style={[styles.card, { backgroundColor: 'rgba(34, 197, 94, 0.5)', borderColor: 'rgba(34, 197, 94, 0.8)' }]}>
         <View style={styles.cardHeader}>
-          <View style={[styles.icon, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}>
-            <MaterialCommunityIcons name="check-circle" size={32} color="#22c55e" />
+          <View style={styles.headerWithIcon}>
+            <MaterialCommunityIcons name="check-circle" size={28} color="#22c55e" />
+            <Text style={[styles.cardTitle, { color: '#fff' }]}>WagerProof</Text>
           </View>
-          <Text style={[styles.cardTitle, { color: '#22c55e' }]}>WagerProof</Text>
-          <Text style={styles.cardSubtitle}>Professional betting platform</Text>
+          <Text style={styles.cardSubtitle}>Professional data platform</Text>
         </View>
         
         <View style={styles.featureSection}>
@@ -55,12 +55,12 @@ export function CompetitorComparison() {
       </View>
       
       {/* Generic AI Chatbots */}
-      <View style={[styles.card, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+      <View style={[styles.card, { backgroundColor: 'rgba(239, 68, 68, 0.5)', borderColor: 'rgba(239, 68, 68, 0.8)' }]}>
         <View style={styles.cardHeader}>
-          <View style={[styles.icon, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
-            <MaterialCommunityIcons name="alert-circle" size={32} color="#ef4444" />
+          <View style={styles.headerWithIcon}>
+            <MaterialCommunityIcons name="alert-circle" size={28} color="#ef4444" />
+            <Text style={[styles.cardTitle, { color: '#fff' }]}>Generic AI Chatbots</Text>
           </View>
-          <Text style={[styles.cardTitle, { color: '#ef4444' }]}>Generic AI Chatbots</Text>
           <Text style={styles.cardSubtitle}>ChatGPT, Claude, etc.</Text>
         </View>
         
@@ -85,12 +85,12 @@ export function CompetitorComparison() {
       </View>
       
       {/* Traditional Sportsbooks */}
-      <View style={[styles.card, { backgroundColor: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.3)' }]}>
+      <View style={[styles.card, { backgroundColor: 'rgba(234, 179, 8, 0.5)', borderColor: 'rgba(234, 179, 8, 0.8)' }]}>
         <View style={styles.cardHeader}>
-          <View style={[styles.icon, { backgroundColor: 'rgba(234, 179, 8, 0.2)' }]}>
-            <MaterialCommunityIcons name="alert-circle" size={32} color="#eab308" />
+          <View style={styles.headerWithIcon}>
+            <MaterialCommunityIcons name="alert-circle" size={28} color="#eab308" />
+            <Text style={[styles.cardTitle, { color: '#fff' }]}>Traditional Sportsbooks</Text>
           </View>
-          <Text style={[styles.cardTitle, { color: '#eab308' }]}>Traditional Sportsbooks</Text>
           <Text style={styles.cardSubtitle}>DraftKings, FanDuel, etc.</Text>
         </View>
         
@@ -147,6 +147,11 @@ const styles = StyleSheet.create({
   cardHeader: {
     alignItems: 'center',
     marginBottom: 16,
+  },
+  headerWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   icon: {
     width: 64,

@@ -1,26 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withTiming,
+  withSequence
+} from 'react-native-reanimated';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
-type FeatureType = 'edge-finder' | 'ai-simulator';
+type FeatureType = 'edge-finder' | 'public-lean';
 
 export function FeatureSpotlight() {
   const { nextStep } = useOnboarding();
   const theme = useTheme();
   const [activeFeature, setActiveFeature] = useState<FeatureType>('edge-finder');
+  const fadeAnim = useSharedValue(1);
 
   const handleToggleFeature = (feature: FeatureType) => {
+    if (feature === activeFeature) return;
+    
     Vibration.vibrate([0, 10, 10]);
-    setActiveFeature(feature);
+    
+    // Animate fade out, change content, then fade in
+    fadeAnim.value = withSequence(
+      withTiming(0, { duration: 150 }),
+      withTiming(1, { duration: 200 })
+    );
+    
+    // Update the feature after fade out starts
+    setTimeout(() => {
+      setActiveFeature(feature);
+    }, 150);
   };
 
   const handleContinue = () => {
     Vibration.vibrate([0, 15, 10, 15]);
     nextStep();
   };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+  }));
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -29,100 +52,125 @@ export function FeatureSpotlight() {
       </Text>
       
       <Text style={[styles.description, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-        Use Edge Finder to spot model vs. market discrepancies. Use AI Game Simulator for matchup outcomes and probabilities.
+        Use Edge Finder to spot value vs. the market. Use Public Lean to see where money is actually flowing.
       </Text>
       
       {/* Feature Toggle */}
       <View style={styles.toggleContainer}>
         <Button
-          variant={activeFeature === 'edge-finder' ? 'primary' : 'ghost'}
+          variant="glass"
+          selected={activeFeature === 'edge-finder'}
           onPress={() => handleToggleFeature('edge-finder')}
           style={styles.toggleButton}
         >
           Edge Finder
         </Button>
         <Button
-          variant={activeFeature === 'ai-simulator' ? 'primary' : 'ghost'}
-          onPress={() => handleToggleFeature('ai-simulator')}
+          variant="glass"
+          selected={activeFeature === 'public-lean'}
+          onPress={() => handleToggleFeature('public-lean')}
           style={styles.toggleButton}
         >
-          AI Simulator
+          Public Lean
         </Button>
       </View>
       
       {/* Feature Demo */}
-      {activeFeature === 'edge-finder' ? (
-        <View style={[styles.demoCard, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
-          <View style={styles.demoHeader}>
-            <MaterialCommunityIcons name="target" size={20} color="#22c55e" />
-            <Text style={[styles.demoTitle, { color: theme.colors.onBackground }]}>
-              Edge Finder
-            </Text>
-          </View>
-          
-          <View style={styles.gameHeader}>
-            <View style={styles.team}>
-              <View style={[styles.teamCircle, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
-                <Text style={styles.teamText}>KC</Text>
+      <Animated.View style={[animatedStyle]}>
+        {activeFeature === 'edge-finder' ? (
+          <View style={[styles.demoCard, { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderColor: 'rgba(34, 197, 94, 0.3)', borderWidth: 1 }]}>
+            <View style={styles.demoHeader}>
+              <MaterialCommunityIcons name="target" size={20} color="#22c55e" />
+              <Text style={[styles.demoTitle, { color: theme.colors.onBackground }]}>
+                Edge Finder
+              </Text>
+            </View>
+            
+            <View style={styles.gameHeader}>
+              <View style={styles.team}>
+                <View style={[styles.teamCircle, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
+                  <Text style={styles.teamText}>KC</Text>
+                </View>
+                <Text style={styles.teamName}>Kansas City</Text>
               </View>
-              <Text style={styles.teamName}>Kansas City</Text>
-            </View>
-            <Text style={styles.vs}>@</Text>
-            <View style={styles.team}>
-              <View style={[styles.teamCircle, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
-                <Text style={styles.teamText}>BUF</Text>
-              </View>
-              <Text style={styles.teamName}>Buffalo</Text>
-            </View>
-          </View>
-          
-          <View style={styles.edgeContainer}>
-            <View style={[styles.edgeBox, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}>
-              <Text style={styles.edgeLabel}>Spread Edge: 1.5pt</Text>
-              <Text style={styles.edgeDetail}>Market: KC -3.5</Text>
-              <Text style={styles.edgeDetail}>Model: KC -2.0</Text>
-            </View>
-            <View style={[styles.edgeBox, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
-              <Text style={styles.edgeLabel}>Total Edge: 2.7pt</Text>
-              <Text style={styles.edgeDetail}>Market: 51.5</Text>
-              <Text style={styles.edgeDetail}>Model: 54.2</Text>
-            </View>
-          </View>
-          
-          <View style={styles.benefits}>
-            <MaterialCommunityIcons name="lightning-bolt" size={16} color="#fbbf24" />
-            <Text style={styles.benefitText}>Real-time model calculations</Text>
-          </View>
-        </View>
-      ) : (
-        <View style={[styles.demoCard, { backgroundColor: 'rgba(168, 85, 247, 0.1)' }]}>
-          <View style={styles.demoHeader}>
-            <MaterialCommunityIcons name="brain" size={20} color="#a855f7" />
-            <Text style={[styles.demoTitle, { color: theme.colors.onBackground }]}>
-              AI Game Simulator
-            </Text>
-          </View>
-          
-          <View style={styles.consensusContainer}>
-            <View style={styles.consensusTeams}>
-              <View style={[styles.teamCircle, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
-                <Text style={styles.teamText}>KC</Text>
-              </View>
-              <MaterialCommunityIcons name="trophy" size={24} color="#fbbf24" />
-              <View style={[styles.teamCircle, { backgroundColor: 'rgba(59, 130, 246, 0.2)', opacity: 0.5 }]}>
-                <Text style={styles.teamText}>BUF</Text>
+              <Text style={styles.vs}>@</Text>
+              <View style={styles.team}>
+                <View style={[styles.teamCircle, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+                  <Text style={styles.teamText}>BUF</Text>
+                </View>
+                <Text style={styles.teamName}>Buffalo</Text>
               </View>
             </View>
-            <Text style={[styles.consensusTitle, { color: '#a855f7' }]}>Kansas City Wins</Text>
-            <Text style={styles.consensusDetail}>67% Confidence • 3 Models</Text>
+            
+            <View style={styles.edgeContainer}>
+              <View style={[styles.edgeBox, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}>
+                <Text style={styles.edgeLabel}>Spread Edge: 1.5pt</Text>
+                <Text style={styles.edgeDetail}>Market: KC -3.5</Text>
+                <Text style={styles.edgeDetail}>Model: KC -2.0</Text>
+              </View>
+              <View style={[styles.edgeBox, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+                <Text style={styles.edgeLabel}>Total Edge: 2.7pt</Text>
+                <Text style={styles.edgeDetail}>Market: 51.5</Text>
+                <Text style={styles.edgeDetail}>Model: 54.2</Text>
+              </View>
+            </View>
+            
+            <View style={styles.benefits}>
+              <MaterialCommunityIcons name="lightning-bolt" size={16} color="#fbbf24" />
+              <Text style={styles.benefitText}>Real-time model calculations</Text>
+            </View>
           </View>
-          
-          <View style={styles.benefits}>
-            <MaterialCommunityIcons name="brain" size={16} color="#a855f7" />
-            <Text style={styles.benefitText}>Multi-model consensus predictions</Text>
+        ) : (
+          <View style={[styles.demoCard, { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.3)', borderWidth: 1 }]}>
+            <View style={styles.demoHeader}>
+              <MaterialCommunityIcons name="cash-multiple" size={20} color="#3b82f6" />
+              <Text style={[styles.demoTitle, { color: theme.colors.onBackground }]}>
+                Public Lean
+              </Text>
+            </View>
+            
+            <View style={styles.gameHeader}>
+              <View style={styles.team}>
+                <View style={[styles.teamCircle, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
+                  <Text style={styles.teamText}>KC</Text>
+                </View>
+                <Text style={styles.teamName}>Kansas City</Text>
+              </View>
+              <Text style={styles.vs}>@</Text>
+              <View style={styles.team}>
+                <View style={[styles.teamCircle, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+                  <Text style={styles.teamText}>BUF</Text>
+                </View>
+                <Text style={styles.teamName}>Buffalo</Text>
+              </View>
+            </View>
+            
+            <View style={styles.leanContainer}>
+              <View style={[styles.leanBox, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+                <View style={styles.leanHeader}>
+                  <MaterialCommunityIcons name="account-multiple" size={14} color="#3b82f6" />
+                  <Text style={[styles.leanLabel, { color: '#3b82f6' }]}>Public Lean</Text>
+                </View>
+                <Text style={styles.leanPercentage}>67%</Text>
+                <Text style={styles.leanDetail}>Betting on Buffalo +3.5</Text>
+              </View>
+              <View style={[styles.leanBox, { backgroundColor: 'rgba(168, 85, 247, 0.2)' }]}>
+                <View style={styles.leanHeader}>
+                  <MaterialCommunityIcons name="briefcase" size={14} color="#a855f7" />
+                  <Text style={[styles.leanLabel, { color: '#a855f7' }]}>Big Money</Text>
+                </View>
+                <Text style={styles.leanPercentage}>72%</Text>
+                <Text style={styles.leanDetail}>Betting on Kansas City -3.5</Text>
+              </View>
+            </View>
+            
+            <View style={styles.benefits}>
+              <MaterialCommunityIcons name="chart-line" size={16} color="#3b82f6" />
+              <Text style={styles.benefitText}>Public vs. sharp money insights</Text>
+            </View>
           </View>
-        </View>
-      )}
+        )}
+      </Animated.View>
       
       <Button onPress={handleContinue} fullWidth variant="glass">
         Continue
@@ -258,6 +306,38 @@ const styles = StyleSheet.create({
   benefitText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 12,
+  },
+  leanContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  leanBox: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  leanHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  leanLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  leanPercentage: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  leanDetail: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 11,
   },
 });
 

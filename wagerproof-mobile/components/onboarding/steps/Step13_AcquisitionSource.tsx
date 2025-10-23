@@ -42,7 +42,8 @@ export function AcquisitionSource() {
           <Button
             key={source}
             onPress={() => handleSelect(source)}
-            variant={selectedSource === source ? 'primary' : 'outline'}
+            variant="glass"
+            selected={selectedSource === source}
             style={styles.sourceButton}
           >
             {source}
@@ -54,6 +55,7 @@ export function AcquisitionSource() {
         onPress={handleNext} 
         disabled={!selectedSource} 
         fullWidth
+        variant="glass"
       >
         Continue
       </Button>

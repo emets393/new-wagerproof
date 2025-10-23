@@ -14,13 +14,13 @@ import { FeatureSpotlight } from '../../components/onboarding/steps/Step6_Featur
 import { CompetitorComparison } from '../../components/onboarding/steps/Step7_CompetitorComparison';
 import { EmailOptIn } from '../../components/onboarding/steps/Step8_EmailOptIn';
 import { SocialProof } from '../../components/onboarding/steps/Step9_SocialProof';
+import { DiscordCommunity } from '../../components/onboarding/steps/Step10_DiscordCommunity';
 import { ValueClaim } from '../../components/onboarding/steps/Step10_ValueClaim';
-import { MethodologyClaim1 } from '../../components/onboarding/steps/Step11_Methodology1';
 import { MethodologyClaim2 } from '../../components/onboarding/steps/Step12_Methodology2';
 import { AcquisitionSource } from '../../components/onboarding/steps/Step13_AcquisitionSource';
 import { DataTransparency } from '../../components/onboarding/steps/Step14_DataTransparency';
 import { EarlyAccess } from '../../components/onboarding/steps/Step15_EarlyAccess';
-import { Paywall } from '../../components/onboarding/steps/Step16_Paywall';
+import { Paywall, PaywallProvider } from '../../components/onboarding/steps/Step16_Paywall';
 
 const { width } = Dimensions.get('window');
 const TOTAL_STEPS = 16;
@@ -31,13 +31,13 @@ const stepComponents = {
   3: AgeConfirmation,
   4: BettorTypeSelection,
   5: PrimaryGoalSelection,
-  6: FeatureSpotlight,
-  7: CompetitorComparison,
-  8: EmailOptIn,
-  9: SocialProof,
-  10: ValueClaim,
-  11: MethodologyClaim1,
-  12: MethodologyClaim2,
+  6: MethodologyClaim2,
+  7: FeatureSpotlight,
+  8: CompetitorComparison,
+  9: EmailOptIn,
+  10: SocialProof,
+  11: DiscordCommunity,
+  12: ValueClaim,
   13: AcquisitionSource,
   14: DataTransparency,
   15: EarlyAccess,
@@ -118,12 +118,14 @@ function OnboardingContent() {
       {/* Force dark status bar */}
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
-      {/* Progress Indicator with Back Button */}
-      <ProgressIndicator 
-        currentStep={gradientStep} 
-        totalSteps={TOTAL_STEPS}
-        onBack={prevStep}
-      />
+      {/* Progress Indicator with Back Button - Only show if not on Paywall */}
+      {displayStep !== 16 && (
+        <ProgressIndicator 
+          currentStep={gradientStep} 
+          totalSteps={TOTAL_STEPS}
+          onBack={prevStep}
+        />
+      )}
       
       {/* Step Content */}
       <Animated.View
@@ -135,13 +137,27 @@ function OnboardingContent() {
           },
         ]}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
-          <CurrentStepComponent />
-        </ScrollView>
+        {displayStep === 16 ? (
+          <PaywallProvider>
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <CurrentStepComponent />
+            </ScrollView>
+            {/* Paywall Bottom CTA - Render outside ScrollView but inside Provider */}
+            <Paywall.BottomCTA />
+          </PaywallProvider>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <CurrentStepComponent />
+          </ScrollView>
+        )}
       </Animated.View>
     </View>
   );

@@ -1,15 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Vibration } from 'react-native';
+import { View, Text, StyleSheet, Vibration, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle,
-  useFrameCallback,
-  withTiming
-} from 'react-native-reanimated';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 const testimonials = [
   {
@@ -43,31 +39,6 @@ export function SocialProof() {
   const theme = useTheme();
   const [childrenWidth, setChildrenWidth] = useState(0);
   
-  const offset = useSharedValue(0);
-  const duration = 20000; // 20 seconds for full scroll
-  
-  // Duplicate testimonials for seamless loop
-  const duplicatedTestimonials = [...testimonials, ...testimonials];
-  
-  // Marquee animation
-  useFrameCallback((frameInfo) => {
-    if (childrenWidth > 0) {
-      const timeDiff = frameInfo.timeSincePreviousFrame || 0;
-      const distancePerFrame = (childrenWidth / 2 / duration) * timeDiff;
-      
-      offset.value -= distancePerFrame;
-      
-      // Reset when first set completes
-      if (Math.abs(offset.value) >= childrenWidth / 2) {
-        offset.value = 0;
-      }
-    }
-  });
-  
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: offset.value }],
-  }));
-
   const renderTestimonial = (item: typeof testimonials[0], index: number) => (
     <View 
       key={`${item.name}-${index}`} 
@@ -105,34 +76,28 @@ export function SocialProof() {
         See community results, discussions, and model transparency.
       </Text>
       
-      <View style={styles.marqueeContainer}>
-        <Animated.View 
-          style={[styles.marqueeContent, animatedStyle]}
+      <View style={styles.scrollViewWrapper}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.marqueeContent}
+          scrollEventThrottle={16}
           onLayout={(e) => {
             if (childrenWidth === 0) {
               setChildrenWidth(e.nativeEvent.layout.width);
             }
           }}
         >
-          {duplicatedTestimonials.map((item, index) => renderTestimonial(item, index))}
-        </Animated.View>
+          {testimonials.map((item, index) => renderTestimonial(item, index))}
+          {testimonials.map((item, index) => renderTestimonial(item, index))}
+        </ScrollView>
       </View>
       
-      <View style={[styles.discordBadge, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
-        <MaterialCommunityIcons name="message-text" size={24} color="#5865F2" />
-        <View style={styles.discordText}>
-          <Text style={[styles.discordTitle, { color: theme.colors.onBackground }]}>
-            Join our Discord community
-          </Text>
-          <Text style={styles.discordSubtitle}>
-            Connect with fellow data-driven bettors
-          </Text>
-        </View>
+      <View style={{ paddingHorizontal: 24, paddingBottom: 24, paddingTop: 12 }}>
+        <Button onPress={handleContinue} fullWidth variant="glass">
+          Continue
+        </Button>
       </View>
-      
-      <Button onPress={handleContinue} fullWidth variant="glass">
-        Continue
-      </Button>
     </View>
   );
 }
@@ -140,37 +105,47 @@ export function SocialProof() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 0,
     paddingTop: 80,
-    paddingBottom: 24,
+    paddingBottom: 0,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 8,
     textAlign: 'center',
+    paddingHorizontal: 24,
   },
   subtitle: {
     fontSize: 14,
-    marginBottom: 20,
+    marginBottom: 8,
     textAlign: 'center',
+    paddingHorizontal: 24,
   },
   marqueeContainer: {
     height: 130,
-    marginBottom: 20,
+    marginBottom: 0,
     overflow: 'hidden',
   },
   marqueeContent: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 6,
+    paddingHorizontal: 0,
+    marginBottom: 0,
+  },
+  scrollViewWrapper: {
+    height: 130,
+    marginBottom: 0,
   },
   testimonialCard: {
-    width: 260,
-    height: 120,
+    width: screenWidth - 140,
+    height: 130,
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: 0,
+    marginHorizontal: 8,
   },
   testimonialHeader: {
     flexDirection: 'row',
@@ -196,11 +171,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 14,
+    padding: 18,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    marginBottom: 20,
+    marginBottom: 8,
+    marginHorizontal: 24,
+    marginTop: 8,
   },
   discordText: {
     flex: 1,
