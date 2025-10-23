@@ -80,7 +80,7 @@ export default function LoginScreen() {
           useNativeDriver: true,
         }).start();
       });
-    }, 3500); // Show each text for 3.5 seconds before transitioning
+    }, 4500); // Show each text for 4.5 seconds before transitioning
 
     return () => clearInterval(interval);
   }, [slideAnim]);
