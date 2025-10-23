@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -9,6 +9,7 @@ export function PersonalizationIntro() {
   const theme = useTheme();
 
   const handleContinue = () => {
+    Vibration.vibrate([0, 10, 10]);
     console.log('Continue button clicked!');
     nextStep();
   };
@@ -27,7 +28,7 @@ export function PersonalizationIntro() {
         Answer a few quick questions so we can tune your dashboard and picks.
       </Text>
       
-      <Button onPress={handleContinue} fullWidth>
+      <Button onPress={handleContinue} fullWidth variant="glass">
         Continue
       </Button>
     </View>
@@ -37,9 +38,10 @@ export function PersonalizationIntro() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 40,

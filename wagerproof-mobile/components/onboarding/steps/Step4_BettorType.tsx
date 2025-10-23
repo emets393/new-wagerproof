@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
@@ -19,11 +19,13 @@ export function BettorTypeSelection() {
   const [selectedType, setSelectedType] = useState<BettorType | null>(null);
 
   const handleSelect = (type: BettorType) => {
+    Vibration.vibrate([0, 10, 10]);
     setSelectedType(type);
   };
 
   const handleNext = () => {
     if (selectedType) {
+      Vibration.vibrate([0, 15, 10, 15]);
       updateOnboardingData({ bettorType: selectedType });
       nextStep();
     }
@@ -57,6 +59,7 @@ export function BettorTypeSelection() {
         onPress={handleNext} 
         disabled={!selectedType} 
         fullWidth
+        variant="glass"
       >
         Next
       </Button>
@@ -66,7 +69,9 @@ export function BettorTypeSelection() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
     alignItems: 'center',
   },
   title: {

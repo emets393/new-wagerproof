@@ -1,7 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle,
+  useFrameCallback,
+  withTiming
+} from 'react-native-reanimated';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
@@ -35,17 +41,59 @@ const testimonials = [
 export function SocialProof() {
   const { nextStep } = useOnboarding();
   const theme = useTheme();
+  const [childrenWidth, setChildrenWidth] = useState(0);
+  
+  const offset = useSharedValue(0);
+  const duration = 20000; // 20 seconds for full scroll
+  
+  // Duplicate testimonials for seamless loop
+  const duplicatedTestimonials = [...testimonials, ...testimonials];
+  
+  // Marquee animation
+  useFrameCallback((frameInfo) => {
+    if (childrenWidth > 0) {
+      const timeDiff = frameInfo.timeSincePreviousFrame || 0;
+      const distancePerFrame = (childrenWidth / 2 / duration) * timeDiff;
+      
+      offset.value -= distancePerFrame;
+      
+      // Reset when first set completes
+      if (Math.abs(offset.value) >= childrenWidth / 2) {
+        offset.value = 0;
+      }
+    }
+  });
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: offset.value }],
+  }));
 
-  const renderTestimonial = ({ item }: { item: typeof testimonials[0] }) => (
-    <View style={[styles.testimonialCard, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
-      <Text style={[styles.testimonialName, { color: theme.colors.onBackground }]}>
-        {item.name}
-      </Text>
-      <Text style={[styles.testimonialBody, { color: 'rgba(255, 255, 255, 0.9)' }]}>
+  const renderTestimonial = (item: typeof testimonials[0], index: number) => (
+    <View 
+      key={`${item.name}-${index}`} 
+      style={[styles.testimonialCard, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
+    >
+      <View style={styles.testimonialHeader}>
+        <MaterialCommunityIcons name="account-circle" size={20} color="rgba(255, 255, 255, 0.7)" />
+        <Text style={[styles.testimonialName, { color: theme.colors.onBackground }]}>
+          {item.name}
+        </Text>
+        <View style={styles.stars}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <MaterialCommunityIcons key={star} name="star" size={12} color="#FFD700" />
+          ))}
+        </View>
+      </View>
+      <Text style={[styles.testimonialBody, { color: 'rgba(255, 255, 255, 0.85)' }]}>
         "{item.body}"
       </Text>
     </View>
   );
+
+  const handleContinue = () => {
+    Vibration.vibrate([0, 15, 10, 15]);
+    nextStep();
+  };
 
   return (
     <View style={styles.container}>
@@ -57,21 +105,24 @@ export function SocialProof() {
         See community results, discussions, and model transparency.
       </Text>
       
-      <FlatList
-        data={testimonials}
-        renderItem={renderTestimonial}
-        keyExtractor={(item) => item.name}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        style={styles.list}
-      />
+      <View style={styles.marqueeContainer}>
+        <Animated.View 
+          style={[styles.marqueeContent, animatedStyle]}
+          onLayout={(e) => {
+            if (childrenWidth === 0) {
+              setChildrenWidth(e.nativeEvent.layout.width);
+            }
+          }}
+        >
+          {duplicatedTestimonials.map((item, index) => renderTestimonial(item, index))}
+        </Animated.View>
+      </View>
       
       <View style={[styles.discordBadge, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
         <MaterialCommunityIcons name="message-text" size={24} color="#5865F2" />
         <View style={styles.discordText}>
           <Text style={[styles.discordTitle, { color: theme.colors.onBackground }]}>
-            All members get exclusive access to our Discord community
+            Join our Discord community
           </Text>
           <Text style={styles.discordSubtitle}>
             Connect with fellow data-driven bettors
@@ -79,7 +130,7 @@ export function SocialProof() {
         </View>
       </View>
       
-      <Button onPress={nextStep} fullWidth>
+      <Button onPress={handleContinue} fullWidth variant="glass">
         Continue
       </Button>
     </View>
@@ -89,7 +140,9 @@ export function SocialProof() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 28,
@@ -99,52 +152,66 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    marginBottom: 24,
+    marginBottom: 20,
     textAlign: 'center',
   },
-  list: {
-    marginBottom: 24,
+  marqueeContainer: {
+    height: 130,
+    marginBottom: 20,
+    overflow: 'hidden',
   },
-  listContent: {
+  marqueeContent: {
+    flexDirection: 'row',
     gap: 12,
-    paddingHorizontal: 4,
   },
   testimonialCard: {
-    width: 280,
+    width: 260,
+    height: 120,
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  testimonialName: {
-    fontSize: 16,
-    fontWeight: '600',
+  testimonialHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 8,
   },
-  testimonialBody: {
+  testimonialName: {
     fontSize: 14,
-    lineHeight: 20,
+    fontWeight: '600',
+    flex: 1,
+  },
+  stars: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  testimonialBody: {
+    fontSize: 12,
+    lineHeight: 17,
+    flex: 1,
   },
   discordBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    padding: 16,
+    gap: 12,
+    padding: 14,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   discordText: {
     flex: 1,
   },
   discordTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   discordSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: 'rgba(255, 255, 255, 0.7)',
   },
 });

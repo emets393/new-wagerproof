@@ -16,11 +16,16 @@ export function Card({ children, onPress, selected = false, style }: CardProps) 
     styles.card,
     {
       backgroundColor: selected 
-        ? 'rgba(34, 197, 94, 0.2)' // green-500/20
+        ? 'rgba(255, 255, 255, 0.25)' // Brighter glassmorphism when selected
         : 'rgba(255, 255, 255, 0.1)',
       borderColor: selected 
-        ? theme.colors.primary 
+        ? 'rgba(255, 255, 255, 0.5)' // Brighter border when selected
         : 'rgba(255, 255, 255, 0.2)',
+      shadowColor: selected ? '#fff' : 'transparent',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: selected ? 0.3 : 0,
+      shadowRadius: selected ? 8 : 0,
+      elevation: selected ? 4 : 0,
     },
     style,
   ];

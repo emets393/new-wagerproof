@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -20,6 +20,7 @@ export function SportsSelection() {
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
 
   const handleToggleSport = (sport: string) => {
+    Vibration.vibrate([0, 10, 10]);
     setSelectedSports((prev) =>
       prev.includes(sport)
         ? prev.filter((s) => s !== sport)
@@ -28,6 +29,7 @@ export function SportsSelection() {
   };
 
   const handleNext = () => {
+    Vibration.vibrate([0, 15, 10, 15]);
     updateOnboardingData({ favoriteSports: selectedSports });
     nextStep();
   };
@@ -43,7 +45,8 @@ export function SportsSelection() {
           <Button
             key={sport}
             onPress={() => handleToggleSport(sport)}
-            variant={selectedSports.includes(sport) ? 'primary' : 'outline'}
+            variant="glass"
+            selected={selectedSports.includes(sport)}
             style={styles.sportButton}
           >
             {sport}
@@ -55,7 +58,7 @@ export function SportsSelection() {
         You can change this later in Settings.
       </Text>
       
-      <Button onPress={handleNext} fullWidth>
+      <Button onPress={handleNext} fullWidth variant="glass">
         Next
       </Button>
     </ScrollView>
@@ -64,7 +67,9 @@ export function SportsSelection() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
     alignItems: 'center',
   },
   title: {

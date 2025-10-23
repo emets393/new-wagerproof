@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, Vibration } from 'react-native';
 import { useTheme, ActivityIndicator } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { Button } from '../../ui/Button';
@@ -14,6 +14,7 @@ export function Paywall() {
   const handleContinue = async () => {
     if (isSubmitting) return; // Prevent double submission
     
+    Vibration.vibrate([0, 15, 10, 15]);
     setIsSubmitting(true);
     try {
       console.log('Starting onboarding completion...');
@@ -58,7 +59,7 @@ export function Paywall() {
         Early access applies to your account. Enjoy WagerProof and share with a friend!
       </Text>
       
-      <Button onPress={handleContinue} fullWidth disabled={isSubmitting}>
+      <Button onPress={handleContinue} fullWidth disabled={isSubmitting} variant="glass">
         {isSubmitting ? (
           <>
             <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
@@ -75,8 +76,9 @@ export function Paywall() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 32,

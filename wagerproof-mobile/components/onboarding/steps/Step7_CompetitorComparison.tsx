@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../ui/Button';
@@ -8,6 +8,11 @@ import { useOnboarding } from '../../../contexts/OnboardingContext';
 export function CompetitorComparison() {
   const { nextStep } = useOnboarding();
   const theme = useTheme();
+
+  const handleContinue = () => {
+    Vibration.vibrate([0, 15, 10, 15]);
+    nextStep();
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -109,7 +114,7 @@ export function CompetitorComparison() {
         </View>
       </View>
       
-      <Button onPress={nextStep} fullWidth>
+      <Button onPress={handleContinue} fullWidth variant="glass">
         I'm Ready to Win
       </Button>
     </ScrollView>
@@ -118,7 +123,9 @@ export function CompetitorComparison() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 28,

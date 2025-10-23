@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -19,11 +19,13 @@ export function AcquisitionSource() {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
 
   const handleSelect = (source: string) => {
+    Vibration.vibrate([0, 10, 10]);
     setSelectedSource(source);
   };
 
   const handleNext = () => {
     if (selectedSource) {
+      Vibration.vibrate([0, 15, 10, 15]);
       updateOnboardingData({ acquisitionSource: selectedSource });
       nextStep();
     }
@@ -62,8 +64,9 @@ export function AcquisitionSource() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 28,

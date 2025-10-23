@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { Button } from '../../ui/Button';
 import { TextInput } from '../../ui/TextInput';
@@ -14,9 +14,11 @@ export function AgeConfirmation() {
   const handleNext = () => {
     const ageNumber = parseInt(age, 10);
     if (ageNumber && ageNumber >= 18) {
+      Vibration.vibrate([0, 15, 10, 15]);
       updateOnboardingData({ age: ageNumber });
       nextStep();
     } else {
+      Vibration.vibrate([30, 30, 30]);
       setError('You must be 18 or older to continue.');
     }
   };
@@ -47,6 +49,7 @@ export function AgeConfirmation() {
         onPress={handleNext} 
         disabled={!age} 
         fullWidth
+        variant="glass"
       >
         Continue
       </Button>
@@ -57,8 +60,9 @@ export function AgeConfirmation() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 32,

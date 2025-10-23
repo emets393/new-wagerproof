@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../ui/Button';
@@ -11,6 +11,16 @@ export function FeatureSpotlight() {
   const { nextStep } = useOnboarding();
   const theme = useTheme();
   const [activeFeature, setActiveFeature] = useState<FeatureType>('edge-finder');
+
+  const handleToggleFeature = (feature: FeatureType) => {
+    Vibration.vibrate([0, 10, 10]);
+    setActiveFeature(feature);
+  };
+
+  const handleContinue = () => {
+    Vibration.vibrate([0, 15, 10, 15]);
+    nextStep();
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -26,14 +36,14 @@ export function FeatureSpotlight() {
       <View style={styles.toggleContainer}>
         <Button
           variant={activeFeature === 'edge-finder' ? 'primary' : 'ghost'}
-          onPress={() => setActiveFeature('edge-finder')}
+          onPress={() => handleToggleFeature('edge-finder')}
           style={styles.toggleButton}
         >
           Edge Finder
         </Button>
         <Button
           variant={activeFeature === 'ai-simulator' ? 'primary' : 'ghost'}
-          onPress={() => setActiveFeature('ai-simulator')}
+          onPress={() => handleToggleFeature('ai-simulator')}
           style={styles.toggleButton}
         >
           AI Simulator
@@ -114,7 +124,7 @@ export function FeatureSpotlight() {
         </View>
       )}
       
-      <Button onPress={nextStep} fullWidth>
+      <Button onPress={handleContinue} fullWidth variant="glass">
         Continue
       </Button>
     </ScrollView>
@@ -123,7 +133,9 @@ export function FeatureSpotlight() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 28,

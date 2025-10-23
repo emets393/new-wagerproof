@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -7,6 +7,11 @@ import { useOnboarding } from '../../../contexts/OnboardingContext';
 export function EarlyAccess() {
   const { nextStep } = useOnboarding();
   const theme = useTheme();
+
+  const handleContinue = () => {
+    Vibration.vibrate([0, 15, 10, 15]);
+    nextStep();
+  };
 
   return (
     <View style={styles.container}>
@@ -18,7 +23,7 @@ export function EarlyAccess() {
         You're among the first users. Enjoy <Text style={styles.bold}>free full access</Text> during early access. Please share feedback anytime via the <Text style={styles.bold}>Feature Request</Text> page.
       </Text>
       
-      <Button onPress={nextStep} fullWidth>
+      <Button onPress={handleContinue} fullWidth variant="glass">
         Continue
       </Button>
     </View>
@@ -28,8 +33,9 @@ export function EarlyAccess() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 32,

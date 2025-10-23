@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 const goals = [
-  'Find profitable edges faster',
-  'Analyze data to improve strategy',
-  'Track my performance over time',
-  'Get timely alerts for model picks',
+  { text: 'Find profitable edges faster', icon: 'lightning-bolt' },
+  { text: 'Analyze data to improve strategy', icon: 'chart-line' },
+  { text: 'Track my performance over time', icon: 'trending-up' },
+  { text: 'Get timely alerts for model picks', icon: 'bell-alert' },
 ];
 
 export function PrimaryGoalSelection() {
@@ -18,11 +19,13 @@ export function PrimaryGoalSelection() {
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
 
   const handleSelect = (goal: string) => {
+    Vibration.vibrate([0, 10, 10]);
     setSelectedGoal(goal);
   };
 
   const handleNext = () => {
     if (selectedGoal) {
+      Vibration.vibrate([0, 15, 10, 15]);
       updateOnboardingData({ mainGoal: selectedGoal });
       nextStep();
     }
@@ -37,14 +40,22 @@ export function PrimaryGoalSelection() {
       <View style={styles.cardsContainer}>
         {goals.map((goal) => (
           <Card
-            key={goal}
-            onPress={() => handleSelect(goal)}
-            selected={selectedGoal === goal}
+            key={goal.text}
+            onPress={() => handleSelect(goal.text)}
+            selected={selectedGoal === goal.text}
             style={styles.card}
           >
-            <Text style={[styles.cardText, { color: theme.colors.onBackground }]}>
-              {goal}
-            </Text>
+            <View style={styles.cardContent}>
+              <MaterialCommunityIcons 
+                name={goal.icon as any} 
+                size={24} 
+                color={selectedGoal === goal.text ? '#3b82f6' : theme.colors.onBackground}
+                style={styles.icon}
+              />
+              <Text style={[styles.cardText, { color: theme.colors.onBackground }]}>
+                {goal.text}
+              </Text>
+            </View>
           </Card>
         ))}
       </View>
@@ -53,6 +64,7 @@ export function PrimaryGoalSelection() {
         onPress={handleNext} 
         disabled={!selectedGoal} 
         fullWidth
+        variant="glass"
       >
         Next
       </Button>
@@ -62,7 +74,9 @@ export function PrimaryGoalSelection() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
     alignItems: 'center',
   },
   title: {
@@ -79,10 +93,20 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
   },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  icon: {
+    marginRight: 12,
+    marginLeft: 4,
+  },
   cardText: {
     fontSize: 16,
     fontWeight: '600',
-    textAlign: 'center',
+    textAlign: 'left',
+    flex: 1,
   },
 });
 

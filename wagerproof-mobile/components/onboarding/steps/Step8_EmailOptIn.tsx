@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../ui/Button';
@@ -14,7 +14,13 @@ export function EmailOptIn() {
   const [optIn, setOptIn] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
 
+  const handleToggleOptIn = () => {
+    Vibration.vibrate([0, 10, 10]);
+    setOptIn(!optIn);
+  };
+
   const handleNext = () => {
+    Vibration.vibrate([0, 15, 10, 15]);
     updateOnboardingData({ 
       emailOptIn: optIn, 
       phoneNumber: optIn ? phoneNumber : undefined 
@@ -34,7 +40,7 @@ export function EmailOptIn() {
       
       <TouchableOpacity 
         style={styles.checkboxContainer}
-        onPress={() => setOptIn(!optIn)}
+        onPress={handleToggleOptIn}
       >
         <MaterialCommunityIcons 
           name={optIn ? "checkbox-marked" : "checkbox-blank-outline"} 
@@ -64,7 +70,7 @@ export function EmailOptIn() {
         </View>
       )}
       
-      <Button onPress={handleNext} fullWidth>
+      <Button onPress={handleNext} fullWidth variant="glass">
         Next
       </Button>
     </View>
@@ -74,8 +80,9 @@ export function EmailOptIn() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 28,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../ui/Button';
@@ -23,6 +23,11 @@ export function ValueClaim() {
       setUseLottie(true);
     }
   }, []);
+
+  const handleContinue = () => {
+    Vibration.vibrate([0, 15, 10, 15]);
+    nextStep();
+  };
 
   return (
     <View style={styles.container}>
@@ -67,7 +72,7 @@ export function ValueClaim() {
         )}
       </View>
       
-      <Button onPress={nextStep} fullWidth>
+      <Button onPress={handleContinue} fullWidth variant="glass">
         Continue
       </Button>
     </View>
@@ -77,8 +82,9 @@ export function ValueClaim() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 40,

@@ -3,7 +3,7 @@ import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'rea
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-type ButtonVariant = 'primary' | 'outline' | 'ghost' | 'social';
+type ButtonVariant = 'primary' | 'outline' | 'ghost' | 'social' | 'glass';
 
 interface ButtonProps {
   children: React.ReactNode;
@@ -13,6 +13,7 @@ interface ButtonProps {
   loading?: boolean;
   icon?: keyof typeof MaterialCommunityIcons.glyphMap;
   fullWidth?: boolean;
+  selected?: boolean;
   style?: any;
 }
 
@@ -24,45 +25,52 @@ export function Button({
   loading = false,
   icon,
   fullWidth = false,
+  selected = false,
   style,
 }: ButtonProps) {
   const theme = useTheme();
 
   const getButtonStyle = () => {
-    const baseStyle = [styles.button, fullWidth && styles.fullWidth, style];
+    const baseStyle = [styles.button, fullWidth && styles.fullWidth];
 
+    let variantStyle;
     switch (variant) {
       case 'primary':
-        return [...baseStyle, { backgroundColor: theme.colors.primary }];
+        variantStyle = { backgroundColor: theme.colors.primary };
+        break;
+      case 'glass':
+        variantStyle = selected ? styles.glassSelected : styles.glass;
+        break;
       case 'outline':
-        return [
-          ...baseStyle,
-          {
-            backgroundColor: 'transparent',
-            borderWidth: 1.5,
-            borderColor: theme.colors.primary,
-          },
-        ];
+        variantStyle = {
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderColor: theme.colors.primary,
+        };
+        break;
       case 'ghost':
-        return [...baseStyle, { backgroundColor: 'transparent' }];
+        variantStyle = { backgroundColor: 'transparent' };
+        break;
       case 'social':
-        return [
-          ...baseStyle,
-          {
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1,
-            borderColor: theme.colors.outline,
-          },
-        ];
+        variantStyle = {
+          backgroundColor: theme.colors.surface,
+          borderWidth: 1,
+          borderColor: theme.colors.outline,
+        };
+        break;
       default:
-        return baseStyle;
+        variantStyle = {};
     }
+
+    return [...baseStyle, variantStyle, style];
   };
 
   const getTextStyle = () => {
     switch (variant) {
       case 'primary':
         return [styles.text, { color: theme.colors.onPrimary }];
+      case 'glass':
+        return [styles.text, { color: '#ffffff' }];
       case 'outline':
       case 'ghost':
         return [styles.text, { color: theme.colors.primary }];
@@ -77,6 +85,8 @@ export function Button({
     switch (variant) {
       case 'primary':
         return theme.colors.onPrimary;
+      case 'glass':
+        return '#ffffff';
       case 'outline':
       case 'ghost':
         return theme.colors.primary;
@@ -101,7 +111,7 @@ export function Button({
         {loading ? (
           <ActivityIndicator
             size="small"
-            color={variant === 'primary' ? theme.colors.onPrimary : theme.colors.primary}
+            color={variant === 'primary' || variant === 'glass' ? '#ffffff' : theme.colors.primary}
             style={styles.loader}
           />
         ) : (
@@ -130,6 +140,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
+  },
+  glass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  glassSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 6,
   },
   fullWidth: {
     width: '100%',

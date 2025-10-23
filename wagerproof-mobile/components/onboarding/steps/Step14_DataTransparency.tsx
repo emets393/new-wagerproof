@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Vibration } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -7,6 +7,11 @@ import { useOnboarding } from '../../../contexts/OnboardingContext';
 export function DataTransparency() {
   const { nextStep } = useOnboarding();
   const theme = useTheme();
+
+  const handleContinue = () => {
+    Vibration.vibrate([0, 15, 10, 15]);
+    nextStep();
+  };
 
   return (
     <View style={styles.container}>
@@ -18,7 +23,7 @@ export function DataTransparency() {
         We pay for verified data feeds, public money splits, and historical stats. That's how we keep results honest and repeatable.
       </Text>
       
-      <Button onPress={nextStep} fullWidth>
+      <Button onPress={handleContinue} fullWidth variant="glass">
         Continue
       </Button>
     </View>
@@ -28,8 +33,9 @@ export function DataTransparency() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 32,
