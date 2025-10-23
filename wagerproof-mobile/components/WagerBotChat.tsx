@@ -12,12 +12,15 @@ import {
   RefreshControl,
   Animated,
   Alert,
+  Image,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import ReanimatedAnimated, { 
   useSharedValue, 
   useAnimatedStyle,
@@ -80,6 +83,10 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const [isStreaming, setIsStreaming] = useState(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [chatHistories, setChatHistories] = useState<Array<{ id: string; title: string; timestamp: string; threadId: string | null }>>([]);
+  
+  // Image attachment state
+  const [selectedImages, setSelectedImages] = useState<Array<{ uri: string; base64: string; name: string }>>([]);
+  const [isPickingImage, setIsPickingImage] = useState(false);
   
   // Animation values for message appearance
   const messageAnimations = useRef<{ [key: string]: Animated.Value }>({});
@@ -355,13 +362,61 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     }, 100);
   };
 
+  const handlePickImage = async () => {
+    try {
+      setIsPickingImage(true);
+      
+      // Request permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Permission required', 'Please allow access to your photo library to upload images.');
+        setIsPickingImage(false);
+        return;
+      }
+      
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        base64: true,
+      });
+      
+      if (!result.canceled && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const fileName = asset.fileName || `image_${Date.now()}.jpg`;
+        
+        if (asset.base64) {
+          setSelectedImages([...selectedImages, {
+            uri: asset.uri,
+            base64: asset.base64,
+            name: fileName,
+          }]);
+          
+          // Give haptic feedback
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    } finally {
+      setIsPickingImage(false);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setSelectedImages(selectedImages.filter((_, i) => i !== index));
+  };
+
   const sendMessage = async () => {
-    if (!inputText.trim() || isSending) return;
+    if ((!inputText.trim() && selectedImages.length === 0) || isSending) return;
     await sendMessageWithText(inputText.trim());
   };
 
   const sendMessageWithText = async (messageText: string) => {
-    if (!messageText || isSending) return;
+    if (!messageText && selectedImages.length === 0 || isSending) return;
     
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
@@ -374,11 +429,14 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     console.log('  - Input text:', messageText);
     console.log('  - Message content:', userMessage.content);
     console.log('  - Message content length:', userMessage.content.length);
+    console.log(`📸 Attached images: ${selectedImages.length}`);
 
     // Clear input immediately and update UI
     setInputText('');
     setShowWelcome(false);
     setMessages(prev => [...prev, userMessage]);
+    const imagesToSend = selectedImages;
+    setSelectedImages([]); // Clear selected images after sending
     setIsSending(true);
 
     // Animate user message appearance
@@ -439,6 +497,15 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         console.log(`📝 Including conversation history (${conversationHistory.length} messages)`);
       }
 
+      // Add images if present
+      if (imagesToSend.length > 0) {
+        requestBody.images = imagesToSend.map(img => ({
+          base64: img.base64,
+          name: img.name,
+        }));
+        console.log(`📸 Including ${imagesToSend.length} image(s)`);
+      }
+
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('📦 REQUEST PAYLOAD TO BUILDSHIP (RESPONSES API)');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -449,6 +516,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       console.log('  - message type:', typeof requestBody.message);
       console.log('  - conversationHistory:', requestBody.conversationHistory ? `${requestBody.conversationHistory.length} messages` : 'EMPTY');
       console.log('  - SystemPrompt:', requestBody.SystemPrompt ? `(${requestBody.SystemPrompt.length} chars)` : 'NOT_PRESENT');
+      console.log('  - images:', requestBody.images ? `${requestBody.images.length} images` : 'EMPTY');
       
       // Enhanced debugging for SystemPrompt
       if (requestBody.SystemPrompt) {
@@ -1092,12 +1160,38 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
         {/* Input Area - Always visible at bottom */}
         <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background }]}>
+          {/* Selected Images Preview */}
+          {selectedImages.length > 0 && (
+            <View style={styles.imagePreviewContainer}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.imagePreviewScroll}
+              >
+                {selectedImages.map((image, index) => (
+                  <View key={`image_${index}`} style={styles.imagePreviewItem}>
+                    <Image
+                      source={{ uri: image.uri }}
+                      style={styles.imagePreview}
+                    />
+                    <TouchableOpacity
+                      style={styles.imageRemoveButton}
+                      onPress={() => handleRemoveImage(index)}
+                    >
+                      <MaterialCommunityIcons name="close" size={14} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           <View style={[styles.inputContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
             <TextInput
               style={[styles.input, { color: theme.colors.onSurface }]}
               value={inputText}
               onChangeText={setInputText}
-              placeholder="Chat with WagerBot"
+              placeholder={selectedImages.length > 0 ? 'Add a message with your image...' : 'Chat with WagerBot'}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               multiline={true}
               maxLength={500}
@@ -1108,22 +1202,24 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             {/* Bottom row with icons */}
             <View style={styles.inputBottomRow}>
               <TouchableOpacity
-                style={styles.attachButton}
-                onPress={() => {
-                  // TODO: Implement attachment functionality
-                  console.log('Attach button pressed');
-                }}
+                style={[styles.attachButton, isPickingImage && styles.attachButtonDisabled]}
+                onPress={handlePickImage}
+                disabled={isPickingImage || isSending}
               >
-                <MaterialCommunityIcons name="plus" size={20} color={theme.colors.onSurfaceVariant} />
+                {isPickingImage ? (
+                  <ActivityIndicator size="small" color={theme.colors.onSurfaceVariant} />
+                ) : (
+                  <MaterialCommunityIcons name="image-plus" size={20} color={theme.colors.onSurfaceVariant} />
+                )}
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  inputText.trim() && styles.sendButtonActive,
+                  (inputText.trim() || selectedImages.length > 0) && styles.sendButtonActive,
                 ]}
                 onPress={sendMessage}
-                disabled={!inputText.trim() || isSending}
+                disabled={(!inputText.trim() && selectedImages.length === 0) || isSending}
               >
                 {isSending ? (
                   <ActivityIndicator size="small" color="#ffffff" />
@@ -1375,6 +1471,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: -4,
   },
+  attachButtonDisabled: {
+    opacity: 0.7,
+  },
   sendButton: {
     width: 32,
     height: 32,
@@ -1440,6 +1539,41 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 40,
     zIndex: 10,
+  },
+  // Image Preview Styles
+  imagePreviewContainer: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 12,
+  },
+  imagePreviewScroll: {
+    flexDirection: 'row',
+  },
+  imagePreviewItem: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginRight: 8,
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  imageRemoveButton: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
