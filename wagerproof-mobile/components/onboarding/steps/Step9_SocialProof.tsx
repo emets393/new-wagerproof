@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { ReviewRequestModal } from '../../ReviewRequestModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -39,6 +40,7 @@ export function SocialProof() {
   const { nextStep } = useOnboarding();
   const theme = useTheme();
   const [childrenWidth, setChildrenWidth] = useState(0);
+  const [showReviewModal, setShowReviewModal] = useState(true);
   
   const renderTestimonial = (item: typeof testimonials[0], index: number) => (
     <View 
@@ -67,8 +69,17 @@ export function SocialProof() {
     nextStep();
   };
 
+  const handleReviewModalDismiss = () => {
+    setShowReviewModal(false);
+  };
+
   return (
     <View style={styles.container}>
+      <ReviewRequestModal 
+        visible={showReviewModal}
+        onDismiss={handleReviewModalDismiss}
+      />
+      
       <Text style={[styles.title, { color: theme.colors.onBackground }]}>
         Trusted by data-driven bettors
       </Text>

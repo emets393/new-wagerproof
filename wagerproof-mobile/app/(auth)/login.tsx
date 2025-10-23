@@ -11,9 +11,9 @@ const { width: screenWidth } = Dimensions.get('window');
 
 const BANNER_TEXTS = [
   'Welcome to WagerProof',
-  'AI Betting Analysis',
+  'AI Sports Analysis',
   'Private Discord Chat',
-  'Expert Picks',
+  'Expert Opinions',
   'Pro Data Models'
 ];
 
