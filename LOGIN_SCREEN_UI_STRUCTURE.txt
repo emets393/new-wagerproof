@@ -1,0 +1,150 @@
+╔════════════════════════════════════════════════════════════════════╗
+║                      LOGIN SCREEN LAYOUT                           ║
+╚════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────────────────────┐
+│                                                                    │
+│                        [LOGO] 80x80px                             │
+│                          ┌──────┐                                │
+│                          │      │                                │
+│                          └──────┘                                │
+│                                                                   │
+│                      WAGERPROOF                                   │
+│                 Smart Betting Predictions                         │
+│                                                                   │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│                                                                   │
+│               ╔══════════════════════════════╗                   │
+│               ║                              ║                   │
+│               ║  ┌──────────────────────┐    ║                   │
+│               ║  │ ░░░░░░░░░░░░░░░░░░  │ 8px║ ← Notch (24px)   │
+│               ║  └──────────────────────┘    ║                   │
+│               ║                              ║                   │
+│               ║  ╔════════════════════════╗  ║                   │
+│               ║  ║                        ║  ║                   │
+│               ║  ║  VIDEO PLAYING HERE   ║  ║                   │
+│               ║  ║   (wagerproof.mp4)    ║  ║                   │
+│               ║  ║    Auto-looping       ║  ║                   │
+│               ║  ║    Muted              ║  ║                   │
+│               ║  ║                        ║  ║                   │
+│               ║  ╚════════════════════════╝  ║                   │
+│               ║                              ║                   │
+│               ║                              ║                   │
+│               ╚══════════════════════════════╝                   │
+│                      280px width                                │
+│                      ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔                      │
+│                   (responsive: max 280px                        │
+│                    with 24px padding)                           │
+│                                                                   │
+│                                                                   │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │ [Google Icon] Continue with Google                          │ │
+│  │ PRIMARY BUTTON (Full Width)                                 │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │ [Email Icon]  Continue with Email                           │ │
+│  │ OUTLINE BUTTON (Full Width)                                 │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│        By continuing, you agree to our Terms of Service         │
+│                                                                   │
+└────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════
+COMPONENT HIERARCHY
+═══════════════════════════════════════════════════════════════════════
+
+AuthContainer (showLogo={false})
+│
+└─ View (container, flex layout)
+   │
+   ├─ View (header)
+   │  ├─ Image (Wagerproof logo)
+   │  ├─ Text (title: "Wagerproof")
+   │  └─ Text (subtitle: "Smart Betting Predictions")
+   │
+   ├─ View (phoneContainer)
+   │  │
+   │  ├─ View (phoneMockup with border, notch, shadow)
+   │  │  ├─ View (notch element)
+   │  │  ├─ View (videoContainer)
+   │  │  │  └─ Video (wagerproof.mp4)
+   │  │  ├─ View (frameLeft border)
+   │  │  └─ View (frameRight border)
+   │  │
+   │  └─ View (phoneShadow - visual effect)
+   │
+   ├─ View (buttonContainer)
+   │  ├─ Button (variant="primary", icon="google")
+   │  │  └─ "Continue with Google"
+   │  │
+   │  └─ Button (variant="outline", icon="email")
+   │     └─ "Continue with Email"
+   │
+   └─ View (footer)
+      └─ Text with Terms of Service link
+
+
+═══════════════════════════════════════════════════════════════════════
+NAVIGATION FLOW
+═══════════════════════════════════════════════════════════════════════
+
+  Main Login Screen
+        │
+        ├─────────────────────┬──────────────────────┐
+        │                     │                      │
+        ▼                     ▼                      ▼
+   [Google Button]      [Email Button]      [Terms Link]
+        │                     │
+        │                     ▼
+        │              Email Login Screen
+        │              ├─ Email Input
+        │              ├─ Password Input
+        │              ├─ Forgot Password Link
+        │              ├─ Sign In Button
+        │              └─ Sign Up Link
+        │
+        └─ Google OAuth Flow
+           └─ Authenticated (auto-redirect)
+
+
+═══════════════════════════════════════════════════════════════════════
+STYLING INFORMATION
+═══════════════════════════════════════════════════════════════════════
+
+Phone Mockup:
+  - Border Radius: 48px (iPhone-like corners)
+  - Border Width: 8px
+  - Border Color: theme.colors.outline
+  - Background: theme.colors.surface
+  - Shadow: elevation 20, 0.3 opacity, 24px blur
+
+Notch:
+  - Width: 80px, Height: 24px
+  - Position: Centered at top
+  - Border Radius: 0 0 20px 20px (bottom corners only)
+
+Video Container:
+  - Flex: 1 (fills available space)
+  - Top Margin: 8px (below notch)
+  - Overflow: hidden
+
+Buttons:
+  - Both full width (100%)
+  - Gap between: 12px
+  - Padding: 14px vertical, 24px horizontal
+  - Min Height: 48px (accessibility)
+
+Colors:
+  - Primary Button: theme.colors.primary (green)
+  - Outline Button: transparent with 1.5px border
+  - Text: theme.colors.onSurface or theme.colors.onSurfaceVariant
+  - Icons: Material Community Icons
+
