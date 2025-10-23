@@ -7,7 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { NFLGameCard } from '@/components/NFLGameCard';
 import { CFBGameCard } from '@/components/CFBGameCard';
+import { GameCardShimmer } from '@/components/GameCardShimmer';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
+import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
@@ -32,6 +34,7 @@ export default function FeedScreen() {
   const insets = useSafeAreaInsets();
   const { hasLiveGames } = useLiveScores();
   const { openGameSheet } = useNFLGameSheet();
+  const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
   
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
@@ -308,6 +311,8 @@ export default function FeedScreen() {
           home_spread: prediction.api_spread || prediction.home_spread,
           away_spread: prediction.api_spread ? -prediction.api_spread : (prediction.away_spread || null),
           over_line: prediction.api_over_line || prediction.total_line,
+          opening_spread: prediction.spread || null,
+          opening_total: prediction.total_line || null,
           game_date: prediction.start_time || prediction.start_date || prediction.game_date,
           game_time: prediction.start_time || prediction.start_date || prediction.game_time,
           training_key: prediction.training_key,
@@ -324,8 +329,10 @@ export default function FeedScreen() {
           total_splits_label: prediction.total_splits_label || null,
           ml_splits_label: prediction.ml_splits_label || null,
           conference: prediction.conference || null,
-          pred_away_score: apiPred?.pred_away_score ?? apiPred?.away_points ?? prediction.pred_away_score ?? null,
-          pred_home_score: apiPred?.pred_home_score ?? apiPred?.home_points ?? prediction.pred_home_score ?? null,
+          pred_away_score: apiPred?.pred_away_score ?? prediction.pred_away_score ?? null,
+          pred_home_score: apiPred?.pred_home_score ?? prediction.pred_home_score ?? null,
+          pred_away_points: apiPred?.pred_away_points ?? apiPred?.away_points ?? null,
+          pred_home_points: apiPred?.pred_home_points ?? apiPred?.home_points ?? null,
           pred_spread: apiPred?.pred_spread || apiPred?.run_line_prediction || apiPred?.spread_prediction || null,
           home_spread_diff: apiPred?.home_spread_diff || apiPred?.spread_diff || apiPred?.edge || null,
           pred_total: apiPred?.pred_total || apiPred?.total_prediction || apiPred?.ou_prediction || null,
@@ -442,11 +449,15 @@ export default function FeedScreen() {
     openGameSheet(game);
   };
 
+  const handleCFBGamePress = (game: CFBPrediction) => {
+    openCFBGameSheet(game);
+  };
+
   const renderGameCard = ({ item }: { item: NFLPrediction | CFBPrediction }) => {
     if (selectedSport === 'nfl') {
       return <NFLGameCard game={item as NFLPrediction} onPress={() => handleGamePress(item as NFLPrediction)} />;
     }
-    return <CFBGameCard game={item as CFBPrediction} />;
+    return <CFBGameCard game={item as CFBPrediction} onPress={() => handleCFBGamePress(item as CFBPrediction)} />;
   };
 
   const renderSearchBar = () => {
@@ -513,7 +524,10 @@ export default function FeedScreen() {
           <View style={styles.headerTop}>
             <View style={styles.titleContainer}>
               <Image
-                source={require('@/assets/wagerproof-logo.png')}
+                source={theme.dark 
+                  ? require('@/assets/wagerproofGreenDark.png')
+                  : require('@/assets/wagerproofGreenLight.png')
+                }
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -643,12 +657,23 @@ export default function FeedScreen() {
 
       {/* Games List */}
       {loading ? (
-        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT + 29 }]}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
-            Loading games...
-          </Text>
-        </View>
+        <Animated.FlatList
+          data={Array(5).fill(null)}
+          renderItem={() => <GameCardShimmer />}
+          keyExtractor={(_, index) => `shimmer-${index}`}
+          contentContainerStyle={[
+            styles.listContent,
+            { 
+              paddingTop: TOTAL_COLLAPSIBLE_HEIGHT + 40,
+              paddingBottom: 65 + insets.bottom + 20 
+            }
+          ]}
+          scrollEventThrottle={16}
+          bounces={false}
+          overScrollMode="never"
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
+        />
       ) : error ? (
         <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT + 29 }]}>
           <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />

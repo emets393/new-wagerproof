@@ -26,11 +26,16 @@ export interface CFBPrediction {
   // CFB-specific prediction fields
   pred_away_score?: number | null;
   pred_home_score?: number | null;
+  pred_away_points?: number | null;
+  pred_home_points?: number | null;
   pred_spread?: number | null;
   home_spread_diff?: number | null;
   pred_total?: number | null;
   total_diff?: number | null;
   pred_over_line?: number | null;
   over_line_diff?: number | null;
+  // Opening lines from cfb_live_weekly_inputs
+  opening_spread?: number | null;
+  opening_total?: number | null;
 }
 

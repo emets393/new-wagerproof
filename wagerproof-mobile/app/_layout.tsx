@@ -6,8 +6,10 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider, useThemeContext } from '../contexts/ThemeContext';
 import { SettingsProvider } from '../contexts/SettingsContext';
 import { NFLGameSheetProvider } from '../contexts/NFLGameSheetContext';
+import { CFBGameSheetProvider } from '../contexts/CFBGameSheetContext';
 import { OnboardingGuard } from '../components/OnboardingGuard';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
+import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
 import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 
@@ -71,6 +73,7 @@ function RootNavigator() {
           />
         </Stack>
         <NFLGameBottomSheet />
+        <CFBGameBottomSheet />
       </>
     </OnboardingGuard>
   );
@@ -85,7 +88,9 @@ function RootLayoutContent() {
         <SettingsProvider>
           <AuthProvider>
             <NFLGameSheetProvider>
-              <RootNavigator />
+              <CFBGameSheetProvider>
+                <RootNavigator />
+              </CFBGameSheetProvider>
             </NFLGameSheetProvider>
           </AuthProvider>
         </SettingsProvider>

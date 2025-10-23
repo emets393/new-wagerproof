@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Card, useTheme, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { MotiView } from 'moti';
-import { useReducedMotion } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { CFBPrediction } from '@/types/cfb';
 import { 
   formatMoneyline, 
@@ -14,68 +13,76 @@ import {
   roundToNearestHalf 
 } from '@/utils/formatting';
 import { getCFBTeamColors, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
-import { useThemeContext } from '@/contexts/ThemeContext';
-import { getBettingColors } from '@/constants/theme';
 
 interface CFBGameCardProps {
   game: CFBPrediction;
+  onPress: () => void;
 }
 
-export function CFBGameCard({ game }: CFBGameCardProps) {
+export function CFBGameCard({ game, onPress }: CFBGameCardProps) {
   const theme = useTheme();
-  const { isDark } = useThemeContext();
-  const bettingColors = getBettingColors(isDark);
-  const [expanded, setExpanded] = useState(false);
-  const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
-  const [ouExplanationExpanded, setOuExplanationExpanded] = useState(false);
   const awayColors = getCFBTeamColors(game.away_team);
   const homeColors = getCFBTeamColors(game.home_team);
-  const reducedMotion = useReducedMotion();
 
-  const toggleExpanded = () => {
-    setExpanded(!expanded);
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onPress();
   };
 
-  // Animation config - smooth timing with no bounce
-  const animationConfig = {
-    type: 'timing' as const,
-    duration: reducedMotion ? 0 : 300,
+  // Parse public betting splits
+  const parseSplit = (label: string | null): { team: string; percentage: number } | null => {
+    if (!label) return null;
+    const match = label.match(/(.+?)\s+(\d+)%/);
+    if (match) {
+      return { team: match[1].trim(), percentage: parseInt(match[2], 10) };
+    }
+    return null;
   };
 
-  // Calculate predictions for expanded view
-  const spreadPrediction = game.home_away_spread_cover_prob !== null && game.home_away_spread_cover_prob !== undefined ? {
-    isHome: game.home_away_spread_cover_prob > 0.5,
-    team: game.home_away_spread_cover_prob > 0.5 ? game.home_team : game.away_team,
-    teamColors: game.home_away_spread_cover_prob > 0.5 ? homeColors : awayColors,
-    spread: game.home_away_spread_cover_prob > 0.5 ? game.home_spread : game.away_spread,
-    confidence: Math.round((game.home_away_spread_cover_prob > 0.5 ? game.home_away_spread_cover_prob : 1 - game.home_away_spread_cover_prob) * 100)
+  const mlSplit = parseSplit(game.ml_splits_label);
+  const spreadSplit = parseSplit(game.spread_splits_label);
+  const totalSplit = parseSplit(game.total_splits_label);
+
+  // Determine model predictions for pills based on edge values
+  const mlPrediction = game.home_away_ml_prob !== null && game.home_away_ml_prob !== undefined ? {
+    team: game.home_away_ml_prob >= 0.5 ? game.home_team : game.away_team,
+    isHome: game.home_away_ml_prob >= 0.5,
   } : null;
 
-  const ouPrediction = game.ou_result_prob !== null && game.ou_result_prob !== undefined ? {
-    isOver: game.ou_result_prob > 0.5,
-    confidence: Math.round((game.ou_result_prob > 0.5 ? game.ou_result_prob : 1 - game.ou_result_prob) * 100)
+  // Spread edge: positive = home team edge, negative = away team edge
+  const spreadPrediction = game.home_spread_diff !== null && game.home_spread_diff !== undefined ? {
+    team: game.home_spread_diff > 0 ? game.home_team : game.away_team,
+    edge: Math.abs(game.home_spread_diff),
+    isHome: game.home_spread_diff > 0,
   } : null;
 
-  // Debug logging for CFB predictions
-  if (expanded && __DEV__) {
-    console.log('CFB Game Data:', {
-      gameId: game.id,
-      away: game.away_team,
-      home: game.home_team,
-      spread_prob: game.home_away_spread_cover_prob,
-      ou_prob: game.ou_result_prob,
-      ml_prob: game.home_away_ml_prob,
-      home_spread_diff: game.home_spread_diff,
-      over_line_diff: game.over_line_diff,
-      pred_away_score: game.pred_away_score,
-      pred_home_score: game.pred_home_score,
-      hasSpreadPred: !!spreadPrediction,
-      hasOuPred: !!ouPrediction
-    });
-  }
+  // O/U edge: positive = Over, negative = Under
+  const ouPrediction = game.over_line_diff !== null && game.over_line_diff !== undefined ? {
+    direction: game.over_line_diff > 0 ? 'Over' : 'Under',
+    edge: Math.abs(game.over_line_diff),
+  } : null;
+
+  // Get pill colors for public betting
+  const getPublicBettingColors = (team: string, isSpread: boolean = false) => {
+    if (team === game.home_team) {
+      return { bg: `${homeColors.primary}25`, border: `${homeColors.primary}50`, text: homeColors.primary };
+    } else if (team === game.away_team) {
+      return { bg: `${awayColors.primary}25`, border: `${awayColors.primary}50`, text: awayColors.primary };
+    } else if (team.toLowerCase().includes('over')) {
+      return { bg: 'rgba(249, 115, 22, 0.15)', border: 'rgba(249, 115, 22, 0.3)', text: '#f97316' };
+    } else if (team.toLowerCase().includes('under')) {
+      return { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' };
+    }
+    return { bg: 'rgba(156, 163, 175, 0.15)', border: 'rgba(156, 163, 175, 0.3)', text: theme.colors.onSurfaceVariant };
+  };
 
   return (
-    <TouchableOpacity onPress={toggleExpanded} activeOpacity={0.8}>
+    <Pressable 
+      onPress={handlePress}
+      style={({ pressed }) => [
+        { opacity: pressed ? 0.7 : 1 }
+      ]}
+    >
       <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
         <LinearGradient
           colors={[awayColors.primary, awayColors.secondary, homeColors.primary, homeColors.secondary]}
@@ -102,112 +109,123 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
             )}
           </View>
 
-          {/* Teams Row with Circles */}
+          {/* Teams Row */}
           <View style={styles.teamsRow}>
             {/* Away Team */}
             <View style={styles.teamColumn}>
-              {/* Team Circle */}
-              <View style={styles.teamCircleContainer}>
-                <MotiView
-                  animate={{
-                    rotate: expanded ? '25deg' : '0deg',
-                  }}
-                  transition={{
-                    type: 'timing',
-                    duration: 300,
-                  }}
-                  style={StyleSheet.absoluteFill}
-                >
-                  <LinearGradient
-                    colors={[awayColors.primary, awayColors.secondary]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.teamCircle, { borderColor: awayColors.primary }]}
-                  />
-                </MotiView>
-                <View style={styles.teamCircleContent}>
-                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
-                    {getCFBTeamInitials(game.away_team)}
-                  </Text>
-                </View>
-              </View>
+              <LinearGradient
+                colors={[awayColors.primary, awayColors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.teamCircle, { borderColor: awayColors.primary }]}
+              >
+                <Text style={[styles.teamInitials, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
+                  {getCFBTeamInitials(game.away_team)}
+                </Text>
+              </LinearGradient>
               <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
                 {game.away_team}
               </Text>
-              <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
-                {formatSpread(game.away_spread)}
-              </Text>
-              <Text style={[styles.mlText, { color: bettingColors.awayMoneyline }]}>
-                {formatMoneyline(game.away_ml)}
-              </Text>
+              {/* Actual lines under team */}
+              <View style={styles.teamLinesRow}>
+                {game.away_spread !== null && (
+                  <Text style={[styles.lineText, { color: theme.colors.onSurfaceVariant }]}>
+                    {formatSpread(game.away_spread)}
+                  </Text>
+                )}
+                {game.away_ml !== null && (
+                  <Text style={[styles.lineText, { color: theme.colors.onSurfaceVariant }]}>
+                    {formatMoneyline(game.away_ml)}
+                  </Text>
+                )}
+              </View>
             </View>
 
-            {/* Center - @ and Total */}
+            {/* Center - @ and O/U Line */}
             <View style={styles.centerColumn}>
               <Text style={[styles.atSymbol, { color: theme.colors.outlineVariant }]}>@</Text>
-              <View style={[styles.totalBadge, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
-                <Text style={[styles.totalText, { color: theme.colors.onSurfaceVariant }]}>
-                  O/U: {game.over_line ? roundToNearestHalf(game.over_line) : '-'}
-                </Text>
-              </View>
+              {game.over_line && (
+                <View style={[styles.ouLinePill, { backgroundColor: 'rgba(156, 163, 175, 0.15)', borderColor: 'rgba(156, 163, 175, 0.3)' }]}>
+                  <Text style={[styles.ouLineText, { color: theme.colors.onSurfaceVariant }]}>
+                    O/U: {roundToNearestHalf(game.over_line)}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Home Team */}
             <View style={styles.teamColumn}>
-              {/* Team Circle */}
-              <View style={styles.teamCircleContainer}>
-                <MotiView
-                  animate={{
-                    rotate: expanded ? '25deg' : '0deg',
-                  }}
-                  transition={{
-                    type: 'timing',
-                    duration: 300,
-                  }}
-                  style={StyleSheet.absoluteFill}
-                >
-                  <LinearGradient
-                    colors={[homeColors.primary, homeColors.secondary]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.teamCircle, { borderColor: homeColors.primary }]}
-                  />
-                </MotiView>
-                <View style={styles.teamCircleContent}>
-                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
-                    {getCFBTeamInitials(game.home_team)}
-                  </Text>
-                </View>
-              </View>
+              <LinearGradient
+                colors={[homeColors.primary, homeColors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.teamCircle, { borderColor: homeColors.primary }]}
+              >
+                <Text style={[styles.teamInitials, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
+                  {getCFBTeamInitials(game.home_team)}
+                </Text>
+              </LinearGradient>
               <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
                 {game.home_team}
               </Text>
-              <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
-                {formatSpread(game.home_spread)}
-              </Text>
-              <Text style={[styles.mlText, { color: bettingColors.homeMoneyline }]}>
-                {formatMoneyline(game.home_ml)}
-              </Text>
+              {/* Actual lines under team */}
+              <View style={styles.teamLinesRow}>
+                {game.home_spread !== null && (
+                  <Text style={[styles.lineText, { color: theme.colors.onSurfaceVariant }]}>
+                    {formatSpread(game.home_spread)}
+                  </Text>
+                )}
+                {game.home_ml !== null && (
+                  <Text style={[styles.lineText, { color: theme.colors.onSurfaceVariant }]}>
+                    {formatMoneyline(game.home_ml)}
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
 
-          {/* Collapsed State - Model Edge Indicators */}
-          {!expanded && (game.home_spread_diff !== null || game.over_line_diff !== null) && (
-            <View style={styles.edgeSection}>
-              <View style={[styles.edgeRow, { backgroundColor: theme.colors.surfaceVariant }]}>
-                {game.home_spread_diff !== null && game.home_spread_diff !== undefined && (
-                  <View style={styles.edgeItem}>
-                    <MaterialCommunityIcons name="target" size={14} color={bettingColors.success} />
-                    <Text style={[styles.edgeText, { color: theme.colors.onSurfaceVariant }]}>
-                      Spread Edge: {Math.abs(Number(game.home_spread_diff)).toFixed(1)}
+          {/* Model Predictions Pills */}
+          {(mlPrediction || spreadPrediction || ouPrediction) && (
+            <View style={styles.pillsSection}>
+              <View style={styles.pillsHeader}>
+                <MaterialCommunityIcons name="brain" size={14} color="#22c55e" />
+                <Text style={[styles.pillsHeaderText, { color: theme.colors.onSurfaceVariant }]}>
+                  Model Predictions
+                </Text>
+              </View>
+              <View style={styles.pillsRow}>
+                {mlPrediction && (
+                  <View style={[styles.bettingPill, { 
+                    backgroundColor: mlPrediction.isHome ? 'rgba(59, 130, 246, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+                    borderColor: mlPrediction.isHome ? 'rgba(59, 130, 246, 0.3)' : 'rgba(34, 197, 94, 0.3)'
+                  }]}>
+                    <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>ML</Text>
+                    <Text style={[styles.pillValue, { 
+                      color: mlPrediction.isHome ? '#3b82f6' : '#22c55e'
+                    }]} numberOfLines={1}>
+                      {getCFBTeamInitials(mlPrediction.team)}
                     </Text>
                   </View>
                 )}
-                {game.over_line_diff !== null && game.over_line_diff !== undefined && (
-                  <View style={styles.edgeItem}>
-                    <MaterialCommunityIcons name="chart-bar" size={14} color={bettingColors.warning} />
-                    <Text style={[styles.edgeText, { color: theme.colors.onSurfaceVariant }]}>
-                      O/U Edge: {Math.abs(Number(game.over_line_diff)).toFixed(1)}
+                {spreadPrediction && (
+                  <View style={[styles.bettingPill, { 
+                    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                    borderColor: 'rgba(34, 197, 94, 0.3)'
+                  }]}>
+                    <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>Spread</Text>
+                    <Text style={[styles.pillValue, { color: '#22c55e' }]} numberOfLines={1}>
+                      {getCFBTeamInitials(spreadPrediction.team)} +{spreadPrediction.edge.toFixed(1)}
+                    </Text>
+                  </View>
+                )}
+                {ouPrediction && (
+                  <View style={[styles.bettingPill, { 
+                    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                    borderColor: 'rgba(249, 115, 22, 0.3)'
+                  }]}>
+                    <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>O/U</Text>
+                    <Text style={[styles.pillValue, { color: '#f97316' }]}>
+                      {ouPrediction.direction} +{ouPrediction.edge.toFixed(1)} {ouPrediction.direction === 'Over' ? '↑' : '↓'}
                     </Text>
                   </View>
                 )}
@@ -215,674 +233,193 @@ export function CFBGameCard({ game }: CFBGameCardProps) {
             </View>
           )}
 
-          {/* Expanded State - Full Predictions */}
-          <MotiView
-            animate={{
-              maxHeight: expanded ? 3000 : 0,
-              opacity: expanded ? 1 : 0,
-            }}
-            transition={animationConfig}
-            style={{ overflow: 'hidden' }}
-          >
-            {expanded && (
-              <MotiView
-                from={{ opacity: 0, translateY: -10 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: 'timing', duration: 300, delay: 150 }}
-              >
-                {/* Predicted Scores */}
-                {(game.pred_away_score !== null && game.pred_home_score !== null && 
-                  game.pred_away_score !== undefined && game.pred_home_score !== undefined) && (
-                  <View style={[styles.scoreSection, { backgroundColor: theme.colors.surfaceVariant }]}>
-                    <MaterialCommunityIcons name="scoreboard-outline" size={16} color={theme.colors.primary} />
-                    <Text style={[styles.scoreLabel, { color: theme.colors.onSurfaceVariant }]}>
-                      Predicted Score:
-                    </Text>
-                    <Text style={[styles.scorePredict, { color: theme.colors.primary }]}>
-                      {Math.round(Number(game.pred_away_score))} - {Math.round(Number(game.pred_home_score))}
+          {/* Public Lean Pills */}
+          {(mlSplit || spreadSplit || totalSplit) && (
+            <View style={styles.pillsSection}>
+              <View style={styles.pillsHeader}>
+                <MaterialCommunityIcons name="account-group" size={14} color="#3b82f6" />
+                <Text style={[styles.pillsHeaderText, { color: theme.colors.onSurfaceVariant }]}>
+                  Public Lean
+                </Text>
+              </View>
+              <View style={styles.pillsRow}>
+                {mlSplit && (
+                  <View style={[styles.bettingPill, { 
+                    backgroundColor: getPublicBettingColors(mlSplit.team).bg,
+                    borderColor: getPublicBettingColors(mlSplit.team).border
+                  }]}>
+                    <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>ML</Text>
+                    <Text style={[styles.pillValue, { color: getPublicBettingColors(mlSplit.team).text }]} numberOfLines={1}>
+                      {getCFBTeamInitials(mlSplit.team)}
                     </Text>
                   </View>
                 )}
-
-              {/* Model Predictions Section Header */}
-              <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surfaceVariant }]}>
-                <MaterialCommunityIcons name="brain" size={20} color={bettingColors.purple} />
-                <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                  Model Predictions
-                </Text>
-              </View>
-
-              {/* Show message if no predictions available */}
-              {(!game.home_spread_diff && !game.over_line_diff) && (
-                <View style={[styles.noPredictionsBox, { backgroundColor: theme.colors.surfaceVariant }]}>
-                  <MaterialCommunityIcons name="information-outline" size={20} color={theme.colors.onSurfaceVariant} />
-                  <Text style={[styles.noPredictionsText, { color: theme.colors.onSurfaceVariant }]}>
-                    Model predictions will be available closer to game time.
-                  </Text>
-                </View>
-              )}
-
-              {/* Spread Prediction */}
-              {(game.home_spread_diff !== null && game.home_spread_diff !== undefined) && (
-                <View style={styles.predictionContainer}>
-                  <TouchableOpacity 
-                    activeOpacity={0.7}
-                    onPress={() => setSpreadExplanationExpanded(!spreadExplanationExpanded)}
-                  >
-                    <View style={[styles.predictionCard, { backgroundColor: bettingColors.successLight, borderColor: bettingColors.success }]}>
-                    <View style={styles.predictionHeader}>
-                      <MaterialCommunityIcons name="target" size={16} color={bettingColors.success} />
-                      <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
-                        Spread
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.threeColumnGrid}>
-                      {/* Team Logo */}
-                      <View style={styles.logoColumn}>
-                        <LinearGradient
-                          colors={[spreadPrediction?.teamColors.primary || homeColors.primary, spreadPrediction?.teamColors.secondary || homeColors.secondary]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={[styles.teamCircleMedium, { borderColor: spreadPrediction?.teamColors.primary || homeColors.primary }]}
-                        >
-                          <Text style={[styles.teamInitialsMedium, { color: getContrastingTextColor(spreadPrediction?.teamColors.primary || homeColors.primary, spreadPrediction?.teamColors.secondary || homeColors.secondary) }]}>
-                            {getCFBTeamInitials(spreadPrediction?.team || game.home_team)}
-                          </Text>
-                        </LinearGradient>
-                      </View>
-
-                      {/* Edge Value */}
-                      <View style={styles.valueColumn}>
-                        <Text style={[styles.valueLabel, { color: theme.colors.onSurfaceVariant }]}>
-                          Edge to {getCFBTeamInitials(spreadPrediction?.team || game.home_team)}
-                        </Text>
-                        <Text style={[styles.valueLarge, { color: theme.colors.onSurface }]}>
-                          {roundToNearestHalf(Math.abs(Number(game.home_spread_diff)))}
-                        </Text>
-                      </View>
-
-                      {/* Model Spread */}
-                      <View style={styles.valueColumn}>
-                        <Text style={[styles.valueLabel, { color: theme.colors.onSurfaceVariant }]}>
-                          Model Spread
-                        </Text>
-                        <Text style={[styles.valueLarge, { color: theme.colors.onSurface }]}>
-                          {(() => {
-                            // Calculate model spread display like web version
-                            const baseSpread = game.pred_spread || game.home_spread || 0;
-                            let modelSpread = Number(baseSpread);
-                            // If edge is to away team, flip the sign
-                            if (spreadPrediction && !spreadPrediction.isHome) {
-                              modelSpread = -modelSpread;
-                            }
-                            return formatSpread(roundToNearestHalf(modelSpread));
-                          })()}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  </TouchableOpacity>
-
-                  {/* What This Means */}
-                  {spreadExplanationExpanded && (
-                    <MotiView
-                      from={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{
-                        type: 'spring',
-                        damping: 20,
-                        stiffness: 300,
-                      }}
-                      style={{ overflow: 'hidden' }}
-                    >
-                      <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
-                        <View style={styles.explanationHeader}>
-                          <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
-                          <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
-                            What This Means
-                          </Text>
-                        </View>
-                        <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
-                          Our model's {roundToNearestHalf(Math.abs(Number(game.home_spread_diff)))}-point difference from the Vegas spread favors {spreadPrediction?.team || game.home_team}. This {Math.abs(Number(game.home_spread_diff)) > 3 ? 'significant' : Math.abs(Number(game.home_spread_diff)) > 2 ? 'moderate' : 'slight'} edge shows our analytics see the game differently than the market. The gap between our model and Vegas suggests there's value here – we're projecting {spreadPrediction?.team || game.home_team} will perform {Math.abs(Number(game.home_spread_diff)) > 3 ? 'significantly' : 'better'} relative to the spread than the current line indicates.
-                        </Text>
-                      </View>
-                    </MotiView>
-                  )}
-                </View>
-              )}
-
-              {/* O/U Prediction */}
-              {(game.over_line_diff !== null && game.over_line_diff !== undefined) && (
-                <View style={styles.predictionContainer}>
-                  {(() => {
-                    const isOver = Number(game.over_line_diff) > 0;
-                    const magnitude = Math.abs(Number(game.over_line_diff));
-                    
-                    return (
-                      <>
-                        <TouchableOpacity 
-                          activeOpacity={0.7}
-                          onPress={() => setOuExplanationExpanded(!ouExplanationExpanded)}
-                        >
-                          <View style={[styles.predictionCard, { backgroundColor: isOver ? bettingColors.successLight : bettingColors.dangerLight, borderColor: isOver ? bettingColors.success : bettingColors.danger }]}>
-                          <View style={styles.predictionHeader}>
-                            <MaterialCommunityIcons name="chart-line-variant" size={16} color={isOver ? bettingColors.success : bettingColors.danger} />
-                            <Text style={[styles.predictionLabel, { color: theme.colors.onSurface }]}>
-                              Over/Under
-                            </Text>
-                          </View>
-                          
-                          <View style={styles.threeColumnGrid}>
-                            {/* Arrow Indicator */}
-                            <View style={styles.logoColumn}>
-                              <View style={styles.arrowContainer}>
-                                <Text style={[styles.arrowIcon, { color: isOver ? bettingColors.success : bettingColors.danger }]}>
-                                  {isOver ? '▲' : '▼'}
-                                </Text>
-                                <Text style={[styles.arrowLabel, { color: isOver ? bettingColors.successDark : bettingColors.dangerDark }]}>
-                                  {isOver ? 'Over' : 'Under'}
-                                </Text>
-                              </View>
-                            </View>
-
-                            {/* Edge Value */}
-                            <View style={styles.valueColumn}>
-                              <Text style={[styles.valueLabel, { color: theme.colors.onSurfaceVariant }]}>
-                                Edge to {isOver ? 'Over' : 'Under'}
-                              </Text>
-                              <Text style={[styles.valueLarge, { color: theme.colors.onSurface }]}>
-                                {roundToNearestHalf(magnitude)}
-                              </Text>
-                            </View>
-
-                            {/* Model O/U */}
-                            <View style={styles.valueColumn}>
-                              <Text style={[styles.valueLabel, { color: theme.colors.onSurfaceVariant }]}>
-                                Model O/U
-                              </Text>
-                              <Text style={[styles.valueLarge, { color: theme.colors.onSurface }]}>
-                                {roundToNearestHalf(game.pred_over_line || game.over_line || 0)}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                        </TouchableOpacity>
-
-                        {/* What This Means */}
-                        {ouExplanationExpanded && (
-                          <MotiView
-                            from={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{
-                              type: 'spring',
-                              damping: 20,
-                              stiffness: 300,
-                            }}
-                            style={{ overflow: 'hidden' }}
-                          >
-                            <View style={[styles.explanationBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
-                              <View style={styles.explanationHeader}>
-                                <MaterialCommunityIcons name="information" size={14} color={bettingColors.info} />
-                                <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
-                                  What This Means
-                                </Text>
-                              </View>
-                              <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
-                                Our model's total is {roundToNearestHalf(magnitude)} {roundToNearestHalf(magnitude) === 1 ? 'point' : 'points'} {isOver ? 'higher than' : 'lower than'} the Vegas line, {magnitude < 2 ? 'slightly' : magnitude < 4 ? 'moderately' : 'strongly'} favoring the {isOver ? 'over' : 'under'}. This {magnitude < 2 ? 'minimal' : magnitude < 4 ? 'moderate' : 'significant'} edge means our projection {magnitude < 2 ? 'closely matches' : magnitude < 4 ? 'noticeably differs from' : 'significantly diverges from'} what Vegas expects. While the edge is {magnitude < 2 ? 'small' : magnitude < 4 ? 'moderate' : 'substantial'}, our analytics {magnitude < 2 ? 'slightly lean' : 'lean'} toward the {isOver ? 'under' : 'over'} when compared to what Vegas expects.
-                              </Text>
-                            </View>
-                          </MotiView>
-                        )}
-                      </>
-                    );
-                  })()}
-                </View>
-              )}
-
-              {/* Public Betting Facts */}
-              {(game.ml_splits_label || game.spread_splits_label || game.total_splits_label) && (
-                <>
-                  <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surfaceVariant }]}>
-                    <MaterialCommunityIcons name="account-group" size={20} color={bettingColors.info} />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                      Public Betting Facts
+                {spreadSplit && (
+                  <View style={[styles.bettingPill, { 
+                    backgroundColor: getPublicBettingColors(spreadSplit.team, true).bg,
+                    borderColor: getPublicBettingColors(spreadSplit.team, true).border
+                  }]}>
+                    <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>Spread</Text>
+                    <Text style={[styles.pillValue, { color: getPublicBettingColors(spreadSplit.team, true).text }]} numberOfLines={1}>
+                      {getCFBTeamInitials(spreadSplit.team)}
                     </Text>
                   </View>
-                  <View style={styles.bettingFactsContainer}>
-                    {game.ml_splits_label && (
-                      <View style={[styles.bettingFact, { backgroundColor: theme.colors.surfaceVariant }]}>
-                        <MaterialCommunityIcons name="cash-multiple" size={14} color={bettingColors.info} />
-                        <Text style={[styles.bettingFactText, { color: theme.colors.onSurfaceVariant }]}>
-                          {game.ml_splits_label}
-                        </Text>
-                      </View>
-                    )}
-                    {game.spread_splits_label && (
-                      <View style={[styles.bettingFact, { backgroundColor: theme.colors.surfaceVariant }]}>
-                        <MaterialCommunityIcons name="chart-line" size={14} color={bettingColors.success} />
-                        <Text style={[styles.bettingFactText, { color: theme.colors.onSurfaceVariant }]}>
-                          {game.spread_splits_label}
-                        </Text>
-                      </View>
-                    )}
-                    {game.total_splits_label && (
-                      <View style={[styles.bettingFact, { backgroundColor: theme.colors.surfaceVariant }]}>
-                        <MaterialCommunityIcons name="chart-bar" size={14} color={bettingColors.warning} />
-                        <Text style={[styles.bettingFactText, { color: theme.colors.onSurfaceVariant }]}>
-                          {game.total_splits_label}
-                        </Text>
-                      </View>
-                    )}
+                )}
+                {totalSplit && (
+                  <View style={[styles.bettingPill, { 
+                    backgroundColor: getPublicBettingColors(totalSplit.team).bg,
+                    borderColor: getPublicBettingColors(totalSplit.team).border
+                  }]}>
+                    <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>Total</Text>
+                    <Text style={[styles.pillValue, { color: getPublicBettingColors(totalSplit.team).text }]}>
+                      {totalSplit.team.toLowerCase().includes('over') ? 'Over' : 'Under'} {totalSplit.team.toLowerCase().includes('over') ? '↑' : '↓'}
+                    </Text>
                   </View>
-                </>
-              )}
-
-                {/* Tap to Collapse Hint */}
-                <View style={styles.collapseHint}>
-                  <MaterialCommunityIcons name="chevron-up" size={20} color={theme.colors.onSurfaceVariant} />
-                </View>
-              </MotiView>
-            )}
-          </MotiView>
-
-          {/* Tap to Expand Hint (collapsed state) */}
-          {!expanded && (
-            <View style={styles.expandHint}>
-              <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.onSurfaceVariant} />
+                )}
+              </View>
             </View>
           )}
         </Card.Content>
       </Card>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
-    borderRadius: 20,
-    elevation: 3,
+    marginVertical: 8,
+    marginHorizontal: 16,
+    borderRadius: 16,
     overflow: 'hidden',
+    elevation: 2,
   },
   gradientBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     height: 4,
   },
   content: {
-    paddingVertical: 12,
+    paddingTop: 16,
   },
   dateContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 6,
+    marginBottom: 16,
     flexWrap: 'wrap',
+    gap: 8,
   },
   dateText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   timeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   timeText: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   teamsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    gap: 8,
+    alignItems: 'center',
+    marginBottom: 16,
   },
   teamColumn: {
-    flex: 1,
     alignItems: 'center',
-    gap: 2,
-  },
-  teamCircleContainer: {
-    width: 48,
-    height: 48,
-    marginBottom: 4,
-    position: 'relative',
+    flex: 1,
+    gap: 6,
   },
   teamCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  teamCircleContent: {
-    position: 'absolute',
-    width: 48,
-    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
   teamInitials: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
+    textAlign: 'center',
+    maxWidth: 56,
   },
   teamName: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    minHeight: 32,
-  },
-  teamNameExpanded: {
-    fontSize: 13,
-    fontWeight: 'bold',
+    fontSize: 11,
+    fontWeight: '600',
     textAlign: 'center',
   },
-  spreadText: {
-    fontSize: 12,
-    fontWeight: '500',
+  teamLinesRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 2,
   },
-  mlText: {
-    fontSize: 13,
-    fontWeight: 'bold',
+  lineText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   centerColumn: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    paddingHorizontal: 8,
   },
   atSymbol: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  totalBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  totalText: {
-    fontSize: 11,
+    fontSize: 36,
     fontWeight: '600',
   },
-  edgeSection: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+  ouLinePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  edgeRow: {
+  ouLineText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  pillsSection: {
+    marginBottom: 12,
+  },
+  pillsHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 20,
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  pillsHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  pillsRow: {
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  edgeItem: {
+  bettingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  edgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  scoreSection: {
-    marginTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  scoreLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  scorePredict: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  predictionContainer: {
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  predictionCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  predictionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    marginBottom: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    minWidth: 80,
   },
-  predictionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  threeColumnGrid: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  logoColumn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 60,
-  },
-  valueColumn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  valueLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  valueLarge: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  teamCircleMedium: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  teamInitialsMedium: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  arrowContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  arrowIcon: {
-    fontSize: 40,
-    fontWeight: 'bold',
-  },
-  arrowLabel: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    marginTop: -4,
-  },
-  edgeBadge: {
+  pillLabel: {
     fontSize: 10,
     fontWeight: '600',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    textTransform: 'uppercase',
   },
-  predictionGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  predictionBox: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  teamCircleSmall: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  teamInitialsSmall: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  predictionTeam: {
+  pillValue: {
     fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  predictionSpread: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  confidencePercent: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  confidenceLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  ouArrow: {
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  ouLabel: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  bettingFactsContainer: {
-    gap: 8,
-    marginTop: 8,
-  },
-  bettingFact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 10,
-    borderRadius: 20,
-  },
-  bettingFactText: {
-    fontSize: 12,
-    fontWeight: '500',
-    flex: 1,
-  },
-  expandHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 8,
-  },
-  expandText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  collapseHint: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 12,
-  },
-  collapseText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  explanationBox: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  explanationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  explanationTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  explanationText: {
-    fontSize: 11,
-    lineHeight: 16,
-    textAlign: 'left',
-  },
-  noPredictionsBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    borderRadius: 20,
-    marginTop: 8,
-  },
-  noPredictionsText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 18,
+    fontWeight: '700',
   },
 });
