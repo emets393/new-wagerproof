@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Vibration, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -10,7 +11,7 @@ export function DataTransparency() {
   const theme = useTheme();
 
   const handleContinue = () => {
-    Vibration.vibrate([0, 15, 10, 15]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     nextStep();
   };
 

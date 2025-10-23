@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
@@ -19,13 +20,13 @@ export function AcquisitionSource() {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
 
   const handleSelect = (source: string) => {
-    Vibration.vibrate([0, 10, 10]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedSource(source);
   };
 
   const handleNext = () => {
     if (selectedSource) {
-      Vibration.vibrate([0, 15, 10, 15]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       updateOnboardingData({ acquisitionSource: selectedSource });
       nextStep();
     }

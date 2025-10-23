@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Vibration } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
@@ -9,7 +10,7 @@ export function PersonalizationIntro() {
   const theme = useTheme();
 
   const handleContinue = () => {
-    Vibration.vibrate([0, 10, 10]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     console.log('Continue button clicked!');
     nextStep();
   };

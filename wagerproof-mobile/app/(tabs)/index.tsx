@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, Image, TouchableOpacity } from 'react-native';
 import { useTheme, Chip, ActivityIndicator, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import BottomSheet from '@gorhom/bottom-sheet';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { NFLGameCard } from '@/components/NFLGameCard';
 import { CFBGameCard } from '@/components/CFBGameCard';
+import { NFLGameBottomSheet } from '@/components/NFLGameBottomSheet';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
@@ -41,12 +44,25 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchBarVisible, setSearchBarVisible] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<NFLPrediction | null>(null);
+  
+  // Refs
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  
+  // Animated values for search bar
+  const searchBarTranslateY = useRef(new Animated.Value(-72)).current;
+  const searchBarOpacity = useRef(new Animated.Value(0)).current;
+  const searchBarScale = useRef(new Animated.Value(0.8)).current;
+  
+  // Timer for auto-hiding search bar
+  const searchBarTimer = useRef<number | null>(null);
 
   // Calculate header and tab bar heights
   const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
   const PILLS_HEIGHT = 72;
-  const SEARCH_BAR_HEIGHT = 60; // Search bar height
-  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT + SEARCH_BAR_HEIGHT;
+  const SEARCH_BAR_HEIGHT = 72; // Search bar height
+  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT + (searchBarVisible ? SEARCH_BAR_HEIGHT : 0);
   
   // Header translates up as user scrolls up
   const headerTranslate = scrollYClamped.interpolate({
@@ -74,6 +90,87 @@ export default function FeedScreen() {
     { id: 'nba', label: 'NBA', available: false },
     { id: 'ncaab', label: 'NCAAB', available: false },
   ];
+
+  // Show search bar with bounce animation
+  const showSearchBar = () => {
+    setSearchBarVisible(true);
+    
+    // Clear any existing timer
+    if (searchBarTimer.current) {
+      clearTimeout(searchBarTimer.current);
+    }
+    
+    // Animate in with bounce spring - all using native driver
+    Animated.parallel([
+      Animated.spring(searchBarTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        damping: 10,
+        stiffness: 100,
+      }),
+      Animated.spring(searchBarOpacity, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 10,
+        stiffness: 100,
+      }),
+      Animated.spring(searchBarScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 10,
+        stiffness: 100,
+      }),
+    ]).start();
+  };
+
+  // Hide search bar with animation
+  const hideSearchBar = () => {
+    // Clear timer
+    if (searchBarTimer.current) {
+      clearTimeout(searchBarTimer.current);
+      searchBarTimer.current = null;
+    }
+    
+    // Animate out - all using native driver
+    Animated.parallel([
+      Animated.timing(searchBarTranslateY, {
+        toValue: -72,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchBarOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchBarScale, {
+        toValue: 0.8,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setSearchBarVisible(false);
+      setSearchText(''); // Clear search text when hiding
+    });
+  };
+
+  // Toggle search bar
+  const toggleSearchBar = () => {
+    if (searchBarVisible) {
+      hideSearchBar();
+    } else {
+      showSearchBar();
+    }
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchBarTimer.current) {
+        clearTimeout(searchBarTimer.current);
+      }
+    };
+  }, []);
 
   // Fetch NFL data
   const fetchNFLData = async () => {
@@ -124,13 +221,14 @@ export default function FeedScreen() {
 
       if (predsError) throw predsError;
 
-      // Get betting splits
-      const { data: bettingSplitsData } = await collegeFootballSupabase
-        .from('production_betting_facts_nfl')
+      // Get weather data from production_weather table
+      const { data: weatherData, error: weatherError } = await collegeFootballSupabase
+        .from('production_weather')
         .select('*');
 
-      const bettingSplitsMap = new Map();
-      bettingSplitsData?.forEach(b => bettingSplitsMap.set(b.training_key, b));
+      if (weatherError) {
+        console.warn('Weather data unavailable:', weatherError);
+      }
 
       // Combine data
       const predictionsWithData: NFLPrediction[] = (preds || [])
@@ -138,7 +236,7 @@ export default function FeedScreen() {
           const bettingLine = bettingMap.get(pred.training_key);
           if (!bettingLine) return null;
 
-          const bettingSplits = bettingSplitsMap.get(pred.training_key);
+          const weather = weatherData?.find(w => w.training_key === pred.training_key);
 
           return {
             id: bettingLine.id,
@@ -157,16 +255,27 @@ export default function FeedScreen() {
             home_away_spread_cover_prob: pred.home_away_spread_cover_prob,
             ou_result_prob: pred.ou_result_prob,
             run_id: pred.run_id,
-            temperature: null,
-            precipitation: null,
-            wind_speed: null,
-            icon: null,
-            spread_splits_label: bettingSplits?.spread_splits_label || null,
-            total_splits_label: bettingSplits?.total_splits_label || null,
-            ml_splits_label: bettingSplits?.ml_splits_label || null,
+            // Weather data from production_weather table
+            temperature: weather?.temperature || null,
+            precipitation: weather?.precipitation_pct || null,
+            wind_speed: weather?.wind_speed || null,
+            icon: weather?.icon || null,
+            // Public betting splits - FROM bettingLine (nfl_betting_lines table)
+            spread_splits_label: bettingLine.spread_splits_label || null,
+            total_splits_label: bettingLine.total_splits_label || null,
+            ml_splits_label: bettingLine.ml_splits_label || null,
           };
         })
         .filter(pred => pred !== null);
+
+      // Debug: Log first game's betting splits
+      if (predictionsWithData.length > 0) {
+        console.log('NFL Game 1 betting splits:', {
+          ml: predictionsWithData[0]?.ml_splits_label,
+          spread: predictionsWithData[0]?.spread_splits_label,
+          total: predictionsWithData[0]?.total_splits_label
+        });
+      }
 
       setNflGames(predictionsWithData);
     } catch (err) {
@@ -334,21 +443,43 @@ export default function FeedScreen() {
     return games;
   }, [filteredGames, sortMode, selectedSport]);
 
+  const handleGamePress = (game: NFLPrediction) => {
+    setSelectedGame(game);
+    bottomSheetRef.current?.snapToIndex(0);
+  };
+
+  const handleCloseBottomSheet = () => {
+    setSelectedGame(null);
+  };
+
   const renderGameCard = ({ item }: { item: NFLPrediction | CFBPrediction }) => {
     if (selectedSport === 'nfl') {
-      return <NFLGameCard game={item as NFLPrediction} />;
+      return <NFLGameCard game={item as NFLPrediction} onPress={() => handleGamePress(item as NFLPrediction)} />;
     }
     return <CFBGameCard game={item as CFBPrediction} />;
   };
 
   const renderSearchBar = () => {
+    if (!searchBarVisible) return null;
+    
     // Use dark color with transparency for both light and dark modes
     const iconColor = theme.colors.onSurfaceVariant;
     const searchBgColor = theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)';
     const placeholderColor = theme.dark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)';
     
     return (
-      <View style={styles.searchWrapper}>
+      <Animated.View 
+        style={[
+          styles.searchWrapper,
+          {
+            opacity: searchBarOpacity,
+            transform: [
+              { translateY: searchBarTranslateY },
+              { scale: searchBarScale }
+            ],
+          }
+        ]}
+      >
         <View style={[styles.searchContainer, { backgroundColor: searchBgColor }]}>
           <MaterialCommunityIcons name="magnify" size={20} color={iconColor} />
           <TextInput
@@ -357,26 +488,29 @@ export default function FeedScreen() {
             placeholderTextColor={placeholderColor}
             value={searchText}
             onChangeText={setSearchText}
+            autoFocus={true}
           />
           {searchText.length > 0 && (
-            <MaterialCommunityIcons
-              name="close-circle"
-              size={20}
-              color={iconColor}
-              onPress={() => setSearchText('')}
-            />
+            <TouchableOpacity onPress={() => setSearchText('')}>
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={20}
+                color={iconColor}
+              />
+            </TouchableOpacity>
           )}
         </View>
-      </View>
+      </Animated.View>
     );
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Animated Collapsible Header */}
-      <Animated.View
-        style={[
-          styles.collapsibleHeader,
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        {/* Animated Collapsible Header */}
+        <Animated.View
+          style={[
+            styles.collapsibleHeader,
           {
             transform: [{ translateY: headerTranslate }],
             opacity: headerOpacity,
@@ -415,6 +549,20 @@ export default function FeedScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.pillsContent}
           >
+            {/* Search Icon Button */}
+            <TouchableOpacity 
+              style={[styles.sortButton, { 
+                backgroundColor: searchBarVisible ? theme.colors.primary : theme.colors.surfaceVariant 
+              }]}
+              onPress={toggleSearchBar}
+            >
+              <MaterialCommunityIcons 
+                name="magnify" 
+                size={20} 
+                color={searchBarVisible ? '#FFFFFF' : theme.colors.primary} 
+              />
+            </TouchableOpacity>
+
             {/* Sort Dropdown */}
             <Menu
               visible={sortMenuVisible}
@@ -551,7 +699,15 @@ export default function FeedScreen() {
           }
         />
       )}
-    </View>
+      </View>
+
+      {/* NFL Game Bottom Sheet */}
+      <NFLGameBottomSheet
+        ref={bottomSheetRef}
+        game={selectedGame}
+        onClose={handleCloseBottomSheet}
+      />
+    </GestureHandlerRootView>
   );
 }
 
@@ -606,19 +762,23 @@ const styles = StyleSheet.create({
   searchWrapper: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+    height: 72,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     gap: 8,
     borderRadius: 16,
+    minHeight: 48,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    paddingVertical: 4,
+    paddingVertical: 0,
+    height: 40,
+    textAlignVertical: 'center',
   },
   pillsWrapper: {
     paddingVertical: 12,

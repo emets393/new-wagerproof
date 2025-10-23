@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Vibration, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -53,7 +54,7 @@ export function MethodologyClaim2() {
   }));
 
   const handleContinue = () => {
-    Vibration.vibrate([0, 15, 10, 15]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     nextStep();
   };
 

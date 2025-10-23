@@ -1,9 +1,10 @@
 import React, { useState, createContext, useContext } from 'react';
-import { View, Text, StyleSheet, Alert, Vibration, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { useTheme, ActivityIndicator, Switch } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
@@ -20,13 +21,11 @@ const PaywallContext = createContext<{
 } | null>(null);
 
 const features = [
-  { icon: 'chart-line', title: 'Real-Time Predictions', description: 'Live ML model predictions during games' },
   { icon: 'lightbulb-on', title: 'Data-Driven Insights', description: 'Advanced analytics for smarter betting' },
   { icon: 'trending-up', title: 'Trend Analysis', description: 'Historical patterns & winning strategies' },
   { icon: 'account-group', title: 'Expert Community', description: 'Join thousands of winning bettors' },
   { icon: 'shield-check', title: 'Transparent Results', description: 'Track model accuracy in real-time' },
   { icon: 'robot', title: 'WagerBot AI', description: 'AI-powered betting assistant' },
-  { icon: 'finance', title: 'ROI Tracking', description: 'Monitor your betting performance' },
   { icon: 'bell-ring', title: 'Smart Alerts', description: 'Get notified of profitable opportunities' },
 ];
 
@@ -56,7 +55,7 @@ function usePaywallState() {
   const handleContinue = async () => {
     if (isSubmitting) return;
     
-    Vibration.vibrate([0, 15, 10, 15]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsSubmitting(true);
     try {
       console.log('Starting onboarding completion...');
@@ -127,7 +126,7 @@ export function PaywallBottomCTA() {
   return (
     <View style={styles.fixedBottomContainer} pointerEvents="box-none">
       <LinearGradient
-        colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.95)']}
+        colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.85)', 'rgba(0, 0, 0, 0.98)', '#000000']}
         style={styles.bottomGradient}
         pointerEvents="auto"
       >
@@ -171,6 +170,9 @@ export function PaywallContent() {
 
   return (
     <View style={styles.contentWrapper}>
+        {/* Top spacer for system UI */}
+        <View style={styles.topSpacer} />
+        
         {/* App Branding */}
         <View style={styles.header}>
           <View style={styles.brandContainer}>
@@ -190,26 +192,26 @@ export function PaywallContent() {
           >
             <View style={[
               styles.pricingCard,
-              selectedPlan === 'yearly' && styles.pricingCardSelected
+              selectedPlan === 'yearly' && styles.pricingCardSelected,
+              selectedPlan !== 'yearly' && styles.pricingCardInactive
             ]}>
               <View style={styles.pricingHeader}>
                 <View>
-                  <Text style={styles.planName}>Yearly</Text>
-                  <Text style={styles.planPrice}>$14.98 /year</Text>
+                  <Text style={[
+                    styles.planName,
+                    selectedPlan !== 'yearly' && styles.inactiveText
+                  ]}>Yearly</Text>
+                  <Text style={[
+                    styles.planPrice,
+                    selectedPlan !== 'yearly' && styles.inactiveText
+                  ]}>$99 /year</Text>
                 </View>
                 <View style={styles.bestValueBadge}>
                   <Text style={styles.bestValueText}>BEST VALUE</Text>
                 </View>
               </View>
               
-              <View style={styles.freeTrialRow}>
-                <Text style={styles.freeTrialText}>Free Trial</Text>
-                <Switch
-                  value={freeTrialEnabled}
-                  onValueChange={setFreeTrialEnabled}
-                  color="#22c55e"
-                />
-              </View>
+            
             </View>
           </TouchableOpacity>
 
@@ -220,13 +222,19 @@ export function PaywallContent() {
           >
             <View style={[
               styles.pricingCard,
-              styles.pricingCardInactive,
-              selectedPlan === 'monthly' && styles.pricingCardSelected
+              selectedPlan === 'monthly' && styles.pricingCardSelected,
+              selectedPlan !== 'monthly' && styles.pricingCardInactive
             ]}>
               <View style={styles.pricingHeader}>
-                <View>
-                  <Text style={[styles.planName, styles.inactiveText]}>Monthly</Text>
-                  <Text style={[styles.planPrice, styles.inactiveText]}>$2.98 /month</Text>
+                <View>z
+                  <Text style={[
+                    styles.planName,
+                    selectedPlan !== 'monthly' && styles.inactiveText
+                  ]}>Monthly</Text>
+                  <Text style={[
+                    styles.planPrice,
+                    selectedPlan !== 'monthly' && styles.inactiveText
+                  ]}>$19.99 /month</Text>
                 </View>
               </View>
             </View>
@@ -309,7 +317,7 @@ export function PaywallContent() {
         </View>
 
         {/* Spacer for bottom gradient */}
-        <View style={{ height: 200 }} />
+        <View style={{ height: 240 }} />
       </View>
   );
 }
@@ -328,6 +336,9 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingHorizontal: 24,
     paddingBottom: 20,
+  },
+  topSpacer: {
+    height: 80,
   },
   header: {
     alignItems: 'center',
@@ -363,18 +374,25 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   pricingCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 16,
     padding: 20,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   pricingCardSelected: {
     borderColor: '#22c55e',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    borderWidth: 2,
   },
   pricingCardInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   pricingHeader: {
     flexDirection: 'row',
@@ -385,16 +403,16 @@ const styles = StyleSheet.create({
   planName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#fff',
     marginBottom: 4,
   },
   planPrice: {
     fontSize: 16,
-    color: '#333',
+    color: 'rgba(255, 255, 255, 0.85)',
     fontWeight: '600',
   },
   inactiveText: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   bestValueBadge: {
     backgroundColor: '#ef4444',
@@ -416,7 +434,7 @@ const styles = StyleSheet.create({
   freeTrialText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: '#fff',
   },
   
   // Award Sections
@@ -585,8 +603,8 @@ const styles = StyleSheet.create({
     elevation: 1000,
   },
   bottomGradient: {
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingTop: 80,
+    paddingBottom: 30,
     paddingHorizontal: 24,
   },
   bottomContent: {

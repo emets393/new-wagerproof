@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Vibration, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
@@ -62,7 +63,7 @@ export function SocialProof() {
   );
 
   const handleContinue = () => {
-    Vibration.vibrate([0, 15, 10, 15]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     nextStep();
   };
 

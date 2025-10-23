@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Vibration } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { TextInput } from '../../ui/TextInput';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -14,11 +15,11 @@ export function AgeConfirmation() {
   const handleNext = () => {
     const ageNumber = parseInt(age, 10);
     if (ageNumber && ageNumber >= 18) {
-      Vibration.vibrate([0, 15, 10, 15]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       updateOnboardingData({ age: ageNumber });
       nextStep();
     } else {
-      Vibration.vibrate([30, 30, 30]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setError('You must be 18 or older to continue.');
     }
   };

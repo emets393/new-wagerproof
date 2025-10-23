@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -19,13 +20,13 @@ export function PrimaryGoalSelection() {
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
 
   const handleSelect = (goal: string) => {
-    Vibration.vibrate([0, 10, 10]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedGoal(goal);
   };
 
   const handleNext = () => {
     if (selectedGoal) {
-      Vibration.vibrate([0, 15, 10, 15]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       updateOnboardingData({ mainGoal: selectedGoal });
       nextStep();
     }

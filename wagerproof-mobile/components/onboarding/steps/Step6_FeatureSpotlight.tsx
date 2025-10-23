@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Vibration } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -22,7 +23,7 @@ export function FeatureSpotlight() {
   const handleToggleFeature = (feature: FeatureType) => {
     if (feature === activeFeature) return;
     
-    Vibration.vibrate([0, 10, 10]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     // Animate fade out, change content, then fade in
     fadeAnim.value = withSequence(
@@ -37,7 +38,7 @@ export function FeatureSpotlight() {
   };
 
   const handleContinue = () => {
-    Vibration.vibrate([0, 15, 10, 15]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     nextStep();
   };
 

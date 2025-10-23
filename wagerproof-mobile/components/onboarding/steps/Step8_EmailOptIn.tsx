@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Vibration } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { TextInput } from '../../ui/TextInput';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -15,12 +16,12 @@ export function EmailOptIn() {
   const [phoneNumber, setPhoneNumber] = useState('');
 
   const handleToggleOptIn = () => {
-    Vibration.vibrate([0, 10, 10]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setOptIn(!optIn);
   };
 
   const handleNext = () => {
-    Vibration.vibrate([0, 15, 10, 15]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     updateOnboardingData({ 
       emailOptIn: optIn, 
       phoneNumber: optIn ? phoneNumber : undefined 
