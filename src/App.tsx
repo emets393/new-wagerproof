@@ -14,6 +14,7 @@ import WagerBotChat from "./pages/WagerBotChat";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import LearnWagerProof from "./pages/LearnWagerProof";
 import Admin from "./pages/Admin";
+import PaywallTest from "./pages/PaywallTest";
 import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import FeatureRequests from "./pages/FeatureRequests";
@@ -71,6 +72,7 @@ function AppRoutes() {
     '/privacy-policy',
     '/terms-and-conditions',
     '/onboarding', // Add onboarding to public routes to avoid nested layouts
+    '/paywall-test', // Add paywall test to public routes
   ].includes(location.pathname);
 
   // Pages that should not have the layout (landing, welcome, access denied)
@@ -85,6 +87,7 @@ function AppRoutes() {
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+          <Route path="/paywall-test" element={<ProtectedRoute><PaywallTest /></ProtectedRoute>} />
         </Routes>
       </PublicLayout>
     );

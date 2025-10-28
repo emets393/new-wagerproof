@@ -1,8 +1,9 @@
 import debug from '@/utils/debug';
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminMode } from "@/contexts/AdminModeContext";
+import { supabase } from "@/integrations/supabase/client";
 import { navItems } from "@/nav-items";
 import { GradientText } from "@/components/ui/gradient-text";
 import {
@@ -41,6 +42,31 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  const [isLaunchMode, setIsLaunchMode] = useState(false);
+
+  // Fetch launch mode setting
+  useEffect(() => {
+    async function fetchLaunchMode() {
+      try {
+        const { data, error } = await (supabase as any)
+          .from('site_settings')
+          .select('launch_mode')
+          .single();
+        
+        if (error) {
+          debug.error('Error fetching launch mode:', error);
+          setIsLaunchMode(false);
+        } else {
+          setIsLaunchMode(data?.launch_mode || false);
+        }
+      } catch (err) {
+        debug.error('Unexpected error fetching launch mode:', err);
+        setIsLaunchMode(false);
+      }
+    }
+
+    fetchLaunchMode();
+  }, []);
 
   // Onboarding check is now handled by OnboardingGuard component
 
@@ -122,6 +148,11 @@ export function AppLayout() {
               className="inline"
             />
           </span>
+          {isLaunchMode && (
+            <Badge variant="secondary" className="ml-2 text-xs bg-green-500/20 text-green-600 dark:text-green-400 border-green-300 dark:border-green-600">
+              beta
+            </Badge>
+          )}
         </Link>
       </SidebarHeader>
 

@@ -2,14 +2,26 @@ import debug from '@/utils/debug';
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { useNavigate } from "react-router-dom";
 
 export function EarlyAccess() {
-  const { nextStep } = useOnboarding();
+  const { submitOnboardingData } = useOnboarding();
+  const navigate = useNavigate();
 
-  const handleFeatureRequest = () => {
-    // In a real app, this would navigate to a feature request page or open a modal.
-    debug.log("Navigating to feature request page...");
-    nextStep();
+  const handleContinue = async () => {
+    try {
+      debug.log('Completing onboarding from EarlyAccess...');
+      await submitOnboardingData();
+      debug.log('Onboarding data submitted, navigating to app...');
+      // Small delay to ensure database update completes
+      setTimeout(() => {
+        navigate("/wagerbot-chat");
+      }, 500);
+    } catch (error) {
+      debug.error('Error completing onboarding:', error);
+      // Still navigate even if there's an error
+      navigate("/wagerbot-chat");
+    }
   };
 
   return (
@@ -37,8 +49,8 @@ export function EarlyAccess() {
         transition={{ duration: 0.5, delay: 0.4 }}
       >
        
-        <Button onClick={nextStep} size="lg" className="bg-green-500 hover:bg-green-600 text-white border-0">
-          Continue
+        <Button onClick={handleContinue} size="lg" className="bg-green-500 hover:bg-green-600 text-white border-0">
+          Continue to WagerProof
         </Button>
       </motion.div>
     </div>

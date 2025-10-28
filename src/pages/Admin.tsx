@@ -8,9 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Shield, Users, TrendingUp, Settings as SettingsIcon, Loader2 } from "lucide-react";
+import { Shield, Users, TrendingUp, Settings as SettingsIcon, Loader2, Eye } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import debug from '@/utils/debug';
+import Dither from "@/components/Dither";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -103,6 +104,11 @@ export default function Admin() {
     }
   });
 
+  const handleViewPaywall = () => {
+    // Open the actual onboarding flow (with paywall) in a new window for testing
+    window.open('/onboarding', '_blank');
+  };
+
   if (checkingAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -120,128 +126,206 @@ export default function Admin() {
   const adminUsers = users?.filter(u => u.roles.includes('admin')).length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-accent rounded-xl shadow-lg">
-            <Shield className="w-8 h-8 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold text-accent drop-shadow-lg">Admin Dashboard</h1>
-            <p className="text-white/80 mt-1">Manage WagerProof access and users</p>
-          </div>
-        </div>
+    <div className="min-h-screen relative bg-black/30 backdrop-blur-sm p-6 overflow-hidden rounded-3xl">
+      {/* Dither Background Effect */}
+      <div className="absolute inset-0 overflow-hidden rounded-3xl" style={{ clipPath: 'inset(0 round 1.5rem)' }}>
+        <Dither
+          waveSpeed={0.05}
+          waveFrequency={3}
+          waveAmplitude={0.3}
+          waveColor={[0.13, 0.77, 0.37]}
+          colorNum={4}
+          pixelSize={2}
+          disableAnimation={false}
+          enableMouseInteraction={false}
+          mouseRadius={0}
+        />
+      </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalUsers}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Free Users</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{freeUsers}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Admins</CardTitle>
-              <Shield className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{adminUsers}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Site Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SettingsIcon className="w-5 h-5" />
-              Site Settings
-            </CardTitle>
-            <CardDescription>
-              Control access modes and subscription requirements
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Launch Mode (Free Access)</p>
-                <p className="text-sm text-muted-foreground">
-                  When enabled, all users get free access. Turn off to require subscriptions.
-                </p>
-              </div>
-              <Switch
-                checked={settings?.launch_mode || false}
-                onCheckedChange={(checked) => toggleLaunchMode.mutate(checked)}
-                disabled={settingsLoading || toggleLaunchMode.isPending}
-              />
+      <div className="relative z-10">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Header */}
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-accent rounded-xl shadow-lg">
+              <Shield className="w-8 h-8 text-primary" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <h1 className="text-4xl font-bold text-accent drop-shadow-lg">Admin Dashboard</h1>
+              <p className="text-white/80 mt-1">Manage WagerProof access and users</p>
+            </div>
+          </div>
 
-        {/* User Management */}
-        <Card>
-          <CardHeader>
-            <CardTitle>User Management</CardTitle>
-            <CardDescription>View and manage all registered users</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {usersLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin" />
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card
+              className="border-white/20 hover:scale-105 transition-all duration-200"
+              style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+                boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+              }}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-white">Total Users</CardTitle>
+                <Users className="h-4 w-4 text-green-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{totalUsers}</div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="border-white/20 hover:scale-105 transition-all duration-200"
+              style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+                boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+              }}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-white">Free Users</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{freeUsers}</div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="border-white/20 hover:scale-105 transition-all duration-200"
+              style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+                boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+              }}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-white">Admins</CardTitle>
+                <Shield className="h-4 w-4 text-green-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{adminUsers}</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Site Settings */}
+          <Card
+            className="border-white/20"
+            style={{
+              background: 'rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+            }}
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <SettingsIcon className="w-5 h-5" />
+                Site Settings
+              </CardTitle>
+              <CardDescription className="text-white/70">
+                Control access modes and subscription requirements
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Launch Mode Toggle */}
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                <div>
+                  <p className="font-medium text-white">Launch Mode (Free Access)</p>
+                  <p className="text-sm text-white/70">
+                    When enabled, all users get free access and skip the paywall. Turn off to require subscriptions.
+                  </p>
+                </div>
+                <Switch
+                  checked={settings?.launch_mode || false}
+                  onCheckedChange={(checked) => toggleLaunchMode.mutate(checked)}
+                  disabled={settingsLoading || toggleLaunchMode.isPending}
+                />
               </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Username</TableHead>
-                    <TableHead>Display Name</TableHead>
-                    <TableHead>Roles</TableHead>
-                    <TableHead>Joined</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users?.map((user) => (
-                    <TableRow key={user.user_id}>
-                      <TableCell className="font-medium">{user.username}</TableCell>
-                      <TableCell>{user.display_name}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {user.roles.map((role) => (
-                            <Badge
-                              key={role}
-                              variant={role === 'admin' ? 'default' : 'secondary'}
-                            >
-                              {role}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </TableCell>
+
+              {/* Paywall Test Button */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-white">Test Paywall</p>
+                  <p className="text-sm text-white/70">
+                    Preview the paywall design in a new window for testing and validation.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleViewPaywall}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 border-white/20 hover:bg-white/10 text-white"
+                >
+                  <Eye className="w-4 h-4" />
+                  View Paywall
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* User Management */}
+          <Card
+            className="border-white/20"
+            style={{
+              background: 'rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+            }}
+          >
+            <CardHeader>
+              <CardTitle className="text-white">User Management</CardTitle>
+              <CardDescription className="text-white/70">View and manage all registered users</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {usersLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Display Name</TableHead>
+                      <TableHead>Roles</TableHead>
+                      <TableHead>Joined</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {users?.map((user) => (
+                      <TableRow key={user.user_id}>
+                        <TableCell className="font-medium text-white">{user.username}</TableCell>
+                        <TableCell className="text-white">{user.display_name}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {user.roles.map((role) => (
+                              <Badge
+                                key={role}
+                                variant={role === 'admin' ? 'default' : 'secondary'}
+                                className="text-white"
+                              >
+                                {role}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

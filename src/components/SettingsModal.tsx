@@ -325,6 +325,31 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         Enter Flow
                       </Button>
                     </div>
+
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <Label htmlFor="paywall-test" className="text-sm font-medium">
+                            Test Paywall
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            (Admin) Preview the paywall in a new window.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        id="paywall-test"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          window.open('/onboarding', '_blank');
+                        }}
+                      >
+                        View Paywall
+                      </Button>
+                    </div>
                   </>
                 )}
               </CardContent>

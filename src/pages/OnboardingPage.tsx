@@ -41,7 +41,27 @@ const stepComponents = {
 const TOTAL_STEPS = 16;
 
 function OnboardingContent() {
-  const { currentStep, direction } = useOnboarding();
+  const { currentStep, direction, isLaunchMode } = useOnboarding();
+
+  // Calculate total steps based on launch mode
+  const getTotalSteps = () => {
+    // In launch mode: steps 1-15 (skip paywall 16)
+    // In paid mode: steps 1-14, then 16 (skip early access 15)
+    return isLaunchMode ? 15 : 16;
+  };
+
+  // Determine if current step should be rendered
+  const shouldSkipStep = () => {
+    // In paid mode, skip step 15 (EarlyAccess)
+    if (!isLaunchMode && currentStep === 15) {
+      return true;
+    }
+    // In free mode, skip step 16 (Paywall)
+    if (isLaunchMode && currentStep === 16) {
+      return true;
+    }
+    return false;
+  };
 
   const CurrentStepComponent = stepComponents[currentStep] || (() => <div>Step {currentStep} not found</div>);
 
@@ -98,34 +118,45 @@ function OnboardingContent() {
       >
         {/* Progress Indicator */}
         <div className="p-4 pb-0 sm:p-6">
-          <ProgressIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+          <ProgressIndicator currentStep={currentStep} totalSteps={getTotalSteps()} />
         </div>
         
         {/* Content Area */}
         <div className="relative h-[calc(100vh-12rem)] sm:h-[600px] overflow-y-auto overflow-x-hidden onboarding-scroll">
           <AnimatePresence initial={false} custom={direction} mode="wait">
-            <motion.div
-              key={currentStep}
-              custom={direction}
-              variants={variants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{
-                x: { type: "spring", stiffness: 300, damping: 30 },
-                opacity: { duration: 0.2 },
-                scale: { duration: 0.2 },
-              }}
-              className={`absolute inset-0 ${
-                currentStep === 9 || currentStep === 10 || currentStep === 11 ? '' : 'p-4 sm:p-6 md:p-8'
-              } min-h-full flex justify-center ${
-                currentStep === 6 || currentStep === 7 || currentStep === 9 || currentStep === 10 || currentStep === 11 ? 'items-start' : 'items-center'
-              }`}
-            >
-              <div className="w-full">
-                <CurrentStepComponent />
-              </div>
-            </motion.div>
+            {shouldSkipStep() ? (
+              <motion.div
+                key="skip-step"
+                className="absolute inset-0 p-4 sm:p-6 md:p-8 min-h-full flex justify-center items-center"
+              >
+                <div className="text-white text-center">
+                  <p>Redirecting...</p>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={currentStep}
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{
+                  x: { type: "spring", stiffness: 300, damping: 30 },
+                  opacity: { duration: 0.2 },
+                  scale: { duration: 0.2 },
+                }}
+                className={`absolute inset-0 ${
+                  currentStep === 9 || currentStep === 10 || currentStep === 11 ? '' : 'p-4 sm:p-6 md:p-8'
+                } min-h-full flex justify-center ${
+                  currentStep === 6 || currentStep === 7 || currentStep === 9 || currentStep === 10 || currentStep === 11 ? 'items-start' : 'items-center'
+                }`}
+              >
+                <div className="w-full">
+                  <CurrentStepComponent />
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </motion.div>
