@@ -14,6 +14,7 @@ import { parseBettingSplit, getBettingColorTheme, getThemeColors } from '@/utils
 import { PublicBettingBars } from './nfl/PublicBettingBars';
 import { H2HSection } from './nfl/H2HSection';
 import { LineMovementSection } from './nfl/LineMovementSection';
+import { PolymarketWidget } from './PolymarketWidget';
 
 export function NFLGameBottomSheet() {
   const theme = useTheme();
@@ -262,6 +263,16 @@ export function NFLGameBottomSheet() {
               </View>
             </View>
           )}
+
+          {/* Polymarket Widget */}
+          <PolymarketWidget
+            awayTeam={game.away_team}
+            homeTeam={game.home_team}
+            gameDate={game.game_date}
+            awayTeamColors={awayColors}
+            homeTeamColors={homeColors}
+            league="nfl"
+          />
 
           {/* Spread Prediction */}
           {spreadPrediction && (

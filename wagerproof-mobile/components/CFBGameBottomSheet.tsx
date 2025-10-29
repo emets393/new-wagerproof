@@ -11,6 +11,7 @@ import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { getCFBTeamColors, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, roundToNearestHalf } from '@/utils/formatting';
 import { PublicBettingBars } from './cfb/PublicBettingBars';
+import { PolymarketWidget } from './PolymarketWidget';
 
 export function CFBGameBottomSheet() {
   const theme = useTheme();
@@ -338,6 +339,16 @@ export function CFBGameBottomSheet() {
               </View>
             </View>
           )}
+
+          {/* Polymarket Widget */}
+          <PolymarketWidget
+            awayTeam={game.away_team}
+            homeTeam={game.home_team}
+            gameDate={game.game_date}
+            awayTeamColors={awayColors}
+            homeTeamColors={homeColors}
+            league="cfb"
+          />
 
           {/* Spread Prediction */}
           {spreadPrediction && (
