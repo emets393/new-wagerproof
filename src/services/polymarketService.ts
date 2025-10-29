@@ -6,9 +6,10 @@ import {
   PolymarketSearchResponse,
 } from '@/types/polymarket';
 import debug from '@/utils/debug';
+import { supabase } from '@/integrations/supabase/client';
 
-const POLYMARKET_CLOB_API = 'https://clob.polymarket.com';
-const POLYMARKET_GAMMA_API = 'https://gamma-api.polymarket.com';
+// Use Supabase Edge Function to proxy Polymarket API calls (avoids CORS issues)
+const USE_PROXY = true;
 
 interface PriceHistoryPoint {
   t: number; // Unix timestamp in seconds
@@ -17,6 +18,30 @@ interface PriceHistoryPoint {
 
 interface PriceHistoryResponse {
   history: PriceHistoryPoint[];
+}
+
+interface PolymarketSport {
+  sport: string;
+  tags: string;
+  series: string;
+  ordering: string;
+}
+
+interface PolymarketEvent {
+  slug: string;
+  title: string;
+  markets: PolymarketEventMarket[];
+  game_start_time?: string;
+  gameStartTime?: string;
+}
+
+interface PolymarketEventMarket {
+  slug: string;
+  question: string;
+  active: boolean;
+  closed: boolean;
+  tokens?: { outcome: string; token_id: string }[];
+  clobTokenIds?: string[];
 }
 
 // Map city names to team mascots for better Polymarket matching
@@ -63,35 +88,144 @@ function getTeamMascot(cityName: string): string {
 }
 
 /**
- * Search for Polymarket markets using Gamma API
+ * Get sports metadata from Polymarket (includes tag IDs for each sport)
  */
-export async function searchMarketsGamma(query: string): Promise<any[]> {
+export async function getSportsMetadata(): Promise<PolymarketSport[]> {
   try {
-    const url = `${POLYMARKET_GAMMA_API}/markets?limit=100&closed=false&_search=${encodeURIComponent(query)}`;
-    debug.log('Searching Gamma API:', query);
-    debug.log('URL:', url);
+    debug.log('📊 Fetching sports metadata');
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    if (USE_PROXY) {
+      const { data, error } = await supabase.functions.invoke('polymarket-proxy', {
+        body: { action: 'sports' },
+      });
 
-    if (!response.ok) {
-      debug.error('Gamma API search failed:', response.status, response.statusText);
+      if (error) {
+        debug.error('❌ Sports metadata proxy error:', error);
+        return [];
+      }
+
+      return data?.sports || [];
+    } else {
+      const response = await fetch('https://gamma-api.polymarket.com/sports');
+      if (!response.ok) return [];
+      return await response.json();
+    }
+  } catch (error) {
+    debug.error('Error fetching sports metadata:', error);
+    return [];
+  }
+}
+
+/**
+ * Get NFL tag ID from sports metadata
+ */
+async function getNFLTagId(): Promise<string | null> {
+  const sports = await getSportsMetadata();
+  const nflSport = sports.find((s) => s.sport?.toLowerCase() === 'nfl');
+  
+  if (!nflSport) {
+    debug.error('❌ NFL sport not found in Polymarket');
+    return null;
+  }
+
+  // tags is comma-separated like "1,450,100639"
+  const tagCandidates = nflSport.tags.split(',').map(t => t.trim()).filter(Boolean);
+  
+  // Prefer the first tag that's not "1" (generic umbrella tag)
+  const primaryTagId = tagCandidates.find(t => t !== '1') || tagCandidates[0];
+  
+  debug.log('🏈 NFL tag ID:', primaryTagId);
+  return primaryTagId;
+}
+
+/**
+ * Get NFL events from Polymarket
+ */
+export async function getNFLEvents(): Promise<PolymarketEvent[]> {
+  try {
+    const tagId = await getNFLTagId();
+    
+    if (!tagId) {
+      debug.error('❌ Could not get NFL tag ID');
       return [];
     }
 
-    const data = await response.json();
-    const markets = Array.isArray(data) ? data : [];
-    debug.log('Found markets:', markets.length);
+    debug.log('📊 Fetching NFL events with tag:', tagId);
     
-    if (markets.length > 0) {
-      debug.log('Sample markets:', markets.slice(0, 3).map(m => m.question || m.title));
+    if (USE_PROXY) {
+      const { data, error } = await supabase.functions.invoke('polymarket-proxy', {
+        body: { action: 'events', tagId },
+      });
+
+      if (error) {
+        debug.error('❌ Events proxy error:', error);
+        return [];
+      }
+
+      const events = data?.events || [];
+      debug.log('✅ Found', events.length, 'NFL events');
+      return events;
+    } else {
+      const url = `https://gamma-api.polymarket.com/events?tag_id=${tagId}&closed=false&limit=100&related_tags=true`;
+      const response = await fetch(url);
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : (data.events || data.data || []);
     }
+  } catch (error) {
+    debug.error('Error fetching NFL events:', error);
+    return [];
+  }
+}
+
+/**
+ * Search for Polymarket markets using Gamma API (via proxy to avoid CORS)
+ * @deprecated Use getNFLEvents() instead for better reliability
+ */
+export async function searchMarketsGamma(query: string): Promise<any[]> {
+  try {
+    debug.log('🔍 Searching Gamma API:', query);
     
-    return markets;
+    if (USE_PROXY) {
+      // Use Supabase Edge Function proxy
+      const { data, error } = await supabase.functions.invoke('polymarket-proxy', {
+        body: {
+          action: 'search',
+          query: query,
+        },
+      });
+
+      if (error) {
+        debug.error('❌ Polymarket proxy error:', error);
+        return [];
+      }
+
+      const markets = data?.markets || [];
+      debug.log('✅ Found markets:', markets.length);
+      
+      if (markets.length > 0) {
+        debug.log('📋 Sample markets:', markets.slice(0, 3).map((m: any) => m.question || m.title));
+      }
+      
+      return markets;
+    } else {
+      // Direct API call (only works in dev/localhost)
+      const url = `https://gamma-api.polymarket.com/markets?limit=100&closed=false&_search=${encodeURIComponent(query)}`;
+      debug.log('URL:', url);
+      
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        debug.error('Gamma API search failed:', response.status, response.statusText);
+        return [];
+      }
+
+      const data = await response.json();
+      const markets = Array.isArray(data) ? data : [];
+      debug.log('Found markets:', markets.length);
+      
+      return markets;
+    }
   } catch (error) {
     debug.error('Error searching Gamma API:', error);
     return [];
@@ -99,33 +233,51 @@ export async function searchMarketsGamma(query: string): Promise<any[]> {
 }
 
 /**
- * Get price history for a specific token using the prices-history endpoint
+ * Get price history for a specific token using the prices-history endpoint (via proxy to avoid CORS)
  */
 export async function getPriceHistory(
   tokenId: string,
-  interval: string = '1h',
+  interval: string = 'max',
   fidelity: number = 60
 ): Promise<PriceHistoryPoint[]> {
   try {
-    const url = `${POLYMARKET_CLOB_API}/prices-history?market=${tokenId}&interval=${interval}&fidelity=${fidelity}`;
-    debug.log('Fetching price history for token:', tokenId);
-    debug.log('URL:', url);
+    debug.log('📈 Fetching price history for token:', tokenId);
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    if (USE_PROXY) {
+      // Use Supabase Edge Function proxy
+      const { data, error } = await supabase.functions.invoke('polymarket-proxy', {
+        body: {
+          action: 'price-history',
+          tokenId: tokenId,
+          interval: interval,
+          fidelity: fidelity,
+        },
+      });
 
-    if (!response.ok) {
-      debug.error('Price history fetch failed:', response.status);
-      return [];
+      if (error) {
+        debug.error('❌ Price history proxy error:', error);
+        return [];
+      }
+
+      const history = data?.history || [];
+      debug.log('✅ Found price points:', history.length);
+      return history;
+    } else {
+      // Direct API call (only works in dev/localhost)
+      const url = `https://clob.polymarket.com/prices-history?market=${tokenId}&interval=${interval}&fidelity=${fidelity}`;
+      debug.log('URL:', url);
+      
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        debug.error('Price history fetch failed:', response.status);
+        return [];
+      }
+
+      const data: PriceHistoryResponse = await response.json();
+      debug.log('Found price points:', data?.history?.length || 0);
+      return data.history || [];
     }
-
-    const data: PriceHistoryResponse = await response.json();
-    debug.log('Found price points:', data?.history?.length || 0);
-    return data.history || [];
   } catch (error) {
     debug.error('Error fetching price history:', error);
     return [];
@@ -133,7 +285,157 @@ export async function getPriceHistory(
 }
 
 /**
+ * Parse team names from Polymarket event title
+ * Format: "Ravens vs. Dolphins" or "Chiefs @ Bills"
+ */
+function parseTeamsFromTitle(title: string): { awayTeam: string; homeTeam: string } | null {
+  if (!title) return null;
+
+  if (title.includes(' vs. ')) {
+    const [away, home] = title.split(' vs. ').map(s => s.trim());
+    if (away && home) return { awayTeam: away, homeTeam: home };
+  } else if (title.includes(' @ ')) {
+    const [away, home] = title.split(' @ ').map(s => s.trim());
+    if (away && home) return { awayTeam: away, homeTeam: home };
+  }
+
+  return null;
+}
+
+/**
+ * Find matching event from Polymarket events based on team names
+ */
+function findMatchingEvent(
+  events: PolymarketEvent[],
+  awayTeam: string,
+  homeTeam: string
+): PolymarketEvent | null {
+  if (!events || events.length === 0) return null;
+
+  // Clean team names for matching
+  const cleanTeamName = (name: string) =>
+    name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+
+  // Get mascots for matching
+  const awayMascot = getTeamMascot(awayTeam);
+  const homeMascot = getTeamMascot(homeTeam);
+
+  debug.log(`🔍 Looking for event: ${awayTeam} (${awayMascot}) vs ${homeTeam} (${homeMascot})`);
+
+  for (const event of events) {
+    const parsedTeams = parseTeamsFromTitle(event.title);
+    
+    if (!parsedTeams) continue;
+
+    const eventAway = cleanTeamName(parsedTeams.awayTeam);
+    const eventHome = cleanTeamName(parsedTeams.homeTeam);
+
+    // Check if event matches our game (either direction)
+    const awayMatch = eventAway.includes(cleanTeamName(awayMascot)) || 
+                      eventAway.includes(cleanTeamName(awayTeam));
+    const homeMatch = eventHome.includes(cleanTeamName(homeMascot)) ||
+                      eventHome.includes(cleanTeamName(homeTeam));
+
+    // Also check reversed (sometimes Polymarket lists home team first)
+    const awayMatchReversed = eventHome.includes(cleanTeamName(awayMascot)) || 
+                              eventHome.includes(cleanTeamName(awayTeam));
+    const homeMatchReversed = eventAway.includes(cleanTeamName(homeMascot)) ||
+                              eventAway.includes(cleanTeamName(homeTeam));
+
+    if ((awayMatch && homeMatch) || (awayMatchReversed && homeMatchReversed)) {
+      debug.log('✅ Found matching event:', event.title);
+      return event;
+    }
+  }
+
+  debug.log('❌ No matching event found');
+  if (events.length > 0) {
+    debug.log('📋 Available events:', events.slice(0, 5).map(e => e.title));
+  }
+
+  return null;
+}
+
+/**
+ * Extract token IDs from an event's markets
+ * Returns yesTokenId for the first team mentioned (usually away team per "ordering: away")
+ */
+function extractTokensFromEvent(
+  event: PolymarketEvent,
+  awayTeam: string,
+  homeTeam: string
+): { yesTokenId: string; noTokenId: string; isAwayTeamYes: boolean } | null {
+  if (!event.markets || event.markets.length === 0) {
+    debug.log('❌ No markets in event');
+    return null;
+  }
+
+  // Look for the main moneyline market (eventSlug matches the main question)
+  // Or look for markets without specific market type suffixes
+  const mainMarket = event.markets.find((m) => {
+    const slug = m.slug || '';
+    const question = (m.question || '').toLowerCase();
+    
+    // Main market usually has slug equal to event slug, or doesn't have type suffix
+    // Also prefer active, non-closed markets
+    return m.active && !m.closed && (
+      !slug.includes('-total-') &&
+      !slug.includes('-1h-') &&
+      !slug.includes('-spread-') &&
+      (question === event.title.toLowerCase() || question.includes('vs'))
+    );
+  });
+
+  const marketToUse = mainMarket || event.markets[0];
+
+  if (!marketToUse) {
+    debug.log('❌ No suitable market found');
+    return null;
+  }
+
+  debug.log('📊 Using market:', marketToUse.question);
+
+  // Extract token IDs
+  let yesTokenId: string | null = null;
+  let noTokenId: string | null = null;
+
+  if (marketToUse.tokens && Array.isArray(marketToUse.tokens)) {
+    const yesToken = marketToUse.tokens.find(t => (t.outcome || '').toLowerCase() === 'yes');
+    const noToken = marketToUse.tokens.find(t => (t.outcome || '').toLowerCase() === 'no');
+    
+    yesTokenId = yesToken?.token_id || null;
+    noTokenId = noToken?.token_id || null;
+  } else if (marketToUse.clobTokenIds) {
+    if (typeof marketToUse.clobTokenIds === 'string') {
+      try {
+        const arr = JSON.parse(marketToUse.clobTokenIds);
+        if (Array.isArray(arr) && arr.length >= 2) {
+          yesTokenId = arr[0];
+          noTokenId = arr[1];
+        }
+      } catch (e) {
+        // Not JSON, might be array already
+      }
+    } else if (Array.isArray(marketToUse.clobTokenIds) && marketToUse.clobTokenIds.length >= 2) {
+      yesTokenId = marketToUse.clobTokenIds[0];
+      noTokenId = marketToUse.clobTokenIds[1];
+    }
+  }
+
+  if (!yesTokenId) {
+    debug.log('❌ Could not extract token IDs');
+    return null;
+  }
+
+  debug.log('🎯 Tokens extracted:', { yesTokenId: yesTokenId.slice(0, 20) + '...', noTokenId: noTokenId?.slice(0, 20) + '...' });
+
+  // The YES token represents the first team (away team per Polymarket's "ordering: away")
+  return { yesTokenId, noTokenId: noTokenId || '', isAwayTeamYes: true };
+}
+
+/**
  * Find the best matching market for a game from Gamma API results
+ * @deprecated Use findMatchingEvent() instead
  */
 function findBestMarketGamma(
   markets: any[],
@@ -155,34 +457,55 @@ function findBestMarketGamma(
   const awayCleanCity = cleanTeamName(awayTeam);
   const homeCleanCity = cleanTeamName(homeTeam);
 
-  // Look for markets that contain both team names (mascots or cities)
+  // Build all possible team identifiers (city, mascot, full name)
+  // Polymarket uses full names like "Baltimore Ravens", "Miami Dolphins"
+  const awayTerms = [
+    awayClean,
+    awayCleanCity,
+    cleanTeamName(`${awayTeam} ${awayMascot}`),
+  ];
+
+  const homeTerms = [
+    homeClean,
+    homeCleanCity,
+    cleanTeamName(`${homeTeam} ${homeMascot}`),
+  ];
+
+  debug.log('🔍 Matching for away:', awayTerms, 'home:', homeTerms);
+  debug.log('📋 Checking', markets.length, 'markets');
+
+  // Look for markets that contain both team identifiers
+  // Polymarket format: "Will the Baltimore Ravens beat the Miami Dolphins on Oct 30?"
   const matchingMarkets = markets.filter((market) => {
     const question = cleanTeamName(market.question || market.title || '');
-    // Check if question contains both mascots OR both cities
-    const hasBothMascots = question.includes(awayClean) && question.includes(homeClean);
-    const hasBothCities = question.includes(awayCleanCity) && question.includes(homeCleanCity);
-    const hasAwayMascotHomeCity = question.includes(awayClean) && question.includes(homeCleanCity);
-    const hasAwayCityHomeMascot = question.includes(awayCleanCity) && question.includes(homeClean);
     
-    return hasBothMascots || hasBothCities || hasAwayMascotHomeCity || hasAwayCityHomeMascot;
+    // Check if question contains ANY away term AND ANY home term
+    const hasAway = awayTerms.some(term => question.includes(term));
+    const hasHome = homeTerms.some(term => question.includes(term));
+    
+    if (hasAway && hasHome) {
+      debug.log('✅ Match found:', market.question || market.title);
+      return true;
+    }
+    return false;
   });
 
   if (matchingMarkets.length === 0) {
-    debug.log('No matching markets found for:', awayMascot, 'vs', homeMascot);
+    debug.log('❌ No matching markets found for:', awayMascot, 'vs', homeMascot);
     if (markets.length > 0) {
-      debug.log('Available markets:', markets.slice(0, 5).map(m => m.question || m.title));
+      debug.log('📋 Available markets:', markets.slice(0, 5).map(m => m.question || m.title));
     }
     return null;
   }
 
-  // Prefer markets that are specifically about the winner (moneyline)
+  // Prefer markets that are specifically about the winner (moneyline) - "beat" or "win"
   const moneylineMarkets = matchingMarkets.filter((market) => {
     const question = (market.question || market.title || '').toLowerCase();
-    return question.includes('win');
+    return question.includes('beat') || question.includes('win');
   });
 
   const bestMarket = moneylineMarkets.length > 0 ? moneylineMarkets[0] : matchingMarkets[0];
-  debug.log('Selected market:', bestMarket.question || bestMarket.title);
+  debug.log('🎯 Selected market:', bestMarket.question || bestMarket.title);
   
   return bestMarket;
 }
@@ -224,107 +547,59 @@ function transformPriceHistory(
 }
 
 /**
- * Get complete time series data for a game using Gamma API + prices-history endpoint
+ * Get complete time series data for a game using /sports → /events → /prices-history flow
  */
 export async function getMarketTimeSeriesData(
   awayTeam: string,
   homeTeam: string
 ): Promise<PolymarketTimeSeriesData | null> {
   try {
-    // Convert city names to mascots
     const awayMascot = getTeamMascot(awayTeam);
     const homeMascot = getTeamMascot(homeTeam);
     
-    debug.log(`🔍 Searching for: ${awayTeam} (${awayMascot}) vs ${homeTeam} (${homeMascot})`);
+    debug.log(`🔍 Fetching Polymarket data for: ${awayTeam} (${awayMascot}) vs ${homeTeam} (${homeMascot})`);
     
-    // Try multiple search patterns for Gamma API
-    const searchQueries = [
-      `${awayMascot} ${homeMascot}`,
-      `${homeMascot} ${awayMascot}`,
-      `${awayMascot} vs ${homeMascot}`,
-      `${awayMascot} ${homeTeam}`,
-      `${awayTeam} ${homeMascot}`,
-    ];
+    // Step 1: Get all NFL events from Polymarket
+    const events = await getNFLEvents();
     
-    let markets: any[] = [];
-    
-    // Try each search pattern until we find markets
-    for (const searchQuery of searchQueries) {
-      markets = await searchMarketsGamma(searchQuery);
-      if (markets && markets.length > 0) {
-        debug.log(`✅ Found ${markets.length} markets with query: "${searchQuery}"`);
-        break;
-      }
-    }
-
-    if (!markets || markets.length === 0) {
-      debug.log('❌ No markets found after trying all search patterns');
+    if (!events || events.length === 0) {
+      debug.log('❌ No NFL events available from Polymarket');
       return null;
     }
 
-    // Find the best matching market
-    const market = findBestMarketGamma(markets, awayTeam, homeTeam);
-    if (!market) {
-      debug.log('❌ No matching market found');
+    debug.log(`📊 Got ${events.length} NFL events, searching for match...`);
+
+    // Step 2: Find the matching event for this game
+    const event = findMatchingEvent(events, awayTeam, homeTeam);
+    
+    if (!event) {
+      debug.log('❌ No matching event found for this game');
       return null;
     }
 
-    debug.log(`📊 Selected market: ${market.question || market.title}`);
+    debug.log(`✅ Found event: ${event.title}`);
 
-    // Get the token ID for the YES outcome (typically one team winning)
-    // Gamma API structure: market.tokens or market.outcomes
-    let yesTokenId: string | null = null;
-    let isAwayTeamYes = false;
-
-    // Try to find token ID from market structure
-    if (market.tokens && Array.isArray(market.tokens)) {
-      // Look for the away team token
-      const awayToken = market.tokens.find((t: any) => {
-        const outcome = (t.outcome || '').toLowerCase();
-        return outcome.includes(awayMascot.toLowerCase()) || outcome.includes(awayTeam.toLowerCase());
-      });
-      
-      if (awayToken) {
-        yesTokenId = awayToken.token_id || awayToken.tokenId;
-        isAwayTeamYes = true;
-        debug.log(`🎯 Found away team token: ${yesTokenId}`);
-      } else {
-        // Try home team
-        const homeToken = market.tokens.find((t: any) => {
-          const outcome = (t.outcome || '').toLowerCase();
-          return outcome.includes(homeMascot.toLowerCase()) || outcome.includes(homeTeam.toLowerCase());
-        });
-        
-        if (homeToken) {
-          yesTokenId = homeToken.token_id || homeToken.tokenId;
-          isAwayTeamYes = false;
-          debug.log(`🎯 Found home team token: ${yesTokenId}`);
-        }
-      }
-    }
-
-    // Try alternative structure: clobTokenIds
-    if (!yesTokenId && market.clobTokenIds && Array.isArray(market.clobTokenIds)) {
-      yesTokenId = market.clobTokenIds[0];
-      isAwayTeamYes = true;
-      debug.log(`🎯 Using first clobTokenId: ${yesTokenId}`);
-    }
-
-    if (!yesTokenId) {
-      debug.error('❌ Could not find token ID from market');
-      debug.log('Market structure:', Object.keys(market));
+    // Step 3: Extract token IDs from the event
+    const tokens = extractTokensFromEvent(event, awayTeam, homeTeam);
+    
+    if (!tokens) {
+      debug.log('❌ Could not extract token IDs from event');
       return null;
     }
 
-    // Fetch price history for this token
+    const { yesTokenId, isAwayTeamYes } = tokens;
+
+    // Step 4: Fetch price history for the YES token
     const priceHistory = await getPriceHistory(yesTokenId, 'max', 60);
 
     if (!priceHistory || priceHistory.length === 0) {
-      debug.log('❌ No price history found for token:', yesTokenId);
+      debug.log('❌ No price history found for token');
       return null;
     }
 
-    // Transform price history to time series
+    debug.log(`📈 Got ${priceHistory.length} price points`);
+
+    // Step 5: Transform price history to time series
     const timeSeriesData = transformPriceHistory(priceHistory, isAwayTeamYes);
 
     // Get current odds from the latest data point
@@ -332,8 +607,7 @@ export async function getMarketTimeSeriesData(
     const currentAwayOdds = latestPoint?.awayTeamOdds || 50;
     const currentHomeOdds = latestPoint?.homeTeamOdds || 50;
 
-    debug.log(`✅ Loaded ${timeSeriesData.length} data points`);
-    debug.log(`📈 Current odds: ${awayMascot} ${currentAwayOdds}% - ${homeMascot} ${currentHomeOdds}%`);
+    debug.log(`✅ Success! Current odds: ${awayMascot} ${currentAwayOdds}% - ${homeMascot} ${currentHomeOdds}%`);
 
     return {
       awayTeam,
@@ -341,7 +615,7 @@ export async function getMarketTimeSeriesData(
       data: timeSeriesData,
       currentAwayOdds,
       currentHomeOdds,
-      volume: market.volume,
+      volume: 0, // Not available in events response
       marketId: yesTokenId,
     };
   } catch (error) {

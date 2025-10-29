@@ -24,6 +24,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
 import ScoreBoard from "./pages/ScoreBoard";
+import PolymarketTest from "./pages/PolymarketTest";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -137,6 +138,7 @@ function AppRoutes() {
           <Route path="/discord" element={<Discord />} />
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route path="/polymarket-test" element={<PolymarketTest />} />
         </Routes>
       </AuthenticatedLayout>
     </OnboardingGuard>
