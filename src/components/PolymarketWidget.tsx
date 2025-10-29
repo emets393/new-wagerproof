@@ -302,14 +302,20 @@ export default function PolymarketWidget({
           <div
             className="p-2.5 rounded-lg border"
             style={{
-              backgroundColor: awayTeamColors?.primary
+              backgroundColor: selectedMarket === 'total' 
+                ? 'hsl(var(--muted))'
+                : awayTeamColors?.primary
                 ? `${awayTeamColors.primary}15`
                 : 'hsl(var(--muted))',
-              borderColor: awayTeamColors?.primary || 'hsl(var(--border))',
+              borderColor: selectedMarket === 'total'
+                ? 'hsl(var(--border))'
+                : awayTeamColors?.primary || 'hsl(var(--border))',
             }}
           >
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium opacity-90">{awayTeam}</span>
+              <span className="text-xs font-medium opacity-90">
+                {selectedMarket === 'total' ? 'Over' : awayTeam}
+              </span>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-bold">{data.currentAwayOdds}%</span>
                 {awayChange !== 0 && (
@@ -330,14 +336,20 @@ export default function PolymarketWidget({
           <div
             className="p-2.5 rounded-lg border"
             style={{
-              backgroundColor: homeTeamColors?.primary
+              backgroundColor: selectedMarket === 'total'
+                ? 'hsl(var(--muted))'
+                : homeTeamColors?.primary
                 ? `${homeTeamColors.primary}15`
                 : 'hsl(var(--muted))',
-              borderColor: homeTeamColors?.primary || 'hsl(var(--border))',
+              borderColor: selectedMarket === 'total'
+                ? 'hsl(var(--border))'
+                : homeTeamColors?.primary || 'hsl(var(--border))',
             }}
           >
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium opacity-90">{homeTeam}</span>
+              <span className="text-xs font-medium opacity-90">
+                {selectedMarket === 'total' ? 'Under' : homeTeam}
+              </span>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-bold">{data.currentHomeOdds}%</span>
                 {homeChange !== 0 && (
@@ -396,8 +408,10 @@ export default function PolymarketWidget({
               <Line
                 type="monotone"
                 dataKey="awayTeamOdds"
-                name={awayTeam}
-                stroke={adjustColorForDarkMode(awayTeamColors?.primary, isDarkMode) || '#ef4444'}
+                name={selectedMarket === 'total' ? 'Over' : awayTeam}
+                stroke={selectedMarket === 'total' 
+                  ? '#22c55e' 
+                  : adjustColorForDarkMode(awayTeamColors?.primary, isDarkMode) || '#ef4444'}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}
@@ -405,8 +419,10 @@ export default function PolymarketWidget({
               <Line
                 type="monotone"
                 dataKey="homeTeamOdds"
-                name={homeTeam}
-                stroke={adjustColorForDarkMode(homeTeamColors?.primary, isDarkMode) || '#3b82f6'}
+                name={selectedMarket === 'total' ? 'Under' : homeTeam}
+                stroke={selectedMarket === 'total'
+                  ? '#ef4444'
+                  : adjustColorForDarkMode(homeTeamColors?.primary, isDarkMode) || '#3b82f6'}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}

@@ -275,8 +275,32 @@ ${contextParts}
     });
   };
 
-  // Team acronym mapping function
-  const getTeamAcronym = (teamName: string): string => {
+  // Helper function to calculate color luminance
+  const getColorLuminance = (hexColor: string): number => {
+    // Remove # if present
+    const hex = hexColor.replace('#', '');
+    
+    // Convert to RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // Calculate relative luminance using the formula
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  };
+
+  // Helper function to get contrasting text color for team circles
+  const getContrastingTextColor = (bgColor1: string, bgColor2: string): string => {
+    const lum1 = getColorLuminance(bgColor1);
+    const lum2 = getColorLuminance(bgColor2);
+    const avgLuminance = (lum1 + lum2) / 2;
+    
+    // If average luminance is dark, use white text; if light, use dark text
+    return avgLuminance < 0.5 ? '#ffffff' : '#000000';
+  };
+
+  // Team initials mapping function
+  const getTeamInitials = (teamName: string): string => {
     const acronymMap: { [key: string]: string } = {
       // Major conferences and common teams
       'Alabama': 'ALA',
@@ -1230,15 +1254,22 @@ ${contextParts}
                   <div className="space-y-2 sm:space-y-3 pt-1">
                     {/* Team Logos Row */}
                     <div className="flex justify-center items-center space-x-3 sm:space-x-4">
-                      {/* Away Team Logo */}
+                      {/* Away Team Circle */}
                       <div className="text-center w-[120px] sm:w-[140px]">
-                        {getTeamLogo(prediction.away_team) && (
-                          <img 
-                            src={getTeamLogo(prediction.away_team)} 
-                            alt={`${prediction.away_team} logo`}
-                            className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                          />
-                        )}
+                        <div 
+                          className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
+                          style={{
+                            background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
+                            borderColor: `${awayTeamColors.primary}`
+                          }}
+                        >
+                          <span 
+                            className="text-xs sm:text-sm font-bold drop-shadow-md"
+                            style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
+                          >
+                            {getTeamInitials(prediction.away_team)}
+                          </span>
+                        </div>
                         <div className="text-xs sm:text-sm font-bold mb-1 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-1">
                           {prediction.away_team}
                         </div>
@@ -1249,15 +1280,22 @@ ${contextParts}
                         <span className="text-3xl sm:text-4xl font-bold text-gray-300 dark:text-gray-500">@</span>
                       </div>
 
-                      {/* Home Team Logo */}
+                      {/* Home Team Circle */}
                       <div className="text-center w-[120px] sm:w-[140px]">
-                        {getTeamLogo(prediction.home_team) && (
-                          <img 
-                            src={getTeamLogo(prediction.home_team)} 
-                            alt={`${prediction.home_team} logo`}
-                            className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                          />
-                        )}
+                        <div 
+                          className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
+                          style={{
+                            background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
+                            borderColor: `${homeTeamColors.primary}`
+                          }}
+                        >
+                          <span 
+                            className="text-xs sm:text-sm font-bold drop-shadow-md"
+                            style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
+                          >
+                            {getTeamInitials(prediction.home_team)}
+                          </span>
+                        </div>
                         <div className="text-xs sm:text-sm font-bold mb-1 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-1">
                           {prediction.home_team}
                         </div>
@@ -1418,20 +1456,32 @@ ${contextParts}
                               </div>
                               
                               <div className="flex items-center justify-between gap-4">
-                                {/* Team Logo */}
+                                {/* Team Circle */}
                                 <div className="flex-shrink-0">
-                                  {getTeamLogo(edgeInfo.teamName) && (
-                                    <img
-                                      src={getTeamLogo(edgeInfo.teamName)}
-                                      alt={`${edgeInfo.teamName} logo`}
-                                      className="h-12 w-12 sm:h-16 sm:w-16 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                                    />
-                                  )}
+                                  {(() => {
+                                    const teamColors = getCFBTeamColors(edgeInfo.teamName);
+                                    return (
+                                      <div 
+                                        className="h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
+                                        style={{
+                                          background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
+                                          borderColor: `${teamColors.primary}`
+                                        }}
+                                      >
+                                        <span 
+                                          className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                          style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
+                                        >
+                                          {getTeamInitials(edgeInfo.teamName)}
+                                        </span>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
 
                                 {/* Edge Value */}
                                 <div className="text-center flex-1">
-                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamAcronym(edgeInfo.teamName)}</div>
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamInitials(edgeInfo.teamName)}</div>
                                   <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                                     {edgeInfo.displayEdge}
                                   </div>
@@ -1633,13 +1683,20 @@ ${contextParts}
                       <div className="flex justify-between items-center bg-gradient-to-br from-orange-50 to-orange-50 dark:from-orange-950/30 dark:to-orange-950/30 p-3 sm:p-4 rounded-lg border border-border">
                         {/* Away Team Score */}
                         <div className="text-center flex-1">
-                          {getTeamLogo(prediction.away_team) && (
-                            <img 
-                              src={getTeamLogo(prediction.away_team)} 
-                              alt={`${prediction.away_team} logo`}
-                              className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-1 sm:mb-2 drop-shadow-md"
-                            />
-                          )}
+                          <div 
+                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-1 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 shadow-lg"
+                            style={{
+                              background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
+                              borderColor: `${awayTeamColors.primary}`
+                            }}
+                          >
+                            <span 
+                              className="text-xs sm:text-sm font-bold drop-shadow-md"
+                              style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
+                            >
+                              {getTeamInitials(prediction.away_team)}
+                            </span>
+                          </div>
                           <div className="text-xl sm:text-2xl font-bold text-foreground">
                             {(() => {
                               const val = prediction.pred_away_points ?? prediction.pred_away_score;
@@ -1655,13 +1712,20 @@ ${contextParts}
 
                         {/* Home Team Score */}
                         <div className="text-center flex-1">
-                          {getTeamLogo(prediction.home_team) && (
-                            <img 
-                              src={getTeamLogo(prediction.home_team)} 
-                              alt={`${prediction.home_team} logo`}
-                              className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 drop-shadow-md"
-                            />
-                          )}
+                          <div 
+                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 shadow-lg"
+                            style={{
+                              background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
+                              borderColor: `${homeTeamColors.primary}`
+                            }}
+                          >
+                            <span 
+                              className="text-xs sm:text-sm font-bold drop-shadow-md"
+                              style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
+                            >
+                              {getTeamInitials(prediction.home_team)}
+                            </span>
+                          </div>
                           <div className="text-xl sm:text-2xl font-bold text-foreground">
                             {(() => {
                               const val = prediction.pred_home_points ?? prediction.pred_home_score;
