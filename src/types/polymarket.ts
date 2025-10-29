@@ -39,7 +39,7 @@ export interface TimeSeriesPoint {
   homeTeamPrice?: number;
 }
 
-export type MarketType = 'moneyline' | 'spread' | 'total';
+export type MarketType = 'moneyline' | 'spread' | 'total' | '1h_moneyline' | '1h_spread' | '1h_total' | 'other';
 
 export interface PolymarketTimeSeriesData {
   awayTeam: string;
@@ -58,6 +58,45 @@ export interface PolymarketAllMarketsData {
   moneyline?: PolymarketTimeSeriesData;
   spread?: PolymarketTimeSeriesData;
   total?: PolymarketTimeSeriesData;
+}
+
+// New cleaner structure from /events endpoint
+export interface PolymarketEventMarketClean {
+  eventSlug: string;
+  eventTitle: string;
+  awayTeam: string;
+  homeTeam: string;
+  gameStartTime: string;
+  marketSlug: string;
+  marketType: string;
+  question: string;
+  yesTokenId: string;
+  noTokenId: string;
+  active: boolean;
+  closed: boolean;
+}
+
+export interface PolymarketEventsResponse {
+  sport: string;
+  tagId: string;
+  seriesId?: string;
+  ordering?: string;
+  markets: PolymarketEventMarketClean[];
+}
+
+export interface GroupedGame {
+  eventSlug: string;
+  title: string;
+  awayTeam: string;
+  homeTeam: string;
+  gameStartTime: string;
+  lines: {
+    marketSlug: string;
+    marketType: MarketType;
+    question: string;
+    yesTokenId: string;
+    noTokenId: string;
+  }[];
 }
 
 export interface PolymarketSearchResponse {

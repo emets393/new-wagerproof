@@ -6,6 +6,9 @@ import {
   TimeSeriesPoint,
   PolymarketSearchResponse,
   MarketType,
+  PolymarketEventMarketClean,
+  PolymarketEventsResponse,
+  GroupedGame,
 } from '@/types/polymarket';
 import debug from '@/utils/debug';
 import { supabase } from '@/integrations/supabase/client';
@@ -84,9 +87,53 @@ const NFL_TEAM_MASCOTS: Record<string, string> = {
   'Washington': 'Commanders',
 };
 
-// Get team mascot from city name
-function getTeamMascot(cityName: string): string {
-  return NFL_TEAM_MASCOTS[cityName] || cityName;
+// CFB teams - map common variations to Polymarket names
+const CFB_TEAM_MAPPINGS: Record<string, string> = {
+  'Ohio State': 'Ohio State',
+  'Michigan': 'Michigan',
+  'Alabama': 'Alabama',
+  'Georgia': 'Georgia',
+  'Texas': 'Texas',
+  'Oregon': 'Oregon',
+  'Penn State': 'Penn State',
+  'Notre Dame': 'Notre Dame',
+  'USC': 'USC',
+  'LSU': 'LSU',
+  'Clemson': 'Clemson',
+  'Florida State': 'Florida State',
+  'Florida': 'Florida',
+  'Tennessee': 'Tennessee',
+  'Oklahoma': 'Oklahoma',
+  'Texas A&M': 'Texas A&M',
+  'Auburn': 'Auburn',
+  'Ole Miss': 'Ole Miss',
+  'Miami': 'Miami',
+  'Washington': 'Washington',
+  'Wisconsin': 'Wisconsin',
+  'Iowa': 'Iowa',
+  'Utah': 'Utah',
+  'Oklahoma State': 'Oklahoma State',
+  'Kentucky': 'Kentucky',
+  'South Carolina': 'South Carolina',
+  'Mississippi State': 'Mississippi State',
+  'Arkansas': 'Arkansas',
+  'Missouri': 'Missouri',
+  'Kansas State': 'Kansas State',
+  'TCU': 'TCU',
+  'Baylor': 'Baylor',
+  'North Carolina': 'North Carolina',
+  'NC State': 'NC State',
+  'Virginia Tech': 'Virginia Tech',
+  'Pittsburgh': 'Pittsburgh',
+  'Louisville': 'Louisville',
+};
+
+// Get team mascot from city/school name
+function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' = 'nfl'): string {
+  if (league === 'cfb') {
+    return CFB_TEAM_MAPPINGS[teamName] || teamName;
+  }
+  return NFL_TEAM_MASCOTS[teamName] || teamName;
 }
 
 /**
@@ -119,40 +166,41 @@ export async function getSportsMetadata(): Promise<PolymarketSport[]> {
 }
 
 /**
- * Get NFL tag ID from sports metadata
+ * Get league tag ID from sports metadata
  */
-async function getNFLTagId(): Promise<string | null> {
+async function getLeagueTagId(league: 'nfl' | 'cfb'): Promise<string | null> {
   const sports = await getSportsMetadata();
-  const nflSport = sports.find((s) => s.sport?.toLowerCase() === 'nfl');
+  const sportName = league === 'nfl' ? 'nfl' : 'cfb'; // Polymarket uses 'cfb' for College Football
+  const sport = sports.find((s) => s.sport?.toLowerCase() === sportName);
   
-  if (!nflSport) {
-    debug.error('❌ NFL sport not found in Polymarket');
+  if (!sport) {
+    debug.error(`❌ ${sportName.toUpperCase()} sport not found in Polymarket`);
     return null;
   }
 
   // tags is comma-separated like "1,450,100639"
-  const tagCandidates = nflSport.tags.split(',').map(t => t.trim()).filter(Boolean);
+  const tagCandidates = sport.tags.split(',').map(t => t.trim()).filter(Boolean);
   
   // Prefer the first tag that's not "1" (generic umbrella tag)
   const primaryTagId = tagCandidates.find(t => t !== '1') || tagCandidates[0];
   
-  debug.log('🏈 NFL tag ID:', primaryTagId);
+  debug.log(`🏈 ${league.toUpperCase()} tag ID:`, primaryTagId);
   return primaryTagId;
 }
 
 /**
- * Get NFL events from Polymarket
+ * Get league events from Polymarket (NFL or CFB)
  */
-export async function getNFLEvents(): Promise<PolymarketEvent[]> {
+export async function getLeagueEvents(league: 'nfl' | 'cfb' = 'nfl'): Promise<PolymarketEvent[]> {
   try {
-    const tagId = await getNFLTagId();
+    const tagId = await getLeagueTagId(league);
     
     if (!tagId) {
-      debug.error('❌ Could not get NFL tag ID');
+      debug.error(`❌ Could not get ${league.toUpperCase()} tag ID`);
       return [];
     }
 
-    debug.log('📊 Fetching NFL events with tag:', tagId);
+    debug.log(`📊 Fetching ${league.toUpperCase()} events with tag:`, tagId);
     
     if (USE_PROXY) {
       const { data, error } = await supabase.functions.invoke('polymarket-proxy', {
@@ -360,12 +408,13 @@ function findMatchingEvent(
 
 /**
  * Classify market type based on question and slug
+ * Handles both NFL and CFB market naming conventions
  */
-function classifyMarket(question: string, slug: string): MarketType | null {
+function classifyMarket(question: string, slug: string, awayTeam?: string, homeTeam?: string): MarketType | null {
   const qLower = question.toLowerCase();
   const sLower = slug.toLowerCase();
 
-  // Skip 1st half markets
+  // Skip 1st half markets (for now - we focus on full game markets)
   if (qLower.includes('1h') || sLower.includes('-1h-')) {
     return null;
   }
@@ -380,8 +429,28 @@ function classifyMarket(question: string, slug: string): MarketType | null {
     return 'total';
   }
 
-  // Check for moneyline (main market without suffix, or explicit moneyline)
-  if (sLower.includes('-moneyline') || (!sLower.includes('-total-') && !sLower.includes('-spread-'))) {
+  // Check for explicit moneyline
+  if (qLower.includes('moneyline') || sLower.includes('-moneyline')) {
+    return 'moneyline';
+  }
+
+  // CFB/NFL fallback: plain "Team A vs. Team B" = moneyline
+  // Check if question contains "vs" or "vs." and both team names
+  if (qLower.includes(' vs ') || qLower.includes(' vs. ')) {
+    // If no specific market type indicators and has team names, it's moneyline
+    if (awayTeam && homeTeam) {
+      const hasAwayTeam = qLower.includes(awayTeam.toLowerCase());
+      const hasHomeTeam = qLower.includes(homeTeam.toLowerCase());
+      if (hasAwayTeam && hasHomeTeam) {
+        return 'moneyline';
+      }
+    }
+    // Even without team names, if it's just "Team vs Team" with no other indicators, it's moneyline
+    return 'moneyline';
+  }
+
+  // Main market without suffix is likely moneyline
+  if (!sLower.includes('-total-') && !sLower.includes('-spread-')) {
     return 'moneyline';
   }
 
@@ -430,21 +499,22 @@ function extractTokensFromMarket(
  */
 function extractAllMarketsFromEvent(
   event: PolymarketEvent
-): Record<MarketType, { yesTokenId: string; noTokenId: string; question: string } | null> {
-  const result: Record<MarketType, { yesTokenId: string; noTokenId: string; question: string } | null> = {
-    moneyline: null,
-    spread: null,
-    total: null,
-  };
+): Partial<Record<MarketType, { yesTokenId: string; noTokenId: string; question: string }>> {
+  const result: Partial<Record<MarketType, { yesTokenId: string; noTokenId: string; question: string }>> = {};
 
   if (!event.markets || event.markets.length === 0) {
     return result;
   }
 
+  // Extract team names from event title for better classification
+  const teams = parseTeamsFromTitle(event.title);
+  const awayTeam = teams?.awayTeam;
+  const homeTeam = teams?.homeTeam;
+
   for (const market of event.markets) {
     if (!market.active || market.closed) continue;
 
-    const marketType = classifyMarket(market.question, market.slug);
+    const marketType = classifyMarket(market.question, market.slug, awayTeam, homeTeam);
     if (!marketType) continue;
 
     // Skip if we already have this market type
@@ -656,6 +726,41 @@ function transformPriceHistory(
 }
 
 /**
+ * Group markets by event slug for easier display
+ * Useful when consuming /events endpoint that returns flat list of markets
+ */
+export function groupByEventSlug(markets: PolymarketEventMarketClean[]): GroupedGame[] {
+  const byGame = new Map<string, GroupedGame>();
+
+  for (const mkt of markets) {
+    const key = mkt.eventSlug;
+    if (!byGame.has(key)) {
+      byGame.set(key, {
+        eventSlug: mkt.eventSlug,
+        title: mkt.eventTitle,
+        awayTeam: mkt.awayTeam,
+        homeTeam: mkt.homeTeam,
+        gameStartTime: mkt.gameStartTime,
+        lines: []
+      });
+    }
+
+    // Classify the market type
+    const marketType = classifyMarket(mkt.question, mkt.marketSlug, mkt.awayTeam, mkt.homeTeam) || 'other';
+
+    byGame.get(key)!.lines.push({
+      marketSlug: mkt.marketSlug,
+      marketType,
+      question: mkt.question,
+      yesTokenId: mkt.yesTokenId,
+      noTokenId: mkt.noTokenId
+    });
+  }
+
+  return Array.from(byGame.values());
+}
+
+/**
  * Get all market types from Supabase cache (fast, reduced API calls)
  */
 export async function getAllMarketsDataFromCache(
@@ -736,16 +841,17 @@ export async function getAllMarketsDataFromCache(
  */
 export async function getAllMarketsDataLive(
   awayTeam: string,
-  homeTeam: string
+  homeTeam: string,
+  league: 'nfl' | 'cfb' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   try {
-    const awayMascot = getTeamMascot(awayTeam);
-    const homeMascot = getTeamMascot(homeTeam);
+    const awayMascot = getTeamMascot(awayTeam, league);
+    const homeMascot = getTeamMascot(homeTeam, league);
     
     debug.log(`🔍 Fetching all Polymarket markets for: ${awayTeam} (${awayMascot}) vs ${homeTeam} (${homeMascot})`);
     
-    // Step 1: Get all NFL events
-    const events = await getNFLEvents();
+    // Step 1: Get all league events
+    const events = await getLeagueEvents(league);
     
     if (!events || events.length === 0) {
       debug.log('❌ No NFL events available from Polymarket');
@@ -811,9 +917,11 @@ export async function getAllMarketsDataLive(
  */
 export async function getAllMarketsData(
   awayTeam: string,
-  homeTeam: string
+  homeTeam: string,
+  league: 'nfl' | 'cfb' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
-  return getAllMarketsDataFromCache(awayTeam, homeTeam);
+  // For now, use live API directly (cache will come in Phase 2)
+  return getAllMarketsDataLive(awayTeam, homeTeam, league);
 }
 
 /**
@@ -825,13 +933,13 @@ export async function getMarketTimeSeriesData(
   homeTeam: string
 ): Promise<PolymarketTimeSeriesData | null> {
   try {
-    const awayMascot = getTeamMascot(awayTeam);
-    const homeMascot = getTeamMascot(homeTeam);
+    const awayMascot = getTeamMascot(awayTeam, 'nfl');
+    const homeMascot = getTeamMascot(homeTeam, 'nfl');
     
     debug.log(`🔍 Fetching Polymarket data for: ${awayTeam} (${awayMascot}) vs ${homeTeam} (${homeMascot})`);
     
     // Step 1: Get all NFL events from Polymarket
-    const events = await getNFLEvents();
+    const events = await getLeagueEvents('nfl');
     
     if (!events || events.length === 0) {
       debug.log('❌ No NFL events available from Polymarket');

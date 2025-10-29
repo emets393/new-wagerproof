@@ -1095,6 +1095,7 @@ ${contextParts}
                       gameDate={prediction.game_date}
                       awayTeamColors={awayTeamColors}
                       homeTeamColors={homeTeamColors}
+                      league="nfl"
                     />
                   </div>
 

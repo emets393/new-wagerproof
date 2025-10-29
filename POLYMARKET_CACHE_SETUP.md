@@ -61,10 +61,10 @@ supabase functions deploy update-polymarket-cache
 
 3. **Create the cron job**:
    ```sql
-   -- Update Polymarket cache every 10 minutes
+   -- Update Polymarket cache every hour
    SELECT cron.schedule(
      'update-polymarket-cache',
-     '*/10 * * * *',  -- Every 10 minutes
+     '0 * * * *',  -- Every hour (at minute 0)
      $$
      SELECT net.http_post(
        url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/update-polymarket-cache',
@@ -166,7 +166,7 @@ You should see a response like:
 
 ### Cron Job Behavior
 
-- **Runs every 10 minutes** (configurable)
+- **Runs every hour** (configurable)
 - Fetches current NFL games from `nfl_predictions_latest`
 - For each game:
   - Finds matching Polymarket event
@@ -216,17 +216,20 @@ LIMIT 10;
 
 ### Update Frequency
 
-Change the cron schedule in the SQL:
+The default is hourly. You can adjust the cron schedule in the SQL:
 
 ```sql
--- Every 5 minutes
-'*/5 * * * *'
-
--- Every 15 minutes
-'*/15 * * * *'
-
--- Every hour
+-- Every hour (default)
 '0 * * * *'
+
+-- Every 30 minutes
+'*/30 * * * *'
+
+-- Every 2 hours
+'0 */2 * * *'
+
+-- Twice daily (at 8am and 8pm)
+'0 8,20 * * *'
 ```
 
 ### Cache Staleness

@@ -1356,6 +1356,25 @@ ${contextParts}
                     </div>
                   )}
 
+                  {/* Polymarket Widget */}
+                  <div 
+                    className="pt-4"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ pointerEvents: 'auto', isolation: 'isolate' }}
+                  >
+                    <PolymarketWidget
+                      awayTeam={prediction.away_team}
+                      homeTeam={prediction.home_team}
+                      gameDate={prediction.game_date || prediction.start_date || prediction.start_time}
+                      awayTeamColors={awayTeamColors}
+                      homeTeamColors={homeTeamColors}
+                      league="cfb"
+                    />
+                  </div>
+
                   {/* Model Predictions Section */}
                   {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
                     <div className="text-center pt-3 sm:pt-4">
@@ -1657,16 +1676,6 @@ ${contextParts}
 
                   {/* Bottom Weather section removed; using compact WeatherPill above */}
 
-                  {/* Polymarket Widget */}
-                  <div className="pt-4">
-                    <PolymarketWidget
-                      awayTeam={prediction.away_team}
-                      homeTeam={prediction.home_team}
-                      gameDate={prediction.game_date || prediction.start_date || prediction.start_time}
-                      awayTeamColors={awayTeamColors}
-                      homeTeamColors={homeTeamColors}
-                    />
-                  </div>
                 </CardContent>
               </CFBGameCard>
             );

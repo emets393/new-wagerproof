@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { getAllMarketsData } from '@/services/polymarketService';
@@ -16,9 +16,62 @@ interface PolymarketWidgetProps {
   gameDate?: string;
   awayTeamColors?: { primary: string; secondary: string };
   homeTeamColors?: { primary: string; secondary: string };
+  league?: 'nfl' | 'cfb';
 }
 
 type TimeRange = '1H' | '6H' | '1D' | '1W' | '1M' | 'ALL';
+
+// Utility function to calculate luminance of a hex color
+const getLuminance = (hex: string): number => {
+  // Remove # if present
+  const color = hex.replace('#', '');
+  
+  // Convert to RGB
+  const r = parseInt(color.substring(0, 2), 16) / 255;
+  const g = parseInt(color.substring(2, 4), 16) / 255;
+  const b = parseInt(color.substring(4, 6), 16) / 255;
+  
+  // Calculate relative luminance
+  const [rs, gs, bs] = [r, g, b].map((c) => {
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+};
+
+// Utility function to lighten a color
+const lightenColor = (hex: string, percent: number): string => {
+  const color = hex.replace('#', '');
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+  
+  const newR = Math.min(255, Math.floor(r + (255 - r) * percent));
+  const newG = Math.min(255, Math.floor(g + (255 - g) * percent));
+  const newB = Math.min(255, Math.floor(b + (255 - b) * percent));
+  
+  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+};
+
+// Adjust color for dark mode visibility
+const adjustColorForDarkMode = (color: string | undefined, isDark: boolean): string => {
+  if (!color) return isDark ? '#ef4444' : '#ef4444'; // Default red
+  
+  // If not in dark mode, return original color
+  if (!isDark) return color;
+  
+  // Check if color is too dark for dark mode
+  const luminance = getLuminance(color);
+  
+  // If luminance is less than 0.15, lighten the color
+  if (luminance < 0.15) {
+    return lightenColor(color, 0.5); // Lighten by 50%
+  } else if (luminance < 0.25) {
+    return lightenColor(color, 0.3); // Lighten by 30%
+  }
+  
+  return color;
+};
 
 export default function PolymarketWidget({
   awayTeam,
@@ -26,13 +79,35 @@ export default function PolymarketWidget({
   gameDate,
   awayTeamColors,
   homeTeamColors,
+  league = 'nfl',
 }: PolymarketWidgetProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
   const [selectedMarket, setSelectedMarket] = useState<MarketType>('moneyline');
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Detect dark mode
+  useEffect(() => {
+    const checkDarkMode = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+    };
+
+    // Initial check
+    checkDarkMode();
+
+    // Watch for theme changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const { data: allMarketsData, isLoading, error } = useQuery({
-    queryKey: ['polymarket-all', awayTeam, homeTeam],
-    queryFn: () => getAllMarketsData(awayTeam, homeTeam),
+    queryKey: ['polymarket-all', league, awayTeam, homeTeam],
+    queryFn: () => getAllMarketsData(awayTeam, homeTeam, league),
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   });
@@ -322,7 +397,7 @@ export default function PolymarketWidget({
                 type="monotone"
                 dataKey="awayTeamOdds"
                 name={awayTeam}
-                stroke={awayTeamColors?.primary || '#ef4444'}
+                stroke={adjustColorForDarkMode(awayTeamColors?.primary, isDarkMode) || '#ef4444'}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}
@@ -331,7 +406,7 @@ export default function PolymarketWidget({
                 type="monotone"
                 dataKey="homeTeamOdds"
                 name={homeTeam}
-                stroke={homeTeamColors?.primary || '#3b82f6'}
+                stroke={adjustColorForDarkMode(homeTeamColors?.primary, isDarkMode) || '#3b82f6'}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}
