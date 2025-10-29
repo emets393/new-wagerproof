@@ -98,11 +98,13 @@ export default function NFLGameCard({
             transition: { duration: 0.2, ease: [0.4, 0, 0.2, 1] }
           }}
           whileTap={{ scale: 0.995 }}
+          className="touch-action-none"
+          style={{ pointerEvents: 'auto' }}
         >
           <Card className={`relative overflow-hidden ${isHovered ? 'bg-sidebar/85 backdrop-blur-sm' : 'bg-sidebar/95 backdrop-blur-sm'} border-0 shadow-lg transition-all duration-300 z-[2] ${isHovered ? 'shadow-2xl shadow-blue-400/30 dark:shadow-blue-900/30' : ''} ${className}`}>
             {/* Dynamic team colors gradient top border */}
             <div 
-              className="absolute top-0 left-0 right-0 h-1 rounded-t-lg"
+              className="absolute top-0 left-0 right-0 h-1 rounded-t-lg pointer-events-none"
               style={{
                 background: `linear-gradient(to right, ${awayTeamColors.primary}, ${awayTeamColors.secondary}, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
                 opacity: 0.9

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { getMarketTimeSeriesData } from '@/services/polymarketService';
+import { getAllMarketsData } from '@/services/polymarketService';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
+import { MarketType } from '@/types/polymarket';
 
 interface PolymarketWidgetProps {
   awayTeam: string;
@@ -27,13 +28,17 @@ export default function PolymarketWidget({
   homeTeamColors,
 }: PolymarketWidgetProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
+  const [selectedMarket, setSelectedMarket] = useState<MarketType>('moneyline');
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['polymarket', awayTeam, homeTeam],
-    queryFn: () => getMarketTimeSeriesData(awayTeam, homeTeam),
+  const { data: allMarketsData, isLoading, error } = useQuery({
+    queryKey: ['polymarket-all', awayTeam, homeTeam],
+    queryFn: () => getAllMarketsData(awayTeam, homeTeam),
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   });
+
+  // Get the currently selected market data
+  const data = allMarketsData?.[selectedMarket];
 
   // Filter data based on time range
   const filterDataByTimeRange = () => {
@@ -78,13 +83,55 @@ export default function PolymarketWidget({
   }
 
   // No data state
-  if (!data || error || filteredData.length === 0) {
+  if (!allMarketsData || error) {
     return (
       <Card className="w-full bg-muted/20">
         <CardContent className="p-4">
           <div className="text-center py-6">
             <p className="text-sm text-muted-foreground">
               Polymarket betting data unavailable for this game
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Check which markets are available
+  const availableMarkets: MarketType[] = [];
+  if (allMarketsData.moneyline) availableMarkets.push('moneyline');
+  if (allMarketsData.spread) availableMarkets.push('spread');
+  if (allMarketsData.total) availableMarkets.push('total');
+
+  // If no markets available
+  if (availableMarkets.length === 0) {
+    return (
+      <Card className="w-full bg-muted/20">
+        <CardContent className="p-4">
+          <div className="text-center py-6">
+            <p className="text-sm text-muted-foreground">
+              No betting markets available for this game
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If selected market isn't available, switch to first available
+  if (!data && availableMarkets.length > 0 && !availableMarkets.includes(selectedMarket)) {
+    setSelectedMarket(availableMarkets[0]);
+    return null;
+  }
+
+  // If no data for selected market
+  if (!data || filteredData.length === 0) {
+    return (
+      <Card className="w-full bg-muted/20">
+        <CardContent className="p-4">
+          <div className="text-center py-6">
+            <p className="text-sm text-muted-foreground">
+              No data available for selected market
             </p>
           </div>
         </CardContent>
@@ -106,33 +153,79 @@ export default function PolymarketWidget({
     return `$${vol.toFixed(0)}`;
   };
 
+  const handleButtonClick = (e: React.MouseEvent, newRange: TimeRange) => {
+    e.stopPropagation();
+    e.preventDefault();
+    e.nativeEvent.stopImmediatePropagation();
+    console.log('Button clicked:', newRange); // Debug log
+    setTimeRange(newRange);
+  };
+
   return (
-    <Card className="w-full bg-card/50 backdrop-blur-sm border-border/50">
-      <CardContent className="p-3 sm:p-4 space-y-3">
+    <div 
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      className="w-full pointer-events-auto relative z-[100]"
+      style={{ isolation: 'isolate' }}
+    >
+      <Card className="w-full bg-card/50 backdrop-blur-sm border-border/50">
+        <CardContent className="p-3 sm:p-4 space-y-3">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold">Polymarket Lines</h3>
-            {data.volume && (
-              <Badge variant="secondary" className="text-xs">
-                {formatVolume(data.volume)} Vol.
-              </Badge>
-            )}
+            <h3 className="text-sm font-semibold">Public Betting Lines</h3>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              {filteredData.length} pts
+            </Badge>
           </div>
-          <a
-            href={`https://polymarket.com`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-muted-foreground hover:text-primary transition-colors"
+        </div>
+
+        {/* Market Type Selector */}
+        <div className="flex justify-center gap-2">
+          <Button
+            variant={selectedMarket === 'moneyline' ? 'default' : 'outline'}
+            size="sm"
+            onClick={(e) => {
+              handleButtonClick(e, '1M');
+              setSelectedMarket('moneyline');
+            }}
+            disabled={!allMarketsData.moneyline}
+            className="h-8 px-3 text-xs"
           >
-            polymarket.com
-          </a>
+            ML
+          </Button>
+          <Button
+            variant={selectedMarket === 'spread' ? 'default' : 'outline'}
+            size="sm"
+            onClick={(e) => {
+              handleButtonClick(e, '1M');
+              setSelectedMarket('spread');
+            }}
+            disabled={!allMarketsData.spread}
+            className="h-8 px-3 text-xs"
+          >
+            Spread
+          </Button>
+          <Button
+            variant={selectedMarket === 'total' ? 'default' : 'outline'}
+            size="sm"
+            onClick={(e) => {
+              handleButtonClick(e, '1M');
+              setSelectedMarket('total');
+            }}
+            disabled={!allMarketsData.total}
+            className="h-8 px-3 text-xs"
+          >
+            O/U
+          </Button>
         </div>
 
         {/* Current Odds */}
         <div className="grid grid-cols-2 gap-2">
           <div
-            className="p-2 rounded-lg border"
+            className="p-2.5 rounded-lg border"
             style={{
               backgroundColor: awayTeamColors?.primary
                 ? `${awayTeamColors.primary}15`
@@ -140,19 +233,19 @@ export default function PolymarketWidget({
               borderColor: awayTeamColors?.primary || 'hsl(var(--border))',
             }}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium">{awayTeam}</span>
-              <div className="flex items-center gap-1">
-                <span className="text-lg font-bold">{data.currentAwayOdds}%</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium opacity-90">{awayTeam}</span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-bold">{data.currentAwayOdds}%</span>
                 {awayChange !== 0 && (
-                  <div className="flex items-center text-xs">
+                  <div className="flex items-center gap-0.5">
                     {awayChange > 0 ? (
                       <TrendingUp className="h-3 w-3 text-green-500" />
                     ) : (
                       <TrendingDown className="h-3 w-3 text-red-500" />
                     )}
-                    <span className={awayChange > 0 ? 'text-green-500' : 'text-red-500'}>
-                      {Math.abs(awayChange)}%
+                    <span className={`text-xs font-semibold ${awayChange > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {awayChange > 0 ? '+' : ''}{awayChange}%
                     </span>
                   </div>
                 )}
@@ -160,7 +253,7 @@ export default function PolymarketWidget({
             </div>
           </div>
           <div
-            className="p-2 rounded-lg border"
+            className="p-2.5 rounded-lg border"
             style={{
               backgroundColor: homeTeamColors?.primary
                 ? `${homeTeamColors.primary}15`
@@ -168,19 +261,19 @@ export default function PolymarketWidget({
               borderColor: homeTeamColors?.primary || 'hsl(var(--border))',
             }}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium">{homeTeam}</span>
-              <div className="flex items-center gap-1">
-                <span className="text-lg font-bold">{data.currentHomeOdds}%</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium opacity-90">{homeTeam}</span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-bold">{data.currentHomeOdds}%</span>
                 {homeChange !== 0 && (
-                  <div className="flex items-center text-xs">
+                  <div className="flex items-center gap-0.5">
                     {homeChange > 0 ? (
                       <TrendingUp className="h-3 w-3 text-green-500" />
                     ) : (
                       <TrendingDown className="h-3 w-3 text-red-500" />
                     )}
-                    <span className={homeChange > 0 ? 'text-green-500' : 'text-red-500'}>
-                      {Math.abs(homeChange)}%
+                    <span className={`text-xs font-semibold ${homeChange > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {homeChange > 0 ? '+' : ''}{homeChange}%
                     </span>
                   </div>
                 )}
@@ -248,21 +341,43 @@ export default function PolymarketWidget({
         </div>
 
         {/* Time Range Selector */}
-        <div className="flex justify-center gap-1 flex-wrap">
+        <div className="flex justify-center gap-1 flex-wrap relative z-[110]">
           {(['1H', '6H', '1D', '1W', '1M', 'ALL'] as TimeRange[]).map((range) => (
             <Button
               key={range}
               variant={timeRange === range ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setTimeRange(range)}
-              className="h-7 px-2 text-xs"
+              onClick={(e) => handleButtonClick(e, range)}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
+              }}
+              className="h-7 px-2 text-xs cursor-pointer relative z-[111] pointer-events-auto"
+              style={{ pointerEvents: 'auto' }}
+              type="button"
             >
               {range}
             </Button>
           ))}
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Disclaimer */}
+        <div className="pt-2 border-t border-border/30">
+          <p className="text-[10px] text-muted-foreground/70 text-center leading-tight">
+            Powered by Polymarket. We are not affiliated with or endorsed by Polymarket.
+          </p>
+        </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

@@ -1080,14 +1080,23 @@ ${contextParts}
                     </div>
                   </div>
 
-                  {/* Historical Data Section */}
-                  <HistoricalDataSection
-                    prediction={prediction}
-                    awayTeamColors={awayTeamColors}
-                    homeTeamColors={homeTeamColors}
-                    onH2HClick={openH2HModal}
-                    onLinesClick={openLineMovementModal}
-                  />
+                  {/* Polymarket Widget */}
+                  <div 
+                    className="pt-4"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ pointerEvents: 'auto', isolation: 'isolate' }}
+                  >
+                    <PolymarketWidget
+                      awayTeam={prediction.away_team}
+                      homeTeam={prediction.home_team}
+                      gameDate={prediction.game_date}
+                      awayTeamColors={awayTeamColors}
+                      homeTeamColors={homeTeamColors}
+                    />
+                  </div>
 
                   {/* Model Predictions Section */}
                   <div className="text-center pt-3 sm:pt-4">
@@ -1583,16 +1592,14 @@ ${contextParts}
                     </div>
                   </div>
 
-                  {/* Polymarket Widget */}
-                  <div className="pt-4">
-                    <PolymarketWidget
-                      awayTeam={prediction.away_team}
-                      homeTeam={prediction.home_team}
-                      gameDate={prediction.game_date}
-                      awayTeamColors={awayTeamColors}
-                      homeTeamColors={homeTeamColors}
-                    />
-                  </div>
+                  {/* Historical Data Section */}
+                  <HistoricalDataSection
+                    prediction={prediction}
+                    awayTeamColors={awayTeamColors}
+                    homeTeamColors={homeTeamColors}
+                    onH2HClick={openH2HModal}
+                    onLinesClick={openLineMovementModal}
+                  />
                 </CardContent>
               </NFLGameCard>
             );

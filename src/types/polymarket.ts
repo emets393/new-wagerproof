@@ -39,6 +39,8 @@ export interface TimeSeriesPoint {
   homeTeamPrice?: number;
 }
 
+export type MarketType = 'moneyline' | 'spread' | 'total';
+
 export interface PolymarketTimeSeriesData {
   awayTeam: string;
   homeTeam: string;
@@ -47,6 +49,15 @@ export interface PolymarketTimeSeriesData {
   currentHomeOdds: number;
   volume?: number;
   marketId?: string;
+  marketType: MarketType;
+}
+
+export interface PolymarketAllMarketsData {
+  awayTeam: string;
+  homeTeam: string;
+  moneyline?: PolymarketTimeSeriesData;
+  spread?: PolymarketTimeSeriesData;
+  total?: PolymarketTimeSeriesData;
 }
 
 export interface PolymarketSearchResponse {

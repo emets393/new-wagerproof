@@ -2,8 +2,10 @@ import {
   PolymarketMarket,
   PolymarketTrade,
   PolymarketTimeSeriesData,
+  PolymarketAllMarketsData,
   TimeSeriesPoint,
   PolymarketSearchResponse,
+  MarketType,
 } from '@/types/polymarket';
 import debug from '@/utils/debug';
 import { supabase } from '@/integrations/supabase/client';
@@ -357,8 +359,115 @@ function findMatchingEvent(
 }
 
 /**
+ * Classify market type based on question and slug
+ */
+function classifyMarket(question: string, slug: string): MarketType | null {
+  const qLower = question.toLowerCase();
+  const sLower = slug.toLowerCase();
+
+  // Skip 1st half markets
+  if (qLower.includes('1h') || sLower.includes('-1h-')) {
+    return null;
+  }
+
+  // Check for spread
+  if (qLower.includes('spread') || sLower.includes('-spread-')) {
+    return 'spread';
+  }
+
+  // Check for total/over-under
+  if (qLower.includes('o/u') || qLower.includes('total') || sLower.includes('-total-')) {
+    return 'total';
+  }
+
+  // Check for moneyline (main market without suffix, or explicit moneyline)
+  if (sLower.includes('-moneyline') || (!sLower.includes('-total-') && !sLower.includes('-spread-'))) {
+    return 'moneyline';
+  }
+
+  return null;
+}
+
+/**
+ * Extract token IDs from a specific market
+ */
+function extractTokensFromMarket(
+  market: PolymarketEventMarket
+): { yesTokenId: string; noTokenId: string } | null {
+  let yesTokenId: string | null = null;
+  let noTokenId: string | null = null;
+
+  if (market.tokens && Array.isArray(market.tokens)) {
+    const yesToken = market.tokens.find(t => (t.outcome || '').toLowerCase() === 'yes');
+    const noToken = market.tokens.find(t => (t.outcome || '').toLowerCase() === 'no');
+    
+    yesTokenId = yesToken?.token_id || null;
+    noTokenId = noToken?.token_id || null;
+  } else if (market.clobTokenIds) {
+    if (typeof market.clobTokenIds === 'string') {
+      try {
+        const arr = JSON.parse(market.clobTokenIds);
+        if (Array.isArray(arr) && arr.length >= 2) {
+          yesTokenId = arr[0];
+          noTokenId = arr[1];
+        }
+      } catch (e) {
+        // Not JSON
+      }
+    } else if (Array.isArray(market.clobTokenIds) && market.clobTokenIds.length >= 2) {
+      yesTokenId = market.clobTokenIds[0];
+      noTokenId = market.clobTokenIds[1];
+    }
+  }
+
+  if (!yesTokenId) return null;
+  
+  return { yesTokenId, noTokenId: noTokenId || '' };
+}
+
+/**
+ * Extract all market types (moneyline, spread, total) from an event
+ */
+function extractAllMarketsFromEvent(
+  event: PolymarketEvent
+): Record<MarketType, { yesTokenId: string; noTokenId: string; question: string } | null> {
+  const result: Record<MarketType, { yesTokenId: string; noTokenId: string; question: string } | null> = {
+    moneyline: null,
+    spread: null,
+    total: null,
+  };
+
+  if (!event.markets || event.markets.length === 0) {
+    return result;
+  }
+
+  for (const market of event.markets) {
+    if (!market.active || market.closed) continue;
+
+    const marketType = classifyMarket(market.question, market.slug);
+    if (!marketType) continue;
+
+    // Skip if we already have this market type
+    if (result[marketType]) continue;
+
+    const tokens = extractTokensFromMarket(market);
+    if (!tokens) continue;
+
+    result[marketType] = {
+      ...tokens,
+      question: market.question,
+    };
+
+    debug.log(`📊 Found ${marketType} market:`, market.question);
+  }
+
+  return result;
+}
+
+/**
  * Extract token IDs from an event's markets
  * Returns yesTokenId for the first team mentioned (usually away team per "ordering: away")
+ * @deprecated Use extractAllMarketsFromEvent instead
  */
 function extractTokensFromEvent(
   event: PolymarketEvent,
@@ -547,7 +656,169 @@ function transformPriceHistory(
 }
 
 /**
+ * Get all market types from Supabase cache (fast, reduced API calls)
+ */
+export async function getAllMarketsDataFromCache(
+  awayTeam: string,
+  homeTeam: string
+): Promise<PolymarketAllMarketsData | null> {
+  try {
+    const gameKey = `${awayTeam}_${homeTeam}`;
+    debug.log(`📦 Fetching cached Polymarket data for: ${gameKey}`);
+
+    // Fetch all market types for this game from cache
+    // @ts-ignore - Table will exist after migration, types will be regenerated
+    const { data: cachedMarkets, error } = await (supabase as any)
+      .from('polymarket_markets')
+      .select('*')
+      .eq('game_key', gameKey);
+
+    if (error) {
+      debug.error('❌ Error fetching from cache:', error);
+      // Fall back to live API
+      return getAllMarketsDataLive(awayTeam, homeTeam);
+    }
+
+    if (!cachedMarkets || cachedMarkets.length === 0) {
+      debug.log('⚠️ No cached data found, falling back to live API');
+      return getAllMarketsDataLive(awayTeam, homeTeam);
+    }
+
+    debug.log(`✅ Found ${cachedMarkets.length} cached markets`);
+
+    const result: PolymarketAllMarketsData = {
+      awayTeam,
+      homeTeam,
+    };
+
+    // Transform cached data to expected format
+    for (const cached of cachedMarkets as any[]) {
+      const marketType = cached.market_type as MarketType;
+      const priceHistory = cached.price_history as any[];
+
+      // Transform price history to time series
+      const timeSeriesData = priceHistory.map((point: any) => ({
+        timestamp: point.t * 1000,
+        awayTeamOdds: Math.round(point.p * 100),
+        homeTeamOdds: Math.round((1 - point.p) * 100),
+        awayTeamPrice: point.p,
+        homeTeamPrice: 1 - point.p,
+      }));
+
+      result[marketType] = {
+        awayTeam,
+        homeTeam,
+        data: timeSeriesData,
+        currentAwayOdds: cached.current_away_odds,
+        currentHomeOdds: cached.current_home_odds,
+        volume: 0,
+        marketId: cached.token_id,
+        marketType,
+      };
+
+      // Check data freshness
+      const lastUpdated = new Date(cached.last_updated);
+      const ageMinutes = (Date.now() - lastUpdated.getTime()) / 1000 / 60;
+      debug.log(`📊 ${marketType}: ${cached.current_away_odds}% - ${cached.current_home_odds}% (${Math.round(ageMinutes)}min old)`);
+    }
+
+    return result;
+  } catch (error) {
+    debug.error('❌ Error reading from cache:', error);
+    // Fall back to live API
+    return getAllMarketsDataLive(awayTeam, homeTeam);
+  }
+}
+
+/**
+ * Get all market types (moneyline, spread, total) for a game - LIVE API
+ * This function makes direct API calls and should only be used as fallback
+ */
+export async function getAllMarketsDataLive(
+  awayTeam: string,
+  homeTeam: string
+): Promise<PolymarketAllMarketsData | null> {
+  try {
+    const awayMascot = getTeamMascot(awayTeam);
+    const homeMascot = getTeamMascot(homeTeam);
+    
+    debug.log(`🔍 Fetching all Polymarket markets for: ${awayTeam} (${awayMascot}) vs ${homeTeam} (${homeMascot})`);
+    
+    // Step 1: Get all NFL events
+    const events = await getNFLEvents();
+    
+    if (!events || events.length === 0) {
+      debug.log('❌ No NFL events available from Polymarket');
+      return null;
+    }
+
+    // Step 2: Find the matching event
+    const event = findMatchingEvent(events, awayTeam, homeTeam);
+    
+    if (!event) {
+      debug.log('❌ No matching event found for this game');
+      return null;
+    }
+
+    debug.log(`✅ Found event: ${event.title}`);
+
+    // Step 3: Extract all market types
+    const allMarkets = extractAllMarketsFromEvent(event);
+
+    const result: PolymarketAllMarketsData = {
+      awayTeam,
+      homeTeam,
+    };
+
+    // Step 4: Fetch price history for each market type
+    for (const [marketType, marketData] of Object.entries(allMarkets) as [MarketType, typeof allMarkets[MarketType]][]) {
+      if (!marketData) continue;
+
+      const priceHistory = await getPriceHistory(marketData.yesTokenId, 'max', 60);
+
+      if (!priceHistory || priceHistory.length === 0) {
+        debug.log(`⚠️ No price history for ${marketType}`);
+        continue;
+      }
+
+      const timeSeriesData = transformPriceHistory(priceHistory, true); // Always use away team as YES
+
+      const latestPoint = timeSeriesData[timeSeriesData.length - 1];
+
+      result[marketType] = {
+        awayTeam,
+        homeTeam,
+        data: timeSeriesData,
+        currentAwayOdds: latestPoint?.awayTeamOdds || 50,
+        currentHomeOdds: latestPoint?.homeTeamOdds || 50,
+        volume: 0,
+        marketId: marketData.yesTokenId,
+        marketType,
+      };
+
+      debug.log(`✅ ${marketType}: ${latestPoint?.awayTeamOdds}% - ${latestPoint?.homeTeamOdds}%`);
+    }
+
+    return result;
+  } catch (error) {
+    debug.error('❌ Error getting all markets data (live):', error);
+    return null;
+  }
+}
+
+/**
+ * Get all market types - uses cache by default for better performance
+ */
+export async function getAllMarketsData(
+  awayTeam: string,
+  homeTeam: string
+): Promise<PolymarketAllMarketsData | null> {
+  return getAllMarketsDataFromCache(awayTeam, homeTeam);
+}
+
+/**
  * Get complete time series data for a game using /sports → /events → /prices-history flow
+ * @deprecated Use getAllMarketsData instead for multi-market support
  */
 export async function getMarketTimeSeriesData(
   awayTeam: string,
@@ -617,6 +888,7 @@ export async function getMarketTimeSeriesData(
       currentHomeOdds,
       volume: 0, // Not available in events response
       marketId: yesTokenId,
+      marketType: 'moneyline', // Default to moneyline for legacy function
     };
   } catch (error) {
     debug.error('❌ Error getting market time series data:', error);
