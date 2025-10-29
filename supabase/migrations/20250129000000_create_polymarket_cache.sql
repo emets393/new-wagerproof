@@ -1,7 +1,8 @@
 -- Create table to cache Polymarket market data
 CREATE TABLE IF NOT EXISTS public.polymarket_markets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  game_key TEXT NOT NULL, -- e.g., "Baltimore_Miami"
+  game_key TEXT NOT NULL, -- e.g., "nfl_Baltimore_Miami" or "cfb_Ohio State_Michigan"
+  league TEXT NOT NULL CHECK (league IN ('nfl', 'cfb')),
   away_team TEXT NOT NULL,
   home_team TEXT NOT NULL,
   market_type TEXT NOT NULL CHECK (market_type IN ('moneyline', 'spread', 'total')),

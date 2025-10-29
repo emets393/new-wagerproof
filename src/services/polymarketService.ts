@@ -760,80 +760,7 @@ export function groupByEventSlug(markets: PolymarketEventMarketClean[]): Grouped
   return Array.from(byGame.values());
 }
 
-/**
- * Get all market types from Supabase cache (fast, reduced API calls)
- */
-export async function getAllMarketsDataFromCache(
-  awayTeam: string,
-  homeTeam: string
-): Promise<PolymarketAllMarketsData | null> {
-  try {
-    const gameKey = `${awayTeam}_${homeTeam}`;
-    debug.log(`📦 Fetching cached Polymarket data for: ${gameKey}`);
-
-    // Fetch all market types for this game from cache
-    // @ts-ignore - Table will exist after migration, types will be regenerated
-    const { data: cachedMarkets, error } = await (supabase as any)
-      .from('polymarket_markets')
-      .select('*')
-      .eq('game_key', gameKey);
-
-    if (error) {
-      debug.error('❌ Error fetching from cache:', error);
-      // Fall back to live API
-      return getAllMarketsDataLive(awayTeam, homeTeam);
-    }
-
-    if (!cachedMarkets || cachedMarkets.length === 0) {
-      debug.log('⚠️ No cached data found, falling back to live API');
-      return getAllMarketsDataLive(awayTeam, homeTeam);
-    }
-
-    debug.log(`✅ Found ${cachedMarkets.length} cached markets`);
-
-    const result: PolymarketAllMarketsData = {
-      awayTeam,
-      homeTeam,
-    };
-
-    // Transform cached data to expected format
-    for (const cached of cachedMarkets as any[]) {
-      const marketType = cached.market_type as MarketType;
-      const priceHistory = cached.price_history as any[];
-
-      // Transform price history to time series
-      const timeSeriesData = priceHistory.map((point: any) => ({
-        timestamp: point.t * 1000,
-        awayTeamOdds: Math.round(point.p * 100),
-        homeTeamOdds: Math.round((1 - point.p) * 100),
-        awayTeamPrice: point.p,
-        homeTeamPrice: 1 - point.p,
-      }));
-
-      result[marketType] = {
-        awayTeam,
-        homeTeam,
-        data: timeSeriesData,
-        currentAwayOdds: cached.current_away_odds,
-        currentHomeOdds: cached.current_home_odds,
-        volume: 0,
-        marketId: cached.token_id,
-        marketType,
-      };
-
-      // Check data freshness
-      const lastUpdated = new Date(cached.last_updated);
-      const ageMinutes = (Date.now() - lastUpdated.getTime()) / 1000 / 60;
-      debug.log(`📊 ${marketType}: ${cached.current_away_odds}% - ${cached.current_home_odds}% (${Math.round(ageMinutes)}min old)`);
-    }
-
-    return result;
-  } catch (error) {
-    debug.error('❌ Error reading from cache:', error);
-    // Fall back to live API
-    return getAllMarketsDataLive(awayTeam, homeTeam);
-  }
-}
+// OLD VERSION REMOVED - See new implementation below with league parameter support
 
 /**
  * Get all market types (moneyline, spread, total) for a game - LIVE API
@@ -913,14 +840,96 @@ export async function getAllMarketsDataLive(
 }
 
 /**
- * Get all market types - uses cache by default for better performance
+ * Get cached market data from Supabase
+ */
+async function getAllMarketsDataFromCache(
+  awayTeam: string,
+  homeTeam: string,
+  league: 'nfl' | 'cfb' = 'nfl'
+): Promise<PolymarketAllMarketsData | null> {
+  try {
+    const gameKey = `${league}_${awayTeam}_${homeTeam}`;
+    debug.log(`🔍 Checking cache for: ${gameKey}`);
+
+    // @ts-ignore - polymarket_markets table exists but not in types yet
+    const { data, error } = await supabase
+      .from('polymarket_markets')
+      .select('*')
+      .eq('game_key', gameKey)
+      .eq('league', league);
+
+    if (error) {
+      debug.error('❌ Cache query error:', error);
+      return null;
+    }
+
+    if (!data || data.length === 0) {
+      debug.log('⚠️ No cached data found');
+      return null;
+    }
+
+    debug.log(`✅ Found ${data.length} cached markets`);
+
+    const result: PolymarketAllMarketsData = {
+      awayTeam,
+      homeTeam,
+    };
+
+    // Process each cached market
+    for (const market of data) {
+      // @ts-ignore - dynamic table columns
+      const marketType = market.market_type as MarketType;
+      // @ts-ignore
+      const priceHistory = market.price_history as PriceHistoryPoint[];
+
+      if (!priceHistory || priceHistory.length === 0) continue;
+
+      // Transform to time series format
+      const timeSeriesData = transformPriceHistory(priceHistory, true);
+
+      result[marketType] = {
+        awayTeam,
+        homeTeam,
+        data: timeSeriesData,
+        // @ts-ignore
+        currentAwayOdds: market.current_away_odds,
+        // @ts-ignore
+        currentHomeOdds: market.current_home_odds,
+        volume: 0,
+        // @ts-ignore
+        marketId: market.token_id,
+        marketType,
+      };
+
+      // @ts-ignore
+      debug.log(`✅ ${marketType} (cached): ${market.current_away_odds}% - ${market.current_home_odds}%`);
+    }
+
+    return result;
+  } catch (error) {
+    debug.error('❌ Error getting cached data:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all market types - uses cache first, falls back to live API
  */
 export async function getAllMarketsData(
   awayTeam: string,
   homeTeam: string,
   league: 'nfl' | 'cfb' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
-  // For now, use live API directly (cache will come in Phase 2)
+  // Try cache first
+  const cachedData = await getAllMarketsDataFromCache(awayTeam, homeTeam, league);
+  
+  if (cachedData) {
+    debug.log('✅ Using cached Polymarket data');
+    return cachedData;
+  }
+
+  // Fall back to live API
+  debug.log('⚠️ Cache miss, falling back to live API');
   return getAllMarketsDataLive(awayTeam, homeTeam, league);
 }
 
