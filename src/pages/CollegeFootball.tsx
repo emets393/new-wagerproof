@@ -15,6 +15,7 @@ import { StarButton } from '@/components/StarButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatSessionManager } from '@/utils/chatSession';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
+import PolymarketWidget from '@/components/PolymarketWidget';
 
 interface CFBPrediction {
   id: string;
@@ -1655,6 +1656,17 @@ ${contextParts}
                   </div>
 
                   {/* Bottom Weather section removed; using compact WeatherPill above */}
+
+                  {/* Polymarket Widget */}
+                  <div className="pt-4">
+                    <PolymarketWidget
+                      awayTeam={prediction.away_team}
+                      homeTeam={prediction.home_team}
+                      gameDate={prediction.game_date || prediction.start_date || prediction.start_time}
+                      awayTeamColors={awayTeamColors}
+                      homeTeamColors={homeTeamColors}
+                    />
+                  </div>
                 </CardContent>
               </CFBGameCard>
             );

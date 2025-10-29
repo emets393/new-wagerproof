@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { chatSessionManager } from '@/utils/chatSession';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
 import { trackPredictionViewed, trackGameAnalysisOpened, trackFilterApplied, trackSortApplied } from '@/lib/mixpanel';
+import PolymarketWidget from '@/components/PolymarketWidget';
 
 interface NFLPrediction {
   id: string;
@@ -1580,6 +1581,17 @@ ${contextParts}
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Polymarket Widget */}
+                  <div className="pt-4">
+                    <PolymarketWidget
+                      awayTeam={prediction.away_team}
+                      homeTeam={prediction.home_team}
+                      gameDate={prediction.game_date}
+                      awayTeamColors={awayTeamColors}
+                      homeTeamColors={homeTeamColors}
+                    />
                   </div>
                 </CardContent>
               </NFLGameCard>

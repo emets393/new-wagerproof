@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
+import { useEffect } from "react";
 import Landing from "./pages/NewLanding";
 import { GameAnalysis, Account, Welcome } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -34,6 +35,30 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LiveScoreTicker } from "./components/LiveScoreTicker";
 
 const queryClient = new QueryClient();
+
+// Component to scroll to top on landing page
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    // Disable browser scroll restoration
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    // Only scroll to top for landing page
+    if (pathname === '/' || pathname === '/home') {
+      // Use a small delay to ensure it overrides any async scroll events
+      const timeoutId = setTimeout(() => {
+        window.scrollTo(0, 0);
+      }, 0);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [pathname]);
+
+  return null;
+}
 
 // Layout wrapper for authenticated pages
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -126,6 +151,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ScrollToTop />
             <AuthProvider>
               <AdminModeProvider>
                 <AppRoutes />
