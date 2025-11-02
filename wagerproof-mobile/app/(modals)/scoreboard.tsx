@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useTheme, Card } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -451,32 +452,16 @@ export default function ScoreboardScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <LinearGradient
-        colors={['rgba(34, 211, 95, 0.1)', 'transparent']}
-        style={[styles.headerGradient, { paddingTop: insets.top + 10 }]}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.closeButton}
-          >
-            <MaterialCommunityIcons name="close" size={28} color={theme.colors.onSurface} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <MaterialCommunityIcons name="scoreboard" size={24} color={theme.colors.primary} />
-            <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
-              Live Scoreboard
-            </Text>
-          </View>
-          <View style={{ width: 28 }} />
-        </View>
-      </LinearGradient>
-
       {/* Content */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+        contentContainerStyle={[
+          styles.scrollContent, 
+          { 
+            paddingTop: insets.top + 70, // Space for blurred header
+            paddingBottom: insets.bottom + 20 
+          }
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -545,6 +530,29 @@ export default function ScoreboardScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Frosted Glass Header */}
+      <BlurView
+        intensity={80}
+        tint={theme.dark ? 'dark' : 'light'}
+        style={[styles.headerBlur, { paddingTop: insets.top + 10 }]}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.closeButton}
+          >
+            <MaterialCommunityIcons name="close" size={28} color={theme.colors.onSurface} />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <MaterialCommunityIcons name="scoreboard" size={24} color={theme.colors.primary} />
+            <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
+              Live Scoreboard
+            </Text>
+          </View>
+          <View style={{ width: 28 }} />
+        </View>
+      </BlurView>
     </View>
   );
 }
@@ -553,8 +561,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerGradient: {
-    paddingTop: 50,
+  headerBlur: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   header: {
     flexDirection: 'row',

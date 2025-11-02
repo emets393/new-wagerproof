@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useTheme, Button, Divider, Badge } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -374,23 +375,24 @@ export default function FeatureRequestsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View
-          style={[
-            styles.header,
-            { backgroundColor: theme.colors.background, paddingTop: insets.top + 16 },
-          ]}
-        >
-          <View style={styles.headerContent}>
-            <MaterialCommunityIcons name="lightbulb-on" size={32} color={theme.colors.primary} />
-            <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feature Requests</Text>
-          </View>
-        </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
             Loading feature requests...
           </Text>
         </View>
+
+        {/* Frosted Glass Header */}
+        <BlurView
+          intensity={80}
+          tint={theme.dark ? 'dark' : 'light'}
+          style={[styles.headerBlur, { paddingTop: insets.top + 16 }]}
+        >
+          <View style={styles.headerContent}>
+            <MaterialCommunityIcons name="lightbulb-on" size={32} color={theme.colors.primary} />
+            <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feature Requests</Text>
+          </View>
+        </BlurView>
       </View>
     );
   }
@@ -404,28 +406,12 @@ export default function FeatureRequestsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { backgroundColor: theme.colors.background, paddingTop: insets.top + 16 },
-        ]}
-      >
-        <View style={styles.headerContent}>
-          <MaterialCommunityIcons name="lightbulb-on" size={32} color={theme.colors.primary} />
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feature Requests</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.iconButton, { backgroundColor: '#22c55e' }]}
-          onPress={() => setSubmitModalVisible(true)}
-        >
-          <MaterialCommunityIcons name="plus" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 65 + insets.bottom + 20 }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 80, // Space for blurred header
+          paddingBottom: 65 + insets.bottom + 20
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
         }
@@ -533,6 +519,24 @@ export default function FeatureRequestsScreen() {
         </View>
       </ScrollView>
 
+      {/* Frosted Glass Header */}
+      <BlurView
+        intensity={80}
+        tint={theme.dark ? 'dark' : 'light'}
+        style={[styles.headerBlur, { paddingTop: insets.top + 16 }]}
+      >
+        <View style={styles.headerContent}>
+          <MaterialCommunityIcons name="lightbulb-on" size={32} color={theme.colors.primary} />
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feature Requests</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.iconButton, { backgroundColor: '#22c55e' }]}
+          onPress={() => setSubmitModalVisible(true)}
+        >
+          <MaterialCommunityIcons name="plus" size={24} color="#fff" />
+        </TouchableOpacity>
+      </BlurView>
+
       {/* Submit Modal */}
       <Modal
         visible={submitModalVisible}
@@ -629,12 +633,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerBlur: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
     paddingHorizontal: 20,
     paddingBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   headerContent: {
     flexDirection: 'row',

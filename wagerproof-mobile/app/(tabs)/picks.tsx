@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, Linking } from 'react-native';
 import { useTheme, Card, ActivityIndicator, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { supabase } from '@/services/supabase';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
@@ -222,16 +223,6 @@ export default function PicksScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.background, paddingTop: insets.top + 16 }]}>
-        <View style={styles.headerContent}>
-          <MaterialCommunityIcons name="star" size={32} color={isDark ? '#FFD700' : '#FFD700'} style={styles.starIcon} />
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            Editor's Picks
-          </Text>
-        </View>
-      </View>
-
       {error ? (
         <View style={styles.centerContainer}>
           <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
@@ -277,12 +268,32 @@ export default function PicksScreen() {
           data={picks}
           renderItem={renderPickCard}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.listContent, { paddingBottom: 65 + insets.bottom + 20 }]}
+          contentContainerStyle={[
+            styles.listContent, 
+            { 
+              paddingTop: insets.top + 80, // Space for blurred header
+              paddingBottom: 65 + insets.bottom + 20 
+            }
+          ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
           }
         />
       )}
+
+      {/* Frosted Glass Header */}
+      <BlurView
+        intensity={80}
+        tint={theme.dark ? 'dark' : 'light'}
+        style={[styles.headerBlur, { paddingTop: insets.top + 16 }]}
+      >
+        <View style={styles.headerContent}>
+          <MaterialCommunityIcons name="star" size={32} color={isDark ? '#FFD700' : '#FFD700'} style={styles.starIcon} />
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
+            Editor's Picks
+          </Text>
+        </View>
+      </BlurView>
     </View>
   );
 }
@@ -291,11 +302,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingTop: 50,
+  headerBlur: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
     paddingBottom: 16,
     paddingHorizontal: 16,
-    elevation: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   headerContent: {
     flexDirection: 'row',
