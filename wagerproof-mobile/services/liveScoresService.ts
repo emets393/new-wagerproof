@@ -342,7 +342,23 @@ export async function getLiveScores(): Promise<LiveGame[]> {
     return [];
   }
   
-  const games = (data || []) as LiveGame[];
+  // Map database fields to LiveGame interface
+  // Database has 'period' but LiveGame expects 'quarter'
+  const games: LiveGame[] = (data || []).map((game: any) => ({
+    id: game.id,
+    league: game.league,
+    home_team: game.home_team,
+    away_team: game.away_team,
+    home_abbr: game.home_abbr,
+    away_abbr: game.away_abbr,
+    home_score: game.home_score,
+    away_score: game.away_score,
+    quarter: game.period || '', // Map period to quarter
+    time_remaining: game.time_remaining || '',
+    is_live: game.is_live,
+    game_status: game.status || '',
+    last_updated: game.last_updated || new Date().toISOString(),
+  }));
   
   console.log(`📺 Fetched ${games.length} live games from database`);
   if (games.length > 0) {
@@ -350,7 +366,9 @@ export async function getLiveScores(): Promise<LiveGame[]> {
       league: games[0].league,
       home: games[0].home_team,
       away: games[0].away_team,
-      score: `${games[0].away_score} - ${games[0].home_score}`
+      score: `${games[0].away_score} - ${games[0].home_score}`,
+      quarter: games[0].quarter,
+      time_remaining: games[0].time_remaining
     });
   }
   

@@ -233,7 +233,8 @@ export default function ScoreboardScreen() {
               </View>
             </View>
             <Text style={[styles.quarterText, { color: theme.colors.onSurfaceVariant }]}>
-              {game.quarter} {game.time_remaining && `• ${game.time_remaining}`}
+              {game.quarter && game.quarter.trim() ? `${game.quarter}${game.time_remaining ? ' • ' : ''}` : ''}
+              {game.time_remaining || ''}
             </Text>
           </View>
 
@@ -503,24 +504,6 @@ export default function ScoreboardScreen() {
               </Text>
               <Text style={[styles.statLabel, { color: theme.colors.onPrimaryContainer }]}>
                 Hitting
-              </Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: theme.colors.onPrimaryContainer + '30' }]} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.colors.onPrimaryContainer }]}>
-                {games.filter(g => g.league === 'NFL').length}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.colors.onPrimaryContainer }]}>
-                NFL
-              </Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: theme.colors.onPrimaryContainer + '30' }]} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.colors.onPrimaryContainer }]}>
-                {games.filter(g => g.league === 'CFB').length}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.colors.onPrimaryContainer }]}>
-                CFB
               </Text>
             </View>
           </View>
