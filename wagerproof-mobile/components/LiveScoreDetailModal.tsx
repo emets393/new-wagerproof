@@ -21,47 +21,177 @@ export function LiveScoreDetailModal({
 
   if (!game) return null;
 
-  const renderPredictionRow = (
-    type: string,
-    prediction?: {
-      predicted: string;
-      isHitting: boolean;
-      probability: number;
-      line?: number;
-      currentDifferential: number;
-    }
-  ) => {
+  const renderMoneylinePrediction = (prediction?: {
+    predicted: string;
+    isHitting: boolean;
+    probability: number;
+    currentDifferential: number;
+  }) => {
     if (!prediction) return null;
 
+    const predictedTeam = prediction.predicted === 'Home' ? game.home_team : game.away_team;
+    const currentLeader = game.home_score > game.away_score ? game.home_team : 
+                         game.away_score > game.home_score ? game.away_team : 'Tied';
+    const scoreDiff = Math.abs(prediction.currentDifferential);
+
     return (
-      <View style={[styles.predictionRow, { borderBottomColor: theme.colors.outline }]}>
-        <View style={styles.predictionLeft}>
-          <Text style={[styles.predictionType, { color: theme.colors.onSurface }]}>
-            {type}
-          </Text>
-          <Text style={[styles.predictionDetail, { color: theme.colors.onSurfaceVariant }]}>
-            {prediction.line !== undefined && `Line: ${prediction.line > 0 ? '+' : ''}${prediction.line}`}
-          </Text>
-        </View>
-        
-        <View style={styles.predictionRight}>
+      <View style={[styles.predictionCard, { backgroundColor: prediction.isHitting ? 'rgba(34, 211, 95, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+        <View style={styles.predictionHeader}>
+          <Text style={[styles.predictionType, { color: theme.colors.onSurface }]}>Moneyline</Text>
           <View style={[
             styles.statusBadge,
-            { backgroundColor: prediction.isHitting ? '#16A34A' : '#DC2626' }
+            { backgroundColor: prediction.isHitting ? '#22D35F' : '#EF4444' }
           ]}>
             <MaterialCommunityIcons 
               name={prediction.isHitting ? 'check' : 'close'} 
-              size={16} 
+              size={14} 
               color="#FFFFFF" 
             />
             <Text style={styles.statusText}>
-              {prediction.isHitting ? 'Hitting' : 'Not Hitting'}
+              {prediction.isHitting ? 'Hitting' : 'Missing'}
             </Text>
           </View>
-          <Text style={[styles.probability, { color: theme.colors.onSurfaceVariant }]}>
-            {(prediction.probability * 100).toFixed(0)}% confidence
+        </View>
+        
+        <View style={styles.comparisonRow}>
+          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Predicted:</Text>
+          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>{predictedTeam} wins</Text>
+        </View>
+        
+        <View style={styles.comparisonRow}>
+          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Current:</Text>
+          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+            {currentLeader === 'Tied' ? 'Game is tied' : `${currentLeader} leading by ${scoreDiff}`}
           </Text>
         </View>
+        
+        <Text style={[styles.confidence, { color: theme.colors.onSurfaceVariant }]}>
+          {(prediction.probability * 100).toFixed(0)}% confidence
+        </Text>
+      </View>
+    );
+  };
+
+  const renderSpreadPrediction = (prediction?: {
+    predicted: string;
+    isHitting: boolean;
+    probability: number;
+    line?: number;
+    currentDifferential: number;
+  }) => {
+    if (!prediction || prediction.line === undefined) return null;
+
+    const predictedTeam = prediction.predicted === 'Home' ? game.home_team : game.away_team;
+    const spreadLine = prediction.predicted === 'Home' ? prediction.line : -prediction.line;
+    const currentDiff = prediction.currentDifferential;
+    const pointsNeeded = prediction.isHitting ? 0 : Math.abs(currentDiff) + 0.5;
+
+    return (
+      <View style={[styles.predictionCard, { backgroundColor: prediction.isHitting ? 'rgba(34, 211, 95, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+        <View style={styles.predictionHeader}>
+          <Text style={[styles.predictionType, { color: theme.colors.onSurface }]}>Spread</Text>
+          <View style={[
+            styles.statusBadge,
+            { backgroundColor: prediction.isHitting ? '#22D35F' : '#EF4444' }
+          ]}>
+            <MaterialCommunityIcons 
+              name={prediction.isHitting ? 'check' : 'close'} 
+              size={14} 
+              color="#FFFFFF" 
+            />
+            <Text style={styles.statusText}>
+              {prediction.isHitting ? 'Hitting' : 'Missing'}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.comparisonRow}>
+          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Predicted:</Text>
+          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+            {predictedTeam} covers {spreadLine > 0 ? '+' : ''}{spreadLine.toFixed(1)}
+          </Text>
+        </View>
+        
+        <View style={styles.comparisonRow}>
+          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Current diff:</Text>
+          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+            {currentDiff > 0 ? '+' : ''}{currentDiff.toFixed(1)}
+          </Text>
+        </View>
+        
+        {!prediction.isHitting && (
+          <View style={styles.comparisonRow}>
+            <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Needs:</Text>
+            <Text style={[styles.comparisonValue, { color: '#EF4444' }]}>
+              {pointsNeeded.toFixed(1)} more points
+            </Text>
+          </View>
+        )}
+        
+        <Text style={[styles.confidence, { color: theme.colors.onSurfaceVariant }]}>
+          {(prediction.probability * 100).toFixed(0)}% confidence
+        </Text>
+      </View>
+    );
+  };
+
+  const renderOverUnderPrediction = (prediction?: {
+    predicted: string;
+    isHitting: boolean;
+    probability: number;
+    line?: number;
+    currentDifferential: number;
+  }) => {
+    if (!prediction || prediction.line === undefined) return null;
+
+    const totalScore = game.home_score + game.away_score;
+    const pointsNeeded = prediction.isHitting ? 0 : Math.abs(prediction.currentDifferential) + 0.5;
+
+    return (
+      <View style={[styles.predictionCard, { backgroundColor: prediction.isHitting ? 'rgba(34, 211, 95, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+        <View style={styles.predictionHeader}>
+          <Text style={[styles.predictionType, { color: theme.colors.onSurface }]}>Over/Under</Text>
+          <View style={[
+            styles.statusBadge,
+            { backgroundColor: prediction.isHitting ? '#22D35F' : '#EF4444' }
+          ]}>
+            <MaterialCommunityIcons 
+              name={prediction.isHitting ? 'check' : 'close'} 
+              size={14} 
+              color="#FFFFFF" 
+            />
+            <Text style={styles.statusText}>
+              {prediction.isHitting ? 'Hitting' : 'Missing'}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.comparisonRow}>
+          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Predicted:</Text>
+          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+            {prediction.predicted} {prediction.line.toFixed(1)}
+          </Text>
+        </View>
+        
+        <View style={styles.comparisonRow}>
+          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Current total:</Text>
+          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+            {totalScore}
+          </Text>
+        </View>
+        
+        {!prediction.isHitting && (
+          <View style={styles.comparisonRow}>
+            <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Needs:</Text>
+            <Text style={[styles.comparisonValue, { color: '#EF4444' }]}>
+              {pointsNeeded.toFixed(1)} more points
+            </Text>
+          </View>
+        )}
+        
+        <Text style={[styles.confidence, { color: theme.colors.onSurfaceVariant }]}>
+          {(prediction.probability * 100).toFixed(0)}% confidence
+        </Text>
       </View>
     );
   };
@@ -132,12 +262,12 @@ export function LiveScoreDetailModal({
             {game.predictions && (
               <View style={styles.predictionsSection}>
                 <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                  Model Predictions
+                  Model Predictions vs. Actual
                 </Text>
                 
-                {renderPredictionRow('Moneyline', game.predictions.moneyline)}
-                {renderPredictionRow('Spread', game.predictions.spread)}
-                {renderPredictionRow('Over/Under', game.predictions.overUnder)}
+                {renderMoneylinePrediction(game.predictions.moneyline)}
+                {renderSpreadPrediction(game.predictions.spread)}
+                {renderOverUnderPrediction(game.predictions.overUnder)}
               </View>
             )}
           </ScrollView>
@@ -233,49 +363,64 @@ const styles = StyleSheet.create({
   },
   predictionsSection: {
     paddingVertical: 16,
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  predictionRow: {
+  predictionCard: {
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  predictionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  predictionLeft: {
-    flex: 1,
+    marginBottom: 8,
   },
   predictionType: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
-  },
-  predictionDetail: {
-    fontSize: 13,
-  },
-  predictionRight: {
-    alignItems: 'flex-end',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
-    marginBottom: 4,
   },
   statusText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
-  probability: {
-    fontSize: 12,
+  comparisonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  comparisonLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  comparisonValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 12,
+  },
+  confidence: {
+    fontSize: 11,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   footer: {
     padding: 16,

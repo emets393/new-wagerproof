@@ -332,6 +332,9 @@ export default function ScoreboardScreen() {
                           {game.predictions.moneyline.isHitting ? 'Hit' : 'Miss'}
                         </Text>
                       </View>
+                      <Text style={[styles.predictionDetail, { color: theme.colors.onSurfaceVariant }]}>
+                        {game.predictions.moneyline.predicted === 'Home' ? game.home_abbr : game.away_abbr} wins
+                      </Text>
                       <Text style={[styles.predictionConfidence, { color: theme.colors.onSurfaceVariant }]}>
                         {(game.predictions.moneyline.probability * 100).toFixed(0)}%
                       </Text>
@@ -362,6 +365,14 @@ export default function ScoreboardScreen() {
                           {game.predictions.spread.isHitting ? 'Hit' : 'Miss'}
                         </Text>
                       </View>
+                      <Text style={[styles.predictionDetail, { color: theme.colors.onSurfaceVariant }]}>
+                        {game.predictions.spread.line !== undefined 
+                          ? `Line: ${game.predictions.spread.line > 0 ? '+' : ''}${game.predictions.spread.line.toFixed(1)}`
+                          : 'No line'}
+                      </Text>
+                      <Text style={[styles.predictionDetail, { color: theme.colors.onSurfaceVariant }]}>
+                        Diff: {game.predictions.spread.currentDifferential > 0 ? '+' : ''}{game.predictions.spread.currentDifferential.toFixed(1)}
+                      </Text>
                       <Text style={[styles.predictionConfidence, { color: theme.colors.onSurfaceVariant }]}>
                         {(game.predictions.spread.probability * 100).toFixed(0)}%
                       </Text>
@@ -392,6 +403,12 @@ export default function ScoreboardScreen() {
                           {game.predictions.overUnder.isHitting ? 'Hit' : 'Miss'}
                         </Text>
                       </View>
+                      <Text style={[styles.predictionDetail, { color: theme.colors.onSurfaceVariant }]}>
+                        {game.predictions.overUnder.predicted} {game.predictions.overUnder.line?.toFixed(1)}
+                      </Text>
+                      <Text style={[styles.predictionDetail, { color: theme.colors.onSurfaceVariant }]}>
+                        Total: {game.home_score + game.away_score}
+                      </Text>
                       <Text style={[styles.predictionConfidence, { color: theme.colors.onSurfaceVariant }]}>
                         {(game.predictions.overUnder.probability * 100).toFixed(0)}%
                       </Text>
@@ -733,6 +750,10 @@ const styles = StyleSheet.create({
   predictionBadgeText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  predictionDetail: {
+    fontSize: 10,
+    textAlign: 'center',
   },
   predictionConfidence: {
     fontSize: 11,
