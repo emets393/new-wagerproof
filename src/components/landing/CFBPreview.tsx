@@ -307,7 +307,6 @@ export default function CFBPreview() {
               <span className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse"></span>
               Live
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">Today's Games</span>
           </div>
         </div>
         

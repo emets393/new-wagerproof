@@ -106,6 +106,7 @@ function renderPostHtml({
   description, 
   canonicalUrl, 
   ogImage, 
+  featureImage,
   contentHtml, 
   publishedAt, 
   updatedAt, 
@@ -199,37 +200,294 @@ ${tagsMetaTags}
   <!-- Styles -->
   ${cssBundlePath ? `<link rel="stylesheet" href="${cssBundlePath}" />` : ''}
   <style>
-    /* Inline fallback styles */
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      line-height: 1.6;
-      color: #333;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
+    /* Enhanced styles matching React component - maintains SEO while looking great */
+    * {
+      box-sizing: border-box;
     }
-    h1 { font-size: 2.5rem; margin-bottom: 1rem; }
-    h2 { font-size: 2rem; margin-top: 2rem; }
-    h3 { font-size: 1.5rem; margin-top: 1.5rem; }
-    img { max-width: 100%; height: auto; }
-    pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; }
-    code { background: #f4f4f4; padding: 0.2rem 0.4rem; border-radius: 3px; }
-    a { color: #4f9777; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: hsl(0, 0%, 9%);
+      background-color: hsl(0, 0%, 100%);
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 896px;
+      margin: 0 auto;
+      padding: 3rem 1rem;
+    }
+    /* Header styles */
+    header {
+      margin-bottom: 2rem;
+    }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background-color: hsl(142, 76%, 36%, 0.1);
+      color: hsl(142, 76%, 36%);
+      border-radius: 9999px;
+    }
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      color: hsl(0, 0%, 9%);
+    }
+    @media (min-width: 768px) {
+      h1 {
+        font-size: 3rem;
+      }
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.875rem;
+      color: hsl(0, 0%, 45%);
+      margin-top: 1rem;
+    }
+    .meta span {
+      font-weight: 500;
+    }
+    /* Prose styles - matches Tailwind typography plugin */
+    .prose {
+      color: hsl(0, 0%, 9%);
+      max-width: 100%;
+      font-size: 1.125rem;
+      line-height: 1.75;
+    }
+    .prose p {
+      margin-top: 1.25em;
+      margin-bottom: 1.25em;
+    }
+    .prose h2 {
+      font-size: 1.875rem;
+      font-weight: 700;
+      margin-top: 2em;
+      margin-bottom: 1em;
+      line-height: 1.3;
+      color: hsl(0, 0%, 9%);
+    }
+    .prose h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-top: 1.5em;
+      margin-bottom: 0.75em;
+      line-height: 1.4;
+      color: hsl(0, 0%, 9%);
+    }
+    .prose h4 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-top: 1.25em;
+      margin-bottom: 0.5em;
+      color: hsl(0, 0%, 9%);
+    }
+    .prose a {
+      color: hsl(142, 76%, 36%);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .prose a:hover {
+      text-decoration: underline;
+    }
+    .prose strong {
+      font-weight: 600;
+      color: hsl(0, 0%, 9%);
+    }
+    .prose ul, .prose ol {
+      margin-top: 1.25em;
+      margin-bottom: 1.25em;
+      padding-left: 1.625em;
+    }
+    .prose li {
+      margin-top: 0.5em;
+      margin-bottom: 0.5em;
+    }
+    .prose blockquote {
+      font-weight: 500;
+      font-style: italic;
+      color: hsl(0, 0%, 40%);
+      border-left: 0.25rem solid hsl(0, 0%, 80%);
+      quotes: "\\201C""\\201D""\\2018""\\2019";
+      margin-top: 1.6em;
+      margin-bottom: 1.6em;
+      padding-left: 1em;
+    }
+    .prose img {
+      margin-top: 2em;
+      margin-bottom: 2em;
+      border-radius: 0.5rem;
+      max-width: 100%;
+      height: auto;
+    }
+    .prose code {
+      background-color: hsl(0, 0%, 96%);
+      color: hsl(0, 0%, 9%);
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+      font-size: 0.875em;
+      font-weight: 400;
+    }
+    .prose pre {
+      background-color: hsl(0, 0%, 96%);
+      color: hsl(0, 0%, 9%);
+      overflow-x: auto;
+      font-weight: 400;
+      font-size: 0.875em;
+      line-height: 1.7142857;
+      margin-top: 1.7142857em;
+      margin-bottom: 1.7142857em;
+      border-radius: 0.375rem;
+      padding: 0.8571429em 1.1428571em;
+    }
+    .prose pre code {
+      background-color: transparent;
+      border-width: 0;
+      border-radius: 0;
+      padding: 0;
+      font-weight: inherit;
+      color: inherit;
+      font-size: inherit;
+      font-family: inherit;
+      line-height: inherit;
+    }
+    .prose hr {
+      border-color: hsl(0, 0%, 90%);
+      border-top-width: 1px;
+      margin-top: 3em;
+      margin-bottom: 3em;
+    }
+    /* Back link */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: hsl(0, 0%, 45%);
+      text-decoration: none;
+      margin-bottom: 2rem;
+      transition: color 0.2s;
+    }
+    .back-link:hover {
+      color: hsl(142, 76%, 36%);
+    }
+    /* Featured image */
+    .featured-image {
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 0.5rem;
+      margin-bottom: 2rem;
+    }
+    .featured-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    /* Footer */
+    footer {
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid hsl(0, 0%, 90%);
+    }
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: hsl(0, 0%, 3.9%);
+        color: hsl(0, 0%, 98%);
+      }
+      h1, .prose h2, .prose h3, .prose h4, .prose strong {
+        color: hsl(0, 0%, 98%);
+      }
+      .prose {
+        color: hsl(0, 0%, 98%);
+      }
+      .prose code {
+        background-color: hsl(0, 0%, 15%);
+        color: hsl(0, 0%, 98%);
+      }
+      .prose pre {
+        background-color: hsl(0, 0%, 15%);
+        color: hsl(0, 0%, 98%);
+      }
+      .prose blockquote {
+        color: hsl(0, 0%, 70%);
+        border-left-color: hsl(0, 0%, 30%);
+      }
+      .meta {
+        color: hsl(0, 0%, 65%);
+      }
+      .back-link {
+        color: hsl(0, 0%, 65%);
+      }
+      footer {
+        border-top-color: hsl(0, 0%, 20%);
+      }
+    }
   </style>
 </head>
 <body>
   <div id="root">
-    <article id="post-content">
-      <header>
-        <h1>${escapeHtml(title)}</h1>
-        ${authorName ? `<p class="author">By ${escapeHtml(authorName)}</p>` : ''}
-        <p class="date">Published: ${new Date(publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-      </header>
-      <div class="content">
-        ${contentHtml}
-      </div>
-    </article>
+    <div class="min-h-screen" style="background-color: hsl(var(--background, 0 0% 100%));">
+      <article class="container">
+        <!-- Back to Blog -->
+        <a href="/blog" class="back-link">
+          <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Blog
+        </a>
+
+        ${featureImage ? `
+        <!-- Featured Image -->
+        <div class="featured-image">
+          <img src="${escapeHtml(featureImage)}" alt="${escapeHtml(title)}" />
+        </div>
+        ` : ''}
+
+        <!-- Header -->
+        <header>
+          ${tags.length > 0 ? `
+          <div class="tags">
+            ${tags.map(tag => `<span class="tag">${escapeHtml(tag.name)}</span>`).join('')}
+          </div>
+          ` : ''}
+          
+          <h1>${escapeHtml(title)}</h1>
+          
+          <div class="meta">
+            ${authorName ? `<span>By ${escapeHtml(authorName)}</span><span>•</span>` : ''}
+            <time>${new Date(publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
+          </div>
+        </header>
+
+        <!-- Content -->
+        <div id="post-content" class="prose">
+          ${contentHtml}
+        </div>
+
+        <!-- Footer -->
+        <footer>
+          <a href="/blog" class="back-link">
+            <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Blog
+          </a>
+        </footer>
+      </article>
+    </div>
   </div>
   <!-- React will hydrate this content -->
   <script type="module" src="/src/main.tsx"></script>
@@ -250,6 +508,7 @@ async function writePostHtml(post, distDir, cssBundlePath) {
   const description = post.meta_description || post.excerpt || post.plaintext?.substring(0, 160) || '';
   const canonicalUrl = urlJoin(SITE_URL, 'blog', slug);
   const ogImage = post.og_image || post.feature_image || null;
+  const featureImage = post.feature_image || null; // Separate featured image for display
   const contentHtml = toContentHtml(post);
   const authorName = post.authors && post.authors.length > 0 ? post.authors[0].name : 'WagerProof Team';
   const tags = post.tags || [];
@@ -260,6 +519,7 @@ async function writePostHtml(post, distDir, cssBundlePath) {
     description,
     canonicalUrl,
     ogImage,
+    featureImage, // Pass featured image separately for display
     contentHtml,
     publishedAt: post.published_at,
     updatedAt: post.updated_at,

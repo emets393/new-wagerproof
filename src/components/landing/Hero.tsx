@@ -92,7 +92,7 @@ const Hero = () => {
                 borderClassName="bg-[radial-gradient(#73b69e_40%,transparent_60%)]"
                 duration={2500}
               >
-                <span className="px-6">Join the Waitlist</span>
+                <span className="px-6">Try it now!</span>
               </MovingBorderButton>
             </Link>
           </div>
