@@ -28,7 +28,22 @@ const OnboardingContext = createContext<OnboardingContextType | undefined>(undef
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
+  
+  // Check URL for initial step (for admin testing)
+  const getInitialStep = () => {
+    const params = new URLSearchParams(window.location.search);
+    const stepParam = params.get('step');
+    if (stepParam) {
+      const step = parseInt(stepParam, 10);
+      if (!isNaN(step) && step >= 1 && step <= 16) {
+        debug.log('Starting onboarding at step:', step);
+        return step;
+      }
+    }
+    return 1;
+  };
+  
+  const [currentStep, setCurrentStep] = useState(getInitialStep());
   const [direction, setDirection] = useState(0);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isTransitioning, setIsTransitioning] = useState(false);

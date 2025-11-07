@@ -107,8 +107,8 @@ export default function Admin() {
   });
 
   const handleViewPaywall = () => {
-    // Open the actual onboarding flow (with paywall) in a new window for testing
-    window.open('/onboarding', '_blank');
+    // Open directly to the paywall step (step 16) in a new window for testing
+    window.open('/onboarding?step=16', '_blank');
   };
 
   if (checkingAdmin) {

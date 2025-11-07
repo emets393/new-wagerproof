@@ -43,7 +43,8 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
   // Map RevenueCat packages to UI
   useEffect(() => {
     if (!currentOffering) {
-      debug.log('No current offering available, using fallback packages');
+      debug.error('❌ NO CURRENT OFFERING - Using fallback packages (RevenueCat not configured)');
+      debug.log('Sale mode active:', isSaleActive);
       // Default fallback packages based on sale mode
       setPackages([
         {
@@ -76,13 +77,27 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       return;
     }
 
-    debug.log('Current offering available packages:', currentOffering.availablePackages);
+    debug.log('✅ CURRENT OFFERING EXISTS');
+    debug.log('Available packages count:', currentOffering.availablePackages?.length);
+    debug.log('Available package identifiers:', currentOffering.availablePackages?.map((pkg: Package) => pkg.identifier));
     debug.log('Sale mode active:', isSaleActive);
+    
+    // Log each package details
+    currentOffering.availablePackages?.forEach((pkg: Package, index: number) => {
+      debug.log(`Package ${index + 1}:`, {
+        identifier: pkg.identifier,
+        productId: pkg.rcBillingProduct?.identifier,
+        price: pkg.rcBillingProduct?.currentPrice?.formattedPrice,
+        priceAmount: pkg.rcBillingProduct?.currentPrice?.amount,
+      });
+    });
 
     const rcPackages: PackageInfo[] = [];
 
     // Try to find monthly and annual packages by identifier
     // Handle both regular and discount packages based on sale mode
+    debug.log('🔍 Looking for packages:', isSaleActive ? 'DISCOUNT versions' : 'REGULAR versions');
+    
     const monthlyPkg = isSaleActive
       ? currentOffering.availablePackages?.find((pkg: Package) => 
           pkg.identifier === '$rc_monthly_discount' || 
@@ -106,8 +121,20 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
           (pkg.identifier.toLowerCase().includes('annual') && !pkg.identifier.toLowerCase().includes('discount'))
         );
 
-    debug.log('Found monthly package:', monthlyPkg);
-    debug.log('Found yearly package:', yearlyPkg);
+    debug.log('📦 Package search results:');
+    debug.log('Monthly package:', monthlyPkg ? {
+      found: true,
+      identifier: monthlyPkg.identifier,
+      productId: monthlyPkg.rcBillingProduct?.identifier,
+      price: monthlyPkg.rcBillingProduct?.currentPrice?.formattedPrice,
+    } : { found: false, reason: 'No matching package found' });
+    
+    debug.log('Yearly package:', yearlyPkg ? {
+      found: true,
+      identifier: yearlyPkg.identifier,
+      productId: yearlyPkg.rcBillingProduct?.identifier,
+      price: yearlyPkg.rcBillingProduct?.currentPrice?.formattedPrice,
+    } : { found: false, reason: 'No matching package found' });
 
     if (monthlyPkg) {
       const product = monthlyPkg.rcBillingProduct;
@@ -149,12 +176,23 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       });
     }
 
-    debug.log('Mapped packages:', rcPackages);
+    debug.log('✅ Final mapped packages for UI:', rcPackages.map(pkg => ({
+      id: pkg.id,
+      name: pkg.name,
+      price: pkg.price,
+      hasRcPackage: !!pkg.rcPackage,
+      rcPackageId: pkg.rcPackage?.identifier,
+    })));
+    
+    if (rcPackages.some(pkg => !pkg.rcPackage)) {
+      debug.error('⚠️ WARNING: Some packages do not have RevenueCat packages attached!');
+      debug.error('Packages without RC:', rcPackages.filter(pkg => !pkg.rcPackage).map(pkg => pkg.id));
+    }
 
     if (rcPackages.length > 0) {
       setPackages(rcPackages);
     } else {
-      debug.log('No packages found in offering, using fallback');
+      debug.error('❌ NO PACKAGES FOUND in offering, using fallback');
       // Use fallback if no packages found
       setPackages([
         {
@@ -201,11 +239,23 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
   };
 
   const handleSelectPlan = (planId: 'monthly' | 'yearly') => {
+    debug.log('🎯 Plan selected:', planId);
+    const selectedPackageInfo = packages.find(p => p.id === planId);
+    debug.log('Selected package info:', {
+      id: selectedPackageInfo?.id,
+      name: selectedPackageInfo?.name,
+      price: selectedPackageInfo?.price,
+      hasRcPackage: !!selectedPackageInfo?.rcPackage,
+      rcPackageId: selectedPackageInfo?.rcPackage?.identifier,
+    });
     setSelectedPlan(planId);
   };
 
   const handleJoinWagerProof = async () => {
+    debug.log('🛒 CHECKOUT BUTTON CLICKED');
+    
     if (!selectedPlan) {
+      debug.error('❌ No plan selected');
       toast({
         title: 'Please select a plan',
         description: 'Choose a subscription plan to continue.',
@@ -214,8 +264,27 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       return;
     }
 
+    debug.log('Selected plan ID:', selectedPlan);
+    debug.log('Available packages:', packages.map(p => ({ id: p.id, hasRcPackage: !!p.rcPackage })));
+    
     const selectedPackageInfo = packages.find(p => p.id === selectedPlan);
+    
+    debug.log('Found selected package info:', {
+      found: !!selectedPackageInfo,
+      id: selectedPackageInfo?.id,
+      hasRcPackage: !!selectedPackageInfo?.rcPackage,
+      rcPackageIdentifier: selectedPackageInfo?.rcPackage?.identifier,
+    });
+    
     if (!selectedPackageInfo?.rcPackage) {
+      debug.error('❌ PACKAGE NOT AVAILABLE ERROR');
+      debug.error('Selected plan:', selectedPlan);
+      debug.error('Package found:', !!selectedPackageInfo);
+      debug.error('RC Package attached:', !!selectedPackageInfo?.rcPackage);
+      debug.error('All packages:', packages);
+      debug.error('Current offering:', currentOffering);
+      debug.error('Sale mode active:', isSaleActive);
+      
       toast({
         title: 'Package not available',
         description: 'Unable to load subscription options. Please refresh the page.',
@@ -226,7 +295,8 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
 
     try {
       setPurchasing(true);
-      debug.log('Initiating RevenueCat purchase for:', selectedPlan);
+      debug.log('💳 Initiating RevenueCat purchase for:', selectedPlan);
+      debug.log('Purchasing package:', selectedPackageInfo.rcPackage.identifier);
       
       await purchase(selectedPackageInfo.rcPackage);
       

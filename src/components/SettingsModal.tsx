@@ -344,7 +344,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          window.open('/onboarding', '_blank');
+                          window.open('/onboarding?step=16', '_blank');
                         }}
                       >
                         View Paywall

@@ -110,20 +110,37 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   // Fetch offerings on mount (after initialization)
   useEffect(() => {
     const fetchOfferings = async () => {
-      if (!user || !isRevenueCatConfigured()) {
+      if (!user) {
+        debug.log('No user, skipping offerings fetch');
+        return;
+      }
+      
+      if (!isRevenueCatConfigured()) {
+        debug.log('RevenueCat not configured, skipping offerings fetch');
         return;
       }
 
       try {
+        debug.log('🔄 Fetching offerings from RevenueCat...');
         const offers = await getOfferings();
+        debug.log('📦 Offerings fetched:', {
+          current: offers.current?.identifier,
+          allOfferingsCount: Object.keys(offers.all).length,
+          allOfferingIds: Object.keys(offers.all),
+        });
         setOfferings(offers);
       } catch (err: any) {
-        debug.error('Error fetching offerings:', err);
+        debug.error('❌ Error fetching offerings:', err);
         // Don't set error state for offerings - they're not critical
       }
     };
 
-    fetchOfferings();
+    // Add a small delay to ensure RevenueCat is fully initialized
+    const timer = setTimeout(() => {
+      fetchOfferings();
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [user]);
 
   // Refresh customer info

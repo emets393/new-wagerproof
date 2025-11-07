@@ -133,6 +133,25 @@ export async function getOfferings(): Promise<Offerings> {
     const purchases = getPurchasesInstance();
     const offerings = await purchases.getOfferings();
     debug.log('Offerings retrieved:', offerings);
+    debug.log('Environment:', useSandboxMode ? 'SANDBOX' : 'PRODUCTION');
+    debug.log('Current offering:', offerings.current);
+    debug.log('All offerings:', Object.keys(offerings.all));
+    
+    if (!offerings.current) {
+      debug.error('❌ NO CURRENT OFFERING FOUND');
+      debug.error('Environment:', useSandboxMode ? 'SANDBOX' : 'PRODUCTION');
+      debug.error('Available offerings:', offerings.all);
+      debug.error('');
+      debug.error('🔧 TO FIX THIS:');
+      debug.error('1. Go to RevenueCat Dashboard → https://app.revenuecat.com');
+      debug.error('2. Switch to PRODUCTION environment (top right toggle)');
+      debug.error('3. Go to: Offerings');
+      debug.error('4. Create an offering named "default"');
+      debug.error('5. Add packages: $rc_monthly, $rc_annual, $rc_monthly_discount, $rc_yearly_discount');
+      debug.error('6. Click "Make current" to set it as the active offering');
+      debug.error('7. Save and wait 2 minutes for cache to clear');
+    }
+    
     return offerings;
   } catch (error) {
     debug.error('Error fetching offerings:', error);
@@ -147,6 +166,13 @@ export async function purchasePackage(pkg: Package): Promise<CustomerInfo> {
   try {
     const purchases = getPurchasesInstance();
     debug.log('Initiating purchase for package:', pkg.identifier);
+    debug.log('Environment:', useSandboxMode ? 'SANDBOX' : 'PRODUCTION');
+    debug.log('Package details:', {
+      identifier: pkg.identifier,
+      productId: pkg.rcBillingProduct?.identifier,
+      price: pkg.rcBillingProduct?.currentPrice?.formattedPrice,
+      priceAmount: pkg.rcBillingProduct?.currentPrice?.amount
+    });
     
     const { customerInfo } = await purchases.purchase({ rcPackage: pkg });
     
@@ -160,6 +186,13 @@ export async function purchasePackage(pkg: Package): Promise<CustomerInfo> {
     }
     
     debug.error('Error purchasing package:', error);
+    debug.error('Error details:', {
+      message: error?.message,
+      errorCode: error?.errorCode,
+      underlyingErrorMessage: error?.underlyingErrorMessage,
+      readableErrorCode: error?.readableErrorCode,
+      environment: useSandboxMode ? 'SANDBOX' : 'PRODUCTION'
+    });
     throw error;
   }
 }
