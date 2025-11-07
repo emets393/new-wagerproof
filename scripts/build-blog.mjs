@@ -473,9 +473,9 @@ ${tagsMetaTags}
         </header>
 
         <!-- Content -->
-        <div id="post-content" class="prose">
+        <article id="post-content" class="prose">
           ${contentHtml}
-        </div>
+        </article>
 
         <!-- Footer -->
         <footer>
