@@ -11,6 +11,7 @@ export interface OnboardingData {
   emailOptIn?: boolean;
   phoneNumber?: string;
   acquisitionSource?: string;
+  termsAcceptedAt?: string;
 }
 
 interface OnboardingContextType {
@@ -35,7 +36,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     const stepParam = params.get('step');
     if (stepParam) {
       const step = parseInt(stepParam, 10);
-      if (!isNaN(step) && step >= 1 && step <= 16) {
+      if (!isNaN(step) && step >= 1 && step <= 17) {
         debug.log('Starting onboarding at step:', step);
         return step;
       }
@@ -77,13 +78,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const getNextStepNumber = (prev: number) => {
-    // In paid mode (isLaunchMode = false), skip step 15 (EarlyAccess) and go to step 16 (Paywall)
-    if (!isLaunchMode && prev === 14) {
-      return 16;
+    // In paid mode (isLaunchMode = false), skip step 16 (EarlyAccess) and go to step 17 (Paywall)
+    if (!isLaunchMode && prev === 15) {
+      return 17;
     }
-    // In launch mode (free), skip step 16 (Paywall) and go to step 15 (EarlyAccess)
-    if (isLaunchMode && prev === 15) {
-      return 17; // This would be past the final step, triggering completion
+    // In launch mode (free), skip step 17 (Paywall) 
+    if (isLaunchMode && prev === 16) {
+      return 18; // This would be past the final step, triggering completion
     }
     return prev + 1;
   };

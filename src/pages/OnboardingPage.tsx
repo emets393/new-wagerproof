@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
 import { ProgressIndicator } from "@/components/onboarding/ProgressIndicator";
 import { PersonalizationIntro } from "@/components/onboarding/steps/Step1_PersonalizationIntro";
+import { TermsAcceptance } from "@/components/onboarding/steps/Step1b_TermsAcceptance";
 import { SportsSelection } from "@/components/onboarding/steps/Step2_SportsSelection";
 import { AgeConfirmation } from "@/components/onboarding/steps/Step3_AgeConfirmation";
 import { BettorTypeSelection } from "@/components/onboarding/steps/Step4_BettorType";
@@ -25,24 +26,25 @@ import type { PaywallHandle } from "@/components/Paywall";
 
 const stepComponents = {
   1: PersonalizationIntro,
-  2: SportsSelection,
-  3: AgeConfirmation,
-  4: BettorTypeSelection,
-  5: PrimaryGoalSelection,
-  6: FeatureSpotlight,
-  7: CompetitorComparison,
-  8: EmailOptIn,
-  9: SocialProof,
-  10: ValueClaim,
-  11: MethodologyClaim1,
-  12: MethodologyClaim2,
-  13: AcquisitionSource,
-  14: DataTransparency,
-  15: EarlyAccess,
-  16: Paywall,
+  2: TermsAcceptance,
+  3: SportsSelection,
+  4: AgeConfirmation,
+  5: BettorTypeSelection,
+  6: PrimaryGoalSelection,
+  7: FeatureSpotlight,
+  8: CompetitorComparison,
+  9: EmailOptIn,
+  10: SocialProof,
+  11: ValueClaim,
+  12: MethodologyClaim1,
+  13: MethodologyClaim2,
+  14: AcquisitionSource,
+  15: DataTransparency,
+  16: EarlyAccess,
+  17: Paywall,
 };
 
-const TOTAL_STEPS = 16;
+const TOTAL_STEPS = 17;
 
 function OnboardingContent() {
   const { currentStep, direction, isLaunchMode, nextStep, submitOnboardingData } = useOnboarding();
@@ -51,9 +53,9 @@ function OnboardingContent() {
   const [onboardingMarkedComplete, setOnboardingMarkedComplete] = useState(false);
 
   // Steps that have scrollable content and need floating buttons
-  const scrollableSteps = [6, 7, 9, 10, 11, 12, 16];
+  const scrollableSteps = [7, 8, 10, 11, 12, 13, 17];
   const hasScrollableContent = scrollableSteps.includes(currentStep);
-  const isPaywallStep = currentStep === 16;
+  const isPaywallStep = currentStep === 17;
 
   // Mark onboarding as complete when user reaches the paywall step
   useEffect(() => {
@@ -77,19 +79,19 @@ function OnboardingContent() {
 
   // Calculate total steps based on launch mode
   const getTotalSteps = () => {
-    // In launch mode: steps 1-15 (skip paywall 16)
-    // In paid mode: steps 1-14, then 16 (skip early access 15)
-    return isLaunchMode ? 15 : 16;
+    // In launch mode: steps 1-16 (skip paywall 17)
+    // In paid mode: steps 1-15, then 17 (skip early access 16)
+    return isLaunchMode ? 16 : 17;
   };
 
   // Determine if current step should be rendered
   const shouldSkipStep = () => {
-    // In paid mode, skip step 15 (EarlyAccess)
-    if (!isLaunchMode && currentStep === 15) {
+    // In paid mode, skip step 16 (EarlyAccess)
+    if (!isLaunchMode && currentStep === 16) {
       return true;
     }
-    // In free mode, skip step 16 (Paywall)
-    if (isLaunchMode && currentStep === 16) {
+    // In free mode, skip step 17 (Paywall)
+    if (isLaunchMode && currentStep === 17) {
       return true;
     }
     return false;
@@ -98,16 +100,16 @@ function OnboardingContent() {
   // Get button text for each step
   const getButtonText = (step: number) => {
     switch (step) {
-      case 6:
-        return "Continue";
       case 7:
+        return "Continue";
+      case 8:
         return "I'm Ready to Win";
-      case 9:
       case 10:
       case 11:
       case 12:
+      case 13:
         return "Continue";
-      case 16:
+      case 17:
         return "Go to Checkout";
       default:
         return "Continue";
@@ -207,9 +209,9 @@ function OnboardingContent() {
                   scale: { duration: 0.2 },
                 }}
                 className={`absolute inset-0 ${
-                  currentStep === 9 || currentStep === 10 || currentStep === 11 || currentStep === 12 || currentStep === 16 ? '' : 'p-4 sm:p-6 md:p-8'
+                  currentStep === 10 || currentStep === 11 || currentStep === 12 || currentStep === 13 || currentStep === 17 ? '' : 'p-4 sm:p-6 md:p-8'
                 } min-h-full flex justify-center ${
-                  currentStep === 6 || currentStep === 7 || currentStep === 9 || currentStep === 10 || currentStep === 11 || currentStep === 12 || currentStep === 16 ? 'items-start' : 'items-center'
+                  currentStep === 7 || currentStep === 8 || currentStep === 10 || currentStep === 11 || currentStep === 12 || currentStep === 13 || currentStep === 17 ? 'items-start' : 'items-center'
                 }`}
               >
                 <div className={`w-full ${hasScrollableContent ? 'pb-32 sm:pb-40' : ''}`}>

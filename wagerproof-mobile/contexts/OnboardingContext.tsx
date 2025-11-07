@@ -10,6 +10,7 @@ export interface OnboardingData {
   emailOptIn?: boolean;
   phoneNumber?: string;
   acquisitionSource?: string;
+  termsAcceptedAt?: string;
 }
 
 interface OnboardingContextType {
