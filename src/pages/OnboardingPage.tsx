@@ -45,14 +45,24 @@ const stepComponents = {
 const TOTAL_STEPS = 16;
 
 function OnboardingContent() {
-  const { currentStep, direction, isLaunchMode, nextStep } = useOnboarding();
+  const { currentStep, direction, isLaunchMode, nextStep, submitOnboardingData } = useOnboarding();
   const paywallRef = useRef<PaywallHandle>(null);
   const [, forceUpdate] = useState({});
+  const [onboardingMarkedComplete, setOnboardingMarkedComplete] = useState(false);
 
   // Steps that have scrollable content and need floating buttons
   const scrollableSteps = [6, 7, 9, 10, 11, 12, 16];
   const hasScrollableContent = scrollableSteps.includes(currentStep);
   const isPaywallStep = currentStep === 16;
+
+  // Mark onboarding as complete when user reaches the paywall step
+  useEffect(() => {
+    if (isPaywallStep && !onboardingMarkedComplete) {
+      console.log('User reached paywall step, marking onboarding as complete');
+      submitOnboardingData();
+      setOnboardingMarkedComplete(true);
+    }
+  }, [isPaywallStep, onboardingMarkedComplete, submitOnboardingData]);
 
   // Sync Paywall state to trigger re-renders
   useEffect(() => {
