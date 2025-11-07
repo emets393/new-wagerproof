@@ -59,6 +59,29 @@ export default function Admin() {
     enabled: isAdmin
   });
 
+  // Toggle access restricted mutation
+  const toggleAccessRestricted = useMutation({
+    mutationFn: async (newValue: boolean) => {
+      const { error } = await supabase
+        .from('site_settings')
+        .update({ 
+          access_restricted: newValue,
+          updated_at: new Date().toISOString(),
+          updated_by: user?.id
+        })
+        .eq('id', settings?.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-settings'] });
+      toast.success('Access restricted setting updated successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to update access restricted setting: ' + error.message);
+    }
+  });
+
   // Fetch all users with their roles
   const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users'],
@@ -246,6 +269,21 @@ export default function Admin() {
                   checked={settings?.launch_mode || false}
                   onCheckedChange={(checked) => toggleLaunchMode.mutate(checked)}
                   disabled={settingsLoading || toggleLaunchMode.isPending}
+                />
+              </div>
+
+              {/* Access Restricted Password Overlay Toggle */}
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                <div>
+                  <p className="font-medium text-white">Access Restricted Password Overlay</p>
+                  <p className="text-sm text-white/70">
+                    When enabled, users must enter a password before accessing the login page. Disable to allow direct login access.
+                  </p>
+                </div>
+                <Switch
+                  checked={settings?.access_restricted ?? true}
+                  onCheckedChange={(checked) => toggleAccessRestricted.mutate(checked)}
+                  disabled={settingsLoading || toggleAccessRestricted.isPending}
                 />
               </div>
 

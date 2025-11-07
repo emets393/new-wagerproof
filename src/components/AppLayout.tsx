@@ -103,6 +103,14 @@ export function AppLayout() {
     }
   };
 
+  const handleNavItemClick = (to: string) => {
+    if (!user) {
+      setSignInPromptOpen(true);
+    } else {
+      navigate(to);
+    }
+  };
+
   const handleSignIn = () => {
     setSignInPromptOpen(false);
     navigate('/account');
@@ -194,9 +202,14 @@ export function AppLayout() {
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton
-                        asChild
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!user) {
+                            setSignInPromptOpen(true);
+                          }
+                        }}
                         isActive={isActivePath(to)}
-                        className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 ${
+                        className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 cursor-pointer ${
                           isActivePath(to) 
                             ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
                             : subItems?.some(subItem => isActivePath(subItem.to))
@@ -204,20 +217,18 @@ export function AppLayout() {
                               : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
                         }`}
                       >
-                        <Link to={to}>
-                          <span className={`transition-colors duration-200 ${
-                            isActivePath(to) || subItems?.some(subItem => isActivePath(subItem.to)) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
-                          }`}>
-                            {icon}
-                          </span>
-                          <span>{title}</span>
-                          {(isActivePath(to) || subItems?.some(subItem => isActivePath(subItem.to))) && (
-                            <div className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50 mr-2"></div>
-                          )}
-                          <ChevronRight className={`ml-auto h-4 w-4 transition-all duration-200 group-data-[state=open]/collapsible:rotate-90 ${
-                            isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
-                          }`} />
-                        </Link>
+                        <span className={`transition-colors duration-200 ${
+                          isActivePath(to) || subItems?.some(subItem => isActivePath(subItem.to)) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
+                        }`}>
+                          {icon}
+                        </span>
+                        <span>{title}</span>
+                        {(isActivePath(to) || subItems?.some(subItem => isActivePath(subItem.to))) && (
+                          <div className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50 mr-2"></div>
+                        )}
+                        <ChevronRight className={`ml-auto h-4 w-4 transition-all duration-200 group-data-[state=open]/collapsible:rotate-90 ${
+                          isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
+                        }`} />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
@@ -225,22 +236,20 @@ export function AppLayout() {
                         {subItems.map((subItem) => (
                           <SidebarMenuSubItem key={subItem.to}>
                             <SidebarMenuSubButton
-                              asChild
+                              onClick={() => handleNavItemClick(subItem.to)}
                               isActive={isActivePath(subItem.to)}
-                              className={`transition-all duration-200 rounded-md mr-2 ${
+                              className={`transition-all duration-200 rounded-md mr-2 cursor-pointer ${
                                 isActivePath(subItem.to) 
                                   ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
                                   : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
                               }`}
                             >
-                              <Link to={subItem.to}>
-                                <span className={`transition-colors duration-200 ${
-                                  isActivePath(subItem.to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
-                                }`}>
-                                  {subItem.icon}
-                                </span>
-                                <span>{subItem.title}</span>
-                              </Link>
+                              <span className={`transition-colors duration-200 ${
+                                isActivePath(subItem.to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
+                              }`}>
+                                {subItem.icon}
+                              </span>
+                              <span>{subItem.title}</span>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}
@@ -255,25 +264,23 @@ export function AppLayout() {
             return (
               <SidebarMenuItem key={to}>
                 <SidebarMenuButton
-                  asChild
+                  onClick={() => handleNavItemClick(to)}
                   isActive={isActivePath(to)}
-                  className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 ${
+                  className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 cursor-pointer ${
                     isActivePath(to) 
                       ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
                       : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
                   }`}
                 >
-                  <Link to={to}>
-                    <span className={`transition-colors duration-200 ${
-                      isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
-                    }`}>
-                      {icon}
-                    </span>
-                    <span>{title}</span>
-                    {isActivePath(to) && (
-                      <div className="ml-auto w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50"></div>
-                    )}
-                  </Link>
+                  <span className={`transition-colors duration-200 ${
+                    isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
+                  }`}>
+                    {icon}
+                  </span>
+                  <span>{title}</span>
+                  {isActivePath(to) && (
+                    <div className="ml-auto w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50"></div>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             );

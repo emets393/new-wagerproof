@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import debug from '@/utils/debug';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Account() {
   const { user, loading, signIn, signUp, signOut, signInWithProvider } = useAuth();
@@ -21,6 +22,31 @@ export default function Account() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [accessRestricted, setAccessRestricted] = useState(true);
+
+  // Fetch access_restricted setting
+  useEffect(() => {
+    async function fetchAccessRestricted() {
+      try {
+        const { data, error } = await (supabase as any)
+          .from('site_settings')
+          .select('access_restricted')
+          .single();
+        
+        if (error) {
+          debug.error('Error fetching access_restricted setting:', error);
+          setAccessRestricted(true); // Default to true if error
+        } else {
+          setAccessRestricted(data?.access_restricted ?? true);
+        }
+      } catch (err) {
+        debug.error('Unexpected error fetching access_restricted setting:', err);
+        setAccessRestricted(true); // Default to true if error
+      }
+    }
+
+    fetchAccessRestricted();
+  }, []);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,7 +151,7 @@ export default function Account() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20 p-4">
-      {!isUnlocked ? (
+      {accessRestricted && !isUnlocked ? (
         <div className="shadow-input mx-auto w-full max-w-md rounded-2xl bg-white p-8 dark:bg-black">
           {/* Logo Section */}
           <div className="flex justify-center mb-6">

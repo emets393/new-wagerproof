@@ -7,6 +7,8 @@ import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
+import debug from '@/utils/debug';
 
 export default function Welcome() {
   const { user, loading, signIn, signUp, signInWithProvider } = useAuth();
@@ -18,6 +20,31 @@ export default function Welcome() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [accessRestricted, setAccessRestricted] = useState(true);
+
+  // Fetch access_restricted setting
+  useEffect(() => {
+    async function fetchAccessRestricted() {
+      try {
+        const { data, error } = await (supabase as any)
+          .from('site_settings')
+          .select('access_restricted')
+          .single();
+        
+        if (error) {
+          debug.error('Error fetching access_restricted setting:', error);
+          setAccessRestricted(true); // Default to true if error
+        } else {
+          setAccessRestricted(data?.access_restricted ?? true);
+        }
+      } catch (err) {
+        debug.error('Unexpected error fetching access_restricted setting:', err);
+        setAccessRestricted(true); // Default to true if error
+      }
+    }
+
+    fetchAccessRestricted();
+  }, []);
 
   // OnboardingGuard will handle redirection based on onboarding status
   useEffect(() => {
@@ -170,7 +197,7 @@ export default function Welcome() {
 
           {/* Right Side - Password Gate or Authentication Forms */}
           <div className="flex justify-center lg:justify-end">
-            {!isUnlocked ? (
+            {accessRestricted && !isUnlocked ? (
               <div className="shadow-input mx-auto w-full max-w-md rounded-2xl bg-white p-8 dark:bg-black">
                 {/* Logo Section */}
                 <div className="flex justify-center mb-6">
