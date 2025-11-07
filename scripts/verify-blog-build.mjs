@@ -123,8 +123,8 @@ async function verifyBlogBuild() {
           hasErrors = true;
         }
         
-        // Check for content
-        if (postContent.includes('<article id="post-content">')) {
+        // Check for content - look for article tag with id="post-content" (may have additional attributes)
+        if (postContent.includes('id="post-content"') && postContent.includes('<article')) {
           success('Blog post has content structure');
         } else {
           error('Blog post missing content structure');
