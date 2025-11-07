@@ -138,8 +138,8 @@ function AppRoutes() {
           <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
           <Route path="/bet-slip-grader" element={<ProtectedRoute><BetSlipGrader /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
-          <Route path="/editors-picks" element={<EditorsPicks />} />
-          <Route path="/discord" element={<Discord />} />
+          <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} />
+          <Route path="/discord" element={<ProtectedRoute><Discord /></ProtectedRoute>} />
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route path="/polymarket-test" element={<PolymarketTest />} />
