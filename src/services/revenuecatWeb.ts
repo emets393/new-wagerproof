@@ -17,27 +17,33 @@ export type ProductIdentifier = typeof PRODUCT_IDENTIFIERS[keyof typeof PRODUCT_
 let isConfigured = false;
 let configuredInstance: Purchases | null = null;
 
+// Hardcoded API keys (admin can toggle between them)
+const PRODUCTION_API_KEY = 'rcb_svnfisrGmflnfsiwSBNiOAfgIiNX';
+const SANDBOX_API_KEY = 'rcb_sb_lqUPUQeikubxNJjtVOCLxCcep';
+
+// Track which mode we're in (will be set from database)
+let useSandboxMode = false;
+
 /**
- * Get the API key based on environment
+ * Set sandbox mode (called from context on initialization)
+ */
+export function setSandboxMode(enabled: boolean): void {
+  useSandboxMode = enabled;
+  debug.log('Sandbox mode set to:', enabled);
+}
+
+/**
+ * Get the API key based on sandbox mode setting
  */
 function getApiKey(): string {
-  // Use sandbox key in development, production key in production
-  const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
-  
-  if (isDevelopment) {
-    const sandboxKey = import.meta.env.VITE_REVENUECAT_WEB_SANDBOX_API_KEY;
-    if (sandboxKey) {
-      debug.log('Using RevenueCat sandbox API key');
-      return sandboxKey;
-    }
+  // Check if sandbox mode is enabled (from admin toggle)
+  if (useSandboxMode) {
+    debug.log('Using RevenueCat SANDBOX API key (test mode)');
+    return SANDBOX_API_KEY;
   }
   
-  const publicKey = import.meta.env.VITE_REVENUECAT_WEB_PUBLIC_API_KEY;
-  if (!publicKey) {
-    throw new Error('RevenueCat API key not found in environment variables');
-  }
-  
-  return publicKey;
+  debug.log('Using RevenueCat PRODUCTION API key');
+  return PRODUCTION_API_KEY;
 }
 
 /**

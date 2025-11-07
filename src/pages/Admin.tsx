@@ -13,6 +13,7 @@ import { Navigate } from "react-router-dom";
 import debug from '@/utils/debug';
 import Dither from "@/components/Dither";
 import { SaleModeToggle } from "@/components/admin/SaleModeToggle";
+import { SandboxModeToggle } from "@/components/admin/SandboxModeToggle";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -147,11 +148,11 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Header */}
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-accent rounded-xl shadow-lg">
-              <Shield className="w-8 h-8 text-primary" />
+            <div className="p-3 bg-green-500/20 backdrop-blur-sm border border-green-500/30 rounded-xl shadow-lg">
+              <Shield className="w-8 h-8 text-green-400" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold text-accent drop-shadow-lg">Admin Dashboard</h1>
+              <h1 className="text-4xl font-bold text-white drop-shadow-lg">Admin Dashboard</h1>
               <p className="text-white/80 mt-1">Manage WagerProof access and users</p>
             </div>
           </div>
@@ -280,6 +281,19 @@ export default function Admin() {
             className="rounded-xl border border-white/20"
           >
             <SaleModeToggle />
+          </div>
+
+          {/* Sandbox Mode Toggle */}
+          <div
+            style={{
+              background: 'rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+            }}
+            className="rounded-xl border border-white/20"
+          >
+            <SandboxModeToggle />
           </div>
 
           {/* User Management */}

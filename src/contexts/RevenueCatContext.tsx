@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { CustomerInfo, Offerings, Package } from '@revenuecat/purchases-js';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import {
   initializeRevenueCat,
   getCustomerInfo,
@@ -10,6 +11,7 @@ import {
   syncPurchases,
   resetRevenueCat,
   isRevenueCatConfigured,
+  setSandboxMode,
   ENTITLEMENT_IDENTIFIER,
 } from '@/services/revenuecatWeb';
 import { syncRevenueCatToSupabase } from '@/utils/syncRevenueCatToSupabase';
@@ -54,6 +56,17 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         setError(null);
 
         debug.log('Initializing RevenueCat for user:', user.id);
+        
+        // Check sandbox mode setting from database
+        try {
+          const { data: sandboxData } = await supabase.rpc('get_sandbox_mode');
+          const isSandbox = sandboxData?.enabled ?? false;
+          setSandboxMode(isSandbox);
+          debug.log('Sandbox mode from DB:', isSandbox);
+        } catch (err) {
+          debug.log('Could not fetch sandbox mode, using production');
+          setSandboxMode(false);
+        }
         
         // Initialize with Supabase user ID
         await initializeRevenueCat(user.id);
