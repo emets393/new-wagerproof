@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { motion } from "framer-motion";
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
   const { currentOffering, purchase, loading: rcLoading } = useRevenueCatWeb();
   const { isSaleActive, discountPercentage } = useSaleMode();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Map RevenueCat packages to UI
   useEffect(() => {
@@ -302,10 +304,15 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       
       toast({
         title: 'Purchase successful!',
-        description: 'Welcome to WagerProof Pro! You now have access to all features.',
+        description: 'Welcome to WagerProof Pro! Redirecting to homepage...',
       });
       
       debug.log('Purchase completed successfully');
+      
+      // Redirect to homepage after successful purchase
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
     } catch (error: any) {
       debug.error('Purchase error:', error);
       

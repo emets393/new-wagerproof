@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminMode } from "@/contexts/AdminModeContext";
+import { useRevenueCatWeb } from "@/hooks/useRevenueCatWeb";
 import { supabase } from "@/integrations/supabase/client";
 import { navItems } from "@/nav-items";
 import { GradientText } from "@/components/ui/gradient-text";
@@ -38,6 +39,7 @@ import {
 export function AppLayout() {
   const { user, signOut } = useAuth();
   const { adminModeEnabled } = useAdminMode();
+  const { hasProAccess } = useRevenueCatWeb();
   const location = useLocation();
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -148,6 +150,11 @@ export function AppLayout() {
               className="inline"
             />
           </span>
+          {hasProAccess && (
+            <Badge variant="secondary" className="ml-2 text-xs bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-300 dark:border-yellow-600 font-bold">
+              PRO
+            </Badge>
+          )}
           {isLaunchMode && (
             <Badge variant="secondary" className="ml-2 text-xs bg-green-500/20 text-green-600 dark:text-green-400 border-green-300 dark:border-green-600">
               beta

@@ -4,3 +4,4 @@ export { default as Account } from './Account';
 export { default as Welcome } from './Welcome';
 export { Blog } from './Blog';
 export { BlogPost } from './BlogPost';
+export { PressKit } from './PressKit';

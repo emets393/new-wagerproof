@@ -76,6 +76,17 @@ const NavBar = () => {
           </div>
           <div className="flex items-center space-x-2 px-2">
             <AnimatedThemeToggler className="mr-2 hidden md:block" />
+            <Link to="/blog">
+              <Button variant="ghost" className="hidden md:inline-flex text-gray-700 dark:text-gray-200 font-medium hover:text-honeydew-600 dark:hover:text-honeydew-400 hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
+                  borderRadius: BTN_RADIUS,
+                  paddingLeft: "1.2rem",
+                  paddingRight: "1.2rem",
+                  height: "2.3rem",
+                  fontSize: "1rem"
+                }}>
+                  Blog
+              </Button>
+            </Link>
             <Button variant="ghost" className="hidden md:inline-flex text-gray-700 dark:text-gray-200 font-medium hover:text-honeydew-600 dark:hover:text-honeydew-400 hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
                 borderRadius: BTN_RADIUS,
                 paddingLeft: "1.2rem",
@@ -85,15 +96,17 @@ const NavBar = () => {
               }} onClick={() => window.open('https://www.tiktok.com/@wagerproof', '_blank')}>
                 Follow
             </Button>
-            <Button variant="ghost" className="hidden md:inline-flex text-gray-700 dark:text-gray-200 font-medium hover:text-honeydew-600 dark:hover:text-honeydew-400 hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
-                borderRadius: BTN_RADIUS,
-                paddingLeft: "1.2rem",
-                paddingRight: "1.2rem",
-                height: "2.3rem",
-                fontSize: "1rem"
-              }} onClick={() => window.open('/press-kit', '_self')}>
-                Press Kit
-            </Button>
+            <Link to="/press-kit">
+              <Button variant="ghost" className="hidden md:inline-flex text-gray-700 dark:text-gray-200 font-medium hover:text-honeydew-600 dark:hover:text-honeydew-400 hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
+                  borderRadius: BTN_RADIUS,
+                  paddingLeft: "1.2rem",
+                  paddingRight: "1.2rem",
+                  height: "2.3rem",
+                  fontSize: "1rem"
+                }}>
+                  Press Kit
+              </Button>
+            </Link>
             <Link to="/wagerbot-chat">
               <MovingBorderButton
                 borderRadius={BTN_RADIUS}
@@ -117,6 +130,17 @@ const NavBar = () => {
         borderRadius: `0 0 ${borderRadius} ${borderRadius}`
       }}>
             <div className="flex flex-col space-y-2">
+              <Link to="/blog" onClick={() => setIsMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-center text-gray-700 dark:text-gray-200 font-medium hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
+                    borderRadius: BTN_RADIUS,
+                    paddingLeft: "1.2rem",
+                    paddingRight: "1.2rem",
+                    height: "2.3rem",
+                    fontSize: "1rem"
+                  }}>
+                    Blog
+                </Button>
+              </Link>
               <Button variant="ghost" className="w-full justify-center text-gray-700 dark:text-gray-200 font-medium hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
                   borderRadius: BTN_RADIUS,
                   paddingLeft: "1.2rem",
@@ -126,15 +150,17 @@ const NavBar = () => {
                 }} onClick={() => { window.open('https://www.tiktok.com/@wagerproof', '_blank'); setIsMenuOpen(false); }}>
                   Follow
               </Button>
-              <Button variant="ghost" className="w-full justify-center text-gray-700 dark:text-gray-200 font-medium hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
-                  borderRadius: BTN_RADIUS,
-                  paddingLeft: "1.2rem",
-                  paddingRight: "1.2rem",
-                  height: "2.3rem",
-                  fontSize: "1rem"
-                }} onClick={() => { window.open('/press-kit', '_self'); setIsMenuOpen(false); }}>
-                  Press Kit
-              </Button>
+              <Link to="/press-kit" onClick={() => setIsMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-center text-gray-700 dark:text-gray-200 font-medium hover:bg-honeydew-50 dark:hover:bg-gray-800 transition" style={{
+                    borderRadius: BTN_RADIUS,
+                    paddingLeft: "1.2rem",
+                    paddingRight: "1.2rem",
+                    height: "2.3rem",
+                    fontSize: "1rem"
+                  }}>
+                    Press Kit
+                </Button>
+              </Link>
             </div>
           </div>}
       </div>

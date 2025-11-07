@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAdminMode } from '@/contexts/AdminModeContext';
-import { createCustomerPortalSession } from '@/lib/stripe';
+import { useRevenueCatWeb } from '@/hooks/useRevenueCatWeb';
 import {
   User,
   Mail,
@@ -28,7 +28,6 @@ import {
   Sun,
   Shield,
   Loader2,
-  ExternalLink,
   CheckCircle2,
   Crown,
   LogIn, // Import LogIn icon
@@ -44,6 +43,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { user, updatePassword, sendPasswordReset } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
+  const { hasProAccess, customerInfo, subscriptionType } = useRevenueCatWeb();
   const navigate = useNavigate(); // Initialize navigate
   const [activeTab, setActiveTab] = useState('profile');
   const [isLoading, setIsLoading] = useState(false);
@@ -134,16 +134,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     }
   };
 
-  const handleManageBilling = async () => {
-    if (!user?.id) return;
-    
-    setIsLoading(true);
-    try {
-      await createCustomerPortalSession(user.id);
-    } catch (err) {
-      setError('Failed to open billing portal');
-      setIsLoading(false);
-    }
+  const handleManageBilling = () => {
+    // RevenueCat Web Billing automatically sends email with customer portal link
+    setSuccess(
+      'Subscription management links are sent to your email with every confirmation and renewal. Check your email for the link to manage your subscription.'
+    );
   };
 
   return (
@@ -483,120 +478,162 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </TabsContent>
 
           {/* Billing Tab */}
-          <TabsContent value="billing" className="space-y-4 mt-4 relative">
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-              <span className="text-2xl font-bold text-muted-foreground">Coming Soon</span>
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Current Plan</CardTitle>
-                <CardDescription>
-                  Manage your subscription and billing
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-start gap-4 p-4 border rounded-lg bg-muted/30">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Crown className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg">Pro Plan</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Full access to all features
+          <TabsContent value="billing" className="space-y-4 mt-4">
+            {hasProAccess ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Current Plan</CardTitle>
+                    <CardDescription>
+                      Manage your subscription and billing details
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-start gap-4 p-4 border rounded-lg bg-gradient-to-br from-yellow-500/5 to-amber-500/5">
+                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-yellow-500/20 to-amber-500/20">
+                        <Crown className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">WagerProof Pro</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Full access to all features
+                        </p>
+                        <div className="mt-2 flex items-baseline gap-1">
+                          <span className="text-2xl font-bold">
+                            {subscriptionType === 'monthly' && '$40'}
+                            {subscriptionType === 'yearly' && '$199'}
+                            {!subscriptionType && '—'}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {subscriptionType === 'monthly' && '/month'}
+                            {subscriptionType === 'yearly' && '/year'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Status</span>
+                        <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Active
+                        </span>
+                      </div>
+                      {customerInfo?.entitlements?.active?.['WagerProof Pro']?.expirationDate && (
+                        <>
+                          <Separator />
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              {customerInfo.entitlements.active['WagerProof Pro'].willRenew 
+                                ? 'Next billing date' 
+                                : 'Expires on'}
+                            </span>
+                            <span className="font-medium">
+                              {new Date(customerInfo.entitlements.active['WagerProof Pro'].expirationDate).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                      <Separator />
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Subscription Type</span>
+                        <span className="font-medium capitalize">
+                          {subscriptionType || 'Active'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 space-y-4">
+                      <Button 
+                        onClick={handleManageBilling}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Manage Subscription
+                      </Button>
+                      
+                      <div className="space-y-3">
+                        <div className="space-y-2 text-xs text-muted-foreground text-center">
+                          <p className="font-medium text-foreground">
+                            Look for this email in your inbox:
+                          </p>
+                        </div>
+                        
+                        <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
+                          <img 
+                            src="/revcatemailsubs.png" 
+                            alt="Subscription confirmation email example"
+                            className="w-full"
+                            onError={(e) => {
+                              // Fallback if image doesn't load
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `
+                                  <div class="p-4 text-center">
+                                    <div class="space-y-2 text-sm text-muted-foreground">
+                                      <p class="font-semibold text-foreground">📧 Your subscription confirmation email</p>
+                                      <p>Subject: "Your subscription started"</p>
+                                      <p>From: WagerProof</p>
+                                      <p>Contains a blue "Click here" link to manage your subscription</p>
+                                    </div>
+                                  </div>
+                                `;
+                              }
+                            }}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2 text-xs text-muted-foreground text-center">
+                          <p>
+                            Click the link in your confirmation email to update or cancel your subscription.
+                          </p>
+                          <p>
+                            Have questions? Email us at{' '}
+                            <a 
+                              href="mailto:admin@wagerproof.bet" 
+                              className="text-primary hover:underline font-medium"
+                            >
+                              admin@wagerproof.bet
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">No Active Subscription</CardTitle>
+                  <CardDescription>
+                    Upgrade to WagerProof Pro for full access
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-center py-8">
+                    <Crown className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-4">
+                      You don't have an active subscription yet.
                     </p>
-                    <div className="mt-2 flex items-baseline gap-1">
-                      <span className="text-2xl font-bold">$59.99</span>
-                      <span className="text-muted-foreground">/month</span>
-                    </div>
+                    <Button onClick={() => {
+                      onOpenChange(false);
+                      navigate('/onboarding?step=16');
+                    }}>
+                      View Plans
+                    </Button>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Status</span>
-                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Active
-                    </span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Next billing date</span>
-                    <span className="font-medium">November 13, 2025</span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Payment method</span>
-                    <span className="flex items-center gap-1 font-medium">
-                      <CreditCard className="h-4 w-4" />
-                      •••• 4242
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <Button 
-                    onClick={handleManageBilling} 
-                    disabled={isLoading}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Manage Billing with Stripe
-                    <ExternalLink className="h-4 w-4 ml-2" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Billing History</CardTitle>
-                <CardDescription>
-                  View your past invoices and payments
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between py-3 border-b">
-                    <div>
-                      <p className="font-medium">October 2025</p>
-                      <p className="text-sm text-muted-foreground">Paid on Oct 13, 2025</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">$59.99</p>
-                      <Button variant="ghost" size="sm" className="h-auto p-0 text-xs">
-                        Download
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between py-3 border-b">
-                    <div>
-                      <p className="font-medium">September 2025</p>
-                      <p className="text-sm text-muted-foreground">Paid on Sep 13, 2025</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">$59.99</p>
-                      <Button variant="ghost" size="sm" className="h-auto p-0 text-xs">
-                        Download
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="font-medium">August 2025</p>
-                      <p className="text-sm text-muted-foreground">Paid on Aug 13, 2025</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">$59.99</p>
-                      <Button variant="ghost" size="sm" className="h-auto p-0 text-xs">
-                        Download
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>

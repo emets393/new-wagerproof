@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { useEffect } from "react";
 import Landing from "./pages/NewLanding";
-import { GameAnalysis, Account, Welcome, Blog, BlogPost } from "./pages";
+import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NFLAnalytics from "./pages/NFLAnalytics";
@@ -98,6 +98,7 @@ function AppRoutes() {
     '/access-denied',
     '/privacy-policy',
     '/terms-and-conditions',
+    '/press-kit',
     '/onboarding', // Add onboarding to public routes to avoid nested layouts
     '/paywall-test', // Add paywall test to public routes
   ].includes(location.pathname) || location.pathname.startsWith('/blog');
@@ -115,6 +116,7 @@ function AppRoutes() {
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
+          <Route path="/press-kit" element={<PressKit />} />
           <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
           <Route path="/paywall-test" element={<ProtectedRoute><PaywallTest /></ProtectedRoute>} />
         </Routes>
