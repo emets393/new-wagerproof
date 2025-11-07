@@ -167,7 +167,7 @@ function OnboardingContent() {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
-        className="relative z-10 w-full max-w-4xl mx-2 sm:mx-4 bg-black/30 backdrop-blur-3xl border border-white/20 rounded-xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[95vh]"
+        className={`relative z-10 w-full ${isPaywallStep ? 'max-w-7xl' : 'max-w-4xl'} mx-2 sm:mx-4 bg-black/30 backdrop-blur-3xl border border-white/20 rounded-xl sm:rounded-3xl shadow-2xl overflow-hidden ${isPaywallStep ? 'max-h-[99vh]' : 'max-h-[95vh]'}`}
         style={{
           background: 'rgba(0, 0, 0, 0.3)',
           backdropFilter: 'blur(40px)',
@@ -182,7 +182,7 @@ function OnboardingContent() {
         </div>
         
         {/* Content Area */}
-        <div className="relative h-[calc(100vh-12rem)] sm:h-[600px] overflow-y-auto overflow-x-hidden onboarding-scroll">
+        <div className={`relative ${isPaywallStep ? 'h-[calc(100vh-8rem)] sm:h-[800px] md:h-[900px] lg:h-[950px]' : 'h-[calc(100vh-12rem)] sm:h-[600px]'} overflow-y-auto overflow-x-hidden onboarding-scroll`}>
           <AnimatePresence initial={false} custom={direction} mode="wait">
             {shouldSkipStep() ? (
               <motion.div

@@ -10,6 +10,7 @@ import { useSaleMode } from '@/hooks/useSaleMode';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Package } from '@revenuecat/purchases-js';
+import { Marquee } from "@/components/magicui/marquee";
 
 interface PackageInfo {
   id: string;
@@ -32,6 +33,69 @@ export interface PaywallHandle {
   purchasing: boolean;
   rcLoading: boolean;
 }
+
+const testimonials = [
+  {
+    name: "Sarah M.",
+    body: "WagerProof has transformed the way I bet. The data-driven predictions have improved my win rate significantly!",
+    img: "https://avatar.vercel.sh/sarah",
+  },
+  {
+    name: "Mark T.",
+    body: "I used to bet on gut feelings. Now with WagerProof's analytics, I'm making smarter bets and actually profitable!",
+    img: "https://avatar.vercel.sh/mark",
+  },
+  {
+    name: "Priya K.",
+    body: "The trend analysis tools have helped me find edges I never knew existed. This platform is a game-changer!",
+    img: "https://avatar.vercel.sh/priya",
+  },
+  {
+    name: "James L.",
+    body: "The model accuracy tracking gives me confidence in my bets. Finally, a transparent sports betting analytics platform!",
+    img: "https://avatar.vercel.sh/james",
+  },
+  {
+    name: "Maria R.",
+    body: "The historical data and trend tracking is incredibly accurate! Finally found a platform that's transparent about results.",
+    img: "https://avatar.vercel.sh/maria",
+  },
+  {
+    name: "David K.",
+    body: "WagerProof has made betting fun again. The interface is intuitive and the predictions are spot on!",
+    img: "https://avatar.vercel.sh/david",
+  },
+];
+
+const ReviewCard = ({
+  img,
+  name,
+  body,
+}: {
+  img: string;
+  name: string;
+  body: string;
+}) => {
+  return (
+    <figure
+      className={cn(
+        "relative h-full w-56 cursor-pointer overflow-hidden rounded-xl border p-3",
+        // Dark modal background - use white/light backgrounds for visibility
+        "border-white/20 bg-white/10 backdrop-blur-sm hover:bg-white/15",
+      )}
+    >
+      <div className="flex flex-row items-center gap-2">
+        <img className="rounded-full" width="32" height="32" alt="" src={img} />
+        <div className="flex flex-col">
+          <figcaption className="text-sm font-medium text-white">
+            {name}
+          </figcaption>
+        </div>
+      </div>
+      <blockquote className="mt-2 text-sm text-white/90">{body}</blockquote>
+    </figure>
+  );
+};
 
 const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, showButton = true }, ref) => {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | null>(null);
@@ -341,7 +405,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
   }));
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 max-w-5xl mx-auto">
+    <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 lg:p-10 max-w-7xl mx-auto w-full">
       {isSaleActive && (
         <motion.div
           className="mb-4 px-4 py-2 bg-red-500 text-white rounded-lg font-bold text-sm sm:text-base"
@@ -354,7 +418,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       )}
       
       <motion.h1
-        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-6 sm:mb-8 text-white"
+        className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 sm:mb-8 md:mb-10 text-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -363,7 +427,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       </motion.h1>
 
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 w-full mb-8 sm:mb-12"
+        className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6 lg:gap-8 w-full mb-10 sm:mb-12 md:mb-16"
         initial="hidden"
         animate="visible"
         variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
@@ -458,18 +522,56 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
         </motion.div>
       </motion.div>
 
+      {/* Testimonials Section */}
+      <motion.div
+        className="w-full mb-10 sm:mb-12 md:mb-16"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        <motion.h2
+          className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6 text-white"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+        >
+          Trusted by data-driven bettors
+        </motion.h2>
+        <motion.p
+          className="text-base sm:text-lg md:text-xl text-white/80 mb-6 sm:mb-8"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+        >
+          See what our community is saying
+        </motion.p>
+        
+        {/* Reviews carousel - edge to edge */}
+        <div className="w-auto -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-10 relative overflow-hidden">
+          <div className="flex w-full flex-col items-center justify-center overflow-hidden">
+            <Marquee className="[--duration:30s]">
+              {testimonials.map((review) => (
+                <ReviewCard key={review.name} {...review} />
+              ))}
+            </Marquee>
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-black/30 to-transparent"></div>
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-black/30 to-transparent"></div>
+          </div>
+        </div>
+      </motion.div>
+
       {showButton && (
         <motion.div
           className="flex gap-4 flex-wrap justify-center"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
         >
           <Button
             onClick={handleJoinWagerProof}
             size="lg"
             disabled={!selectedPlan || purchasing || rcLoading}
-            className="bg-green-500 hover:bg-green-600 text-white border-0 disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed"
+            className="bg-green-500 hover:bg-green-600 text-white border-0 px-8 py-6 text-lg disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed"
           >
             {purchasing ? (
               <>
