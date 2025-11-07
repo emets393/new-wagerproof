@@ -3,12 +3,79 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useSaleMode } from '@/hooks/useSaleMode';
+import { useRevenueCatWeb } from '@/hooks/useRevenueCatWeb';
 import { Loader2, Tag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { Package } from '@revenuecat/purchases-js';
 
 export function SaleModeToggle() {
   const { isSaleActive, discountPercentage, loading, updateSaleMode, isUpdating } = useSaleMode();
+  const { currentOffering, loading: rcLoading } = useRevenueCatWeb();
   const { toast } = useToast();
+
+  // Extract prices from RevenueCat packages
+  const getPrices = () => {
+    if (!currentOffering?.availablePackages) {
+      return {
+        regularMonthly: null,
+        regularYearly: null,
+        discountMonthly: null,
+        discountYearly: null,
+        monthlyDiscount: undefined,
+        yearlyDiscount: undefined,
+      };
+    }
+
+    // Find regular packages
+    const regularMonthlyPkg = currentOffering.monthly || 
+      currentOffering.availablePackages.find((pkg: Package) => 
+        pkg.identifier === '$rc_monthly' || 
+        (pkg.identifier.toLowerCase().includes('month') && !pkg.identifier.toLowerCase().includes('discount'))
+      );
+
+    const regularYearlyPkg = currentOffering.annual ||
+      currentOffering.availablePackages.find((pkg: Package) => 
+        pkg.identifier === '$rc_annual' || 
+        ((pkg.identifier.toLowerCase().includes('year') || pkg.identifier.toLowerCase().includes('annual')) && 
+         !pkg.identifier.toLowerCase().includes('discount'))
+      );
+
+    // Find discount packages
+    const discountMonthlyPkg = currentOffering.availablePackages.find((pkg: Package) => 
+      pkg.identifier === '$rc_monthly_discount' || 
+      (pkg.identifier.toLowerCase().includes('monthly') && pkg.identifier.toLowerCase().includes('discount'))
+    );
+
+    const discountYearlyPkg = currentOffering.availablePackages.find((pkg: Package) => 
+      pkg.identifier === '$rc_yearly_discount' || 
+      (pkg.identifier.toLowerCase().includes('year') && pkg.identifier.toLowerCase().includes('discount'))
+    );
+
+    // Calculate discount percentages
+    const calculateDiscount = (regularAmount: number | undefined, discountAmount: number | undefined): number | undefined => {
+      if (!regularAmount || !discountAmount || regularAmount === 0) return undefined;
+      return Math.round(((regularAmount - discountAmount) / regularAmount) * 100);
+    };
+
+    const regularMonthlyAmount = regularMonthlyPkg?.rcBillingProduct?.currentPrice?.amount;
+    const discountMonthlyAmount = discountMonthlyPkg?.rcBillingProduct?.currentPrice?.amount;
+    const monthlyDiscount = calculateDiscount(regularMonthlyAmount, discountMonthlyAmount);
+
+    const regularYearlyAmount = regularYearlyPkg?.rcBillingProduct?.currentPrice?.amount;
+    const discountYearlyAmount = discountYearlyPkg?.rcBillingProduct?.currentPrice?.amount;
+    const yearlyDiscount = calculateDiscount(regularYearlyAmount, discountYearlyAmount);
+
+    return {
+      regularMonthly: regularMonthlyPkg?.rcBillingProduct?.currentPrice?.formattedPrice || null,
+      regularYearly: regularYearlyPkg?.rcBillingProduct?.currentPrice?.formattedPrice || null,
+      discountMonthly: discountMonthlyPkg?.rcBillingProduct?.currentPrice?.formattedPrice || null,
+      discountYearly: discountYearlyPkg?.rcBillingProduct?.currentPrice?.formattedPrice || null,
+      monthlyDiscount,
+      yearlyDiscount,
+    };
+  };
+
+  const prices = getPrices();
 
   const handleToggle = async (enabled: boolean) => {
     try {
@@ -29,7 +96,7 @@ export function SaleModeToggle() {
     }
   };
 
-  if (loading) {
+  if (loading || rcLoading) {
     return (
       <Card className="border-0 bg-transparent shadow-none">
         <CardHeader>
@@ -64,7 +131,7 @@ export function SaleModeToggle() {
               Enable Sale Mode
             </span>
             <span className="text-sm text-muted-foreground">
-              Show discounted prices on paywall ({discountPercentage}% off)
+              Show discounted prices on paywall ({prices.yearlyDiscount || prices.monthlyDiscount || discountPercentage}% off)
             </span>
           </Label>
           <Switch
@@ -88,26 +155,36 @@ export function SaleModeToggle() {
             <div className="flex justify-between">
               <span>Monthly Plan:</span>
               <span className="font-medium">
-                {isSaleActive ? (
+                {isSaleActive && prices.discountMonthly ? (
                   <>
-                    <span className="line-through text-white/50 mr-2">$40</span>
-                    <span className="text-green-400">$20</span>
+                    {prices.regularMonthly && (
+                      <span className="line-through text-white/50 mr-2">{prices.regularMonthly}</span>
+                    )}
+                    <span className="text-green-400">{prices.discountMonthly}</span>
+                    {prices.monthlyDiscount !== undefined && (
+                      <span className="text-green-300 ml-2">({prices.monthlyDiscount}% off)</span>
+                    )}
                   </>
                 ) : (
-                  <span>$40</span>
+                  <span>{prices.regularMonthly || 'N/A'}</span>
                 )}
               </span>
             </div>
             <div className="flex justify-between">
               <span>Yearly Plan:</span>
               <span className="font-medium">
-                {isSaleActive ? (
+                {isSaleActive && prices.discountYearly ? (
                   <>
-                    <span className="line-through text-white/50 mr-2">$199</span>
-                    <span className="text-green-400">$99</span>
+                    {prices.regularYearly && (
+                      <span className="line-through text-white/50 mr-2">{prices.regularYearly}</span>
+                    )}
+                    <span className="text-green-400">{prices.discountYearly}</span>
+                    {prices.yearlyDiscount !== undefined && (
+                      <span className="text-green-300 ml-2">({prices.yearlyDiscount}% off)</span>
+                    )}
                   </>
                 ) : (
-                  <span>$199</span>
+                  <span>{prices.regularYearly || 'N/A'}</span>
                 )}
               </span>
             </div>

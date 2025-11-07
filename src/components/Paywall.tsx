@@ -20,6 +20,8 @@ interface PackageInfo {
   description: string;
   features: string[];
   rcPackage: Package | null;
+  regularPrice?: string; // Original price for strikethrough when sale is active
+  discountPercentage?: number; // Calculated discount percentage
 }
 
 interface PaywallProps {
@@ -111,12 +113,12 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
     if (!currentOffering) {
       debug.error('❌ NO CURRENT OFFERING - Using fallback packages (RevenueCat not configured)');
       debug.log('Sale mode active:', isSaleActive);
-      // Default fallback packages based on sale mode
+      // Fallback packages when RevenueCat is not available
       setPackages([
         {
           id: 'monthly',
           name: 'Monthly',
-          price: isSaleActive ? '$20' : '$40',
+          price: 'N/A',
           frequency: '/mo',
           description: 'Billed monthly',
           features: ['Everything in Season Pass!'],
@@ -125,8 +127,8 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
         {
           id: 'yearly',
           name: 'Season Pass',
-          price: isSaleActive ? '$99' : '$199',
-          frequency: '/yr',
+          price: 'N/A',
+          frequency: '/mo',
           description: 'Best value',
           features: [
             'Access to all picks',
@@ -158,54 +160,84 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       });
     });
 
-    const rcPackages: PackageInfo[] = [];
-
-    // Try to find monthly and annual packages by identifier
-    // Handle both regular and discount packages based on sale mode
-    debug.log('🔍 Looking for packages:', isSaleActive ? 'DISCOUNT versions' : 'REGULAR versions');
+    // Fetch BOTH regular and discount packages simultaneously
+    debug.log('🔍 Fetching both regular and discount packages');
     
-    const monthlyPkg = isSaleActive
-      ? currentOffering.availablePackages?.find((pkg: Package) => 
-          pkg.identifier === '$rc_monthly_discount' || 
-          pkg.identifier.toLowerCase().includes('monthly') && pkg.identifier.toLowerCase().includes('discount')
-        )
-      : currentOffering.monthly || 
-        currentOffering.availablePackages?.find((pkg: Package) => 
-          pkg.identifier === '$rc_monthly' || 
-          (pkg.identifier.toLowerCase().includes('month') && !pkg.identifier.toLowerCase().includes('discount'))
-        );
+    // Find regular packages
+    const regularMonthlyPkg = currentOffering.monthly || 
+      currentOffering.availablePackages?.find((pkg: Package) => 
+        pkg.identifier === '$rc_monthly' || 
+        (pkg.identifier.toLowerCase().includes('month') && !pkg.identifier.toLowerCase().includes('discount'))
+      );
 
-    const yearlyPkg = isSaleActive
-      ? currentOffering.availablePackages?.find((pkg: Package) => 
-          pkg.identifier === '$rc_yearly_discount' || 
-          pkg.identifier.toLowerCase().includes('year') && pkg.identifier.toLowerCase().includes('discount')
-        )
-      : currentOffering.annual ||
-        currentOffering.availablePackages?.find((pkg: Package) => 
-          pkg.identifier === '$rc_annual' || 
-          (pkg.identifier.toLowerCase().includes('year') && !pkg.identifier.toLowerCase().includes('discount')) ||
-          (pkg.identifier.toLowerCase().includes('annual') && !pkg.identifier.toLowerCase().includes('discount'))
-        );
+    const regularYearlyPkg = currentOffering.annual ||
+      currentOffering.availablePackages?.find((pkg: Package) => 
+        pkg.identifier === '$rc_annual' || 
+        ((pkg.identifier.toLowerCase().includes('year') || pkg.identifier.toLowerCase().includes('annual')) && 
+         !pkg.identifier.toLowerCase().includes('discount'))
+      );
+
+    // Find discount packages
+    const discountMonthlyPkg = currentOffering.availablePackages?.find((pkg: Package) => 
+      pkg.identifier === '$rc_monthly_discount' || 
+      (pkg.identifier.toLowerCase().includes('monthly') && pkg.identifier.toLowerCase().includes('discount'))
+    );
+
+    const discountYearlyPkg = currentOffering.availablePackages?.find((pkg: Package) => 
+      pkg.identifier === '$rc_yearly_discount' || 
+      (pkg.identifier.toLowerCase().includes('year') && pkg.identifier.toLowerCase().includes('discount'))
+    );
 
     debug.log('📦 Package search results:');
-    debug.log('Monthly package:', monthlyPkg ? {
-      found: true,
-      identifier: monthlyPkg.identifier,
-      productId: monthlyPkg.rcBillingProduct?.identifier,
-      price: monthlyPkg.rcBillingProduct?.currentPrice?.formattedPrice,
-    } : { found: false, reason: 'No matching package found' });
-    
-    debug.log('Yearly package:', yearlyPkg ? {
-      found: true,
-      identifier: yearlyPkg.identifier,
-      productId: yearlyPkg.rcBillingProduct?.identifier,
-      price: yearlyPkg.rcBillingProduct?.currentPrice?.formattedPrice,
-    } : { found: false, reason: 'No matching package found' });
+    debug.log('Regular Monthly:', regularMonthlyPkg ? {
+      identifier: regularMonthlyPkg.identifier,
+      price: regularMonthlyPkg.rcBillingProduct?.currentPrice?.formattedPrice,
+      amount: regularMonthlyPkg.rcBillingProduct?.currentPrice?.amount,
+    } : 'Not found');
+    debug.log('Regular Yearly:', regularYearlyPkg ? {
+      identifier: regularYearlyPkg.identifier,
+      price: regularYearlyPkg.rcBillingProduct?.currentPrice?.formattedPrice,
+      amount: regularYearlyPkg.rcBillingProduct?.currentPrice?.amount,
+    } : 'Not found');
+    debug.log('Discount Monthly:', discountMonthlyPkg ? {
+      identifier: discountMonthlyPkg.identifier,
+      price: discountMonthlyPkg.rcBillingProduct?.currentPrice?.formattedPrice,
+      amount: discountMonthlyPkg.rcBillingProduct?.currentPrice?.amount,
+    } : 'Not found');
+    debug.log('Discount Yearly:', discountYearlyPkg ? {
+      identifier: discountYearlyPkg.identifier,
+      price: discountYearlyPkg.rcBillingProduct?.currentPrice?.formattedPrice,
+      amount: discountYearlyPkg.rcBillingProduct?.currentPrice?.amount,
+    } : 'Not found');
 
+    const rcPackages: PackageInfo[] = [];
+
+    // Helper function to calculate discount percentage
+    const calculateDiscount = (regularAmount: number | undefined, discountAmount: number | undefined): number | undefined => {
+      if (!regularAmount || !discountAmount || regularAmount === 0) return undefined;
+      return Math.round(((regularAmount - discountAmount) / regularAmount) * 100);
+    };
+
+    // Process monthly package
+    const monthlyPkg = isSaleActive ? discountMonthlyPkg : regularMonthlyPkg;
+    const monthlyRegularPkg = regularMonthlyPkg;
+    
     if (monthlyPkg) {
       const product = monthlyPkg.rcBillingProduct;
-      const price = product?.currentPrice?.formattedPrice || '$40';
+      const regularProduct = monthlyRegularPkg?.rcBillingProduct;
       
+      const price = product?.currentPrice?.formattedPrice || 'N/A';
+      const regularPrice = isSaleActive && regularProduct?.currentPrice?.formattedPrice 
+        ? regularProduct.currentPrice.formattedPrice 
+        : undefined;
+      
+      // Calculate discount percentage
+      const regularAmount = regularProduct?.currentPrice?.amount;
+      const discountAmount = isSaleActive ? product?.currentPrice?.amount : undefined;
+      const calculatedDiscount = isSaleActive 
+        ? calculateDiscount(regularAmount, discountAmount)
+        : undefined;
+
       rcPackages.push({
         id: 'monthly',
         name: 'Monthly',
@@ -214,21 +246,42 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
         description: 'Billed monthly',
         features: ['Everything in Season Pass!'],
         rcPackage: monthlyPkg,
+        regularPrice: regularPrice,
+        discountPercentage: calculatedDiscount,
       });
     }
 
+    // Process yearly package
+    const yearlyPkg = isSaleActive ? discountYearlyPkg : regularYearlyPkg;
+    const yearlyRegularPkg = regularYearlyPkg;
+    
     if (yearlyPkg) {
       const product = yearlyPkg.rcBillingProduct;
-      // Amount is in cents, so divide by 100 to get dollars
-      const priceInDollars = product?.currentPrice?.amount ? product.currentPrice.amount / 100 : 199;
-      const monthlyEquivalent = (priceInDollars / 12).toFixed(2);
+      const regularProduct = yearlyRegularPkg?.rcBillingProduct;
       
+      // Amount is in cents, so divide by 100 to get dollars
+      const priceInDollars = product?.currentPrice?.amount ? product.currentPrice.amount / 100 : 0;
+      const monthlyEquivalent = priceInDollars > 0 ? (priceInDollars / 12).toFixed(2) : '0.00';
+      const formattedYearlyPrice = product?.currentPrice?.formattedPrice || 'N/A';
+      
+      // Get regular yearly price for strikethrough
+      const regularYearlyPrice = isSaleActive && regularProduct?.currentPrice?.formattedPrice
+        ? regularProduct.currentPrice.formattedPrice
+        : undefined;
+      
+      // Calculate discount percentage
+      const regularAmount = regularProduct?.currentPrice?.amount;
+      const discountAmount = isSaleActive ? product?.currentPrice?.amount : undefined;
+      const calculatedDiscount = isSaleActive
+        ? calculateDiscount(regularAmount, discountAmount)
+        : undefined;
+
       rcPackages.push({
         id: 'yearly',
         name: 'Season Pass',
         price: `$${monthlyEquivalent}`,
         frequency: '/mo',
-        description: `Billed yearly (${product?.currentPrice?.formattedPrice || '$199'})`,
+        description: `Billed yearly (${formattedYearlyPrice})`,
         features: [
           'Access to all picks',
           'All Sports',
@@ -239,6 +292,8 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
           'AI with live model data',
         ],
         rcPackage: yearlyPkg,
+        regularPrice: regularYearlyPrice,
+        discountPercentage: calculatedDiscount,
       });
     }
 
@@ -246,6 +301,8 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       id: pkg.id,
       name: pkg.name,
       price: pkg.price,
+      regularPrice: pkg.regularPrice,
+      discountPercentage: pkg.discountPercentage,
       hasRcPackage: !!pkg.rcPackage,
       rcPackageId: pkg.rcPackage?.identifier,
     })));
@@ -259,12 +316,12 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       setPackages(rcPackages);
     } else {
       debug.error('❌ NO PACKAGES FOUND in offering, using fallback');
-      // Use fallback if no packages found
+      // Fallback when no packages found
       setPackages([
         {
           id: 'monthly',
           name: 'Monthly',
-          price: '$40',
+          price: 'N/A',
           frequency: '/mo',
           description: 'Billed monthly',
           features: ['Everything in Season Pass!'],
@@ -273,9 +330,9 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
         {
           id: 'yearly',
           name: 'Season Pass',
-          price: '$16.58',
+          price: 'N/A',
           frequency: '/mo',
-          description: 'Billed yearly ($199)',
+          description: 'Billed yearly',
           features: [
             'Access to all picks',
             'All Sports',
@@ -406,16 +463,23 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
 
   return (
     <div className="flex flex-col items-center justify-center text-center p-4 sm:p-6 md:p-8 lg:p-10 max-w-7xl mx-auto w-full">
-      {isSaleActive && (
-        <motion.div
-          className="mb-4 px-4 py-2 bg-red-500 text-white rounded-lg font-bold text-sm sm:text-base"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          🔥 LIMITED TIME SALE - {discountPercentage}% OFF! 🔥
-        </motion.div>
-      )}
+      {isSaleActive && (() => {
+        // Get the discount percentage from packages (prefer yearly if available, otherwise monthly)
+        const yearlyPkg = packages.find(p => p.id === 'yearly');
+        const monthlyPkg = packages.find(p => p.id === 'monthly');
+        const displayDiscount = yearlyPkg?.discountPercentage || monthlyPkg?.discountPercentage || discountPercentage;
+        
+        return (
+          <motion.div
+            className="mb-4 px-4 py-2 bg-red-500 text-white rounded-lg font-bold text-sm sm:text-base"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            🔥 LIMITED TIME SALE - {displayDiscount}% OFF! 🔥
+          </motion.div>
+        );
+      })()}
       
       <motion.h1
         className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 sm:mb-8 md:mb-10 text-white"
@@ -432,7 +496,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
         animate="visible"
         variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
       >
-        {packages.map(({ id, name, price, frequency, description, features }) => (
+        {packages.map(({ id, name, price, frequency, description, features, regularPrice, discountPercentage: pkgDiscountPercentage }) => (
           <motion.div
             key={id}
             variants={{
@@ -462,18 +526,20 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
               <CardContent className="p-6 sm:p-8 flex flex-col items-start justify-start h-full">
                 <h3 className="text-lg sm:text-xl font-semibold text-white mb-2 w-full text-center">{name}</h3>
                 
-                {isSaleActive ? (
+                {isSaleActive && regularPrice ? (
                   <div className="w-full text-center mb-1">
                     <p className="text-lg sm:text-xl text-white/50 line-through mb-1">
-                      {id === 'monthly' ? '$40' : '$199'}
+                      {regularPrice}
                       <span className="text-sm font-normal">{id === 'monthly' ? '/mo' : '/yr'}</span>
                     </p>
                     <p className="text-3xl sm:text-4xl font-bold text-green-400">
                       {price}<span className="text-sm sm:text-base font-normal">{frequency}</span>
                     </p>
-                    <p className="text-xs sm:text-sm text-green-300 font-semibold">
-                      Save {discountPercentage}%!
-                    </p>
+                    {pkgDiscountPercentage !== undefined && (
+                      <p className="text-xs sm:text-sm text-green-300 font-semibold">
+                        Save {pkgDiscountPercentage}%!
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <p className="text-3xl sm:text-4xl font-bold text-white mb-1 w-full text-center">
