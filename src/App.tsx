@@ -95,7 +95,6 @@ function AppRoutes() {
     '/',
     '/welcome',
     '/home',
-    '/access-denied',
     '/privacy-policy',
     '/terms-and-conditions',
     '/press-kit',
@@ -103,7 +102,7 @@ function AppRoutes() {
     '/paywall-test', // Add paywall test to public routes
   ].includes(location.pathname) || location.pathname.startsWith('/blog');
 
-  // Pages that should not have the layout (landing, welcome, access denied)
+  // Pages that should not have the layout (landing, welcome)
   if (isPublicRoute) {
     return (
       <PublicLayout>
@@ -111,7 +110,6 @@ function AppRoutes() {
           <Route path="/" element={<Landing />} />
           <Route path="/home" element={<Landing />} />
           <Route path="/welcome" element={<Welcome />} />
-          <Route path="/access-denied" element={<AccessDenied />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/blog" element={<Blog />} />
@@ -130,6 +128,7 @@ function AppRoutes() {
       <AuthenticatedLayout>
         <Routes>
           <Route path="/account" element={<Account />} />
+          <Route path="/access-denied" element={<AccessDenied />} />
           <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
           <Route path="/college-football" element={<ProtectedRoute><CollegeFootball /></ProtectedRoute>} />
           <Route path="/nfl" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
