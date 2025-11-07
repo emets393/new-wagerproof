@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { MarketType } from '@/types/polymarket';
+import debug from '@/utils/debug';
 
 interface PolymarketWidgetProps {
   awayTeam: string;
@@ -232,7 +233,7 @@ export default function PolymarketWidget({
     e.stopPropagation();
     e.preventDefault();
     e.nativeEvent.stopImmediatePropagation();
-    console.log('Button clicked:', newRange); // Debug log
+    debug.log('Button clicked:', newRange);
     setTimeRange(newRange);
   };
 

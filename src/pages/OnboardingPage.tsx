@@ -23,6 +23,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import Dither from "@/components/Dither";
 import { useRef, useState, useEffect } from "react";
 import type { PaywallHandle } from "@/components/Paywall";
+import debug from "@/utils/debug";
 
 const stepComponents = {
   1: PersonalizationIntro,
@@ -60,7 +61,7 @@ function OnboardingContent() {
   // Mark onboarding as complete when user reaches the paywall step
   useEffect(() => {
     if (isPaywallStep && !onboardingMarkedComplete) {
-      console.log('User reached paywall step, marking onboarding as complete');
+      debug.log('User reached paywall step, marking onboarding as complete');
       submitOnboardingData();
       setOnboardingMarkedComplete(true);
     }

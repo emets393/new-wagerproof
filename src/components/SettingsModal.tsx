@@ -626,7 +626,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     </p>
                     <Button onClick={() => {
                       onOpenChange(false);
-                      navigate('/onboarding?step=16');
+                      navigate('/access-denied');
                     }}>
                       View Plans
                     </Button>

@@ -80,10 +80,10 @@ const Hero = () => {
           {/* CTA Button */}
           <div className="flex items-center justify-center mb-4">
             <Link 
-              to="https://wagerproof.carrd.co/" 
+              to="https://wagerproof.bet/account" 
               target="_blank" 
               rel="noopener noreferrer"
-              onClick={() => trackCTAClick('Join the Waitlist', 'Hero', 'https://wagerproof.carrd.co/')}
+              onClick={() => trackCTAClick('Try it now!', 'Hero', 'https://wagerproof.bet/account')}
             >
               <MovingBorderButton
                 borderRadius="1.5rem"

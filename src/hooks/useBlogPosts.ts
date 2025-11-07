@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import GhostContentAPI from '@tryghost/content-api';
+import debug from '@/utils/debug';
 
 export interface BlogPost {
   id: string;
@@ -35,7 +36,7 @@ if (GHOST_URL && GHOST_CONTENT_KEY) {
       version: 'v5.0'
     });
   } catch (error) {
-    console.error('Failed to initialize Ghost API:', error);
+    debug.error('Failed to initialize Ghost API:', error);
   }
 }
 
@@ -47,7 +48,7 @@ export const useBlogPosts = () => {
   useEffect(() => {
     async function fetchPosts() {
       if (!api) {
-        console.warn('Ghost API not configured');
+        debug.warn('Ghost API not configured');
         setLoading(false);
         return;
       }
@@ -62,7 +63,7 @@ export const useBlogPosts = () => {
         setPosts(result as BlogPost[]);
         setError(null);
       } catch (err) {
-        console.error('Error fetching blog posts:', err);
+        debug.error('Error fetching blog posts:', err);
         setError(err instanceof Error ? err.message : 'Failed to load blog posts');
       } finally {
         setLoading(false);
@@ -83,7 +84,7 @@ export const useBlogPost = (slug: string) => {
   useEffect(() => {
     async function fetchPost() {
       if (!api) {
-        console.warn('Ghost API not configured');
+        debug.warn('Ghost API not configured');
         setLoading(false);
         return;
       }
@@ -102,7 +103,7 @@ export const useBlogPost = (slug: string) => {
         setPost(result as BlogPost);
         setError(null);
       } catch (err) {
-        console.error('Error fetching blog post:', err);
+        debug.error('Error fetching blog post:', err);
         setError(err instanceof Error ? err.message : 'Failed to load blog post');
       } finally {
         setLoading(false);
