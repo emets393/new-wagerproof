@@ -3,7 +3,7 @@
 ## Your Configuration
 - **RevenueCat App ID**: `appa681252b31`
 - **Production API Key**: `rcb_svnfisrGmflnfsiwSBNiOAfgIiNX`
-- **Sandbox API Key**: `rcb_sb_lqUPUQeikubxNJjtVOCLxCcep`
+- **Sandbox API Key**: `rcb_cdAVOmoezOkchwMKKVutPMhPrXoL`
 - **Stripe**: Connected in RevenueCat (no direct Stripe keys needed) ✅
 
 ## Critical Checklist for Stripe Checkout Issues

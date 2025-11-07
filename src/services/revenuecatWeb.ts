@@ -19,7 +19,7 @@ let configuredInstance: Purchases | null = null;
 
 // Hardcoded API keys (admin can toggle between them)
 const PRODUCTION_API_KEY = 'rcb_svnfisrGmflnfsiwSBNiOAfgIiNX';
-const SANDBOX_API_KEY = 'rcb_sb_lqUPUQeikubxNJjtVOCLxCcep';
+const SANDBOX_API_KEY = 'rcb_cdAVOmoezOkchwMKKVutPMhPrXoL';
 
 // Track which mode we're in (will be set from database)
 let useSandboxMode = false;

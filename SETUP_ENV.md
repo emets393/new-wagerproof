@@ -22,7 +22,7 @@ Open the `.env` file and add:
 ```bash
 # RevenueCat Web Billing API Keys
 VITE_REVENUECAT_WEB_PUBLIC_API_KEY=rcb_svnfisrGmflnfsiwSBNiOAfgIiNX
-VITE_REVENUECAT_WEB_SANDBOX_API_KEY=rcb_svnfisrGmflnfsiwSBNiOAfgIiNX
+VITE_REVENUECAT_WEB_SANDBOX_API_KEY=rcb_cdAVOmoezOkchwMKKVutPMhPrXoL
 ```
 
 ### Step 3: Restart your dev server
