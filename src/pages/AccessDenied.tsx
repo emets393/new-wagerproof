@@ -17,9 +17,9 @@ export default function AccessDenied() {
   }, []);
 
   return (
-    <div className="min-h-screen relative bg-black/30 backdrop-blur-sm p-6 overflow-hidden rounded-3xl">
+    <div className="min-h-screen relative bg-black/30 backdrop-blur-sm p-6 overflow-hidden">
       {/* Dither Background Effect */}
-      <div className="absolute inset-0 overflow-hidden rounded-3xl" style={{ clipPath: 'inset(0 round 1.5rem)' }}>
+      <div className="absolute inset-0 overflow-hidden">
         <Dither
           waveSpeed={0.05}
           waveFrequency={3}
@@ -33,11 +33,11 @@ export default function AccessDenied() {
         />
       </div>
 
-      <div className="relative z-10">
+      <div className="relative z-10 min-h-screen flex flex-col">
         {/* Overlay with paywall */}
-        <div className="fixed inset-0 flex items-center justify-center pointer-events-none rounded-3xl" style={{ clipPath: 'inset(0 round 1.5rem)' }}>
-          {showPaywall && (
-            <div className="pointer-events-auto max-w-2xl w-full mx-4">
+        {showPaywall && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="max-w-2xl w-full">
               <Card 
                 className="border-white/30 hover:border-white/50 transition-all duration-300"
                 style={{
@@ -99,11 +99,11 @@ export default function AccessDenied() {
                 </CardContent>
               </Card>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Free Content Behind Overlay */}
-        <div className={`max-w-6xl mx-auto transition-opacity duration-300 ${showPaywall ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+        <div className="max-w-6xl mx-auto w-full py-8">
           <div className="space-y-8">
             {/* Welcome Message */}
             <div className="text-center space-y-4">

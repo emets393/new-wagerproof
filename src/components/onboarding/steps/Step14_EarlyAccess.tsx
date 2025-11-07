@@ -15,12 +15,12 @@ export function EarlyAccess() {
       debug.log('Onboarding data submitted, navigating to app...');
       // Small delay to ensure database update completes
       setTimeout(() => {
-        navigate("/wagerbot-chat");
+        navigate("/nfl");
       }, 500);
     } catch (error) {
       debug.error('Error completing onboarding:', error);
       // Still navigate even if there's an error
-      navigate("/wagerbot-chat");
+      navigate("/nfl");
     }
   };
 

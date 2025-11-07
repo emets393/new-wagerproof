@@ -50,8 +50,8 @@ export default function Welcome() {
   useEffect(() => {
     if (user && !loading) {
       localStorage.setItem('wagerproof_show_welcome', 'true');
-      // Let OnboardingGuard handle the routing
-      navigate('/wagerbot-chat', { replace: true });
+      // Redirect to home instead of protected route
+      navigate('/nfl', { replace: true });
     }
   }, [user, loading, navigate]);
 
