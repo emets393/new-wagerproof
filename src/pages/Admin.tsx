@@ -12,6 +12,7 @@ import { Shield, Users, TrendingUp, Settings as SettingsIcon, Loader2, Eye } fro
 import { Navigate } from "react-router-dom";
 import debug from '@/utils/debug';
 import Dither from "@/components/Dither";
+import { SaleModeToggle } from "@/components/admin/SaleModeToggle";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -267,6 +268,19 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Sale Mode Toggle */}
+          <div
+            style={{
+              background: 'rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+            }}
+            className="rounded-xl border border-white/20"
+          >
+            <SaleModeToggle />
+          </div>
 
           {/* User Management */}
           <Card

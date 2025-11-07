@@ -1,6 +1,4 @@
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Badge } from "@/components/ui/badge";
 import { 
   Bot, 
@@ -11,7 +9,6 @@ import {
 } from "lucide-react";
 
 export function MethodologyClaim2() {
-  const { nextStep } = useOnboarding();
 
   return (
     <div className="flex flex-col items-start text-center p-4 sm:p-6 md:p-8 pt-32 sm:pt-60 md:pt-24 pb-8 sm:pb-16 max-w-2xl mx-auto w-full">
@@ -113,17 +110,6 @@ export function MethodologyClaim2() {
             <span className="text-xs text-white/40 flex-1">Ask about any game or stat...</span>
           </div>
         </div>
-      </motion.div>
-
-      <motion.div
-        className="w-full flex justify-center"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.8 }}
-      >
-        <Button onClick={nextStep} size="lg" className="bg-green-500 hover:bg-green-600 text-white border-0">
-          Continue
-        </Button>
       </motion.div>
     </div>
   );

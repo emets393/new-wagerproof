@@ -1,19 +1,15 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { GradientText } from "@/components/ui/gradient-text";
 import { 
   CheckCircle, 
   AlertTriangle, 
-  ArrowRight,
   Target,
   Brain,
   Zap
 } from "lucide-react";
 
 export function CompetitorComparison() {
-  const { nextStep } = useOnboarding();
 
   return (
     <motion.div
@@ -238,23 +234,6 @@ export function CompetitorComparison() {
                 </div>
               </div>
             </div>
-        </motion.div>
-
-        {/* Continue Button */}
-        <motion.div 
-          className="text-center pt-4 sm:pt-6 pb-4 sm:pb-8"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-        >
-          <Button 
-            onClick={nextStep}
-            size="lg" 
-            className="bg-green-500 hover:bg-green-600 text-white border-0 px-6 sm:px-8 py-3"
-          >
-            I'm Ready to Win
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
         </motion.div>
     </motion.div>
   );

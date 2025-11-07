@@ -17,7 +17,11 @@ import { AcquisitionSource } from "@/components/onboarding/steps/Step12_Acquisit
 import { DataTransparency } from "@/components/onboarding/steps/Step13_DataTransparency";
 import { EarlyAccess } from "@/components/onboarding/steps/Step14_EarlyAccess";
 import { Paywall } from "@/components/onboarding/steps/Step15_Paywall";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Loader2 } from "lucide-react";
 import Dither from "@/components/Dither";
+import { useRef, useState, useEffect } from "react";
+import type { PaywallHandle } from "@/components/Paywall";
 
 const stepComponents = {
   1: PersonalizationIntro,
@@ -41,7 +45,25 @@ const stepComponents = {
 const TOTAL_STEPS = 16;
 
 function OnboardingContent() {
-  const { currentStep, direction, isLaunchMode } = useOnboarding();
+  const { currentStep, direction, isLaunchMode, nextStep } = useOnboarding();
+  const paywallRef = useRef<PaywallHandle>(null);
+  const [, forceUpdate] = useState({});
+
+  // Steps that have scrollable content and need floating buttons
+  const scrollableSteps = [6, 7, 9, 10, 11, 12, 16];
+  const hasScrollableContent = scrollableSteps.includes(currentStep);
+  const isPaywallStep = currentStep === 16;
+
+  // Sync Paywall state to trigger re-renders
+  useEffect(() => {
+    if (!isPaywallStep) return;
+    
+    const interval = setInterval(() => {
+      forceUpdate({});
+    }, 100); // Check every 100ms for state changes
+    
+    return () => clearInterval(interval);
+  }, [isPaywallStep]);
 
   // Calculate total steps based on launch mode
   const getTotalSteps = () => {
@@ -62,6 +84,34 @@ function OnboardingContent() {
     }
     return false;
   };
+
+  // Get button text for each step
+  const getButtonText = (step: number) => {
+    switch (step) {
+      case 6:
+        return "Continue";
+      case 7:
+        return "I'm Ready to Win";
+      case 9:
+      case 10:
+      case 11:
+      case 12:
+        return "Continue";
+      case 16:
+        return "Go to Checkout";
+      default:
+        return "Continue";
+    }
+  };
+
+  // Get Paywall state for floating button
+  const paywallState = paywallRef.current;
+  const paywallButtonDisabled = isPaywallStep && (!paywallState?.selectedPlan || paywallState?.purchasing || paywallState?.rcLoading);
+  const paywallButtonText = isPaywallStep && paywallState?.purchasing 
+    ? "Processing..." 
+    : isPaywallStep && paywallState?.rcLoading 
+    ? "Loading..." 
+    : getButtonText(currentStep);
 
   const CurrentStepComponent = stepComponents[currentStep] || (() => <div>Step {currentStep} not found</div>);
 
@@ -147,18 +197,48 @@ function OnboardingContent() {
                   scale: { duration: 0.2 },
                 }}
                 className={`absolute inset-0 ${
-                  currentStep === 9 || currentStep === 10 || currentStep === 11 ? '' : 'p-4 sm:p-6 md:p-8'
+                  currentStep === 9 || currentStep === 10 || currentStep === 11 || currentStep === 12 || currentStep === 16 ? '' : 'p-4 sm:p-6 md:p-8'
                 } min-h-full flex justify-center ${
-                  currentStep === 6 || currentStep === 7 || currentStep === 9 || currentStep === 10 || currentStep === 11 ? 'items-start' : 'items-center'
+                  currentStep === 6 || currentStep === 7 || currentStep === 9 || currentStep === 10 || currentStep === 11 || currentStep === 12 || currentStep === 16 ? 'items-start' : 'items-center'
                 }`}
               >
-                <div className="w-full">
-                  <CurrentStepComponent />
+                <div className={`w-full ${hasScrollableContent ? 'pb-32 sm:pb-40' : ''}`}>
+                  {isPaywallStep ? (
+                    <Paywall ref={paywallRef} />
+                  ) : (
+                    <CurrentStepComponent />
+                  )}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+
+        {/* Floating Continue Button for scrollable steps */}
+        {hasScrollableContent && (
+          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-black/60 via-black/40 to-transparent border-t border-white/10 backdrop-blur-sm z-20">
+            <div className="flex justify-center">
+              <Button 
+                onClick={isPaywallStep ? () => paywallRef.current?.handlePurchase() : nextStep}
+                size="lg" 
+                disabled={paywallButtonDisabled}
+                className="bg-green-500 hover:bg-green-600 text-white border-0 px-8 py-3 shadow-lg disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed"
+              >
+                {isPaywallStep && (paywallState?.purchasing || paywallState?.rcLoading) ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {paywallButtonText}
+                  </>
+                ) : (
+                  <>
+                    {paywallButtonText}
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

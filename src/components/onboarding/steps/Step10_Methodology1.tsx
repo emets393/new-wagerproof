@@ -1,6 +1,4 @@
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Badge } from "@/components/ui/badge";
 import { 
   BarChart3, 
@@ -11,7 +9,6 @@ import {
 } from "lucide-react";
 
 export function MethodologyClaim1() {
-  const { nextStep } = useOnboarding();
 
   return (
     <div className="flex flex-col items-center text-center p-4 sm:p-6 md:p-8 pt-24 sm:pt-28 md:pt-20 max-w-2xl mx-auto">
@@ -129,16 +126,6 @@ export function MethodologyClaim1() {
             </ul>
           </div>
         </div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.8 }}
-      >
-        <Button onClick={nextStep} size="lg" className="bg-green-500 hover:bg-green-600 text-white border-0">
-          Continue
-        </Button>
       </motion.div>
     </div>
   );

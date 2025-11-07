@@ -1,12 +1,9 @@
 import debug from '@/utils/debug';
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import Lottie from "lottie-react";
 import { useState, useEffect } from "react";
 
 export function ValueClaim() {
-  const { nextStep } = useOnboarding();
   const [animationData, setAnimationData] = useState(null);
 
   useEffect(() => {
@@ -57,16 +54,6 @@ export function ValueClaim() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
           </div>
         )}
-      </motion.div>
-      
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.8 }}
-      >
-        <Button onClick={nextStep} size="lg" className="bg-green-500 hover:bg-green-600 text-white border-0">
-          Continue
-        </Button>
       </motion.div>
     </div>
   );

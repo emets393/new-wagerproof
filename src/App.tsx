@@ -26,6 +26,7 @@ import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
 import ScoreBoard from "./pages/ScoreBoard";
 import PolymarketTest from "./pages/PolymarketTest";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { OnboardingGuard } from "./components/OnboardingGuard";
@@ -155,9 +156,11 @@ const App = () => (
           <BrowserRouter>
             <ScrollToTop />
             <AuthProvider>
-              <AdminModeProvider>
-                <AppRoutes />
-              </AdminModeProvider>
+              <RevenueCatProvider>
+                <AdminModeProvider>
+                  <AppRoutes />
+                </AdminModeProvider>
+              </RevenueCatProvider>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>

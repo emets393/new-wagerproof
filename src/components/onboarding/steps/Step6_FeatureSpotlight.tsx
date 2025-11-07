@@ -1,10 +1,7 @@
 import { motion } from "framer-motion";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { FeatureDemo } from "../FeatureDemo";
 
 export function FeatureSpotlight() {
-  const { nextStep } = useOnboarding();
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -12,7 +9,7 @@ export function FeatureSpotlight() {
       transition={{ duration: 0.6 }}
       className="w-full"
     >
-      <FeatureDemo onComplete={nextStep} />
+      <FeatureDemo />
     </motion.div>
   );
 }

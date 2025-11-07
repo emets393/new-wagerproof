@@ -11,12 +11,11 @@ import {
   Users,
   Trophy,
   Zap,
-  ArrowRight,
   BarChart3
 } from "lucide-react";
 
 interface FeatureDemoProps {
-  onComplete: () => void;
+  onComplete?: () => void;
 }
 
 export function FeatureDemo({ onComplete }: FeatureDemoProps) {
@@ -332,23 +331,6 @@ export function FeatureDemo({ onComplete }: FeatureDemoProps) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Continue Button */}
-      <motion.div 
-        className="text-center pt-3 sm:pt-4 pb-4 sm:pb-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6 }}
-      >
-        <Button 
-          onClick={onComplete}
-          size="lg" 
-          className="bg-green-500 hover:bg-green-600 text-white border-0 px-6 py-2"
-        >
-          Continue
-          <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
-      </motion.div>
     </div>
   );
 }
