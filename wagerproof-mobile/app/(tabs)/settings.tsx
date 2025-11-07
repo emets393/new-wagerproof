@@ -1,10 +1,14 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Linking, Platform, ActivityIndicator } from 'react-native';
 import { useTheme, List, Switch, Divider, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import { useProAccess } from '@/hooks/useProAccess';
+import { RevenueCatPaywall } from '@/components/RevenueCatPaywall';
+import { CustomerCenter } from '@/components/CustomerCenter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -13,11 +17,16 @@ export default function SettingsScreen() {
   const { isDark, toggleTheme } = useThemeContext();
   const { user, signOut, signingOut } = useAuth();
   const { useDummyData, setUseDummyData } = useSettings();
+  const { isPro, subscriptionType } = useProAccess();
+  const { openCustomerCenter, isInitialized } = useRevenueCat();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [scoreboardEnabled, setScoreboardEnabled] = React.useState(true);
   const [tapCount, setTapCount] = React.useState(0);
   const tapTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const [customerCenterVisible, setCustomerCenterVisible] = useState(false);
+  const [isOpeningCustomerCenter, setIsOpeningCustomerCenter] = useState(false);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -56,6 +65,61 @@ export default function SettingsScreen() {
 
   const handleFeatureRequest = () => {
     router.push('/feature-requests');
+  };
+
+  const handleOpenCustomerCenter = async () => {
+    try {
+      setIsOpeningCustomerCenter(true);
+      await openCustomerCenter();
+    } catch (error: any) {
+      // Fallback: try to open store subscription management
+      const errorMessage = error?.message || 'Failed to open Customer Center';
+      
+      if (errorMessage.includes('not available') || errorMessage.includes('not configured')) {
+        // Fallback to store subscription management
+        try {
+          if (Platform.OS === 'ios') {
+            // iOS: Open App Store subscription management
+            const url = 'https://apps.apple.com/account/subscriptions';
+            const canOpen = await Linking.canOpenURL(url);
+            if (canOpen) {
+              await Linking.openURL(url);
+            } else {
+              Alert.alert(
+                'Manage Subscription',
+                'Please go to Settings > [Your Name] > Subscriptions in the App Store to manage your subscription.',
+                [{ text: 'OK' }]
+              );
+            }
+          } else if (Platform.OS === 'android') {
+            // Android: Open Play Store subscription management
+            const url = 'https://play.google.com/store/account/subscriptions';
+            const canOpen = await Linking.canOpenURL(url);
+            if (canOpen) {
+              await Linking.openURL(url);
+            } else {
+              Alert.alert(
+                'Manage Subscription',
+                'Please go to Google Play Store > Subscriptions to manage your subscription.',
+                [{ text: 'OK' }]
+              );
+            }
+          }
+        } catch (linkError) {
+          Alert.alert(
+            'Manage Subscription',
+            Platform.OS === 'ios'
+              ? 'Please go to Settings > [Your Name] > Subscriptions in the App Store to manage your subscription.'
+              : 'Please go to Google Play Store > Subscriptions to manage your subscription.',
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+    } finally {
+      setIsOpeningCustomerCenter(false);
+    }
   };
 
   const handleVersionTap = () => {
@@ -118,6 +182,76 @@ export default function SettingsScreen() {
             <Divider />
           </>
         )}
+
+        {/* Subscription Section */}
+        <List.Section>
+          <List.Item
+            title={isPro ? "WagerProof Pro" : "Upgrade to Pro"}
+            description={
+              isPro
+                ? subscriptionType
+                  ? `Active - ${subscriptionType.charAt(0).toUpperCase() + subscriptionType.slice(1)}`
+                  : "Active"
+                : "Unlock premium features"
+            }
+            left={props => (
+              <List.Icon
+                {...props}
+                icon={isPro ? "crown" : "crown-outline"}
+                color={isPro ? "#FFD700" : theme.colors.primary}
+              />
+            )}
+            right={props => (
+              isOpeningCustomerCenter ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <List.Icon {...props} icon="chevron-right" />
+              )
+            )}
+            onPress={() => {
+              if (isPro) {
+                // Use native Customer Center if available, otherwise fallback to custom component
+                if (isInitialized) {
+                  handleOpenCustomerCenter();
+                } else {
+                  setCustomerCenterVisible(true);
+                }
+              } else {
+                setPaywallVisible(true);
+              }
+            }}
+            disabled={isOpeningCustomerCenter}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+          
+          {/* Always show Manage Subscription button */}
+          <List.Item
+            title="Manage Subscription"
+            description={
+              isInitialized 
+                ? "View and manage your subscription" 
+                : "Loading subscription services..."
+            }
+            left={props => (
+              <List.Icon
+                {...props}
+                icon="credit-card"
+                color={theme.colors.primary}
+              />
+            )}
+            right={props => (
+              isOpeningCustomerCenter ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <List.Icon {...props} icon="chevron-right" />
+              )
+            )}
+            onPress={handleOpenCustomerCenter}
+            disabled={isOpeningCustomerCenter || !isInitialized}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+        </List.Section>
+        <Divider />
 
         {/* Preferences Section */}
         <List.Section>
@@ -238,6 +372,22 @@ export default function SettingsScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* RevenueCat Paywall Modal */}
+      <RevenueCatPaywall
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        onPurchaseComplete={() => {
+          setPaywallVisible(false);
+          Alert.alert('Success', 'Welcome to WagerProof Pro!');
+        }}
+      />
+
+      {/* Customer Center Modal */}
+      <CustomerCenter
+        visible={customerCenterVisible}
+        onClose={() => setCustomerCenterVisible(false)}
+      />
     </View>
   );
 }

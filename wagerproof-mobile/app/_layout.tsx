@@ -7,6 +7,7 @@ import { ThemeProvider, useThemeContext } from '../contexts/ThemeContext';
 import { SettingsProvider } from '../contexts/SettingsContext';
 import { NFLGameSheetProvider } from '../contexts/NFLGameSheetContext';
 import { CFBGameSheetProvider } from '../contexts/CFBGameSheetContext';
+import { RevenueCatProvider } from '../contexts/RevenueCatContext';
 import { OnboardingGuard } from '../components/OnboardingGuard';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
@@ -87,11 +88,13 @@ function RootLayoutContent() {
       <PaperProvider theme={theme}>
         <SettingsProvider>
           <AuthProvider>
-            <NFLGameSheetProvider>
-              <CFBGameSheetProvider>
-                <RootNavigator />
-              </CFBGameSheetProvider>
-            </NFLGameSheetProvider>
+            <RevenueCatProvider>
+              <NFLGameSheetProvider>
+                <CFBGameSheetProvider>
+                  <RootNavigator />
+                </CFBGameSheetProvider>
+              </NFLGameSheetProvider>
+            </RevenueCatProvider>
           </AuthProvider>
         </SettingsProvider>
       </PaperProvider>
