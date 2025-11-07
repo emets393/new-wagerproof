@@ -62,6 +62,12 @@ export default function Admin() {
   // Toggle access restricted mutation
   const toggleAccessRestricted = useMutation({
     mutationFn: async (newValue: boolean) => {
+      if (!settings?.id) {
+        throw new Error('Settings not loaded. Please refresh the page and try again.');
+      }
+      
+      debug.log('Updating access_restricted to:', newValue, 'for settings id:', settings.id);
+      
       const { error } = await supabase
         .from('site_settings')
         .update({ 
@@ -69,16 +75,21 @@ export default function Admin() {
           updated_at: new Date().toISOString(),
           updated_by: user?.id
         })
-        .eq('id', settings?.id);
+        .eq('id', settings.id);
       
-      if (error) throw error;
+      if (error) {
+        debug.error('Error updating access_restricted:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      debug.log('Access restricted setting updated successfully');
       queryClient.invalidateQueries({ queryKey: ['site-settings'] });
       toast.success('Access restricted setting updated successfully');
     },
-    onError: (error) => {
-      toast.error('Failed to update access restricted setting: ' + error.message);
+    onError: (error: any) => {
+      debug.error('Mutation error:', error);
+      toast.error('Failed to update access restricted setting: ' + (error?.message || 'Unknown error'));
     }
   });
 
