@@ -12,7 +12,7 @@ cd /Users/chrishabib/Documents/new-wagerproof
 ./setup-revenuecat.sh
 ```
 
-This creates your `.env` file with your API key: `rcb_svnfisrGmflnfsiwSBNiOAfgIiNX`
+This creates your `.env` file with your API key: `rcb_FimpgqhaUgXMNBUtlduWndNxaHLz`
 
 ### Step 2: Run Database Migrations (2 minutes)
 

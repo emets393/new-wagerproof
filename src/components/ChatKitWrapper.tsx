@@ -294,19 +294,20 @@ How might weather affect these games?`,
     }
   }, [control, initError, isTimedOut]);
 
-  // Auto-scroll functionality
+  // Auto-scroll functionality (only scroll within chat container, never the page)
   useEffect(() => {
     if (!chatContainerRef.current) return;
 
     const scrollToBottom = () => {
       const chatContainer = chatContainerRef.current;
       if (chatContainer) {
+        // IMPORTANT: Only scroll the chat container itself, never the page
         // Find the scrollable chat messages container within ChatKit
         const messagesContainer = chatContainer.querySelector('[data-testid="messages"], [class*="messages"], [class*="chat-messages"], .chatkit-messages, [role="log"]');
         if (messagesContainer) {
           messagesContainer.scrollTop = messagesContainer.scrollHeight;
         } else {
-          // Fallback: scroll the main container
+          // Fallback: scroll the main container (NOT the window)
           chatContainer.scrollTop = chatContainer.scrollHeight;
         }
       }
@@ -353,6 +354,7 @@ How might weather affect these games?`,
     });
 
     // Initial scroll to bottom when component mounts
+    // Only scroll the chat container, not the page
     setTimeout(scrollToBottom, 1000);
 
     return () => {

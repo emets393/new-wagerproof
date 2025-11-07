@@ -10,8 +10,8 @@ else
     echo "📝 Creating .env file with your API key..."
     cat > .env << 'EOF'
 # RevenueCat Web Billing API Keys
-VITE_REVENUECAT_WEB_PUBLIC_API_KEY=rcb_svnfisrGmflnfsiwSBNiOAfgIiNX
-VITE_REVENUECAT_WEB_SANDBOX_API_KEY=rcb_svnfisrGmflnfsiwSBNiOAfgIiNX
+VITE_REVENUECAT_WEB_PUBLIC_API_KEY=rcb_FimpgqhaUgXMNBUtlduWndNxaHLz
+VITE_REVENUECAT_WEB_SANDBOX_API_KEY=rcb_TXEVSXWeblisvQJwlYTinPYQhbQH
 EOF
     echo "✅ .env file created!"
 fi

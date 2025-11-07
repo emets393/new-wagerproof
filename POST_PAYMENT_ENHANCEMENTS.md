@@ -225,9 +225,9 @@ Potential improvements:
 
 ## RevenueCat Configuration Verified
 
-- **App ID**: `appa681252b31`
-- **Production API Key**: `rcb_svnfisrGmflnfsiwSBNiOAfgIiNX`
-- **Sandbox API Key**: `rcb_cdAVOmoezOkchwMKKVutPMhPrXoL`
+- **App ID**: `ofrng5f087cd113`
+- **Production API Key**: `rcb_FimpgqhaUgXMNBUtlduWndNxaHLz`
+- **Sandbox API Key**: `rcb_TXEVSXWeblisvQJwlYTinPYQhbQH`
 - **Entitlement**: "WagerProof Pro"
 - **Products**: 
   - `wagerproof_monthly_pro` ($40/mo)

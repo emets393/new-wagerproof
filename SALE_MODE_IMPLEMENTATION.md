@@ -63,8 +63,8 @@ This will:
 1. **Create `.env` file**:
 ```bash
 # In project root
-VITE_REVENUECAT_WEB_PUBLIC_API_KEY=rcb_svnfisrGmflnfsiwSBNiOAfgIiNX
-VITE_REVENUECAT_WEB_SANDBOX_API_KEY=rcb_svnfisrGmflnfsiwSBNiOAfgIiNX
+VITE_REVENUECAT_WEB_PUBLIC_API_KEY=rcb_FimpgqhaUgXMNBUtlduWndNxaHLz
+VITE_REVENUECAT_WEB_SANDBOX_API_KEY=rcb_TXEVSXWeblisvQJwlYTinPYQhbQH
 ```
 
 2. **Run database migrations**:

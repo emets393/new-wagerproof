@@ -81,7 +81,7 @@ export default function LearnWagerProof() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 h-full">
           {/* Progress Outline Sidebar */}
           <div className="lg:col-span-1 h-full">
-            <div className="h-full overflow-y-auto pr-4">
+            <div className="h-full overflow-y-auto pr-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-gray-300/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-gray-600/20 [&::-webkit-scrollbar-thumb]:rounded-full">
               <ProgressOutline
                 sections={SECTIONS}
                 activeSection={activeSection}
@@ -92,7 +92,7 @@ export default function LearnWagerProof() {
           </div>
 
           {/* Main Content */}
-          <div className="lg:col-span-3 h-full overflow-y-auto pl-4">
+          <div className="lg:col-span-3 h-full overflow-y-auto pl-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-gray-300/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-gray-600/20 [&::-webkit-scrollbar-thumb]:rounded-full">
             <div className="space-y-8 pb-16">
             {/* Welcome Section */}
             <motion.div

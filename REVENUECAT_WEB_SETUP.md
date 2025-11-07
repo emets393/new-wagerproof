@@ -64,8 +64,8 @@ Create a `.env` file in the project root with the following variables:
 
 ```bash
 # RevenueCat Web Billing API Keys
-VITE_REVENUECAT_WEB_PUBLIC_API_KEY=rcb_svnfisrGmflnfsiwSBNiOAfgIiNX
-VITE_REVENUECAT_WEB_SANDBOX_API_KEY=rcb_cdAVOmoezOkchwMKKVutPMhPrXoL
+VITE_REVENUECAT_WEB_PUBLIC_API_KEY=rcb_FimpgqhaUgXMNBUtlduWndNxaHLz
+VITE_REVENUECAT_WEB_SANDBOX_API_KEY=rcb_TXEVSXWeblisvQJwlYTinPYQhbQH
 ```
 
 ### Getting Your API Keys

@@ -1,15 +1,15 @@
 # RevenueCat Checkout Troubleshooting
 
 ## Your Configuration
-- **RevenueCat App ID**: `appa681252b31`
-- **Production API Key**: `rcb_svnfisrGmflnfsiwSBNiOAfgIiNX`
-- **Sandbox API Key**: `rcb_cdAVOmoezOkchwMKKVutPMhPrXoL`
+- **RevenueCat App ID**: `ofrng5f087cd113`
+- **Production API Key**: `rcb_FimpgqhaUgXMNBUtlduWndNxaHLz`
+- **Sandbox API Key**: `rcb_TXEVSXWeblisvQJwlYTinPYQhbQH`
 - **Stripe**: Connected in RevenueCat (no direct Stripe keys needed) ✅
 
 ## Critical Checklist for Stripe Checkout Issues
 
 ### 1. RevenueCat Dashboard - Products Setup
-**URL**: https://app.revenuecat.com/projects/app/appa681252b31/products
+**URL**: https://app.revenuecat.com/projects/app/ofrng5f087cd113/products
 
 **In PRODUCTION Environment:**
 - [ ] Product: `wagerproof_monthly_pro` exists with price $40/month
@@ -21,7 +21,7 @@
 - [ ] All products have **Web Billing** platform selected
 
 ### 2. RevenueCat Dashboard - Offerings Configuration
-**URL**: https://app.revenuecat.com/projects/app/appa681252b31/offerings
+**URL**: https://app.revenuecat.com/projects/app/ofrng5f087cd113/offerings
 
 **In PRODUCTION Environment:**
 - [ ] An offering named **"default"** exists
@@ -42,7 +42,7 @@
   - [ ] "Connected" status for both Test and Live modes
 
 ### 4. RevenueCat Dashboard - Web App Configuration
-**URL**: https://app.revenuecat.com/projects/app/appa681252b31
+**URL**: https://app.revenuecat.com/projects/app/ofrng5f087cd113
 
 - [ ] App Name: "WagerProof"
 - [ ] Support Email: Set correctly
@@ -51,7 +51,7 @@
   - [ ] `https://wagerproof.bet`
   - [ ] `http://localhost:5173` (for local testing)
 - [ ] Default Currency: USD
-- [ ] Public API Key matches: `rcb_svnfisrGmflnfsiwSBNiOAfgIiNX`
+- [ ] Public API Key matches: `rcb_FimpgqhaUgXMNBUtlduWndNxaHLz`
 
 ### 5. Stripe Dashboard Verification
 **URL**: https://dashboard.stripe.com
@@ -144,7 +144,7 @@ If issue persists after verifying all above:
 1. Go to RevenueCat Dashboard
 2. Click Help (?) icon → "Contact Support"
 3. Provide:
-   - App ID: `appa681252b31`
+   - App ID: `ofrng5f087cd113`
    - User ID having issue (from your Supabase auth)
    - Exact timestamp of failed purchase attempt
    - Console error logs

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import LandingNavBar from "@/components/landing/LandingNavBar";
 import Hero from "@/components/landing/Hero";
 import RecipeImport from "@/components/landing/RecipeImport";
@@ -17,6 +17,33 @@ import FloatingThemeToggle from "@/components/FloatingThemeToggle";
 
 const NewLanding = () => {
   useRandomNotifications();
+
+  // Ensure page always loads at the top
+  useEffect(() => {
+    // Scroll to top immediately on mount
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    
+    // Also handle any delayed scroll attempts from child components
+    const preventScroll = () => {
+      if (window.scrollY > 100) {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
+    };
+    
+    // Monitor for unwanted scrolls in the first 2 seconds
+    const timeoutId = setTimeout(() => {
+      preventScroll();
+    }, 500);
+    
+    const timeoutId2 = setTimeout(() => {
+      preventScroll();
+    }, 1500);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
+    };
+  }, []);
 
   const faqQuestions = [
     {
