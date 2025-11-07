@@ -2,3 +2,5 @@ export { default as Index } from './Index.tsx';
 export { default as GameAnalysis } from './GameAnalysis';
 export { default as Account } from './Account';
 export { default as Welcome } from './Welcome';
+export { Blog } from './Blog';
+export { BlogPost } from './BlogPost';

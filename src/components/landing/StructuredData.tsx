@@ -47,7 +47,7 @@ type StructuredDataProps =
 
 export const StructuredData: React.FC<StructuredDataProps> = (props) => {
   const getStructuredData = () => {
-    const baseUrl = 'https://www.wagerproof.bet';
+    const baseUrl = 'https://wagerproof.bet';
 
     if (props.type === 'organization') {
       return {
@@ -154,17 +154,22 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
     }
 
     if (props.type === 'article') {
+      // Use array format for images (Google prefers this)
+      const imageArray = Array.isArray(props.image) 
+        ? props.image 
+        : (props.image ? [props.image] : [`${baseUrl}/wagerproofGreenLight.png`]);
+      
       return {
         '@context': 'https://schema.org',
-        '@type': 'Article',
+        '@type': 'BlogPosting',
         headline: props.title,
         description: props.description,
-        image: props.image || `${baseUrl}/wagerproofGreenLight.png`,
+        image: imageArray,
         datePublished: props.datePublished,
         dateModified: props.dateModified || props.datePublished,
         author: {
           '@type': 'Person',
-          name: props.authorName,
+          name: props.authorName || 'WagerProof Team',
         },
         publisher: {
           '@type': 'Organization',
@@ -190,9 +195,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
 
   return (
     <Helmet>
-      <script type="application/ld+json">
-        {JSON.stringify(structuredData)}
-      </script>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData, null, 0) }} />
     </Helmet>
   );
 };

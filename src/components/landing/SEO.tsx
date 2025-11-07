@@ -25,7 +25,7 @@ export const SEO: React.FC<SEOProps> = ({
   article,
   noindex = false,
 }) => {
-  const siteUrl = 'https://www.wagerproof.bet';
+  const siteUrl = 'https://wagerproof.bet';
   const defaultImage = `${siteUrl}/wagerproof-landing.png`;
   const fullTitle = title.includes('WagerProof') ? title : `${title} | WagerProof`;
   const image = ogImage ? (ogImage.startsWith('http') ? ogImage : `${siteUrl}${ogImage}`) : defaultImage;
