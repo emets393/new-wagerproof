@@ -117,7 +117,7 @@ function AppRoutes() {
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/press-kit" element={<PressKit />} />
-          <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/paywall-test" element={<ProtectedRoute><PaywallTest /></ProtectedRoute>} />
         </Routes>
       </PublicLayout>
