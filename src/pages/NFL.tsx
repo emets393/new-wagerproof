@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown } from 'lucide-react';
+import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import debug from '@/utils/debug';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { Link } from 'react-router-dom';
@@ -82,6 +82,17 @@ export default function NFL() {
   
   // Public Betting Facts expanded state - tracks which cards have expanded betting facts
   const [expandedBettingFacts, setExpandedBettingFacts] = useState<Record<string, boolean>>({});
+  
+  // Card expanded state - tracks which cards are fully expanded
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  
+  // Toggle card expansion
+  const toggleCardExpansion = (cardId: string) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [cardId]: !prev[cardId]
+    }));
+  };
   
   // Track predictions viewed when loaded
   useEffect(() => {
@@ -1132,11 +1143,80 @@ ${contextParts}
                       awayTeamColors={awayTeamColors}
                       homeTeamColors={homeTeamColors}
                       league="nfl"
+                      compact={!expandedCards[prediction.id]}
                     />
                   </div>
 
-                  {/* Model Predictions Section */}
-                  <div className="text-center pt-3 sm:pt-4">
+                  {/* Compact Model Predictions - Shown when collapsed */}
+                  {!expandedCards[prediction.id] && (
+                    <div className="pt-3 sm:pt-4">
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {prediction.home_away_spread_cover_prob !== null && (() => {
+                          const isHome = prediction.home_away_spread_cover_prob > 0.5;
+                          const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
+                          const confidencePct = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
+                          const confidenceColor = confidencePct >= 65 ? 'bg-green-500' : confidencePct >= 58 ? 'bg-orange-500' : 'bg-red-500';
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
+                              <Target className="h-3 w-3" />
+                              <span>{getTeamInitials(predictedTeam)} Spread {confidencePct}%</span>
+                            </div>
+                          );
+                        })()}
+                        {prediction.home_away_ml_prob !== null && (() => {
+                          const isHome = prediction.home_away_ml_prob > 0.5;
+                          const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
+                          const confidencePct = Math.round((isHome ? prediction.home_away_ml_prob : 1 - prediction.home_away_ml_prob) * 100);
+                          const confidenceColor = confidencePct >= 65 ? 'bg-blue-500' : confidencePct >= 58 ? 'bg-indigo-500' : 'bg-gray-500';
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
+                              <Users className="h-3 w-3" />
+                              <span>{getTeamInitials(predictedTeam)} ML {confidencePct}%</span>
+                            </div>
+                          );
+                        })()}
+                        {prediction.ou_result_prob !== null && (() => {
+                          const isOver = prediction.ou_result_prob > 0.5;
+                          const confidencePct = Math.round((isOver ? prediction.ou_result_prob : 1 - prediction.ou_result_prob) * 100);
+                          const confidenceColor = confidencePct >= 65 ? 'bg-purple-500' : confidencePct >= 58 ? 'bg-pink-500' : 'bg-gray-500';
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
+                              <BarChart className="h-3 w-3" />
+                              <span>{isOver ? 'Over' : 'Under'} {confidencePct}%</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expand/Collapse Button */}
+                  <div className="pt-4 flex justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleCardExpansion(prediction.id)}
+                      className="text-xs"
+                    >
+                      {expandedCards[prediction.id] ? (
+                        <>
+                          <ChevronUp className="h-4 w-4 mr-1" />
+                          Show Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4 mr-1" />
+                          Show More Details
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Detailed Sections - Only shown when expanded */}
+                  {expandedCards[prediction.id] && (
+                    <>
+                      {/* Model Predictions Section */}
+                      <div className="text-center pt-3 sm:pt-4">
                     <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
                       {/* Header */}
                       <div className="flex items-center justify-center gap-2">
@@ -1629,14 +1709,16 @@ ${contextParts}
                     </div>
                   </div>
 
-                  {/* Historical Data Section */}
-                  <HistoricalDataSection
-                    prediction={prediction}
-                    awayTeamColors={awayTeamColors}
-                    homeTeamColors={homeTeamColors}
-                    onH2HClick={openH2HModal}
-                    onLinesClick={openLineMovementModal}
-                  />
+                      {/* Historical Data Section */}
+                      <HistoricalDataSection
+                        prediction={prediction}
+                        awayTeamColors={awayTeamColors}
+                        homeTeamColors={homeTeamColors}
+                        onH2HClick={openH2HModal}
+                        onLinesClick={openLineMovementModal}
+                      />
+                    </>
+                  )}
                 </CardContent>
               </NFLGameCard>
             );

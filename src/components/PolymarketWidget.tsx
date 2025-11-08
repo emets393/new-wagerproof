@@ -18,6 +18,7 @@ interface PolymarketWidgetProps {
   awayTeamColors?: { primary: string; secondary: string };
   homeTeamColors?: { primary: string; secondary: string };
   league?: 'nfl' | 'cfb';
+  compact?: boolean;
 }
 
 type TimeRange = '1H' | '6H' | '1D' | '1W' | '1M' | 'ALL';
@@ -81,6 +82,7 @@ export default function PolymarketWidget({
   awayTeamColors,
   homeTeamColors,
   league = 'nfl',
+  compact = false,
 }: PolymarketWidgetProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
   const [selectedMarket, setSelectedMarket] = useState<MarketType>('moneyline');
@@ -251,57 +253,61 @@ export default function PolymarketWidget({
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold">Public Betting Lines</h3>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {filteredData.length} pts
-            </Badge>
+            <h3 className={compact ? "text-xs font-semibold" : "text-sm font-semibold"}>Public Betting Lines</h3>
+            {!compact && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                {filteredData.length} pts
+              </Badge>
+            )}
           </div>
         </div>
 
-        {/* Market Type Selector */}
-        <div className="flex justify-center gap-2">
-          <Button
-            variant={selectedMarket === 'moneyline' ? 'default' : 'outline'}
-            size="sm"
-            onClick={(e) => {
-              handleButtonClick(e, '1M');
-              setSelectedMarket('moneyline');
-            }}
-            disabled={!allMarketsData.moneyline}
-            className="h-8 px-3 text-xs"
-          >
-            ML
-          </Button>
-          <Button
-            variant={selectedMarket === 'spread' ? 'default' : 'outline'}
-            size="sm"
-            onClick={(e) => {
-              handleButtonClick(e, '1M');
-              setSelectedMarket('spread');
-            }}
-            disabled={!allMarketsData.spread}
-            className="h-8 px-3 text-xs"
-          >
-            Spread
-          </Button>
-          <Button
-            variant={selectedMarket === 'total' ? 'default' : 'outline'}
-            size="sm"
-            onClick={(e) => {
-              handleButtonClick(e, '1M');
-              setSelectedMarket('total');
-            }}
-            disabled={!allMarketsData.total}
-            className="h-8 px-3 text-xs"
-          >
-            O/U
-          </Button>
-        </div>
+        {/* Market Type Selector - Hidden in compact mode */}
+        {!compact && (
+          <div className="flex justify-center gap-2">
+            <Button
+              variant={selectedMarket === 'moneyline' ? 'default' : 'outline'}
+              size="sm"
+              onClick={(e) => {
+                handleButtonClick(e, '1M');
+                setSelectedMarket('moneyline');
+              }}
+              disabled={!allMarketsData.moneyline}
+              className="h-8 px-3 text-xs"
+            >
+              ML
+            </Button>
+            <Button
+              variant={selectedMarket === 'spread' ? 'default' : 'outline'}
+              size="sm"
+              onClick={(e) => {
+                handleButtonClick(e, '1M');
+                setSelectedMarket('spread');
+              }}
+              disabled={!allMarketsData.spread}
+              className="h-8 px-3 text-xs"
+            >
+              Spread
+            </Button>
+            <Button
+              variant={selectedMarket === 'total' ? 'default' : 'outline'}
+              size="sm"
+              onClick={(e) => {
+                handleButtonClick(e, '1M');
+                setSelectedMarket('total');
+              }}
+              disabled={!allMarketsData.total}
+              className="h-8 px-3 text-xs"
+            >
+              O/U
+            </Button>
+          </div>
+        )}
 
         {/* Current Odds */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid grid-cols-2 ${compact ? 'gap-1.5' : 'gap-2'}`}>
           <div
-            className="p-2.5 rounded-lg border"
+            className={compact ? "p-1.5 rounded-md border" : "p-2.5 rounded-lg border"}
             style={{
               backgroundColor: selectedMarket === 'total' 
                 ? 'hsl(var(--muted))'
@@ -313,13 +319,13 @@ export default function PolymarketWidget({
                 : awayTeamColors?.primary || 'hsl(var(--border))',
             }}
           >
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium opacity-90">
+            <div className={`flex ${compact ? 'flex-row items-center justify-between' : 'flex-col gap-1'}`}>
+              <span className={compact ? "text-[10px] font-medium opacity-90" : "text-xs font-medium opacity-90"}>
                 {selectedMarket === 'total' ? 'Over' : awayTeam}
               </span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold">{data.currentAwayOdds}%</span>
-                {awayChange !== 0 && (
+              <div className="flex items-baseline gap-1">
+                <span className={compact ? "text-lg font-bold" : "text-2xl font-bold"}>{data.currentAwayOdds}%</span>
+                {!compact && awayChange !== 0 && (
                   <div className="flex items-center gap-0.5">
                     {awayChange > 0 ? (
                       <TrendingUp className="h-3 w-3 text-green-500" />
@@ -335,7 +341,7 @@ export default function PolymarketWidget({
             </div>
           </div>
           <div
-            className="p-2.5 rounded-lg border"
+            className={compact ? "p-1.5 rounded-md border" : "p-2.5 rounded-lg border"}
             style={{
               backgroundColor: selectedMarket === 'total'
                 ? 'hsl(var(--muted))'
@@ -347,13 +353,13 @@ export default function PolymarketWidget({
                 : homeTeamColors?.primary || 'hsl(var(--border))',
             }}
           >
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium opacity-90">
+            <div className={`flex ${compact ? 'flex-row items-center justify-between' : 'flex-col gap-1'}`}>
+              <span className={compact ? "text-[10px] font-medium opacity-90" : "text-xs font-medium opacity-90"}>
                 {selectedMarket === 'total' ? 'Under' : homeTeam}
               </span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold">{data.currentHomeOdds}%</span>
-                {homeChange !== 0 && (
+              <div className="flex items-baseline gap-1">
+                <span className={compact ? "text-lg font-bold" : "text-2xl font-bold"}>{data.currentHomeOdds}%</span>
+                {!compact && homeChange !== 0 && (
                   <div className="flex items-center gap-0.5">
                     {homeChange > 0 ? (
                       <TrendingUp className="h-3 w-3 text-green-500" />
@@ -432,8 +438,9 @@ export default function PolymarketWidget({
           </ResponsiveContainer>
         </div>
 
-        {/* Time Range Selector */}
-        <div className="flex justify-center gap-1 flex-wrap relative z-[110]">
+        {/* Time Range Selector - Hidden in compact mode */}
+        {!compact && (
+          <div className="flex justify-center gap-1 flex-wrap relative z-[110]">
           {(['1H', '6H', '1D', '1W', '1M', 'ALL'] as TimeRange[]).map((range) => (
             <Button
               key={range}
@@ -459,7 +466,8 @@ export default function PolymarketWidget({
               {range}
             </Button>
           ))}
-        </div>
+          </div>
+        )}
 
         {/* Disclaimer */}
         <div className="pt-2 border-t border-border/30">

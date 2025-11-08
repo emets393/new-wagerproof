@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles } from 'lucide-react';
+import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles, Users } from 'lucide-react';
 import CFBGameCard from '@/components/CFBGameCard';
 import debug from '@/utils/debug';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
@@ -86,6 +86,18 @@ export default function CollegeFootball() {
   const [activeFilters, setActiveFilters] = useState<string[]>(['All Games']);
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  
+  // Card expanded state - tracks which cards are fully expanded
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  
+  // Toggle card expansion
+  const toggleCardExpansion = (cardId: string) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [cardId]: !prev[cardId]
+    }));
+  };
+  
   const toggleGameSelection = (id: string) => {
     setSelectedGameIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
@@ -1411,12 +1423,79 @@ ${contextParts}
                       awayTeamColors={awayTeamColors}
                       homeTeamColors={homeTeamColors}
                       league="cfb"
+                      compact={!expandedCards[prediction.id]}
                     />
                   </div>
 
-                  {/* Model Predictions Section */}
-                  {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
-                    <div className="text-center pt-3 sm:pt-4">
+                  {/* Compact Model Predictions - Shown when collapsed */}
+                  {!expandedCards[prediction.id] && (
+                    <div className="pt-3 sm:pt-4">
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {prediction.pred_spread_proba !== null && (() => {
+                          const confidencePct = Math.round(Math.max(prediction.pred_spread_proba, 1 - prediction.pred_spread_proba) * 100);
+                          const confidenceColor = confidencePct >= 65 ? 'bg-green-500' : confidencePct >= 58 ? 'bg-orange-500' : 'bg-red-500';
+                          const predictedTeam = prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team;
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
+                              <Target className="h-3 w-3" />
+                              <span>{getTeamInitials(predictedTeam)} Spread {confidencePct}%</span>
+                            </div>
+                          );
+                        })()}
+                        {prediction.pred_ml_proba !== null && (() => {
+                          const confidencePct = Math.round(Math.max(prediction.pred_ml_proba, 1 - prediction.pred_ml_proba) * 100);
+                          const confidenceColor = confidencePct >= 65 ? 'bg-blue-500' : confidencePct >= 58 ? 'bg-indigo-500' : 'bg-gray-500';
+                          const predictedTeam = prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team;
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
+                              <Users className="h-3 w-3" />
+                              <span>{getTeamInitials(predictedTeam)} ML {confidencePct}%</span>
+                            </div>
+                          );
+                        })()}
+                        {prediction.pred_total_proba !== null && (() => {
+                          const isOver = prediction.pred_total_proba > 0.5;
+                          const confidencePct = Math.round(Math.max(prediction.pred_total_proba, 1 - prediction.pred_total_proba) * 100);
+                          const confidenceColor = confidencePct >= 65 ? 'bg-purple-500' : confidencePct >= 58 ? 'bg-pink-500' : 'bg-gray-500';
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
+                              <BarChart className="h-3 w-3" />
+                              <span>{isOver ? 'Over' : 'Under'} {confidencePct}%</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expand/Collapse Button */}
+                  <div className="pt-4 flex justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleCardExpansion(prediction.id)}
+                      className="text-xs"
+                    >
+                      {expandedCards[prediction.id] ? (
+                        <>
+                          <ChevronUp className="h-4 w-4 mr-1" />
+                          Show Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4 mr-1" />
+                          Show More Details
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Detailed Sections - Only shown when expanded */}
+                  {expandedCards[prediction.id] && (
+                    <>
+                      {/* Model Predictions Section */}
+                      {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
+                        <div className="text-center pt-3 sm:pt-4">
                       <div className="bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/20 space-y-4">
                         {/* Header */}
                         <div className="flex items-center justify-center gap-2">
@@ -1735,12 +1814,13 @@ ${contextParts}
                           </div>
                         </div>
                       </div>
-                    )}
-                    </div>
-                  </div>
+                        )}
+                        </div>
+                      </div>
 
-                  {/* Bottom Weather section removed; using compact WeatherPill above */}
-
+                      {/* Bottom Weather section removed; using compact WeatherPill above */}
+                    </>
+                  )}
                 </CardContent>
               </CFBGameCard>
             );
