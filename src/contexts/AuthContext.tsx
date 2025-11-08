@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import debug from '@/utils/debug';
+import { identifyUser, trackSignIn, trackSignUp, trackSignOut, resetTracking } from '@/lib/mixpanel';
 
 interface AuthContextType {
   user: User | null;
@@ -35,6 +36,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === 'SIGNED_IN' && session?.user) {
           debug.log('✅ User signed in, setting welcome flag');
           localStorage.setItem('wagerproof_show_welcome', 'true');
+          
+          // Track sign in and identify user for Mixpanel
+          const userId = session.user.id;
+          const userEmail = session.user.email || 'unknown';
+          
+          // Determine auth method from user metadata
+          let authMethod: 'email' | 'google' | 'apple' = 'email';
+          
+          // Check app_metadata.provider first
+          if (session.user.app_metadata?.provider) {
+            const provider = session.user.app_metadata.provider.toLowerCase();
+            if (provider === 'google') authMethod = 'google';
+            else if (provider === 'apple') authMethod = 'apple';
+          } 
+          // Fallback to checking identities array
+          else if (session.user.identities && session.user.identities.length > 0) {
+            const provider = session.user.identities[0].provider.toLowerCase();
+            if (provider === 'google') authMethod = 'google';
+            else if (provider === 'apple') authMethod = 'apple';
+          }
+          
+          // Identify user in Mixpanel
+          identifyUser(userId, {
+            email: userEmail,
+            auth_method: authMethod,
+            user_id: userId,
+          });
+          
+          // Track sign in event
+          trackSignIn(authMethod);
+          
+          debug.log(`[Mixpanel] User signed in: ${userEmail} via ${authMethod}`);
+        }
+        
+        // Track sign out
+        if (event === 'SIGNED_OUT') {
+          debug.log('User signed out, resetting Mixpanel tracking');
+          resetTracking();
         }
         
         setSession(session);
@@ -63,6 +102,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailRedirectTo: redirectUrl
       }
     });
+    
+    // Track successful sign up
+    if (!error) {
+      trackSignUp('email');
+      debug.log('[Mixpanel] User signed up via email');
+    }
+    
     return { error };
   };
 
@@ -103,6 +149,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       debug.log('Starting sign out process...');
       setSigningOut(true);
+      
+      // Calculate session duration if possible
+      let sessionDuration: number | undefined;
+      if (session?.expires_at) {
+        const sessionStart = (session as any).created_at;
+        if (sessionStart) {
+          sessionDuration = Math.floor((Date.now() / 1000) - sessionStart);
+        }
+      }
+      
+      // Track sign out before clearing session
+      trackSignOut(sessionDuration);
+      debug.log('[Mixpanel] User signed out');
+      
       // Clear the welcome flag so next login will show welcome message
       localStorage.removeItem('wagerproof_show_welcome');
       debug.log('Calling supabase.auth.signOut()...');
@@ -117,6 +177,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear local state even if server logout fails
       setSession(null);
       setUser(null);
+      // Reset tracking even on error
+      resetTracking();
     } finally {
       setSigningOut(false);
       debug.log('Sign out process completed');
