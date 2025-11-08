@@ -206,6 +206,8 @@ export function AppLayout() {
                           e.preventDefault();
                           if (!user) {
                             setSignInPromptOpen(true);
+                          } else {
+                            navigate(to);
                           }
                         }}
                         isActive={isActivePath(to)}

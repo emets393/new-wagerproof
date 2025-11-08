@@ -7,8 +7,26 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Shield, Users, TrendingUp, Settings as SettingsIcon, Loader2, Eye } from "lucide-react";
+import { Shield, Users, TrendingUp, Settings as SettingsIcon, Loader2, Eye, MoreVertical, Trash2, Megaphone, Search, Filter, X } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import debug from '@/utils/debug';
 import Dither from "@/components/Dither";
@@ -93,28 +111,133 @@ export default function Admin() {
     }
   });
 
-  // Fetch all users with their roles
-  const { data: users, isLoading: usersLoading } = useQuery({
+  // Fetch all users with their roles and additional data
+  const { data: users, isLoading: usersLoading, error: usersError } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, username, display_name, created_at');
+      debug.log('Fetching admin user data...');
       
-      if (profilesError) throw profilesError;
+      // Get user data including email from RPC function
+      const { data: userData, error: userDataError } = await supabase
+        .rpc('get_admin_user_data');
+      
+      if (userDataError) {
+        debug.error('Error fetching user data from RPC:', userDataError);
+        throw userDataError;
+      }
 
+      debug.log('User data received:', userData?.length || 0, 'users');
+
+      // Get roles for all users
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
       
-      if (rolesError) throw rolesError;
+      if (rolesError) {
+        debug.error('Error fetching roles:', rolesError);
+        throw rolesError;
+      }
 
-      return profiles.map(profile => ({
-        ...profile,
-        roles: roles.filter(r => r.user_id === profile.user_id).map(r => r.role)
+      debug.log('Roles received:', roles?.length || 0, 'role entries');
+
+      if (!userData || userData.length === 0) {
+        debug.warn('No user data returned from RPC function');
+        return [];
+      }
+
+      return userData.map((user: any) => ({
+        ...user,
+        roles: roles.filter(r => r.user_id === user.user_id).map(r => r.role)
       }));
     },
-    enabled: isAdmin
+    enabled: isAdmin,
+    retry: 1
+  });
+
+  // State for delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<{ user_id: string; email: string; username: string } | null>(null);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [subscriptionFilter, setSubscriptionFilter] = useState<string>('all');
+
+  // Filter users based on search and filters
+  const filteredUsers = users?.filter((user) => {
+    // Search filter - search across username, email, display_name, and revenuecat_customer_id
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = !searchQuery || 
+      user.username?.toLowerCase().includes(searchLower) ||
+      user.email?.toLowerCase().includes(searchLower) ||
+      user.display_name?.toLowerCase().includes(searchLower) ||
+      user.revenuecat_customer_id?.toLowerCase().includes(searchLower);
+
+    // Role filter
+    const matchesRole = roleFilter === 'all' || user.roles.includes(roleFilter);
+
+    // Subscription filter
+    let matchesSubscription = true;
+    if (subscriptionFilter === 'active') {
+      matchesSubscription = user.subscription_active === true;
+    } else if (subscriptionFilter === 'inactive') {
+      matchesSubscription = user.subscription_active === false || !user.subscription_active;
+    }
+
+    return matchesSearch && matchesRole && matchesSubscription;
+  }) || [];
+
+  // Delete user account mutation
+  const deleteUserAccount = useMutation({
+    mutationFn: async (targetUserId: string) => {
+      const { data, error } = await supabase
+        .rpc('delete_user_account', { target_user_id: targetUserId });
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('User account deleted successfully');
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+    },
+    onError: (error: any) => {
+      toast.error('Failed to delete user account: ' + (error?.message || 'Unknown error'));
+    }
+  });
+
+  // Announcements banner state
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [announcementPublished, setAnnouncementPublished] = useState(false);
+
+  // Load announcement banner data
+  useEffect(() => {
+    if (settings) {
+      setAnnouncementMessage(settings.announcement_message || '');
+      setAnnouncementPublished(settings.announcement_published || false);
+    }
+  }, [settings]);
+
+  // Update announcement banner mutation
+  const updateAnnouncementBanner = useMutation({
+    mutationFn: async ({ message, published }: { message: string; published: boolean }) => {
+      const { data, error } = await supabase
+        .rpc('update_announcement_banner', {
+          message: message || null,
+          published: published
+        });
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-settings'] });
+      toast.success('Announcement banner updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update announcement banner: ' + (error?.message || 'Unknown error'));
+    }
   });
 
   // Toggle launch mode mutation
@@ -345,6 +468,74 @@ export default function Admin() {
             <SandboxModeToggle />
           </div>
 
+          {/* Announcements Banner */}
+          <Card
+            className="border-white/20"
+            style={{
+              background: 'rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+            }}
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Megaphone className="w-5 h-5" />
+                Announcements Banner
+              </CardTitle>
+              <CardDescription className="text-white/70">
+                Display a message banner across the top of the app for all users
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white">Banner Message</label>
+                <Textarea
+                  value={announcementMessage}
+                  onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  placeholder="Enter the announcement message to display to all users..."
+                  className="min-h-[100px] bg-black/20 border-white/20 text-white placeholder:text-white/50"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-white">Publish Banner</p>
+                  <p className="text-sm text-white/70">
+                    {announcementPublished ? 'Banner is currently visible to all users' : 'Banner is hidden'}
+                  </p>
+                </div>
+                <Switch
+                  checked={announcementPublished}
+                  onCheckedChange={(checked) => setAnnouncementPublished(checked)}
+                  disabled={updateAnnouncementBanner.isPending}
+                />
+              </div>
+              <Button
+                onClick={() => updateAnnouncementBanner.mutate({ 
+                  message: announcementMessage, 
+                  published: announcementPublished 
+                })}
+                disabled={updateAnnouncementBanner.isPending || settingsLoading}
+                className="w-full"
+              >
+                {updateAnnouncementBanner.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Announcement'
+                )}
+              </Button>
+              {announcementPublished && announcementMessage && (
+                <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <p className="text-xs text-green-400 mb-1">Preview:</p>
+                  <p className="text-sm text-white">{announcementMessage}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* User Management */}
           <Card
             className="border-white/20"
@@ -360,48 +551,265 @@ export default function Admin() {
               <CardDescription className="text-white/70">View and manage all registered users</CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Search and Filter Controls */}
+              <div className="mb-6 space-y-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
+                  <Input
+                    type="text"
+                    placeholder="Search by username, email, display name, or RevenueCat ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-black/20 border-white/20 text-white placeholder:text-white/50"
+                  />
+                  {searchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 text-white/50 hover:text-white"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Filter Controls */}
+                <div className="flex flex-wrap gap-4">
+                  {/* Role Filter */}
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-white/70" />
+                    <label className="text-sm text-white/70">Role:</label>
+                    <select
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                      className="px-3 py-1.5 rounded-md bg-black/20 border border-white/20 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                    >
+                      <option value="all">All Roles</option>
+                      <option value="admin">Admin</option>
+                      <option value="free_user">Free User</option>
+                    </select>
+                  </div>
+
+                  {/* Subscription Filter */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-white/70">Subscription:</label>
+                    <select
+                      value={subscriptionFilter}
+                      onChange={(e) => setSubscriptionFilter(e.target.value)}
+                      className="px-3 py-1.5 rounded-md bg-black/20 border border-white/20 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                    >
+                      <option value="all">All</option>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+
+                  {/* Clear Filters */}
+                  {(roleFilter !== 'all' || subscriptionFilter !== 'all' || searchQuery) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setRoleFilter('all');
+                        setSubscriptionFilter('all');
+                      }}
+                      className="text-white/70 hover:text-white"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear Filters
+                    </Button>
+                  )}
+
+                  {/* Results Count */}
+                  <div className="ml-auto text-sm text-white/70">
+                    Showing {filteredUsers.length} of {users?.length || 0} users
+                  </div>
+                </div>
+              </div>
+
+              {usersError && (
+                <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+                  <p className="text-red-400 text-sm font-medium">Error loading users:</p>
+                  <p className="text-red-300 text-xs mt-1">{usersError.message || 'Unknown error'}</p>
+                  <Button
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-users'] })}
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 border-red-500/50 text-red-400 hover:bg-red-500/20"
+                  >
+                    Retry
+                  </Button>
+                </div>
+              )}
               {usersLoading ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin" />
                 </div>
+              ) : users && users.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <p className="text-white/70 mb-2">No users found</p>
+                  <p className="text-white/50 text-sm">Users will appear here once they register</p>
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <p className="text-white/70 mb-2">No users match your filters</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setRoleFilter('all');
+                      setSubscriptionFilter('all');
+                    }}
+                    className="mt-2 border-white/20 text-white hover:bg-white/10"
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Username</TableHead>
-                      <TableHead>Display Name</TableHead>
-                      <TableHead>Roles</TableHead>
-                      <TableHead>Joined</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users?.map((user) => (
-                      <TableRow key={user.user_id}>
-                        <TableCell className="font-medium text-white">{user.username}</TableCell>
-                        <TableCell className="text-white">{user.display_name}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {user.roles.map((role) => (
-                              <Badge
-                                key={role}
-                                variant={role === 'admin' ? 'default' : 'secondary'}
-                                className="text-white"
-                              >
-                                {role}
-                              </Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Username</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Display Name</TableHead>
+                        <TableHead>RevenueCat ID</TableHead>
+                        <TableHead>Subscription</TableHead>
+                        <TableHead>Expires</TableHead>
+                        <TableHead>Roles</TableHead>
+                        <TableHead>Joined</TableHead>
+                        <TableHead className="w-[50px]">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.user_id}>
+                          <TableCell className="font-medium text-white">{user.username}</TableCell>
+                          <TableCell className="text-white">{user.email || 'N/A'}</TableCell>
+                          <TableCell className="text-white">{user.display_name}</TableCell>
+                          <TableCell className="text-white">
+                            <span className="font-mono text-xs">
+                              {user.revenuecat_customer_id ? (
+                                <span className="text-green-400">{user.revenuecat_customer_id}</span>
+                              ) : (
+                                <span className="text-white/50">N/A</span>
+                              )}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {user.subscription_active ? (
+                              <Badge variant="default" className="bg-green-500 text-white">
+                                {user.subscription_status || 'Active'}
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-white">
+                                None
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-white text-sm">
+                            {user.subscription_expires_at ? (
+                              new Date(user.subscription_expires_at).toLocaleDateString()
+                            ) : user.subscription_status === 'lifetime' ? (
+                              <span className="text-green-400">Lifetime</span>
+                            ) : (
+                              <span className="text-white/50">N/A</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {user.roles.map((role) => (
+                                <Badge
+                                  key={role}
+                                  variant={role === 'admin' ? 'default' : 'secondary'}
+                                  className="text-white"
+                                >
+                                  {role}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-white hover:bg-white/10"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-black/90 border-white/20">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setUserToDelete({
+                                      user_id: user.user_id,
+                                      email: user.email || user.username,
+                                      username: user.username
+                                    });
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                  className="text-red-400 focus:text-red-300 focus:bg-red-500/20"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Account
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
+
+          {/* Delete Account Confirmation Dialog */}
+          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialogContent className="bg-black/90 border-white/20">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-white">Delete User Account</AlertDialogTitle>
+                <AlertDialogDescription className="text-white/70">
+                  Are you sure you want to delete the account for <strong>{userToDelete?.email || userToDelete?.username}</strong>?
+                  <br /><br />
+                  This action cannot be undone. All user data, including profiles, roles, and related information will be permanently deleted.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="bg-white/10 text-white border-white/20 hover:bg-white/20">
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (userToDelete) {
+                      deleteUserAccount.mutate(userToDelete.user_id);
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  disabled={deleteUserAccount.isPending}
+                >
+                  {deleteUserAccount.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete Account'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </div>

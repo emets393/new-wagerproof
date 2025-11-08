@@ -35,6 +35,7 @@ import { AppLayout } from "./components/AppLayout";
 import { MinimalHeader } from "./components/MinimalHeader";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LiveScoreTicker } from "./components/LiveScoreTicker";
+import { AnnouncementsBanner } from "./components/AnnouncementsBanner";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
       <AppLayout />
       <SidebarInset className="overflow-x-hidden">
         <div className="overflow-x-hidden w-full">
+          <AnnouncementsBanner />
           <LiveScoreTicker />
           <MinimalHeader />
           <main className="flex flex-1 flex-col overflow-auto">
