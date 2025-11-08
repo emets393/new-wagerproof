@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<browserconfig>
+  <msapplication>
+    <tile>
+      <square70x70logo src="/wagerproofGreenDark.png"/>
+      <square150x150logo src="/wagerproofGreenDark.png"/>
+      <square310x310logo src="/wagerproofGreenDark.png"/>
+      <TileColor>#4f9777</TileColor>
+    </tile>
+  </msapplication>
+</browserconfig>
+

@@ -1,0 +1,33 @@
+{
+  "name": "WagerProof - Data-Driven Sports Betting Analytics",
+  "short_name": "WagerProof",
+  "description": "Professional-grade sports betting analytics powered by real data. Get predictions and insights for NFL, College Football, NBA, and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f9777",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/png"
+    },
+    {
+      "src": "/wagerproofGreenDark.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/wagerproofGreenDark.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "finance", "analytics"],
+  "lang": "en-US",
+  "dir": "ltr"
+}
+
