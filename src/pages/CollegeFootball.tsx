@@ -1430,6 +1430,11 @@ ${contextParts}
                   {/* Compact Model Predictions - Shown when collapsed */}
                   {!expandedCards[prediction.id] && (
                     <div className="pt-3 sm:pt-4">
+                      {/* Header */}
+                      <div className="flex items-center justify-center gap-2 mb-3">
+                        <Brain className="h-4 w-4 text-purple-400" />
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Model Predictions</h4>
+                      </div>
                       <div className="flex flex-wrap gap-2 justify-center">
                         {prediction.pred_spread_proba !== null && (() => {
                           const confidencePct = Math.round(Math.max(prediction.pred_spread_proba, 1 - prediction.pred_spread_proba) * 100);

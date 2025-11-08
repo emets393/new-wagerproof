@@ -1150,6 +1150,11 @@ ${contextParts}
                   {/* Compact Model Predictions - Shown when collapsed */}
                   {!expandedCards[prediction.id] && (
                     <div className="pt-3 sm:pt-4">
+                      {/* Header */}
+                      <div className="flex items-center justify-center gap-2 mb-3">
+                        <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Model Predictions</h4>
+                      </div>
                       <div className="flex flex-wrap gap-2 justify-center">
                         {prediction.home_away_spread_cover_prob !== null && (() => {
                           const isHome = prediction.home_away_spread_cover_prob > 0.5;
