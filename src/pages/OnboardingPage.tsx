@@ -24,6 +24,9 @@ import Dither from "@/components/Dither";
 import { useRef, useState, useEffect } from "react";
 import type { PaywallHandle } from "@/components/Paywall";
 import debug from "@/utils/debug";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const stepComponents = {
   1: PersonalizationIntro,
@@ -52,11 +55,59 @@ function OnboardingContent() {
   const paywallRef = useRef<PaywallHandle>(null);
   const [, forceUpdate] = useState({});
   const [onboardingMarkedComplete, setOnboardingMarkedComplete] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Steps that have scrollable content and need floating buttons
   const scrollableSteps = [7, 8, 10, 11, 12, 13, 17];
   const hasScrollableContent = scrollableSteps.includes(currentStep);
   const isPaywallStep = currentStep === 17;
+
+  // Handle "Not Right Now" for freemium mode
+  const handleNotRightNow = async () => {
+    debug.log('🚪 "Not Right Now" clicked - enabling freemium mode');
+    
+    // Set localStorage flag to indicate user bypassed paywall
+    localStorage.setItem('wagerproof_paywall_bypassed', 'true');
+    
+    // Fetch user's onboarding data to determine which sport page to redirect to
+    try {
+      if (!user) {
+        debug.warn('No user found, redirecting to NFL by default');
+        navigate('/nfl');
+        return;
+      }
+
+      const { data: profile, error } = await (supabase as any)
+        .from('profiles')
+        .select('onboarding_data')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        debug.error('Error fetching profile:', error);
+        navigate('/nfl'); // Default to NFL on error
+        return;
+      }
+
+      const onboardingData = profile?.onboarding_data as { favoriteSports?: string[] } | null;
+      const favoriteSports = onboardingData?.favoriteSports || [];
+      
+      debug.log('User favorite sports:', favoriteSports);
+
+      // Redirect to College Football if it's in favorites, otherwise NFL
+      if (favoriteSports.includes('College Football')) {
+        debug.log('Redirecting to College Football page');
+        navigate('/college-football');
+      } else {
+        debug.log('Redirecting to NFL page');
+        navigate('/nfl');
+      }
+    } catch (err) {
+      debug.error('Unexpected error fetching user data:', err);
+      navigate('/nfl'); // Default to NFL on error
+    }
+  };
 
   // Mark onboarding as complete when user reaches the paywall step
   useEffect(() => {
@@ -230,7 +281,7 @@ function OnboardingContent() {
         {/* Floating Continue Button for scrollable steps */}
         {hasScrollableContent && (
           <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-black/60 via-black/40 to-transparent border-t border-white/10 backdrop-blur-sm z-20">
-            <div className="flex justify-center">
+            <div className="flex flex-col gap-3 items-center justify-center">
               <Button 
                 onClick={isPaywallStep ? () => paywallRef.current?.handlePurchase() : nextStep}
                 size="lg" 
@@ -249,6 +300,18 @@ function OnboardingContent() {
                   </>
                 )}
               </Button>
+              
+              {/* "Not Right Now" button only on paywall step */}
+              {isPaywallStep && (
+                <Button
+                  onClick={handleNotRightNow}
+                  variant="ghost"
+                  size="lg"
+                  className="text-white/80 hover:text-white hover:bg-white/10 px-8 py-3"
+                >
+                  Not Right Now
+                </Button>
+              )}
             </div>
           </div>
         )}
