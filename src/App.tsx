@@ -150,8 +150,8 @@ function AppRoutes() {
           <Route path="/account" element={<Account />} />
           <Route path="/access-denied" element={<AccessDenied />} />
           <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
-          <Route path="/college-football" element={<ProtectedRoute><CollegeFootball /></ProtectedRoute>} />
-          <Route path="/nfl" element={<ProtectedRoute><NFL /></ProtectedRoute>} />
+          <Route path="/college-football" element={<ProtectedRoute allowFreemium={true}><CollegeFootball /></ProtectedRoute>} />
+          <Route path="/nfl" element={<ProtectedRoute allowFreemium={true}><NFL /></ProtectedRoute>} />
           <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
           <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
           <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />

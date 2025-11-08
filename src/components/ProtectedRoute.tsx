@@ -1,11 +1,18 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccessControl } from "@/hooks/useAccessControl";
+import { useFreemiumAccess } from "@/hooks/useFreemiumAccess";
 import { Loader2 } from "lucide-react";
 
-export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  allowFreemium?: boolean;
+}
+
+export function ProtectedRoute({ children, allowFreemium = false }: ProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
   const { hasAccess, isLoading: accessLoading } = useAccessControl();
+  const { isFreemiumUser } = useFreemiumAccess();
   
   // Priority 1: Check authentication first
   if (authLoading) {
@@ -31,9 +38,14 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   
-  // Priority 4: Redirect users without access to paywall
-  // OnboardingGuard handles onboarding redirect separately
+  // Priority 4: Allow freemium users on designated pages
   if (!hasAccess) {
+    // If this route allows freemium and user is in freemium mode, allow access
+    if (allowFreemium && isFreemiumUser) {
+      return <>{children}</>;
+    }
+    
+    // Otherwise redirect to access-denied
     return <Navigate to="/access-denied" replace />;
   }
   

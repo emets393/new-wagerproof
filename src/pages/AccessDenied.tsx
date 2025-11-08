@@ -1,13 +1,15 @@
 import Paywall from "@/components/Paywall";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Lock, Zap, LogIn } from "lucide-react";
+import { Lock, Zap, LogIn, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Dither from "@/components/Dither";
+import { useFreemiumAccess } from "@/hooks/useFreemiumAccess";
 
 export default function AccessDenied() {
   const { user, loading: authLoading } = useAuth();
+  const { isFreemiumUser } = useFreemiumAccess();
   const navigate = useNavigate();
 
   return (
@@ -32,11 +34,18 @@ export default function AccessDenied() {
           {/* Header */}
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-500/20 backdrop-blur-sm border border-green-500/30 rounded-xl shadow-lg">
-              <Lock className="w-8 h-8 text-green-400" />
+              {isFreemiumUser ? <Sparkles className="w-8 h-8 text-green-400" /> : <Lock className="w-8 h-8 text-green-400" />}
             </div>
             <div>
-              <h1 className="text-4xl font-bold text-white drop-shadow-lg">Unlock Premium Features</h1>
-              <p className="text-white/80 mt-1">Subscribe to access all powerful analytics and tools</p>
+              <h1 className="text-4xl font-bold text-white drop-shadow-lg">
+                {isFreemiumUser ? "Ready to Unlock Everything?" : "Unlock Premium Features"}
+              </h1>
+              <p className="text-white/80 mt-1">
+                {isFreemiumUser 
+                  ? "You've seen what our predictions can do. Subscribe to access all games and advanced features!"
+                  : "Subscribe to access all powerful analytics and tools"
+                }
+              </p>
             </div>
           </div>
 

@@ -22,6 +22,9 @@ import { chatSessionManager } from '@/utils/chatSession';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
 import { trackPredictionViewed, trackGameAnalysisOpened, trackFilterApplied, trackSortApplied } from '@/lib/mixpanel';
 import PolymarketWidget from '@/components/PolymarketWidget';
+import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
+import { FreemiumUpgradeBanner } from '@/components/FreemiumUpgradeBanner';
+import { Lock } from 'lucide-react';
 
 interface NFLPrediction {
   id: string;
@@ -60,6 +63,7 @@ interface TeamMapping {
 
 export default function NFL() {
   const { user } = useAuth();
+  const { isFreemiumUser } = useFreemiumAccess();
   const [predictions, setPredictions] = useState<NFLPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -936,27 +940,31 @@ ${contextParts}
         </Button>
         <Button
           variant={sortKey === 'spread' ? 'default' : 'outline'}
+          disabled={isFreemiumUser}
           className={`${
             sortKey === 'spread' 
               ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40' 
               : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
-          } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
+          } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
           onClick={() => setSortKey('spread')}
-          title="Sort by highest Spread probability"
+          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread probability"}
         >
+          {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
           <span className="hidden sm:inline">Sort: Spread</span>
           <span className="sm:hidden">Spread</span>
         </Button>
         <Button
           variant={sortKey === 'ou' ? 'default' : 'outline'}
+          disabled={isFreemiumUser}
           className={`${
             sortKey === 'ou' 
               ? 'bg-gradient-to-r from-green-600 to-emerald-700 text-white shadow-md shadow-green-500/30 hover:shadow-lg hover:shadow-green-500/40' 
               : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
-          } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
+          } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
           onClick={() => setSortKey('ou')}
-          title="Sort by highest Over/Under probability"
+          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under probability"}
         >
+          {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
           <span className="hidden sm:inline">Sort: O/U</span>
           <span className="sm:hidden">O/U</span>
         </Button>
@@ -1012,6 +1020,8 @@ ${contextParts}
           <div className="grid gap-3 sm:gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
             {getSortedPredictions()
               .map((prediction, index) => {
+              // Freemium logic: Only show first 2 games, blur the rest
+              const isLocked = isFreemiumUser && index >= 2;
               const awayTeamColors = getNFLTeamColors(prediction.away_team);
               const homeTeamColors = getNFLTeamColors(prediction.home_team);
               
@@ -1028,18 +1038,19 @@ ${contextParts}
               }
               
               return (
-                <NFLGameCard
-                  key={prediction.id}
-                  isHovered={focusedCardId === prediction.id}
-                  onMouseEnter={() => setFocusedCardId(prediction.id)}
-                  onMouseLeave={() => setFocusedCardId(null)}
-                  awayTeamColors={awayTeamColors}
-                  homeTeamColors={homeTeamColors}
-                  homeSpread={prediction.home_spread}
-                  awaySpread={prediction.away_spread}
-                >
-                {/* Star Button for Admin Mode */}
-                <StarButton gameId={prediction.training_key} gameType="nfl" />
+                <div key={prediction.id} className="relative">
+                  <NFLGameCard
+                    isHovered={focusedCardId === prediction.id && !isLocked}
+                    onMouseEnter={() => !isLocked && setFocusedCardId(prediction.id)}
+                    onMouseLeave={() => setFocusedCardId(null)}
+                    awayTeamColors={awayTeamColors}
+                    homeTeamColors={homeTeamColors}
+                    homeSpread={prediction.home_spread}
+                    awaySpread={prediction.away_spread}
+                    className={isLocked ? 'blur-sm opacity-50' : ''}
+                  >
+                  {/* Star Button for Admin Mode */}
+                  <StarButton gameId={prediction.training_key} gameType="nfl" />
                 
                 <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
                   {/* Game Date and Time */}
@@ -1200,10 +1211,23 @@ ${contextParts}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => toggleCardExpansion(prediction.id)}
-                      className="text-xs"
+                      onClick={() => {
+                        if (isFreemiumUser && !expandedCards[prediction.id]) {
+                          // Prevent expansion for freemium users
+                          return;
+                        }
+                        toggleCardExpansion(prediction.id);
+                      }}
+                      disabled={isFreemiumUser && !expandedCards[prediction.id]}
+                      className="text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={isFreemiumUser && !expandedCards[prediction.id] ? "Subscribe to view details" : ""}
                     >
-                      {expandedCards[prediction.id] ? (
+                      {isFreemiumUser && !expandedCards[prediction.id] ? (
+                        <>
+                          <Lock className="h-4 w-4 mr-1" />
+                          Upgrade to View Details
+                        </>
+                      ) : expandedCards[prediction.id] ? (
                         <>
                           <ChevronUp className="h-4 w-4 mr-1" />
                           Show Less
@@ -1726,6 +1750,16 @@ ${contextParts}
                   )}
                 </CardContent>
               </NFLGameCard>
+              
+              {/* Lock Overlay for Freemium Users */}
+              {isLocked && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-black/60 backdrop-blur-sm rounded-full p-4">
+                    <Lock className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+              )}
+            </div>
             );
             })}
           </div>
@@ -1760,6 +1794,14 @@ ${contextParts}
 
       {/* Mini WagerBot Chat */}
       <MiniWagerBotChat pageContext={nflContext} pageId="nfl" />
+      
+      {/* Freemium Upgrade Banner */}
+      {isFreemiumUser && predictions.length > 0 && (
+        <FreemiumUpgradeBanner 
+          totalGames={predictions.length} 
+          visibleGames={Math.min(2, predictions.length)} 
+        />
+      )}
     </div>
   );
 }

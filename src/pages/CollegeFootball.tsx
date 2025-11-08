@@ -16,6 +16,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { chatSessionManager } from '@/utils/chatSession';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
 import PolymarketWidget from '@/components/PolymarketWidget';
+import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
+import { FreemiumUpgradeBanner } from '@/components/FreemiumUpgradeBanner';
+import { Lock } from 'lucide-react';
 
 interface CFBPrediction {
   id: string;
@@ -78,6 +81,7 @@ interface TeamMapping {
 
 export default function CollegeFootball() {
   const { user } = useAuth();
+  const { isFreemiumUser } = useFreemiumAccess();
   const [predictions, setPredictions] = useState<CFBPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1126,27 +1130,31 @@ ${contextParts}
           </Button>
           <Button
             variant={sortMode === 'spread' ? 'default' : 'outline'}
+            disabled={isFreemiumUser}
             className={`${
               sortMode === 'spread' 
                 ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40' 
                 : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
-            } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
+            } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
             onClick={() => setSortMode('spread')}
-            title="Sort by highest Spread edge"
+            title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread edge"}
           >
+            {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
             <span className="hidden sm:inline">Sort: Spread</span>
             <span className="sm:hidden">Spread</span>
           </Button>
           <Button
             variant={sortMode === 'ou' ? 'default' : 'outline'}
+            disabled={isFreemiumUser}
             className={`${
               sortMode === 'ou' 
                 ? 'bg-gradient-to-r from-green-600 to-emerald-700 text-white shadow-md shadow-green-500/30 hover:shadow-lg hover:shadow-green-500/40' 
                 : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
-            } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
+            } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
             onClick={() => setSortMode('ou')}
-            title="Sort by highest Over/Under edge"
+            title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under edge"}
           >
+            {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
             <span className="hidden sm:inline">Sort: O/U</span>
             <span className="sm:hidden">O/U</span>
           </Button>
@@ -1223,23 +1231,26 @@ ${contextParts}
               const idB = String(b.id || '');
               return idA.localeCompare(idB);
             })
-            .map((prediction) => {
+            .map((prediction, index) => {
+              // Freemium logic: Only show first 2 games, blur the rest
+              const isLocked = isFreemiumUser && index >= 2;
               const awayTeamColors = getCFBTeamColors(prediction.away_team);
               const homeTeamColors = getCFBTeamColors(prediction.home_team);
               
               return (
-                <CFBGameCard
-                  key={prediction.id}
-                  isHovered={focusedCardId === prediction.id}
-                  onMouseEnter={() => setFocusedCardId(prediction.id)}
-                  onMouseLeave={() => setFocusedCardId(null)}
-                  awayTeamColors={awayTeamColors}
-                  homeTeamColors={homeTeamColors}
-                  homeSpread={prediction.api_spread}
-                  awaySpread={prediction.api_spread ? -prediction.api_spread : null}
-                >
-                {/* Star Button for Admin Mode */}
-                <StarButton gameId={prediction.id} gameType="cfb" />
+                <div key={prediction.id} className="relative">
+                  <CFBGameCard
+                    isHovered={focusedCardId === prediction.id && !isLocked}
+                    onMouseEnter={() => !isLocked && setFocusedCardId(prediction.id)}
+                    onMouseLeave={() => setFocusedCardId(null)}
+                    awayTeamColors={awayTeamColors}
+                    homeTeamColors={homeTeamColors}
+                    homeSpread={prediction.api_spread}
+                    awaySpread={prediction.api_spread ? -prediction.api_spread : null}
+                    className={isLocked ? 'blur-sm opacity-50' : ''}
+                  >
+                  {/* Star Button for Admin Mode */}
+                  <StarButton gameId={prediction.id} gameType="cfb" />
                 
                 <CardContent className="space-y-3 sm:space-y-4 pt-3 pb-3 sm:pt-4 sm:pb-4 px-3 sm:px-4">
                   {/* Game Date and Time */}
@@ -1478,10 +1489,23 @@ ${contextParts}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => toggleCardExpansion(prediction.id)}
-                      className="text-xs"
+                      onClick={() => {
+                        if (isFreemiumUser && !expandedCards[prediction.id]) {
+                          // Prevent expansion for freemium users
+                          return;
+                        }
+                        toggleCardExpansion(prediction.id);
+                      }}
+                      disabled={isFreemiumUser && !expandedCards[prediction.id]}
+                      className="text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={isFreemiumUser && !expandedCards[prediction.id] ? "Subscribe to view details" : ""}
                     >
-                      {expandedCards[prediction.id] ? (
+                      {isFreemiumUser && !expandedCards[prediction.id] ? (
+                        <>
+                          <Lock className="h-4 w-4 mr-1" />
+                          Upgrade to View Details
+                        </>
+                      ) : expandedCards[prediction.id] ? (
                         <>
                           <ChevronUp className="h-4 w-4 mr-1" />
                           Show Less
@@ -1828,6 +1852,16 @@ ${contextParts}
                   )}
                 </CardContent>
               </CFBGameCard>
+              
+              {/* Lock Overlay for Freemium Users */}
+              {isLocked && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-black/60 backdrop-blur-sm rounded-full p-4">
+                    <Lock className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+              )}
+            </div>
             );
             })}
           </div>
@@ -1844,6 +1878,14 @@ ${contextParts}
 
       {/* Mini WagerBot Chat */}
       <MiniWagerBotChat pageContext={cfbContext} pageId="college-football" />
+      
+      {/* Freemium Upgrade Banner */}
+      {isFreemiumUser && predictions.length > 0 && (
+        <FreemiumUpgradeBanner 
+          totalGames={predictions.length} 
+          visibleGames={Math.min(2, predictions.length)} 
+        />
+      )}
     </div>
   );
 } 
