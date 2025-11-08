@@ -26,13 +26,25 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Shield, Users, TrendingUp, Settings as SettingsIcon, Loader2, Eye, MoreVertical, Trash2, Megaphone, Search, Filter, X } from "lucide-react";
+import { Shield, Users, TrendingUp, Settings as SettingsIcon, Loader2, Eye, MoreVertical, Trash2, Megaphone, Search, Filter, X, Gift, RefreshCw } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import debug from '@/utils/debug';
 import Dither from "@/components/Dither";
 import { SaleModeToggle } from "@/components/admin/SaleModeToggle";
 import { SandboxModeToggle } from "@/components/admin/SandboxModeToggle";
 import { useTheme } from "@/contexts/ThemeContext";
+import { grantEntitlement, syncRevenueCatUser, EntitlementDuration, getEndTimeMs } from "@/utils/revenuecatAdmin";
+import { ENTITLEMENT_IDENTIFIER } from "@/services/revenuecatWeb";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -119,8 +131,9 @@ export default function Admin() {
   });
 
   // Fetch all users with their roles and additional data
-  const { data: users, isLoading: usersLoading, error: usersError } = useQuery({
+  const { data: users, isLoading: usersLoading, error: usersError, refetch: refetchUsers } = useQuery({
     queryKey: ['admin-users'],
+    staleTime: 0, // Always consider data stale so refetches work immediately
     queryFn: async () => {
       debug.log('Fetching admin user data...');
       
@@ -164,6 +177,15 @@ export default function Admin() {
   // State for delete confirmation dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{ user_id: string; email: string; username: string } | null>(null);
+
+  // State for grant entitlement dialog
+  const [grantEntitlementDialogOpen, setGrantEntitlementDialogOpen] = useState(false);
+  const [userToGrant, setUserToGrant] = useState<{ user_id: string; email: string; username: string; revenuecat_customer_id: string | null } | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<EntitlementDuration>('monthly');
+  const [customExpirationDate, setCustomExpirationDate] = useState<Date | undefined>(undefined);
+
+  // State for tracking syncing user
+  const [syncingUserId, setSyncingUserId] = useState<string | null>(null);
 
   // State for setting change confirmation dialogs
   const [launchModeDialogOpen, setLaunchModeDialogOpen] = useState(false);
@@ -217,6 +239,147 @@ export default function Admin() {
     },
     onError: (error: any) => {
       toast.error('Failed to delete user account: ' + (error?.message || 'Unknown error'));
+    }
+  });
+
+  // Sync RevenueCat data mutation
+  const syncRevenueCatMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      setSyncingUserId(userId);
+      const result = await syncRevenueCatUser(userId, ENTITLEMENT_IDENTIFIER);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to sync RevenueCat data');
+      }
+      
+      return result;
+    },
+    onSuccess: async (result, userId) => {
+      debug.log('RevenueCat data synced successfully:', result);
+      debug.log('Synced data:', result.data);
+      
+      toast.success('Syncing from RevenueCat...');
+      
+      // Wait a bit for database to update
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      debug.log('Invalidating and refetching admin-users query...');
+      
+      // Remove all cached data for admin-users
+      queryClient.removeQueries({ queryKey: ['admin-users'] });
+      
+      // Force immediate refetch
+      const refetchResult = await queryClient.fetchQuery({ 
+        queryKey: ['admin-users'],
+        queryFn: async () => {
+          debug.log('Force fetching admin user data...');
+          
+          const { data: userData, error: userDataError } = await supabase
+            .rpc('get_admin_user_data');
+          
+          if (userDataError) {
+            debug.error('Error fetching user data from RPC:', userDataError);
+            throw userDataError;
+          }
+
+          debug.log('Fetched user data:', userData?.length || 0, 'users');
+
+          const { data: roles, error: rolesError } = await supabase
+            .from('user_roles')
+            .select('user_id, role');
+          
+          if (rolesError) {
+            debug.error('Error fetching roles:', rolesError);
+            throw rolesError;
+          }
+
+          if (!userData || userData.length === 0) {
+            debug.warn('No user data returned from RPC function');
+            return [];
+          }
+
+          return userData.map((user: any) => ({
+            ...user,
+            roles: roles.filter(r => r.user_id === user.user_id).map(r => r.role)
+          }));
+        },
+        staleTime: 0,
+      });
+      
+      debug.log('Refetch complete, new data:', refetchResult);
+      
+      // Find the synced user in the new data
+      const syncedUser = refetchResult?.find((u: any) => u.user_id === userId);
+      if (syncedUser) {
+        debug.log('Updated user data:', {
+          user_id: syncedUser.user_id,
+          subscription_active: syncedUser.subscription_active,
+          subscription_status: syncedUser.subscription_status,
+          subscription_expires_at: syncedUser.subscription_expires_at,
+        });
+      } else {
+        debug.warn('Could not find synced user in refetched data');
+      }
+      
+      setSyncingUserId(null);
+      toast.success('RevenueCat data synced! User table updated.');
+    },
+    onError: (error: any, userId) => {
+      setSyncingUserId(null);
+      const errorMsg = error?.message || 'Unknown error';
+      toast.error('Failed to sync RevenueCat data: ' + errorMsg);
+      debug.error('Sync RevenueCat error:', error);
+    }
+  });
+
+  // Grant entitlement mutation
+  const grantEntitlementMutation = useMutation({
+    mutationFn: async ({ userId, duration, endTimeMs }: { userId: string; duration: EntitlementDuration; endTimeMs?: number }) => {
+      const result = await grantEntitlement({
+        app_user_id: userId,
+        entitlement_identifier: ENTITLEMENT_IDENTIFIER,
+        duration,
+        end_time_ms: endTimeMs,
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to grant entitlement');
+      }
+      
+      return result;
+    },
+    onSuccess: async (result) => {
+      debug.log('Entitlement granted successfully:', result);
+      
+      toast.success('Entitlement granted! Refreshing user data...');
+      
+      // Add a delay to ensure RevenueCat and Supabase sync is complete
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Force invalidate and refetch of user data to show updated entitlement
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      
+      // Wait for the refetch to complete
+      try {
+        await queryClient.refetchQueries({ 
+          queryKey: ['admin-users'],
+          type: 'active'
+        });
+        debug.log('User data refetched successfully');
+        toast.success('Entitlement granted successfully! The user can now access the app.');
+      } catch (refetchError) {
+        debug.error('Error refetching user data:', refetchError);
+        toast.info('Entitlement granted! Refresh the page to see the update.');
+      }
+      
+      setGrantEntitlementDialogOpen(false);
+      setUserToGrant(null);
+      setSelectedDuration('monthly');
+      setCustomExpirationDate(undefined);
+    },
+    onError: (error: any) => {
+      toast.error('Failed to grant entitlement: ' + (error?.message || 'Unknown error'));
+      debug.error('Grant entitlement error:', error);
     }
   });
 
@@ -330,7 +493,7 @@ export default function Admin() {
       </div>
 
       <div className="relative z-10">
-        <div className="max-w-7xl mx-auto space-y-8">
+        <div className="max-w-[95vw] mx-auto space-y-8 px-4">
           {/* Header */}
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-500/20 backdrop-blur-sm border border-green-500/30 rounded-xl shadow-lg">
@@ -624,8 +787,42 @@ export default function Admin() {
             }}
           >
             <CardHeader>
-              <CardTitle className="text-white">User Management</CardTitle>
-              <CardDescription className="text-white/70">View and manage all registered users</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-white">User Management</CardTitle>
+                  <CardDescription className="text-white/70">
+                    View and manage all registered users
+                    <span className="block text-xs text-green-400/80 mt-2">
+                      ℹ️ Subscription data is cached in Supabase for fast loading. No individual RevenueCat API calls are made per user.
+                    </span>
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={() => {
+                    debug.log('Manual refresh triggered');
+                    queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+                    toast.info('Refreshing user data...');
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="border-white/20 text-white hover:bg-white/10"
+                  disabled={usersLoading}
+                >
+                  {usersLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {/* Search and Filter Controls */}
@@ -780,9 +977,23 @@ export default function Admin() {
                           </TableCell>
                           <TableCell>
                             {user.subscription_active ? (
-                              <Badge variant="default" className="bg-green-500 text-white">
-                                {user.subscription_status || 'Active'}
-                              </Badge>
+                              <div className="flex flex-col gap-1">
+                                <Badge 
+                                  variant="default" 
+                                  className={
+                                    user.subscription_status === 'promotional' 
+                                      ? "bg-purple-600 text-white" 
+                                      : "bg-green-500 text-white"
+                                  }
+                                >
+                                  {user.subscription_status === 'promotional' 
+                                    ? '🎁 Admin Grant' 
+                                    : user.subscription_status || 'Active'}
+                                </Badge>
+                                {user.subscription_status === 'lifetime' && (
+                                  <span className="text-xs text-green-400">∞ Lifetime</span>
+                                )}
+                              </div>
                             ) : (
                               <Badge variant="secondary" className="text-white bg-gray-700">
                                 None
@@ -791,9 +1002,16 @@ export default function Admin() {
                           </TableCell>
                           <TableCell className="text-white text-sm">
                             {user.subscription_expires_at ? (
-                              new Date(user.subscription_expires_at).toLocaleDateString()
+                              <div className="flex flex-col">
+                                <span>{new Date(user.subscription_expires_at).toLocaleDateString()}</span>
+                                <span className="text-xs text-white/50">
+                                  {new Date(user.subscription_expires_at) > new Date() 
+                                    ? '✓ Active' 
+                                    : '⚠ Expired'}
+                                </span>
+                              </div>
                             ) : user.subscription_status === 'lifetime' ? (
-                              <span className="text-green-400">Lifetime</span>
+                              <span className="text-green-400 font-semibold">∞ Lifetime</span>
                             ) : (
                               <span className="text-white/50">N/A</span>
                             )}
@@ -841,6 +1059,41 @@ export default function Admin() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="bg-black/90 border-white/20">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setUserToGrant({
+                                      user_id: user.user_id,
+                                      email: user.email || user.username,
+                                      username: user.username,
+                                      revenuecat_customer_id: user.revenuecat_customer_id
+                                    });
+                                    setGrantEntitlementDialogOpen(true);
+                                  }}
+                                  className="text-green-400 focus:text-green-300 focus:bg-green-500/20"
+                                >
+                                  <Gift className="h-4 w-4 mr-2" />
+                                  Grant Entitlement
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    debug.log('Syncing RevenueCat data for user:', user.user_id);
+                                    syncRevenueCatMutation.mutate(user.user_id);
+                                  }}
+                                  disabled={syncingUserId === user.user_id}
+                                  className="text-blue-400 focus:text-blue-300 focus:bg-blue-500/20"
+                                >
+                                  {syncingUserId === user.user_id ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Syncing...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RefreshCw className="h-4 w-4 mr-2" />
+                                      Sync RevenueCat
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setUserToDelete({
@@ -967,6 +1220,134 @@ export default function Admin() {
                     </>
                   ) : (
                     pendingAccessRestricted ? 'Enable Password Overlay' : 'Disable Password Overlay'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Grant Entitlement Dialog */}
+          <AlertDialog open={grantEntitlementDialogOpen} onOpenChange={setGrantEntitlementDialogOpen}>
+            <AlertDialogContent className="bg-black/90 border-white/20 max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-white">Grant Entitlement</AlertDialogTitle>
+                <AlertDialogDescription className="text-white/70">
+                  Grant "WagerProof Pro" entitlement to <strong>{userToGrant?.email || userToGrant?.username}</strong>
+                  {userToGrant?.revenuecat_customer_id ? (
+                    <span className="block text-xs text-white/50 mt-1">
+                      RevenueCat ID: {userToGrant.revenuecat_customer_id}
+                    </span>
+                  ) : (
+                    <span className="block text-xs text-yellow-400/80 mt-2">
+                      ⚠️ User hasn't signed in yet. RevenueCat will create their account automatically.
+                    </span>
+                  )}
+                  <span className="block text-xs text-green-400/80 mt-2">
+                    This grants immediate access. The entitlement will appear in the table after granting.
+                  </span>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-white">Duration</label>
+                  <Select
+                    value={selectedDuration}
+                    onValueChange={(value) => {
+                      setSelectedDuration(value as EntitlementDuration);
+                      if (value !== 'custom') {
+                        setCustomExpirationDate(undefined);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="bg-black/20 border-white/20 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-black/90 border-white/20">
+                      <SelectItem value="monthly" className="text-white focus:bg-white/10">
+                        📅 Monthly (30 days from now)
+                      </SelectItem>
+                      <SelectItem value="yearly" className="text-white focus:bg-white/10">
+                        📆 Yearly (365 days from now)
+                      </SelectItem>
+                      <SelectItem value="lifetime" className="text-white focus:bg-white/10">
+                        ∞ Lifetime (never expires - 99 years)
+                      </SelectItem>
+                      <SelectItem value="custom" className="text-white focus:bg-white/10">
+                        🎯 Custom expiration date
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedDuration === 'custom' && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-white">Expiration Date</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal bg-black/20 border-white/20 text-white hover:bg-white/10"
+                        >
+                          {customExpirationDate ? (
+                            format(customExpirationDate, "PPP")
+                          ) : (
+                            <span className="text-white/50">Pick a date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-black/90 border-white/20" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={customExpirationDate}
+                          onSelect={setCustomExpirationDate}
+                          disabled={(date) => date < new Date()}
+                          initialFocus
+                          className="bg-black/90 text-white"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                {selectedDuration === 'lifetime' && (
+                  <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <p className="text-xs text-green-400">
+                      This will grant a lifetime entitlement with no expiration date.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="bg-white/10 text-white border-white/20 hover:bg-white/20">
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (userToGrant) {
+                      let endTimeMs: number | undefined = undefined;
+                      
+                      if (selectedDuration === 'custom' && customExpirationDate) {
+                        endTimeMs = getEndTimeMs(customExpirationDate);
+                      }
+                      // For lifetime, endTimeMs remains undefined
+                      
+                      grantEntitlementMutation.mutate({
+                        userId: userToGrant.user_id,
+                        duration: selectedDuration,
+                        endTimeMs,
+                      });
+                    }
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  disabled={grantEntitlementMutation.isPending || (selectedDuration === 'custom' && !customExpirationDate)}
+                >
+                  {grantEntitlementMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Granting...
+                    </>
+                  ) : (
+                    'Grant Entitlement'
                   )}
                 </AlertDialogAction>
               </AlertDialogFooter>

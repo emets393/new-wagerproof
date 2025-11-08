@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { useEffect } from "react";
+import { logMixpanelStatus } from "@/lib/mixpanel";
 import Landing from "./pages/NewLanding";
 import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -59,6 +60,23 @@ function ScrollToTop() {
       return () => clearTimeout(timeoutId);
     }
   }, [pathname]);
+
+  return null;
+}
+
+// Component to check Mixpanel initialization status
+function MixpanelStatusCheck() {
+  useEffect(() => {
+    // Check immediately on mount
+    logMixpanelStatus();
+
+    // Also check after a delay to see if the real library loads
+    const timeoutId = setTimeout(() => {
+      logMixpanelStatus();
+    }, 3000);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   return null;
 }
@@ -160,6 +178,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <ScrollToTop />
+            <MixpanelStatusCheck />
             <AuthProvider>
               <RevenueCatProvider>
                 <AdminModeProvider>

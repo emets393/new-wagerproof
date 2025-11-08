@@ -20,15 +20,133 @@ declare global {
       };
       reset: () => void;
       register: (properties: Record<string, any>) => void;
+      toString: () => string;
+      __loaded?: boolean;
     };
   }
 }
 
 /**
- * Check if Mixpanel is loaded and available
+ * Production-safe logging for critical Mixpanel errors
+ * These errors should always be visible, even in production
+ */
+const logMixpanelError = (message: string, ...args: any[]) => {
+  // Always log Mixpanel errors to console for debugging
+  console.error(`[Mixpanel Error] ${message}`, ...args);
+};
+
+const logMixpanelWarn = (message: string, ...args: any[]) => {
+  // Always log Mixpanel warnings to console for debugging
+  console.warn(`[Mixpanel Warning] ${message}`, ...args);
+};
+
+/**
+ * Check if Mixpanel real library is loaded (not just the stub)
+ * The Mixpanel snippet creates a stub immediately, but the real library
+ * loads asynchronously from CDN. This function checks if the real library loaded.
  */
 export const isMixpanelLoaded = (): boolean => {
-  return typeof window !== 'undefined' && !!window.mixpanel;
+  if (typeof window === 'undefined' || !window.mixpanel) {
+    return false;
+  }
+
+  // Check if the real library loaded using multiple methods:
+  
+  // Method 1: Check for __loaded flag (if it exists)
+  if (window.mixpanel.__loaded !== undefined) {
+    return window.mixpanel.__loaded === true;
+  }
+
+  // Method 2: Check if toString() returns the stub indicator
+  try {
+    const mixpanelString = window.mixpanel.toString();
+    // If it's still the stub, toString() will include "(stub)"
+    if (mixpanelString && mixpanelString.includes('(stub)')) {
+      return false;
+    }
+  } catch (e) {
+    // If toString fails, assume not loaded
+    return false;
+  }
+
+  // Method 3: Check if track function is a real function (not a stub queue)
+  // The stub's track pushes to an array, the real library actually tracks
+  if (window.mixpanel.track && typeof window.mixpanel.track === 'function') {
+    // Try to detect if it's the stub by checking the function signature
+    const trackStr = window.mixpanel.track.toString();
+    // The stub function will have 'push' in it
+    if (trackStr.includes('push([')) {
+      return false;
+    }
+  }
+
+  // If all checks pass, assume it's loaded
+  return true;
+};
+
+/**
+ * Get diagnostic information about Mixpanel status
+ * Useful for debugging why events aren't being tracked
+ */
+export const getMixpanelStatus = (): {
+  exists: boolean;
+  loaded: boolean;
+  isStub: boolean;
+  status: string;
+  error?: string;
+} => {
+  if (typeof window === 'undefined') {
+    return {
+      exists: false,
+      loaded: false,
+      isStub: false,
+      status: 'window not available (SSR)',
+    };
+  }
+
+  if (!window.mixpanel) {
+    return {
+      exists: false,
+      loaded: false,
+      isStub: false,
+      status: 'Mixpanel not initialized',
+      error: 'window.mixpanel is undefined - script may be blocked by ad blocker or failed to load',
+    };
+  }
+
+  const mixpanelString = window.mixpanel.toString ? window.mixpanel.toString() : '';
+  const isStub = mixpanelString.includes('(stub)');
+
+  if (isStub) {
+    return {
+      exists: true,
+      loaded: false,
+      isStub: true,
+      status: 'Stub loaded, real library pending',
+      error: 'Real Mixpanel library not loaded - check network, ad blockers, or CSP policies',
+    };
+  }
+
+  return {
+    exists: true,
+    loaded: true,
+    isStub: false,
+    status: 'Fully loaded and operational',
+  };
+};
+
+/**
+ * Log Mixpanel status to console for debugging
+ * Safe to call in production
+ */
+export const logMixpanelStatus = (): void => {
+  const status = getMixpanelStatus();
+  
+  if (status.loaded) {
+    console.info('[Mixpanel] Status:', status.status);
+  } else {
+    logMixpanelWarn(status.status, status.error || '');
+  }
 };
 
 /**
@@ -41,7 +159,12 @@ export const trackEvent = (
   properties?: Record<string, any>
 ): void => {
   if (!isMixpanelLoaded()) {
-    debug.warn('[Mixpanel] Not loaded, skipping event:', eventName);
+    logMixpanelWarn(`Not loaded, skipping event: ${eventName}`);
+    // Log status for debugging
+    const status = getMixpanelStatus();
+    if (status.error) {
+      logMixpanelWarn(status.error);
+    }
     return;
   }
 
@@ -52,7 +175,7 @@ export const trackEvent = (
     });
     debug.log('[Mixpanel] Event tracked:', eventName, properties);
   } catch (error) {
-    debug.error('[Mixpanel] Error tracking event:', error);
+    logMixpanelError('Error tracking event:', error);
   }
 };
 
@@ -62,7 +185,7 @@ export const trackEvent = (
  */
 export const setUserProperties = (properties: Record<string, any>): void => {
   if (!isMixpanelLoaded()) {
-    debug.warn('[Mixpanel] Not loaded, skipping user properties');
+    logMixpanelWarn('Not loaded, skipping user properties');
     return;
   }
 
@@ -70,7 +193,7 @@ export const setUserProperties = (properties: Record<string, any>): void => {
     window.mixpanel!.people.set(properties);
     debug.log('[Mixpanel] User properties set:', properties);
   } catch (error) {
-    debug.error('[Mixpanel] Error setting user properties:', error);
+    logMixpanelError('Error setting user properties:', error);
   }
 };
 
@@ -80,7 +203,7 @@ export const setUserProperties = (properties: Record<string, any>): void => {
  */
 export const setUserPropertiesOnce = (properties: Record<string, any>): void => {
   if (!isMixpanelLoaded()) {
-    debug.warn('[Mixpanel] Not loaded, skipping user properties (once)');
+    logMixpanelWarn('Not loaded, skipping user properties (once)');
     return;
   }
 
@@ -88,7 +211,7 @@ export const setUserPropertiesOnce = (properties: Record<string, any>): void => 
     window.mixpanel!.people.set_once(properties);
     debug.log('[Mixpanel] User properties set once:', properties);
   } catch (error) {
-    debug.error('[Mixpanel] Error setting user properties once:', error);
+    logMixpanelError('Error setting user properties once:', error);
   }
 };
 
@@ -99,7 +222,7 @@ export const setUserPropertiesOnce = (properties: Record<string, any>): void => 
  */
 export const incrementUserProperty = (property: string, value: number = 1): void => {
   if (!isMixpanelLoaded()) {
-    debug.warn('[Mixpanel] Not loaded, skipping increment');
+    logMixpanelWarn('Not loaded, skipping increment');
     return;
   }
 
@@ -107,7 +230,7 @@ export const incrementUserProperty = (property: string, value: number = 1): void
     window.mixpanel!.people.increment(property, value);
     debug.log(`[Mixpanel] Incremented ${property} by ${value}`);
   } catch (error) {
-    debug.error('[Mixpanel] Error incrementing property:', error);
+    logMixpanelError('Error incrementing property:', error);
   }
 };
 
@@ -121,7 +244,7 @@ export const identifyUser = (
   properties?: Record<string, any>
 ): void => {
   if (!isMixpanelLoaded()) {
-    debug.warn('[Mixpanel] Not loaded, skipping identify');
+    logMixpanelWarn('Not loaded, skipping identify');
     return;
   }
 
@@ -132,7 +255,7 @@ export const identifyUser = (
     }
     debug.log('[Mixpanel] User identified:', userId);
   } catch (error) {
-    debug.error('[Mixpanel] Error identifying user:', error);
+    logMixpanelError('Error identifying user:', error);
   }
 };
 
@@ -141,7 +264,7 @@ export const identifyUser = (
  */
 export const resetTracking = (): void => {
   if (!isMixpanelLoaded()) {
-    debug.warn('[Mixpanel] Not loaded, skipping reset');
+    logMixpanelWarn('Not loaded, skipping reset');
     return;
   }
 
@@ -149,7 +272,7 @@ export const resetTracking = (): void => {
     window.mixpanel!.reset();
     debug.log('[Mixpanel] Tracking reset');
   } catch (error) {
-    debug.error('[Mixpanel] Error resetting:', error);
+    logMixpanelError('Error resetting:', error);
   }
 };
 
@@ -159,7 +282,7 @@ export const resetTracking = (): void => {
  */
 export const registerSuperProperties = (properties: Record<string, any>): void => {
   if (!isMixpanelLoaded()) {
-    debug.warn('[Mixpanel] Not loaded, skipping super properties');
+    logMixpanelWarn('Not loaded, skipping super properties');
     return;
   }
 
@@ -167,7 +290,7 @@ export const registerSuperProperties = (properties: Record<string, any>): void =
     window.mixpanel!.register(properties);
     debug.log('[Mixpanel] Super properties registered:', properties);
   } catch (error) {
-    debug.error('[Mixpanel] Error registering super properties:', error);
+    logMixpanelError('Error registering super properties:', error);
   }
 };
 
