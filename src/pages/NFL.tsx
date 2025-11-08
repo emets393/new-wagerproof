@@ -413,12 +413,16 @@ ${contextParts}
 
       debug.log('Betting map created with', bettingMap.size, 'entries');
 
-      // Fetch predictions - only from today onwards
-      // First get the most recent run_id
+      // Fetch predictions - get games from yesterday onwards to catch games that started recently
+      // We'll filter by actual game time + 6 hours later
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      
+      // First get the most recent run_id (without date filter to get latest available)
       const { data: latestRun, error: runError } = await collegeFootballSupabase
         .from('nfl_predictions_epa')
         .select('run_id')
-        .gte('game_date', today)
         .order('run_id', { ascending: false })
         .limit(1)
         .single();
@@ -431,17 +435,18 @@ ${contextParts}
 
       const latestRunId = latestRun?.run_id;
       if (!latestRunId) {
-        debug.log('No predictions found for today onwards');
+        debug.log('No predictions found');
         setPredictions([]);
         setLoading(false);
         return;
       }
 
-      // Now fetch predictions with the latest run_id
+      // Fetch ALL predictions from yesterday onwards with the latest run_id
+      // We'll filter by game time + 6 hours client-side
       const { data: preds, error: predsError } = await collegeFootballSupabase
         .from('nfl_predictions_epa')
         .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id, game_date')
-        .gte('game_date', today)
+        .gte('game_date', yesterdayStr)
         .eq('run_id', latestRunId)
         .order('game_date', { ascending: true });
 
@@ -514,7 +519,37 @@ ${contextParts}
         };
       });
 
-      setPredictions(predictionsWithData);
+      // Filter out games that are more than 6 hours past their start time
+      const currentTime = new Date();
+      const filteredPredictions = predictionsWithData.filter(pred => {
+        if (!pred.game_date || !pred.game_time) {
+          debug.warn('Game missing date or time, keeping it:', pred.training_key);
+          return true; // Keep games without time info
+        }
+        
+        try {
+          // Combine game_date and game_time to create full datetime
+          // game_date format: "2024-11-08"
+          // game_time format: "20:30:00" (UTC)
+          const gameDateTime = new Date(`${pred.game_date}T${pred.game_time}Z`);
+          
+          // Add 6 hours to game start time
+          const sixHoursAfterGame = new Date(gameDateTime.getTime() + (6 * 60 * 60 * 1000));
+          
+          const shouldKeep = currentTime < sixHoursAfterGame;
+          
+          debug.log(`Game ${pred.away_team} @ ${pred.home_team}: Start ${gameDateTime.toISOString()}, +6hrs ${sixHoursAfterGame.toISOString()}, Keep: ${shouldKeep}`);
+          
+          return shouldKeep;
+        } catch (error) {
+          debug.error('Error parsing game time for', pred.training_key, error);
+          return true; // Keep games if we can't parse the time
+        }
+      });
+
+      debug.log(`Filtered games: ${predictionsWithData.length} -> ${filteredPredictions.length} (removed ${predictionsWithData.length - filteredPredictions.length} games past 6hr window)`);
+
+      setPredictions(filteredPredictions);
       setLastUpdated(new Date());
     } catch (err) {
       debug.error('Error fetching data:', err);
@@ -871,7 +906,7 @@ ${contextParts}
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="w-full">
       {/* Sort Controls with Refresh and Last Updated */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -962,9 +997,10 @@ ${contextParts}
       )}
 
       <div className="space-y-6 sm:space-y-8">
-        <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {getSortedPredictions()
-            .map((prediction, index) => {
+        <div className="-mx-4 md:mx-0">
+          <div className="grid gap-3 sm:gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
+            {getSortedPredictions()
+              .map((prediction, index) => {
               const awayTeamColors = getNFLTeamColors(prediction.away_team);
               const homeTeamColors = getNFLTeamColors(prediction.home_team);
               
@@ -1605,6 +1641,7 @@ ${contextParts}
               </NFLGameCard>
             );
             })}
+          </div>
         </div>
       </div>
 

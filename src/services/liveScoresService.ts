@@ -11,6 +11,8 @@ interface NFLPrediction {
   home_away_ml_prob: number | null;
   home_away_spread_cover_prob: number | null;
   ou_result_prob: number | null;
+  game_date?: string;
+  game_time?: string;
 }
 
 interface NFLBettingLine {
@@ -181,28 +183,30 @@ function calculatePredictionStatus(
  */
 async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
   try {
-    // Get today's date for filtering
-    const today = new Date().toISOString().split('T')[0];
+    // Get yesterday's date to catch games that started recently
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-    // First get the latest run_id
+    // First get the latest run_id (without date filter)
     const { data: latestRun, error: runError } = await collegeFootballSupabase
       .from('nfl_predictions_epa')
       .select('run_id')
-      .gte('game_date', today)
       .order('run_id', { ascending: false })
       .limit(1)
       .single();
 
     if (runError || !latestRun?.run_id) {
-      debug.log('No NFL predictions found for today');
+      debug.log('No NFL predictions found');
       return [];
     }
 
-    // Fetch predictions with the latest run_id
+    // Fetch predictions with the latest run_id from yesterday onwards
+    // Include game_date and game_time for filtering
     const { data: predictions, error: predsError } = await collegeFootballSupabase
       .from('nfl_predictions_epa')
-      .select('training_key, home_team, away_team, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob')
-      .gte('game_date', today)
+      .select('training_key, home_team, away_team, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, game_date, game_time')
+      .gte('game_date', yesterdayStr)
       .eq('run_id', latestRun.run_id);
 
     if (predsError) {
@@ -213,7 +217,7 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
     // Fetch betting lines
     const { data: bettingLines, error: linesError } = await collegeFootballSupabase
       .from('nfl_betting_lines')
-      .select('training_key, home_team, away_team, home_spread, away_spread, over_line');
+      .select('training_key, home_team, away_team, home_spread, away_spread, over_line, game_date, game_time');
 
     if (linesError) {
       debug.error('Error fetching NFL betting lines:', linesError);
@@ -226,18 +230,37 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
         ...pred,
         home_spread: line?.home_spread || null,
         away_spread: line?.away_spread || null,
-        over_line: line?.over_line || null
+        over_line: line?.over_line || null,
+        game_date: pred.game_date || line?.game_date,
+        game_time: pred.game_time || line?.game_time
       } as NFLPredictionWithLines;
     });
 
-    debug.log(`📊 Fetched ${merged.length} NFL predictions with lines`);
-    if (merged.length > 0) {
+    // Filter out games more than 6 hours past their start time
+    const currentTime = new Date();
+    const filtered = merged.filter(pred => {
+      if (!pred.game_date || !pred.game_time) {
+        return true; // Keep games without time info
+      }
+      
+      try {
+        const gameDateTime = new Date(`${pred.game_date}T${pred.game_time}Z`);
+        const sixHoursAfterGame = new Date(gameDateTime.getTime() + (6 * 60 * 60 * 1000));
+        return currentTime < sixHoursAfterGame;
+      } catch (error) {
+        debug.error('Error parsing game time:', error);
+        return true;
+      }
+    });
+
+    debug.log(`📊 Fetched ${merged.length} NFL predictions, ${filtered.length} within 6hr window`);
+    if (filtered.length > 0) {
       debug.log(`📊 Sample NFL prediction teams:`, {
-        home: merged[0].home_team,
-        away: merged[0].away_team
+        home: filtered[0].home_team,
+        away: filtered[0].away_team
       });
     }
-    return merged;
+    return filtered;
   } catch (error) {
     debug.error('Error in fetchNFLPredictions:', error);
     return [];

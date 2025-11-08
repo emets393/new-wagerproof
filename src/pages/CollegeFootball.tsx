@@ -1047,7 +1047,7 @@ ${contextParts}
   }
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 w-full max-w-full overflow-x-hidden">
+    <div className="w-full">
 
       {/* Game selection dropdown (multi) - Aligned with sort buttons */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -1190,9 +1190,10 @@ ${contextParts}
 
       <div className="space-y-6 sm:space-y-8 w-full">
         {/* Display all games in a single grid, ordered by date and time */}
-        <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 w-full auto-rows-fr">
-          {predictions
-            .filter(shouldDisplaySelected)
+        <div className="-mx-4 md:mx-0">
+          <div className="grid gap-2 sm:gap-3 md:gap-4 auto-rows-fr" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
+            {predictions
+              .filter(shouldDisplaySelected)
             .sort((a, b) => {
               if (sortMode === 'spread') {
                 return getDisplayedSpreadEdge(b) - getDisplayedSpreadEdge(a);
@@ -1744,6 +1745,7 @@ ${contextParts}
               </CFBGameCard>
             );
             })}
+          </div>
         </div>
       </div>
 

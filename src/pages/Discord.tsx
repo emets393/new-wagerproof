@@ -71,7 +71,7 @@ export default function Discord() {
                     className="flex items-center gap-3"
                   >
                     <DiscordLogo className="w-6 h-6" weight="fill" />
-                    <span>Join Exclusive Discord Community</span>
+                    <span>Chat Now! 💬</span>
                   </a>
                 </Button>
               </div>

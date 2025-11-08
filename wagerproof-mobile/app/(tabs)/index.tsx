@@ -173,13 +173,16 @@ export default function FeedScreen() {
   // Fetch NFL data
   const fetchNFLData = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // Get yesterday's date to catch games that started recently
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
 
       // Get betting lines
       const { data: bettingData, error: bettingError } = await collegeFootballSupabase
         .from('nfl_betting_lines')
         .select('*')
-        .gte('game_date', today)
+        .gte('game_date', yesterdayStr)
         .order('as_of_ts', { ascending: false });
 
       if (bettingError) throw bettingError;
@@ -193,11 +196,10 @@ export default function FeedScreen() {
         }
       });
 
-      // Get latest run_id
+      // Get latest run_id (without date filter)
       const { data: latestRunData, error: runError } = await collegeFootballSupabase
         .from('nfl_predictions_epa')
         .select('run_id')
-        .gte('game_date', today)
         .order('run_id', { ascending: false })
         .limit(1);
 
@@ -209,11 +211,11 @@ export default function FeedScreen() {
         return;
       }
 
-      // Get predictions
+      // Get predictions from yesterday onwards
       const { data: preds, error: predsError } = await collegeFootballSupabase
         .from('nfl_predictions_epa')
-        .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id, game_date')
-        .gte('game_date', today)
+        .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id, game_date, game_time')
+        .gte('game_date', yesterdayStr)
         .eq('run_id', latestRunId)
         .order('game_date', { ascending: true });
 
@@ -266,16 +268,34 @@ export default function FeedScreen() {
         })
         .filter(pred => pred !== null);
 
+      // Filter out games more than 6 hours past their start time
+      const currentTime = new Date();
+      const filteredGames = predictionsWithData.filter(pred => {
+        if (!pred || !pred.game_date || !pred.game_time) {
+          return true; // Keep games without time info
+        }
+        
+        try {
+          const gameDateTime = new Date(`${pred.game_date}T${pred.game_time}Z`);
+          const sixHoursAfterGame = new Date(gameDateTime.getTime() + (6 * 60 * 60 * 1000));
+          return currentTime < sixHoursAfterGame;
+        } catch (error) {
+          console.error('Error parsing game time:', error);
+          return true;
+        }
+      });
+
       // Debug: Log first game's betting splits
-      if (predictionsWithData.length > 0) {
+      if (filteredGames.length > 0) {
         console.log('NFL Game 1 betting splits:', {
-          ml: predictionsWithData[0]?.ml_splits_label,
-          spread: predictionsWithData[0]?.spread_splits_label,
-          total: predictionsWithData[0]?.total_splits_label
+          ml: filteredGames[0]?.ml_splits_label,
+          spread: filteredGames[0]?.spread_splits_label,
+          total: filteredGames[0]?.total_splits_label
         });
       }
 
-      setNflGames(predictionsWithData);
+      console.log(`📊 NFL: ${predictionsWithData.length} total, ${filteredGames.length} within 6hr window`);
+      setNflGames(filteredGames);
     } catch (err) {
       console.error('Error fetching NFL data:', err);
       setError('Failed to fetch NFL games');
