@@ -1,7 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useSaleMode } from '@/hooks/useSaleMode';
 import { useRevenueCatWeb } from '@/hooks/useRevenueCatWeb';
 import { Loader2, Tag } from 'lucide-react';
@@ -12,6 +23,8 @@ export function SaleModeToggle() {
   const { isSaleActive, discountPercentage, loading, updateSaleMode, isUpdating } = useSaleMode();
   const { currentOffering, loading: rcLoading } = useRevenueCatWeb();
   const { toast } = useToast();
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingSaleMode, setPendingSaleMode] = useState<boolean | null>(null);
 
   // Extract prices from RevenueCat packages
   const getPrices = () => {
@@ -77,22 +90,34 @@ export function SaleModeToggle() {
 
   const prices = getPrices();
 
-  const handleToggle = async (enabled: boolean) => {
+  const handleToggle = (enabled: boolean) => {
+    setPendingSaleMode(enabled);
+    setConfirmDialogOpen(true);
+  };
+
+  const confirmToggle = async () => {
+    if (pendingSaleMode === null) return;
+    
     try {
-      updateSaleMode({ enabled, discountPercentage: 50 });
+      updateSaleMode({ enabled: pendingSaleMode, discountPercentage: 50 });
       
       toast({
-        title: enabled ? 'Sale Mode Enabled' : 'Sale Mode Disabled',
-        description: enabled 
+        title: pendingSaleMode ? 'Sale Mode Enabled' : 'Sale Mode Disabled',
+        description: pendingSaleMode 
           ? 'Paywall now shows discounted prices (50% off)'
           : 'Paywall now shows regular prices',
       });
+      
+      setConfirmDialogOpen(false);
+      setPendingSaleMode(null);
     } catch (error: any) {
       toast({
         title: 'Error updating sale mode',
         description: error.message || 'Failed to update sale mode',
         variant: 'destructive',
       });
+      setConfirmDialogOpen(false);
+      setPendingSaleMode(null);
     }
   };
 
@@ -121,17 +146,31 @@ export function SaleModeToggle() {
         <CardTitle className="flex items-center gap-2 text-white">
           <Tag className="h-5 w-5" />
           Sale Mode
+          {isSaleActive ? (
+            <Badge className="bg-orange-500 text-white ml-2">SALE ACTIVE</Badge>
+          ) : (
+            <Badge className="bg-gray-600 text-white ml-2">REGULAR PRICING</Badge>
+          )}
         </CardTitle>
         <CardDescription className="text-white/70">Control promotional pricing across the platform</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between space-x-4">
-          <Label htmlFor="sale-mode" className="flex flex-col space-y-1 cursor-pointer">
-            <span className="text-sm font-medium leading-none">
-              Enable Sale Mode
+          <Label htmlFor="sale-mode" className="flex flex-col space-y-1 cursor-pointer flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm font-medium leading-none text-white">
+                {isSaleActive ? 'Sale Mode Active' : 'Regular Pricing Active'}
+              </span>
+            </div>
+            <span className="text-sm text-white/70">
+              {isSaleActive 
+                ? `Paywall currently shows discounted prices (${prices.yearlyDiscount || prices.monthlyDiscount || discountPercentage}% off)`
+                : 'Paywall shows regular subscription prices'}
             </span>
-            <span className="text-sm text-muted-foreground">
-              Show discounted prices on paywall ({prices.yearlyDiscount || prices.monthlyDiscount || discountPercentage}% off)
+            <span className="text-xs text-yellow-400/80 mt-1">
+              {isSaleActive
+                ? '⚠️ Turning this OFF will switch to regular pricing'
+                : '⚠️ Turning this ON will enable sale pricing'}
             </span>
           </Label>
           <Switch
@@ -139,6 +178,7 @@ export function SaleModeToggle() {
             checked={isSaleActive}
             onCheckedChange={handleToggle}
             disabled={isUpdating}
+            className="data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-gray-700"
           />
         </div>
 
@@ -196,6 +236,55 @@ export function SaleModeToggle() {
           <p>• Regular: <code className="text-xs bg-white/10 px-1 rounded">wagerproof_monthly_pro</code>, <code className="text-xs bg-white/10 px-1 rounded">wagerproof_pro_yearly</code></p>
           <p>• Discounted: <code className="text-xs bg-white/10 px-1 rounded">wagerproof_monthly_pro_discount</code>, <code className="text-xs bg-white/10 px-1 rounded">wagerproof_yearly_pro_discount</code></p>
         </div>
+
+        {/* Confirmation Dialog */}
+        <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+          <AlertDialogContent className="bg-black/90 border-white/20">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">
+                {pendingSaleMode ? 'Enable Sale Mode?' : 'Disable Sale Mode?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-white/70">
+                {pendingSaleMode ? (
+                  <>
+                    <strong className="text-yellow-400">⚠️ WARNING:</strong> This will enable <strong>SALE MODE</strong>.
+                    <br /><br />
+                    The paywall will display discounted prices ({prices.yearlyDiscount || prices.monthlyDiscount || discountPercentage}% off) to all users.
+                    <br /><br />
+                    Are you sure you want to enable sale pricing?
+                  </>
+                ) : (
+                  <>
+                    <strong className="text-yellow-400">⚠️ WARNING:</strong> This will disable <strong>SALE MODE</strong>.
+                    <br /><br />
+                    The paywall will switch back to regular subscription prices. Users will no longer see discounted rates.
+                    <br /><br />
+                    Are you sure you want to disable sale pricing?
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-white/10 text-white border-white/20 hover:bg-white/20">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmToggle}
+                className={pendingSaleMode ? "bg-orange-600 hover:bg-orange-700 text-white" : "bg-gray-600 hover:bg-gray-700 text-white"}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  pendingSaleMode ? 'Enable Sale Mode' : 'Disable Sale Mode'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
