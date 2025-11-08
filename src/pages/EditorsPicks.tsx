@@ -13,6 +13,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
+import { ValueFindsSection } from '@/components/ValueFindsSection';
 
 interface EditorPick {
   id: string;
@@ -683,6 +684,10 @@ export default function EditorsPicks() {
           </CardContent>
         </Card>
       )}
+
+      {/* Value Finds Sections */}
+      <ValueFindsSection sportType="nfl" gamesData={gamesData} />
+      <ValueFindsSection sportType="cfb" gamesData={gamesData} />
 
       {/* Draft Picks (Admin Mode Only) */}
       {adminModeEnabled && draftPicks.length > 0 && (

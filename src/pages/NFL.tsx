@@ -24,7 +24,10 @@ import { trackPredictionViewed, trackGameAnalysisOpened, trackFilterApplied, tra
 import PolymarketWidget from '@/components/PolymarketWidget';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
 import { FreemiumUpgradeBanner } from '@/components/FreemiumUpgradeBanner';
-import { Lock } from 'lucide-react';
+import { Lock, Sparkles } from 'lucide-react';
+import { useAdminMode } from '@/contexts/AdminModeContext';
+import { AIPayloadViewer } from '@/components/AIPayloadViewer';
+import { getGameCompletions } from '@/services/aiCompletionService';
 
 interface NFLPrediction {
   id: string;
@@ -64,6 +67,7 @@ interface TeamMapping {
 export default function NFL() {
   const { user } = useAuth();
   const { isFreemiumUser } = useFreemiumAccess();
+  const { adminModeEnabled } = useAdminMode();
   const [predictions, setPredictions] = useState<NFLPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +75,11 @@ export default function NFL() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>(['All Games']);
   const [sortKey, setSortKey] = useState<'none' | 'ml' | 'spread' | 'ou'>('none');
+  
+  // AI Completion state
+  const [aiCompletions, setAiCompletions] = useState<Record<string, Record<string, string>>>({});
+  const [payloadViewerOpen, setPayloadViewerOpen] = useState(false);
+  const [selectedPayloadGame, setSelectedPayloadGame] = useState<NFLPrediction | null>(null);
   
   // H2H Modal state
   const [h2hModalOpen, setH2hModalOpen] = useState(false);
@@ -574,9 +583,37 @@ ${contextParts}
     }
   };
 
+  // Fetch AI completions for all games
+  const fetchAICompletions = async (games: NFLPrediction[]) => {
+    debug.log('Fetching AI completions for', games.length, 'games');
+    const completionsMap: Record<string, Record<string, string>> = {};
+    
+    for (const game of games) {
+      const gameId = game.training_key || game.unique_id;
+      try {
+        const completions = await getGameCompletions(gameId, 'nfl');
+        if (Object.keys(completions).length > 0) {
+          completionsMap[gameId] = completions;
+        }
+      } catch (error) {
+        debug.error(`Error fetching completions for ${gameId}:`, error);
+      }
+    }
+    
+    debug.log('AI completions fetched:', Object.keys(completionsMap).length, 'games have completions');
+    setAiCompletions(completionsMap);
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
+  
+  // Fetch AI completions when predictions are loaded
+  useEffect(() => {
+    if (predictions.length > 0) {
+      fetchAICompletions(predictions);
+    }
+  }, [predictions]);
 
   // Function to get team initials for circle display
   const getTeamInitials = (teamCity: string): string => {
@@ -1051,6 +1088,23 @@ ${contextParts}
                   >
                   {/* Star Button for Admin Mode */}
                   <StarButton gameId={prediction.training_key} gameType="nfl" />
+                  
+                  {/* AI Payload Viewer Button for Admin Mode */}
+                  {adminModeEnabled && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-14 z-10 bg-purple-500/80 hover:bg-purple-600 border-purple-400 text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPayloadGame(prediction);
+                        setPayloadViewerOpen(true);
+                      }}
+                    >
+                      <Sparkles className="w-4 h-4 mr-1" />
+                      AI Payload
+                    </Button>
+                  )}
                 
                 <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
                   {/* Game Date and Time */}
@@ -1280,12 +1334,18 @@ ${contextParts}
                               'High Confidence';
                             const spreadValue = Math.abs(Number(predictedSpread));
                             const isNegativeSpread = Number(predictedSpread) < 0;
-                            const explanation =
+                            
+                            // Check for AI completion first, fallback to static explanation
+                            const gameId = prediction.training_key || prediction.unique_id;
+                            const aiExplanation = aiCompletions[gameId]?.['spread_prediction'];
+                            const staticExplanation =
                               confidencePct <= 58 
                                 ? `For this bet to win, ${getFullTeamName(predictedTeam).city} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${confidencePct}% confidence, this is a toss-up where the model sees both outcomes as nearly equally likely.`
                                 : confidencePct <= 65
                                 ? `For this bet to win, ${getFullTeamName(predictedTeam).city} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. The model gives this a ${confidencePct}% chance, indicating a slight advantage but still plenty of risk.`
                                 : `For this bet to win, ${getFullTeamName(predictedTeam).city} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${confidencePct}% confidence, the model sees a strong likelihood they'll achieve this margin.`;
+                            
+                            const explanation = aiExplanation || staticExplanation;
                             
                             return (
                               <>
@@ -1364,12 +1424,18 @@ ${contextParts}
                             const arrowBg = isOver ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' : 'bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/20';
                             const label = isOver ? 'Over' : 'Under';
                             const totalPoints = prediction.over_line;
-                            const explanation =
+                            
+                            // Check for AI completion first, fallback to static explanation
+                            const gameId = prediction.training_key || prediction.unique_id;
+                            const aiExplanation = aiCompletions[gameId]?.['ou_prediction'];
+                            const staticExplanation =
                               confidencePct <= 58 
                                 ? `For this bet to win, the combined score of both teams needs to be ${isOver ? 'MORE' : 'LESS'} than ${totalPoints} points. With ${confidencePct}% confidence, the model sees this as a coin flip—the game could go either way in terms of total scoring.`
                                 : confidencePct <= 65
                                 ? `For this bet to win, the combined score needs to be ${isOver ? 'MORE' : 'LESS'} than ${totalPoints} points. The model gives this a ${confidencePct}% chance, suggesting a slight ${isOver ? 'offensive' : 'defensive'} edge but the scoring environment is still uncertain.`
                                 : `For this bet to win, the combined score needs to be ${isOver ? 'MORE' : 'LESS'} than ${totalPoints} points. With ${confidencePct}% confidence, the model expects a ${isOver ? 'high-scoring, offensive-oriented' : 'low-scoring, defense-dominated'} game that should clearly ${isOver ? 'exceed' : 'stay under'} this total.`;
+                            
+                            const explanation = aiExplanation || staticExplanation;
                             
                             return (
                               <>
@@ -1800,6 +1866,16 @@ ${contextParts}
         <FreemiumUpgradeBanner 
           totalGames={predictions.length} 
           visibleGames={Math.min(2, predictions.length)} 
+        />
+      )}
+      
+      {/* AI Payload Viewer Modal */}
+      {selectedPayloadGame && (
+        <AIPayloadViewer
+          open={payloadViewerOpen}
+          onOpenChange={setPayloadViewerOpen}
+          game={selectedPayloadGame}
+          sportType="nfl"
         />
       )}
     </div>
