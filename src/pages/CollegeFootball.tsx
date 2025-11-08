@@ -1447,36 +1447,33 @@ ${contextParts}
                         <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Model Predictions</h4>
                       </div>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {prediction.pred_spread_proba !== null && (() => {
-                          const confidencePct = Math.round(Math.max(prediction.pred_spread_proba, 1 - prediction.pred_spread_proba) * 100);
-                          const confidenceColor = confidencePct >= 65 ? 'bg-green-500' : confidencePct >= 58 ? 'bg-orange-500' : 'bg-red-500';
-                          const predictedTeam = prediction.pred_spread_proba > 0.5 ? prediction.home_team : prediction.away_team;
+                        {/* Spread Edge */}
+                        {(() => {
+                          const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
+                          if (!edgeInfo) return null;
+                          
+                          const edgeValue = edgeInfo.edgeValue;
+                          const confidenceColor = edgeValue >= 7 ? 'bg-green-500' : edgeValue >= 3 ? 'bg-orange-500' : 'bg-gray-500';
+                          
                           return (
                             <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
                               <Target className="h-3 w-3" />
-                              <span>{getTeamInitials(predictedTeam)} Spread {confidencePct}%</span>
+                              <span>Edge to {getTeamInitials(edgeInfo.teamName)} +{edgeInfo.displayEdge}</span>
                             </div>
                           );
                         })()}
-                        {prediction.pred_ml_proba !== null && (() => {
-                          const confidencePct = Math.round(Math.max(prediction.pred_ml_proba, 1 - prediction.pred_ml_proba) * 100);
-                          const confidenceColor = confidencePct >= 65 ? 'bg-blue-500' : confidencePct >= 58 ? 'bg-indigo-500' : 'bg-gray-500';
-                          const predictedTeam = prediction.pred_ml_proba > 0.5 ? prediction.home_team : prediction.away_team;
-                          return (
-                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
-                              <Users className="h-3 w-3" />
-                              <span>{getTeamInitials(predictedTeam)} ML {confidencePct}%</span>
-                            </div>
-                          );
-                        })()}
-                        {prediction.pred_total_proba !== null && (() => {
-                          const isOver = prediction.pred_total_proba > 0.5;
-                          const confidencePct = Math.round(Math.max(prediction.pred_total_proba, 1 - prediction.pred_total_proba) * 100);
-                          const confidenceColor = confidencePct >= 65 ? 'bg-purple-500' : confidencePct >= 58 ? 'bg-pink-500' : 'bg-gray-500';
+                        
+                        {/* Over/Under Edge */}
+                        {prediction.over_line_diff !== null && (() => {
+                          const isOver = prediction.over_line_diff > 0;
+                          const magnitude = Math.abs(prediction.over_line_diff);
+                          const displayMagnitude = roundToHalf(magnitude).toString();
+                          const confidenceColor = magnitude >= 7 ? (isOver ? 'bg-green-500' : 'bg-red-500') : magnitude >= 3 ? (isOver ? 'bg-orange-500' : 'bg-pink-500') : 'bg-gray-500';
+                          
                           return (
                             <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
                               <BarChart className="h-3 w-3" />
-                              <span>{isOver ? 'Over' : 'Under'} {confidencePct}%</span>
+                              <span>Edge to {isOver ? 'Over' : 'Under'} +{displayMagnitude}</span>
                             </div>
                           );
                         })()}
