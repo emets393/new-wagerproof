@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useState } from 'react';
+import { Dispatch, SetStateAction, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Dialog,
@@ -8,10 +8,15 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
-import { Brain, Target, BarChart, Info, Sparkles, ChevronUp, ChevronDown, TrendingUp, Users, CloudRain } from 'lucide-react';
+import { Brain, Target, BarChart, Info, Sparkles, ChevronUp, ChevronDown, TrendingUp, Users, CloudRain, History, Trophy, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
 import { getCFBTeamColors, getNFLTeamColors } from '@/utils/teamColors';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
-import HistoricalDataSection from './HistoricalDataSection';
+import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AlertCircle } from 'lucide-react';
+import debug from '@/utils/debug';
 
 interface GameDetailsModalProps {
   isOpen: boolean;
@@ -38,9 +43,8 @@ interface GameDetailsModalProps {
   } | null;
   expandedBettingFacts?: Record<string, boolean>;
   setExpandedBettingFacts?: Dispatch<SetStateAction<Record<string, boolean>>>;
-  // NFL-specific callbacks for HistoricalDataSection
-  onH2HClick?: () => void;
-  onLinesClick?: () => void;
+  // NFL-specific prop for team mappings (needed for line movement logos)
+  teamMappings?: Array<{ city_and_name: string; team_name: string; logo_url: string }>;
 }
 
 export function GameDetailsModal({
@@ -61,14 +65,22 @@ export function GameDetailsModal({
   parseBettingSplit,
   expandedBettingFacts,
   setExpandedBettingFacts,
-  onH2HClick,
-  onLinesClick,
+  teamMappings,
 }: GameDetailsModalProps) {
   if (!prediction) return null;
 
   const [localExpandedBettingFacts, setLocalExpandedBettingFacts] = useState(false);
   const effectiveExpandedBettingFacts = expandedBettingFacts || {};
   const effectiveSetExpandedBettingFacts = setExpandedBettingFacts || (() => {});
+
+  // NFL H2H and Line Movement state
+  const [h2hGames, setH2hGames] = useState<any[]>([]);
+  const [h2hLoading, setH2hLoading] = useState(false);
+  const [h2hError, setH2hError] = useState<string | null>(null);
+  const [lineData, setLineData] = useState<any[]>([]);
+  const [lineLoading, setLineLoading] = useState(false);
+  const [lineError, setLineError] = useState<string | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('away');
 
   // Helper functions for CFB
   const roundToHalf = (value: number): number => {
@@ -149,6 +161,257 @@ export function GameDetailsModal({
   const awayTeamColors = getTeamColors(prediction.away_team);
   const homeTeamColors = getTeamColors(prediction.home_team);
   const gameId = prediction.training_key || prediction.unique_id || prediction.id || `${prediction.away_team}_${prediction.home_team}`;
+
+  // Fetch H2H data for NFL
+  useEffect(() => {
+    if (!isOpen || league !== 'nfl' || !prediction?.home_team || !prediction?.away_team) return;
+    
+    const fetchH2HData = async () => {
+      setH2hLoading(true);
+      setH2hError(null);
+      
+      try {
+        debug.log('Fetching H2H data for:', prediction.home_team, 'vs', prediction.away_team);
+        
+        const { data, error } = await collegeFootballSupabase
+          .from('nfl_training_data')
+          .select('*')
+          .or(`and(home_team.eq."${prediction.home_team}",away_team.eq."${prediction.away_team}"),and(home_team.eq."${prediction.away_team}",away_team.eq."${prediction.home_team}")`)
+          .order('game_date', { ascending: false })
+          .limit(5);
+
+        if (error) {
+          debug.error('Supabase error:', error);
+          throw error;
+        }
+        
+        setH2hGames(data || []);
+      } catch (err) {
+        debug.error('Error fetching H2H data:', err);
+        setH2hError('Failed to load historical data');
+      } finally {
+        setH2hLoading(false);
+      }
+    };
+
+    fetchH2HData();
+  }, [isOpen, league, prediction?.home_team, prediction?.away_team]);
+
+  // Fetch Line Movement data for NFL
+  useEffect(() => {
+    if (!isOpen || league !== 'nfl' || !prediction?.training_key) return;
+    
+    const fetchLineData = async () => {
+      setLineLoading(true);
+      setLineError(null);
+
+      try {
+        const { data, error } = await collegeFootballSupabase
+          .from('nfl_betting_lines')
+          .select('as_of_ts, home_spread, away_spread, over_line, home_team, away_team')
+          .eq('training_key', prediction.training_key)
+          .order('as_of_ts', { ascending: true });
+
+        if (error) {
+          debug.error('Error fetching line movement data:', error);
+          setLineError('Failed to fetch line movement data');
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          setLineError('No line movement data available');
+          return;
+        }
+
+        setLineData(data);
+      } catch (err) {
+        debug.error('Error fetching line data:', err);
+        setLineError('An unexpected error occurred');
+      } finally {
+        setLineLoading(false);
+      }
+    };
+
+    fetchLineData();
+  }, [isOpen, league, prediction?.training_key]);
+
+  // Helper functions for NFL H2H and Line Movement
+  const getTeamLogo = (teamName: string): string => {
+    const logoMap: { [key: string]: string } = {
+      'Arizona': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
+      'Atlanta': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
+      'Baltimore': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
+      'Buffalo': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
+      'Carolina': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
+      'Chicago': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
+      'Cincinnati': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
+      'Cleveland': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
+      'Dallas': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
+      'Denver': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
+      'Detroit': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
+      'Green Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
+      'Houston': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
+      'Indianapolis': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
+      'Jacksonville': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
+      'Kansas City': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
+      'Las Vegas': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
+      'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+      'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+      'LA Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+      'LA Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+      'Miami': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
+      'Minnesota': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
+      'New England': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
+      'New Orleans': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
+      'NY Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
+      'NY Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
+      'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
+      'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
+      'San Francisco': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
+      'Seattle': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
+      'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
+      'Tennessee': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
+      'Washington': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
+    };
+    
+    if (logoMap[teamName]) return logoMap[teamName];
+    
+    const lowerTeamName = teamName.toLowerCase();
+    for (const [key, value] of Object.entries(logoMap)) {
+      if (key.toLowerCase() === lowerTeamName) {
+        return value;
+      }
+    }
+    
+    return 'https://a.espncdn.com/i/teamlogos/nfl/500/default.png';
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  const formatTimestamp = (timestamp: string): string => {
+    try {
+      const date = new Date(timestamp);
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      
+      return `${month}/${day} (${displayHours}:${displayMinutes}${ampm})`;
+    } catch (error) {
+      debug.error('Error formatting timestamp:', error);
+      return timestamp;
+    }
+  };
+
+  // Calculate H2H summary statistics
+  const calculateH2HSummary = () => {
+    if (!h2hGames || h2hGames.length === 0) {
+      return {
+        homeTeamWins: 0,
+        awayTeamWins: 0,
+        homeTeamCovers: 0,
+        awayTeamCovers: 0,
+        overs: 0,
+        unders: 0
+      };
+    }
+
+    let homeTeamWins = 0;
+    let awayTeamWins = 0;
+    let homeTeamCovers = 0;
+    let awayTeamCovers = 0;
+    let overs = 0;
+    let unders = 0;
+
+    h2hGames.forEach(game => {
+      // Count wins
+      if (game.home_score > game.away_score) {
+        if (game.home_team === prediction.home_team) {
+          homeTeamWins++;
+        } else {
+          awayTeamWins++;
+        }
+      } else if (game.away_score > game.home_score) {
+        if (game.away_team === prediction.home_team) {
+          homeTeamWins++;
+        } else {
+          awayTeamWins++;
+        }
+      }
+
+      // Count covers
+      if (game.home_away_spread_cover === 1) {
+        if (game.home_team === prediction.home_team) {
+          homeTeamCovers++;
+        } else {
+          awayTeamCovers++;
+        }
+      } else if (game.home_away_spread_cover === 0) {
+        if (game.away_team === prediction.home_team) {
+          homeTeamCovers++;
+        } else {
+          awayTeamCovers++;
+        }
+      }
+
+      // Count over/under
+      if (game.ou_result === 1) {
+        overs++;
+      } else if (game.ou_result === 0) {
+        unders++;
+      }
+    });
+
+    return {
+      homeTeamWins,
+      awayTeamWins,
+      homeTeamCovers,
+      awayTeamCovers,
+      overs,
+      unders
+    };
+  };
+
+  // Transform line data for charts
+  const chartData = lineData.map(item => ({
+    timestamp: item.as_of_ts,
+    displayTime: formatTimestamp(item.as_of_ts),
+    homeSpread: item.home_spread,
+    awaySpread: item.away_spread,
+    overLine: item.over_line
+  }));
+
+  // Custom tooltip for line charts
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-card p-3 border border-border rounded-lg shadow-lg">
+          <p className="font-semibold text-card-foreground">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.dataKey === 'homeSpread' ? `${prediction.home_team} Spread: ` :
+               entry.dataKey === 'awaySpread' ? `${prediction.away_team} Spread: ` :
+               entry.dataKey === 'overLine' ? 'Over/Under: ' : ''}
+              {entry.value !== null ? entry.value.toFixed(1) : 'N/A'}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const h2hStats = calculateH2HSummary();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -687,14 +950,364 @@ export function GameDetailsModal({
                 </div>
               )}
 
-              {/* Historical Data Section for NFL */}
-              <HistoricalDataSection
-                prediction={prediction}
-                awayTeamColors={awayTeamColors}
-                homeTeamColors={homeTeamColors}
-                onH2HClick={onH2HClick || (() => {})}
-                onLinesClick={onLinesClick || (() => {})}
-              />
+              {/* H2H Historical Data Section for NFL */}
+              <div className="text-center">
+                <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
+                  <div className="flex items-center justify-center gap-2">
+                    <History className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">Head to Head</h4>
+                  </div>
+
+                  {h2hLoading ? (
+                    <div className="space-y-4">
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-32 w-full" />
+                    </div>
+                  ) : h2hError ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{h2hError}</AlertDescription>
+                    </Alert>
+                  ) : h2hGames.length === 0 ? (
+                    <div className="text-sm text-gray-600 dark:text-white/70">
+                      No historical matchups found between these teams
+                    </div>
+                  ) : (
+                    <>
+                      {/* Summary Statistics */}
+                      <div className="grid grid-cols-3 gap-4">
+                        {/* Wins */}
+                        <div className="text-center">
+                          <h5 className="text-xs font-semibold text-gray-600 dark:text-white/70 uppercase tracking-wide mb-2">Wins</h5>
+                          <div className="flex items-center justify-center space-x-2">
+                            <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                              h2hStats.awayTeamWins > h2hStats.homeTeamWins 
+                                ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800' 
+                                : 'bg-transparent'
+                            }`}>
+                              <img 
+                                src={getTeamLogo(prediction.away_team)} 
+                                alt={`${prediction.away_team} logo`}
+                                className="object-contain w-8 h-8"
+                              />
+                              <div className="font-bold text-gray-900 dark:text-white text-lg">{h2hStats.awayTeamWins}</div>
+                            </div>
+                            <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                              h2hStats.homeTeamWins > h2hStats.awayTeamWins 
+                                ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800' 
+                                : 'bg-transparent'
+                            }`}>
+                              <img 
+                                src={getTeamLogo(prediction.home_team)} 
+                                alt={`${prediction.home_team} logo`}
+                                className="object-contain w-8 h-8"
+                              />
+                              <div className="font-bold text-gray-900 dark:text-white text-lg">{h2hStats.homeTeamWins}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Covers */}
+                        <div className="text-center">
+                          <h5 className="text-xs font-semibold text-gray-600 dark:text-white/70 uppercase tracking-wide mb-2">Covers</h5>
+                          <div className="flex items-center justify-center space-x-2">
+                            <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                              h2hStats.awayTeamCovers > h2hStats.homeTeamCovers 
+                                ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800' 
+                                : 'bg-transparent'
+                            }`}>
+                              <img 
+                                src={getTeamLogo(prediction.away_team)} 
+                                alt={`${prediction.away_team} logo`}
+                                className="object-contain w-8 h-8"
+                              />
+                              <div className="font-bold text-gray-900 dark:text-white text-lg">{h2hStats.awayTeamCovers}</div>
+                            </div>
+                            <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                              h2hStats.homeTeamCovers > h2hStats.awayTeamCovers 
+                                ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800' 
+                                : 'bg-transparent'
+                            }`}>
+                              <img 
+                                src={getTeamLogo(prediction.home_team)} 
+                                alt={`${prediction.home_team} logo`}
+                                className="object-contain w-8 h-8"
+                              />
+                              <div className="font-bold text-gray-900 dark:text-white text-lg">{h2hStats.homeTeamCovers}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* O/U */}
+                        <div className="text-center">
+                          <h5 className="text-xs font-semibold text-gray-600 dark:text-white/70 uppercase tracking-wide mb-2">O/U</h5>
+                          <div className="flex items-center justify-center space-x-2">
+                            <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                              h2hStats.overs > h2hStats.unders 
+                                ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800' 
+                                : 'bg-transparent'
+                            }`}>
+                              <div className="rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center w-8 h-8">
+                                <ArrowUp className="text-emerald-600 dark:text-emerald-400 h-4 w-4" />
+                              </div>
+                              <div className="font-bold text-gray-900 dark:text-white text-lg">{h2hStats.overs}</div>
+                            </div>
+                            <div className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
+                              h2hStats.unders > h2hStats.overs 
+                                ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800' 
+                                : 'bg-transparent'
+                            }`}>
+                              <div className="rounded-full bg-red-50 dark:bg-red-950/50 flex items-center justify-center w-8 h-8">
+                                <ArrowDown className="text-red-600 dark:text-red-400 h-4 w-4" />
+                              </div>
+                              <div className="font-bold text-gray-900 dark:text-white text-lg">{h2hStats.unders}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Recent Matchups */}
+                      <div className="space-y-2 mt-4">
+                        <div className="text-xs text-gray-600 dark:text-white/70 mb-2">
+                          Last {h2hGames.length} matchup{h2hGames.length !== 1 ? 's' : ''}:
+                        </div>
+                        {h2hGames.slice(0, 3).map((game: any) => (
+                          <div key={game.id} className="border border-gray-200 dark:border-white/20 rounded-lg bg-gray-100 dark:bg-white/5 p-2">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <div className="flex items-center space-x-1">
+                                <Calendar className="text-gray-500 dark:text-white/60 h-3 w-3" />
+                                <span className="font-medium text-gray-600 dark:text-white/70">
+                                  {formatDate(game.game_date)}
+                                </span>
+                              </div>
+                              <span className="text-gray-500 dark:text-white/60">Week {game.week}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <img 
+                                  src={getTeamLogo(game.away_team)} 
+                                  alt={game.away_team}
+                                  className="object-contain h-6 w-6"
+                                />
+                                <span className="text-sm font-semibold text-gray-900 dark:text-white">{game.away_score}</span>
+                              </div>
+                              <span className="text-xs text-gray-500 dark:text-white/60">@</span>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm font-semibold text-gray-900 dark:text-white">{game.home_score}</span>
+                                <img 
+                                  src={getTeamLogo(game.home_team)} 
+                                  alt={game.home_team}
+                                  className="object-contain h-6 w-6"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Line Movement Section for NFL */}
+              <div className="text-center">
+                <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
+                  <div className="flex items-center justify-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">Line Movement</h4>
+                  </div>
+
+                  {lineLoading ? (
+                    <div className="space-y-4">
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-64 w-full" />
+                    </div>
+                  ) : lineError ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{lineError}</AlertDescription>
+                    </Alert>
+                  ) : chartData.length === 0 ? (
+                    <div className="text-sm text-gray-600 dark:text-white/70">
+                      No line movement data available for this game
+                    </div>
+                  ) : (
+                    <>
+                      {/* Team Selection Buttons */}
+                      <div className="flex justify-center space-x-2 mb-4">
+                        <Button
+                          variant={selectedTeam === 'away' ? 'default' : 'outline'}
+                          onClick={() => setSelectedTeam('away')}
+                          className={`flex items-center space-x-2 px-4 py-2 transition-all duration-200 text-sm ${
+                            selectedTeam === 'away'
+                              ? 'text-white shadow-lg border-0'
+                              : 'bg-card hover:bg-muted text-foreground border-border'
+                          }`}
+                          style={selectedTeam === 'away' ? {
+                            backgroundColor: awayTeamColors.primary,
+                            backgroundImage: `linear-gradient(135deg, ${awayTeamColors.primary} 0%, ${awayTeamColors.secondary} 100%)`
+                          } : {}}
+                        >
+                          <img
+                            src={getTeamLogo(prediction.away_team)}
+                            alt={`${prediction.away_team} logo`}
+                            className="h-5 w-5"
+                          />
+                          <span className="font-semibold">{prediction.away_team}</span>
+                        </Button>
+
+                        <Button
+                          variant={selectedTeam === 'home' ? 'default' : 'outline'}
+                          onClick={() => setSelectedTeam('home')}
+                          className={`flex items-center space-x-2 px-4 py-2 transition-all duration-200 text-sm ${
+                            selectedTeam === 'home'
+                              ? 'text-white shadow-lg border-0'
+                              : 'bg-card hover:bg-muted text-foreground border-border'
+                          }`}
+                          style={selectedTeam === 'home' ? {
+                            backgroundColor: homeTeamColors.primary,
+                            backgroundImage: `linear-gradient(135deg, ${homeTeamColors.primary} 0%, ${homeTeamColors.secondary} 100%)`
+                          } : {}}
+                        >
+                          <img
+                            src={getTeamLogo(prediction.home_team)}
+                            alt={`${prediction.home_team} logo`}
+                            className="h-5 w-5"
+                          />
+                          <span className="font-semibold">{prediction.home_team}</span>
+                        </Button>
+                      </div>
+
+                      {/* Spread Chart */}
+                      <div className="relative h-64 w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-white/5 dark:to-white/10 rounded-xl p-4 border border-gray-200 dark:border-white/20">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 40 }}>
+                            <CartesianGrid
+                              strokeDasharray="2 4"
+                              stroke="currentColor"
+                              strokeOpacity={0.1}
+                              vertical={false}
+                              className="text-gray-400 dark:text-white/30"
+                            />
+                            <XAxis
+                              dataKey="displayTime"
+                              tick={{ fontSize: 10, fontWeight: 500, fill: 'currentColor' }}
+                              axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
+                              tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
+                              angle={-45}
+                              textAnchor="end"
+                              height={60}
+                              className="text-gray-600 dark:text-white/70"
+                            />
+                            <YAxis
+                              tick={{ fontSize: 10, fontWeight: 600, fill: 'currentColor' }}
+                              axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
+                              tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
+                              tickFormatter={(value) => value.toFixed(1)}
+                              className="text-gray-600 dark:text-white/70"
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Line
+                              type="linear"
+                              dataKey={selectedTeam === 'away' ? 'awaySpread' : 'homeSpread'}
+                              stroke={selectedTeam === 'away' ? awayTeamColors.primary : homeTeamColors.primary}
+                              strokeWidth={3}
+                              dot={{ 
+                                fill: selectedTeam === 'away' ? awayTeamColors.primary : homeTeamColors.primary, 
+                                strokeWidth: 2, 
+                                r: 5,
+                                stroke: '#ffffff'
+                              }}
+                              activeDot={{ 
+                                r: 8, 
+                                stroke: selectedTeam === 'away' ? awayTeamColors.primary : homeTeamColors.primary, 
+                                strokeWidth: 3,
+                                fill: '#ffffff'
+                              }}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              connectNulls={false}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                        <div className="absolute bottom-1 left-0 right-0 text-center">
+                          <div className="text-xs font-medium text-gray-600 dark:text-white/70">
+                            Opening: {selectedTeam === 'away'
+                              ? (chartData[0]?.awaySpread?.toFixed(1) || 'N/A')
+                              : (chartData[0]?.homeSpread?.toFixed(1) || 'N/A')
+                            } | Current: {selectedTeam === 'away'
+                              ? (chartData[chartData.length - 1]?.awaySpread?.toFixed(1) || 'N/A')
+                              : (chartData[chartData.length - 1]?.homeSpread?.toFixed(1) || 'N/A')
+                            }
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Over/Under Chart */}
+                      <div className="mt-4">
+                        <h5 className="text-sm font-semibold text-center text-gray-800 dark:text-white mb-3">Over/Under Line Movement</h5>
+                        <div className="relative h-64 w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-white/5 dark:to-white/10 rounded-xl p-4 border border-gray-200 dark:border-white/20">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 40 }}>
+                              <CartesianGrid
+                                strokeDasharray="2 4"
+                                stroke="currentColor"
+                                strokeOpacity={0.1}
+                                vertical={false}
+                                className="text-gray-400 dark:text-white/30"
+                              />
+                              <XAxis
+                                dataKey="displayTime"
+                                tick={{ fontSize: 10, fontWeight: 500, fill: 'currentColor' }}
+                                axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
+                                tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
+                                angle={-45}
+                                textAnchor="end"
+                                height={60}
+                                className="text-gray-600 dark:text-white/70"
+                              />
+                              <YAxis
+                                tick={{ fontSize: 10, fontWeight: 600, fill: 'currentColor' }}
+                                axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
+                                tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
+                                tickFormatter={(value) => value.toFixed(1)}
+                                className="text-gray-600 dark:text-white/70"
+                              />
+                              <Tooltip content={<CustomTooltip />} />
+                              <Line
+                                type="linear"
+                                dataKey="overLine"
+                                stroke="#10b981"
+                                strokeWidth={3}
+                                dot={{ 
+                                  fill: '#10b981', 
+                                  strokeWidth: 2, 
+                                  r: 5,
+                                  stroke: '#ffffff'
+                                }}
+                                activeDot={{ 
+                                  r: 8, 
+                                  stroke: '#10b981', 
+                                  strokeWidth: 3,
+                                  fill: '#ffffff'
+                                }}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                connectNulls={false}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                          <div className="absolute bottom-1 left-0 right-0 text-center">
+                            <div className="text-xs font-medium text-gray-600 dark:text-white/70">
+                              Opening O/U: {chartData[0]?.overLine?.toFixed(1) || 'N/A'} | Current O/U: {chartData[chartData.length - 1]?.overLine?.toFixed(1) || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </>
           )}
 

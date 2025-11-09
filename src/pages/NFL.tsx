@@ -10,10 +10,7 @@ import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Br
 import debug from '@/utils/debug';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { Link } from 'react-router-dom';
-import H2HModal from '@/components/H2HModal';
-import LineMovementModal from '@/components/LineMovementModal';
 import NFLGameCard from '@/components/NFLGameCard';
-import HistoricalDataSection from '@/components/HistoricalDataSection';
 import { BackgroundGradient } from '@/components/ui/background-gradient';
 import { MiniWagerBotChat } from '@/components/MiniWagerBotChat';
 import { StarButton } from '@/components/StarButton';
@@ -90,15 +87,6 @@ export default function NFL() {
   const [valueFindId, setValueFindId] = useState<string | null>(null);
   const [valueFindPublished, setValueFindPublished] = useState<boolean>(false);
   
-  // H2H Modal state
-  const [h2hModalOpen, setH2hModalOpen] = useState(false);
-  const [selectedHomeTeam, setSelectedHomeTeam] = useState<string>('');
-  const [selectedAwayTeam, setSelectedAwayTeam] = useState<string>('');
-
-  // Line Movement Modal state
-  const [lineMovementModalOpen, setLineMovementModalOpen] = useState(false);
-  const [selectedUniqueId, setSelectedUniqueId] = useState<string>('');
-
   // Focused card state for light beams effect
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   
@@ -185,35 +173,6 @@ export default function NFL() {
     return p >= 0.5 ? p : 1 - p;
   };
 
-  // Open H2H modal
-  const openH2HModal = (homeTeam: string, awayTeam: string) => {
-    setSelectedHomeTeam(homeTeam);
-    setSelectedAwayTeam(awayTeam);
-    setH2hModalOpen(true);
-  };
-
-  // Close H2H modal
-  const closeH2HModal = () => {
-    setH2hModalOpen(false);
-    setSelectedHomeTeam('');
-    setSelectedAwayTeam('');
-  };
-
-  // Open Line Movement modal
-  const openLineMovementModal = (uniqueId: string, homeTeam: string, awayTeam: string) => {
-    setSelectedUniqueId(uniqueId);
-    setSelectedHomeTeam(homeTeam);
-    setSelectedAwayTeam(awayTeam);
-    setLineMovementModalOpen(true);
-  };
-
-  // Close Line Movement modal
-  const closeLineMovementModal = () => {
-    setLineMovementModalOpen(false);
-    setSelectedUniqueId('');
-    setSelectedHomeTeam('');
-    setSelectedAwayTeam('');
-  };
 
   // Build context for WagerBot with all current game data (formatted as markdown)
   const buildNFLContext = (preds: NFLPrediction[]): string => {
@@ -1342,24 +1301,6 @@ ${contextParts}
         </div>
       )}
 
-      {/* H2H Modal */}
-      <H2HModal
-        isOpen={h2hModalOpen}
-        onClose={closeH2HModal}
-        homeTeam={selectedHomeTeam}
-        awayTeam={selectedAwayTeam}
-      />
-
-      {/* Line Movement Modal */}
-      <LineMovementModal
-        isOpen={lineMovementModalOpen}
-        onClose={closeLineMovementModal}
-        uniqueId={selectedUniqueId}
-        homeTeam={selectedHomeTeam}
-        awayTeam={selectedAwayTeam}
-        teamMappings={teamMappings}
-      />
-
       {/* Game Details Modal */}
       <GameDetailsModal
         isOpen={selectedGameForModal !== null}
@@ -1379,21 +1320,7 @@ ${contextParts}
         parseBettingSplit={parseBettingSplit}
         expandedBettingFacts={expandedBettingFacts}
         setExpandedBettingFacts={setExpandedBettingFacts}
-        onH2HClick={() => {
-          if (selectedGameForModal) {
-            setSelectedHomeTeam(selectedGameForModal.home_team);
-            setSelectedAwayTeam(selectedGameForModal.away_team);
-            setH2hModalOpen(true);
-          }
-        }}
-        onLinesClick={() => {
-          if (selectedGameForModal) {
-            setSelectedUniqueId(selectedGameForModal.unique_id);
-            setSelectedHomeTeam(selectedGameForModal.home_team);
-            setSelectedAwayTeam(selectedGameForModal.away_team);
-            setLineMovementModalOpen(true);
-          }
-        }}
+        teamMappings={teamMappings}
       />
 
       {/* Mini WagerBot Chat */}
