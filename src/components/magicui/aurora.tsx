@@ -126,16 +126,37 @@ export default function Aurora(props: AuroraProps) {
     const ctn = ctnDom.current;
     if (!ctn) return;
 
-    const renderer = new Renderer({
-      alpha: true,
-      premultipliedAlpha: true,
-      antialias: true
-    });
-    const gl = renderer.gl;
-    gl.clearColor(0, 0, 0, 0);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.canvas.style.backgroundColor = 'transparent';
+    // Check for WebGL support before attempting to render
+    try {
+      const testCanvas = document.createElement('canvas');
+      const gl = testCanvas.getContext('webgl2') || testCanvas.getContext('webgl');
+      if (!gl) {
+        console.warn('WebGL not supported, Aurora effect disabled');
+        return;
+      }
+    } catch (e) {
+      console.warn('WebGL check failed, Aurora effect disabled:', e);
+      return;
+    }
+
+    let renderer;
+    let gl;
+    
+    try {
+      renderer = new Renderer({
+        alpha: true,
+        premultipliedAlpha: true,
+        antialias: true
+      });
+      gl = renderer.gl;
+      gl.clearColor(0, 0, 0, 0);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.canvas.style.backgroundColor = 'transparent';
+    } catch (e) {
+      console.warn('Failed to initialize WebGL renderer, Aurora effect disabled:', e);
+      return;
+    }
 
     let program: Program | undefined;
 
@@ -150,30 +171,41 @@ export default function Aurora(props: AuroraProps) {
     }
     window.addEventListener('resize', resize);
 
-    const geometry = new Triangle(gl);
-    if (geometry.attributes.uv) {
-      delete geometry.attributes.uv;
-    }
-
-    const colorStopsArray = colorStops.map(hex => {
-      const c = new Color(hex);
-      return [c.r, c.g, c.b];
-    });
-
-    program = new Program(gl, {
-      vertex: VERT,
-      fragment: FRAG,
-      uniforms: {
-        uTime: { value: 0 },
-        uAmplitude: { value: amplitude },
-        uColorStops: { value: colorStopsArray },
-        uResolution: { value: [ctn.offsetWidth, ctn.offsetHeight] },
-        uBlend: { value: blend }
+    let geometry;
+    let mesh;
+    
+    try {
+      geometry = new Triangle(gl);
+      if (geometry.attributes.uv) {
+        delete geometry.attributes.uv;
       }
-    });
 
-    const mesh = new Mesh(gl, { geometry, program });
-    ctn.appendChild(gl.canvas);
+      const colorStopsArray = colorStops.map(hex => {
+        const c = new Color(hex);
+        return [c.r, c.g, c.b];
+      });
+
+      program = new Program(gl, {
+        vertex: VERT,
+        fragment: FRAG,
+        uniforms: {
+          uTime: { value: 0 },
+          uAmplitude: { value: amplitude },
+          uColorStops: { value: colorStopsArray },
+          uResolution: { value: [ctn.offsetWidth, ctn.offsetHeight] },
+          uBlend: { value: blend }
+        }
+      });
+
+      mesh = new Mesh(gl, { geometry, program });
+      ctn.appendChild(gl.canvas);
+    } catch (e) {
+      console.warn('Failed to create WebGL program/mesh, Aurora effect disabled:', e);
+      if (gl && gl.canvas && gl.canvas.parentNode === ctn) {
+        ctn.removeChild(gl.canvas);
+      }
+      return;
+    }
 
     let animateId = 0;
     const update = (t: number) => {

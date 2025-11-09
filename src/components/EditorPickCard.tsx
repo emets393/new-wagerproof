@@ -342,11 +342,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg"
-            style={{ 
-              mixBlendMode: 'screen',
-              filter: 'brightness(1.2) contrast(1.1)'
-            }}
+            className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg opacity-60"
           >
             <Aurora
               colorStops={auroraColors}
@@ -366,7 +362,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
         </div>
       )}
 
-      <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
+      <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6 relative z-10">
         {/* Game Date and Time */}
         {(gameData.game_date || gameData.game_time) && (
           <div className="text-center space-y-2">
