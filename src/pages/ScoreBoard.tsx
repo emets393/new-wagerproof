@@ -1,15 +1,17 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLiveScores } from "@/hooks/useLiveScores";
 import { LiveScoreCard } from "@/components/LiveScoreCard";
 import { LiveScorePredictionCard } from "@/components/LiveScorePredictionCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trophy, Shield, AlertCircle, Maximize2, Minimize2 } from "lucide-react";
+import { Trophy, Shield, AlertCircle, Maximize2, Minimize2, Bug } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
 export default function ScoreBoard() {
+  const navigate = useNavigate();
   const { games, hasLiveGames, isLoading, error } = useLiveScores();
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -76,24 +78,35 @@ export default function ScoreBoard() {
               Real-time scores and model predictions for all live games
             </p>
           </div>
-          <Button
-            variant={isExpanded ? "default" : "outline"}
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 self-start"
-          >
-            {isExpanded ? (
-              <>
-                <Minimize2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Compact</span>
-              </>
-            ) : (
-              <>
-                <Maximize2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Expand All</span>
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/scoreboard/diagnostics')}
+              className="flex items-center gap-2"
+            >
+              <Bug className="h-4 w-4" />
+              <span className="hidden sm:inline">Diagnostics</span>
+            </Button>
+            <Button
+              variant={isExpanded ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center gap-2 self-start"
+            >
+              {isExpanded ? (
+                <>
+                  <Minimize2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Compact</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Expand All</span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
