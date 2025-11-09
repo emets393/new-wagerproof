@@ -27,7 +27,10 @@ import { FreemiumUpgradeBanner } from '@/components/FreemiumUpgradeBanner';
 import { Lock, Sparkles } from 'lucide-react';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { AIPayloadViewer } from '@/components/AIPayloadViewer';
-import { getGameCompletions } from '@/services/aiCompletionService';
+import { getGameCompletions, getHighValueBadges, getPageHeaderData } from '@/services/aiCompletionService';
+import { PageHeaderValueFinds } from '@/components/PageHeaderValueFinds';
+import { HighValueBadge } from '@/components/HighValueBadge';
+import { GameDetailsModal } from '@/components/GameDetailsModal';
 
 interface NFLPrediction {
   id: string;
@@ -81,6 +84,12 @@ export default function NFL() {
   const [payloadViewerOpen, setPayloadViewerOpen] = useState(false);
   const [selectedPayloadGame, setSelectedPayloadGame] = useState<NFLPrediction | null>(null);
   
+  // Value Finds state
+  const [highValueBadges, setHighValueBadges] = useState<Map<string, any>>(new Map());
+  const [pageHeaderData, setPageHeaderData] = useState<{ summary_text: string; compact_picks: any[] } | null>(null);
+  const [valueFindId, setValueFindId] = useState<string | null>(null);
+  const [valueFindPublished, setValueFindPublished] = useState<boolean>(false);
+  
   // H2H Modal state
   const [h2hModalOpen, setH2hModalOpen] = useState(false);
   const [selectedHomeTeam, setSelectedHomeTeam] = useState<string>('');
@@ -96,16 +105,12 @@ export default function NFL() {
   // Public Betting Facts expanded state - tracks which cards have expanded betting facts
   const [expandedBettingFacts, setExpandedBettingFacts] = useState<Record<string, boolean>>({});
   
-  // Card expanded state - tracks which cards are fully expanded
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  // Modal state - tracks which game is selected for modal
+  const [selectedGameForModal, setSelectedGameForModal] = useState<NFLPrediction | null>(null);
   
-  // Toggle card expansion
-  const toggleCardExpansion = (cardId: string) => {
-    setExpandedCards(prev => ({
-      ...prev,
-      [cardId]: !prev[cardId]
-    }));
-  };
+  // Match simulator UI states per game id
+  const [simLoadingById, setSimLoadingById] = useState<Record<string, boolean>>({});
+  const [simRevealedById, setSimRevealedById] = useState<Record<string, boolean>>({});
   
   // Track predictions viewed when loaded
   useEffect(() => {
@@ -113,6 +118,58 @@ export default function NFL() {
       trackPredictionViewed('NFL', predictions.length, activeFilters.join(','), sortKey);
     }
   }, [loading, predictions.length]);
+
+  // Fetch Value Finds data on mount and periodically
+  useEffect(() => {
+    fetchValueFinds();
+    
+    // Refresh value finds every 30 seconds to catch publish/unpublish changes
+    const interval = setInterval(() => {
+      fetchValueFinds();
+    }, 30000); // 30 seconds
+    
+    // Also refresh when the tab becomes visible (user switches back to the tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchValueFinds();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [adminModeEnabled]); // Re-fetch when admin mode changes
+
+  const fetchValueFinds = async () => {
+    try {
+      const [badges, headerData] = await Promise.all([
+        getHighValueBadges('nfl'),
+        getPageHeaderData('nfl', adminModeEnabled), // Pass admin mode to include unpublished data
+      ]);
+
+      // Convert badges array to Map for easy lookup
+      const badgesMap = new Map();
+      badges.forEach(badge => {
+        badgesMap.set(badge.game_id, badge);
+      });
+      
+      setHighValueBadges(badgesMap);
+      
+      if (headerData) {
+        setPageHeaderData(headerData.data);
+        setValueFindId(headerData.id || null);
+        setValueFindPublished(headerData.published || false);
+      } else {
+        setPageHeaderData(null);
+        setValueFindId(null);
+        setValueFindPublished(false);
+      }
+    } catch (error) {
+      debug.error('Error fetching value finds:', error);
+    }
+  };
 
   // Sorting helpers (displayed probability = max(p, 1-p))
   const getDisplayedMlProb = (p: number | null): number | null => {
@@ -384,66 +441,25 @@ ${contextParts}
       
       debug.log('Fetching NFL data...');
       
-      // Get today's date in YYYY-MM-DD format for filtering
-      const today = new Date().toISOString().split('T')[0];
-      debug.log('Filtering games from today onwards:', today);
-      
-      // Fetch team mappings from database (without logo_url since it doesn't exist)
-      const { data: teamMappingsData, error: teamMappingsError } = await collegeFootballSupabase
-        .from('nfl_team_mapping')
-        .select('city_and_name, team_name');
-      
-      if (teamMappingsError) {
-        debug.error('Error fetching team mappings:', teamMappingsError);
-      } else {
-        debug.log('Team mappings fetched:', teamMappingsData);
-        debug.log('Number of team mappings:', teamMappingsData?.length);
-        if (teamMappingsData && teamMappingsData.length > 0) {
-          debug.log('First few team mappings:', teamMappingsData.slice(0, 3));
-        }
-      }
-      
-      // Add logo URLs to the team mappings
-      const teamMappings = (teamMappingsData || []).map(team => ({
-        ...team,
-        logo_url: getNFLTeamLogo(team.team_name)
-      }));
-      
-      setTeamMappings(teamMappings);
-
-      // Fetch betting lines first - get most recent row per training_key
-      const { data: bettingData, error: bettingError } = await collegeFootballSupabase
-        .from('nfl_betting_lines')
+      // Step 1: Fetch ALL games from v_input_values_with_epa - this view updates on new week start
+      debug.log('📊 Querying v_input_values_with_epa for all current week games...');
+      const { data: nflGames, error: gamesError } = await collegeFootballSupabase
+        .from('v_input_values_with_epa')
         .select('*')
-        .gte('game_date', today)
-        .order('as_of_ts', { ascending: false });
+        .order('game_date', { ascending: true })
+        .order('game_time', { ascending: true });
 
-      if (bettingError) {
-        debug.error('Error fetching betting lines:', bettingError);
-        setError(`Betting lines error: ${bettingError.message}`);
+      if (gamesError) {
+        debug.error('Error fetching NFL games from v_input_values_with_epa:', gamesError);
+        setError(`Games error: ${gamesError.message}`);
+        setLoading(false);
         return;
       }
 
-      debug.log('Betting lines fetched:', bettingData?.length || 0);
-
-      // Create a map of most recent betting lines by training_key
-      const bettingMap = new Map();
-      bettingData?.forEach(bet => {
-        const key = bet.training_key;
-        if (!bettingMap.has(key) || new Date(bet.as_of_ts) > new Date(bettingMap.get(key).as_of_ts)) {
-          bettingMap.set(key, bet);
-        }
-      });
-
-      debug.log('Betting map created with', bettingMap.size, 'entries');
-
-      // Fetch predictions - get games from yesterday onwards to catch games that started recently
-      // We'll filter by actual game time + 6 hours later
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      debug.log('✅ NFL games fetched from v_input_values_with_epa:', nflGames?.length || 0);
       
-      // First get the most recent run_id (without date filter to get latest available)
+      // Step 2: Fetch predictions from nfl_predictions_epa (latest run_id)
+      debug.log('📊 Fetching model predictions from nfl_predictions_epa...');
       const { data: latestRun, error: runError } = await collegeFootballSupabase
         .from('nfl_predictions_epa')
         .select('run_id')
@@ -451,129 +467,97 @@ ${contextParts}
         .limit(1)
         .single();
 
-      if (runError) {
-        debug.error('Error fetching latest run_id:', runError);
-        setError(`Run ID error: ${runError.message}`);
-        return;
-      }
+      let predictionsMap = new Map();
+      
+      if (!runError && latestRun) {
+        debug.log('Latest run_id:', latestRun.run_id);
+        const { data: predictions, error: predsError } = await collegeFootballSupabase
+          .from('nfl_predictions_epa')
+          .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id')
+          .eq('run_id', latestRun.run_id);
 
-      const latestRunId = latestRun?.run_id;
-      if (!latestRunId) {
-        debug.log('No predictions found');
-        setPredictions([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch ALL predictions from yesterday onwards with the latest run_id
-      // We'll filter by game time + 6 hours client-side
-      const { data: preds, error: predsError } = await collegeFootballSupabase
-        .from('nfl_predictions_epa')
-        .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id, game_date')
-        .gte('game_date', yesterdayStr)
-        .eq('run_id', latestRunId)
-        .order('game_date', { ascending: true });
-
-      if (predsError) {
-        debug.error('Error fetching predictions:', predsError);
-        setError(`Predictions error: ${predsError.message}`);
-        return;
-      }
-
-      debug.log('Predictions fetched:', preds?.length || 0);
-      if (preds && preds.length > 0) {
-        debug.log('Sample prediction data:', preds[0]);
-        debug.log('Available columns in prediction:', Object.keys(preds[0]));
-      }
-
-      // Fetch weather data
-      const { data: weatherData, error: weatherError } = await collegeFootballSupabase
-        .from('production_weather')
-        .select('*');
-
-      if (weatherError) {
-        debug.error('Error fetching weather data:', weatherError);
-        debug.warn('Weather data unavailable, continuing without weather info');
-      }
-
-      // Get most recent betting data per training_key
-      const uniqueBettingData = bettingData ? bettingData.reduce((acc, current) => {
-        const existing = acc.find(item => item.training_key === current.training_key);
-        if (!existing || new Date(current.as_of_ts) > new Date(existing.as_of_ts)) {
-          // Remove existing entry if it exists and add current (more recent) one
-          const filtered = acc.filter(item => item.training_key !== current.training_key);
-          return [...filtered, current];
+        if (!predsError && predictions) {
+          debug.log('✅ Predictions fetched:', predictions.length);
+          predictions.forEach(pred => {
+            predictionsMap.set(pred.training_key, pred);
+          });
+        } else {
+          debug.warn('No predictions found or error:', predsError);
         }
-        return acc;
-      }, [] as typeof bettingData) : [];
+      } else {
+        debug.warn('No prediction run_id found');
+      }
+      
+      // Step 2.5: Fetch betting lines for moneylines and public splits
+      debug.log('📊 Fetching betting lines for ML and public splits...');
+      const { data: bettingLines, error: bettingError } = await collegeFootballSupabase
+        .from('nfl_betting_lines')
+        .select('training_key, home_ml, away_ml, over_line, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts')
+        .order('as_of_ts', { ascending: false });
 
-      // Map all data together
-      const predictionsWithData = (preds || []).map(prediction => {
-        // Match weather data by training_key
-        const weather = weatherData?.find(w => w.training_key === prediction.training_key);
-        
-        // Match betting data by training_key
-        const betting = uniqueBettingData?.find(b => b.training_key === prediction.training_key);
-        
-        debug.log('=== DEBUGGING DATA MATCHING ===');
-        debug.log('Prediction training_key:', prediction.training_key);
-        debug.log('Weather match found:', !!weather);
-        debug.log('Betting match found:', !!betting);
-        debug.log('=====================================');
+      let bettingLinesMap = new Map();
+      
+      if (!bettingError && bettingLines) {
+        debug.log('✅ Betting lines fetched:', bettingLines.length);
+        // Get most recent line per training_key
+        bettingLines.forEach(line => {
+          if (!bettingLinesMap.has(line.training_key)) {
+            bettingLinesMap.set(line.training_key, line);
+          }
+        });
+        debug.log('Unique betting lines:', bettingLinesMap.size);
+      } else {
+        debug.warn('No betting lines found or error:', bettingError);
+      }
+      
+      // Step 3: Fetch team mappings for logos
+      const { data: teamMappingsData, error: teamMappingsError } = await collegeFootballSupabase
+        .from('nfl_team_mapping')
+        .select('city_and_name, team_name');
+      
+      if (teamMappingsError) {
+        debug.error('Error fetching team mappings:', teamMappingsError);
+      } else {
+        debug.log('✅ Team mappings fetched:', teamMappingsData?.length);
+      }
+      
+      const teamMappings = (teamMappingsData || []).map(team => ({
+        ...team,
+        logo_url: getNFLTeamLogo(team.team_name)
+      }));
+      
+      setTeamMappings(teamMappings);
+
+      // Step 4: Merge games with predictions and betting lines
+      // home_away_unique in v_input_values_with_epa = training_key in nfl_predictions_epa and nfl_betting_lines
+      const predictionsWithData = (nflGames || []).map(game => {
+        const prediction = predictionsMap.get(game.home_away_unique);
+        const bettingLine = bettingLinesMap.get(game.home_away_unique);
         
         return {
-          ...betting, // Start with betting data as base
-          ...weather, // Add weather data
-          // Override with prediction data
-          home_away_ml_prob: prediction.home_away_ml_prob,
-          home_away_spread_cover_prob: prediction.home_away_spread_cover_prob,
-          ou_result_prob: prediction.ou_result_prob,
-          run_id: prediction.run_id,
-          game_date: prediction.game_date,
-          training_key: prediction.training_key,
-          // Weather data - using correct column names from production_weather
-          temperature: weather?.temperature || null,
-          precipitation: weather?.precipitation_pct || null,
-          wind_speed: weather?.wind_speed || null,
-          icon: weather?.icon || null,
-          // Public betting splits - using label columns
-          spread_splits_label: betting?.spread_splits_label || null,
-          total_splits_label: betting?.total_splits_label || null,
-          ml_splits_label: betting?.ml_splits_label || null,
+          ...game,
+          id: game.home_away_unique || `${game.home_team}_${game.away_team}_${game.game_date}`,
+          training_key: game.home_away_unique,
+          unique_id: game.home_away_unique,
+          // Add prediction probabilities if available
+          home_away_ml_prob: prediction?.home_away_ml_prob || null,
+          home_away_spread_cover_prob: prediction?.home_away_spread_cover_prob || null,
+          ou_result_prob: prediction?.ou_result_prob || null,
+          run_id: prediction?.run_id || null,
+          // Add Vegas lines from betting_lines table
+          home_ml: bettingLine?.home_ml || null,
+          away_ml: bettingLine?.away_ml || null,
+          over_line: bettingLine?.over_line || game.ou_vegas_line || null,
+          // Add public betting splits
+          spread_splits_label: bettingLine?.spread_splits_label || null,
+          ml_splits_label: bettingLine?.ml_splits_label || null,
+          total_splits_label: bettingLine?.total_splits_label || null,
         };
       });
 
-      // Filter out games that are more than 6 hours past their start time
-      const currentTime = new Date();
-      const filteredPredictions = predictionsWithData.filter(pred => {
-        if (!pred.game_date || !pred.game_time) {
-          debug.warn('Game missing date or time, keeping it:', pred.training_key);
-          return true; // Keep games without time info
-        }
-        
-        try {
-          // Combine game_date and game_time to create full datetime
-          // game_date format: "2024-11-08"
-          // game_time format: "20:30:00" (UTC)
-          const gameDateTime = new Date(`${pred.game_date}T${pred.game_time}Z`);
-          
-          // Add 6 hours to game start time
-          const sixHoursAfterGame = new Date(gameDateTime.getTime() + (6 * 60 * 60 * 1000));
-          
-          const shouldKeep = currentTime < sixHoursAfterGame;
-          
-          debug.log(`Game ${pred.away_team} @ ${pred.home_team}: Start ${gameDateTime.toISOString()}, +6hrs ${sixHoursAfterGame.toISOString()}, Keep: ${shouldKeep}`);
-          
-          return shouldKeep;
-        } catch (error) {
-          debug.error('Error parsing game time for', pred.training_key, error);
-          return true; // Keep games if we can't parse the time
-        }
-      });
+      debug.log(`✅ Showing ALL ${predictionsWithData.length} games (${predictionsMap.size} have predictions)`);
 
-      debug.log(`Filtered games: ${predictionsWithData.length} -> ${filteredPredictions.length} (removed ${predictionsWithData.length - filteredPredictions.length} games past 6hr window)`);
-
-      setPredictions(filteredPredictions);
+      setPredictions(predictionsWithData);
       setLastUpdated(new Date());
     } catch (err) {
       debug.error('Error fetching data:', err);
@@ -602,6 +586,20 @@ ${contextParts}
     
     debug.log('AI completions fetched:', Object.keys(completionsMap).length, 'games have completions');
     setAiCompletions(completionsMap);
+  };
+
+  // Refresh completions after generating a new one
+  const handleCompletionGenerated = async (gameId: string, widgetType: string) => {
+    debug.log('Completion generated, refreshing for game:', gameId);
+    try {
+      const completions = await getGameCompletions(gameId, 'nfl');
+      setAiCompletions(prev => ({
+        ...prev,
+        [gameId]: completions
+      }));
+    } catch (error) {
+      debug.error(`Error refreshing completions for ${gameId}:`, error);
+    }
   };
 
   useEffect(() => {
@@ -1052,6 +1050,19 @@ ${contextParts}
         </Card>
       )}
 
+      {/* AI Value Finds Header */}
+      {pageHeaderData && (
+        <PageHeaderValueFinds
+          sportType="nfl"
+          summaryText={pageHeaderData.summary_text}
+          compactPicks={pageHeaderData.compact_picks}
+          valueFindId={valueFindId || undefined}
+          isPublished={valueFindPublished}
+          onTogglePublish={fetchValueFinds}
+          onDelete={fetchValueFinds}
+        />
+      )}
+
       <div className="space-y-6 sm:space-y-8">
         <div className="-mx-4 md:mx-0">
           <div className="grid gap-3 sm:gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
@@ -1062,6 +1073,10 @@ ${contextParts}
               const awayTeamColors = getNFLTeamColors(prediction.away_team);
               const homeTeamColors = getNFLTeamColors(prediction.home_team);
               
+              // Get high value badge for this game
+              const gameId = prediction.training_key || prediction.unique_id;
+              const highValueBadge = highValueBadges.get(gameId);
+              
               // Debug log to check what ID fields are available
               if (index === 0) {
                 debug.log('🏈 NFL Prediction sample:', {
@@ -1070,7 +1085,8 @@ ${contextParts}
                   training_key: prediction.training_key,
                   away_team: prediction.away_team,
                   home_team: prediction.home_team,
-                  allKeys: Object.keys(prediction)
+                  allKeys: Object.keys(prediction),
+                  hasHighValueBadge: !!highValueBadge
                 });
               }
               
@@ -1107,6 +1123,17 @@ ${contextParts}
                   )}
                 
                 <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6">
+                  {/* High Value Badge */}
+                  {highValueBadge && (
+                    <div className="flex justify-center -mt-2 mb-2">
+                      <HighValueBadge
+                        pick={highValueBadge.recommended_pick}
+                        confidence={highValueBadge.confidence}
+                        tooltipText={highValueBadge.tooltip_text}
+                      />
+                    </div>
+                  )}
+                  
                   {/* Game Date and Time */}
                   <div className="text-center space-y-2">
                     <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
@@ -1208,12 +1235,12 @@ ${contextParts}
                       awayTeamColors={awayTeamColors}
                       homeTeamColors={homeTeamColors}
                       league="nfl"
-                      compact={!expandedCards[prediction.id]}
+                      compact={true}
                     />
                   </div>
 
-                  {/* Compact Model Predictions - Shown when collapsed */}
-                  {!expandedCards[prediction.id] && (
+                  {/* Compact Model Predictions - Always shown */}
+                  {(
                     <div className="pt-3 sm:pt-4">
                       {/* Header */}
                       <div className="flex items-center justify-center gap-2 mb-3">
@@ -1266,25 +1293,20 @@ ${contextParts}
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        if (isFreemiumUser && !expandedCards[prediction.id]) {
-                          // Prevent expansion for freemium users
+                        if (isFreemiumUser) {
+                          // Prevent modal opening for freemium users
                           return;
                         }
-                        toggleCardExpansion(prediction.id);
+                        setSelectedGameForModal(prediction);
                       }}
-                      disabled={isFreemiumUser && !expandedCards[prediction.id]}
+                      disabled={isFreemiumUser}
                       className="text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={isFreemiumUser && !expandedCards[prediction.id] ? "Subscribe to view details" : ""}
+                      title={isFreemiumUser ? "Subscribe to view details" : ""}
                     >
-                      {isFreemiumUser && !expandedCards[prediction.id] ? (
+                      {isFreemiumUser ? (
                         <>
                           <Lock className="h-4 w-4 mr-1" />
                           Upgrade to View Details
-                        </>
-                      ) : expandedCards[prediction.id] ? (
-                        <>
-                          <ChevronUp className="h-4 w-4 mr-1" />
-                          Show Less
                         </>
                       ) : (
                         <>
@@ -1294,526 +1316,6 @@ ${contextParts}
                       )}
                     </Button>
                   </div>
-
-                  {/* Detailed Sections - Only shown when expanded */}
-                  {expandedCards[prediction.id] && (
-                    <>
-                      {/* Model Predictions Section */}
-                      <div className="text-center pt-3 sm:pt-4">
-                    <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-center gap-2">
-                        <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">Model Predictions</h4>
-                      </div>
-                      
-                      {/* Spread Predictions */}
-                      {prediction.home_away_spread_cover_prob !== null && (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
-                            <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Spread</h5>
-                          </div>
-                          {(() => {
-                            const isHome = prediction.home_away_spread_cover_prob > 0.5;
-                            const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
-                            const predictedTeamColors = isHome ? homeTeamColors : awayTeamColors;
-                            const predictedSpread = isHome ? prediction.home_spread : prediction.away_spread;
-                            const confidencePct = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
-                            const confidenceColorClass =
-                              confidencePct <= 58 ? 'text-red-400' :
-                              confidencePct <= 65 ? 'text-orange-400' :
-                              'text-green-400';
-                            const confidenceBgClass =
-                              confidencePct <= 58 ? 'bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/20' :
-                              confidencePct <= 65 ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300 dark:border-orange-500/20' :
-                              'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20';
-                            const confidenceLabel =
-                              confidencePct <= 58 ? 'Low Confidence' :
-                              confidencePct <= 65 ? 'Moderate Confidence' :
-                              'High Confidence';
-                            const spreadValue = Math.abs(Number(predictedSpread));
-                            const isNegativeSpread = Number(predictedSpread) < 0;
-                            
-                            // Check for AI completion first, fallback to static explanation
-                            const gameId = prediction.training_key || prediction.unique_id;
-                            const aiExplanation = aiCompletions[gameId]?.['spread_prediction'];
-                            const staticExplanation =
-                              confidencePct <= 58 
-                                ? `For this bet to win, ${getFullTeamName(predictedTeam).city} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${confidencePct}% confidence, this is a toss-up where the model sees both outcomes as nearly equally likely.`
-                                : confidencePct <= 65
-                                ? `For this bet to win, ${getFullTeamName(predictedTeam).city} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. The model gives this a ${confidencePct}% chance, indicating a slight advantage but still plenty of risk.`
-                                : `For this bet to win, ${getFullTeamName(predictedTeam).city} needs to ${isNegativeSpread ? `win by more than ${spreadValue} points` : `either win the game or lose by fewer than ${spreadValue} points`}. With ${confidencePct}% confidence, the model sees a strong likelihood they'll achieve this margin.`;
-                            
-                            const explanation = aiExplanation || staticExplanation;
-                            
-                            return (
-                              <>
-                                <div className="grid grid-cols-2 items-stretch gap-3">
-                                  {/* Left: Team Circle + Name (spread) */}
-                                  <div className="bg-green-100 dark:bg-green-500/10 backdrop-blur-sm rounded-lg border border-green-300 dark:border-green-500/20 p-3 flex flex-col items-center justify-center">
-                                    <div 
-                                      className="h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center border-2 mb-2 shadow-lg"
-                                      style={{
-                                        background: `linear-gradient(135deg, ${predictedTeamColors.primary}, ${predictedTeamColors.secondary})`,
-                                        borderColor: `${predictedTeamColors.primary}`
-                                      }}
-                                    >
-                                      <span 
-                                        className="text-xs sm:text-sm font-bold drop-shadow-md"
-                                        style={{ color: getContrastingTextColor(predictedTeamColors.primary, predictedTeamColors.secondary) }}
-                                      >
-                                        {getTeamInitials(predictedTeam)}
-                                      </span>
-                                  </div>
-                                    <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white text-center leading-snug">
-                                      {getFullTeamName(predictedTeam).city}
-                                  </span>
-                                    <span className="text-xs text-gray-600 dark:text-white/70">
-                                      ({formatSpread(predictedSpread)})
-                                    </span>
-                                  </div>
-                                {/* Right: Confidence % */}
-                                  <div className={`${confidenceBgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
-                                    <div className={`text-2xl sm:text-3xl font-extrabold leading-tight ${confidenceColorClass}`}>
-                                    {confidencePct}%
-                                  </div>
-                                    <div className="text-xs text-gray-600 dark:text-white/60 font-medium mt-1">{confidenceLabel}</div>
-                              </div>
-                                </div>
-                                {/* What this means */}
-                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
-                                  </div>
-                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                                    {explanation}
-                                  </p>
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      )}
-
-                      {/* Over/Under Analysis */}
-                      {prediction.ou_result_prob !== null && (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                            <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Over / Under</h5>
-                          </div>
-                          {(() => {
-                            const isOver = prediction.ou_result_prob! > 0.5;
-                            const confidencePct = Math.round((isOver ? prediction.ou_result_prob! : 1 - prediction.ou_result_prob!) * 100);
-                            const confidenceColorClass =
-                              confidencePct <= 58 ? 'text-red-400' :
-                              confidencePct <= 65 ? 'text-orange-400' :
-                              'text-green-400';
-                            const confidenceBgClass =
-                              confidencePct <= 58 ? 'bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/20' :
-                              confidencePct <= 65 ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300 dark:border-orange-500/20' :
-                              'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20';
-                            const confidenceLabel =
-                              confidencePct <= 58 ? 'Low Confidence' :
-                              confidencePct <= 65 ? 'Moderate Confidence' :
-                              'High Confidence';
-                            const arrow = isOver ? '▲' : '▼';
-                            const arrowColor = isOver ? 'text-green-400' : 'text-red-400';
-                            const arrowBg = isOver ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' : 'bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/20';
-                            const label = isOver ? 'Over' : 'Under';
-                            const totalPoints = prediction.over_line;
-                            
-                            // Check for AI completion first, fallback to static explanation
-                            const gameId = prediction.training_key || prediction.unique_id;
-                            const aiExplanation = aiCompletions[gameId]?.['ou_prediction'];
-                            const staticExplanation =
-                              confidencePct <= 58 
-                                ? `For this bet to win, the combined score of both teams needs to be ${isOver ? 'MORE' : 'LESS'} than ${totalPoints} points. With ${confidencePct}% confidence, the model sees this as a coin flip—the game could go either way in terms of total scoring.`
-                                : confidencePct <= 65
-                                ? `For this bet to win, the combined score needs to be ${isOver ? 'MORE' : 'LESS'} than ${totalPoints} points. The model gives this a ${confidencePct}% chance, suggesting a slight ${isOver ? 'offensive' : 'defensive'} edge but the scoring environment is still uncertain.`
-                                : `For this bet to win, the combined score needs to be ${isOver ? 'MORE' : 'LESS'} than ${totalPoints} points. With ${confidencePct}% confidence, the model expects a ${isOver ? 'high-scoring, offensive-oriented' : 'low-scoring, defense-dominated'} game that should clearly ${isOver ? 'exceed' : 'stay under'} this total.`;
-                            
-                            const explanation = aiExplanation || staticExplanation;
-                            
-                            return (
-                              <>
-                                <div className="grid grid-cols-2 items-stretch gap-3">
-                                {/* Left: Big arrow + OU line */}
-                                  <div className={`${arrowBg} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
-                                    <div className={`text-4xl sm:text-5xl font-black ${arrowColor}`}>{arrow}</div>
-                                    <div className="mt-2 text-sm sm:text-base font-semibold text-gray-900 dark:text-white text-center">
-                                    {label} {prediction.over_line || '-'}
-                                  </div>
-                                  </div>
-                                {/* Right: Confidence % */}
-                                  <div className={`${confidenceBgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
-                                    <div className={`text-2xl sm:text-3xl font-extrabold leading-tight ${confidenceColorClass}`}>
-                                    {confidencePct}%
-                                  </div>
-                                    <div className="text-xs text-gray-600 dark:text-white/60 font-medium mt-1">{confidenceLabel}</div>
-                              </div>
-                                </div>
-                                {/* What this means */}
-                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
-                                  </div>
-                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                                    {explanation}
-                                  </p>
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Betting Split Labels Section */}
-                  {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
-                    <div className="text-center pt-3 sm:pt-4">
-                      <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
-                        {/* Header - Clickable */}
-                        <button
-                          onClick={() => setExpandedBettingFacts(prev => ({
-                            ...prev,
-                            [prediction.id]: !prev[prediction.id]
-                          }))}
-                          className="w-full flex items-center justify-center gap-2 group hover:opacity-80 transition-opacity"
-                        >
-                          <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          <h4 className="text-lg font-bold text-gray-900 dark:text-white">Public Betting Facts</h4>
-                          <motion.div
-                            animate={{ rotate: expandedBettingFacts[prediction.id] ? 180 : 0 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <ChevronDown className="h-5 w-5 text-gray-500 dark:text-white/60" />
-                          </motion.div>
-                        </button>
-
-                        {/* Mini Previews - Collapsed State */}
-                        {!expandedBettingFacts[prediction.id] && (
-                            <div className="flex flex-wrap justify-center gap-2">
-                              {prediction.ml_splits_label && (() => {
-                                const mlData = parseBettingSplit(prediction.ml_splits_label);
-                                if (!mlData || !mlData.team) return null;
-                                const colorTheme = mlData.isSharp ? 'green' :
-                                                  mlData.percentage >= 70 ? 'purple' :
-                                                  mlData.percentage >= 60 ? 'blue' : 'neutral';
-                                const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
-                                               colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
-                                               colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
-                                               'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                                return (
-                                  <div className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
-                                    <TrendingUp className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                                    <span className="text-xs font-semibold text-gray-900 dark:text-white">ML: {mlData.team}</span>
-                                  </div>
-                                );
-                              })()}
-                              
-                              {prediction.spread_splits_label && (() => {
-                                const spreadData = parseBettingSplit(prediction.spread_splits_label);
-                                if (!spreadData || !spreadData.team) return null;
-                                const isHomeTeam = spreadData.team === prediction.home_team;
-                                const isAwayTeam = spreadData.team === prediction.away_team;
-                                if (!isHomeTeam && !isAwayTeam) return null;
-                                const colorTheme = spreadData.isSharp ? 'green' :
-                                                  spreadData.percentage >= 70 ? 'purple' :
-                                                  spreadData.percentage >= 60 ? 'blue' : 'neutral';
-                                const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
-                                               colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
-                                               colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
-                                               'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                                return (
-                                  <div className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
-                                    <Target className="h-3 w-3 text-green-600 dark:text-green-400" />
-                                    <span className="text-xs font-semibold text-gray-900 dark:text-white">Spread: {spreadData.team}</span>
-                                  </div>
-                                );
-                              })()}
-                              
-                              {prediction.total_splits_label && (() => {
-                                const totalData = parseBettingSplit(prediction.total_splits_label);
-                                if (!totalData || !totalData.direction) return null;
-                                const isOver = totalData.direction === 'over';
-                                const colorTheme = totalData.isSharp ? 'green' :
-                                                  totalData.percentage >= 70 ? 'purple' :
-                                                  totalData.percentage >= 60 ? 'blue' : 'neutral';
-                                const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
-                                               colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
-                                               colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
-                                               'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                                const arrow = isOver ? '▲' : '▼';
-                                const arrowColor = isOver ? 'text-green-400' : 'text-red-400';
-                                return (
-                                  <div className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
-                                    <BarChart className="h-3 w-3 text-orange-600 dark:text-orange-400" />
-                                    <span className={`text-sm font-bold ${arrowColor}`}>{arrow}</span>
-                                    <span className="text-xs font-semibold text-gray-900 dark:text-white">{totalData.team}</span>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
-
-                        {/* Full Details - Expanded State */}
-                        {expandedBettingFacts[prediction.id] && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="space-y-4"
-                          >
-                        
-                        {/* Moneyline Splits */}
-                        {prediction.ml_splits_label && (() => {
-                          const mlData = parseBettingSplit(prediction.ml_splits_label);
-                          if (!mlData || !mlData.team) return null;
-                          
-                          const teamColors = mlData.team === prediction.home_team ? homeTeamColors : 
-                                           mlData.team === prediction.away_team ? awayTeamColors : 
-                                           { primary: '#6B7280', secondary: '#9CA3AF' };
-                          const colorTheme = mlData.isSharp ? 'green' :
-                                            mlData.percentage >= 70 ? 'purple' :
-                                            mlData.percentage >= 60 ? 'blue' : 'neutral';
-                          const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
-                                         colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
-                                         colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
-                                         'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                          const explanation = mlData.isSharp 
-                            ? `Sharp bettors (professional, high-volume bettors) are heavily on ${mlData.team} ML. Sharp money often indicates where the true value lies, as these bettors have better information and analysis.`
-                            : mlData.percentage >= 70
-                            ? `There's a heavy public lean on ${mlData.team} ML. When public betting is this lopsided, there's often contrarian value on the other side, as sportsbooks adjust lines to balance their risk.`
-                            : mlData.percentage >= 60
-                            ? `Public bets show a moderate lean toward ${mlData.team} ML. This suggests some consensus, but the line likely still offers value on both sides.`
-                            : `Public betting is relatively balanced on ${mlData.team} ML. This split suggests no strong public bias, indicating the line is well-calibrated.`;
-                          
-                          return (
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-center gap-2">
-                                <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Moneyline</h5>
-                              </div>
-                              <div className="grid grid-cols-2 items-stretch gap-3">
-                                <div className={`${bgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
-                                  {mlData.team !== 'Over' && mlData.team !== 'Under' && (
-                                    <div 
-                                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center border-2 mb-2 shadow-lg"
-                                      style={{
-                                        background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
-                                        borderColor: teamColors.primary
-                                      }}
-                                    >
-                                      <span 
-                                        className="text-xs font-bold drop-shadow-md"
-                                        style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
-                                      >
-                                        {getTeamInitials(mlData.team)}
-                                      </span>
-                                    </div>
-                                  )}
-                                  <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white text-center">
-                                    {mlData.team}
-                                  </span>
-                                  <span className="text-xs text-gray-600 dark:text-white/60">
-                                    {mlData.isSharp ? 'Sharp Money' : 'Public'}
-                                  </span>
-                        </div>
-                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
-                      </div>
-                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                                    {explanation}
-                                  </p>
-                    </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Spread Splits */}
-                        {prediction.spread_splits_label && (() => {
-                          const spreadData = parseBettingSplit(prediction.spread_splits_label);
-                          if (!spreadData || !spreadData.team) return null;
-                          
-                          // Only show if we can match the team to home or away
-                          const isHomeTeam = spreadData.team === prediction.home_team;
-                          const isAwayTeam = spreadData.team === prediction.away_team;
-                          if (!isHomeTeam && !isAwayTeam) return null;
-                          
-                          const teamColors = isHomeTeam ? homeTeamColors : awayTeamColors;
-                          const teamSpread = isHomeTeam ? prediction.home_spread : prediction.away_spread;
-                          const colorTheme = spreadData.isSharp ? 'green' :
-                                            spreadData.percentage >= 70 ? 'purple' :
-                                            spreadData.percentage >= 60 ? 'blue' : 'neutral';
-                          const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
-                                         colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
-                                         colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
-                                         'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                          const explanation = spreadData.isSharp 
-                            ? `Sharp bettors are heavily on ${spreadData.team} ${formatSpread(teamSpread)}. Professional bettors backing this spread suggests it offers value relative to the true probability.`
-                            : spreadData.percentage >= 70
-                            ? `There's heavy public action on ${spreadData.team} ${formatSpread(teamSpread)}. This lopsided betting often causes sportsbooks to shade the line, potentially creating value on the less-popular side.`
-                            : spreadData.percentage >= 60
-                            ? `Public bets show a moderate lean toward ${spreadData.team} ${formatSpread(teamSpread)}. This is typical and suggests the spread is reasonably calibrated.`
-                            : `Public betting is relatively balanced on ${spreadData.team} ${formatSpread(teamSpread)}. A near even split indicates both sides have appeal.`;
-                          
-                          return (
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-center gap-2">
-                                <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Spread</h5>
-                              </div>
-                              <div className="grid grid-cols-2 items-stretch gap-3">
-                                <div className={`${bgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
-                                  <div 
-                                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center border-2 mb-2 shadow-lg"
-                                    style={{
-                                      background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
-                                      borderColor: teamColors.primary
-                                    }}
-                                  >
-                                    <span 
-                                      className="text-xs font-bold drop-shadow-md"
-                                      style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
-                                    >
-                                      {getTeamInitials(spreadData.team)}
-                                    </span>
-                        </div>
-                                  <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white text-center">
-                                    {spreadData.team}
-                                  </span>
-                                  <span className="text-xs text-gray-600 dark:text-white/60">
-                                    {formatSpread(teamSpread)}
-                                  </span>
-                                </div>
-                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
-                                  </div>
-                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                                    {explanation}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Total Splits */}
-                        {prediction.total_splits_label && (() => {
-                          const totalData = parseBettingSplit(prediction.total_splits_label);
-                          if (!totalData || !totalData.direction) return null;
-                          
-                          const isOver = totalData.direction === 'over';
-                          const colorTheme = totalData.isSharp ? 'green' :
-                                            totalData.percentage >= 70 ? 'purple' :
-                                            totalData.percentage >= 60 ? 'blue' : 'neutral';
-                          const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
-                                         colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
-                                         colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
-                                         'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                          const arrowColor = isOver ? 'text-green-400' : 'text-red-400';
-                          const arrow = isOver ? '▲' : '▼';
-                          const explanation = totalData.isSharp 
-                            ? `Sharp bettors are heavily on the ${totalData.team.toLowerCase()} ${prediction.over_line}. Professional money on the ${totalData.team.toLowerCase()} suggests the total may be mispriced.`
-                            : totalData.percentage >= 70
-                            ? `There's heavy public action on the ${totalData.team.toLowerCase()} ${prediction.over_line}. Lopsided betting on totals often creates contrarian value, as books adjust the number to balance liability.`
-                            : totalData.percentage >= 60
-                            ? `Public bets show a moderate lean toward the ${totalData.team.toLowerCase()} ${prediction.over_line}. This suggests some public sentiment but the total is likely still fair.`
-                            : `Public betting is relatively balanced on the ${totalData.team.toLowerCase()}. A near even split indicates the total is well-set with no clear public bias.`;
-                          
-                          return (
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-center gap-2">
-                                <BarChart className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Total</h5>
-                              </div>
-                              <div className="grid grid-cols-2 items-stretch gap-3">
-                                <div className={`${bgClass} backdrop-blur-sm rounded-lg border p-3 flex flex-col items-center justify-center`}>
-                                  <div className={`text-4xl font-black ${arrowColor}`}>{arrow}</div>
-                                  <span className="text-sm font-semibold text-gray-900 dark:text-white mt-2">
-                                    {totalData.team} {prediction.over_line}
-                                  </span>
-                                  <span className="text-xs text-gray-600 dark:text-white/60">
-                                    {totalData.isSharp ? 'Sharp Money' : 'Public'}
-                                  </span>
-                                </div>
-                                <div className="bg-gray-100 dark:bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                    <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
-                                  </div>
-                                  <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                                    {explanation}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-                          </motion.div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Weather Section */}
-                  <div className="text-center pt-3 sm:pt-4">
-                    <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-3">
-                      {/* Header */}
-                      <div className="flex items-center justify-center gap-2">
-                        <CloudRain className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">Weather</h4>
-                      </div>
-                      
-                      {/* Weather Content */}
-                      {prediction.icon ? (
-                        <div className="flex justify-center">
-                          <WeatherIcon 
-                            iconCode={prediction.icon}
-                            temperature={prediction.temperature}
-                            windSpeed={prediction.wind_speed}
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex justify-center">
-                          <div className="text-center">
-                            <div className="flex items-center justify-center mb-2">
-                              <WeatherIconComponent 
-                                code="indoor"
-                                size={64}
-                                className="stroke-current text-gray-800 dark:text-white"
-                              />
-                            </div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-white/80">
-                              Indoor Game
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                      {/* Historical Data Section */}
-                      <HistoricalDataSection
-                        prediction={prediction}
-                        awayTeamColors={awayTeamColors}
-                        homeTeamColors={homeTeamColors}
-                        onH2HClick={openH2HModal}
-                        onLinesClick={openLineMovementModal}
-                      />
-                    </>
-                  )}
                 </CardContent>
               </NFLGameCard>
               
@@ -1858,6 +1360,42 @@ ${contextParts}
         teamMappings={teamMappings}
       />
 
+      {/* Game Details Modal */}
+      <GameDetailsModal
+        isOpen={selectedGameForModal !== null}
+        onClose={() => setSelectedGameForModal(null)}
+        prediction={selectedGameForModal}
+        league="nfl"
+        aiCompletions={aiCompletions}
+        simLoadingById={simLoadingById}
+        simRevealedById={simRevealedById}
+        setSimLoadingById={setSimLoadingById}
+        setSimRevealedById={setSimRevealedById}
+        focusedCardId={focusedCardId}
+        getTeamInitials={getTeamInitials}
+        getContrastingTextColor={getContrastingTextColor}
+        getFullTeamName={getFullTeamName}
+        formatSpread={formatSpread}
+        parseBettingSplit={parseBettingSplit}
+        expandedBettingFacts={expandedBettingFacts}
+        setExpandedBettingFacts={setExpandedBettingFacts}
+        onH2HClick={() => {
+          if (selectedGameForModal) {
+            setSelectedHomeTeam(selectedGameForModal.home_team);
+            setSelectedAwayTeam(selectedGameForModal.away_team);
+            setH2hModalOpen(true);
+          }
+        }}
+        onLinesClick={() => {
+          if (selectedGameForModal) {
+            setSelectedUniqueId(selectedGameForModal.unique_id);
+            setSelectedHomeTeam(selectedGameForModal.home_team);
+            setSelectedAwayTeam(selectedGameForModal.away_team);
+            setLineMovementModalOpen(true);
+          }
+        }}
+      />
+
       {/* Mini WagerBot Chat */}
       <MiniWagerBotChat pageContext={nflContext} pageId="nfl" />
       
@@ -1876,6 +1414,7 @@ ${contextParts}
           onOpenChange={setPayloadViewerOpen}
           game={selectedPayloadGame}
           sportType="nfl"
+          onCompletionGenerated={handleCompletionGenerated} // Refreshes completions after generation
         />
       )}
     </div>

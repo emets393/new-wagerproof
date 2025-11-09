@@ -93,10 +93,13 @@ serve(async (req) => {
     // Prepare user prompt with game data
     const userPrompt = JSON.stringify(game_data_payload, null, 2);
 
-    console.log('Calling OpenAI API...');
+    console.log('Calling OpenAI Responses API with web search enabled...');
     
-    // Call OpenAI API
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Combine system prompt and user prompt into a single input for Responses API
+    const fullInput = `${systemPrompt}\n\n---\n\nGame Data:\n${userPrompt}`;
+    
+    // Call OpenAI Responses API with web search
+    const openaiResponse = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
@@ -104,19 +107,18 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
+        tools: [
           {
-            role: 'system',
-            content: systemPrompt,
-          },
-          {
-            role: 'user',
-            content: userPrompt,
-          },
+            type: 'web_search_preview',
+            user_location: {
+              type: 'approximate',
+              country: 'US',
+              city: 'New York',
+              region: 'New York'
+            }
+          }
         ],
-        max_tokens: 300,
-        temperature: 0.7,
-        response_format: { type: 'json_object' },
+        input: fullInput,
       }),
     });
 
@@ -126,13 +128,78 @@ serve(async (req) => {
     }
 
     const openaiData = await openaiResponse.json();
-    const completionContent = openaiData.choices[0].message.content;
     
-    console.log('OpenAI response received:', completionContent);
+    console.log('OpenAI response status:', openaiData.status);
+    console.log('OpenAI response has output:', !!openaiData.output);
+    
+    // Responses API returns: { output: [ { type: "message", content: [ { type: "output_text", text: "..." } ] } ] }
+    if (!openaiData.output || !Array.isArray(openaiData.output)) {
+      throw new Error('Invalid response structure from OpenAI - no output array');
+    }
+    
+    // Find the message object in the output array
+    const messageObj = openaiData.output.find((item: any) => item.type === 'message');
+    if (!messageObj) {
+      throw new Error('No message object found in OpenAI response');
+    }
+    
+    console.log('Message object status:', messageObj.status);
+    console.log('Message has content:', !!messageObj.content);
+    
+    // Extract the text from the content array
+    if (!messageObj.content || !Array.isArray(messageObj.content)) {
+      throw new Error('Message object has no content array');
+    }
+    
+    const textContent = messageObj.content.find((c: any) => c.type === 'output_text');
+    if (!textContent || !textContent.text) {
+      throw new Error('No output_text found in message content');
+    }
+    
+    let completionContent = textContent.text;
+    console.log('Extracted text length:', completionContent.length);
+    console.log('First 100 chars:', completionContent.substring(0, 100));
 
-    // Parse the JSON response
-    const parsedResponse = JSON.parse(completionContent);
-    const completionText = parsedResponse.explanation || completionContent;
+    // Parse the JSON response - strip markdown code blocks if present
+    let completionText: string;
+    try {
+      // Remove markdown code blocks (```json ... ```) if present
+      let cleanedContent = completionContent.trim();
+      if (cleanedContent.startsWith('```')) {
+        console.log('Stripping markdown code blocks...');
+        // Remove opening ```json or ``` and closing ```
+        cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '').trim();
+        console.log('After stripping, first 100 chars:', cleanedContent.substring(0, 100));
+      }
+      
+      // Try to find and parse JSON in the response
+      const jsonMatch = cleanedContent.match(/\{[\s\S]*"explanation"[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        console.log('Found JSON in response, parsing...');
+        const parsedResponse = JSON.parse(jsonMatch[0]);
+        completionText = parsedResponse.explanation;
+        console.log('Successfully extracted explanation length:', completionText.length);
+      } else {
+        // Try parsing the whole content as JSON
+        console.log('No JSON match found, trying to parse entire content...');
+        const parsedResponse = JSON.parse(cleanedContent);
+        completionText = parsedResponse.explanation || JSON.stringify(parsedResponse);
+      }
+    } catch (parseError) {
+      // If response isn't JSON, use it directly
+      console.log('Response is not valid JSON, using content directly');
+      completionText = completionContent;
+    }
+    
+    // Final safety check - ensure it's a string
+    if (typeof completionText !== 'string') {
+      console.warn('Completion text is not a string, converting:', typeof completionText);
+      completionText = String(completionText);
+    }
+    
+    console.log('Final completion text type:', typeof completionText);
+    console.log('Final completion text length:', completionText.length);
 
     // Store completion in database
     const { error: insertError } = await supabaseClient
@@ -155,13 +222,15 @@ serve(async (req) => {
     }
 
     console.log('Completion stored successfully');
+    console.log('Returning completion text:', completionText);
+    console.log('Completion text type:', typeof completionText);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         completion: completionText,
         cached: false,
-        tokens_used: openaiData.usage?.total_tokens || 0
+        tokens_used: 0 // Web search doesn't return usage tokens
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

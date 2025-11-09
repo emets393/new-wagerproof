@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import { Account } from "./pages";
 import Landing from "./pages/Landing";
 import Admin from "./pages/Admin";
+import AISettings from "./pages/admin/AISettings";
 import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import ScoreBoard from "./pages/ScoreBoard";
@@ -115,6 +116,13 @@ export const navItems: NavItem[] = [
     icon: <Shield className="h-4 w-4" />,
     page: <Admin />,
     requiresAdmin: true,
+    subItems: [
+      {
+        title: "AI Settings",
+        to: "/admin/ai-settings",
+        icon: <Brain className="h-4 w-4" />,
+      },
+    ],
   },
   {
     title: "Bet Slip Grader",

@@ -19,6 +19,12 @@ import PolymarketWidget from '@/components/PolymarketWidget';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
 import { FreemiumUpgradeBanner } from '@/components/FreemiumUpgradeBanner';
 import { Lock } from 'lucide-react';
+import { useAdminMode } from '@/contexts/AdminModeContext';
+import { AIPayloadViewer } from '@/components/AIPayloadViewer';
+import { getGameCompletions, getHighValueBadges, getPageHeaderData } from '@/services/aiCompletionService';
+import { PageHeaderValueFinds } from '@/components/PageHeaderValueFinds';
+import { HighValueBadge } from '@/components/HighValueBadge';
+import { GameDetailsModal } from '@/components/GameDetailsModal';
 
 interface CFBPrediction {
   id: string;
@@ -82,6 +88,7 @@ interface TeamMapping {
 export default function CollegeFootball() {
   const { user } = useAuth();
   const { isFreemiumUser } = useFreemiumAccess();
+  const { adminModeEnabled } = useAdminMode();
   const [predictions, setPredictions] = useState<CFBPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,16 +98,19 @@ export default function CollegeFootball() {
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   
-  // Card expanded state - tracks which cards are fully expanded
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  // AI Completion state
+  const [aiCompletions, setAiCompletions] = useState<Record<string, Record<string, string>>>({});
+  const [payloadViewerOpen, setPayloadViewerOpen] = useState(false);
   
-  // Toggle card expansion
-  const toggleCardExpansion = (cardId: string) => {
-    setExpandedCards(prev => ({
-      ...prev,
-      [cardId]: !prev[cardId]
-    }));
-  };
+  // Value Finds state
+  const [highValueBadges, setHighValueBadges] = useState<Map<string, any>>(new Map());
+  const [pageHeaderData, setPageHeaderData] = useState<{ summary_text: string; compact_picks: any[] } | null>(null);
+  const [valueFindId, setValueFindId] = useState<string | null>(null);
+  const [valueFindPublished, setValueFindPublished] = useState<boolean>(false);
+  const [selectedPayloadGame, setSelectedPayloadGame] = useState<CFBPrediction | null>(null);
+  
+  // Modal state - tracks which game is selected for modal
+  const [selectedGameForModal, setSelectedGameForModal] = useState<CFBPrediction | null>(null);
   
   const toggleGameSelection = (id: string) => {
     setSelectedGameIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -565,9 +575,100 @@ ${contextParts}
     }
   };
 
+  // Fetch AI completions for all games
+  const fetchAICompletions = async (games: CFBPrediction[]) => {
+    debug.log('Fetching AI completions for', games.length, 'CFB games');
+    const completionsMap: Record<string, Record<string, string>> = {};
+    
+    for (const game of games) {
+      const gameId = game.training_key || game.id || `${game.away_team}_${game.home_team}`;
+      try {
+        const completions = await getGameCompletions(gameId, 'cfb');
+        if (Object.keys(completions).length > 0) {
+          completionsMap[gameId] = completions;
+        }
+      } catch (error) {
+        debug.error(`Error fetching completions for ${gameId}:`, error);
+      }
+    }
+    
+    debug.log('AI completions fetched:', Object.keys(completionsMap).length, 'games have completions');
+    setAiCompletions(completionsMap);
+  };
+
+  // Refresh completions after generating a new one
+  const handleCompletionGenerated = async (gameId: string, widgetType: string) => {
+    debug.log('Completion generated, refreshing for game:', gameId);
+    try {
+      const completions = await getGameCompletions(gameId, 'cfb');
+      setAiCompletions(prev => ({
+        ...prev,
+        [gameId]: completions
+      }));
+    } catch (error) {
+      debug.error(`Error refreshing completions for ${gameId}:`, error);
+    }
+  };
+
   useEffect(() => {
     fetchData();
-  }, []);
+    fetchValueFinds();
+    
+    // Refresh value finds every 30 seconds to catch publish/unpublish changes
+    const interval = setInterval(() => {
+      fetchValueFinds();
+    }, 30000); // 30 seconds
+    
+    // Also refresh when the tab becomes visible (user switches back to the tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchValueFinds();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [adminModeEnabled]); // Re-fetch when admin mode changes
+
+  // Fetch Value Finds data
+  const fetchValueFinds = async () => {
+    try {
+      const [badges, headerData] = await Promise.all([
+        getHighValueBadges('cfb'),
+        getPageHeaderData('cfb', adminModeEnabled), // Pass admin mode to include unpublished data
+      ]);
+
+      // Convert badges array to Map for easy lookup
+      const badgesMap = new Map();
+      badges.forEach(badge => {
+        badgesMap.set(badge.game_id, badge);
+      });
+      
+      setHighValueBadges(badgesMap);
+      
+      if (headerData) {
+        setPageHeaderData(headerData.data);
+        setValueFindId(headerData.id || null);
+        setValueFindPublished(headerData.published || false);
+      } else {
+        setPageHeaderData(null);
+        setValueFindId(null);
+        setValueFindPublished(false);
+      }
+    } catch (error) {
+      debug.error('Error fetching value finds:', error);
+    }
+  };
+  
+  // Fetch AI completions when predictions are loaded
+  useEffect(() => {
+    if (predictions.length > 0) {
+      fetchAICompletions(predictions);
+    }
+  }, [predictions]);
 
   // Function to get CFB team colors
   const getCFBTeamColors = (teamName: string): { primary: string; secondary: string } => {
@@ -1208,6 +1309,19 @@ ${contextParts}
         </Card>
       )}
 
+      {/* AI Value Finds Header */}
+      {pageHeaderData && (
+        <PageHeaderValueFinds
+          sportType="cfb"
+          summaryText={pageHeaderData.summary_text}
+          compactPicks={pageHeaderData.compact_picks}
+          valueFindId={valueFindId || undefined}
+          isPublished={valueFindPublished}
+          onTogglePublish={fetchValueFinds}
+          onDelete={fetchValueFinds}
+        />
+      )}
+
       <div className="space-y-6 sm:space-y-8 w-full">
         {/* Display all games in a single grid, ordered by date and time */}
         <div className="-mx-4 md:mx-0">
@@ -1237,6 +1351,10 @@ ${contextParts}
               const awayTeamColors = getCFBTeamColors(prediction.away_team);
               const homeTeamColors = getCFBTeamColors(prediction.home_team);
               
+              // Get high value badge for this game
+              const gameId = prediction.training_key || prediction.id;
+              const highValueBadge = highValueBadges.get(gameId);
+              
               return (
                 <div key={prediction.id} className="relative">
                   <CFBGameCard
@@ -1251,8 +1369,35 @@ ${contextParts}
                   >
                   {/* Star Button for Admin Mode */}
                   <StarButton gameId={prediction.id} gameType="cfb" />
+                  
+                  {/* AI Payload Button for Admin Mode */}
+                  {adminModeEnabled && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="absolute top-2 right-12 z-10 bg-purple-500/90 hover:bg-purple-600 text-white border-purple-400"
+                      onClick={() => {
+                        setSelectedPayloadGame(prediction);
+                        setPayloadViewerOpen(true);
+                      }}
+                    >
+                      <Sparkles className="w-4 h-4 mr-1" />
+                      AI Payload
+                    </Button>
+                  )}
                 
                 <CardContent className="space-y-3 sm:space-y-4 pt-3 pb-3 sm:pt-4 sm:pb-4 px-3 sm:px-4">
+                  {/* High Value Badge */}
+                  {highValueBadge && (
+                    <div className="flex justify-center -mt-2 mb-2">
+                      <HighValueBadge
+                        pick={highValueBadge.recommended_pick}
+                        confidence={highValueBadge.confidence}
+                        tooltipText={highValueBadge.tooltip_text}
+                      />
+                    </div>
+                  )}
+                  
                   {/* Game Date and Time */}
                   {(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime) && (
                     <div className="text-center">
@@ -1434,12 +1579,12 @@ ${contextParts}
                       awayTeamColors={awayTeamColors}
                       homeTeamColors={homeTeamColors}
                       league="cfb"
-                      compact={!expandedCards[prediction.id]}
+                      compact={true}
                     />
                   </div>
 
-                  {/* Compact Model Predictions - Shown when collapsed */}
-                  {!expandedCards[prediction.id] && (
+                  {/* Compact Model Predictions - Always shown */}
+                  {(
                     <div className="pt-3 sm:pt-4">
                       {/* Header */}
                       <div className="flex items-center justify-center gap-2 mb-3">
@@ -1487,25 +1632,20 @@ ${contextParts}
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        if (isFreemiumUser && !expandedCards[prediction.id]) {
-                          // Prevent expansion for freemium users
+                        if (isFreemiumUser) {
+                          // Prevent modal opening for freemium users
                           return;
                         }
-                        toggleCardExpansion(prediction.id);
+                        setSelectedGameForModal(prediction);
                       }}
-                      disabled={isFreemiumUser && !expandedCards[prediction.id]}
+                      disabled={isFreemiumUser}
                       className="text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={isFreemiumUser && !expandedCards[prediction.id] ? "Subscribe to view details" : ""}
+                      title={isFreemiumUser ? "Subscribe to view details" : ""}
                     >
-                      {isFreemiumUser && !expandedCards[prediction.id] ? (
+                      {isFreemiumUser ? (
                         <>
                           <Lock className="h-4 w-4 mr-1" />
                           Upgrade to View Details
-                        </>
-                      ) : expandedCards[prediction.id] ? (
-                        <>
-                          <ChevronUp className="h-4 w-4 mr-1" />
-                          Show Less
                         </>
                       ) : (
                         <>
@@ -1515,338 +1655,6 @@ ${contextParts}
                       )}
                     </Button>
                   </div>
-
-                  {/* Detailed Sections - Only shown when expanded */}
-                  {expandedCards[prediction.id] && (
-                    <>
-                      {/* Model Predictions Section */}
-                      {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
-                        <div className="text-center pt-3 sm:pt-4">
-                      <div className="bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/20 space-y-4">
-                        {/* Header */}
-                        <div className="flex items-center justify-center gap-2">
-                          <Brain className="h-5 w-5 text-purple-400" />
-                          <h4 className="text-lg font-bold text-gray-900 dark:text-white">Model Predictions</h4>
-                        </div>
-
-                      <div className="space-y-3">
-                        {/* Spread Edge Display */}
-                        {(() => {
-                          const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
-
-                          if (!edgeInfo) {
-                            return (
-                              <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/20 p-3 sm:p-4">
-                                <div className="text-center">
-                                  <div className="flex items-center justify-center gap-2 mb-2 pb-1.5 border-b border-white/10">
-                                    <Target className="h-4 w-4 text-green-400" />
-                                    <h5 className="text-sm font-semibold text-white/90">Spread</h5>
-                                  </div>
-                                  <div className="text-xs text-white/60">Edge calculation unavailable</div>
-                                  <div className="mt-2">
-                                    <div className="text-xs font-semibold text-white/80 mb-1">Model Spread</div>
-                                    <div className="text-xl sm:text-2xl font-bold text-white">
-                                      {formatSignedHalf(prediction.pred_spread)}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 shadow-sm p-3 sm:p-4">
-                              <div className="flex items-center justify-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-white/10">
-                                <Target className="h-4 w-4 text-green-400" />
-                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Spread</h5>
-                              </div>
-                              
-                              <div className="flex items-center justify-between gap-4">
-                                {/* Team Circle */}
-                                <div className="flex-shrink-0">
-                                  {(() => {
-                                    const teamColors = getCFBTeamColors(edgeInfo.teamName);
-                                    return (
-                                      <div 
-                                        className="h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
-                                        style={{
-                                          background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
-                                          borderColor: `${teamColors.primary}`
-                                        }}
-                                      >
-                                        <span 
-                                          className="text-xs sm:text-sm font-bold drop-shadow-md"
-                                          style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
-                                        >
-                                          {getTeamInitials(edgeInfo.teamName)}
-                                        </span>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-
-                                {/* Edge Value */}
-                                <div className="text-center flex-1">
-                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamInitials(edgeInfo.teamName)}</div>
-                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                                    {edgeInfo.displayEdge}
-                                  </div>
-                                </div>
-
-                                {/* Model Spread */}
-                                <div className="text-center flex-1">
-                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Model Spread</div>
-                                  {(() => {
-                                    let modelSpreadDisplay = prediction.pred_spread;
-                                    if (!edgeInfo.isHomeEdge) {
-                                      if (modelSpreadDisplay !== null) modelSpreadDisplay = -modelSpreadDisplay;
-                                    }
-                                    return (
-                                      <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                                        {formatSignedHalf(modelSpreadDisplay)}
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Spread Explanation */}
-                        {(() => {
-                          const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
-                          if (!edgeInfo) return null;
-                          
-                          return (
-                            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Info className="h-3 w-3 text-blue-400 flex-shrink-0" />
-                                <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
-                              </div>
-                              <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                                {getEdgeExplanation(edgeInfo.edgeValue, edgeInfo.teamName, 'spread')}
-                              </p>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Over/Under Edge Display */}
-                        {(() => {
-                          const ouDiff = prediction.over_line_diff;
-                          const hasOuData = ouDiff !== null || prediction.pred_over_line !== null || prediction.api_over_line !== null;
-
-                          if (!hasOuData) {
-                            return (
-                              <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/20 p-3 sm:p-4">
-                                <div className="text-center">
-                                  <div className="flex items-center justify-center gap-2 mb-2 pb-1.5 border-b border-white/10">
-                                    <BarChart className="h-4 w-4 text-orange-400" />
-                                    <h5 className="text-sm font-semibold text-white/90">Over/Under</h5>
-                                  </div>
-                                  <div className="text-xs text-white/60">No O/U data available</div>
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          const isOver = (ouDiff ?? 0) > 0;
-                          const magnitude = Math.abs(ouDiff ?? 0);
-                          const displayMagnitude = roundToHalf(magnitude).toString();
-                          const modelValue = prediction.pred_over_line;
-
-                          return (
-                            <div className={`rounded-xl border p-3 sm:p-4 backdrop-blur-sm shadow-sm ${
-                              isOver 
-                                ? 'bg-green-500/10 border-green-500/20' 
-                                : 'bg-red-500/10 border-red-500/20'
-                            }`}>
-                              <div className="flex items-center justify-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-white/10">
-                                <BarChart className={`h-4 w-4 ${isOver ? 'text-green-400' : 'text-red-400'}`} />
-                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Over/Under</h5>
-                              </div>
-
-                              <div className="flex items-center justify-between gap-4">
-                                {/* Arrow Indicator */}
-                                <div className="flex-shrink-0">
-                                  {isOver ? (
-                                    <div className="flex flex-col items-center">
-                                      <ChevronUp className="h-12 w-12 sm:h-16 sm:w-16 text-green-400" />
-                                      <div className="text-xs font-bold text-green-400 -mt-1">Over</div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col items-center">
-                                      <ChevronDown className="h-12 w-12 sm:h-16 sm:w-16 text-red-400" />
-                                      <div className="text-xs font-bold text-red-400 -mt-1">Under</div>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Edge Value */}
-                                <div className="text-center flex-1">
-                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {isOver ? 'Over' : 'Under'}</div>
-                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{displayMagnitude}</div>
-                                </div>
-
-                                {/* Model O/U */}
-                                <div className="text-center flex-1">
-                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Model O/U</div>
-                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{formatHalfNoSign(modelValue)}</div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* O/U Explanation */}
-                        {(() => {
-                          const ouDiff = prediction.over_line_diff;
-                          const hasOuData = ouDiff !== null || prediction.pred_over_line !== null || prediction.api_over_line !== null;
-                          if (!hasOuData) return null;
-                          
-                          const isOver = (ouDiff ?? 0) > 0;
-                          const magnitude = Math.abs(ouDiff ?? 0);
-                          
-                          return (
-                            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Info className="h-3 w-3 text-blue-400 flex-shrink-0" />
-                                <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
-                              </div>
-                              <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                                {getEdgeExplanation(magnitude, '', 'ou', isOver ? 'over' : 'under')}
-                              </p>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Match Simulator Section */}
-                  <div className="text-center pt-3 sm:pt-4">
-                    <div className="bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/20 space-y-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-center gap-2">
-                        <Sparkles className="h-5 w-5 text-amber-400" />
-                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">Match Simulator</h4>
-                      </div>
-
-                    {/* Simulate Button or Loading */}
-                    {!simRevealedById[prediction.id] && (
-                      <div className="flex justify-center">
-                        {focusedCardId === prediction.id ? (
-                          <MovingBorderButton
-                            borderRadius="0.5rem"
-                            containerClassName="h-auto w-auto"
-                            borderClassName="bg-[radial-gradient(hsl(var(--primary))_40%,transparent_60%)]"
-                            duration={3000}
-                            className="bg-card dark:bg-card text-foreground dark:text-foreground border-border px-6 py-6 text-lg font-bold h-full w-full"
-                            disabled={!!simLoadingById[prediction.id]}
-                            onClick={() => {
-                              setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
-                              setTimeout(() => {
-                                setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
-                                setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
-                              }, 2500);
-                            }}
-                          >
-                            {simLoadingById[prediction.id] ? (
-                              <span className="flex items-center">
-                                <FootballLoader /> Simulating…
-                              </span>
-                            ) : (
-                              'Simulate Match'
-                            )}
-                          </MovingBorderButton>
-                        ) : (
-                          <Button
-                            disabled={!!simLoadingById[prediction.id]}
-                            onClick={() => {
-                              setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
-                              setTimeout(() => {
-                                setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
-                                setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
-                              }, 2500);
-                            }}
-                            className="px-6 py-6 text-lg font-bold bg-card dark:bg-card text-foreground dark:text-foreground border-2 border-border shadow-md hover:bg-muted/50"
-                          >
-                            {simLoadingById[prediction.id] ? (
-                              <span className="flex items-center">
-                                <FootballLoader /> Simulating…
-                              </span>
-                            ) : (
-                              'Simulate Match'
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Revealed Score Layout */}
-                    {simRevealedById[prediction.id] && (
-                      <div className="flex justify-between items-center bg-gradient-to-br from-orange-50 to-orange-50 dark:from-orange-950/30 dark:to-orange-950/30 p-3 sm:p-4 rounded-lg border border-border">
-                        {/* Away Team Score */}
-                        <div className="text-center flex-1">
-                          <div 
-                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-1 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 shadow-lg"
-                            style={{
-                              background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
-                              borderColor: `${awayTeamColors.primary}`
-                            }}
-                          >
-                            <span 
-                              className="text-xs sm:text-sm font-bold drop-shadow-md"
-                              style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
-                            >
-                              {getTeamInitials(prediction.away_team)}
-                            </span>
-                          </div>
-                          <div className="text-xl sm:text-2xl font-bold text-foreground">
-                            {(() => {
-                              const val = prediction.pred_away_points ?? prediction.pred_away_score;
-                              return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
-                            })()}
-                          </div>
-                        </div>
-
-                        {/* VS Separator */}
-                        <div className="text-center px-3 sm:px-4">
-                          <div className="text-base sm:text-lg font-bold text-muted-foreground">VS</div>
-                        </div>
-
-                        {/* Home Team Score */}
-                        <div className="text-center flex-1">
-                          <div 
-                            className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 shadow-lg"
-                            style={{
-                              background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
-                              borderColor: `${homeTeamColors.primary}`
-                            }}
-                          >
-                            <span 
-                              className="text-xs sm:text-sm font-bold drop-shadow-md"
-                              style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
-                            >
-                              {getTeamInitials(prediction.home_team)}
-                            </span>
-                          </div>
-                          <div className="text-xl sm:text-2xl font-bold text-foreground">
-                            {(() => {
-                              const val = prediction.pred_home_points ?? prediction.pred_home_score;
-                              return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-                        )}
-                        </div>
-                      </div>
-
-                      {/* Bottom Weather section removed; using compact WeatherPill above */}
-                    </>
-                  )}
                 </CardContent>
               </CFBGameCard>
               
@@ -1873,6 +1681,22 @@ ${contextParts}
         </div>
       )}
 
+      {/* Game Details Modal */}
+      <GameDetailsModal
+        isOpen={selectedGameForModal !== null}
+        onClose={() => setSelectedGameForModal(null)}
+        prediction={selectedGameForModal}
+        league="cfb"
+        aiCompletions={aiCompletions}
+        simLoadingById={simLoadingById}
+        simRevealedById={simRevealedById}
+        setSimLoadingById={setSimLoadingById}
+        setSimRevealedById={setSimRevealedById}
+        focusedCardId={focusedCardId}
+        getTeamInitials={getTeamInitials}
+        getContrastingTextColor={getContrastingTextColor}
+      />
+
       {/* Mini WagerBot Chat */}
       <MiniWagerBotChat pageContext={cfbContext} pageId="college-football" />
       
@@ -1883,6 +1707,17 @@ ${contextParts}
           visibleGames={Math.min(2, predictions.length)} 
         />
       )}
+      
+      {/* AI Payload Viewer Modal */}
+      {selectedPayloadGame && (
+        <AIPayloadViewer
+          open={payloadViewerOpen}
+          onOpenChange={setPayloadViewerOpen}
+          game={selectedPayloadGame}
+          sportType="cfb"
+          onCompletionGenerated={handleCompletionGenerated}
+        />
+      )}
     </div>
   );
-} 
+}

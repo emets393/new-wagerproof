@@ -580,45 +580,60 @@ export default function EditorsPicks() {
     );
   }
 
-  // Helper function to check if a game date has passed (next day or later)
-  const isGameExpired = (gameData: GameData | undefined): boolean => {
-    if (!gameData || !gameData.raw_game_date) {
-      return false; // If no date, don't filter it out
-    }
-
-    try {
-      // Parse the game date
-      const gameDate = new Date(gameData.raw_game_date);
-      
-      // Get today at midnight (local time)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      // Get game date at midnight (local time)
-      const gameDateOnly = new Date(gameDate);
-      gameDateOnly.setHours(0, 0, 0, 0);
-      
-      // Game is expired if it's before today (next day after game = today or later)
-      return gameDateOnly < today;
-    } catch (error) {
-      debug.error('Error checking game expiration:', error);
-      return false; // Don't filter out if we can't parse the date
-    }
-  };
-
   const draftPicks = picks.filter(p => !p.is_published);
   
   // Filter published picks to only show games that haven't expired
-  // In admin mode, show all picks; otherwise filter out expired ones
+  // For regular users, only filter out games that are more than 2 days old
   const publishedPicks = picks.filter(p => {
     if (!p.is_published) return false;
     
     // In admin mode, show all published picks including expired ones
     if (adminModeEnabled) return true;
     
-    // For regular users, filter out expired games
+    // For regular users, show picks from upcoming games and recent past games (within last 2 days)
     const gameData = gamesData.get(p.game_id);
-    return !isGameExpired(gameData);
+    
+    // If no game data or no date, show the pick
+    if (!gameData || !gameData.raw_game_date) {
+      debug.log(`🔍 Pick ${p.game_id} - No game data, showing anyway`);
+      return true;
+    }
+    
+    try {
+      const gameDate = new Date(gameData.raw_game_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const gameDateOnly = new Date(gameDate);
+      gameDateOnly.setHours(0, 0, 0, 0);
+      
+      // Calculate days difference (negative = future, positive = past)
+      const daysDiff = Math.floor((today.getTime() - gameDateOnly.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Show all future games (daysDiff < 0) and games from the last 2 days (daysDiff <= 2)
+      const shouldShow = daysDiff <= 2; // This covers future games (negative) and recent past games
+      
+      debug.log(`🔍 Pick ${p.game_id} (${p.game_type}):`, {
+        gameDate: gameDateOnly.toDateString(),
+        today: today.toDateString(),
+        daysDiff,
+        isFuture: daysDiff < 0,
+        shouldShow
+      });
+      
+      return shouldShow;
+    } catch (error) {
+      debug.error('Error filtering pick:', error);
+      return true; // Show the pick if there's an error parsing the date
+    }
+  });
+  
+  debug.log(`📊 Picks Summary:`, {
+    totalPicks: picks.length,
+    publishedBeforeFilter: picks.filter(p => p.is_published).length,
+    publishedAfterFilter: publishedPicks.length,
+    draftPicks: draftPicks.length,
+    adminModeEnabled
   });
 
   return (
@@ -635,6 +650,22 @@ export default function EditorsPicks() {
         <Alert className="mb-6" variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Diagnostic info for debugging - remove after issue is resolved */}
+      {!adminModeEnabled && picks.length > 0 && (
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Debug Info: Found {picks.filter(p => p.is_published).length} published picks in database. 
+            After filtering: {publishedPicks.length} picks to display.
+            {picks.filter(p => p.is_published).length > 0 && publishedPicks.length === 0 && (
+              <span className="block mt-2 text-yellow-600 font-semibold">
+                ⚠️ All published picks were filtered out (likely due to game dates being too old).
+              </span>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 

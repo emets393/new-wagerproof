@@ -21,6 +21,7 @@ import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import FeatureRequests from "./pages/FeatureRequests";
 import AccessDenied from "./pages/AccessDenied";
+import AISettings from "./pages/admin/AISettings";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
@@ -162,6 +163,7 @@ function AppRoutes() {
           <Route path="/discord" element={<ProtectedRoute><Discord /></ProtectedRoute>} />
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route path="/admin/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
           <Route path="/polymarket-test" element={<PolymarketTest />} />
         </Routes>
       </AuthenticatedLayout>

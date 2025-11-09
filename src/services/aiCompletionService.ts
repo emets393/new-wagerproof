@@ -27,11 +27,18 @@ export interface AIValueFind {
   id: string;
   sport_type: 'nfl' | 'cfb';
   analysis_date: string;
-  value_picks: any[];
+  high_value_badges: any[];
+  page_header_data: {
+    summary_text: string;
+    compact_picks: any[];
+  };
+  editor_cards: any[];
+  value_picks: any[]; // Backward compat
   analysis_json: any;
   summary_text: string;
   generated_at: string;
   generated_by: string | null;
+  published: boolean;
 }
 
 export interface PageLevelSchedule {
@@ -202,6 +209,15 @@ export async function generatePageLevelAnalysis(
     if (error) {
       debug.error('Error invoking generate-page-level-analysis:', error);
       return { success: false, error: error.message };
+    }
+
+    // Check if the data itself indicates an error (from Edge Function's error response)
+    if (data && !data.success) {
+      debug.error('Edge Function returned error:', data);
+      return { 
+        success: false, 
+        error: `${data.error || 'Unknown error'}${data.errorType ? ` (${data.errorType})` : ''}${data.stack ? `\n\n${data.stack}` : ''}`
+      };
     }
 
     return { success: true, data };
@@ -376,5 +392,168 @@ export function buildGameDataPayload(
   }
 
   return basePayload;
+}
+
+/**
+ * Toggle the published status of a Value Find
+ */
+export async function toggleValueFindPublished(
+  valueFindId: string,
+  published: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('ai_value_finds')
+      .update({ published })
+      .eq('id', valueFindId);
+
+    if (error) throw error;
+
+    debug.log(`Value Find ${valueFindId} ${published ? 'published' : 'unpublished'}`);
+    return { success: true };
+  } catch (error) {
+    debug.error('Error toggling Value Find published status:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Get latest value finds for preview in AI Settings (published or unpublished)
+ * This allows admins to see and manage the most recent value finds regardless of status
+ */
+export async function getUnpublishedValueFinds(
+  sportType: 'nfl' | 'cfb'
+): Promise<AIValueFind | null> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_value_finds')
+      .select('*')
+      .eq('sport_type', sportType)
+      .order('generated_at', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    return data && data.length > 0 ? data[0] : null;
+  } catch (error) {
+    debug.error('Error fetching latest value finds:', error);
+    return null;
+  }
+}
+
+/**
+ * Get high value badges for a sport (only published)
+ */
+export async function getHighValueBadges(
+  sportType: 'nfl' | 'cfb'
+): Promise<Array<{ game_id: string; recommended_pick: string; confidence: number; tooltip_text: string }>> {
+  try {
+    const { data, error} = await supabase
+      .from('ai_value_finds')
+      .select('high_value_badges')
+      .eq('sport_type', sportType)
+      .eq('published', true)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    return data?.high_value_badges || [];
+  } catch (error) {
+    debug.error('Error fetching high value badges:', error);
+    return [];
+  }
+}
+
+/**
+ * Get page header data for a sport (only published by default, unless admin mode is specified)
+ */
+export async function getPageHeaderData(
+  sportType: 'nfl' | 'cfb',
+  includeUnpublished: boolean = false
+): Promise<{ id: string; published: boolean; data: { summary_text: string; compact_picks: any[] } } | null> {
+  try {
+    let query = supabase
+      .from('ai_value_finds')
+      .select('id, published, page_header_data')
+      .eq('sport_type', sportType);
+    
+    // Only filter by published status if not including unpublished
+    if (!includeUnpublished) {
+      query = query.eq('published', true);
+    }
+    
+    const { data, error } = await query
+      .order('generated_at', { ascending: false})
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data?.page_header_data) return null;
+
+    return {
+      id: data.id,
+      published: data.published,
+      data: data.page_header_data,
+    };
+  } catch (error) {
+    debug.error('Error fetching page header data:', error);
+    return null;
+  }
+}
+
+/**
+ * Get editor cards for a sport (only published)
+ */
+export async function getEditorCards(
+  sportType: 'nfl' | 'cfb'
+): Promise<Array<any>> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_value_finds')
+      .select('editor_cards')
+      .eq('sport_type', sportType)
+      .eq('published', true)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    return data?.editor_cards || [];
+  } catch (error) {
+    debug.error('Error fetching editor cards:', error);
+    return [];
+  }
+}
+
+/**
+ * Delete a Value Find completely from the database
+ */
+export async function deleteValueFind(
+  valueFindId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('ai_value_finds')
+      .delete()
+      .eq('id', valueFindId);
+
+    if (error) throw error;
+
+    debug.log(`Value Find ${valueFindId} deleted`);
+    return { success: true };
+  } catch (error) {
+    debug.error('Error deleting Value Find:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
 }
 

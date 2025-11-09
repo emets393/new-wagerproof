@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { VALUE_FINDS_SCHEMA } from './schema.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,11 +57,11 @@ serve(async (req) => {
         .single();
 
       if (latestRun) {
+        // Get all games for this run_id (don't filter by date - analyze all current games on the page)
         const { data: nflGames } = await cfbClient
           .from('nfl_predictions_epa')
           .select('*')
-          .eq('run_id', latestRun.run_id)
-          .eq('game_date', targetDate);
+          .eq('run_id', latestRun.run_id);
 
         games = nflGames || [];
       }
@@ -95,15 +96,58 @@ serve(async (req) => {
 
     console.log(`Found ${completions?.length || 0} completions`);
 
+    // Fetch Polymarket data for all games from cache
+    const polymarketCache = new Map<string, any>();
+    
+    for (const game of games) {
+      const gameKey = `${sport_type}_${game.away_team}_${game.home_team}`;
+      
+      const { data: polymarketData } = await supabaseClient
+        .from('polymarket_markets')
+        .select('*')
+        .eq('game_key', gameKey)
+        .eq('league', sport_type);
+      
+      if (polymarketData && polymarketData.length > 0) {
+        // Organize by market type - format to match individual card payloads
+        const marketsByType: any = {};
+        for (const market of polymarketData) {
+          if (market.market_type === 'total') {
+            // For totals, use over_odds and under_odds instead of away/home
+            marketsByType.total = {
+              over_odds: market.current_away_odds,  // Away = Over
+              under_odds: market.current_home_odds,  // Home = Under
+            };
+          } else {
+            // For moneyline and spread, use away_odds and home_odds
+            marketsByType[market.market_type] = {
+              away_odds: market.current_away_odds,
+              home_odds: market.current_home_odds,
+            };
+          }
+        }
+        polymarketCache.set(gameKey, marketsByType);
+        console.log(`✅ Found Polymarket data for ${game.away_team} @ ${game.home_team}`);
+      } else {
+        console.log(`⚠️ No Polymarket data for ${game.away_team} @ ${game.home_team}`);
+      }
+    }
+
+    console.log(`Fetched Polymarket data for ${polymarketCache.size} games`);
+
     // Build comprehensive payload
     const gamesWithCompletions = games.map(game => {
       const gameId = game.training_key || game.unique_id || `${game.away_team}_${game.home_team}`;
       const gameCompletions = completions?.filter(c => c.game_id === gameId) || [];
+      const gameKey = `${sport_type}_${game.away_team}_${game.home_team}`;
+      const polymarketData = polymarketCache.get(gameKey);
 
       return {
         game_id: gameId,
         matchup: `${game.away_team} @ ${game.home_team}`,
-        game_data: sport_type === 'nfl' ? buildNFLGameData(game) : buildCFBGameData(game),
+        game_data: sport_type === 'nfl' 
+          ? buildNFLGameData(game, polymarketData) 
+          : buildCFBGameData(game, polymarketData),
         completions: gameCompletions.reduce((acc, comp) => {
           acc[comp.widget_type] = comp.completion_text;
           return acc;
@@ -118,7 +162,7 @@ serve(async (req) => {
       instructions: 'Analyze all games and identify value opportunities where there are mismatches between model predictions, Vegas lines, public betting, and Polymarket odds. Focus on games where the data suggests an edge.',
     }, null, 2);
 
-    console.log('Calling OpenAI for page-level analysis...');
+    console.log('Calling OpenAI Chat Completions API with Structured Outputs...');
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -134,18 +178,17 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          {
-            role: 'system',
-            content: schedule.system_prompt,
-          },
-          {
-            role: 'user',
-            content: userPrompt,
-          },
+          { role: 'system', content: schedule.system_prompt },
+          { role: 'user', content: userPrompt }
         ],
-        max_tokens: 1500,
-        temperature: 0.7,
-        response_format: { type: 'json_object' },
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "value_finds_analysis",
+            strict: true,
+            schema: VALUE_FINDS_SCHEMA
+          }
+        }
       }),
     });
 
@@ -155,25 +198,55 @@ serve(async (req) => {
     }
 
     const openaiData = await openaiResponse.json();
-    const analysisContent = openaiData.choices[0].message.content;
-    
     console.log('OpenAI page-level analysis received');
+    
+    // Chat Completions API with Structured Outputs returns: { choices: [{ message: { content: "..." } }] }
+    if (!openaiData.choices || !openaiData.choices[0]) {
+      throw new Error('Invalid response structure from OpenAI - no choices');
+    }
+    
+    const messageContent = openaiData.choices[0].message.content;
+    if (!messageContent) {
+      throw new Error('No content in OpenAI response');
+    }
+    
+    console.log('Analysis content received, length:', messageContent.length);
 
-    const analysisJson = JSON.parse(analysisContent);
-    const valuePicks = analysisJson.value_picks || [];
-    const summaryText = analysisJson.summary || 'No summary provided';
+    // Parse the JSON (Structured Outputs guarantees valid JSON matching our schema)
+    const analysisJson = JSON.parse(messageContent);
 
-    // Store in database
+    console.log('Parsed analysis JSON keys:', Object.keys(analysisJson));
+    console.log('High value badges count:', analysisJson.high_value_badges?.length || 0);
+    console.log('Page header compact picks count:', analysisJson.page_header?.compact_picks?.length || 0);
+    console.log('Editor cards count:', analysisJson.editor_cards?.length || 0);
+    console.log('Total games analyzed:', analysisJson.total_games_analyzed);
+    
+    // Debug: Log the actual data structures
+    if (analysisJson.high_value_badges?.length > 0) {
+      console.log('First badge:', JSON.stringify(analysisJson.high_value_badges[0]));
+    }
+    if (analysisJson.editor_cards?.length > 0) {
+      console.log('First editor card:', JSON.stringify(analysisJson.editor_cards[0]));
+    } else {
+      console.log('WARNING: No editor cards generated!');
+      console.log('Full analysis JSON:', JSON.stringify(analysisJson, null, 2));
+    }
+
+    // Store all three outputs in database
     const { error: insertError } = await supabaseClient
       .from('ai_value_finds')
       .insert({
         sport_type,
         analysis_date: targetDate,
-        value_picks: valuePicks,
+        high_value_badges: analysisJson.high_value_badges,
+        page_header_data: analysisJson.page_header,
+        editor_cards: analysisJson.editor_cards,
+        value_picks: analysisJson.editor_cards, // Keep for backward compatibility
         analysis_json: analysisJson,
-        summary_text: summaryText,
+        summary_text: analysisJson.page_header.summary_text,
         generated_by: user_id || null,
         generated_at: new Date().toISOString(),
+        published: false, // Default to unpublished for review
       });
 
     if (insertError) {
@@ -187,26 +260,37 @@ serve(async (req) => {
       .update({ last_run_at: new Date().toISOString() })
       .eq('sport_type', sport_type);
 
-    console.log(`Value finds analysis complete. Found ${valuePicks.length} value opportunities`);
+    console.log(`Value finds analysis complete. High Value Badges: ${analysisJson.high_value_badges.length}, Editor Cards: ${analysisJson.editor_cards.length}`);
+
+    // Note: Discord posting now happens when admin manually publishes (not automatic)
+    // This allows review before public distribution
 
     return new Response(
       JSON.stringify({
         success: true,
         sport_type,
         analysis_date: targetDate,
-        value_picks: valuePicks,
-        summary: summaryText,
+        high_value_badges: analysisJson.high_value_badges,
+        page_header: analysisJson.page_header,
+        editor_cards: analysisJson.editor_cards,
+        total_games_analyzed: analysisJson.total_games_analyzed,
         tokens_used: openaiData.usage?.total_tokens || 0,
+        published: false, // Requires manual publish
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in generate-page-level-analysis:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', JSON.stringify(error, null, 2));
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error.message || 'Unknown error',
+        errorType: error.constructor.name,
+        stack: error.stack,
       }),
       {
         status: 500,
@@ -216,16 +300,13 @@ serve(async (req) => {
   }
 });
 
-function buildNFLGameData(game: any): any {
+function buildNFLGameData(game: any, polymarketData?: any): any {
   return {
-    teams: {
-      away: game.away_team,
-      home: game.home_team,
-    },
-    predictions: {
-      spread_cover_prob: game.home_away_spread_cover_prob,
-      ml_prob: game.home_away_ml_prob,
-      ou_prob: game.ou_result_prob,
+    game: {
+      away_team: game.away_team,
+      home_team: game.home_team,
+      game_date: game.game_date,
+      game_time: game.game_time || '00:00:00',
     },
     vegas_lines: {
       home_spread: game.home_spread,
@@ -234,46 +315,127 @@ function buildNFLGameData(game: any): any {
       away_ml: game.away_ml,
       over_line: game.over_line,
     },
+    weather: {
+      temperature: game.temperature,
+      wind_speed: game.wind_speed,
+      precipitation: game.precipitation,
+      icon: game.icon,
+    },
     public_betting: {
       spread_split: game.spread_splits_label,
       ml_split: game.ml_splits_label,
       total_split: game.total_splits_label,
     },
-    weather: {
-      temperature: game.temperature,
-      wind_speed: game.wind_speed,
-      precipitation: game.precipitation,
+    polymarket: polymarketData || null,
+    predictions: {
+      spread_cover_prob: game.home_away_spread_cover_prob,
+      spread_line: game.home_spread,
+      predicted_team: (game.home_away_spread_cover_prob || 0) > 0.5 ? 'home' : 'away',
+      confidence_level: (game.home_away_spread_cover_prob || 0) <= 0.58 ? 'low' : (game.home_away_spread_cover_prob || 0) <= 0.65 ? 'moderate' : 'high',
+      ml_prob: game.home_away_ml_prob,
+      ou_prob: game.ou_result_prob,
     },
   };
 }
 
-function buildCFBGameData(game: any): any {
+function buildCFBGameData(game: any, polymarketData?: any): any {
+  const spreadProb = game.pred_spread_proba || game.home_away_spread_cover_prob;
+  const homeSpread = game.api_spread || game.home_spread;
+
   return {
-    teams: {
-      away: game.away_team,
-      home: game.home_team,
-    },
-    predictions: {
-      spread_cover_prob: game.pred_spread_proba || game.home_away_spread_cover_prob,
-      ml_prob: game.pred_ml_proba || game.home_away_ml_prob,
-      ou_prob: game.pred_total_proba || game.ou_result_prob,
+    game: {
+      away_team: game.away_team,
+      home_team: game.home_team,
+      game_date: game.game_date || game.start_date,
+      game_time: game.game_time || game.start_time || '00:00:00',
     },
     vegas_lines: {
-      home_spread: game.api_spread || game.home_spread,
+      home_spread: homeSpread,
       away_spread: game.api_spread ? -game.api_spread : game.away_spread,
       home_ml: game.home_moneyline || game.home_ml,
       away_ml: game.away_moneyline || game.away_ml,
       over_line: game.api_over_line || game.total_line,
     },
+    weather: {
+      temperature: game.weather_temp_f || game.temperature,
+      wind_speed: game.weather_windspeed_mph || game.wind_speed,
+      precipitation: game.precipitation,
+      icon: game.weather_icon_text || game.icon_code,
+    },
     public_betting: {
       spread_split: game.spread_splits_label,
       ml_split: game.ml_splits_label,
       total_split: game.total_splits_label,
     },
-    weather: {
-      temperature: game.weather_temp_f || game.temperature,
-      wind_speed: game.weather_windspeed_mph || game.wind_speed,
+    polymarket: polymarketData || null,
+    predictions: {
+      spread_cover_prob: spreadProb,
+      spread_line: homeSpread,
+      predicted_team: (spreadProb || 0) > 0.5 ? 'home' : 'away',
+      confidence_level: (spreadProb || 0) <= 0.58 ? 'low' : (spreadProb || 0) <= 0.65 ? 'moderate' : 'high',
+      ml_prob: game.pred_ml_proba || game.home_away_ml_prob,
+      ou_prob: game.pred_total_proba || game.ou_result_prob,
     },
   };
+}
+
+async function postToDiscord(
+  webhookUrl: string,
+  sportType: string,
+  valuePicks: any[],
+  summary: string,
+  date: string
+): Promise<void> {
+  const sportEmoji = sportType === 'nfl' ? '🏈' : '🏈';
+  const sportLabel = sportType === 'nfl' ? 'NFL' : 'College Football';
+  const color = sportType === 'nfl' ? 0x0055A4 : 0xFF6B00; // NFL blue or CFB orange
+
+  // Create embed fields for each value pick
+  const fields = valuePicks.slice(0, 5).map((pick, index) => ({
+    name: `${index + 1}. ${pick.matchup}`,
+    value: `**${pick.recommended_pick}** (${pick.bet_type.toUpperCase()})
+Confidence: ${'⭐'.repeat(Math.min(pick.confidence, 10))} (${pick.confidence}/10)
+${pick.explanation.substring(0, 150)}${pick.explanation.length > 150 ? '...' : ''}`,
+    inline: false
+  }));
+
+  // Add a summary field
+  fields.push({
+    name: '📊 Analysis Summary',
+    value: summary.substring(0, 300) + (summary.length > 300 ? '...' : ''),
+    inline: false
+  });
+
+  // Create the Discord embed
+  const embed = {
+    title: `${sportEmoji} ${sportLabel} Value Finds - ${date}`,
+    description: `WagerProof AI has identified **${valuePicks.length} value opportunities** for today's games.`,
+    color: color,
+    fields: fields,
+    footer: {
+      text: 'WagerProof AI Analysis • Always research before betting',
+      icon_url: 'https://wagerproof.com/wagerproof-logo.png' // Update with actual logo URL
+    },
+    timestamp: new Date().toISOString(),
+    url: 'https://wagerproof.com/editors-picks' // Link to your Value Finds page
+  };
+
+  // Post to Discord
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      username: 'WagerProof AI',
+      avatar_url: 'https://wagerproof.com/wagerproof-logo.png', // Update with actual logo URL
+      embeds: [embed],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Discord webhook failed: ${error}`);
+  }
 }
 

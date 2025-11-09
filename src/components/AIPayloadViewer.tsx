@@ -9,9 +9,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, Loader2, Sparkles, FileText } from 'lucide-react';
+import { Copy, Loader2, Sparkles, FileText, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { buildGameDataPayload, generateCompletion, getCompletionConfigs } from '@/services/aiCompletionService';
+import { buildGameDataPayload, generateCompletion, getCompletionConfigs, updateCompletionConfig } from '@/services/aiCompletionService';
 import { getAllMarketsData } from '@/services/polymarketService';
 import debug from '@/utils/debug';
 
@@ -20,6 +20,8 @@ interface AIPayloadViewerProps {
   onOpenChange: (open: boolean) => void;
   game: any;
   sportType: 'nfl' | 'cfb';
+  /** Callback fired when a new completion is successfully generated */
+  onCompletionGenerated?: (gameId: string, widgetType: string) => void;
 }
 
 export function AIPayloadViewer({
@@ -27,6 +29,7 @@ export function AIPayloadViewer({
   onOpenChange,
   game,
   sportType,
+  onCompletionGenerated,
 }: AIPayloadViewerProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('spread');
@@ -38,6 +41,8 @@ export function AIPayloadViewer({
   const [editablePrompts, setEditablePrompts] = useState<Record<string, string>>({});
   const [loadingPrompts, setLoadingPrompts] = useState(false);
   const [generatedResponses, setGeneratedResponses] = useState<Record<string, string>>({});
+  const [configIds, setConfigIds] = useState<Record<string, string>>({});
+  const [savingPrompts, setSavingPrompts] = useState<Record<string, boolean>>({});
 
   const gameId = game.training_key || game.unique_id || `${game.away_team}_${game.home_team}`;
 
@@ -68,14 +73,20 @@ export function AIPayloadViewer({
     try {
       const configs = await getCompletionConfigs();
       const prompts: Record<string, string> = {};
+      const ids: Record<string, string> = {};
+      
       configs.forEach(config => {
         if (config.sport_type === sportType) {
           prompts[config.widget_type] = config.system_prompt;
+          ids[config.widget_type] = config.id;
         }
       });
+      
       setSystemPrompts(prompts);
       setEditablePrompts({ ...prompts }); // Initialize editable copy
+      setConfigIds(ids);
       debug.log('System prompts fetched:', prompts);
+      debug.log('Config IDs:', ids);
     } catch (error) {
       debug.error('Error fetching system prompts:', error);
     } finally {
@@ -108,12 +119,39 @@ export function AIPayloadViewer({
       
       const result = await generateCompletion(gameId, sportType, widgetType, payload, customPrompt);
 
+      debug.log('Generation result:', result);
+      debug.log('Result completion type:', typeof result.completion);
+      debug.log('Result completion value:', result.completion);
+
       if (result.success) {
+        // Ensure we're storing a string, not an object
+        let completionText: string;
+        
+        if (typeof result.completion === 'string') {
+          completionText = result.completion;
+          debug.log('Completion is string, length:', completionText.length);
+        } else if (Array.isArray(result.completion)) {
+          // If it's an array (shouldn't happen, but handle it)
+          debug.error('Completion is an array! Converting to string:', result.completion);
+          completionText = 'Error: Received array instead of string. Please check logs.';
+        } else if (typeof result.completion === 'object') {
+          // If it's an object, stringify it or extract explanation
+          debug.error('Completion is an object! Value:', result.completion);
+          completionText = result.completion?.explanation || JSON.stringify(result.completion, null, 2);
+        } else {
+          completionText = 'No completion text returned';
+        }
+        
         // Store the generated response to display in the modal
         setGeneratedResponses(prev => ({
           ...prev,
-          [widgetType]: result.completion || 'No completion text returned'
+          [widgetType]: completionText
         }));
+
+        // Notify parent component to refresh completions
+        if (onCompletionGenerated) {
+          onCompletionGenerated(gameId, widgetType);
+        }
 
         toast({
           title: 'Completion Generated',
@@ -149,6 +187,65 @@ export function AIPayloadViewer({
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSavePrompt = async (widgetType: string) => {
+    const configId = configIds[widgetType];
+    const newPrompt = editablePrompts[widgetType];
+
+    if (!configId) {
+      toast({
+        title: 'Error',
+        description: 'Config ID not found',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!newPrompt || newPrompt.trim() === '') {
+      toast({
+        title: 'Error',
+        description: 'Prompt cannot be empty',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSavingPrompts(prev => ({ ...prev, [widgetType]: true }));
+
+    try {
+      const success = await updateCompletionConfig(configId, {
+        system_prompt: newPrompt,
+      });
+
+      if (success) {
+        // Update the base prompt to reflect the new saved version
+        setSystemPrompts(prev => ({
+          ...prev,
+          [widgetType]: newPrompt,
+        }));
+
+        toast({
+          title: 'Prompt Saved',
+          description: 'System prompt updated successfully in database',
+        });
+      } else {
+        toast({
+          title: 'Save Failed',
+          description: 'Failed to update system prompt',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      debug.error('Error saving prompt:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save system prompt',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingPrompts(prev => ({ ...prev, [widgetType]: false }));
     }
   };
 
@@ -255,9 +352,30 @@ export function AIPayloadViewer({
                   placeholder="Edit the system prompt to test variations..."
                   disabled={loadingPrompts}
                 />
-                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                  ✨ This version will be sent to GPT when you click "Generate"
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-purple-600 dark:text-purple-400">
+                    ✨ This version will be sent to GPT when you click "Generate"
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSavePrompt('spread_prediction')}
+                    disabled={savingPrompts['spread_prediction'] || loadingPrompts}
+                    className="text-green-600 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-950/20"
+                  >
+                    {savingPrompts['spread_prediction'] ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3 h-3 mr-1" />
+                        Save as Base Prompt
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -386,9 +504,30 @@ export function AIPayloadViewer({
                   placeholder="Edit the system prompt to test variations..."
                   disabled={loadingPrompts}
                 />
-                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                  ✨ This version will be sent to GPT when you click "Generate"
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-purple-600 dark:text-purple-400">
+                    ✨ This version will be sent to GPT when you click "Generate"
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSavePrompt('ou_prediction')}
+                    disabled={savingPrompts['ou_prediction'] || loadingPrompts}
+                    className="text-green-600 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-950/20"
+                  >
+                    {savingPrompts['ou_prediction'] ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3 h-3 mr-1" />
+                        Save as Base Prompt
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
 
