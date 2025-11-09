@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, Eye, EyeOff } from 'lucide-react';
 import { getLatestValueFinds, AIValueFind, toggleValueFindPublished } from '@/services/aiCompletionService';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useToast } from '@/hooks/use-toast';
 import debug from '@/utils/debug';
-import Aurora from '@/components/magicui/aurora';
 import { ValueFindEditorCard } from './ValueFindEditorCard';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
 
@@ -98,11 +96,11 @@ export function ValueFindsSection({ sportType, gamesData }: ValueFindsProps) {
   const sportLabel = sportType === 'nfl' ? 'NFL' : 'College Football';
 
   return (
-    <div className="mb-8">
+    <div className="mb-8 mt-12">
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center gap-2">
           <Sparkles className="w-6 h-6 text-purple-500" />
-          <h2 className="text-2xl font-bold text-white">Value Finds</h2>
+          <h2 className="text-2xl font-bold text-white">Extra Picks - WagerBot Flagged Potential Value</h2>
         </div>
         <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white border-none">
           {sportLabel}
@@ -139,34 +137,6 @@ export function ValueFindsSection({ sportType, gamesData }: ValueFindsProps) {
           </Button>
         )}
       </div>
-
-      {/* Summary Card */}
-      <Card 
-        className="mb-6 border-white/20 overflow-hidden relative"
-        style={{
-          background: 'rgba(0, 0, 0, 0.3)',
-          backdropFilter: 'blur(40px)',
-          WebkitBackdropFilter: 'blur(40px)',
-        }}
-      >
-        <Aurora
-          size={400}
-          className="opacity-30"
-          color1="rgba(139, 92, 246, 0.3)"
-          color2="rgba(59, 130, 246, 0.3)"
-        />
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Expert Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-white/80 leading-relaxed">
-            {valueFinds.summary_text}
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Value Pick Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">

@@ -716,10 +716,6 @@ export default function EditorsPicks() {
         </Card>
       )}
 
-      {/* Value Finds Sections */}
-      <ValueFindsSection sportType="nfl" gamesData={gamesData} />
-      <ValueFindsSection sportType="cfb" gamesData={gamesData} />
-
       {/* Draft Picks (Admin Mode Only) */}
       {adminModeEnabled && draftPicks.length > 0 && (
         <div className="mb-8">
@@ -867,6 +863,10 @@ export default function EditorsPicks() {
           </div>
         </div>
       )}
+
+      {/* Value Finds Sections */}
+      <ValueFindsSection sportType="nfl" gamesData={gamesData} />
+      <ValueFindsSection sportType="cfb" gamesData={gamesData} />
     </div>
   );
 }
