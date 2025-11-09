@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AlertCircle } from 'lucide-react';
 import debug from '@/utils/debug';
+import { renderTextWithLinks } from '@/utils/markdownLinks';
 
 interface GameDetailsModalProps {
   isOpen: boolean;
@@ -534,7 +535,7 @@ export function GameDetailsModal({
                               )}
                             </div>
                             <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                              {aiExplanation || staticExplanation}
+                              {renderTextWithLinks(aiExplanation || staticExplanation)}
                             </p>
                           </div>
                         );
@@ -625,7 +626,7 @@ export function GameDetailsModal({
                               )}
                             </div>
                             <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                              {aiExplanation || staticExplanation}
+                              {renderTextWithLinks(aiExplanation || staticExplanation)}
                             </p>
                           </div>
                         );
@@ -724,7 +725,7 @@ export function GameDetailsModal({
                                 <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
                               </div>
                               <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                                {explanation}
+                                {renderTextWithLinks(explanation)}
                               </p>
                             </div>
                           </>
@@ -793,7 +794,7 @@ export function GameDetailsModal({
                                 <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
                               </div>
                               <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
-                                {explanation}
+                                {renderTextWithLinks(explanation)}
                               </p>
                             </div>
                           </>

@@ -25,6 +25,7 @@ import { getGameCompletions, getHighValueBadges, getPageHeaderData } from '@/ser
 import { PageHeaderValueFinds } from '@/components/PageHeaderValueFinds';
 import { HighValueBadge } from '@/components/HighValueBadge';
 import { GameDetailsModal } from '@/components/GameDetailsModal';
+import { areCompletionsEnabled } from '@/utils/aiCompletionSettings';
 
 interface CFBPrediction {
   id: string;
@@ -577,6 +578,13 @@ ${contextParts}
 
   // Fetch AI completions for all games
   const fetchAICompletions = async (games: CFBPrediction[]) => {
+    // Check if completions are enabled
+    if (!areCompletionsEnabled('cfb')) {
+      debug.log('CFB completions are disabled via emergency toggle, skipping fetch');
+      setAiCompletions({});
+      return;
+    }
+    
     debug.log('Fetching AI completions for', games.length, 'CFB games');
     const completionsMap: Record<string, Record<string, string>> = {};
     
@@ -1388,7 +1396,7 @@ ${contextParts}
                 
                 <CardContent className="space-y-3 sm:space-y-4 pt-3 pb-3 sm:pt-4 sm:pb-4 px-3 sm:px-4">
                   {/* High Value Badge */}
-                  {highValueBadge && (
+                  {highValueBadge && !isFreemiumUser && (
                     <div className="flex justify-center -mt-2 mb-2">
                       <HighValueBadge
                         pick={highValueBadge.recommended_pick}

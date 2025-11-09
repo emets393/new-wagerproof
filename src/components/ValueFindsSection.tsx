@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import debug from '@/utils/debug';
 import Aurora from '@/components/magicui/aurora';
 import { ValueFindEditorCard } from './ValueFindEditorCard';
+import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
 
 interface ValueFindsProps {
   sportType: 'nfl' | 'cfb';
@@ -21,6 +22,7 @@ export function ValueFindsSection({ sportType, gamesData }: ValueFindsProps) {
   const [toggling, setToggling] = useState(false);
   const { isAdminMode } = useAdminMode();
   const { toast } = useToast();
+  const { isFreemiumUser } = useFreemiumAccess();
 
   useEffect(() => {
     fetchValueFinds();
@@ -183,6 +185,7 @@ export function ValueFindsSection({ sportType, gamesData }: ValueFindsProps) {
               explanation={pick.explanation}
               gameData={gameData}
               sportType={sportType}
+              isBlurred={isFreemiumUser}
             />
           );
         })}

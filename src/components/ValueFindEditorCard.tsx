@@ -1,8 +1,10 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Target } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Sparkles, Target, Lock } from 'lucide-react';
 import Aurora from '@/components/magicui/aurora';
 import { getNFLTeamColors, getCFBTeamColors, getNFLTeamInitials, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { useNavigate } from 'react-router-dom';
 
 interface ValueFindEditorCardProps {
   gameId: string;
@@ -14,6 +16,7 @@ interface ValueFindEditorCardProps {
   explanation: string;
   gameData?: any; // For team colors, logos, etc.
   sportType?: 'nfl' | 'cfb'; // Added to determine which color set to use
+  isBlurred?: boolean; // For freemium users
 }
 
 export function ValueFindEditorCard({
@@ -24,7 +27,9 @@ export function ValueFindEditorCard({
   keyFactors,
   explanation,
   sportType = 'nfl', // Default to NFL if not specified
+  isBlurred = false,
 }: ValueFindEditorCardProps) {
+  const navigate = useNavigate();
   // Map bet types to display labels
   const betTypeLabels = {
     spread: 'Spread',
@@ -91,8 +96,27 @@ export function ValueFindEditorCard({
           color2="rgba(59, 130, 246, 0.2)"
         />
       </div>
+
+      {/* Blur Overlay for Freemium Users */}
+      {isBlurred && (
+        <div className="absolute inset-0 z-20 backdrop-blur-md bg-black/30 flex items-center justify-center">
+          <div className="text-center px-4">
+            <Lock className="w-12 h-12 text-white/80 mx-auto mb-3" />
+            <h3 className="text-white font-bold text-lg mb-2">Premium Content</h3>
+            <p className="text-white/70 text-sm mb-4">
+              Upgrade to unlock expert picks and analysis
+            </p>
+            <Button
+              onClick={() => navigate('/account')}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+            >
+              Upgrade Now
+            </Button>
+          </div>
+        </div>
+      )}
       
-      <CardHeader className="pb-3 shrink-0">
+      <CardHeader className={`pb-3 shrink-0 ${isBlurred ? 'blur-sm' : ''}`}>
         <div className="flex items-start justify-between">
           <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white border-none">
             <Sparkles className="w-3 h-3 mr-1" />
@@ -104,7 +128,7 @@ export function ValueFindEditorCard({
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-4 flex-1 min-h-0">
+      <CardContent className={`space-y-4 flex-1 min-h-0 ${isBlurred ? 'blur-sm' : ''}`}>
         {/* Matchup with Team Circles */}
         <div className="text-center pb-3 border-b border-white/10">
           <div className="flex items-center justify-center gap-3 mb-2">

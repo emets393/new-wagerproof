@@ -12,13 +12,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Sparkles, TrendingUp, Eye, EyeOff, Loader2, Trash2 } from 'lucide-react';
+import { Sparkles, TrendingUp, Eye, EyeOff, Loader2, Trash2, Lock } from 'lucide-react';
 import Aurora from '@/components/magicui/aurora';
 import { getNFLTeamColors, getCFBTeamColors, getNFLTeamInitials, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { toggleValueFindPublished, deleteValueFind } from '@/services/aiCompletionService';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useToast } from '@/hooks/use-toast';
 import debug from '@/utils/debug';
+import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
+import { useNavigate } from 'react-router-dom';
 
 interface CompactPick {
   game_id: string;
@@ -48,6 +50,8 @@ export function PageHeaderValueFinds({
   const sportLabel = sportType === 'nfl' ? 'NFL' : 'College Football';
   const { isAdminMode } = useAdminMode();
   const { toast } = useToast();
+  const { isFreemiumUser } = useFreemiumAccess();
+  const navigate = useNavigate();
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -229,12 +233,12 @@ export function PageHeaderValueFinds({
           </div>
 
           {/* Compact Picks */}
-          <div>
+          <div className="relative">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-yellow-500 dark:text-yellow-400" />
               Featured Picks
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
+            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 ${isFreemiumUser ? 'blur-sm' : ''}`}>
               {compactPicks.map((pick, index) => {
                 const teamData = getTeamDataForMatchup(pick.matchup);
                 return (
@@ -276,6 +280,26 @@ export function PageHeaderValueFinds({
                 );
               })}
             </div>
+            
+            {/* Blur Overlay for Freemium Users */}
+            {isFreemiumUser && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-purple-50/95 to-blue-50/95 dark:from-black/80 dark:to-black/80 rounded-lg mt-8">
+                <div className="text-center px-4">
+                  <Lock className="w-10 h-10 text-purple-600 dark:text-purple-400 mx-auto mb-2" />
+                  <h4 className="text-gray-900 dark:text-white font-bold text-base mb-1">Premium Content</h4>
+                  <p className="text-gray-700 dark:text-white/70 text-xs mb-3">
+                    Upgrade to unlock expert picks
+                  </p>
+                  <Button
+                    onClick={() => navigate('/account')}
+                    size="sm"
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-xs"
+                  >
+                    Upgrade Now
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Disclaimer */}

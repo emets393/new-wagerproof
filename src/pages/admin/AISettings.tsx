@@ -28,10 +28,12 @@ import {
   getUnpublishedValueFinds,
   toggleValueFindPublished,
   deleteValueFind,
+  bulkGenerateMissingCompletions,
   AICompletionConfig,
   PageLevelSchedule,
   AIValueFind
 } from '@/services/aiCompletionService';
+import { getCompletionSettings, setCompletionSetting } from '@/utils/aiCompletionSettings';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { getAllMarketsData } from '@/services/polymarketService';
 import { AIValueFindsPreview } from '@/components/AIValueFindsPreview';
@@ -46,6 +48,13 @@ export default function AISettings() {
   const [cfbSchedule, setCfbSchedule] = useState<PageLevelSchedule | null>(null);
   const [editedPrompts, setEditedPrompts] = useState<Record<string, string>>({});
   const [generatingAnalysis, setGeneratingAnalysis] = useState<Record<string, boolean>>({});
+  
+  // Emergency toggle state
+  const [completionSettings, setCompletionSettings] = useState(getCompletionSettings());
+  
+  // Bulk generation state
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkResults, setBulkResults] = useState<{ totalGenerated: number; totalErrors: number; } | null>(null);
   
   // Payload tester state
   const [payloadTesterOpen, setPayloadTesterOpen] = useState(false);
@@ -289,6 +298,51 @@ export default function AISettings() {
     } finally {
       setDeleting(false);
       setDeleteDialog({ open: false, sport: null });
+    }
+  };
+
+  const handleToggleCompletions = (sport: 'nfl' | 'cfb', enabled: boolean) => {
+    setCompletionSetting(sport, enabled);
+    setCompletionSettings(getCompletionSettings());
+    
+    toast({
+      title: enabled ? 'Completions Enabled' : 'Completions Disabled',
+      description: `${sport.toUpperCase()} AI completions are now ${enabled ? 'enabled' : 'disabled'}. ${enabled ? '' : 'Static fallbacks will be shown.'}`,
+    });
+  };
+
+  const handleBulkGenerate = async () => {
+    setBulkGenerating(true);
+    setBulkResults(null);
+    
+    try {
+      const result = await bulkGenerateMissingCompletions();
+      
+      if (result.success) {
+        setBulkResults({
+          totalGenerated: result.totalGenerated || 0,
+          totalErrors: result.totalErrors || 0,
+        });
+        
+        toast({
+          title: 'Bulk Generation Complete',
+          description: `Generated ${result.totalGenerated} completions with ${result.totalErrors} errors.`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Generation Failed',
+          description: result.error || 'Failed to generate completions',
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+    } finally {
+      setBulkGenerating(false);
     }
   };
 
@@ -602,6 +656,95 @@ export default function AISettings() {
               These run automatically twice daily for new games.
             </AlertDescription>
           </Alert>
+
+          {/* Emergency Controls */}
+          <Card className="border-orange-500/50 bg-orange-50 dark:bg-orange-950/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
+                <AlertTriangle className="h-5 w-5" />
+                Emergency Override: Disable AI Completions
+              </CardTitle>
+              <CardDescription>
+                Temporarily disable AI completions to show static fallback explanations. Useful if AI responses are problematic.
+                Changes take effect immediately without requiring a database update.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold">NFL Completions</span>
+                  <Badge variant={completionSettings.nfl ? "default" : "secondary"}>
+                    {completionSettings.nfl ? "Enabled" : "Disabled"}
+                  </Badge>
+                </div>
+                <Switch
+                  checked={completionSettings.nfl}
+                  onCheckedChange={(checked) => handleToggleCompletions('nfl', checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold">CFB Completions</span>
+                  <Badge variant={completionSettings.cfb ? "default" : "secondary"}>
+                    {completionSettings.cfb ? "Enabled" : "Disabled"}
+                  </Badge>
+                </div>
+                <Switch
+                  checked={completionSettings.cfb}
+                  onCheckedChange={(checked) => handleToggleCompletions('cfb', checked)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bulk Generation */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Play className="h-5 w-5" />
+                Bulk Generate Missing Completions
+              </CardTitle>
+              <CardDescription>
+                Check all games in the next 3 days for both NFL and CFB and generate completions for any that are missing.
+                This process may take several minutes depending on how many completions need to be generated.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button
+                onClick={handleBulkGenerate}
+                disabled={bulkGenerating}
+                size="lg"
+                className="w-full"
+              >
+                {bulkGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating Completions...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Generate All Missing Completions
+                  </>
+                )}
+              </Button>
+              
+              {bulkResults && (
+                <Alert className={bulkResults.totalErrors > 0 ? 'border-orange-500' : 'border-green-500'}>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="font-semibold mb-1">Generation Complete</div>
+                    <div className="text-sm">
+                      ✓ Generated: {bulkResults.totalGenerated} completions<br />
+                      {bulkResults.totalErrors > 0 && (
+                        <>✗ Errors: {bulkResults.totalErrors}</>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
 
           {/* NFL Configs */}
           <div>

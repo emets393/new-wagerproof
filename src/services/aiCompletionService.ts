@@ -557,3 +557,39 @@ export async function deleteValueFind(
   }
 }
 
+/**
+ * Bulk generate missing completions for games in the next 3 days
+ * Calls the check-missing-completions edge function which handles both NFL and CFB
+ */
+export async function bulkGenerateMissingCompletions(): Promise<{
+  success: boolean;
+  totalGenerated?: number;
+  totalErrors?: number;
+  results?: any[];
+  error?: string;
+}> {
+  try {
+    debug.log('Starting bulk completion generation...');
+    
+    const { data, error } = await supabase.functions.invoke('check-missing-completions', {
+      body: {},
+    });
+
+    if (error) {
+      debug.error('Error invoking check-missing-completions:', error);
+      return { success: false, error: error.message };
+    }
+
+    debug.log('Bulk generation completed:', data);
+    return {
+      success: true,
+      totalGenerated: data?.totalGenerated || 0,
+      totalErrors: data?.totalErrors || 0,
+      results: data?.results || [],
+    };
+  } catch (error: any) {
+    debug.error('Error in bulkGenerateMissingCompletions:', error);
+    return { success: false, error: error.message };
+  }
+}
+
