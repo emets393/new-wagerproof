@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AlertCircle } from 'lucide-react';
 import debug from '@/utils/debug';
+import PolymarketWidget from './PolymarketWidget';
 import { renderTextWithLinks } from '@/utils/markdownLinks';
 
 interface GameDetailsModalProps {
@@ -69,10 +70,6 @@ export function GameDetailsModal({
   teamMappings,
 }: GameDetailsModalProps) {
   if (!prediction) return null;
-
-  const [localExpandedBettingFacts, setLocalExpandedBettingFacts] = useState(false);
-  const effectiveExpandedBettingFacts = expandedBettingFacts || {};
-  const effectiveSetExpandedBettingFacts = setExpandedBettingFacts || (() => {});
 
   // NFL H2H and Line Movement state
   const [h2hGames, setH2hGames] = useState<any[]>([]);
@@ -416,7 +413,7 @@ export function GameDetailsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-opacity-50 hover:[&::-webkit-scrollbar-thumb]:bg-opacity-80">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">
             {prediction.away_team} @ {prediction.home_team}
@@ -805,99 +802,95 @@ export function GameDetailsModal({
                 </div>
               </div>
 
+              {/* Polymarket Widget - Full Public Betting Lines */}
+              <div className="text-center">
+                <PolymarketWidget
+                  awayTeam={prediction.away_team}
+                  homeTeam={prediction.home_team}
+                  gameDate={prediction.game_date}
+                  awayTeamColors={awayTeamColors}
+                  homeTeamColors={homeTeamColors}
+                  league="nfl"
+                  compact={false}
+                />
+              </div>
+
               {/* Betting Split Labels Section for NFL */}
               {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
                 <div className="text-center">
                   <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
-                    <button
-                      onClick={() => setLocalExpandedBettingFacts(!localExpandedBettingFacts)}
-                      className="w-full flex items-center justify-center gap-2 group hover:opacity-80 transition-opacity"
-                    >
+                    <div className="flex items-center justify-center gap-2">
                       <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       <h4 className="text-lg font-bold text-gray-900 dark:text-white">Public Betting Facts</h4>
-                      <motion.div
-                        animate={{ rotate: localExpandedBettingFacts ? 180 : 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <ChevronDown className="h-5 w-5 text-gray-500 dark:text-white/60" />
-                      </motion.div>
-                    </button>
+                    </div>
 
-                    {!localExpandedBettingFacts && (
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {prediction.ml_splits_label && (() => {
-                          const mlData = parseBettingSplit(prediction.ml_splits_label);
-                          if (!mlData || !mlData.team) return null;
-                          const colorTheme = mlData.isSharp ? 'green' :
-                                            mlData.percentage >= 70 ? 'purple' :
-                                            mlData.percentage >= 60 ? 'blue' : 'neutral';
-                          const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
-                                         colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
-                                         colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
-                                         'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                          return (
-                            <div key="ml" className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
-                              <TrendingUp className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                              <span className="text-xs font-semibold text-gray-900 dark:text-white">ML: {mlData.team}</span>
-                            </div>
-                          );
-                        })()}
-                        
-                        {prediction.spread_splits_label && (() => {
-                          const spreadData = parseBettingSplit(prediction.spread_splits_label);
-                          if (!spreadData || !spreadData.team) return null;
-                          const colorTheme = spreadData.isSharp ? 'green' :
-                                            spreadData.percentage >= 70 ? 'purple' :
-                                            spreadData.percentage >= 60 ? 'blue' : 'neutral';
-                          const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
-                                         colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
-                                         colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
-                                         'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                          return (
-                            <div key="spread" className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
-                              <Target className="h-3 w-3 text-green-600 dark:text-green-400" />
-                              <span className="text-xs font-semibold text-gray-900 dark:text-white">Spread: {spreadData.team}</span>
-                            </div>
-                          );
-                        })()}
-                        
-                        {prediction.total_splits_label && (() => {
-                          const totalData = parseBettingSplit(prediction.total_splits_label);
-                          if (!totalData || !totalData.direction) return null;
-                          const isOver = totalData.direction === 'over';
-                          const colorTheme = totalData.isSharp ? 'green' :
-                                            totalData.percentage >= 70 ? 'purple' :
-                                            totalData.percentage >= 60 ? 'blue' : 'neutral';
-                          const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
-                                         colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
-                                         colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
-                                         'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                          const arrow = isOver ? '▲' : '▼';
-                          const arrowColor = isOver ? 'text-green-400' : 'text-red-400';
-                          return (
-                            <div key="total" className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
-                              <BarChart className="h-3 w-3 text-orange-600 dark:text-orange-400" />
-                              <span className={`text-sm font-bold ${arrowColor}`}>{arrow}</span>
-                              <span className="text-xs font-semibold text-gray-900 dark:text-white">{totalData.team}</span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
+                    {/* Description explaining the data source */}
+                    <p className="text-xs text-gray-600 dark:text-white/70 text-center px-2">
+                      While <span className="font-semibold">Public Betting Lines</span> shows live prediction market contracts being bought, 
+                      <span className="font-semibold"> Public Betting Facts</span> is a separate data source tracking the lean of actual 
+                      sportsbook money flow and bets placed.
+                    </p>
 
-                    {localExpandedBettingFacts && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="space-y-4 text-left"
-                      >
-                        <p className="text-sm text-gray-700 dark:text-white/70">
-                          Detailed betting split information shows you where the public and sharp money is flowing. Click the previews above to see full details for each bet type.
-                        </p>
-                      </motion.div>
-                    )}
+                    {/* Betting splits badges - always visible */}
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {prediction.ml_splits_label && (() => {
+                        const mlData = parseBettingSplit(prediction.ml_splits_label);
+                        if (!mlData || !mlData.team) return null;
+                        const colorTheme = mlData.isSharp ? 'green' :
+                                          mlData.percentage >= 70 ? 'purple' :
+                                          mlData.percentage >= 60 ? 'blue' : 'neutral';
+                        const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
+                                       colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
+                                       colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
+                                       'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
+                        return (
+                          <div key="ml" className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
+                            <TrendingUp className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                            <span className="text-xs font-semibold text-gray-900 dark:text-white">ML: {mlData.team}</span>
+                          </div>
+                        );
+                      })()}
+                      
+                      {prediction.spread_splits_label && (() => {
+                        const spreadData = parseBettingSplit(prediction.spread_splits_label);
+                        if (!spreadData || !spreadData.team) return null;
+                        const colorTheme = spreadData.isSharp ? 'green' :
+                                          spreadData.percentage >= 70 ? 'purple' :
+                                          spreadData.percentage >= 60 ? 'blue' : 'neutral';
+                        const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
+                                       colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
+                                       colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
+                                       'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
+                        return (
+                          <div key="spread" className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
+                            <Target className="h-3 w-3 text-green-600 dark:text-green-400" />
+                            <span className="text-xs font-semibold text-gray-900 dark:text-white">Spread: {spreadData.team}</span>
+                          </div>
+                        );
+                      })()}
+                      
+                      {prediction.total_splits_label && (() => {
+                        const totalData = parseBettingSplit(prediction.total_splits_label);
+                        if (!totalData || !totalData.direction) return null;
+                        const isOver = totalData.direction === 'over';
+                        const colorTheme = totalData.isSharp ? 'green' :
+                                          totalData.percentage >= 70 ? 'purple' :
+                                          totalData.percentage >= 60 ? 'blue' : 'neutral';
+                        const bgClass = colorTheme === 'green' ? 'bg-green-100 dark:bg-green-500/10 border-green-300 dark:border-green-500/20' :
+                                       colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
+                                       colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
+                                       'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
+                        const arrow = isOver ? '▲' : '▼';
+                        const arrowColor = isOver ? 'text-green-400' : 'text-red-400';
+                        return (
+                          <div key="total" className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
+                            <BarChart className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                            <span className={`text-sm font-bold ${arrowColor}`}>{arrow}</span>
+                            <span className="text-xs font-semibold text-gray-900 dark:text-white">{totalData.team}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               )}
