@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import Aurora from '@/components/magicui/aurora';
+import { getNFLTeamInitials, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 
 interface EditorPickCardProps {
   pick: {
@@ -47,6 +48,16 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
   const { adminModeEnabled } = useAdminMode();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(!pick.is_published);
+  
+  // Detect Android to skip Aurora (WebGL issues on Android)
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  
+  // Helper to get team initials based on game type
+  const getTeamInitials = (teamName: string) => {
+    return pick.game_type === 'nfl' 
+      ? getNFLTeamInitials(teamName) 
+      : getCFBTeamInitials(teamName);
+  };
   
   // Parse bet types - handle both single strings and comma-separated strings
   const parseBetTypes = (betTypeString: string): string[] => {
@@ -334,9 +345,9 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
 
   return (
     <Card className="relative overflow-hidden bg-gradient-to-b from-gray-600/95 via-gray-300/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-blue-200 dark:border-blue-800 shadow-xl">
-      {/* Aurora Effect */}
+      {/* Aurora Effect - Skip on Android due to WebGL compatibility issues */}
       <AnimatePresence>
-        {pick.is_published && (
+        {pick.is_published && !isAndroid && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -379,19 +390,24 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
           </div>
         )}
 
-        {/* Team Logos and Betting Info - Horizontal Layout */}
+        {/* Team Circles and Betting Info - Horizontal Layout */}
         <div className="space-y-2 sm:space-y-4 pt-1.5">
-          {/* Team Logos Row */}
+          {/* Team Circles Row */}
           <div className="flex justify-center items-center space-x-4 sm:space-x-6">
-            {/* Away Team Logo */}
+            {/* Away Team Circle */}
             <div className="text-center w-[140px] sm:w-[160px]">
-              {gameData.away_logo && (
-                <img 
-                  src={gameData.away_logo} 
-                  alt={`${gameData.away_team} logo`}
-                  className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                />
-              )}
+              <div
+                className="h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 shadow-lg transition-transform duration-200 hover:scale-105"
+                style={{
+                  background: `linear-gradient(135deg, ${gameData.away_team_colors.primary} 0%, ${gameData.away_team_colors.secondary} 100%)`,
+                  color: getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary),
+                  border: `2px solid ${gameData.away_team_colors.primary}`,
+                }}
+              >
+                <span className="text-lg sm:text-2xl font-bold">
+                  {getTeamInitials(gameData.away_team)}
+                </span>
+              </div>
               <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
                 {gameData.away_team}
               </div>
@@ -402,15 +418,20 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
               <span className="text-4xl sm:text-5xl font-bold text-gray-400 dark:text-gray-500">@</span>
             </div>
 
-            {/* Home Team Logo */}
+            {/* Home Team Circle */}
             <div className="text-center w-[140px] sm:w-[160px]">
-              {gameData.home_logo && (
-                <img 
-                  src={gameData.home_logo} 
-                  alt={`${gameData.home_team} logo`}
-                  className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 drop-shadow-lg filter hover:scale-105 transition-transform duration-200"
-                />
-              )}
+              <div
+                className="h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 shadow-lg transition-transform duration-200 hover:scale-105"
+                style={{
+                  background: `linear-gradient(135deg, ${gameData.home_team_colors.primary} 0%, ${gameData.home_team_colors.secondary} 100%)`,
+                  color: getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary),
+                  border: `2px solid ${gameData.home_team_colors.primary}`,
+                }}
+              >
+                <span className="text-lg sm:text-2xl font-bold">
+                  {getTeamInitials(gameData.home_team)}
+                </span>
+              </div>
               <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
                 {gameData.home_team}
               </div>

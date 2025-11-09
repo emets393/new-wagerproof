@@ -104,6 +104,34 @@ Replaced incompatible CSS with universally supported properties:
 - No GPU-intensive blend modes or filters
 - Simple, performant rendering path
 
+### Fix 3: Skip Aurora on Android Entirely
+**File**: `src/components/EditorPickCard.tsx`
+
+Added Android detection to completely skip Aurora rendering:
+
+```tsx
+// Detect Android to skip Aurora (WebGL issues on Android)
+const isAndroid = /Android/i.test(navigator.userAgent);
+
+// Only render Aurora if not Android
+{pick.is_published && !isAndroid && (
+  <motion.div>
+    <Aurora
+      colorStops={auroraColors}
+      amplitude={1.2}
+      blend={0.6}
+      speed={0.8}
+    />
+  </motion.div>
+)}
+```
+
+**Why this works**:
+- Simple, reliable Android detection
+- No WebGL initialization on Android at all
+- Zero performance overhead on Android
+- Cards render instantly without any animation delays
+
 ## Testing Checklist
 
 To verify the fixes work on Android:
