@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { UserCircle } from './UserCircle';
 import { TeamCircle } from './TeamCircle';
+import { TailingAvatarList } from './TailingAvatarList';
 import { ChevronUp, ChevronDown, Edit, Trash2, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminMode } from '@/contexts/AdminModeContext';
+import { useCommunityPickTails } from '@/hooks/useCommunityPickTails';
 import { format } from 'date-fns';
 
 interface CommunityPickCardProps {
@@ -49,6 +51,7 @@ export function CommunityPickCard({
   const { adminModeEnabled } = useAdminMode();
   const [isVoting, setIsVoting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { tailingUsers } = useCommunityPickTails(pick.id);
 
   const isOwnPick = user?.id === pick.user_id;
   const canEdit = isOwnPick && !pick.is_locked && pick.upvotes === 0 && pick.downvotes === 0;
@@ -140,6 +143,13 @@ export function CommunityPickCard({
             >
               <ChevronDown className="h-5 w-5" />
             </Button>
+            
+            {/* Tailing Users Display */}
+            {tailingUsers.length > 0 && (
+              <div className="mt-3 flex flex-col items-center gap-1">
+                <TailingAvatarList users={tailingUsers} size="sm" className="flex-col space-x-0 space-y-1" />
+              </div>
+            )}
           </div>
 
           {/* Main content */}

@@ -26,6 +26,8 @@ import { PageHeaderValueFinds } from '@/components/PageHeaderValueFinds';
 import { HighValueBadge } from '@/components/HighValueBadge';
 import { GameDetailsModal } from '@/components/GameDetailsModal';
 import { areCompletionsEnabled } from '@/utils/aiCompletionSettings';
+import { GameTailSection } from '@/components/GameTailSection';
+import { CardFooter } from '@/components/ui/card';
 
 interface CFBPrediction {
   id: string;
@@ -1664,6 +1666,23 @@ ${contextParts}
                     </Button>
                   </div>
                 </CardContent>
+                
+                <CardFooter className="pt-0 pb-4">
+                  <GameTailSection
+                    gameUniqueId={prediction.training_key || prediction.id}
+                    sport="cfb"
+                    homeTeam={prediction.home_team}
+                    awayTeam={prediction.away_team}
+                    lines={{
+                      home_ml: prediction.home_moneyline,
+                      away_ml: prediction.away_moneyline,
+                      home_spread: prediction.api_spread,
+                      away_spread: prediction.api_spread ? -prediction.api_spread : null,
+                      total: prediction.api_over_line,
+                    }}
+                    compact
+                  />
+                </CardFooter>
               </CFBGameCard>
               
               {/* Lock Overlay for Freemium Users */}

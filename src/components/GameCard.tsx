@@ -4,6 +4,7 @@ import TeamDisplay from "./TeamDisplay";
 import PitcherDisplay from "./PitcherDisplay";
 import PredictionsModal from "./PredictionsModal";
 import PublicBettingDistribution from "./PublicBettingDistribution";
+import { GameTailSection } from "./GameTailSection";
 import { useState } from "react";
 
 interface Game {
@@ -146,7 +147,7 @@ const GameCard = ({ game }: GameCardProps) => {
           </div>
         </CardContent>
 
-        <CardFooter className="pt-0">
+        <CardFooter className="pt-0 flex-col gap-3">
           <Button 
             onClick={() => setShowPredictions(true)}
             className="w-full font-semibold text-base bg-primary text-white hover:bg-primary/90 transition-colors"
@@ -154,6 +155,21 @@ const GameCard = ({ game }: GameCardProps) => {
           >
             Matchup Overview
           </Button>
+          
+          <GameTailSection
+            gameUniqueId={game.unique_id}
+            sport="mlb"
+            homeTeam={game.home_team}
+            awayTeam={game.away_team}
+            lines={{
+              home_ml: game.home_ml,
+              away_ml: game.away_ml,
+              home_spread: game.home_rl,
+              away_spread: game.away_rl,
+              total: game.o_u_line,
+            }}
+            compact
+          />
         </CardFooter>
       </Card>
 

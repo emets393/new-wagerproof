@@ -341,7 +341,12 @@ export default function CommunityVoting() {
         <div className="flex items-center gap-3">
           <Users className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold">Community Picks</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">Community Picks</h1>
+              <span className="text-xs font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                BETA
+              </span>
+            </div>
             <p className="text-muted-foreground">
               Share and vote on betting picks from the community
             </p>

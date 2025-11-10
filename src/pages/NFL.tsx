@@ -30,6 +30,8 @@ import { HighValueBadge } from '@/components/HighValueBadge';
 import { GameDetailsModal } from '@/components/GameDetailsModal';
 import { areCompletionsEnabled } from '@/utils/aiCompletionSettings';
 import { useDisplaySettings } from '@/hooks/useDisplaySettings';
+import { GameTailSection } from '@/components/GameTailSection';
+import { CardFooter } from '@/components/ui/card';
 
 interface NFLPrediction {
   id: string;
@@ -1286,6 +1288,23 @@ ${contextParts}
                     </Button>
                   </div>
                 </CardContent>
+                
+                <CardFooter className="pt-0 pb-4">
+                  <GameTailSection
+                    gameUniqueId={prediction.training_key || prediction.unique_id}
+                    sport="nfl"
+                    homeTeam={prediction.home_team}
+                    awayTeam={prediction.away_team}
+                    lines={{
+                      home_ml: prediction.home_ml,
+                      away_ml: prediction.away_ml,
+                      home_spread: prediction.home_spread,
+                      away_spread: prediction.away_spread,
+                      total: prediction.over_line,
+                    }}
+                    compact
+                  />
+                </CardFooter>
               </NFLGameCard>
               
               {/* Lock Overlay for Freemium Users */}

@@ -600,6 +600,36 @@ export type Database = {
           },
         ]
       }
+      game_tails: {
+        Row: {
+          created_at: string
+          game_unique_id: string
+          id: string
+          pick_type: string
+          sport: string
+          team_selection: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          game_unique_id: string
+          id?: string
+          pick_type: string
+          sport: string
+          team_selection: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          game_unique_id?: string
+          id?: string
+          pick_type?: string
+          sport?: string
+          team_selection?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       community_picks: {
         Row: {
           created_at: string
