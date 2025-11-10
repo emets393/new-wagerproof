@@ -38,6 +38,7 @@ import {
   Plus,
   Loader2,
   MapPin,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -72,6 +73,7 @@ export default function FeatureRequests() {
   const [error, setError] = useState<string | null>(null);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingCount, setPendingCount] = useState<number>(0);
   
   // Form state
   const [title, setTitle] = useState('');
@@ -124,6 +126,16 @@ export default function FeatureRequests() {
       }
 
       setRequests((requestsData || []) as FeatureRequest[]);
+
+      // Fetch pending count (always, for public display)
+      const { count: pendingCountData, error: pendingCountError } = await supabase
+        .from('feature_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      if (!pendingCountError && pendingCountData !== null) {
+        setPendingCount(pendingCountData);
+      }
 
       // Fetch user's votes
       if (user) {
@@ -294,6 +306,36 @@ export default function FeatureRequests() {
     }
   };
 
+  const handleDelete = async (requestId: string) => {
+    if (!confirm('Are you sure you want to delete this feature request? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // First delete all votes associated with this request
+      const { error: votesError } = await supabase
+        .from('feature_request_votes')
+        .delete()
+        .eq('feature_request_id', requestId);
+
+      if (votesError) throw votesError;
+
+      // Then delete the request itself
+      const { error } = await supabase
+        .from('feature_requests')
+        .delete()
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast.success('Feature request deleted');
+      fetchRequests();
+    } catch (err) {
+      debug.error('Error deleting request:', err);
+      toast.error('Failed to delete request');
+    }
+  };
+
   const handleUpdateRoadmapStatus = async (requestId: string, newStatus: 'planned' | 'in_progress' | 'completed') => {
     try {
       const { error } = await supabase
@@ -398,14 +440,24 @@ export default function FeatureRequests() {
 
                   {/* Admin Controls */}
                   {adminModeEnabled && request.status === 'approved' && (
-                    <Button
-                      size="sm"
-                      className="bg-purple-500 hover:bg-purple-600 text-white"
-                      onClick={() => handleMoveToRoadmap(request.id)}
-                    >
-                      <MapPin className="h-3 w-3 mr-1" />
-                      Move to Roadmap
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-purple-500 hover:bg-purple-600 text-white"
+                        onClick={() => handleMoveToRoadmap(request.id)}
+                      >
+                        <MapPin className="h-3 w-3 mr-1" />
+                        Move to Roadmap
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDelete(request.id)}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -616,9 +668,16 @@ export default function FeatureRequests() {
     <div className="container mx-auto px-4 py-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Lightbulb className="h-8 w-8 text-yellow-500" />
-          <h1 className="text-3xl font-bold text-foreground">Feature Requests</h1>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-8 w-8 text-yellow-500" />
+            <h1 className="text-3xl font-bold text-foreground">Feature Requests</h1>
+          </div>
+          {pendingCount > 0 && (
+            <Badge className="bg-yellow-500/20 text-yellow-800 dark:text-yellow-300 border border-yellow-500/30">
+              Submissions in Review: {pendingCount}
+            </Badge>
+          )}
         </div>
         
         <Dialog open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
