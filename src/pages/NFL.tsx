@@ -1032,7 +1032,7 @@ ${contextParts}
 
       <div className="space-y-6 sm:space-y-8">
         <div className="-mx-4 md:mx-0">
-          <div className="grid gap-3 sm:gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
+          <div className="grid gap-2 sm:gap-3 md:gap-4 auto-rows-fr" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
             {getSortedPredictions()
               .map((prediction, index) => {
               // Freemium logic: Only show first 2 games, blur the rest

@@ -57,7 +57,7 @@ export default function NFLGameCard({
   
   return (
     <div 
-      className="relative"
+      className="relative w-full"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -67,7 +67,7 @@ export default function NFLGameCard({
         borderWidth={1}
         duration={18}
         color={["#93c5fd", "#c4b5fd", "#93c5fd"]}
-        className="relative z-10 bg-transparent p-0 min-h-0 w-full"
+        className="relative z-10 !bg-transparent p-0 min-h-0 w-full max-w-full min-w-0"
       >
         {/* Aurora Effect - Only visible when this card is hovered */}
         <AnimatePresence>
@@ -98,10 +98,10 @@ export default function NFLGameCard({
             transition: { duration: 0.2, ease: [0.4, 0, 0.2, 1] }
           }}
           whileTap={{ scale: 0.995 }}
-          className="touch-action-none"
+          className="touch-action-none w-full"
           style={{ pointerEvents: 'auto' }}
         >
-          <Card className={`relative overflow-hidden ${isHovered ? 'bg-sidebar/85 backdrop-blur-sm' : 'bg-sidebar/95 backdrop-blur-sm'} border-0 shadow-lg transition-all duration-300 z-[2] ${isHovered ? 'shadow-2xl shadow-blue-400/30 dark:shadow-blue-900/30' : ''} ${className}`}>
+          <Card className={`relative overflow-hidden w-full ${isHovered ? 'bg-sidebar/85 backdrop-blur-sm' : 'bg-sidebar/95 backdrop-blur-sm'} border-0 shadow-lg transition-all duration-300 z-[2] ${isHovered ? 'shadow-2xl shadow-blue-400/30 dark:shadow-blue-900/30' : ''} ${className}`}>
             {/* Dynamic team colors gradient top border */}
             <div 
               className="absolute top-0 left-0 right-0 h-1 rounded-t-lg pointer-events-none"
