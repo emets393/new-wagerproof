@@ -28,6 +28,7 @@ import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
 import ScoreBoard from "./pages/ScoreBoard";
 import LiveScoreDiagnostics from "./pages/LiveScoreDiagnostics";
 import PolymarketTest from "./pages/PolymarketTest";
+import MobileApp from "./pages/MobileApp";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
@@ -164,6 +165,7 @@ function AppRoutes() {
           <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} />
           <Route path="/discord" element={<ProtectedRoute><Discord /></ProtectedRoute>} />
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
+          <Route path="/mobile-app" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route path="/admin/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
           <Route path="/polymarket-test" element={<PolymarketTest />} />
