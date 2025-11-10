@@ -14,6 +14,7 @@ import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { ValueFindsSection } from '@/components/ValueFindsSection';
+import { useDisplaySettings } from '@/hooks/useDisplaySettings';
 
 interface EditorPick {
   id: string;
@@ -241,6 +242,7 @@ export default function EditorsPicks() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const { adminModeEnabled } = useAdminMode();
+  const { showExtraValueSuggestions } = useDisplaySettings();
   const [picks, setPicks] = useState<EditorPick[]>([]);
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -865,8 +867,12 @@ export default function EditorsPicks() {
       )}
 
       {/* Value Finds Sections */}
-      <ValueFindsSection sportType="nfl" gamesData={gamesData} />
-      <ValueFindsSection sportType="cfb" gamesData={gamesData} />
+      {showExtraValueSuggestions && (
+        <>
+          <ValueFindsSection sportType="nfl" gamesData={gamesData} />
+          <ValueFindsSection sportType="cfb" gamesData={gamesData} />
+        </>
+      )}
     </div>
   );
 }

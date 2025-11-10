@@ -33,6 +33,7 @@ import Dither from "@/components/Dither";
 import { SaleModeToggle } from "@/components/admin/SaleModeToggle";
 import { SandboxModeToggle } from "@/components/admin/SandboxModeToggle";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useDisplaySettings } from "@/hooks/useDisplaySettings";
 import { grantEntitlement, syncRevenueCatUser, EntitlementDuration, getEndTimeMs } from "@/utils/revenuecatAdmin";
 import { ENTITLEMENT_IDENTIFIER } from "@/services/revenuecatWeb";
 import {
@@ -53,6 +54,7 @@ export default function Admin() {
   const queryClient = useQueryClient();
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const { displaySettings, showNFLMoneylinePills, showExtraValueSuggestions, updateDisplaySettings, isUpdating: displaySettingsUpdating } = useDisplaySettings();
 
   // Check if user is admin
   useEffect(() => {
@@ -453,6 +455,20 @@ export default function Admin() {
     setAccessRestrictedDialogOpen(true);
   };
 
+  const handleDisplaySettingsToggle = (showMoneyline: boolean, showValueSuggestions: boolean) => {
+    updateDisplaySettings({ 
+      showMoneyline, 
+      showValueSuggestions 
+    }, {
+      onSuccess: () => {
+        toast.success('Display settings updated successfully');
+      },
+      onError: (error: any) => {
+        toast.error('Failed to update display settings: ' + (error?.message || 'Unknown error'));
+      }
+    });
+  };
+
   const handleViewPaywall = () => {
     // Open directly to the paywall step (step 16) in a new window for testing
     window.open('/onboarding?step=16', '_blank');
@@ -730,7 +746,7 @@ export default function Admin() {
               </div>
 
               {/* Paywall Test Button */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <div>
                   <p className="font-medium text-white">Test Paywall</p>
                   <p className="text-sm text-white/70">
@@ -746,6 +762,56 @@ export default function Admin() {
                   <Eye className="w-4 h-4" />
                   View Paywall
                 </Button>
+              </div>
+
+              {/* NFL Moneyline Pills Toggle */}
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <p className="font-medium text-white">Show NFL Moneyline Pills</p>
+                    {showNFLMoneylinePills ? (
+                      <Badge className="bg-green-500 text-white">VISIBLE</Badge>
+                    ) : (
+                      <Badge className="bg-gray-600 text-white">HIDDEN</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-white/70">
+                    {showNFLMoneylinePills
+                      ? 'NFL moneyline values are displayed in the card view.'
+                      : 'NFL moneyline values are hidden from the card view.'}
+                  </p>
+                </div>
+                <Switch
+                  checked={showNFLMoneylinePills}
+                  onCheckedChange={(checked) => handleDisplaySettingsToggle(checked, showExtraValueSuggestions)}
+                  disabled={displaySettingsUpdating}
+                  className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-gray-700"
+                />
+              </div>
+
+              {/* Extra Value Suggestions Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <p className="font-medium text-white">Show Extra Value Suggestions</p>
+                    {showExtraValueSuggestions ? (
+                      <Badge className="bg-green-500 text-white">VISIBLE</Badge>
+                    ) : (
+                      <Badge className="bg-gray-600 text-white">HIDDEN</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-white/70">
+                    {showExtraValueSuggestions
+                      ? 'Extra value suggestions are shown in Editors Picks.'
+                      : 'Extra value suggestions are hidden from Editors Picks.'}
+                  </p>
+                </div>
+                <Switch
+                  checked={showExtraValueSuggestions}
+                  onCheckedChange={(checked) => handleDisplaySettingsToggle(showNFLMoneylinePills, checked)}
+                  disabled={displaySettingsUpdating}
+                  className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-gray-700"
+                />
               </div>
             </CardContent>
           </Card>

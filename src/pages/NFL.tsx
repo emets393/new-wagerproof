@@ -29,6 +29,7 @@ import { PageHeaderValueFinds } from '@/components/PageHeaderValueFinds';
 import { HighValueBadge } from '@/components/HighValueBadge';
 import { GameDetailsModal } from '@/components/GameDetailsModal';
 import { areCompletionsEnabled } from '@/utils/aiCompletionSettings';
+import { useDisplaySettings } from '@/hooks/useDisplaySettings';
 
 interface NFLPrediction {
   id: string;
@@ -69,6 +70,7 @@ export default function NFL() {
   const { user } = useAuth();
   const { isFreemiumUser } = useFreemiumAccess();
   const { adminModeEnabled } = useAdminMode();
+  const { showNFLMoneylinePills } = useDisplaySettings();
   const [predictions, setPredictions] = useState<NFLPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1227,7 +1229,7 @@ ${contextParts}
                             </div>
                           );
                         })()}
-                        {prediction.home_away_ml_prob !== null && (() => {
+                        {showNFLMoneylinePills && prediction.home_away_ml_prob !== null && (() => {
                           const isHome = prediction.home_away_ml_prob > 0.5;
                           const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
                           const confidencePct = Math.round((isHome ? prediction.home_away_ml_prob : 1 - prediction.home_away_ml_prob) * 100);
