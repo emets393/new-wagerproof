@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useRevenueCatWeb } from '@/hooks/useRevenueCatWeb';
+import { AvatarCustomization } from './AvatarCustomization';
 import {
   User,
   Mail,
@@ -236,6 +237,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </div>
               </CardContent>
             </Card>
+
+            <AvatarCustomization />
 
             <Card>
               <CardHeader>

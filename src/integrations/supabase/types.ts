@@ -630,6 +630,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_avatar_preferences: {
+        Row: {
+          created_at: string
+          custom_letter: string | null
+          gradient_key: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_letter?: string | null
+          gradient_key?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_letter?: string | null
+          gradient_key?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       community_picks: {
         Row: {
           created_at: string

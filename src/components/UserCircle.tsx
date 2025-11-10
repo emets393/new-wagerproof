@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UserCircleProps {
   userId?: string;
@@ -6,6 +8,8 @@ interface UserCircleProps {
   email?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  customLetter?: string;
+  customGradient?: string;
 }
 
 // 26 unique gradients, one for each letter A-Z
@@ -50,14 +54,73 @@ export function UserCircle({
   displayName, 
   email, 
   size = 'md',
-  className 
+  className,
+  customLetter: propCustomLetter,
+  customGradient: propCustomGradient,
 }: UserCircleProps) {
-  // Get the first letter from displayName or email
-  const name = displayName || email || 'U';
-  const firstLetter = name.charAt(0).toUpperCase();
+  const [customPrefs, setCustomPrefs] = useState<{ letter?: string; gradient?: string }>({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Only fetch if we have a userId and no custom props provided
+    if (userId && !propCustomLetter && !propCustomGradient) {
+      fetchCustomPreferences();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, propCustomLetter, propCustomGradient]);
+
+  const fetchCustomPreferences = async () => {
+    if (!userId) return;
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_avatar_preferences')
+        .select('custom_letter, gradient_key')
+        .eq('user_id', userId)
+        .single();
+
+      if (data && !error) {
+        setCustomPrefs({
+          letter: data.custom_letter,
+          gradient: data.gradient_key,
+        });
+      }
+    } catch (err) {
+      // Silently fail - will use default
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Priority: prop custom values > fetched custom prefs > display name/email
+  let finalLetter: string;
+  let finalGradientKey: string;
   
-  // Get the gradient for this letter, fallback to 'A' gradient if not A-Z
-  const gradient = letterGradients[firstLetter] || letterGradients['A'];
+  if (propCustomLetter) {
+    // Use prop custom letter if provided (for preview)
+    finalLetter = propCustomLetter.charAt(0).toUpperCase();
+  } else if (customPrefs.letter) {
+    // Use saved preference
+    finalLetter = customPrefs.letter.charAt(0).toUpperCase();
+  } else {
+    // Fallback to display name or email
+    const name = displayName || email || 'U';
+    finalLetter = name.charAt(0).toUpperCase();
+  }
+  
+  if (propCustomGradient) {
+    // Use prop custom gradient if provided (for preview)
+    finalGradientKey = propCustomGradient;
+  } else if (customPrefs.gradient) {
+    // Use saved preference
+    finalGradientKey = customPrefs.gradient;
+  } else {
+    // Fallback to letter-based gradient
+    finalGradientKey = finalLetter;
+  }
+  
+  const gradient = letterGradients[finalGradientKey] || letterGradients['A'];
   
   return (
     <div
@@ -69,7 +132,7 @@ export function UserCircle({
       style={{ background: gradient }}
       title={displayName || email}
     >
-      {firstLetter}
+      {finalLetter}
     </div>
   );
 }
