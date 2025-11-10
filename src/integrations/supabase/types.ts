@@ -568,6 +568,98 @@ export type Database = {
         }
         Relationships: []
       }
+      community_pick_votes: {
+        Row: {
+          created_at: string
+          id: string
+          pick_id: string
+          user_id: string
+          vote_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pick_id: string
+          user_id: string
+          vote_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pick_id?: string
+          user_id?: string
+          vote_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_pick_votes_pick_id_fkey"
+            columns: ["pick_id"]
+            isOneToOne: false
+            referencedRelation: "community_picks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_picks: {
+        Row: {
+          created_at: string
+          downvotes: number
+          game_date: string
+          game_id: string | null
+          id: string
+          is_locked: boolean
+          is_native_pick: boolean
+          opponent_team: string | null
+          outcome: string | null
+          pick_details: string
+          pick_type: string
+          reasoning: string | null
+          sport: string
+          team_name: string
+          updated_at: string
+          upvotes: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          downvotes?: number
+          game_date: string
+          game_id?: string | null
+          id?: string
+          is_locked?: boolean
+          is_native_pick?: boolean
+          opponent_team?: string | null
+          outcome?: string | null
+          pick_details: string
+          pick_type: string
+          reasoning?: string | null
+          sport: string
+          team_name: string
+          updated_at?: string
+          upvotes?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          downvotes?: number
+          game_date?: string
+          game_id?: string | null
+          id?: string
+          is_locked?: boolean
+          is_native_pick?: boolean
+          opponent_team?: string | null
+          outcome?: string | null
+          pick_details?: string
+          pick_type?: string
+          reasoning?: string | null
+          sport?: string
+          team_name?: string
+          updated_at?: string
+          upvotes?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       cincinnati_games: {
         Row: {
           date: string | null

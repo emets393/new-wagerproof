@@ -20,6 +20,7 @@ import PaywallTest from "./pages/PaywallTest";
 import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import FeatureRequests from "./pages/FeatureRequests";
+import CommunityVoting from "./pages/CommunityVoting";
 import AccessDenied from "./pages/AccessDenied";
 import AISettings from "./pages/admin/AISettings";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -163,6 +164,7 @@ function AppRoutes() {
           <Route path="/bet-slip-grader" element={<ProtectedRoute><BetSlipGrader /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
           <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} />
+          <Route path="/community-voting" element={<ProtectedRoute><CommunityVoting /></ProtectedRoute>} />
           <Route path="/discord" element={<ProtectedRoute><Discord /></ProtectedRoute>} />
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
           <Route path="/mobile-app" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />

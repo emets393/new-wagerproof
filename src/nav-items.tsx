@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -16,6 +16,7 @@ import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import ScoreBoard from "./pages/ScoreBoard";
 import MobileApp from "./pages/MobileApp";
+import CommunityVoting from "./pages/CommunityVoting";
 
 export interface NavItem {
   title: string;
@@ -99,6 +100,12 @@ export const navItems: NavItem[] = [
     to: "/ncaab",
     icon: <School className="h-4 w-4" />,
     comingSoon: true,
+  },
+  {
+    title: "Community Picks",
+    to: "/community-voting",
+    icon: <Users className="h-4 w-4" />,
+    page: <CommunityVoting />,
   },
   {
     title: "Feature Requests",

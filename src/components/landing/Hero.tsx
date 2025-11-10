@@ -96,6 +96,24 @@ const Hero = () => {
               </MovingBorderButton>
             </Link>
           </div>
+          
+          {/* Product Hunt Badge */}
+          <div className="flex items-center justify-center mb-4">
+            <a 
+              href="https://www.producthunt.com/products/wagerproof?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-wagerproof" 
+              target="_blank" 
+              rel="noopener noreferrer"
+            >
+              <img 
+                src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1036620&theme=${theme === 'dark' ? 'dark' : 'light'}&t=1762805140599`}
+                alt="WagerProof - Data-driven sports betting analytics | Product Hunt" 
+                style={{ width: '250px', height: '54px' }} 
+                width="250" 
+                height="54" 
+              />
+            </a>
+          </div>
+          
           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
