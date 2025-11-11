@@ -262,47 +262,87 @@ export default function PolymarketWidget({
           </div>
         </div>
 
-        {/* Market Type Selector - Hidden in compact mode */}
-        {!compact && (
-          <div className="flex justify-center gap-2">
-            <Button
-              variant={selectedMarket === 'moneyline' ? 'default' : 'outline'}
-              size="sm"
-              onClick={(e) => {
-                handleButtonClick(e, '1M');
-                setSelectedMarket('moneyline');
-              }}
-              disabled={!allMarketsData.moneyline}
-              className="h-8 px-3 text-xs"
-            >
-              ML
-            </Button>
-            <Button
-              variant={selectedMarket === 'spread' ? 'default' : 'outline'}
-              size="sm"
-              onClick={(e) => {
-                handleButtonClick(e, '1M');
-                setSelectedMarket('spread');
-              }}
-              disabled={!allMarketsData.spread}
-              className="h-8 px-3 text-xs"
-            >
-              Spread
-            </Button>
-            <Button
-              variant={selectedMarket === 'total' ? 'default' : 'outline'}
-              size="sm"
-              onClick={(e) => {
-                handleButtonClick(e, '1M');
-                setSelectedMarket('total');
-              }}
-              disabled={!allMarketsData.total}
-              className="h-8 px-3 text-xs"
-            >
-              O/U
-            </Button>
-          </div>
-        )}
+        {/* Market Type Selector - Available in both compact and full mode */}
+        <div className={`flex justify-center ${compact ? 'gap-1' : 'gap-2'}`}>
+          <Button
+            variant={selectedMarket === 'moneyline' ? 'default' : 'outline'}
+            size={compact ? "sm" : "sm"}
+            onClick={(e) => {
+              handleButtonClick(e, '1M');
+              setSelectedMarket('moneyline');
+            }}
+            disabled={!allMarketsData.moneyline}
+            className={compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }}
+            type="button"
+            style={{ pointerEvents: 'auto' }}
+          >
+            ML
+          </Button>
+          <Button
+            variant={selectedMarket === 'spread' ? 'default' : 'outline'}
+            size={compact ? "sm" : "sm"}
+            onClick={(e) => {
+              handleButtonClick(e, '1M');
+              setSelectedMarket('spread');
+            }}
+            disabled={!allMarketsData.spread}
+            className={compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }}
+            type="button"
+            style={{ pointerEvents: 'auto' }}
+          >
+            Spread
+          </Button>
+          <Button
+            variant={selectedMarket === 'total' ? 'default' : 'outline'}
+            size={compact ? "sm" : "sm"}
+            onClick={(e) => {
+              handleButtonClick(e, '1M');
+              setSelectedMarket('total');
+            }}
+            disabled={!allMarketsData.total}
+            className={compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }}
+            type="button"
+            style={{ pointerEvents: 'auto' }}
+          >
+            O/U
+          </Button>
+        </div>
 
         {/* Current Odds */}
         <div className={`grid grid-cols-2 ${compact ? 'gap-1.5' : 'gap-2'}`}>
