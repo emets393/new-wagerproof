@@ -802,19 +802,6 @@ export function GameDetailsModal({
                 </div>
               </div>
 
-              {/* Polymarket Widget - Full Public Betting Lines */}
-              <div className="text-center">
-                <PolymarketWidget
-                  awayTeam={prediction.away_team}
-                  homeTeam={prediction.home_team}
-                  gameDate={prediction.game_date}
-                  awayTeamColors={awayTeamColors}
-                  homeTeamColors={homeTeamColors}
-                  league="nfl"
-                  compact={false}
-                />
-              </div>
-
               {/* Betting Split Labels Section for NFL */}
               {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
                 <div className="text-center">
@@ -1304,6 +1291,19 @@ export function GameDetailsModal({
               </div>
             </>
           )}
+
+          {/* Polymarket Widget - Full Public Betting Lines - Shows for both NFL and CFB */}
+          <div className="text-center">
+            <PolymarketWidget
+              awayTeam={prediction.away_team}
+              homeTeam={prediction.home_team}
+              gameDate={prediction.game_date}
+              awayTeamColors={awayTeamColors}
+              homeTeamColors={homeTeamColors}
+              league={league}
+              compact={false}
+            />
+          </div>
 
           {/* Match Simulator Section - CFB Only */}
           {league === 'cfb' && (

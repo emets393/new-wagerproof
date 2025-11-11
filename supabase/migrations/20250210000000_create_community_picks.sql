@@ -156,3 +156,5 @@ EXECUTE FUNCTION update_community_pick_vote_counts();
 COMMENT ON TABLE public.community_picks IS 'User-submitted betting picks for community voting';
 COMMENT ON TABLE public.community_pick_votes IS 'User votes on community picks';
 
+
+
