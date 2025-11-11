@@ -29,12 +29,51 @@ export function useGameTails(gameUniqueId: string | null) {
         return;
       }
 
-      setTails(data || []);
+      // Get unique user IDs to fetch their profile data
+      const userIds = [...new Set((data || []).map(t => t.user_id))];
 
-      // Find current user's tail if logged in
-      if (user) {
-        const usersTail = data?.find(t => t.user_id === user.id);
-        setUserTail(usersTail || null);
+      if (userIds.length > 0) {
+        // Fetch display names from profiles table (this should always work as we control it)
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, display_name')
+          .in('user_id', userIds);
+
+        const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
+
+        // Try to fetch user emails from auth.users (might fail due to RLS, so we have a fallback)
+        let emailMap = new Map<string, string>();
+        
+        try {
+          const { data: authData } = await supabase
+            .from('auth.users')
+            .select('id, email')
+            .in('id', userIds);
+
+          emailMap = new Map(authData?.map(u => [u.id, u.email]) || []);
+        } catch (e) {
+          debug.log('Could not fetch emails from auth.users:', e);
+          // Continue without emails - we have display_name which is enough
+        }
+
+        // Enrich tails with user data
+        const enrichedTails = (data || []).map(tail => ({
+          ...tail,
+          user: {
+            display_name: profileMap.get(tail.user_id),
+            email: emailMap.get(tail.user_id),
+          },
+        }));
+
+        setTails(enrichedTails);
+
+        // Find current user's tail if logged in
+        if (user) {
+          const usersTail = enrichedTails.find(t => t.user_id === user.id);
+          setUserTail(usersTail || null);
+        }
+      } else {
+        setTails(data || []);
       }
     } catch (err: any) {
       debug.error('Exception fetching game tails:', err);

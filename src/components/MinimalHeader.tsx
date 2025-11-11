@@ -43,6 +43,7 @@ export function MinimalHeader({ rightContent }: MinimalHeaderProps) {
     <header className="flex h-12 items-center justify-between border-b border-border bg-background px-4">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
+        <SidebarTrigger className="hidden md:flex h-8 w-8" title="Toggle Sidebar (Ctrl+B)" />
         <div className="flex items-center gap-1.5 text-sm">
           {breadcrumbs.map((crumb, index) => (
             <div key={crumb.path} className="flex items-center gap-1.5">

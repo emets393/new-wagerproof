@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown, ChevronUp, ArrowUp, ArrowDown } from 'lucide-react';
 import debug from '@/utils/debug';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { Link } from 'react-router-dom';
@@ -94,6 +94,7 @@ export default function NFL() {
   
   // Focused card state for light beams effect
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  const [sortAscending, setSortAscending] = useState<boolean>(false);
   
   // Public Betting Facts expanded state - tracks which cards have expanded betting facts
   const [expandedBettingFacts, setExpandedBettingFacts] = useState<Record<string, boolean>>({});
@@ -880,18 +881,21 @@ ${contextParts}
       return a.game_time.localeCompare(b.game_time);
     };
     if (sortKey === 'none') {
-      return [...list].sort(byDateTime);
+      const sorted = [...list].sort(byDateTime);
+      return sortAscending ? sorted.reverse() : sorted;
     }
     const score = (p: NFLPrediction): number => {
       if (sortKey === 'ml') return getDisplayedMlProb(p.home_away_ml_prob) ?? -1;
       if (sortKey === 'spread') return getDisplayedSpreadProb(p.home_away_spread_cover_prob) ?? -1;
       return getDisplayedOuProb(p.ou_result_prob) ?? -1;
     };
-    return [...list].sort((a, b) => {
+    const sorted = [...list].sort((a, b) => {
       const sb = score(b) - score(a);
       if (sb !== 0) return sb;
       return byDateTime(a, b);
     });
+    // Apply ascending/descending based on sortAscending flag
+    return sortAscending ? sorted.reverse() : sorted;
   };
 
 
@@ -938,11 +942,19 @@ ${contextParts}
               ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40' 
               : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
           } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
-          onClick={() => setSortKey('none')}
-          title="Sort by game time"
+          onClick={() => {
+            if (sortKey === 'none') {
+              setSortAscending(!sortAscending);
+            } else {
+              setSortKey('none');
+              setSortAscending(false);
+            }
+          }}
+          title="Sort by game time (click to toggle direction)"
         >
           <span className="hidden sm:inline">Sort: Time</span>
           <span className="sm:hidden">Time</span>
+          {sortKey === 'none' && (sortAscending ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />)}
         </Button>
         <Button
           variant={sortKey === 'spread' ? 'default' : 'outline'}
@@ -952,12 +964,20 @@ ${contextParts}
               ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40' 
               : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
           } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
-          onClick={() => setSortKey('spread')}
-          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread probability"}
+          onClick={() => {
+            if (sortKey === 'spread') {
+              setSortAscending(!sortAscending);
+            } else {
+              setSortKey('spread');
+              setSortAscending(false);
+            }
+          }}
+          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread probability (click to toggle direction)"}
         >
           {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
           <span className="hidden sm:inline">Sort: Spread</span>
           <span className="sm:hidden">Spread</span>
+          {sortKey === 'spread' && (sortAscending ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />)}
         </Button>
         <Button
           variant={sortKey === 'ou' ? 'default' : 'outline'}
@@ -967,12 +987,20 @@ ${contextParts}
               ? 'bg-gradient-to-r from-green-600 to-emerald-700 text-white shadow-md shadow-green-500/30 hover:shadow-lg hover:shadow-green-500/40' 
               : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
           } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
-          onClick={() => setSortKey('ou')}
-          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under probability"}
+          onClick={() => {
+            if (sortKey === 'ou') {
+              setSortAscending(!sortAscending);
+            } else {
+              setSortKey('ou');
+              setSortAscending(false);
+            }
+          }}
+          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under probability (click to toggle direction)"}
         >
           {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
           <span className="hidden sm:inline">Sort: O/U</span>
           <span className="sm:hidden">O/U</span>
+          {sortKey === 'ou' && (sortAscending ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />)}
         </Button>
         </div>
         

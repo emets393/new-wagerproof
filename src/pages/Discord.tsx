@@ -5,7 +5,7 @@ import { Users, MessageCircle, Shield, Bell } from "lucide-react";
 import Dither from "@/components/Dither";
 
 export default function Discord() {
-  const discordInviteUrl = "https://discord.gg/Mc4ZcRpx9g";
+  const discordInviteUrl = "https://discord.gg/gwy9y7XSDV";
 
   return (
     <div className="min-h-screen relative bg-black/30 backdrop-blur-sm p-6 overflow-hidden rounded-3xl">

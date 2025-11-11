@@ -12,7 +12,7 @@ export default function DiscordScreen() {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const discordInviteUrl = "https://discord.gg/Mc4ZcRpx9g";
+  const discordInviteUrl = "https://discord.gg/gwy9y7XSDV";
 
   const handleJoinDiscord = async () => {
     try {

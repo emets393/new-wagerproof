@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles, Users } from 'lucide-react';
+import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles, Users, ArrowUp, ArrowDown } from 'lucide-react';
 import CFBGameCard from '@/components/CFBGameCard';
 import debug from '@/utils/debug';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
@@ -133,6 +133,7 @@ export default function CollegeFootball() {
   }, [gameDropdownOpen]);
   type SortMode = 'time' | 'spread' | 'ou';
   const [sortMode, setSortMode] = useState<SortMode>('time');
+  const [sortAscending, setSortAscending] = useState<boolean>(false);
   // Match simulator UI states per game id
   const [simLoadingById, setSimLoadingById] = useState<Record<string, boolean>>({});
   const [simRevealedById, setSimRevealedById] = useState<Record<string, boolean>>({});
@@ -1233,11 +1234,19 @@ ${contextParts}
                 ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40' 
                 : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
             } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700`}
-            onClick={() => setSortMode('time')}
-            title="Sort by game time"
+            onClick={() => {
+              if (sortMode === 'time') {
+                setSortAscending(!sortAscending);
+              } else {
+                setSortMode('time');
+                setSortAscending(false);
+              }
+            }}
+            title="Sort by game time (click to toggle direction)"
           >
             <span className="hidden sm:inline">Sort: Time</span>
             <span className="sm:hidden">Time</span>
+            {sortMode === 'time' && (sortAscending ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />)}
           </Button>
           <Button
             variant={sortMode === 'spread' ? 'default' : 'outline'}
@@ -1247,12 +1256,20 @@ ${contextParts}
                 ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40' 
                 : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
             } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
-            onClick={() => setSortMode('spread')}
-            title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread edge"}
+            onClick={() => {
+              if (sortMode === 'spread') {
+                setSortAscending(!sortAscending);
+              } else {
+                setSortMode('spread');
+                setSortAscending(false);
+              }
+            }}
+            title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread edge (click to toggle direction)"}
           >
             {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
             <span className="hidden sm:inline">Sort: Spread</span>
             <span className="sm:hidden">Spread</span>
+            {sortMode === 'spread' && (sortAscending ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />)}
           </Button>
           <Button
             variant={sortMode === 'ou' ? 'default' : 'outline'}
@@ -1262,12 +1279,20 @@ ${contextParts}
                 ? 'bg-gradient-to-r from-green-600 to-emerald-700 text-white shadow-md shadow-green-500/30 hover:shadow-lg hover:shadow-green-500/40' 
                 : 'bg-white dark:bg-gray-800 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-gray-700 dark:hover:to-gray-700'
             } text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-2 h-auto whitespace-nowrap transition-all duration-200 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
-            onClick={() => setSortMode('ou')}
-            title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under edge"}
+            onClick={() => {
+              if (sortMode === 'ou') {
+                setSortAscending(!sortAscending);
+              } else {
+                setSortMode('ou');
+                setSortAscending(false);
+              }
+            }}
+            title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under edge (click to toggle direction)"}
           >
             {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
             <span className="hidden sm:inline">Sort: O/U</span>
             <span className="sm:hidden">O/U</span>
+            {sortMode === 'ou' && (sortAscending ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />)}
           </Button>
         </div>
         
@@ -1339,21 +1364,25 @@ ${contextParts}
             {predictions
               .filter(shouldDisplaySelected)
             .sort((a, b) => {
+              let result = 0;
               if (sortMode === 'spread') {
-                return getDisplayedSpreadEdge(b) - getDisplayedSpreadEdge(a);
+                result = getDisplayedSpreadEdge(b) - getDisplayedSpreadEdge(a);
+              } else if (sortMode === 'ou') {
+                result = getDisplayedOUEdge(b) - getDisplayedOUEdge(a);
+              } else {
+                // default: by time
+                const timeA = a.start_time || a.start_date || a.game_datetime || a.datetime;
+                const timeB = b.start_time || b.start_date || b.game_datetime || b.datetime;
+                if (timeA && timeB) {
+                  result = new Date(timeA).getTime() - new Date(timeB).getTime();
+                } else {
+                  const idA = String(a.id || '');
+                  const idB = String(b.id || '');
+                  result = idA.localeCompare(idB);
+                }
               }
-              if (sortMode === 'ou') {
-                return getDisplayedOUEdge(b) - getDisplayedOUEdge(a);
-              }
-              // default: by time
-              const timeA = a.start_time || a.start_date || a.game_datetime || a.datetime;
-              const timeB = b.start_time || b.start_date || b.game_datetime || b.datetime;
-              if (timeA && timeB) {
-                return new Date(timeA).getTime() - new Date(timeB).getTime();
-              }
-              const idA = String(a.id || '');
-              const idB = String(b.id || '');
-              return idA.localeCompare(idB);
+              // Apply ascending/descending based on sortAscending flag
+              return sortAscending ? -result : result;
             })
             .map((prediction, index) => {
               // Freemium logic: Only show first 2 games, blur the rest

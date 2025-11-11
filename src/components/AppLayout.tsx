@@ -19,8 +19,9 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
-import { LogOut, Settings, User, ChevronRight } from "lucide-react";
+import { LogOut, Settings, User, ChevronRight, PanelLeft, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
@@ -42,6 +43,7 @@ export function AppLayout() {
   const { hasProAccess } = useRevenueCatWeb();
   const location = useLocation();
   const navigate = useNavigate();
+  const { state, toggleSidebar } = useSidebar();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [isLaunchMode, setIsLaunchMode] = useState(false);
@@ -117,58 +119,75 @@ export function AppLayout() {
   };
 
   return (
-    <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border bg-sidebar overflow-hidden">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar overflow-hidden">
       {/* Header Section */}
       <SidebarHeader className="border-b border-sidebar-border bg-sidebar px-4 py-4">
-        <Link to="/home" className="flex items-center gap-2 group">
-          <div className="flex items-center justify-center w-8 h-8">
-            <img 
-              src="/wagerproofGreenLight.png" 
-              alt="Wagerproof Logo" 
-              className="w-8 h-8 object-contain rounded-lg dark:hidden"
-              onError={(e) => {
-                // Fallback to letter W if icon fails to load
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const fallback = target.nextElementSibling as HTMLElement;
-                if (fallback) fallback.style.display = 'flex';
-              }}
-            />
-            <img 
-              src="/wagerproofGreenDark.png" 
-              alt="Wagerproof Logo" 
-              className="w-8 h-8 object-contain rounded-lg hidden dark:block"
-              onError={(e) => {
-                // Fallback to letter W if icon fails to load
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const fallback = target.nextElementSibling as HTMLElement;
-                if (fallback) fallback.style.display = 'flex';
-              }}
-            />
-            <div className="hidden items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground">
-              <span className="text-lg font-bold">W</span>
+        <div className="flex items-center justify-between gap-2">
+          <Link to="/home" className="flex items-center gap-2 group flex-1 min-w-0">
+            <div className="flex items-center justify-center w-8 h-8 flex-shrink-0">
+              <img 
+                src="/wagerproofGreenLight.png" 
+                alt="Wagerproof Logo" 
+                className="w-8 h-8 object-contain rounded-lg dark:hidden"
+                onError={(e) => {
+                  // Fallback to letter W if icon fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const fallback = target.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+              <img 
+                src="/wagerproofGreenDark.png" 
+                alt="Wagerproof Logo" 
+                className="w-8 h-8 object-contain rounded-lg hidden dark:block"
+                onError={(e) => {
+                  // Fallback to letter W if icon fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const fallback = target.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+              <div className="hidden items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground">
+                <span className="text-lg font-bold">W</span>
+              </div>
             </div>
-          </div>
-          <span className="text-base font-semibold">
-            <span className="text-black dark:text-white">Wager</span>
-            <GradientText 
-              text="Proof" 
-              gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
-              className="inline"
-            />
-          </span>
-          {hasProAccess && (
-            <Badge variant="secondary" className="ml-2 text-xs bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-300 dark:border-yellow-600 font-bold">
-              PRO
-            </Badge>
-          )}
-          {isLaunchMode && (
-            <Badge variant="secondary" className="ml-2 text-xs bg-green-500/20 text-green-600 dark:text-green-400 border-green-300 dark:border-green-600">
-              beta
-            </Badge>
-          )}
-        </Link>
+            <div className="flex items-center gap-2 min-w-0 group-data-[collapsible=icon]:hidden">
+              <span className="text-base font-semibold truncate">
+                <span className="text-black dark:text-white">Wager</span>
+                <GradientText 
+                  text="Proof" 
+                  gradient="linear-gradient(90deg, #22c55e 0%, #4ade80 20%, #16a34a 50%, #4ade80 80%, #22c55e 100%)"
+                  className="inline"
+                />
+              </span>
+              {hasProAccess && (
+                <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-300 dark:border-yellow-600 font-bold flex-shrink-0">
+                  PRO
+                </Badge>
+              )}
+              {isLaunchMode && (
+                <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-600 dark:text-green-400 border-green-300 dark:border-green-600 flex-shrink-0">
+                  beta
+                </Badge>
+              )}
+            </div>
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="h-8 w-8 flex-shrink-0 hidden md:flex"
+            title={state === "expanded" ? "Minimize Sidebar (Ctrl+B)" : "Expand Sidebar (Ctrl+B)"}
+          >
+            {state === "expanded" ? (
+              <ChevronLeft className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </SidebarHeader>
 
       {/* Navigation Content */}

@@ -6,7 +6,7 @@ import { GradientText } from "@/components/ui/gradient-text";
 const Footer = () => {
   const TIKTOK_LINK = "https://www.tiktok.com/@wagerproof";
   const TWITTER_LINK = "https://twitter.com/wagerproof";
-  const INSTAGRAM_LINK = "https://instagram.com/wagerproof";
+  const INSTAGRAM_LINK = "https://www.instagram.com/wagerproof.official/";
   return <footer className="bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 transition-colors duration-300">
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
