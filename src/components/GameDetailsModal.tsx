@@ -141,6 +141,60 @@ export function GameDetailsModal({
     }
   };
 
+  // Map CFB weather icon text to icon code
+  const mapCFBWeatherIconToCode = (iconText: string | null | undefined, fallbackIcon: string | null | undefined): string | null => {
+    // If we have a direct icon_code, use it
+    if (fallbackIcon) return fallbackIcon;
+    
+    // If we have weather_icon_text, map it
+    if (!iconText) return null;
+    
+    const t = iconText.toLowerCase().trim();
+    const isNight = /(night|pm\s*\(night\)|overnight)/.test(t);
+
+    // Rain spectrum
+    if (/(drizzle|light rain|rain showers|shower|sprinkle|rainy|rain)/.test(t)) {
+      return isNight ? 'showers-night' : /showers|shower|drizzle/.test(t) ? 'showers-day' : 'rain';
+    }
+
+    // Thunderstorms
+    if (/(t-?storm|thunder|storm)/.test(t)) {
+      return t.includes('rain') ? 'thunder-rain' : 'thunder';
+    }
+
+    // Snow variants
+    if (/(snow|flurries|blowing snow)/.test(t)) {
+      return /showers|flurries/.test(t)
+        ? (isNight ? 'snow-showers-night' : 'snow-showers-day')
+        : 'snow';
+    }
+
+    // Mixed precip
+    if (/(wintry mix|rain and snow|rain\s*\/\s*snow|sleet)/.test(t)) return 'rain-snow';
+    if (/sleet/.test(t)) return 'sleet';
+    if (/hail/.test(t)) return 'hail';
+
+    // Fog/Mist/Haze
+    if (/(fog|mist|haze|smoke)/.test(t)) return 'fog';
+
+    // Cloud cover
+    if (/(overcast)/.test(t)) return 'cloudy';
+    if (/(mostly cloudy|broken clouds|considerable cloud)/.test(t)) return 'cloudy';
+    if (/(partly sunny|partly cloudy|intermittent cloud|scattered cloud)/.test(t)) {
+      return isNight ? 'partly-cloudy-night' : 'partly-cloudy-day';
+    }
+    if (/cloud/.test(t)) return 'cloudy';
+
+    // Clear/mostly clear
+    if (/(clear|sunny|mostly clear)/.test(t)) return isNight ? 'clear-night' : 'clear-day';
+
+    // Windy
+    if (/wind/.test(t)) return 'wind';
+
+    // Fallback
+    return isNight ? 'clear-night' : 'clear-day';
+  };
+
   // Spinning football loader for simulator
   const FootballLoader = () => (
     <svg
@@ -802,6 +856,19 @@ export function GameDetailsModal({
                 </div>
               </div>
 
+              {/* Polymarket Widget for NFL - Full Public Betting Lines */}
+              <div className="text-center">
+                <PolymarketWidget
+                  awayTeam={prediction.away_team}
+                  homeTeam={prediction.home_team}
+                  gameDate={prediction.game_date}
+                  awayTeamColors={awayTeamColors}
+                  homeTeamColors={homeTeamColors}
+                  league={league}
+                  compact={false}
+                />
+              </div>
+
               {/* Betting Split Labels Section for NFL */}
               {(prediction.ml_splits_label || prediction.spread_splits_label || prediction.total_splits_label) && (
                 <div className="text-center">
@@ -877,55 +944,6 @@ export function GameDetailsModal({
                           </div>
                         );
                       })()}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Weather Section for NFL */}
-              {(prediction.icon || prediction.temperature || prediction.wind_speed) && (
-                <div className="text-center">
-                  <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <CloudRain className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">Weather</h4>
-                    </div>
-                    
-                    <div className="flex justify-center">
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-4 mb-2">
-                          {prediction.icon && (
-                            <div className="w-16 h-16 flex items-center justify-center">
-                              <WeatherIconComponent 
-                                code={prediction.icon}
-                                size={64}
-                                className="stroke-current text-gray-800 dark:text-white"
-                              />
-                            </div>
-                          )}
-
-                          {prediction.temperature !== null && (
-                            <div className="text-lg font-bold text-gray-900 dark:text-white min-w-[60px] text-center">
-                              {Math.round(prediction.temperature)}°F
-                            </div>
-                          )}
-
-                          {prediction.wind_speed !== null && prediction.wind_speed > 0 && (
-                            <div className="flex items-center space-x-2 min-w-[70px]">
-                              <IconWind size={24} className="stroke-current text-blue-600 dark:text-blue-400" />
-                              <span className="text-sm font-medium text-gray-700 dark:text-white/80">
-                                {Math.round(prediction.wind_speed)} mph
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {prediction.icon && (
-                          <div className="text-xs font-medium text-gray-600 dark:text-white/70 capitalize">
-                            {prediction.icon.replace(/-/g, ' ')}
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1289,21 +1307,159 @@ export function GameDetailsModal({
                   )}
                 </div>
               </div>
+
+              {/* Weather Section for NFL - Full Weather Details */}
+              <div className="text-center">
+                <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-3">
+                  <div className="flex items-center justify-center gap-2">
+                    <CloudRain className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">Full Weather Details</h4>
+                  </div>
+                  
+                  {(prediction.icon || prediction.temperature !== null || prediction.wind_speed !== null) ? (
+                    <div className="flex justify-center">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-4 mb-2">
+                          {prediction.icon && (
+                            <div className="w-16 h-16 flex items-center justify-center">
+                              <WeatherIconComponent 
+                                code={prediction.icon}
+                                size={64}
+                                className="stroke-current text-gray-800 dark:text-white"
+                              />
+                            </div>
+                          )}
+
+                          {prediction.temperature !== null && (
+                            <div className="text-lg font-bold text-gray-900 dark:text-white min-w-[60px] text-center">
+                              {Math.round(prediction.temperature)}°F
+                            </div>
+                          )}
+
+                          {prediction.wind_speed !== null && prediction.wind_speed > 0 && (
+                            <div className="flex items-center space-x-2 min-w-[70px]">
+                              <IconWind size={24} className="stroke-current text-blue-600 dark:text-blue-400" />
+                              <span className="text-sm font-medium text-gray-700 dark:text-white/80">
+                                {Math.round(prediction.wind_speed)} mph
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {prediction.icon && (
+                          <div className="text-xs font-medium text-gray-600 dark:text-white/70 capitalize">
+                            {prediction.icon.replace(/-/g, ' ')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <CloudRain className="h-12 w-12 mx-auto mb-2 text-gray-400 dark:text-gray-600" />
+                      <p className="text-sm text-gray-600 dark:text-white/70">
+                        Weather data not yet available
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-white/50 mt-1">
+                        Check back closer to game time
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </>
           )}
 
-          {/* Polymarket Widget - Full Public Betting Lines - Shows for both NFL and CFB */}
-          <div className="text-center">
-            <PolymarketWidget
-              awayTeam={prediction.away_team}
-              homeTeam={prediction.home_team}
-              gameDate={prediction.game_date}
-              awayTeamColors={awayTeamColors}
-              homeTeamColors={homeTeamColors}
-              league={league}
-              compact={false}
-            />
-          </div>
+          {/* Weather Section for CFB - Full Weather Details */}
+          {league === 'cfb' && (
+            <div className="text-center">
+              <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-3">
+                <div className="flex items-center justify-center gap-2">
+                  <CloudRain className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                  <h4 className="text-lg font-bold text-gray-900 dark:text-white">Full Weather Details</h4>
+                </div>
+                
+                {(() => {
+                  const iconCode = mapCFBWeatherIconToCode(
+                    (prediction as any).weather_icon_text,
+                    prediction.icon_code
+                  );
+                  const temperature = (prediction as any).weather_temp_f ?? prediction.temperature;
+                  const windSpeed = (prediction as any).weather_windspeed_mph ?? prediction.wind_speed;
+                  const precipitation = prediction.precipitation;
+                  
+                  return (iconCode || temperature !== null || windSpeed !== null) ? (
+                    <div className="flex justify-center">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-4 mb-2">
+                          {iconCode && (
+                            <div className="w-16 h-16 flex items-center justify-center">
+                              <WeatherIconComponent 
+                                code={iconCode}
+                                size={64}
+                                className="stroke-current text-gray-800 dark:text-white"
+                              />
+                            </div>
+                          )}
+
+                          {temperature !== null && (
+                            <div className="text-lg font-bold text-gray-900 dark:text-white min-w-[60px] text-center">
+                              {Math.round(temperature)}°F
+                            </div>
+                          )}
+
+                          {windSpeed !== null && windSpeed > 0 && (
+                            <div className="flex items-center space-x-2 min-w-[70px]">
+                              <IconWind size={24} className="stroke-current text-blue-600 dark:text-blue-400" />
+                              <span className="text-sm font-medium text-gray-700 dark:text-white/80">
+                                {Math.round(windSpeed)} mph
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {iconCode && (
+                          <div className="text-xs font-medium text-gray-600 dark:text-white/70 capitalize">
+                            {iconCode.replace(/-/g, ' ')}
+                          </div>
+                        )}
+                        
+                        {precipitation !== null && precipitation > 0 && (
+                          <div className="text-xs font-medium text-gray-600 dark:text-white/70 mt-1">
+                            Precipitation: {precipitation > 1 ? Math.round(precipitation) : Math.round(precipitation * 100)}%
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <CloudRain className="h-12 w-12 mx-auto mb-2 text-gray-400 dark:text-gray-600" />
+                      <p className="text-sm text-gray-600 dark:text-white/70">
+                        Weather data not yet available
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-white/50 mt-1">
+                        Check back closer to game time
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* CFB Content - Polymarket Widget */}
+          {league === 'cfb' && (
+            <div className="text-center">
+              <PolymarketWidget
+                awayTeam={prediction.away_team}
+                homeTeam={prediction.home_team}
+                gameDate={prediction.game_date}
+                awayTeamColors={awayTeamColors}
+                homeTeamColors={homeTeamColors}
+                league={league}
+                compact={false}
+              />
+            </div>
+          )}
 
           {/* Match Simulator Section - CFB Only */}
           {league === 'cfb' && (

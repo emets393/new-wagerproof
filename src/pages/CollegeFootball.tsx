@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles, Users, ArrowUp, ArrowDown } from 'lucide-react';
+import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles, Users, ArrowUp, ArrowDown, Box } from 'lucide-react';
 import CFBGameCard from '@/components/CFBGameCard';
 import debug from '@/utils/debug';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
@@ -937,20 +937,30 @@ ${contextParts}
   // Small weather pill used above team logos
   const WeatherPill = ({ iconText, tempF, windMph, fallbackIcon }: { iconText: string | null | undefined; tempF: number | null | undefined; windMph: number | null | undefined; fallbackIcon?: string | null; }) => {
     const code = mapIconTextToCode(iconText) || fallbackIcon || null;
+    const isIceTheme = typeof tempF === 'number' && tempF < 40;
 
     return (
       <div className="flex justify-center mt-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-background shadow-sm">
+        <div className={`relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm ${
+          isIceTheme 
+            ? 'border border-cyan-400/60 dark:border-cyan-300/50 bg-gradient-to-r from-cyan-50/90 to-blue-50/90 dark:from-cyan-950/40 dark:to-blue-950/40 backdrop-blur-sm' 
+            : 'border border-border bg-background'
+        }`}>
+          {isIceTheme && (
+            <div className="absolute -top-1 -right-1">
+              <Box size={14} className="text-cyan-500 dark:text-cyan-400" strokeWidth={2.5} />
+            </div>
+          )}
           {code && (
             <WeatherIconComponent 
               code={code}
               size={20}
-              className="stroke-current text-foreground"
+              className={`stroke-current ${isIceTheme ? 'text-cyan-600 dark:text-cyan-300' : 'text-foreground'}`}
             />
           )}
-          <div className="text-xs font-medium text-foreground">
+          <div className={`text-xs font-medium ${isIceTheme ? 'text-cyan-700 dark:text-cyan-200' : 'text-foreground'}`}>
             {typeof tempF === 'number' ? `Temp: ${Math.round(tempF)}°F` : 'Temp: --'}
-            <span className="mx-2 text-muted-foreground">•</span>
+            <span className={`mx-2 ${isIceTheme ? 'text-cyan-500/70 dark:text-cyan-400/70' : 'text-muted-foreground'}`}>•</span>
             {typeof windMph === 'number' ? `Wind: ${Math.round(windMph)} mph` : 'Wind: --'}
           </div>
         </div>

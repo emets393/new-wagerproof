@@ -493,11 +493,31 @@ ${contextParts}
       
       setTeamMappings(teamMappings);
 
-      // Step 4: Merge games with predictions and betting lines
+      // Step 3.5: Fetch weather data from production_weather table
+      debug.log('📊 Fetching weather data from production_weather...');
+      const { data: weatherData, error: weatherError } = await collegeFootballSupabase
+        .from('production_weather')
+        .select('*');
+      
+      let weatherMap = new Map();
+      
+      if (!weatherError && weatherData) {
+        debug.log('✅ Weather data fetched:', weatherData.length);
+        weatherData.forEach(weather => {
+          if (weather.training_key) {
+            weatherMap.set(weather.training_key, weather);
+          }
+        });
+      } else {
+        debug.warn('No weather data found or error:', weatherError);
+      }
+
+      // Step 4: Merge games with predictions, betting lines, and weather
       // home_away_unique in v_input_values_with_epa = training_key in nfl_predictions_epa and nfl_betting_lines
-      const predictionsWithData = (nflGames || []).map(game => {
+      const predictionsWithData = (nflGames || []).map((game) => {
         const prediction = predictionsMap.get(game.home_away_unique);
         const bettingLine = bettingLinesMap.get(game.home_away_unique);
+        const weather = weatherMap.get(game.home_away_unique);
         
         return {
           ...game,
@@ -517,6 +537,11 @@ ${contextParts}
           spread_splits_label: bettingLine?.spread_splits_label || null,
           ml_splits_label: bettingLine?.ml_splits_label || null,
           total_splits_label: bettingLine?.total_splits_label || null,
+          // Add weather data - prioritize data from v_input_values_with_epa view, fallback to production_weather
+          temperature: game.temperature || game.weather_temp || weather?.temperature || null,
+          precipitation: game.precipitation_pct || weather?.precipitation_pct || null,
+          wind_speed: game.wind_speed || game.weather_wind || weather?.wind_speed || null,
+          icon: game.icon || game.weather_icon || weather?.icon || null,
         };
       });
 
