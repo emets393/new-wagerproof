@@ -154,14 +154,14 @@ export function PageHeaderValueFinds({
       >
         <Aurora
           size={600}
-          className="opacity-20"
+          className="absolute inset-0 opacity-20 pointer-events-none"
           color1="rgba(139, 92, 246, 0.3)"
           color2="rgba(59, 130, 246, 0.3)"
         />
         
-        <CardContent className="p-3 sm:p-4 relative z-10">
+        <CardContent className="!pt-0 px-3 pb-3 sm:px-4 sm:pb-4 relative z-10 -mt-24">
           {/* Header */}
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-5 h-5 text-purple-500 dark:text-purple-400" />
@@ -171,7 +171,7 @@ export function PageHeaderValueFinds({
                 {sportLabel}
               </Badge>
               <Badge variant="outline" className="text-gray-600 dark:text-white/70 border-gray-300 dark:border-white/20 text-xs hidden sm:inline-flex">
-                Today's Top Picks
+                AI Generated
               </Badge>
               {isAdminMode && !isPublished && (
                 <Badge variant="outline" className="text-yellow-600 dark:text-yellow-500 border-yellow-500/50 text-xs">
@@ -236,7 +236,7 @@ export function PageHeaderValueFinds({
           <div className="relative">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-yellow-500 dark:text-yellow-400" />
-              Featured Picks
+              Interesting Matchups
             </h3>
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 ${isFreemiumUser ? 'blur-sm' : ''}`}>
               {compactPicks.map((pick, index) => {
@@ -304,7 +304,7 @@ export function PageHeaderValueFinds({
 
           {/* Disclaimer */}
           <div className="mt-2 text-center text-[10px] text-gray-500 dark:text-white/50">
-            Expert analysis • Always do your own research before betting
+            AI Analysing Model Data • Always do your own research before betting
           </div>
         </CardContent>
       </Card>
