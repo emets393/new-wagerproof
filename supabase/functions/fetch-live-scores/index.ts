@@ -43,13 +43,11 @@ interface ParsedGame {
   is_live: boolean;
 }
 
-async function fetchESPNScores(league: 'nfl' | 'college-football'): Promise<ESPNGame[]> {
-  const url = `https://site.api.espn.com/apis/site/v2/sports/football/${league}/scoreboard`;
-  
+async function fetchESPNScores(endpoint: string, leagueName: string): Promise<ESPNGame[]> {
   try {
-    const response = await fetch(url);
+    const response = await fetch(endpoint);
     if (!response.ok) {
-      console.error(`ESPN API error for ${league}: ${response.status}`);
+      console.error(`ESPN API error for ${leagueName}: ${response.status}`);
       return [];
     }
     
@@ -72,12 +70,12 @@ async function fetchESPNScores(league: 'nfl' | 'college-football'): Promise<ESPN
     
     return games;
   } catch (error) {
-    console.error(`Error fetching ${league} scores:`, error);
+    console.error(`Error fetching ${leagueName} scores:`, error);
     return [];
   }
 }
 
-function parseGame(game: ESPNGame, league: 'NFL' | 'NCAAF'): ParsedGame | null {
+function parseGame(game: ESPNGame, league: string): ParsedGame | null {
   try {
     // Find home and away teams
     const homeTeam = game.competitors.find(c => c.homeAway === 'home');
@@ -97,7 +95,27 @@ function parseGame(game: ESPNGame, league: 'NFL' | 'NCAAF'): ParsedGame | null {
     let timeRemaining = null;
     
     if (isLive) {
-      period = game.status.period ? `Q${game.status.period}` : null;
+      // Format period based on sport type
+      if (league === 'NFL' || league === 'NCAAF') {
+        period = game.status.period ? `Q${game.status.period}` : null;
+      } else if (league === 'NBA' || league === 'NCAAB') {
+        // Basketball has different period names
+        const periodNum = game.status.period;
+        if (periodNum <= 2) {
+          period = `${periodNum === 1 ? '1st' : '2nd'} Half`;
+        } else if (periodNum === 3) {
+          period = `OT`;
+        } else if (periodNum > 3) {
+          period = `${periodNum - 2}OT`;
+        }
+      } else if (league === 'NHL') {
+        period = game.status.period ? `P${game.status.period}` : null;
+      } else if (league === 'MLB') {
+        period = game.status.period ? `Inning ${game.status.period}` : null;
+      } else {
+        // For soccer and other sports
+        period = game.status.period ? `${game.status.period}H` : null;
+      }
       timeRemaining = game.status.displayClock || null;
     }
     
@@ -138,28 +156,45 @@ serve(async (req) => {
   try {
     console.log('Fetching live scores from ESPN...');
     
-    // Fetch scores from both leagues
-    const [nflGames, ncaafGames] = await Promise.all([
-      fetchESPNScores('nfl'),
-      fetchESPNScores('college-football')
-    ]);
+    // Define all ESPN endpoints
+    const sportEndpoints = [
+      { league: 'NFL', url: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard' },
+      { league: 'NCAAF', url: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard' },
+      { league: 'NBA', url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard' },
+      { league: 'NCAAB', url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard' },
+      { league: 'NHL', url: 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard' },
+      { league: 'MLB', url: 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard' },
+      { league: 'MLS', url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard' },
+      { league: 'EPL', url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard' },
+    ];
     
-    console.log(`Fetched ${nflGames.length} NFL games, ${ncaafGames.length} NCAA Football games`);
+    // Fetch scores from all leagues
+    const allGamesResults = await Promise.all(
+      sportEndpoints.map(({ league, url }) => 
+        fetchESPNScores(url, league)
+      )
+    );
     
-    // Parse games
+    // Log fetch results
+    sportEndpoints.forEach((sport, index) => {
+      const count = allGamesResults[index].length;
+      if (count > 0) {
+        console.log(`Fetched ${count} ${sport.league} games`);
+      }
+    });
+    
+    // Parse games from all sports
     const parsedGames: ParsedGame[] = [];
     
-    for (const game of nflGames) {
-      const parsed = parseGame(game, 'NFL');
-      if (parsed) parsedGames.push(parsed);
-    }
+    sportEndpoints.forEach((sport, index) => {
+      const games = allGamesResults[index];
+      for (const game of games) {
+        const parsed = parseGame(game, sport.league);
+        if (parsed) parsedGames.push(parsed);
+      }
+    });
     
-    for (const game of ncaafGames) {
-      const parsed = parseGame(game, 'NCAAF');
-      if (parsed) parsedGames.push(parsed);
-    }
-    
-    console.log(`Parsed ${parsedGames.length} total games`);
+    console.log(`Parsed ${parsedGames.length} total games across all sports`);
     
     // Initialize Supabase client
     const supabase = createClient(
