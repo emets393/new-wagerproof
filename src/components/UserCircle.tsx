@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UserCircleProps {
   userId?: string;
@@ -58,36 +59,56 @@ export function UserCircle({
   customLetter: propCustomLetter,
   customGradient: propCustomGradient,
 }: UserCircleProps) {
+  const { user, loading: authLoading } = useAuth();
   const [customPrefs, setCustomPrefs] = useState<{ letter?: string; gradient?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Only fetch if we have a userId and no custom props provided
-    if (userId && !propCustomLetter && !propCustomGradient) {
+    // Only fetch if:
+    // 1. Auth has finished loading
+    // 2. We have a userId
+    // 3. No custom props provided
+    // 4. User is authenticated (required for RLS policy)
+    if (!authLoading && userId && !propCustomLetter && !propCustomGradient && user) {
       fetchCustomPreferences();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, propCustomLetter, propCustomGradient]);
+  }, [userId, propCustomLetter, propCustomGradient, user, authLoading]);
 
   const fetchCustomPreferences = async () => {
-    if (!userId) return;
+    // Don't fetch if not authenticated or auth is still loading
+    if (!userId || !user || authLoading) return;
     
     setIsLoading(true);
     try {
+      // Use maybeSingle() instead of single() - returns null instead of throwing when no rows found
       const { data, error } = await supabase
         .from('user_avatar_preferences')
         .select('custom_letter, gradient_key')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (data && !error) {
+      // Handle errors gracefully - suppress expected errors
+      if (error) {
+        // PGRST116 is "no rows returned" - this is expected for users without preferences
+        // PGRST301 is "Not Acceptable" (406) - happens when RLS blocks the request
+        // Both are expected scenarios, so we silently fall back to defaults
+        return;
+      }
+
+      // If data exists, use it; otherwise fallback to defaults
+      if (data) {
         setCustomPrefs({
-          letter: data.custom_letter,
-          gradient: data.gradient_key,
+          letter: data.custom_letter || undefined,
+          gradient: data.gradient_key || undefined,
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       // Silently fail - will use default
+      // Suppress all errors here since they're expected scenarios:
+      // - 406 errors if migration not applied yet
+      // - Network errors
+      // - Other RLS-related errors
     } finally {
       setIsLoading(false);
     }

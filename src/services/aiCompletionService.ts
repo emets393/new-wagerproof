@@ -613,10 +613,25 @@ export interface TodayInSportsCompletion {
  */
 export async function getTodayInSportsCompletion(includeUnpublished: boolean = false): Promise<TodayInSportsCompletion | null> {
   try {
-    // Get today's date in Eastern Time
-    const now = new Date();
-    const easternTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const today = easternTime.toISOString().split('T')[0];
+    // Get today's date in Eastern Time using reliable method (same as TodayInSports.tsx)
+    const getTodayET = () => {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      
+      const parts = formatter.formatToParts(new Date());
+      const year = parts.find(p => p.type === 'year')?.value;
+      const month = parts.find(p => p.type === 'month')?.value;
+      const day = parts.find(p => p.type === 'day')?.value;
+      
+      return `${year}-${month}-${day}`;
+    };
+    const today = getTodayET();
+
+    debug.log('getTodayInSportsCompletion: Querying for date:', today, 'includeUnpublished:', includeUnpublished);
 
     let query = supabase
       .from('today_in_sports_completions')
@@ -632,6 +647,27 @@ export async function getTodayInSportsCompletion(includeUnpublished: boolean = f
     if (error) {
       debug.error('Error fetching today in sports completion:', error);
       return null;
+    }
+
+    debug.log('getTodayInSportsCompletion: Query result:', {
+      found: !!data,
+      completionId: data?.id,
+      completionDate: data?.completion_date,
+      published: data?.published,
+      hasText: !!data?.completion_text,
+      textLength: data?.completion_text?.length,
+    });
+
+    // If no published completion found, check if there are any unpublished ones (for debugging)
+    if (!data && !includeUnpublished) {
+      const { data: unpublishedData } = await supabase
+        .from('today_in_sports_completions')
+        .select('id, completion_date, published')
+        .eq('completion_date', today);
+      
+      if (unpublishedData && unpublishedData.length > 0) {
+        debug.log('getTodayInSportsCompletion: Found unpublished completions:', unpublishedData);
+      }
     }
 
     return data;

@@ -5,7 +5,7 @@ import { TailingAvatarList } from './TailingAvatarList';
 import { TailPickDialog } from './TailPickDialog';
 import { useGameTails } from '@/hooks/useGameTails';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, UserPlus, UserMinus } from 'lucide-react';
+import { Users, UserPlus, UserMinus, ArrowRightLeft, BarChart, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface GameTailSectionProps {
@@ -81,6 +81,28 @@ export function GameTailSection({
     return teamSelection === 'home' ? homeTeam : awayTeam;
   };
 
+  // Helper function to get pick type icon
+  const getPickTypeIcon = (pickType: string) => {
+    if (pickType === 'spread') return ArrowRightLeft;
+    if (pickType === 'over_under') return BarChart;
+    if (pickType === 'moneyline') return DollarSign;
+    return ArrowRightLeft;
+  };
+
+  // Helper function to get pick type color classes
+  const getPickTypeColorClasses = (pickType: string) => {
+    if (pickType === 'spread') {
+      return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+    }
+    if (pickType === 'over_under') {
+      return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+    }
+    if (pickType === 'moneyline') {
+      return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+    }
+    return 'bg-white/10 text-white border-white/20';
+  };
+
   if (!user) {
     return null; // Don't show tailing section if not logged in
   }
@@ -125,20 +147,26 @@ export function GameTailSection({
         {/* Tailing Users Display */}
         {tails.length > 0 && (
           <div className="space-y-2">
-            {Object.entries(tailsByPick).map(([key, data]) => (
-              <div
-                key={key}
-                className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap"
-              >
-                <Badge variant="outline" className="text-[10px] shrink-0">
-                  {getDisplayLabel(data.teamSelection, data.pickType)}{' '}
-                  {data.pickType !== 'over_under' && pickTypeLabels[data.pickType]}
-                </Badge>
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <TailingAvatarList users={data.users} size="sm" />
+            {Object.entries(tailsByPick).map(([key, data]) => {
+              const PickTypeIcon = getPickTypeIcon(data.pickType);
+              return (
+                <div
+                  key={key}
+                  className="flex items-center gap-2 text-xs flex-wrap"
+                >
+                  <Badge className={`${getPickTypeColorClasses(data.pickType)} flex items-center gap-1.5 shrink-0 text-[10px]`}>
+                    <PickTypeIcon className="h-3 w-3" />
+                    <span>
+                      {getDisplayLabel(data.teamSelection, data.pickType)}{' '}
+                      {data.pickType !== 'over_under' && pickTypeLabels[data.pickType]}
+                    </span>
+                  </Badge>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <TailingAvatarList users={data.users} size="sm" />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

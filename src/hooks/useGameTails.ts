@@ -41,27 +41,15 @@ export function useGameTails(gameUniqueId: string | null) {
 
         const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
 
-        // Try to fetch user emails from auth.users (might fail due to RLS, so we have a fallback)
-        let emailMap = new Map<string, string>();
-        
-        try {
-          const { data: authData } = await supabase
-            .from('auth.users')
-            .select('id, email')
-            .in('id', userIds);
-
-          emailMap = new Map(authData?.map(u => [u.id, u.email]) || []);
-        } catch (e) {
-          debug.log('Could not fetch emails from auth.users:', e);
-          // Continue without emails - we have display_name which is enough
-        }
+        // Note: We can't fetch emails from auth.users via REST API (it's a system table)
+        // UserCircle component will work fine with just display_name - it uses first letter for avatar
 
         // Enrich tails with user data
         const enrichedTails = (data || []).map(tail => ({
           ...tail,
           user: {
             display_name: profileMap.get(tail.user_id),
-            email: emailMap.get(tail.user_id),
+            email: undefined, // Email not available via REST API
           },
         }));
 

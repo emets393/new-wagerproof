@@ -43,9 +43,15 @@ export const navItems: NavItem[] = [
     page: <Landing />,
   },
   {
-    title: "Learn WagerProof",
-    to: "/learn",
-    icon: <GraduationCap className="h-4 w-4" />,
+    title: "Today in Sports",
+    to: "/today-in-sports",
+    icon: <Newspaper className="h-4 w-4" />,
+  },
+  {
+    title: "Editors Picks",
+    to: "/editors-picks",
+    icon: <Star className="h-4 w-4" />,
+    page: <EditorsPicks />,
   },
   {
     title: "WagerBot Chat",
@@ -58,17 +64,6 @@ export const navItems: NavItem[] = [
     to: "/scoreboard",
     icon: <Activity className="h-4 w-4" />,
     page: <ScoreBoard />,
-  },
-  {
-    title: "Today in Sports",
-    to: "/today-in-sports",
-    icon: <Newspaper className="h-4 w-4" />,
-  },
-  {
-    title: "Editors Picks",
-    to: "/editors-picks",
-    icon: <Star className="h-4 w-4" />,
-    page: <EditorsPicks />,
   },
   {
     title: "College Football",
@@ -153,6 +148,11 @@ export const navItems: NavItem[] = [
     to: "/bet-slip-grader",
     icon: <FileImage className="h-4 w-4" />,
     page: <BetSlipGrader />,
+  },
+  {
+    title: "Learn WagerProof",
+    to: "/learn",
+    icon: <GraduationCap className="h-4 w-4" />,
   },
   {
     title: "Account",

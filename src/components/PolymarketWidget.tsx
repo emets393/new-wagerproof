@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { getAllMarketsData } from '@/services/polymarketService';
@@ -11,8 +11,9 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { MarketType } from '@/types/polymarket';
 import debug from '@/utils/debug';
+import { MovingBorder } from '@/components/ui/moving-border';
 
-// Inject glow animation styles
+// Glow animation styles for odds containers
 const glowStyles = `
   @keyframes value-glow {
     0%, 100% {
@@ -24,37 +25,6 @@ const glowStyles = `
   }
   .value-glow-animation {
     animation: value-glow 2s ease-in-out infinite;
-  }
-  @keyframes button-pulse {
-    0%, 100% {
-      box-shadow: 0 0 5px rgba(115, 182, 158, 0.8), 0 0 10px rgba(115, 182, 158, 0.5);
-      border-color: rgba(115, 182, 158, 0.8);
-    }
-    50% {
-      box-shadow: 0 0 10px rgba(115, 182, 158, 1), 0 0 20px rgba(115, 182, 158, 0.7), 0 0 30px rgba(115, 182, 158, 0.4);
-      border-color: rgba(115, 182, 158, 1);
-    }
-  }
-  button.button-value-highlight,
-  .button-value-highlight {
-    animation: button-pulse 2s ease-in-out infinite !important;
-    background: linear-gradient(135deg, rgba(115, 182, 158, 0.25) 0%, rgba(115, 182, 158, 0.15) 100%) !important;
-    border-width: 2px !important;
-    font-weight: 700 !important;
-    position: relative !important;
-  }
-  button.button-value-highlight::before,
-  .button-value-highlight::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    border-radius: inherit;
-    background: linear-gradient(135deg, rgba(115, 182, 158, 0.3), rgba(115, 182, 158, 0.1));
-    z-index: -1;
-    animation: button-pulse 2s ease-in-out infinite;
   }
 `;
 
@@ -196,6 +166,141 @@ export default function PolymarketWidget({
 
   const filteredData = filterDataByTimeRange();
 
+  // Check if game has started (disable glows if game date/time has passed) - memoized
+  const isGameStarted = useMemo(() => {
+    if (!gameDate || typeof gameDate !== 'string') return false; // If no game date, allow glows
+    
+    try {
+      let gameStartTime: Date;
+      const now = new Date();
+      
+      // Handle both date-only format (YYYY-MM-DD) and datetime format (with time)
+      // Check if it's a datetime string (has time components)
+      const isDateTimeString = gameDate.includes('T') || 
+                               gameDate.includes(' ') || 
+                               gameDate.includes('+') ||
+                               gameDate.length > 10;
+      
+      if (isDateTimeString) {
+        // Full datetime string (e.g., "2025-10-03 01:00:00+00" or "2025-10-03T01:00:00Z")
+        gameStartTime = new Date(gameDate);
+      } else {
+        // Date-only format (YYYY-MM-DD) - treat as end of day
+        gameStartTime = new Date(gameDate + 'T23:59:59Z');
+      }
+      
+      // Validate the date
+      if (isNaN(gameStartTime.getTime())) {
+        return false; // Invalid date, allow glows
+      }
+      
+      // Check if current time is past the game start time
+      return now > gameStartTime;
+    } catch (error) {
+      console.error('Error parsing game date:', error);
+      return false; // On error, allow glows
+    }
+  }, [gameDate]);
+
+  // Check for value alerts - memoized to prevent constant re-checking (MUST be before early returns)
+  const valueAlerts = useMemo(() => {
+    if (!allMarketsData) return [];
+    
+    try {
+      const alerts: { market: MarketType; side: 'away' | 'home'; percentage: number; team: string }[] = [];
+      const spread = allMarketsData.spread;
+      const total = allMarketsData.total;
+      const moneyline = allMarketsData.moneyline;
+      
+      // Check Spread (>57% on either side indicates Vegas line mismatch)
+      if (spread && typeof spread.currentAwayOdds === 'number' && typeof spread.currentHomeOdds === 'number') {
+        if (spread.currentAwayOdds > 57) {
+          alerts.push({ 
+            market: 'spread', 
+            side: 'away', 
+            percentage: spread.currentAwayOdds,
+            team: awayTeam
+          });
+        }
+        if (spread.currentHomeOdds > 57) {
+          alerts.push({ 
+            market: 'spread', 
+            side: 'home', 
+            percentage: spread.currentHomeOdds,
+            team: homeTeam
+          });
+        }
+      }
+      
+      // Check Total (>57% on either side indicates Vegas line mismatch)
+      if (total && typeof total.currentAwayOdds === 'number' && typeof total.currentHomeOdds === 'number') {
+        if (total.currentAwayOdds > 57) { // Over
+          alerts.push({ 
+            market: 'total', 
+            side: 'away', 
+            percentage: total.currentAwayOdds,
+            team: 'Over'
+          });
+        }
+        if (total.currentHomeOdds > 57) { // Under
+          alerts.push({ 
+            market: 'total', 
+            side: 'home', 
+            percentage: total.currentHomeOdds,
+            team: 'Under'
+          });
+        }
+      }
+      
+      // Check Moneyline (only highlight specific team if 85%+)
+      if (moneyline && typeof moneyline.currentAwayOdds === 'number' && typeof moneyline.currentHomeOdds === 'number') {
+        if (moneyline.currentAwayOdds >= 85) {
+          alerts.push({ 
+            market: 'moneyline', 
+            side: 'away', 
+            percentage: moneyline.currentAwayOdds,
+            team: awayTeam
+          });
+        }
+        if (moneyline.currentHomeOdds >= 85) {
+          alerts.push({ 
+            market: 'moneyline', 
+            side: 'home', 
+            percentage: moneyline.currentHomeOdds,
+            team: homeTeam
+          });
+        }
+      }
+      
+      return alerts;
+    } catch (error) {
+      console.error('Error calculating value alerts:', error);
+      return [];
+    }
+  }, [allMarketsData, awayTeam, homeTeam]);
+
+  const hasValueAlert = valueAlerts.length > 0 && !isGameStarted; // Disable alerts if game started
+  
+  // Check which markets have value (only if game hasn't started) - memoized
+  const hasSpreadValue = useMemo(() => !isGameStarted && valueAlerts.some(alert => alert.market === 'spread'), [isGameStarted, valueAlerts]);
+  const hasTotalValue = useMemo(() => !isGameStarted && valueAlerts.some(alert => alert.market === 'total'), [isGameStarted, valueAlerts]);
+  const hasMoneylineValue = useMemo(() => !isGameStarted && valueAlerts.some(alert => alert.market === 'moneyline'), [isGameStarted, valueAlerts]);
+  
+  // For Spread/O/U: Don't highlight specific teams (line mismatch affects both sides)
+  // For ML: Only highlight if current market is ML and team is 85%+ (only if game hasn't started) - memoized
+  const hasAwayValue = useMemo(() => 
+    !isGameStarted && selectedMarket === 'moneyline' && valueAlerts.some(alert => 
+      alert.market === 'moneyline' && alert.side === 'away'
+    ), 
+    [isGameStarted, selectedMarket, valueAlerts]
+  );
+  const hasHomeValue = useMemo(() => 
+    !isGameStarted && selectedMarket === 'moneyline' && valueAlerts.some(alert => 
+      alert.market === 'moneyline' && alert.side === 'home'
+    ), 
+    [isGameStarted, selectedMarket, valueAlerts]
+  );
+
   // Loading state
   if (isLoading) {
     return (
@@ -275,106 +380,11 @@ export default function PolymarketWidget({
     );
   }
 
-  // Calculate percentage changes
+  // Calculate percentage changes - safely handle empty data
   const firstPoint = filteredData[0];
   const lastPoint = filteredData[filteredData.length - 1];
-  const awayChange = lastPoint.awayTeamOdds - firstPoint.awayTeamOdds;
-  const homeChange = lastPoint.homeTeamOdds - firstPoint.homeTeamOdds;
-
-  // Check for value alerts
-  const checkValueAlert = () => {
-    const alerts: { market: MarketType; side: 'away' | 'home'; percentage: number; team: string }[] = [];
-    
-    // Check Spread (>57% on either side indicates Vegas line mismatch)
-    if (allMarketsData.spread) {
-      if (allMarketsData.spread.currentAwayOdds > 57) {
-        alerts.push({ 
-          market: 'spread', 
-          side: 'away', 
-          percentage: allMarketsData.spread.currentAwayOdds,
-          team: awayTeam
-        });
-      }
-      if (allMarketsData.spread.currentHomeOdds > 57) {
-        alerts.push({ 
-          market: 'spread', 
-          side: 'home', 
-          percentage: allMarketsData.spread.currentHomeOdds,
-          team: homeTeam
-        });
-      }
-    }
-    
-    // Check Total (>57% on either side indicates Vegas line mismatch)
-    if (allMarketsData.total) {
-      if (allMarketsData.total.currentAwayOdds > 57) { // Over
-        alerts.push({ 
-          market: 'total', 
-          side: 'away', 
-          percentage: allMarketsData.total.currentAwayOdds,
-          team: 'Over'
-        });
-      }
-      if (allMarketsData.total.currentHomeOdds > 57) { // Under
-        alerts.push({ 
-          market: 'total', 
-          side: 'home', 
-          percentage: allMarketsData.total.currentHomeOdds,
-          team: 'Under'
-        });
-      }
-    }
-    
-    // Check Moneyline (only highlight specific team if 85%+)
-    if (allMarketsData.moneyline) {
-      if (allMarketsData.moneyline.currentAwayOdds >= 85) {
-        alerts.push({ 
-          market: 'moneyline', 
-          side: 'away', 
-          percentage: allMarketsData.moneyline.currentAwayOdds,
-          team: awayTeam
-        });
-      }
-      if (allMarketsData.moneyline.currentHomeOdds >= 85) {
-        alerts.push({ 
-          market: 'moneyline', 
-          side: 'home', 
-          percentage: allMarketsData.moneyline.currentHomeOdds,
-          team: homeTeam
-        });
-      }
-    }
-    
-    return alerts;
-  };
-
-  const valueAlerts = checkValueAlert();
-  const hasValueAlert = valueAlerts.length > 0;
-  
-  // Check which markets have value
-  const hasSpreadValue = valueAlerts.some(alert => alert.market === 'spread');
-  const hasTotalValue = valueAlerts.some(alert => alert.market === 'total');
-  const hasMoneylineValue = valueAlerts.some(alert => alert.market === 'moneyline');
-  
-  // Debug logging
-  if (hasValueAlert) {
-    debug.log('Value alerts detected:', {
-      hasSpreadValue,
-      hasTotalValue,
-      hasMoneylineValue,
-      selectedMarket,
-      alerts: valueAlerts
-    });
-  }
-  
-  // For Spread/O/U: Don't highlight specific teams (line mismatch affects both sides)
-  // For ML: Only highlight if current market is ML and team is 85%+
-  const hasAwayValue = selectedMarket === 'moneyline' && valueAlerts.some(alert => 
-    alert.market === 'moneyline' && alert.side === 'away'
-  );
-  const hasHomeValue = selectedMarket === 'moneyline' && valueAlerts.some(alert => 
-    alert.market === 'moneyline' && alert.side === 'home'
-  );
+  const awayChange = firstPoint && lastPoint ? lastPoint.awayTeamOdds - firstPoint.awayTeamOdds : 0;
+  const homeChange = firstPoint && lastPoint ? lastPoint.homeTeamOdds - firstPoint.homeTeamOdds : 0;
   
   // Get tooltip content for ML team highlights
   const getValueTooltip = (side: 'away' | 'home') => {
@@ -437,7 +447,7 @@ export default function PolymarketWidget({
               <h3 className={compact ? "text-xs font-semibold" : "text-sm font-semibold"}>Public Betting Lines</h3>
               {!compact && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                  {filteredData.length} pts
+                  {filteredData?.length || 0} pts
                 </Badge>
               )}
               {hasValueAlert && (
@@ -461,41 +471,76 @@ export default function PolymarketWidget({
         <div className={`flex justify-center ${compact ? 'gap-1' : 'gap-2'}`}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant={selectedMarket === 'moneyline' ? 'default' : 'outline'}
-                size={compact ? "sm" : "sm"}
-                onClick={(e) => {
-                  handleButtonClick(e, '1M');
-                  setSelectedMarket('moneyline');
-                }}
-                disabled={!allMarketsData.moneyline}
-                className={`${compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"} ${hasMoneylineValue && selectedMarket !== 'moneyline' ? 'button-value-highlight' : ''}`}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                }}
-                onTouchStart={(e) => {
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                }}
-                type="button"
-                style={{ 
-                  pointerEvents: 'auto',
-                  ...(hasMoneylineValue && selectedMarket !== 'moneyline' ? {
-                    background: 'linear-gradient(135deg, rgba(115, 182, 158, 0.25), rgba(115, 182, 158, 0.15))',
-                    borderColor: 'rgb(115, 182, 158)',
-                    borderWidth: '2px',
-                    fontWeight: '700',
-                    boxShadow: '0 0 10px rgba(115, 182, 158, 0.6), 0 0 20px rgba(115, 182, 158, 0.4)'
-                  } : {})
-                }}
-              >
-                ML
-              </Button>
+              {hasMoneylineValue && selectedMarket !== 'moneyline' as MarketType ? (
+                <div 
+                  className="relative overflow-hidden bg-transparent"
+                  style={{ 
+                    borderRadius: compact ? '0.375rem' : '0.5rem',
+                    padding: '1px'
+                  }}
+                >
+                  {typeof window !== 'undefined' && (
+                    <div className="absolute inset-0" style={{ borderRadius: compact ? 'calc(0.375rem * 0.96)' : 'calc(0.5rem * 0.96)' }}>
+                      <MovingBorder duration={2500} rx="30%" ry="30%">
+                        <div className="h-5 w-5 bg-[radial-gradient(#73b69e_40%,transparent_60%)] opacity-[0.8]" />
+                      </MovingBorder>
+                    </div>
+                  )}
+                  <Button
+                    variant={(selectedMarket as MarketType) === 'moneyline' ? 'default' : 'outline'}
+                    size={compact ? "sm" : "sm"}
+                    onClick={(e) => {
+                      handleButtonClick(e, '1M');
+                      setSelectedMarket('moneyline');
+                    }}
+                    disabled={!allMarketsData?.moneyline}
+                    className={`${compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"} relative`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    onTouchStart={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    type="button"
+                    style={{ pointerEvents: 'auto' }}
+                  >
+                    ML
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant={(selectedMarket as MarketType) === 'moneyline' ? 'default' : 'outline'}
+                  size={compact ? "sm" : "sm"}
+                  onClick={(e) => {
+                    handleButtonClick(e, '1M');
+                    setSelectedMarket('moneyline');
+                  }}
+                  disabled={!allMarketsData.moneyline}
+                  className={`${compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"}`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                  }}
+                  type="button"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  ML
+                </Button>
+              )}
             </TooltipTrigger>
             {hasMoneylineValue && selectedMarket !== 'moneyline' && (
               <TooltipContent className="max-w-xs">
@@ -509,41 +554,76 @@ export default function PolymarketWidget({
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant={selectedMarket === 'spread' ? 'default' : 'outline'}
-                size={compact ? "sm" : "sm"}
-                onClick={(e) => {
-                  handleButtonClick(e, '1M');
-                  setSelectedMarket('spread');
-                }}
-                disabled={!allMarketsData.spread}
-                className={`${compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"} ${hasSpreadValue && selectedMarket !== 'spread' ? 'button-value-highlight' : ''}`}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                }}
-                onTouchStart={(e) => {
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                }}
-                type="button"
-                style={{ 
-                  pointerEvents: 'auto',
-                  ...(hasSpreadValue && selectedMarket !== 'spread' ? {
-                    background: 'linear-gradient(135deg, rgba(115, 182, 158, 0.25), rgba(115, 182, 158, 0.15))',
-                    borderColor: 'rgb(115, 182, 158)',
-                    borderWidth: '2px',
-                    fontWeight: '700',
-                    boxShadow: '0 0 10px rgba(115, 182, 158, 0.6), 0 0 20px rgba(115, 182, 158, 0.4)'
-                  } : {})
-                }}
-              >
-                Spread
-              </Button>
+              {hasSpreadValue && selectedMarket !== 'spread' as MarketType ? (
+                <div 
+                  className="relative overflow-hidden bg-transparent"
+                  style={{ 
+                    borderRadius: compact ? '0.375rem' : '0.5rem',
+                    padding: '1px'
+                  }}
+                >
+                  {typeof window !== 'undefined' && (
+                    <div className="absolute inset-0" style={{ borderRadius: compact ? 'calc(0.375rem * 0.96)' : 'calc(0.5rem * 0.96)' }}>
+                      <MovingBorder duration={2500} rx="30%" ry="30%">
+                        <div className="h-5 w-5 bg-[radial-gradient(#73b69e_40%,transparent_60%)] opacity-[0.8]" />
+                      </MovingBorder>
+                    </div>
+                  )}
+                  <Button
+                    variant={(selectedMarket as MarketType) === 'spread' ? 'default' : 'outline'}
+                    size={compact ? "sm" : "sm"}
+                    onClick={(e) => {
+                      handleButtonClick(e, '1M');
+                      setSelectedMarket('spread');
+                    }}
+                    disabled={!allMarketsData?.spread}
+                    className={`${compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"} relative`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    onTouchStart={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    type="button"
+                    style={{ pointerEvents: 'auto' }}
+                  >
+                    Spread
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant={selectedMarket === 'spread' ? 'default' : 'outline'}
+                  size={compact ? "sm" : "sm"}
+                  onClick={(e) => {
+                    handleButtonClick(e, '1M');
+                    setSelectedMarket('spread');
+                  }}
+                  disabled={!allMarketsData.spread}
+                  className={`${compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"}`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                  }}
+                  type="button"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  Spread
+                </Button>
+              )}
             </TooltipTrigger>
             {hasSpreadValue && selectedMarket !== 'spread' && (
               <TooltipContent className="max-w-xs">
@@ -557,41 +637,76 @@ export default function PolymarketWidget({
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant={selectedMarket === 'total' ? 'default' : 'outline'}
-                size={compact ? "sm" : "sm"}
-                onClick={(e) => {
-                  handleButtonClick(e, '1M');
-                  setSelectedMarket('total');
-                }}
-                disabled={!allMarketsData.total}
-                className={`${compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"} ${hasTotalValue && selectedMarket !== 'total' ? 'button-value-highlight' : ''}`}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                }}
-                onTouchStart={(e) => {
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                }}
-                type="button"
-                style={{ 
-                  pointerEvents: 'auto',
-                  ...(hasTotalValue && selectedMarket !== 'total' ? {
-                    background: 'linear-gradient(135deg, rgba(115, 182, 158, 0.25), rgba(115, 182, 158, 0.15))',
-                    borderColor: 'rgb(115, 182, 158)',
-                    borderWidth: '2px',
-                    fontWeight: '700',
-                    boxShadow: '0 0 10px rgba(115, 182, 158, 0.6), 0 0 20px rgba(115, 182, 158, 0.4)'
-                  } : {})
-                }}
-              >
-                O/U
-              </Button>
+              {hasTotalValue && selectedMarket !== 'total' as MarketType ? (
+                <div 
+                  className="relative overflow-hidden bg-transparent"
+                  style={{ 
+                    borderRadius: compact ? '0.375rem' : '0.5rem',
+                    padding: '1px'
+                  }}
+                >
+                  {typeof window !== 'undefined' && (
+                    <div className="absolute inset-0" style={{ borderRadius: compact ? 'calc(0.375rem * 0.96)' : 'calc(0.5rem * 0.96)' }}>
+                      <MovingBorder duration={2500} rx="30%" ry="30%">
+                        <div className="h-5 w-5 bg-[radial-gradient(#73b69e_40%,transparent_60%)] opacity-[0.8]" />
+                      </MovingBorder>
+                    </div>
+                  )}
+                  <Button
+                    variant={(selectedMarket as MarketType) === 'total' ? 'default' : 'outline'}
+                    size={compact ? "sm" : "sm"}
+                    onClick={(e) => {
+                      handleButtonClick(e, '1M');
+                      setSelectedMarket('total');
+                    }}
+                    disabled={!allMarketsData?.total}
+                    className={`${compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"} relative`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    onTouchStart={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    type="button"
+                    style={{ pointerEvents: 'auto' }}
+                  >
+                    O/U
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant={selectedMarket === 'total' ? 'default' : 'outline'}
+                  size={compact ? "sm" : "sm"}
+                  onClick={(e) => {
+                    handleButtonClick(e, '1M');
+                    setSelectedMarket('total');
+                  }}
+                  disabled={!allMarketsData.total}
+                  className={`${compact ? "h-7 px-2 text-[10px] cursor-pointer relative z-[111] pointer-events-auto" : "h-8 px-3 text-xs"}`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                  }}
+                  type="button"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  O/U
+                </Button>
+              )}
             </TooltipTrigger>
             {hasTotalValue && selectedMarket !== 'total' && (
               <TooltipContent className="max-w-xs">

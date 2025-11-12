@@ -1,10 +1,22 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { format } from "https://esm.sh/date-fns@3.6.0";
+import { toZonedTime } from "https://esm.sh/date-fns-tz@3.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+/**
+ * Get today's date in Eastern Time (ET) formatted as YYYY-MM-DD
+ * This ensures consistent date handling regardless of server timezone
+ */
+function getTodayInET(): string {
+  const now = new Date();
+  const easternTime = toZonedTime(now, 'America/New_York');
+  return format(easternTime, 'yyyy-MM-dd');
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -32,10 +44,8 @@ serve(async (req) => {
 
     console.log('Starting Today in Sports completion generation...');
 
-    // Get today's date in Eastern Time
-    const now = new Date();
-    const easternTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const today = easternTime.toISOString().split('T')[0];
+    // Get today's date in Eastern Time using reliable method
+    const today = getTodayInET();
     
     console.log('Today date (ET):', today);
 

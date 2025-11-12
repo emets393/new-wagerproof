@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Brain, Save, Loader2, Play, Clock, CheckCircle2, Sparkles, CalendarDays, Trash2, Upload, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { renderTextWithLinks } from '@/utils/markdownLinks';
 import { 
   getTodayInSportsSchedule,
   updateTodayInSportsSchedule,
@@ -101,9 +102,23 @@ export default function TodayInSportsAdmin() {
       if (result.success && result.completion) {
         // Immediately update the preview with the completion from the response
         // This avoids any database fetch delays and shows the preview instantly
-        const now = new Date();
-        const easternTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-        const today = easternTime.toISOString().split('T')[0];
+        // Get today's date in Eastern Time using reliable method (same as TodayInSports.tsx)
+        const getTodayET = () => {
+          const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/New_York',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          });
+          
+          const parts = formatter.formatToParts(new Date());
+          const year = parts.find(p => p.type === 'year')?.value;
+          const month = parts.find(p => p.type === 'month')?.value;
+          const day = parts.find(p => p.type === 'day')?.value;
+          
+          return `${year}-${month}-${day}`;
+        };
+        const today = getTodayET();
         
         const newCompletion: TodayInSportsCompletion = {
           id: result.completion_id || 'temp-' + Date.now(),
@@ -118,12 +133,17 @@ export default function TodayInSportsAdmin() {
         // Set the completion immediately to show preview
         setTodayCompletion(newCompletion);
         
+        // Invalidate React Query cache so public page refreshes immediately
+        queryClient.invalidateQueries({ queryKey: ['today-in-sports-completion'] });
+        
         // Try to fetch the full completion object in the background (for accurate sent_to_discord status)
         // But don't wait for it - show preview immediately
-        getTodayInSportsCompletion()
+        getTodayInSportsCompletion(true) // Include unpublished to get the latest
           .then(fullCompletion => {
             if (fullCompletion) {
               setTodayCompletion(fullCompletion);
+              // Invalidate again after fetching to ensure public page has latest data
+              queryClient.invalidateQueries({ queryKey: ['today-in-sports-completion'] });
             }
           })
           .catch(fetchError => {
@@ -539,7 +559,14 @@ export default function TodayInSportsAdmin() {
                         </h2>
                         <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mt-1">
                           <CalendarDays className="h-3 w-3" />
-                          {format(new Date(todayCompletion.completion_date), 'EEEE, MMMM d, yyyy')}
+                          {(() => {
+                            // Parse completion_date (YYYY-MM-DD) as a local date to avoid timezone issues
+                            const parts = todayCompletion.completion_date.split('-');
+                            const date = parts.length === 3
+                              ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10))
+                              : new Date(todayCompletion.completion_date);
+                            return format(date, 'EEEE, MMMM d, yyyy');
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -547,8 +574,8 @@ export default function TodayInSportsAdmin() {
 
                   {/* Completion Text */}
                   <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <div className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
-                      {todayCompletion.completion_text}
+                    <div className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words">
+                      {renderTextWithLinks(todayCompletion.completion_text)}
                     </div>
                   </div>
 

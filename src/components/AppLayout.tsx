@@ -312,7 +312,7 @@ export function AppLayout() {
       {/* Footer Section */}
       <SidebarFooter className="border-t border-sidebar-border bg-sidebar px-2 py-3">
         <SidebarMenu>
-          <SidebarMenuItem>
+          <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
             <div className="flex items-center justify-between px-2 py-1.5">
               <SidebarMenuButton 
                 onClick={handleSettingsClick} 
@@ -325,10 +325,15 @@ export function AppLayout() {
             </div>
           </SidebarMenuItem>
 
+          {/* Theme toggle - visible when minimized */}
+          <SidebarMenuItem className="hidden group-data-[collapsible=icon]:flex justify-center">
+            <ThemeToggle />
+          </SidebarMenuItem>
+
           {user && (
             <>
-              <SidebarSeparator className="my-2 bg-sidebar-border" />
-              <SidebarMenuItem>
+              <SidebarSeparator className="my-2 bg-sidebar-border group-data-[collapsible=icon]:hidden" />
+              <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
                 <div className="flex items-center justify-between px-2 py-1.5">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="flex items-center justify-center w-6 h-6 rounded-full bg-sidebar-accent text-sidebar-accent-foreground flex-shrink-0">
@@ -353,6 +358,22 @@ export function AppLayout() {
                     <LogOut className="h-3 w-3" />
                   </Button>
                 </div>
+              </SidebarMenuItem>
+              
+              {/* Logout button - visible when minimized */}
+              <SidebarMenuItem className="hidden group-data-[collapsible=icon]:flex justify-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    debug.log('Sidebar: Logout button clicked');
+                    signOut();
+                  }}
+                  className="h-8 w-8 hover:bg-sidebar-accent"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
               </SidebarMenuItem>
             </>
           )}

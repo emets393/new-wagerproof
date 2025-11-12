@@ -5,7 +5,8 @@ import { TodayInSportsCompletionHeader } from '@/components/TodayInSportsComplet
 import { TodayGameSummaryCard } from '@/components/TodayGameSummaryCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Target, Flame, Lock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, Target, Flame, Lock, ChevronDown, ChevronUp, Shield, Trophy, ArrowRightLeft, BarChart, DollarSign, Percent, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
@@ -29,6 +30,7 @@ interface GameSummary {
   awayMl?: number;
   homeMl?: number;
   tailCount?: number;
+  cfbId?: number; // CFB id for querying cfb_api_predictions
 }
 
 interface ValueAlert {
@@ -64,6 +66,43 @@ export default function TodayInSports() {
   const { isFreemiumUser } = useFreemiumAccess();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const [showAllValueAlerts, setShowAllValueAlerts] = useState(false);
+  const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(false);
+
+  // Helper function to get sport icon
+  const getSportIcon = (sport: 'nfl' | 'cfb') => {
+    return sport === 'nfl' ? Shield : Trophy;
+  };
+
+  // Helper function to get sport color classes
+  const getSportColorClasses = (sport: 'nfl' | 'cfb') => {
+    if (sport === 'nfl') {
+      return 'bg-blue-500/20 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/30';
+    }
+    return 'bg-orange-500/20 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/40 dark:border-orange-500/30';
+  };
+
+  // Helper function to get pick type icon
+  const getPickTypeIcon = (pickType: string) => {
+    if (pickType === 'Spread') return ArrowRightLeft;
+    if (pickType === 'Total') return BarChart;
+    if (pickType === 'Moneyline') return DollarSign;
+    return TrendingUp;
+  };
+
+  // Helper function to get pick type color classes
+  const getPickTypeColorClasses = (pickType: string) => {
+    if (pickType === 'Spread') {
+      return 'bg-cyan-500/20 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/40 dark:border-cyan-500/30';
+    }
+    if (pickType === 'Total') {
+      return 'bg-indigo-500/20 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 dark:border-indigo-500/30';
+    }
+    if (pickType === 'Moneyline') {
+      return 'bg-yellow-500/20 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/40 dark:border-yellow-500/30';
+    }
+    return 'bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-white border-gray-300 dark:border-white/20';
+  };
 
   // Get today's date in Eastern Time - MATCH NFL/CFB format
   const getTodayET = () => {
@@ -303,6 +342,7 @@ export default function TodayInSports() {
                 awaySpread: game.away_spread || (game.api_spread ? -game.api_spread : null),
                 homeSpread: game.home_spread || game.api_spread,
                 totalLine: game.total_line || game.api_over_line,
+                cfbId: game.id, // Store CFB id for querying cfb_api_predictions
               });
             }
           }
@@ -460,20 +500,20 @@ export default function TodayInSports() {
   console.log('Today\'s date:', today);
   console.log('========================================');
 
-  // Fetch value alerts (Polymarket >57%) - ONLY for TODAY's games
+  // Fetch value alerts (Polymarket >57%) - for ALL games this WEEK
   const { data: valueAlerts, isLoading: valueAlertsLoading } = useQuery({
-    queryKey: ['value-alerts', today, todayGames?.length],
+    queryKey: ['value-alerts', today, weekGames?.length],
     queryFn: async () => {
       const alerts: ValueAlert[] = [];
 
-      if (!todayGames || todayGames.length === 0) {
+      if (!weekGames || weekGames.length === 0) {
         debug.log('No games available for value alerts');
         return alerts;
       }
 
-      debug.log('Checking value alerts for', todayGames.length, 'games');
+      debug.log('Checking value alerts for', weekGames.length, 'games');
 
-      for (const game of todayGames) {
+      for (const game of weekGames) {
         try {
           const gameKey = `${game.sport}_${game.awayTeam}_${game.homeTeam}`;
           const { data: markets } = await supabase
@@ -569,41 +609,48 @@ export default function TodayInSports() {
 
       return alerts;
     },
-    enabled: !isFreemiumUser && !!todayGames,
+    enabled: !isFreemiumUser && !!weekGames,
   });
 
-  // Fetch fade alerts (80%+ model confidence) - ONLY for TODAY's games
+  // Fetch fade alerts (80%+ model confidence) - for ALL games this WEEK
   const { data: fadeAlerts, isLoading: fadeAlertsLoading } = useQuery({
-    queryKey: ['fade-alerts', today, todayGames?.length],
+    queryKey: ['fade-alerts', today, weekGames?.length],
     queryFn: async () => {
       const alerts: FadeAlert[] = [];
 
-      if (!todayGames || todayGames.length === 0) {
+      if (!weekGames || weekGames.length === 0) {
         debug.log('No games available for fade alerts');
         return alerts;
       }
 
-      debug.log('Checking fade alerts for', todayGames.length, 'games');
+      debug.log('Checking fade alerts for', weekGames.length, 'games');
 
-      for (const game of todayGames) {
+      // Separate NFL and CFB games
+      const nflGames = weekGames.filter(g => g.sport === 'nfl');
+      const cfbGames = weekGames.filter(g => g.sport === 'cfb');
+
+      // Fetch NFL predictions
+      if (nflGames.length > 0) {
         try {
-          if (game.sport === 'nfl') {
-            // Fetch from nfl_predictions_epa (same as NFL page)
-            const { data: latestRun } = await collegeFootballSupabase
+          const { data: latestRun } = await collegeFootballSupabase
+            .from('nfl_predictions_epa')
+            .select('run_id')
+            .order('run_id', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestRun) {
+            const gameIds = nflGames.map(g => g.gameId);
+            const { data: nflPredictions } = await collegeFootballSupabase
               .from('nfl_predictions_epa')
-              .select('run_id')
-              .order('run_id', { ascending: false })
-              .limit(1)
-              .maybeSingle();
+              .select('home_away_spread_cover_prob, ou_result_prob, training_key')
+              .eq('run_id', latestRun.run_id)
+              .in('training_key', gameIds);
 
-            if (latestRun) {
-              const { data: prediction } = await collegeFootballSupabase
-                .from('nfl_predictions_epa')
-                .select('home_away_spread_cover_prob, ou_result_prob, training_key')
-                .eq('run_id', latestRun.run_id)
-                .eq('training_key', game.gameId)
-                .maybeSingle();
+            const predictionMap = new Map((nflPredictions || []).map(p => [p.training_key, p]));
 
+            for (const game of nflGames) {
+              const prediction = predictionMap.get(game.gameId);
               if (prediction) {
                 // Check spread
                 if (prediction.home_away_spread_cover_prob !== null) {
@@ -642,61 +689,94 @@ export default function TodayInSports() {
                 }
               }
             }
-          } else if (game.sport === 'cfb') {
-            // Fetch from cfb_api_predictions
-            const { data: prediction } = await collegeFootballSupabase
-              .from('cfb_api_predictions')
-              .select('pred_spread_proba, pred_total_proba, training_key')
-              .eq('training_key', game.gameId)
-              .maybeSingle();
+          }
+        } catch (error) {
+          debug.error('Error fetching NFL prediction data:', error);
+        }
+      }
 
-            if (prediction) {
-              // Check spread
-              if (prediction.pred_spread_proba !== null) {
-                const isHome = prediction.pred_spread_proba > 0.5;
-                const confidence = Math.round((isHome ? prediction.pred_spread_proba : 1 - prediction.pred_spread_proba) * 100);
-                
-                if (confidence >= 80) {
-                  alerts.push({
-                    gameId: game.gameId,
-                    sport: 'cfb',
-                    awayTeam: game.awayTeam,
-                    homeTeam: game.homeTeam,
-                    pickType: 'Spread',
-                    predictedTeam: isHome ? game.homeTeam : game.awayTeam,
-                    confidence,
-                  });
-                }
+      // Fetch CFB predictions - batch fetch all at once (same pattern as CollegeFootball page)
+      // CFB uses edges instead of probabilities - show alerts when edge > 10
+      if (cfbGames.length > 0) {
+        try {
+          // Fetch all CFB API predictions at once - get edge fields
+          const { data: allCfbPredictions, error: cfbPredictionsError } = await collegeFootballSupabase
+            .from('cfb_api_predictions')
+            .select('home_spread_diff, over_line_diff, id');
+
+          if (cfbPredictionsError) {
+            debug.error('Error fetching CFB predictions:', cfbPredictionsError);
+          } else {
+            debug.log(`Fetched ${allCfbPredictions?.length || 0} CFB predictions for fade alerts`);
+            
+            // Create a map of predictions by id
+            const cfbPredictionMap = new Map((allCfbPredictions || []).map(p => [p.id, p]));
+
+            for (const game of cfbGames) {
+              if (!game.cfbId) {
+                debug.log(`Skipping CFB game - no cfbId for game ${game.gameId}`);
+                continue;
               }
 
-              // Check total
-              if (prediction.pred_total_proba !== null) {
-                const isOver = prediction.pred_total_proba > 0.5;
-                const confidence = Math.round((isOver ? prediction.pred_total_proba : 1 - prediction.pred_total_proba) * 100);
+              const prediction = cfbPredictionMap.get(game.cfbId);
+              if (!prediction) {
+                debug.log(`No prediction found for CFB game ${game.gameId} (cfbId: ${game.cfbId})`);
+                continue;
+              }
+
+              // Check spread edge - use home_spread_diff (primary field)
+              const spreadEdge = prediction.home_spread_diff;
+              
+              if (spreadEdge !== null && spreadEdge !== undefined && Math.abs(spreadEdge) > 10) {
+                // Positive edge = home team, negative edge = away team
+                const isHome = spreadEdge > 0;
+                const edgeValue = Math.abs(spreadEdge);
                 
-                if (confidence >= 80) {
-                  alerts.push({
-                    gameId: game.gameId,
-                    sport: 'cfb',
-                    awayTeam: game.awayTeam,
-                    homeTeam: game.homeTeam,
-                    pickType: 'Total',
-                    predictedTeam: isOver ? 'Over' : 'Under',
-                    confidence,
-                  });
-                }
+                debug.log(`CFB Spread Alert: ${game.awayTeam} @ ${game.homeTeam} - Edge: ${edgeValue} to ${isHome ? game.homeTeam : game.awayTeam}`);
+                
+                alerts.push({
+                  gameId: game.gameId,
+                  sport: 'cfb',
+                  awayTeam: game.awayTeam,
+                  homeTeam: game.homeTeam,
+                  pickType: 'Spread',
+                  predictedTeam: isHome ? game.homeTeam : game.awayTeam,
+                  confidence: Math.round(edgeValue), // Store edge value as "confidence" for display
+                });
+              }
+
+              // Check total edge - use over_line_diff (primary field)
+              const totalEdge = prediction.over_line_diff;
+              
+              if (totalEdge !== null && totalEdge !== undefined && Math.abs(totalEdge) > 10) {
+                // Positive edge = over, negative edge = under
+                const isOver = totalEdge > 0;
+                const edgeValue = Math.abs(totalEdge);
+                
+                debug.log(`CFB Total Alert: ${game.awayTeam} @ ${game.homeTeam} - Edge: ${edgeValue} to ${isOver ? 'Over' : 'Under'}`);
+                
+                alerts.push({
+                  gameId: game.gameId,
+                  sport: 'cfb',
+                  awayTeam: game.awayTeam,
+                  homeTeam: game.homeTeam,
+                  pickType: 'Total',
+                  predictedTeam: isOver ? 'Over' : 'Under',
+                  confidence: Math.round(edgeValue), // Store edge value as "confidence" for display
+                });
               }
             }
+            
+            debug.log(`Total CFB fade alerts created: ${alerts.filter(a => a.sport === 'cfb').length}`);
           }
-          // Similar logic for CFB if needed
         } catch (error) {
-          debug.error('Error fetching prediction data:', error);
+          debug.error('Error fetching CFB prediction data:', error);
         }
       }
 
       return alerts;
     },
-    enabled: !isFreemiumUser && !!todayGames,
+    enabled: !isFreemiumUser && !!weekGames,
   });
 
   // Fetch all games with tails - for ALL games this WEEK
@@ -883,12 +963,23 @@ export default function TodayInSports() {
 
       // Get user data (use finalTailsData)
       const userIds = [...new Set(finalTailsData.map(t => t.user_id))];
-      const { data: usersData } = await supabase
-        .from('profiles')
-        .select('user_id, display_name')
-        .in('user_id', userIds);
+      
+      let userMap = new Map<string, string | undefined>();
+      
+      if (userIds.length > 0) {
+        // Fetch display names from profiles table
+        const { data: usersData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, display_name')
+          .in('user_id', userIds);
 
-      const userMap = new Map(usersData?.map(u => [u.user_id, u.display_name]) || []);
+        if (profilesError) {
+          debug.error('Error fetching user profiles for tailed games:', profilesError);
+          // Continue with empty map - avatars will use user_id fallback
+        } else {
+          userMap = new Map(usersData?.map(u => [u.user_id, u.display_name]) || []);
+        }
+      }
 
       // Process ALL games with tails (sorted by tail count, then by time)
       console.log('Game groups:', Object.keys(gameGroups));
@@ -961,6 +1052,7 @@ export default function TodayInSports() {
             acc[key].users.push({
               user_id: tail.user_id,
               display_name: userMap.get(tail.user_id),
+              email: undefined, // Email not available via REST API, but included for consistency
             });
             return acc;
           }, {} as Record<string, any>);
@@ -989,40 +1081,58 @@ export default function TodayInSports() {
   });
 
   return (
-    <div className="w-full -mx-4 md:mx-auto md:container">
-      <Dither isDark={isDark} />
-      
-      {/* AI Completion Header - Always visible */}
-      <TodayInSportsCompletionHeader />
+    <div className="w-full">
+      {/* Dither Background with Header Inside */}
+      <div className="relative mb-6 rounded-lg overflow-hidden -mx-4 md:mx-0 md:rounded-lg">
+        {/* Dither Background */}
+        <div className="absolute inset-0">
+          <Dither />
+        </div>
+        
+        {/* Glassmorphic Header Overlay */}
+        <div className="relative z-10 p-4 md:p-6">
+          <div
+            className="border border-gray-300 dark:border-white/20 rounded-xl shadow-2xl"
+            style={{
+              background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              boxShadow: isDark ? '0 8px 32px 0 rgba(31, 38, 135, 0.5)' : '0 8px 32px 0 rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            <TodayInSportsCompletionHeader />
+          </div>
+        </div>
+      </div>
 
       {/* Freemium Paywall */}
       {isFreemiumUser ? (
-        <Card className="mx-4 mb-6 md:mx-0 p-8 text-center border-white/20" style={{
-          background: 'rgba(0, 0, 0, 0.3)',
+        <Card className="mb-6 -mx-4 md:mx-0 p-8 text-center border-gray-300 dark:border-white/20" style={{
+          background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
           backdropFilter: 'blur(40px)',
           WebkitBackdropFilter: 'blur(40px)',
         }}>
-          <Lock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-xl font-bold text-white mb-2">Premium Feature</h3>
-          <p className="text-gray-400 mb-6">
+          <Lock className="h-12 w-12 mx-auto mb-4 text-gray-600 dark:text-gray-400" />
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Premium Feature</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
             Upgrade to access today's games, value alerts, model predictions, and top tailed games.
           </p>
-          <FreemiumUpgradeBanner />
+          <FreemiumUpgradeBanner totalGames={weekGames?.length || 0} visibleGames={0} />
         </Card>
       ) : (
         <>
           {/* Today's Games Section */}
-          <Card className="mx-0 mb-6 border-white/20 rounded-none md:rounded-lg md:mx-0" style={{
-            background: 'rgba(0, 0, 0, 0.3)',
+          <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
+            background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
           }}>
             <CardHeader className="px-4 md:px-6">
-              <CardTitle className="flex items-center gap-2 text-white">
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                 <Target className="h-5 w-5" />
                 Today's Games
               </CardTitle>
-              <CardDescription className="text-white/70">
+              <CardDescription className="text-gray-600 dark:text-white/70">
                 Games happening today across NFL and College Football
               </CardDescription>
             </CardHeader>
@@ -1040,32 +1150,32 @@ export default function TodayInSports() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-400 text-center py-8">No games scheduled for today</p>
+                <p className="text-gray-600 dark:text-gray-400 text-center py-8">No games scheduled for today</p>
               )}
             </CardContent>
           </Card>
 
           {/* Value Summary Section */}
-          <Card className="mx-0 mb-6 border-white/20 rounded-none md:rounded-lg md:mx-0" style={{
-            background: 'rgba(0, 0, 0, 0.3)',
+          <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
+            background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
           }}>
             <CardHeader className="px-4 md:px-6">
-              <CardTitle className="flex items-center gap-2 text-white">
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                 <TrendingUp className="h-5 w-5" />
                 Value Summary
               </CardTitle>
-              <CardDescription className="text-white/70">
-                Polymarket alerts and high-confidence model predictions
+              <CardDescription className="text-gray-600 dark:text-white/70">
+                Polymarket alerts and high-confidence model predictions for remaining games this week
               </CardDescription>
             </CardHeader>
             <CardContent className="px-4 md:px-6 space-y-6">
               {/* Polymarket Value Alerts */}
               <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Polymarket Value Alerts</h3>
-                <p className="text-sm text-gray-400 mb-4">
-                  Markets where Polymarket odds show &gt;57% on spread/total (line mismatch) or ≥85% on moneyline (strong consensus)
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Polymarket Value Alerts</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Markets where Polymarket odds show &gt;57% on spread/total (line mismatch) or ≥85% on moneyline (strong consensus) for remaining games this week
                 </p>
                 {valueAlertsLoading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1074,47 +1184,93 @@ export default function TodayInSports() {
                     ))}
                   </div>
                 ) : valueAlerts && valueAlerts.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {valueAlerts.map((alert, idx) => (
-                      <div 
-                        key={idx}
-                        className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 hover:border-green-500/40 transition-all"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white mb-1 break-words">
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[...valueAlerts]
+                        .sort((a, b) => b.percentage - a.percentage)
+                        .slice(0, showAllValueAlerts ? valueAlerts.length : 6)
+                        .map((alert, idx) => (
+                        <div 
+                          key={`${alert.gameId}-${alert.marketType}-${alert.side}-${idx}`}
+                          className="p-4 rounded-lg bg-green-500/10 dark:bg-green-500/10 border border-green-500/30 dark:border-green-500/20 hover:border-green-500/50 dark:hover:border-green-500/40 transition-all"
+                        >
+                          {/* Pills Row */}
+                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                            {/* Sport Pill */}
+                            <Badge className={`${getSportColorClasses(alert.sport)} flex items-center gap-1.5`}>
+                              {(() => {
+                                const SportIcon = getSportIcon(alert.sport);
+                                return <SportIcon className="h-3 w-3" />;
+                              })()}
+                              <span className="text-xs font-medium">{alert.sport.toUpperCase()}</span>
+                            </Badge>
+                            
+                            {/* Pick Type Pill */}
+                            {(() => {
+                              const PickTypeIcon = getPickTypeIcon(alert.marketType);
+                              return (
+                                <Badge className={`${getPickTypeColorClasses(alert.marketType)} flex items-center gap-1.5`}>
+                                  <PickTypeIcon className="h-3 w-3" />
+                                  <span className="text-xs font-medium">{alert.marketType}</span>
+                                </Badge>
+                              );
+                            })()}
+                            
+                            {/* Value Pill */}
+                            <Badge className="bg-green-500 text-white flex items-center gap-1.5">
+                              <Percent className="h-3 w-3" />
+                              <span className="text-xs font-semibold">{alert.percentage.toFixed(0)}%</span>
+                            </Badge>
+                          </div>
+
+                          {/* Game Info */}
+                          <div className="mb-2">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1 break-words">
                               {alert.awayTeam} @ {alert.homeTeam}
                             </p>
-                            <p className="text-xs text-gray-400">
-                              {alert.sport.toUpperCase()}
+                            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+                              <span className="font-medium">{alert.side}</span>
+                              {alert.marketType === 'Moneyline' 
+                                ? ` - Strong ${alert.percentage.toFixed(0)}% consensus`
+                                : ` - ${alert.percentage.toFixed(0)}% suggests line hasn't adjusted to market`
+                              }
                             </p>
                           </div>
-                          <Badge className="bg-green-500 text-white shrink-0 ml-2">
-                            {alert.percentage.toFixed(0)}%
-                          </Badge>
                         </div>
-                        <div className="text-xs text-gray-300 mt-2 pt-2 border-t border-green-500/20">
-                          <span className="font-semibold">{alert.marketType}</span>: {alert.side}
-                          <p className="text-gray-400 mt-1">
-                            {alert.marketType === 'Moneyline' 
-                              ? `Strong ${alert.percentage.toFixed(0)}% consensus on ${alert.side}`
-                              : `${alert.percentage.toFixed(0)}% suggests line hasn't adjusted to market`
-                            }
-                          </p>
-                        </div>
+                      ))}
+                    </div>
+                    {valueAlerts.length > 6 && (
+                      <div className="flex justify-center mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowAllValueAlerts(!showAllValueAlerts)}
+                          className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
+                        >
+                          {showAllValueAlerts ? (
+                            <>
+                              <ChevronUp className="h-4 w-4 mr-2" />
+                              Show Less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-4 w-4 mr-2" />
+                              Show More ({valueAlerts.length - 6} more)
+                            </>
+                          )}
+                        </Button>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 ) : (
-                  <p className="text-gray-400 text-sm text-center py-4">No value alerts detected for today's games</p>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm text-center py-4">No value alerts detected for remaining games this week</p>
                 )}
               </div>
 
               {/* Model Prediction Fade Alerts */}
               <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Model Prediction Fade Alerts</h3>
-                <p className="text-sm text-gray-400 mb-4">
-                  High-confidence model predictions (≥80%) suggesting strong edges against the spread or total
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Model Prediction Fade Alerts</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  High-confidence model predictions (≥80% NFL, &gt;10 point edge CFB) suggesting strong edges against the spread or total for remaining games this week
                 </p>
                 {fadeAlertsLoading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1123,53 +1279,104 @@ export default function TodayInSports() {
                     ))}
                   </div>
                 ) : fadeAlerts && fadeAlerts.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {fadeAlerts.map((alert, idx) => (
-                      <div 
-                        key={idx}
-                        className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40 transition-all"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white mb-1 break-words">
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[...fadeAlerts]
+                        .sort((a, b) => b.confidence - a.confidence)
+                        .slice(0, showAllFadeAlerts ? fadeAlerts.length : 6)
+                        .map((alert, idx) => (
+                        <div 
+                          key={`${alert.gameId}-${alert.pickType}-${alert.predictedTeam}-${idx}`}
+                          className="p-4 rounded-lg bg-purple-500/10 dark:bg-purple-500/10 border border-purple-500/30 dark:border-purple-500/20 hover:border-purple-500/50 dark:hover:border-purple-500/40 transition-all"
+                        >
+                          {/* Pills Row */}
+                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                            {/* Sport Pill */}
+                            <Badge className={`${getSportColorClasses(alert.sport)} flex items-center gap-1.5`}>
+                              {(() => {
+                                const SportIcon = getSportIcon(alert.sport);
+                                return <SportIcon className="h-3 w-3" />;
+                              })()}
+                              <span className="text-xs font-medium">{alert.sport.toUpperCase()}</span>
+                            </Badge>
+                            
+                            {/* Pick Type Pill */}
+                            {(() => {
+                              const PickTypeIcon = getPickTypeIcon(alert.pickType);
+                              return (
+                                <Badge className={`${getPickTypeColorClasses(alert.pickType)} flex items-center gap-1.5`}>
+                                  <PickTypeIcon className="h-3 w-3" />
+                                  <span className="text-xs font-medium">{alert.pickType}</span>
+                                </Badge>
+                              );
+                            })()}
+                            
+                            {/* Confidence/Edge Pill */}
+                            <Badge className="bg-purple-500 text-white flex items-center gap-1.5">
+                              <Percent className="h-3 w-3" />
+                              <span className="text-xs font-semibold">
+                                {alert.sport === 'cfb' ? `${alert.confidence}pt` : `${alert.confidence}%`}
+                              </span>
+                            </Badge>
+                          </div>
+
+                          {/* Game Info */}
+                          <div className="mb-2">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1 break-words">
                               {alert.awayTeam} @ {alert.homeTeam}
                             </p>
-                            <p className="text-xs text-gray-400">
-                              {alert.sport.toUpperCase()}
+                            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+                              <span className="font-medium">{alert.predictedTeam}</span>
+                              {alert.sport === 'cfb' 
+                                ? ` - Model shows ${alert.confidence} point edge (strong edge indicator)`
+                                : ` - Model has ${alert.confidence}% confidence (strong edge indicator)`
+                              }
                             </p>
                           </div>
-                          <Badge className="bg-purple-500 text-white shrink-0 ml-2">
-                            {alert.confidence}%
-                          </Badge>
                         </div>
-                        <div className="text-xs text-gray-300 mt-2 pt-2 border-t border-purple-500/20">
-                          <span className="font-semibold">{alert.pickType}</span>: {alert.predictedTeam}
-                          <p className="text-gray-400 mt-1">
-                            Model has {alert.confidence}% confidence - strong edge indicator
-                          </p>
-                        </div>
+                      ))}
+                    </div>
+                    {fadeAlerts.length > 6 && (
+                      <div className="flex justify-center mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowAllFadeAlerts(!showAllFadeAlerts)}
+                          className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
+                        >
+                          {showAllFadeAlerts ? (
+                            <>
+                              <ChevronUp className="h-4 w-4 mr-2" />
+                              Show Less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-4 w-4 mr-2" />
+                              Show More ({fadeAlerts.length - 6} more)
+                            </>
+                          )}
+                        </Button>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 ) : (
-                  <p className="text-gray-400 text-sm text-center py-4">No high-confidence predictions (≥80%) for today's games</p>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm text-center py-4">No high-confidence predictions (≥80%) for remaining games this week</p>
                 )}
               </div>
             </CardContent>
           </Card>
 
           {/* High Tailing It Section */}
-          <Card className="mx-0 mb-6 border-white/20 rounded-none md:rounded-lg md:mx-0" style={{
-            background: 'rgba(0, 0, 0, 0.3)',
+          <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
+            background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
           }}>
             <CardHeader className="px-4 md:px-6">
-              <CardTitle className="flex items-center gap-2 text-white">
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                 <Flame className="h-5 w-5 text-orange-500" />
                 High Tailing It
               </CardTitle>
-              <CardDescription className="text-white/70">
+              <CardDescription className="text-gray-600 dark:text-white/70">
                 Top 5 most tailed games this week
               </CardDescription>
             </CardHeader>
@@ -1182,64 +1389,90 @@ export default function TodayInSports() {
                 </div>
               ) : allTailedGames && allTailedGames.length > 0 ? (
                 <div className="space-y-4">
-                  {allTailedGames.map((game, idx) => (
-                    <div 
-                      key={game.gameId}
-                      className="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge className="bg-orange-500 text-white shrink-0">
-                              {game.tailCount || 0} tails
-                            </Badge>
-                            <p className="text-sm font-semibold text-white break-words">
-                              {game.awayTeam} @ {game.homeTeam}
-                            </p>
-                          </div>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {game.sport.toUpperCase()}
+                  {allTailedGames.map((game, idx) => {
+                    // Helper to normalize pick type for color function
+                    const normalizePickType = (pickType: string) => {
+                      if (pickType === 'moneyline') return 'Moneyline';
+                      if (pickType === 'spread') return 'Spread';
+                      if (pickType === 'over_under') return 'Total';
+                      return pickType;
+                    };
+
+                    return (
+                      <div 
+                        key={game.gameId}
+                        className="p-4 rounded-lg bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/30 dark:border-orange-500/20"
+                      >
+                        {/* Pills Row */}
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          {/* Sport Pill */}
+                          <Badge className={`${getSportColorClasses(game.sport)} flex items-center gap-1.5`}>
+                            {(() => {
+                              const SportIcon = getSportIcon(game.sport);
+                              return <SportIcon className="h-3 w-3" />;
+                            })()}
+                            <span className="text-xs font-medium">{game.sport.toUpperCase()}</span>
+                          </Badge>
+                          
+                          {/* Tail Count Pill */}
+                          <Badge className="bg-orange-500 text-white flex items-center gap-1.5">
+                            <Users className="h-3 w-3" />
+                            <span className="text-xs font-semibold">{game.tailCount || 0} tails</span>
+                          </Badge>
+                        </div>
+
+                        {/* Game Info */}
+                        <div className="mb-3">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white break-words">
+                            {game.awayTeam} @ {game.homeTeam}
                           </p>
                         </div>
-                      </div>
                       
-                      {/* Tailed Picks Breakdown - Same format as GameTailSection */}
-                      <div className="space-y-2">
-                        {game.tails.map((tail, tidx) => {
-                          // Format pick type label (same as GameTailSection)
-                          const pickTypeLabels = {
-                            moneyline: 'ML',
-                            spread: 'Spread',
-                            over_under: 'O/U',
-                          };
-                          const pickTypeLabel = pickTypeLabels[tail.pickType as keyof typeof pickTypeLabels] || tail.pickType;
-                          
-                          // Format team/side label (same as GameTailSection)
-                          const getDisplayLabel = (teamSelection: 'home' | 'away', pickType: string) => {
-                            if (pickType === 'over_under') {
-                              return teamSelection === 'home' ? 'Over' : 'Under';
-                            }
-                            return teamSelection === 'home' ? game.homeTeam : game.awayTeam;
-                          };
-                          const sideLabel = getDisplayLabel(tail.teamSelection as 'home' | 'away', tail.pickType);
-                          
-                          return (
-                            <div key={tidx} className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                              <Badge variant="outline" className="text-[10px] shrink-0">
-                                {sideLabel} {tail.pickType !== 'over_under' && pickTypeLabel}
-                              </Badge>
-                              <div className="flex-1 min-w-0 overflow-hidden">
-                                <TailingAvatarList users={tail.users} size="sm" maxVisible={999} />
+                        {/* Tailed Picks Breakdown */}
+                        <div className="space-y-2">
+                          {game.tails.map((tail, tidx) => {
+                            // Format pick type label (same as GameTailSection)
+                            const pickTypeLabels = {
+                              moneyline: 'ML',
+                              spread: 'Spread',
+                              over_under: 'O/U',
+                            };
+                            const pickTypeLabel = pickTypeLabels[tail.pickType as keyof typeof pickTypeLabels] || tail.pickType;
+                            
+                            // Format team/side label (same as GameTailSection)
+                            const getDisplayLabel = (teamSelection: 'home' | 'away', pickType: string) => {
+                              if (pickType === 'over_under') {
+                                return teamSelection === 'home' ? 'Over' : 'Under';
+                              }
+                              return teamSelection === 'home' ? game.homeTeam : game.awayTeam;
+                            };
+                            const sideLabel = getDisplayLabel(tail.teamSelection as 'home' | 'away', tail.pickType);
+                            
+                            // Get normalized pick type for color
+                            const normalizedPickType = normalizePickType(tail.pickType);
+                            const PickTypeIcon = getPickTypeIcon(normalizedPickType);
+                            
+                            return (
+                              <div key={tidx} className="flex items-center gap-2 text-xs flex-wrap">
+                                <Badge className={`${getPickTypeColorClasses(normalizedPickType)} flex items-center gap-1.5 shrink-0`}>
+                                  <PickTypeIcon className="h-3 w-3" />
+                                  <span className="text-xs font-medium">
+                                    {sideLabel} {tail.pickType !== 'over_under' && pickTypeLabel}
+                                  </span>
+                                </Badge>
+                                <div className="flex-1 min-w-0 overflow-hidden">
+                                  <TailingAvatarList users={tail.users} size="sm" maxVisible={5} />
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="text-gray-400 text-center py-8">No tailed games yet this week</p>
+                <p className="text-gray-600 dark:text-gray-400 text-center py-8">No tailed games yet this week</p>
               )}
             </CardContent>
           </Card>

@@ -1,52 +1,108 @@
 import React from 'react';
 
 /**
- * Parses markdown-style links [text](url) and converts them to clickable React elements
- * @param text - The text containing markdown links
+ * Parses markdown-style links [text](url) and plain URLs, converting them to clickable React elements
+ * @param text - The text containing markdown links and/or plain URLs
  * @returns Array of React elements (text nodes and anchor tags)
  */
 export function renderTextWithLinks(text: string): React.ReactNode[] {
   if (!text) return [text];
 
-  // Regex to match markdown links: [text](url)
-  const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  // First, replace markdown links with a placeholder, then process plain URLs
+  // This avoids double-processing URLs that are already in markdown links
   
   const elements: React.ReactNode[] = [];
-  let lastIndex = 0;
+  const parts: Array<{ type: 'text' | 'markdown' | 'url'; content: string; url?: string; index: number }> = [];
+  
+  // Step 1: Find and mark markdown links
+  const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
   let match;
-
-  // Find all markdown links in the text
+  const markdownLinks: Array<{ start: number; end: number; text: string; url: string }> = [];
+  
   while ((match = markdownLinkRegex.exec(text)) !== null) {
-    const [fullMatch, linkText, url] = match;
-    const matchIndex = match.index;
-
-    // Add any text before this link
-    if (matchIndex > lastIndex) {
-      elements.push(text.substring(lastIndex, matchIndex));
-    }
-
-    // Add the link as a clickable anchor
-    elements.push(
-      <a
-        key={matchIndex}
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-600 dark:text-blue-400 hover:underline"
-      >
-        {linkText}
-      </a>
-    );
-
-    lastIndex = matchIndex + fullMatch.length;
+    markdownLinks.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      text: match[1],
+      url: match[2],
+    });
   }
 
-  // Add any remaining text after the last link
+  // Step 2: Find plain URLs (not inside markdown links)
+  const urlRegex = /(https?:\/\/[^\s\)]+|www\.[^\s\)]+)/gi;
+  urlRegex.lastIndex = 0;
+  const plainUrls: Array<{ start: number; end: number; url: string }> = [];
+  
+  while ((match = urlRegex.exec(text)) !== null) {
+    const urlStart = match.index;
+    const urlEnd = urlStart + match[0].length;
+    
+    // Check if this URL is inside a markdown link
+    const isInsideMarkdown = markdownLinks.some(
+      md => urlStart >= md.start && urlEnd <= md.end
+    );
+    
+    if (!isInsideMarkdown) {
+      plainUrls.push({
+        start: urlStart,
+        end: urlEnd,
+        url: match[0],
+      });
+    }
+  }
+
+  // Step 3: Combine and sort all link positions
+  const allLinks = [
+    ...markdownLinks.map(md => ({ ...md, type: 'markdown' as const })),
+    ...plainUrls.map(url => ({ ...url, type: 'url' as const, text: url.url })),
+  ].sort((a, b) => a.start - b.start);
+
+  // Step 4: Build the elements array
+  let lastIndex = 0;
+  let keyCounter = 0;
+
+  for (const link of allLinks) {
+    // Add text before this link
+    if (link.start > lastIndex) {
+      elements.push(text.substring(lastIndex, link.start));
+    }
+
+    // Add the link
+    if (link.type === 'markdown') {
+      elements.push(
+        <a
+          key={`link-${keyCounter++}`}
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          {link.text}
+        </a>
+      );
+    } else {
+      const href = link.url.startsWith('http') ? link.url : `https://${link.url}`;
+      elements.push(
+        <a
+          key={`link-${keyCounter++}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          {link.url}
+        </a>
+      );
+    }
+
+    lastIndex = link.end;
+  }
+
+  // Add remaining text
   if (lastIndex < text.length) {
     elements.push(text.substring(lastIndex));
   }
 
-  // If no links were found, return the original text
   return elements.length > 0 ? elements : [text];
 }
 

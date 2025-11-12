@@ -28,7 +28,7 @@ export function TailingAvatarList({
   };
 
   return (
-    <div className={cn("flex items-center -space-x-2 overflow-x-auto scrollbar-transparent", className)}>
+    <div className={cn("flex items-center -space-x-2", className)}>
       <div className="flex items-center -space-x-2 shrink-0">
         {visibleUsers.map((user, idx) => (
           <div
