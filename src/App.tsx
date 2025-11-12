@@ -23,6 +23,7 @@ import FeatureRequests from "./pages/FeatureRequests";
 import CommunityVoting from "./pages/CommunityVoting";
 import AccessDenied from "./pages/AccessDenied";
 import AISettings from "./pages/admin/AISettings";
+import TodayInSportsAdmin from "./pages/admin/TodayInSportsAdmin";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
@@ -30,6 +31,7 @@ import ScoreBoard from "./pages/ScoreBoard";
 import LiveScoreDiagnostics from "./pages/LiveScoreDiagnostics";
 import PolymarketTest from "./pages/PolymarketTest";
 import MobileApp from "./pages/MobileApp";
+import TodayInSports from "./pages/TodayInSports";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
@@ -161,6 +163,7 @@ function AppRoutes() {
           <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
           <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
           <Route path="/scoreboard/diagnostics" element={<ProtectedRoute><LiveScoreDiagnostics /></ProtectedRoute>} />
+          <Route path="/today-in-sports" element={<ProtectedRoute allowFreemium={true}><TodayInSports /></ProtectedRoute>} />
           <Route path="/bet-slip-grader" element={<ProtectedRoute><BetSlipGrader /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
           <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} />
@@ -170,6 +173,7 @@ function AppRoutes() {
           <Route path="/mobile-app" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route path="/admin/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
+          <Route path="/admin/today-in-sports" element={<ProtectedRoute><TodayInSportsAdmin /></ProtectedRoute>} />
           <Route path="/polymarket-test" element={<PolymarketTest />} />
         </Routes>
       </AuthenticatedLayout>

@@ -593,3 +593,254 @@ export async function bulkGenerateMissingCompletions(): Promise<{
   }
 }
 
+/**
+ * Today in Sports related functions
+ */
+
+export interface TodayInSportsCompletion {
+  id: string;
+  completion_date: string;
+  completion_text: string;
+  generated_at: string;
+  published: boolean;
+  sent_to_discord: boolean;
+  discord_message_id: string | null;
+}
+
+/**
+ * Get today's sports completion
+ * @param includeUnpublished - If true, returns completion even if unpublished
+ */
+export async function getTodayInSportsCompletion(includeUnpublished: boolean = false): Promise<TodayInSportsCompletion | null> {
+  try {
+    // Get today's date in Eastern Time
+    const now = new Date();
+    const easternTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const today = easternTime.toISOString().split('T')[0];
+
+    let query = supabase
+      .from('today_in_sports_completions')
+      .select('*')
+      .eq('completion_date', today);
+    
+    if (!includeUnpublished) {
+      query = query.eq('published', true);
+    }
+    
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      debug.error('Error fetching today in sports completion:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    debug.error('Error in getTodayInSportsCompletion:', error);
+    return null;
+  }
+}
+
+/**
+ * Delete today's sports completion
+ */
+export async function deleteTodayInSportsCompletion(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    // Get today's date in Eastern Time
+    const now = new Date();
+    const easternTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const today = easternTime.toISOString().split('T')[0];
+
+    const { error } = await supabase
+      .from('today_in_sports_completions')
+      .delete()
+      .eq('completion_date', today);
+
+    if (error) {
+      debug.error('Error deleting today in sports completion:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    debug.error('Error in deleteTodayInSportsCompletion:', error);
+    return { success: false, error: error.message || 'Failed to delete completion' };
+  }
+}
+
+/**
+ * Publish/unpublish a completion (update published status and optionally update completion text)
+ */
+export async function publishTodayInSportsCompletion(
+  completionId: string, 
+  published: boolean = true,
+  completionText?: string
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const updates: any = {
+      published: published,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (completionText) {
+      updates.completion_text = completionText;
+    }
+
+    const { error } = await supabase
+      .from('today_in_sports_completions')
+      .update(updates)
+      .eq('id', completionId);
+
+    if (error) {
+      debug.error('Error updating today in sports completion:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    debug.error('Error in publishTodayInSportsCompletion:', error);
+    return { success: false, error: error.message || 'Failed to update completion' };
+  }
+}
+
+/**
+ * Generate today's sports completion (manual trigger)
+ * @param force - If true, generates a new completion even if one exists for today
+ */
+export async function generateTodayInSportsCompletion(force: boolean = false): Promise<{
+  success: boolean;
+  completion?: string;
+  completion_id?: string;
+  error?: string;
+}> {
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-today-in-sports-completion', {
+      body: { force }
+    });
+
+    if (error) {
+      // If the error response contains data with error message, use it
+      if (error.context?.body) {
+        try {
+          const errorBody = typeof error.context.body === 'string' 
+            ? JSON.parse(error.context.body) 
+            : error.context.body;
+          if (errorBody.error) {
+            throw new Error(errorBody.error);
+          }
+        } catch (e) {
+          // If parsing fails, use original error
+        }
+      }
+      throw error;
+    }
+    
+    // Check if data indicates failure
+    if (data && !data.success && data.error) {
+      return { success: false, error: data.error };
+    }
+    
+    return data;
+  } catch (error: any) {
+    debug.error('Error generating today in sports completion:', error);
+    
+    // Try to extract error message from various possible locations
+    let errorMessage = error.message || 'Unknown error occurred';
+    
+    if (error.context?.body) {
+      try {
+        const errorBody = typeof error.context.body === 'string' 
+          ? JSON.parse(error.context.body) 
+          : error.context.body;
+        if (errorBody.error) {
+          errorMessage = errorBody.error;
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    }
+    
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Send test Discord notification
+ */
+export async function sendTestDiscordNotification(completionText: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data, error } = await supabase.functions.invoke('send-discord-notification', {
+      body: {
+        completion_id: 'test',
+        completion_text: completionText,
+        completion_date: today,
+      }
+    });
+
+    if (error) throw error;
+    return data;
+  } catch (error: any) {
+    debug.error('Error sending test Discord notification:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update Today in Sports schedule settings
+ */
+export async function updateTodayInSportsSchedule(updates: {
+  system_prompt?: string;
+  enabled?: boolean;
+}): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('ai_page_level_schedules')
+      .update(updates)
+      .eq('sport_type', 'today_in_sports');
+
+    if (error) {
+      debug.error('Error updating today in sports schedule:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    debug.error('Error in updateTodayInSportsSchedule:', error);
+    return false;
+  }
+}
+
+/**
+ * Get Today in Sports schedule
+ */
+export async function getTodayInSportsSchedule(): Promise<PageLevelSchedule | null> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_page_level_schedules')
+      .select('*')
+      .eq('sport_type', 'today_in_sports')
+      .maybeSingle();
+
+    if (error) {
+      debug.error('Error fetching today in sports schedule:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    debug.error('Error in getTodayInSportsSchedule:', error);
+    return null;
+  }
+}
+

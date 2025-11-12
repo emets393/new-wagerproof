@@ -295,7 +295,7 @@ export default function Dither({
   waveSpeed = 0.05,
   waveFrequency = 3,
   waveAmplitude = 0.3,
-  waveColor = [0.5, 0.5, 0.5],
+  waveColor = [34 / 255, 197 / 255, 94 / 255], // green-500 (#22c55e)
   colorNum = 4,
   pixelSize = 2,
   disableAnimation = false,
@@ -304,34 +304,36 @@ export default function Dither({
 }: DitherProps) {
   return (
     <DitherErrorBoundary>
-      <Canvas
-        className="w-full h-full relative"
-        camera={{ position: [0, 0, 6] }}
-        dpr={1}
-        gl={{ 
-          antialias: false, 
-          preserveDrawingBuffer: true,
-          powerPreference: "high-performance",
-          failIfMajorPerformanceCaveat: false
-        }}
-        onCreated={({ gl }) => {
-          gl.setClearColor(0x000000, 0);
-        }}
-      >
-        <Suspense fallback={null}>
-          <DitheredWaves
-            waveSpeed={waveSpeed}
-            waveFrequency={waveFrequency}
-            waveAmplitude={waveAmplitude}
-            waveColor={waveColor}
-            colorNum={colorNum}
-            pixelSize={pixelSize}
-            disableAnimation={disableAnimation}
-            enableMouseInteraction={enableMouseInteraction}
-            mouseRadius={mouseRadius}
-          />
-        </Suspense>
-      </Canvas>
+      <div className="w-full h-full rounded-lg overflow-hidden">
+        <Canvas
+          className="w-full h-full relative"
+          camera={{ position: [0, 0, 6] }}
+          dpr={1}
+          gl={{ 
+            antialias: false, 
+            preserveDrawingBuffer: true,
+            powerPreference: "high-performance",
+            failIfMajorPerformanceCaveat: false
+          }}
+          onCreated={({ gl }) => {
+            gl.setClearColor(0x000000, 0);
+          }}
+        >
+          <Suspense fallback={null}>
+            <DitheredWaves
+              waveSpeed={waveSpeed}
+              waveFrequency={waveFrequency}
+              waveAmplitude={waveAmplitude}
+              waveColor={waveColor}
+              colorNum={colorNum}
+              pixelSize={pixelSize}
+              disableAnimation={disableAnimation}
+              enableMouseInteraction={enableMouseInteraction}
+              mouseRadius={mouseRadius}
+            />
+          </Suspense>
+        </Canvas>
+      </div>
     </DitherErrorBoundary>
   );
 }

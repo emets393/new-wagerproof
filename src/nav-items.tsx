@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -58,6 +58,11 @@ export const navItems: NavItem[] = [
     to: "/scoreboard",
     icon: <Activity className="h-4 w-4" />,
     page: <ScoreBoard />,
+  },
+  {
+    title: "Today in Sports",
+    to: "/today-in-sports",
+    icon: <Newspaper className="h-4 w-4" />,
   },
   {
     title: "Editors Picks",
@@ -135,6 +140,11 @@ export const navItems: NavItem[] = [
         title: "AI Settings",
         to: "/admin/ai-settings",
         icon: <Brain className="h-4 w-4" />,
+      },
+      {
+        title: "Today in Sports",
+        to: "/admin/today-in-sports",
+        icon: <Sparkles className="h-4 w-4" />,
       },
     ],
   },

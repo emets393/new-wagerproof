@@ -31,7 +31,7 @@ import {
   bulkGenerateMissingCompletions,
   AICompletionConfig,
   PageLevelSchedule,
-  AIValueFind
+  AIValueFind,
 } from '@/services/aiCompletionService';
 import { getCompletionSettings, setCompletionSetting } from '@/utils/aiCompletionSettings';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
@@ -82,6 +82,7 @@ export default function AISettings() {
     sport: null
   });
   const [deleting, setDeleting] = useState(false);
+  
 
   useEffect(() => {
     fetchData();
@@ -387,6 +388,7 @@ export default function AISettings() {
       setGeneratingAnalysis(prev => ({ ...prev, [sportType]: false }));
     }
   };
+
 
   // Helper function to build comprehensive game data like the edge function does
   const buildGameDataPayload = (game: any, sportType: 'nfl' | 'cfb', polymarketData?: any) => {
@@ -1115,6 +1117,7 @@ export default function AISettings() {
             />
           )}
         </TabsContent>
+
       </Tabs>
 
       {/* Payload Tester Modal */}
