@@ -3,10 +3,11 @@ import { motion } from 'framer-motion';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown, ChevronUp, ArrowUp, ArrowDown } from 'lucide-react';
+import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Zap } from 'lucide-react';
 import debug from '@/utils/debug';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { Link } from 'react-router-dom';
@@ -32,6 +33,7 @@ import { areCompletionsEnabled } from '@/utils/aiCompletionSettings';
 import { useDisplaySettings } from '@/hooks/useDisplaySettings';
 import { GameTailSection } from '@/components/GameTailSection';
 import { CardFooter } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface NFLPrediction {
   id: string;
@@ -1115,17 +1117,18 @@ ${contextParts}
               }
               
               return (
-                <div key={prediction.id} className="relative">
-                  <NFLGameCard
-                    isHovered={focusedCardId === prediction.id && !isLocked}
-                    onMouseEnter={() => !isLocked && setFocusedCardId(prediction.id)}
-                    onMouseLeave={() => setFocusedCardId(null)}
-                    awayTeamColors={awayTeamColors}
-                    homeTeamColors={homeTeamColors}
-                    homeSpread={prediction.home_spread}
-                    awaySpread={prediction.away_spread}
-                    className={isLocked ? 'blur-sm opacity-50' : ''}
-                  >
+                <TooltipProvider key={`tooltip-provider-${prediction.id}`} delayDuration={200}>
+                  <div key={prediction.id} className="relative">
+                    <NFLGameCard
+                      isHovered={focusedCardId === prediction.id && !isLocked}
+                      onMouseEnter={() => !isLocked && setFocusedCardId(prediction.id)}
+                      onMouseLeave={() => setFocusedCardId(null)}
+                      awayTeamColors={awayTeamColors}
+                      homeTeamColors={homeTeamColors}
+                      homeSpread={prediction.home_spread}
+                      awaySpread={prediction.away_spread}
+                      className={isLocked ? 'blur-sm opacity-50' : ''}
+                    >
                   {/* Star Button for Admin Mode */}
                   <StarButton gameId={prediction.training_key} gameType="nfl" />
                   
@@ -1271,41 +1274,158 @@ ${contextParts}
                         <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                         <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Model Predictions</h4>
                       </div>
-                      <div className="flex flex-wrap gap-2 justify-center">
+                      <div className="flex flex-wrap gap-3 justify-center items-start">
                         {prediction.home_away_spread_cover_prob !== null && (() => {
                           const isHome = prediction.home_away_spread_cover_prob > 0.5;
                           const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
                           const confidencePct = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
                           const confidenceColor = confidencePct >= 65 ? 'bg-green-500' : confidencePct >= 58 ? 'bg-orange-500' : 'bg-red-500';
-                          return (
-                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
+                          const isFadeAlert = confidencePct >= 80;
+                          
+                          const pillContent = (
+                            <div className={`${isFadeAlert ? 'bg-green-500/80 backdrop-blur-md' : confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <Target className="h-3 w-3" />
                               <span>{getTeamInitials(predictedTeam)} Spread {confidencePct}%</span>
                             </div>
                           );
+                          
+                          return isFadeAlert ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex flex-col items-center gap-1.5 cursor-help">
+                                  <MovingBorderButton
+                                    borderRadius="1.5rem"
+                                    containerClassName="h-auto w-auto p-0"
+                                    className="bg-transparent p-0 border-0 m-0"
+                                    borderClassName="bg-[radial-gradient(#22c55e_40%,transparent_60%)]"
+                                    duration={2000}
+                                    as="div"
+                                  >
+                                    {pillContent}
+                                  </MovingBorderButton>
+                                  <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">
+                                    <Zap className="h-3 w-3 fill-green-600 dark:fill-green-400" />
+                                    <span>FADE ALERT</span>
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent 
+                                side="top" 
+                                className="max-w-xs p-3 pr-6 bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600"
+                                sideOffset={8}
+                                avoidCollisions={true}
+                                collisionPadding={8}
+                                style={{ 
+                                  zIndex: 99999
+                                }}
+                              >
+                                <p className="text-sm text-white dark:text-gray-100 leading-relaxed">
+                                  When a model shows extreme confidence (80%+), it may be overreacting to a single factor. Consider analyzing other factors and potentially fading (betting against) this prediction.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : pillContent;
                         })()}
                         {showNFLMoneylinePills && prediction.home_away_ml_prob !== null && (() => {
                           const isHome = prediction.home_away_ml_prob > 0.5;
                           const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
                           const confidencePct = Math.round((isHome ? prediction.home_away_ml_prob : 1 - prediction.home_away_ml_prob) * 100);
                           const confidenceColor = confidencePct >= 65 ? 'bg-blue-500' : confidencePct >= 58 ? 'bg-indigo-500' : 'bg-gray-500';
-                          return (
-                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
+                          const isFadeAlert = confidencePct >= 80;
+                          
+                          const pillContent = (
+                            <div className={`${isFadeAlert ? 'bg-blue-500/80 backdrop-blur-md' : confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <Users className="h-3 w-3" />
                               <span>{getTeamInitials(predictedTeam)} ML {confidencePct}%</span>
                             </div>
                           );
+                          
+                          return isFadeAlert ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex flex-col items-center gap-1.5 cursor-help">
+                                  <MovingBorderButton
+                                    borderRadius="1.5rem"
+                                    containerClassName="h-auto w-auto p-0"
+                                    className="bg-transparent p-0 border-0 m-0"
+                                    borderClassName="bg-[radial-gradient(#3b82f6_40%,transparent_60%)]"
+                                    duration={2000}
+                                    as="div"
+                                  >
+                                    {pillContent}
+                                  </MovingBorderButton>
+                                  <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                                    <Zap className="h-3 w-3 fill-blue-600 dark:fill-blue-400" />
+                                    <span>FADE ALERT</span>
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent 
+                                side="top" 
+                                className="max-w-xs p-3 pr-6 bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600"
+                                sideOffset={8}
+                                avoidCollisions={true}
+                                collisionPadding={8}
+                                style={{ 
+                                  zIndex: 99999
+                                }}
+                              >
+                                <p className="text-sm text-white dark:text-gray-100 leading-relaxed">
+                                  When a model shows extreme confidence (80%+), it may be overreacting to a single factor. Consider analyzing other factors and potentially fading (betting against) this prediction.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : pillContent;
                         })()}
                         {prediction.ou_result_prob !== null && (() => {
                           const isOver = prediction.ou_result_prob > 0.5;
                           const confidencePct = Math.round((isOver ? prediction.ou_result_prob : 1 - prediction.ou_result_prob) * 100);
                           const confidenceColor = confidencePct >= 65 ? 'bg-purple-500' : confidencePct >= 58 ? 'bg-pink-500' : 'bg-gray-500';
-                          return (
-                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5`}>
+                          const isFadeAlert = confidencePct >= 80;
+                          
+                          const pillContent = (
+                            <div className={`${isFadeAlert ? 'bg-purple-500/80 backdrop-blur-md' : confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <BarChart className="h-3 w-3" />
                               <span>{isOver ? 'Over' : 'Under'} {confidencePct}%</span>
                             </div>
                           );
+                          
+                          return isFadeAlert ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex flex-col items-center gap-1.5 cursor-help">
+                                  <MovingBorderButton
+                                    borderRadius="1.5rem"
+                                    containerClassName="h-auto w-auto p-0"
+                                    className="bg-transparent p-0 border-0 m-0"
+                                    borderClassName="bg-[radial-gradient(#a855f7_40%,transparent_60%)]"
+                                    duration={2000}
+                                    as="div"
+                                  >
+                                    {pillContent}
+                                  </MovingBorderButton>
+                                  <div className="flex items-center gap-1 text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                                    <Zap className="h-3 w-3 fill-purple-600 dark:fill-purple-400" />
+                                    <span>FADE ALERT</span>
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent 
+                                side="top" 
+                                className="max-w-xs p-3 pr-6 bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600"
+                                sideOffset={8}
+                                avoidCollisions={true}
+                                collisionPadding={8}
+                                style={{ 
+                                  zIndex: 99999
+                                }}
+                              >
+                                <p className="text-sm text-white dark:text-gray-100 leading-relaxed">
+                                  When a model shows extreme confidence (80%+), it may be overreacting to a single factor. Consider analyzing other factors and potentially fading (betting against) this prediction.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : pillContent;
                         })()}
                       </div>
                     </div>
@@ -1369,6 +1489,7 @@ ${contextParts}
                 </div>
               )}
             </div>
+          </TooltipProvider>
             );
             })}
           </div>
