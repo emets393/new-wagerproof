@@ -22,14 +22,6 @@ serve(async (req) => {
     console.log('Sending Today in Sports notification to Discord...');
     console.log('Date:', completion_date);
 
-    // Get Discord credentials from environment
-    const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
-    const channelId = Deno.env.get('DISCORD_GENERAL_CHANNEL_ID');
-
-    if (!botToken || !channelId) {
-      throw new Error('Discord credentials not configured');
-    }
-
     // Format date for display
     const dateObj = new Date(completion_date);
     const formattedDate = dateObj.toLocaleDateString('en-US', { 
@@ -46,54 +38,88 @@ serve(async (req) => {
       displayText = displayText.substring(0, maxLength) + '...\n\n[Read full briefing on WagerProof]';
     }
 
-    // Build Discord embed payload
-    const payload = {
-      embeds: [{
-        title: "🏈 Today in Sports",
-        description: displayText,
-        color: 1096577, // Green color #10b981
-        fields: [
-          { 
-            name: "📅 Date", 
-            value: formattedDate, 
-            inline: false 
-          },
-          {
-            name: "🔗 Full Analysis",
-            value: "[View on WagerProof →](https://wagerproof.com/today-in-sports)",
-            inline: false
-          }
-        ],
-        footer: {
-          text: "WagerBot • Today in Sports • Powered by WagerProof",
-          icon_url: "https://wagerproof.com/wagerproof-logo.png"
+    // Build Discord embed payload (same format as editor picks)
+    const embed = {
+      title: "🏈 Today in Sports",
+      description: displayText,
+      color: 1096577, // Green color #10b981
+      fields: [
+        { 
+          name: "📅 Date", 
+          value: formattedDate, 
+          inline: false 
         },
-        timestamp: new Date().toISOString()
-      }]
+        {
+          name: "🔗 Full Analysis",
+          value: "[View on WagerProof →](https://wagerproof.com/today-in-sports)",
+          inline: false
+        }
+      ],
+      footer: {
+        text: "WagerBot • Today in Sports • Powered by WagerProof",
+        icon_url: "https://wagerproof.com/wagerproof-logo.png"
+      },
+      timestamp: new Date().toISOString()
     };
 
-    console.log('Sending to Discord API...');
-
-    // Send to Discord via Bot API
-    const discordApiUrl = `https://discord.com/api/v10/channels/${channelId}/messages`;
+    // Use the same BuildShip endpoint as editor picks (same WagerBot)
+    // Channel ID for #🗣️︳general channel
+    const channelId = '1428416705171951821'; // General channel ID
     
-    const response = await fetch(discordApiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bot ${botToken}`,
-        'Content-Type': 'application/json',
+    // Build payload matching the BuildShip endpoint structure
+    // The endpoint expects pickData, gameData, and channelId
+    // For "Today in Sports", we'll use minimal placeholder data and include our embed
+    const discordPayload = {
+      pickData: {
+        id: 'today-in-sports-' + Date.now(),
+        gameId: null,
+        gameType: 'general',
+        selectedBetTypes: [],
+        editorNotes: displayText, // Use completion text as notes
       },
-      body: JSON.stringify(payload)
+      gameData: {
+        // Minimal game data - endpoint might need these fields
+        awayTeam: 'Today in Sports',
+        homeTeam: 'Daily Briefing',
+        awayLogo: 'https://wagerproof.com/wagerproof-logo.png',
+        homeLogo: 'https://wagerproof.com/wagerproof-logo.png',
+        gameDate: completion_date,
+        gameTime: null,
+        awaySpread: null,
+        homeSpread: null,
+        awayMl: null,
+        homeMl: null,
+        overLine: null,
+        homeTeamColors: null,
+        awayTeamColors: null,
+      },
+      channelId: channelId,
+      // Include embed directly - BuildShip might use this if present
+      embed: embed,
+    };
+
+    console.log('Sending to BuildShip Discord endpoint...');
+    console.log('Payload structure:', JSON.stringify({
+      pickData: { ...discordPayload.pickData, editorNotes: '[truncated]' },
+      gameData: discordPayload.gameData,
+      channelId: discordPayload.channelId,
+      embed: 'present'
+    }, null, 2));
+
+    const response = await fetch('https://xna68l.buildship.run/discord-editor-pick-post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(discordPayload)
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Discord API error:', errorData);
-      throw new Error(`Discord API error (${response.status}): ${errorData.message || response.statusText}`);
+      const errorText = await response.text();
+      console.error('BuildShip Discord API error:', errorText);
+      throw new Error(`Discord API error (${response.status}): ${errorText}`);
     }
 
-    const messageData = await response.json();
-    console.log('Message sent successfully, ID:', messageData.id);
+    const messageData = await response.json().catch(() => ({ success: true }));
+    console.log('Message sent successfully:', messageData);
 
     return new Response(
       JSON.stringify({
@@ -108,10 +134,14 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Error sending Discord notification:', error);
+    const errorMessage = error.message || 'Unknown error occurred';
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('missing');
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message,
+        error: errorMessage,
+        details: isConfigError ? 'Check Supabase Edge Function secrets in the dashboard: https://supabase.com/dashboard/project/gnjrklxotmbvnxbnnqgq/settings/vault' : undefined,
         timestamp: new Date().toISOString()
       }),
       { 

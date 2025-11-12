@@ -190,7 +190,20 @@ export default function TodayInSportsAdmin() {
           description: 'Test message sent to Discord successfully',
         });
       } else {
-        throw new Error(result.error || 'Send failed');
+        // Show detailed error message with configuration help
+        const errorMessage = result.error || 'Send failed';
+        const errorDetails = result.details || '';
+        
+        const fullMessage = errorDetails 
+          ? `${errorMessage}\n\n${errorDetails}`
+          : errorMessage;
+        
+        toast({
+          title: 'Discord Configuration Error',
+          description: fullMessage,
+          variant: 'destructive',
+          duration: 10000, // Show longer for configuration errors
+        });
       }
     } catch (error) {
       debug.error('Error sending to Discord:', error);

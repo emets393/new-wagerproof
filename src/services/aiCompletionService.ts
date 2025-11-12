@@ -852,6 +852,7 @@ export async function generateTodayInSportsCompletion(force: boolean = false): P
 export async function sendTestDiscordNotification(completionText: string): Promise<{
   success: boolean;
   error?: string;
+  details?: string;
 }> {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -865,10 +866,42 @@ export async function sendTestDiscordNotification(completionText: string): Promi
     });
 
     if (error) throw error;
+    
+    // Check if the response indicates failure
+    if (data && !data.success) {
+      return {
+        success: false,
+        error: data.error || 'Failed to send Discord notification',
+        details: data.details
+      };
+    }
+    
     return data;
   } catch (error: any) {
     debug.error('Error sending test Discord notification:', error);
-    return { success: false, error: error.message };
+    
+    // Try to extract error details from the response
+    let errorMessage = error.message || 'Failed to send Discord notification';
+    let errorDetails: string | undefined;
+    
+    // If error has a response body, try to parse it
+    if (error.context && error.context.body) {
+      try {
+        const errorBody = typeof error.context.body === 'string' 
+          ? JSON.parse(error.context.body) 
+          : error.context.body;
+        if (errorBody.error) errorMessage = errorBody.error;
+        if (errorBody.details) errorDetails = errorBody.details;
+      } catch {
+        // Ignore parsing errors
+      }
+    }
+    
+    return { 
+      success: false, 
+      error: errorMessage,
+      details: errorDetails
+    };
   }
 }
 
