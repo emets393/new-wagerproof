@@ -41,6 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userId = session.user.id;
           const userEmail = session.user.email || 'unknown';
           
+          // Extract user's name from metadata
+          const userName = session.user.user_metadata?.full_name || 
+                          session.user.user_metadata?.display_name || 
+                          session.user.user_metadata?.name ||
+                          null;
+          
           // Determine auth method from user metadata
           let authMethod: 'email' | 'google' | 'apple' = 'email';
           
@@ -57,17 +63,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             else if (provider === 'apple') authMethod = 'apple';
           }
           
-          // Identify user in Mixpanel
+          // Identify user in Mixpanel with standard properties
           identifyUser(userId, {
-            email: userEmail,
+            $email: userEmail,  // Mixpanel standard property
+            $name: userName,    // Mixpanel standard property
+            email: userEmail,   // Custom property for backward compatibility
+            name: userName,     // Custom property for backward compatibility
             auth_method: authMethod,
             user_id: userId,
+            last_login: new Date().toISOString(),
           });
           
           // Track sign in event
           trackSignIn(authMethod);
           
-          debug.log(`[Mixpanel] User signed in: ${userEmail} via ${authMethod}`);
+          debug.log(`[Mixpanel] User signed in: ${userEmail}${userName ? ` (${userName})` : ''} via ${authMethod}`);
         }
         
         // Track sign out
@@ -95,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -103,10 +113,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
     
-    // Track successful sign up
-    if (!error) {
+    // Track successful sign up and identify user immediately
+    if (!error && data.user) {
+      const userId = data.user.id;
+      const userEmail = data.user.email || email;
+      const userName = data.user.user_metadata?.full_name || 
+                       data.user.user_metadata?.display_name || 
+                       null;
+      
+      // Identify user in Mixpanel with their email and name
+      identifyUser(userId, {
+        $email: userEmail,
+        $name: userName,
+        email: userEmail,
+        name: userName,
+        auth_method: 'email',
+        user_id: userId,
+        signup_date: new Date().toISOString(),
+      });
+      
+      // Track sign up event
       trackSignUp('email');
-      debug.log('[Mixpanel] User signed up via email');
+      debug.log(`[Mixpanel] User signed up via email: ${userEmail}${userName ? ` (${userName})` : ''}`);
     }
     
     return { error };
