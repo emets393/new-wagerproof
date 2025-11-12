@@ -33,16 +33,18 @@ serve(async (req) => {
 
     console.log(`Generating page-level analysis for ${sport_type} on ${targetDate}`);
 
-    // Get system prompt from schedule config
+    // Get system prompt and auto_publish from schedule config
     const { data: schedule, error: scheduleError } = await supabaseClient
       .from('ai_page_level_schedules')
-      .select('system_prompt')
+      .select('system_prompt, auto_publish')
       .eq('sport_type', sport_type)
       .single();
 
     if (scheduleError || !schedule) {
       throw new Error(`No schedule config found for ${sport_type}`);
     }
+
+    const shouldAutoPublish = schedule.auto_publish || false;
 
     // Fetch games for the date
     let games: any[] = [];
@@ -233,7 +235,7 @@ serve(async (req) => {
     }
 
     // Store all three outputs in database
-    const { error: insertError } = await supabaseClient
+    const { data: insertedData, error: insertError } = await supabaseClient
       .from('ai_value_finds')
       .insert({
         sport_type,
@@ -246,12 +248,19 @@ serve(async (req) => {
         summary_text: analysisJson.page_header.summary_text,
         generated_by: user_id || null,
         generated_at: new Date().toISOString(),
-        published: false, // Default to unpublished for review
-      });
+        published: shouldAutoPublish, // Auto-publish if enabled in schedule
+      })
+      .select('id')
+      .single();
 
     if (insertError) {
       console.error('Error storing value finds:', insertError);
       throw insertError;
+    }
+
+    // If auto-publish is enabled, the value find is already published
+    if (shouldAutoPublish && insertedData) {
+      console.log(`Auto-published value finds for ${sport_type} (ID: ${insertedData.id})`);
     }
 
     // Update last_run_at in schedule
@@ -275,7 +284,7 @@ serve(async (req) => {
         editor_cards: analysisJson.editor_cards,
         total_games_analyzed: analysisJson.total_games_analyzed,
         tokens_used: openaiData.usage?.total_tokens || 0,
-        published: false, // Requires manual publish
+        published: shouldAutoPublish, // Auto-published if enabled
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

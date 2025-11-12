@@ -344,7 +344,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
   };
 
   return (
-    <Card className="relative overflow-hidden bg-gradient-to-b from-gray-600/95 via-gray-300/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-blue-200 dark:border-blue-800 shadow-xl">
+    <Card className="relative overflow-hidden bg-gradient-to-b from-gray-600/95 via-gray-300/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-blue-200 dark:border-blue-800 shadow-xl hover:shadow-2xl transition-shadow">
       {/* Aurora Effect - Skip on Android due to WebGL compatibility issues */}
       <AnimatePresence>
         {pick.is_published && !isAndroid && (
@@ -373,7 +373,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
         </div>
       )}
 
-      <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6 relative z-10">
+      <CardContent className="space-y-3 sm:space-y-4 md:space-y-6 pt-3 pb-3 sm:pt-4 sm:pb-4 md:pt-6 md:pb-6 px-3 sm:px-4 md:px-6 relative z-10">
         {/* Game Date and Time */}
         {(gameData.game_date || gameData.game_time) && (
           <div className="text-center space-y-2">
@@ -391,66 +391,66 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
         )}
 
         {/* Team Circles and Betting Info - Horizontal Layout */}
-        <div className="space-y-2 sm:space-y-4 pt-1.5">
+        <div className="space-y-2 sm:space-y-3 md:space-y-4 pt-1.5">
           {/* Team Circles Row */}
-          <div className="flex justify-center items-center space-x-4 sm:space-x-6">
+          <div className="flex justify-center items-center space-x-2 sm:space-x-4 md:space-x-6">
             {/* Away Team Circle */}
-            <div className="text-center w-[140px] sm:w-[160px]">
+            <div className="text-center flex-1 max-w-[120px] sm:max-w-[140px] md:max-w-[160px]">
               <div
-                className="h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 shadow-lg transition-transform duration-200 hover:scale-105"
+                className="h-14 w-14 sm:h-16 sm:w-16 md:h-20 md:w-20 rounded-full flex items-center justify-center mx-auto mb-1.5 sm:mb-2 md:mb-3 shadow-lg transition-transform duration-200 hover:scale-105"
                 style={{
                   background: `linear-gradient(135deg, ${gameData.away_team_colors.primary} 0%, ${gameData.away_team_colors.secondary} 100%)`,
                   color: getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary),
                   border: `2px solid ${gameData.away_team_colors.primary}`,
                 }}
               >
-                <span className="text-lg sm:text-2xl font-bold">
+                <span className="text-base sm:text-lg md:text-2xl font-bold">
                   {getTeamInitials(gameData.away_team)}
                 </span>
               </div>
-              <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
+              <div className="text-xs sm:text-sm md:text-base font-bold mb-1 sm:mb-2 min-h-[2.5rem] sm:min-h-[3rem] md:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-0.5 sm:px-1 pt-1 sm:pt-2">
                 {gameData.away_team}
               </div>
             </div>
 
             {/* @ Symbol */}
-            <div className="text-center">
-              <span className="text-4xl sm:text-5xl font-bold text-gray-400 dark:text-gray-500">@</span>
+            <div className="text-center px-1 sm:px-2">
+              <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-400 dark:text-gray-500">@</span>
             </div>
 
             {/* Home Team Circle */}
-            <div className="text-center w-[140px] sm:w-[160px]">
+            <div className="text-center flex-1 max-w-[120px] sm:max-w-[140px] md:max-w-[160px]">
               <div
-                className="h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 shadow-lg transition-transform duration-200 hover:scale-105"
+                className="h-14 w-14 sm:h-16 sm:w-16 md:h-20 md:w-20 rounded-full flex items-center justify-center mx-auto mb-1.5 sm:mb-2 md:mb-3 shadow-lg transition-transform duration-200 hover:scale-105"
                 style={{
                   background: `linear-gradient(135deg, ${gameData.home_team_colors.primary} 0%, ${gameData.home_team_colors.secondary} 100%)`,
                   color: getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary),
                   border: `2px solid ${gameData.home_team_colors.primary}`,
                 }}
               >
-                <span className="text-lg sm:text-2xl font-bold">
+                <span className="text-base sm:text-lg md:text-2xl font-bold">
                   {getTeamInitials(gameData.home_team)}
                 </span>
               </div>
-              <div className="text-sm sm:text-base font-bold mb-1 sm:mb-2 min-h-[3rem] sm:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-2">
+              <div className="text-xs sm:text-sm md:text-base font-bold mb-1 sm:mb-2 min-h-[2.5rem] sm:min-h-[3rem] md:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-0.5 sm:px-1 pt-1 sm:pt-2">
                 {gameData.home_team}
               </div>
             </div>
           </div>
 
           {/* Betting Lines Row */}
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center gap-1 sm:gap-2">
             {/* Away Team Betting */}
-            <div className="text-center flex-1">
-              <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="text-center flex-1 min-w-0">
+              <div className="text-sm sm:text-base md:text-lg font-bold h-5 sm:h-6 md:h-8 flex items-center justify-center text-blue-600 dark:text-blue-400">
                 {formatMoneyline(gameData.away_ml)}
               </div>
-              <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-foreground">
+              <div className="text-xs sm:text-sm md:text-base font-bold h-4 sm:h-5 md:h-6 flex items-center justify-center text-foreground">
                 {formatSpread(gameData.away_spread)}
               </div>
               {pick.game_type === 'cfb' && typeof gameData.opening_spread === 'number' && (
-                <div className="mt-1 flex justify-center">
-                  <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-background text-foreground border-border">
+                <div className="mt-0.5 sm:mt-1 flex justify-center">
+                  <span className="text-[9px] sm:text-[10px] md:text-xs px-1 sm:px-2 py-0.5 rounded-full border bg-background text-foreground border-border">
                     Open: {formatSpread(gameData.opening_spread ? -gameData.opening_spread : null)}
                   </span>
                 </div>
@@ -458,23 +458,23 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
             </div>
 
             {/* Total */}
-            <div className="text-center px-2 sm:px-4">
-              <div className="text-xs sm:text-sm font-bold text-foreground bg-primary/10 dark:bg-primary/20 px-2 sm:px-3 py-1 rounded-full border border-primary/30">
+            <div className="text-center px-1 sm:px-2 md:px-4 flex-shrink-0">
+              <div className="text-[10px] sm:text-xs md:text-sm font-bold text-foreground bg-primary/10 dark:bg-primary/20 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 rounded-full border border-primary/30">
                 Total: {gameData.over_line || '-'}
               </div>
             </div>
 
             {/* Home Team Betting */}
-            <div className="text-center flex-1">
-              <div className="text-base sm:text-lg font-bold h-6 sm:h-8 flex items-center justify-center text-green-600 dark:text-green-400">
+            <div className="text-center flex-1 min-w-0">
+              <div className="text-sm sm:text-base md:text-lg font-bold h-5 sm:h-6 md:h-8 flex items-center justify-center text-green-600 dark:text-green-400">
                 {formatMoneyline(gameData.home_ml)}
               </div>
-              <div className="text-sm sm:text-base font-bold h-5 sm:h-6 flex items-center justify-center text-foreground">
+              <div className="text-xs sm:text-sm md:text-base font-bold h-4 sm:h-5 md:h-6 flex items-center justify-center text-foreground">
                 {formatSpread(gameData.home_spread)}
               </div>
               {pick.game_type === 'cfb' && typeof gameData.opening_spread === 'number' && (
-                <div className="mt-1 flex justify-center">
-                  <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border bg-background text-foreground border-border">
+                <div className="mt-0.5 sm:mt-1 flex justify-center">
+                  <span className="text-[9px] sm:text-[10px] md:text-xs px-1 sm:px-2 py-0.5 rounded-full border bg-background text-foreground border-border">
                     Open: {formatSpread(gameData.opening_spread)}
                   </span>
                 </div>
@@ -608,9 +608,9 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
         ) : (
           <div className="space-y-4 pt-4 border-t-2 border-gray-200 dark:border-gray-700">
             {/* Display Selected Bets */}
-            <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border-2 border-blue-200 dark:border-blue-700">
-              <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100 mb-3">Editor's Picks</h4>
-              <div className="space-y-2">
+            <div className="bg-blue-50 dark:bg-blue-900/30 p-3 sm:p-4 rounded-lg border-2 border-blue-200 dark:border-blue-700">
+              <h4 className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 mb-2 sm:mb-3">Editor's Picks</h4>
+              <div className="space-y-1.5 sm:space-y-2">
                 {selectedBetTypes.map((betType, index) => {
                   // Helper function to get bet display text
                   const getBetDisplay = (type: string) => {
@@ -640,9 +640,9 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
                   };
 
                   return (
-                    <div key={index} className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center">
-                      <span className="text-blue-600 dark:text-blue-400 mr-2">•</span>
-                      {getBetDisplay(betType)}
+                    <div key={index} className="text-sm sm:text-base md:text-lg font-bold text-gray-900 dark:text-gray-100 flex items-start sm:items-center">
+                      <span className="text-blue-600 dark:text-blue-400 mr-1.5 sm:mr-2 mt-0.5 sm:mt-0 flex-shrink-0">•</span>
+                      <span className="break-words">{getBetDisplay(betType)}</span>
                     </div>
                   );
                 })}
@@ -651,9 +651,9 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
 
             {/* Display Notes */}
             {notes && (
-              <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2">Analysis</h4>
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{notes}</p>
+              <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 mb-1.5 sm:mb-2">Analysis</h4>
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{notes}</p>
               </div>
             )}
 

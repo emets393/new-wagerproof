@@ -144,7 +144,7 @@ export function PageHeaderValueFinds({
   }
 
   return (
-    <div className="w-full mb-4">
+    <div className="w-full max-w-[1500px] mb-4">
       <Card 
         className="border-purple-200 dark:border-white/20 overflow-hidden relative bg-gradient-to-br from-purple-50/90 to-blue-50/90 dark:from-transparent dark:to-transparent"
         style={{

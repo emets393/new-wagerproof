@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { ValueFindsSection } from '@/components/ValueFindsSection';
 import { useDisplaySettings } from '@/hooks/useDisplaySettings';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface EditorPick {
   id: string;
@@ -243,6 +244,8 @@ export default function EditorsPicks() {
   const { isAdmin } = useIsAdmin();
   const { adminModeEnabled } = useAdminMode();
   const { showExtraValueSuggestions } = useDisplaySettings();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [picks, setPicks] = useState<EditorPick[]>([]);
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -641,10 +644,10 @@ export default function EditorsPicks() {
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 px-0 md:px-0">
         <div className="flex items-center gap-2">
           <Star className="h-8 w-8 text-yellow-500 fill-yellow-500" />
-          <h1 className="text-3xl font-bold">Editor's Picks</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Editor's Picks</h1>
         </div>
       </div>
 
@@ -720,14 +723,22 @@ export default function EditorsPicks() {
 
       {/* Draft Picks (Admin Mode Only) */}
       {adminModeEnabled && draftPicks.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-2xl font-bold">Drafts</h2>
-            <Badge variant="secondary" className="bg-yellow-500 text-white">
-              {draftPicks.length}
-            </Badge>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
+          background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(40px)',
+          WebkitBackdropFilter: 'blur(40px)',
+        }}>
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+              <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+              <span>Drafts</span>
+              <Badge variant="secondary" className="bg-yellow-500 text-white">
+                {draftPicks.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 md:px-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {draftPicks.map(pick => {
               const gameData = gamesData.get(pick.game_id);
               
@@ -788,20 +799,29 @@ export default function EditorsPicks() {
                 />
               );
             })}
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Published Picks */}
       {publishedPicks.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-2xl font-bold">Published Picks</h2>
-            <Badge variant="secondary" className="bg-green-500 text-white">
-              {publishedPicks.length}
-            </Badge>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
+          background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(40px)',
+          WebkitBackdropFilter: 'blur(40px)',
+        }}>
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+              <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+              <span>Published Picks</span>
+              <Badge variant="secondary" className="bg-green-500 text-white">
+                {publishedPicks.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 md:px-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {publishedPicks.map(pick => {
               const gameData = gamesData.get(pick.game_id);
               
@@ -862,8 +882,9 @@ export default function EditorsPicks() {
                 />
               );
             })}
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Value Finds Sections */}

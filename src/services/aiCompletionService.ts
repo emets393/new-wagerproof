@@ -46,8 +46,10 @@ export interface PageLevelSchedule {
   sport_type: 'nfl' | 'cfb';
   enabled: boolean;
   scheduled_time: string;
+  day_of_week: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
   system_prompt: string;
   last_run_at: string | null;
+  auto_publish: boolean;
 }
 
 /**
@@ -284,23 +286,61 @@ export async function getPageLevelSchedule(
  */
 export async function updatePageLevelSchedule(
   sportType: 'nfl' | 'cfb',
-  updates: Partial<Pick<PageLevelSchedule, 'enabled' | 'scheduled_time' | 'system_prompt'>>
-): Promise<boolean> {
+  updates: Partial<Pick<PageLevelSchedule, 'enabled' | 'scheduled_time' | 'day_of_week' | 'system_prompt' | 'auto_publish'>>
+): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase
+    // Filter out undefined values to avoid sending them to the database
+    const cleanUpdates: Record<string, any> = {};
+    if (updates.enabled !== undefined) cleanUpdates.enabled = updates.enabled;
+    if (updates.scheduled_time !== undefined) cleanUpdates.scheduled_time = updates.scheduled_time;
+    if (updates.day_of_week !== undefined) cleanUpdates.day_of_week = updates.day_of_week;
+    if (updates.system_prompt !== undefined) cleanUpdates.system_prompt = updates.system_prompt;
+    if (updates.auto_publish !== undefined) cleanUpdates.auto_publish = updates.auto_publish;
+
+    debug.log('Updating schedule with:', { sportType, cleanUpdates });
+
+    const { error, data } = await supabase
       .from('ai_page_level_schedules')
-      .update(updates)
-      .eq('sport_type', sportType);
+      .update(cleanUpdates)
+      .eq('sport_type', sportType)
+      .select();
 
     if (error) {
-      debug.error('Error updating page level schedule:', error);
-      return false;
+      const errorMessage = error.message || JSON.stringify(error);
+      const errorDetails = {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        fullError: error
+      };
+      debug.error('Error updating page level schedule:', errorDetails);
+      console.error('Full error object:', error);
+      return { 
+        success: false, 
+        error: `Database error: ${errorMessage}${error.details ? ` (${error.details})` : ''}${error.hint ? ` Hint: ${error.hint}` : ''}` 
+      };
     }
 
-    return true;
-  } catch (error) {
+    // Check if any rows were updated
+    if (!data || data.length === 0) {
+      debug.error('No rows updated - schedule may not exist for sport_type:', sportType);
+      return { 
+        success: false, 
+        error: `No schedule found for ${sportType}. Please ensure the schedule exists in the database.` 
+      };
+    }
+
+    debug.log('Schedule updated successfully:', data);
+    return { success: true };
+  } catch (error: any) {
+    const errorMessage = error?.message || JSON.stringify(error);
     debug.error('Error in updatePageLevelSchedule:', error);
-    return false;
+    console.error('Exception in updatePageLevelSchedule:', error);
+    return { 
+      success: false, 
+      error: `Exception: ${errorMessage}` 
+    };
   }
 }
 

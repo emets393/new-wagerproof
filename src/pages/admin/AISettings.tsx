@@ -190,11 +190,11 @@ export default function AISettings() {
         throw new Error('Schedule not found');
       }
 
-      const success = await updatePageLevelSchedule(sportType, {
+      const result = await updatePageLevelSchedule(sportType, {
         system_prompt: editedPrompts[key]
       });
 
-      if (success) {
+      if (result.success) {
         // Refresh data to get the updated prompt from database
         await fetchData();
         
