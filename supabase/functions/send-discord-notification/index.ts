@@ -62,51 +62,25 @@ serve(async (req) => {
       timestamp: new Date().toISOString()
     };
 
-    // Use the same BuildShip endpoint as editor picks (same WagerBot)
+    // Use the new BuildShip endpoint for general messages
     // Channel ID for #🗣️︳general channel
     const channelId = '1428416705171951821'; // General channel ID
     
-    // Build payload matching the BuildShip endpoint structure
-    // The endpoint expects pickData, gameData, and channelId
-    // For "Today in Sports", we'll use minimal placeholder data and include our embed
+    // Build payload for the general message endpoint
+    // The endpoint expects: embeds (array), channelId, botToken
     const discordPayload = {
-      pickData: {
-        id: 'today-in-sports-' + Date.now(),
-        gameId: null,
-        gameType: 'general',
-        selectedBetTypes: [],
-        editorNotes: displayText, // Use completion text as notes
-      },
-      gameData: {
-        // Minimal game data - endpoint might need these fields
-        awayTeam: 'Today in Sports',
-        homeTeam: 'Daily Briefing',
-        awayLogo: 'https://wagerproof.com/wagerproof-logo.png',
-        homeLogo: 'https://wagerproof.com/wagerproof-logo.png',
-        gameDate: completion_date,
-        gameTime: null,
-        awaySpread: null,
-        homeSpread: null,
-        awayMl: null,
-        homeMl: null,
-        overLine: null,
-        homeTeamColors: null,
-        awayTeamColors: null,
-      },
+      embeds: [embed], // Use the embed we built above
       channelId: channelId,
-      // Include embed directly - BuildShip might use this if present
-      embed: embed,
+      // Note: botToken is configured in BuildShip secrets, not passed from here
     };
 
     console.log('Sending to BuildShip Discord endpoint...');
     console.log('Payload structure:', JSON.stringify({
-      pickData: { ...discordPayload.pickData, editorNotes: '[truncated]' },
-      gameData: discordPayload.gameData,
+      embeds: [{ ...embed, description: '[truncated]' }],
       channelId: discordPayload.channelId,
-      embed: 'present'
     }, null, 2));
 
-    const response = await fetch('https://xna68l.buildship.run/discord-editor-pick-post', {
+    const response = await fetch('https://xna68l.buildship.run/discord-thread-creation-wager-bot-copy-562a06b862bf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(discordPayload)

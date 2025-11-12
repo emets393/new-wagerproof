@@ -1,0 +1,29 @@
+{
+  "embeds": [
+    {
+      "title": "🏈 Today in Sports",
+      "description": "In the NFL, the Pittsburgh Steelers have activated rookie quarterback Will Howard from injured reserve. After fracturing his hand in August, Howard missed the preseason and early regular-season games. His return could impact the Steelers' quarterback rotation and future betting lines.\n\nIn college football, several midweek games are set to influence Week 12 betting trends. Buffalo visits Central Michigan, with the Chippewas favored by 2.5 points. Central Michigan has a strong home record, winning nine straight games as a favorite.\n\nNorthern Illinois faces UMass, with the Huskies favored by 11.5 points. UMass has struggled, losing 13 consecutive games, and Northern Illinois has covered the spread in seven of eight conference games.\n\nToledo travels to Miami (OH), with the Rockets favored by 2.5 points. Miami (OH) has a strong home record, winning eight straight conference home games, and has covered the spread in 12 of 21 games as home underdogs.\n\nWeather conditions are expected to be favorable for all games, with no significant forecasts indicating potential disruptions.",
+      "color": 1096577,
+      "fields": [
+        {
+          "name": "📅 Date",
+          "value": "Wednesday, November 12, 2025",
+          "inline": false
+        },
+        {
+          "name": "🔗 Full Analysis",
+          "value": "[View on WagerProof →](https://wagerproof.com/today-in-sports)",
+          "inline": false
+        }
+      ],
+      "footer": {
+        "text": "WagerBot • Today in Sports • Powered by WagerProof",
+        "icon_url": "https://wagerproof.com/wagerproof-logo.png"
+      },
+      "timestamp": "2025-11-12T23:15:19.113Z"
+    }
+  ],
+  "channelId": "1428416705171951821",
+  "botToken": "YOUR_DISCORD_BOT_TOKEN_HERE"
+}
+
