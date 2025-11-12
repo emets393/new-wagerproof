@@ -287,4 +287,14 @@
   .onboarding-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
   }
+
+  /* Transparent scrollbar - hides scrollbar completely */
+  .scrollbar-transparent {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  .scrollbar-transparent::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
 }

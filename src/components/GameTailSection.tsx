@@ -128,13 +128,15 @@ export function GameTailSection({
             {Object.entries(tailsByPick).map(([key, data]) => (
               <div
                 key={key}
-                className="flex items-center gap-2 text-xs text-muted-foreground"
+                className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap"
               >
                 <Badge variant="outline" className="text-[10px] shrink-0">
                   {getDisplayLabel(data.teamSelection, data.pickType)}{' '}
                   {data.pickType !== 'over_under' && pickTypeLabels[data.pickType]}
                 </Badge>
-                <TailingAvatarList users={data.users} size="sm" />
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <TailingAvatarList users={data.users} size="sm" />
+                </div>
               </div>
             ))}
           </div>

@@ -989,7 +989,7 @@ export default function TodayInSports() {
   });
 
   return (
-    <div className="container mx-auto">
+    <div className="w-full -mx-4 md:mx-auto md:container">
       <Dither isDark={isDark} />
       
       {/* AI Completion Header - Always visible */}
@@ -997,7 +997,7 @@ export default function TodayInSports() {
 
       {/* Freemium Paywall */}
       {isFreemiumUser ? (
-        <Card className="p-8 text-center border-white/20" style={{
+        <Card className="mx-4 mb-6 md:mx-0 p-8 text-center border-white/20" style={{
           background: 'rgba(0, 0, 0, 0.3)',
           backdropFilter: 'blur(40px)',
           WebkitBackdropFilter: 'blur(40px)',
@@ -1012,12 +1012,12 @@ export default function TodayInSports() {
       ) : (
         <>
           {/* Today's Games Section */}
-          <Card className="mb-6 border-white/20" style={{
+          <Card className="mx-0 mb-6 border-white/20 rounded-none md:rounded-lg md:mx-0" style={{
             background: 'rgba(0, 0, 0, 0.3)',
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
           }}>
-            <CardHeader>
+            <CardHeader className="px-4 md:px-6">
               <CardTitle className="flex items-center gap-2 text-white">
                 <Target className="h-5 w-5" />
                 Today's Games
@@ -1026,7 +1026,7 @@ export default function TodayInSports() {
                 Games happening today across NFL and College Football
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 md:px-6">
               {weekGamesLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[...Array(6)].map((_, i) => (
@@ -1046,12 +1046,12 @@ export default function TodayInSports() {
           </Card>
 
           {/* Value Summary Section */}
-          <Card className="mb-6 border-white/20" style={{
+          <Card className="mx-0 mb-6 border-white/20 rounded-none md:rounded-lg md:mx-0" style={{
             background: 'rgba(0, 0, 0, 0.3)',
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
           }}>
-            <CardHeader>
+            <CardHeader className="px-4 md:px-6">
               <CardTitle className="flex items-center gap-2 text-white">
                 <TrendingUp className="h-5 w-5" />
                 Value Summary
@@ -1060,7 +1060,7 @@ export default function TodayInSports() {
                 Polymarket alerts and high-confidence model predictions
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="px-4 md:px-6 space-y-6">
               {/* Polymarket Value Alerts */}
               <div>
                 <h3 className="text-lg font-semibold text-white mb-3">Polymarket Value Alerts</h3>
@@ -1081,15 +1081,15 @@ export default function TodayInSports() {
                         className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 hover:border-green-500/40 transition-all"
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-white mb-1">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white mb-1 break-words">
                               {alert.awayTeam} @ {alert.homeTeam}
                             </p>
                             <p className="text-xs text-gray-400">
                               {alert.sport.toUpperCase()}
                             </p>
                           </div>
-                          <Badge className="bg-green-500 text-white shrink-0">
+                          <Badge className="bg-green-500 text-white shrink-0 ml-2">
                             {alert.percentage.toFixed(0)}%
                           </Badge>
                         </div>
@@ -1130,15 +1130,15 @@ export default function TodayInSports() {
                         className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40 transition-all"
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-white mb-1">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white mb-1 break-words">
                               {alert.awayTeam} @ {alert.homeTeam}
                             </p>
                             <p className="text-xs text-gray-400">
                               {alert.sport.toUpperCase()}
                             </p>
                           </div>
-                          <Badge className="bg-purple-500 text-white shrink-0">
+                          <Badge className="bg-purple-500 text-white shrink-0 ml-2">
                             {alert.confidence}%
                           </Badge>
                         </div>
@@ -1159,12 +1159,12 @@ export default function TodayInSports() {
           </Card>
 
           {/* High Tailing It Section */}
-          <Card className="mb-6 border-white/20" style={{
+          <Card className="mx-0 mb-6 border-white/20 rounded-none md:rounded-lg md:mx-0" style={{
             background: 'rgba(0, 0, 0, 0.3)',
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
           }}>
-            <CardHeader>
+            <CardHeader className="px-4 md:px-6">
               <CardTitle className="flex items-center gap-2 text-white">
                 <Flame className="h-5 w-5 text-orange-500" />
                 High Tailing It
@@ -1173,7 +1173,7 @@ export default function TodayInSports() {
                 Top 5 most tailed games this week
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 md:px-6">
               {allTailedLoading ? (
                 <div className="space-y-4">
                   {[...Array(5)].map((_, i) => (
@@ -1188,12 +1188,12 @@ export default function TodayInSports() {
                       className="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20"
                     >
                       <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-orange-500 text-white">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className="bg-orange-500 text-white shrink-0">
                               {game.tailCount || 0} tails
                             </Badge>
-                            <p className="text-sm font-semibold text-white">
+                            <p className="text-sm font-semibold text-white break-words">
                               {game.awayTeam} @ {game.homeTeam}
                             </p>
                           </div>
@@ -1224,11 +1224,13 @@ export default function TodayInSports() {
                           const sideLabel = getDisplayLabel(tail.teamSelection as 'home' | 'away', tail.pickType);
                           
                           return (
-                            <div key={tidx} className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <div key={tidx} className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                               <Badge variant="outline" className="text-[10px] shrink-0">
                                 {sideLabel} {tail.pickType !== 'over_under' && pickTypeLabel}
                               </Badge>
-                              <TailingAvatarList users={tail.users} size="sm" maxVisible={999} />
+                              <div className="flex-1 min-w-0 overflow-hidden">
+                                <TailingAvatarList users={tail.users} size="sm" maxVisible={999} />
+                              </div>
                             </div>
                           );
                         })}
