@@ -105,7 +105,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [packages, setPackages] = useState<PackageInfo[]>([]);
-  const { currentOffering, purchase, loading: rcLoading } = useRevenueCatWeb();
+  const { currentOffering, purchase, loading: rcLoading, offeringsLoading, refreshOfferings } = useRevenueCatWeb();
   const { isSaleActive, discountPercentage } = useSaleMode();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -113,10 +113,16 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
 
   // Map RevenueCat packages to UI
   useEffect(() => {
+    // Wait for offerings to finish loading before showing fallback
+    if (offeringsLoading) {
+      debug.log('⏳ Offerings still loading, waiting...');
+      return;
+    }
+
     if (!currentOffering) {
-      debug.error('❌ NO CURRENT OFFERING - Using fallback packages (RevenueCat not configured)');
+      debug.error('❌ NO CURRENT OFFERING - Using fallback packages (RevenueCat not configured or failed to load)');
       debug.log('Sale mode active:', isSaleActive);
-      // Fallback packages when RevenueCat is not available
+      // Fallback packages when RevenueCat is not available (only after loading is complete)
       setPackages([
         {
           id: 'monthly',
@@ -349,7 +355,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
         },
       ]);
     }
-  }, [currentOffering, isSaleActive]);
+  }, [currentOffering, isSaleActive, offeringsLoading]);
 
   const competitorCard = {
     id: 'competitors',
@@ -538,13 +544,25 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
         Choose Your Plan
       </motion.h1>
 
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6 lg:gap-8 w-full mb-10 sm:mb-12 md:mb-16"
-        initial="hidden"
-        animate="visible"
-        variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-      >
-        {packages.map(({ id, name, price, frequency, description, features, regularPrice, discountPercentage: pkgDiscountPercentage }) => (
+      {offeringsLoading ? (
+        <div className="flex flex-col items-center justify-center py-12 mb-10 sm:mb-12 md:mb-16">
+          <Loader2 className="h-8 w-8 animate-spin text-white mb-4" />
+          <p className="text-white/80 text-sm sm:text-base mb-2">Loading subscription plans...</p>
+          <button
+            onClick={() => refreshOfferings()}
+            className="mt-2 text-sm text-white/60 hover:text-white underline transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      ) : (
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6 lg:gap-8 w-full mb-10 sm:mb-12 md:mb-16"
+          initial="hidden"
+          animate="visible"
+          variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+        >
+          {packages.map(({ id, name, price, frequency, description, features, regularPrice, discountPercentage: pkgDiscountPercentage }) => (
           <motion.div
             key={id}
             variants={{
@@ -635,6 +653,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
           </Card>
         </motion.div>
       </motion.div>
+      )}
 
       {/* Testimonials Section */}
       <motion.div
@@ -684,7 +703,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
           <Button
             onClick={handleJoinWagerProof}
             size="lg"
-            disabled={!selectedPlan || purchasing || rcLoading}
+            disabled={!selectedPlan || purchasing || rcLoading || offeringsLoading}
             className="bg-green-500 hover:bg-green-600 text-white border-0 px-8 py-6 text-lg disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed"
           >
             {purchasing ? (
@@ -692,7 +711,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
               </>
-            ) : rcLoading ? (
+            ) : (rcLoading || offeringsLoading) ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Loading...

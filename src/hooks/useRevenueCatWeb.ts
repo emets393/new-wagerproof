@@ -13,6 +13,7 @@ export function useRevenueCatWeb() {
     offerings,
     hasProAccess,
     loading,
+    offeringsLoading,
     error,
     refreshCustomerInfo,
     refreshOfferings,
@@ -61,6 +62,7 @@ export function useRevenueCatWeb() {
     
     // State
     loading,
+    offeringsLoading,
     error,
     
     // Actions

@@ -22,6 +22,7 @@ interface RevenueCatContextType {
   offerings: Offerings | null;
   hasProAccess: boolean;
   loading: boolean;
+  offeringsLoading: boolean;
   error: string | null;
   refreshCustomerInfo: () => Promise<void>;
   refreshOfferings: () => Promise<void>;
@@ -37,6 +38,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   const [offerings, setOfferings] = useState<Offerings | null>(null);
   const [hasProAccess, setHasProAccess] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [offeringsLoading, setOfferingsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize RevenueCat when user logs in
@@ -109,19 +111,22 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
   // Fetch offerings on mount (after initialization)
   useEffect(() => {
-    const fetchOfferings = async () => {
+    const fetchOfferings = async (retryCount = 0) => {
       if (!user) {
         debug.log('No user, skipping offerings fetch');
+        setOfferingsLoading(false);
         return;
       }
       
       if (!isRevenueCatConfigured()) {
         debug.log('RevenueCat not configured, skipping offerings fetch');
+        setOfferingsLoading(false);
         return;
       }
 
       try {
-        debug.log('🔄 Fetching offerings from RevenueCat...');
+        setOfferingsLoading(true);
+        debug.log(`🔄 Fetching offerings from RevenueCat... (attempt ${retryCount + 1})`);
         const offers = await getOfferings();
         debug.log('📦 Offerings fetched:', {
           current: offers.current?.identifier,
@@ -129,9 +134,21 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           allOfferingIds: Object.keys(offers.all),
         });
         setOfferings(offers);
+        setOfferingsLoading(false);
       } catch (err: any) {
         debug.error('❌ Error fetching offerings:', err);
-        // Don't set error state for offerings - they're not critical
+        // Retry up to 3 times with exponential backoff
+        if (retryCount < 3) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          debug.log(`Retrying offerings fetch in ${delay}ms...`);
+          setTimeout(() => {
+            fetchOfferings(retryCount + 1);
+          }, delay);
+        } else {
+          debug.error('Failed to fetch offerings after 3 retries');
+          setOfferingsLoading(false);
+          // Don't set error state for offerings - they're not critical
+        }
       }
     };
 
@@ -168,11 +185,14 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     if (!user || !isRevenueCatConfigured()) return;
 
     try {
+      setOfferingsLoading(true);
       const offers = await getOfferings();
       setOfferings(offers);
+      setOfferingsLoading(false);
     } catch (err: any) {
       debug.error('Error refreshing offerings:', err);
       setError(err.message || 'Failed to refresh offerings');
+      setOfferingsLoading(false);
     }
   }, [user]);
 
@@ -224,6 +244,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     offerings,
     hasProAccess,
     loading,
+    offeringsLoading,
     error,
     refreshCustomerInfo,
     refreshOfferings,
