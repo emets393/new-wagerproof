@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface CompletionRequest {
   game_id: string;
-  sport_type: 'nfl' | 'cfb';
+  sport_type: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   widget_type: string;
   game_data_payload: any;
   custom_system_prompt?: string; // Optional override for testing

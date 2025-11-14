@@ -10,6 +10,8 @@ import Landing from "./pages/NewLanding";
 import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./pages";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
+import NBA from "./pages/NBA";
+import NCAAB from "./pages/NCAAB";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import WagerBotChat from "./pages/WagerBotChat";
@@ -158,6 +160,8 @@ function AppRoutes() {
           <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
           <Route path="/college-football" element={<ProtectedRoute allowFreemium={true}><CollegeFootball /></ProtectedRoute>} />
           <Route path="/nfl" element={<ProtectedRoute allowFreemium={true}><NFL /></ProtectedRoute>} />
+          <Route path="/nba" element={<ProtectedRoute allowFreemium={true}><NBA /></ProtectedRoute>} />
+          <Route path="/ncaab" element={<ProtectedRoute allowFreemium={true}><NCAAB /></ProtectedRoute>} />
           <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
           <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
           <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />

@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { Brain, Target, BarChart, Info, Sparkles, ChevronUp, ChevronDown, TrendingUp, Users, CloudRain, History, Trophy, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
-import { getCFBTeamColors, getNFLTeamColors } from '@/utils/teamColors';
+import { getCFBTeamColors, getNFLTeamColors, getNCAABTeamColors, getNBATeamColors } from '@/utils/teamColors';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +24,7 @@ interface GameDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   prediction: any;
-  league: 'cfb' | 'nfl';
+  league: 'cfb' | 'nfl' | 'ncaab' | 'nba';
   aiCompletions: Record<string, Record<string, string>>;
   simLoadingById: Record<string, boolean>;
   simRevealedById: Record<string, boolean>;
@@ -33,7 +33,7 @@ interface GameDetailsModalProps {
   focusedCardId: string | null;
   getTeamInitials: (teamName: string) => string;
   getContrastingTextColor: (bgColor1: string, bgColor2: string) => string;
-  // NFL-specific props
+  // NFL/NBA-specific props
   getFullTeamName?: (teamCity: string) => { city: string; name: string };
   formatSpread?: (spread: number | null) => string;
   parseBettingSplit?: (label: string | null) => {
@@ -45,7 +45,7 @@ interface GameDetailsModalProps {
   } | null;
   expandedBettingFacts?: Record<string, boolean>;
   setExpandedBettingFacts?: Dispatch<SetStateAction<Record<string, boolean>>>;
-  // NFL-specific prop for team mappings (needed for line movement logos)
+  // NFL/NBA-specific prop for team mappings (needed for line movement logos)
   teamMappings?: Array<{ city_and_name: string; team_name: string; logo_url: string }>;
 }
 
@@ -209,7 +209,11 @@ export function GameDetailsModal({
     </svg>
   );
 
-  const getTeamColors = league === 'cfb' ? getCFBTeamColors : getNFLTeamColors;
+  const getTeamColors = 
+    league === 'cfb' ? getCFBTeamColors :
+    league === 'ncaab' ? getNCAABTeamColors :
+    league === 'nba' ? getNBATeamColors :
+    getNFLTeamColors;
   const awayTeamColors = getTeamColors(prediction.away_team);
   const homeTeamColors = getTeamColors(prediction.home_team);
   const gameId = prediction.training_key || prediction.unique_id || prediction.id || `${prediction.away_team}_${prediction.home_team}`;
@@ -475,8 +479,8 @@ export function GameDetailsModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* CFB Content */}
-          {league === 'cfb' && (
+          {/* CFB/NCAAB Content */}
+          {(league === 'cfb' || league === 'ncaab') && (
             <>
               {/* Model Predictions Section */}
               {(prediction.pred_spread !== null || prediction.home_spread_diff !== null || prediction.pred_over_line !== null || prediction.over_line_diff !== null) && (
@@ -689,8 +693,8 @@ export function GameDetailsModal({
             </>
           )}
 
-          {/* NFL Content */}
-          {league === 'nfl' && getFullTeamName && formatSpread && parseBettingSplit && (
+          {/* NFL/NBA Content */}
+          {(league === 'nfl' || league === 'nba') && getFullTeamName && formatSpread && parseBettingSplit && (
             <>
               {/* NFL Model Predictions */}
               <div className="text-center">
@@ -1369,8 +1373,8 @@ export function GameDetailsModal({
             </>
           )}
 
-          {/* Weather Section for CFB - Full Weather Details */}
-          {league === 'cfb' && (
+          {/* Weather Section for CFB/NCAAB - Full Weather Details */}
+          {(league === 'cfb' || league === 'ncaab') && (
             <div className="text-center">
               <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-3">
                 <div className="flex items-center justify-center gap-2">
@@ -1446,8 +1450,8 @@ export function GameDetailsModal({
             </div>
           )}
 
-          {/* CFB Content - Polymarket Widget */}
-          {league === 'cfb' && (
+          {/* CFB/NCAAB Content - Polymarket Widget */}
+          {(league === 'cfb' || league === 'ncaab') && (
             <div className="text-center">
               <PolymarketWidget
                 awayTeam={prediction.away_team}
@@ -1461,8 +1465,8 @@ export function GameDetailsModal({
             </div>
           )}
 
-          {/* Match Simulator Section - CFB Only */}
-          {league === 'cfb' && (
+          {/* Match Simulator Section - CFB/NCAAB */}
+          {(league === 'cfb' || league === 'ncaab') && (
           <div className="text-center">
             <div className="bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/20 space-y-4">
               <div className="flex items-center justify-center gap-2">

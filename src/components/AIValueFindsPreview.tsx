@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { toggleValueFindPublished, deleteValueFind, getPageLevelSchedule, updatePageLevelSchedule } from '@/services/aiCompletionService';
 import { supabase } from '@/integrations/supabase/client';
 import debug from '@/utils/debug';
+import { SportType } from '@/types/sports';
 
 interface AIValueFindsPreviewProps {
   valueFindData: {
@@ -53,7 +54,7 @@ interface AIValueFindsPreviewProps {
       explanation: string;
     }>;
     published: boolean;
-    sport_type: 'nfl' | 'cfb';
+    sport_type: SportType;
     generated_at: string;
   };
   mockGamesData?: Map<string, any>;

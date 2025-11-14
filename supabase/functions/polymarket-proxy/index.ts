@@ -6,13 +6,16 @@ const corsHeaders = {
 };
 
 interface PolymarketRequest {
-  action: 'search' | 'price-history' | 'sports' | 'events';
+  action: 'search' | 'price-history' | 'sports' | 'events' | 'teams';
   query?: string;
   tokenId?: string;
   interval?: string;
   fidelity?: number;
   sport?: string;
   tagId?: string;
+  league?: string;
+  limit?: number;
+  offset?: number;
 }
 
 serve(async (req) => {
@@ -22,7 +25,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, query, tokenId, interval, fidelity, sport, tagId }: PolymarketRequest = await req.json();
+    const { action, query, tokenId, interval, fidelity, sport, tagId, league, limit, offset }: PolymarketRequest = await req.json();
 
     console.log('Polymarket proxy request:', { action, query, tokenId, interval, sport, tagId });
 
@@ -224,8 +227,51 @@ serve(async (req) => {
       );
     }
 
+    // Get teams for a specific league
+    if (action === 'teams') {
+      if (!league) {
+        return new Response(
+          JSON.stringify({ error: 'league parameter required for teams' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const params = new URLSearchParams({
+        league: league,
+        limit: String(limit || 100),
+        offset: String(offset || 0),
+      });
+
+      const url = `https://gamma-api.polymarket.com/teams?${params.toString()}`;
+      console.log('Fetching teams:', url);
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'WagerProof-PolymarketIntegration/1.0'
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Teams API error:', response.status, response.statusText);
+        return new Response(
+          JSON.stringify({ error: `Teams API returned ${response.status}`, teams: [] }),
+          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const data = await response.json();
+      const teams = Array.isArray(data) ? data : (data.teams || data.data || []);
+      console.log('Teams returned:', teams.length, 'teams');
+
+      return new Response(
+        JSON.stringify({ teams }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Invalid action. Use "search", "price-history", "sports", or "events"' }),
+      JSON.stringify({ error: 'Invalid action. Use "search", "price-history", "sports", "events", or "teams"' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

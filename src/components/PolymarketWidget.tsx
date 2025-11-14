@@ -45,7 +45,7 @@ interface PolymarketWidgetProps {
   gameDate?: string;
   awayTeamColors?: { primary: string; secondary: string };
   homeTeamColors?: { primary: string; secondary: string };
-  league?: 'nfl' | 'cfb';
+  league?: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   compact?: boolean;
 }
 

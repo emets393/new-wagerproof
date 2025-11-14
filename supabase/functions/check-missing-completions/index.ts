@@ -192,6 +192,156 @@ serve(async (req) => {
       }
     }
 
+    // Process NBA games
+    if (configs?.some(c => c.sport_type === 'nba')) {
+      console.log('Fetching NBA games...');
+      
+      const { data: nbaGames } = await cfbClient
+        .from('nba_input_values_view')
+        .select('*')
+        .gte('game_date', todayStr)
+        .lte('game_date', futureStr);
+
+      console.log(`Found ${nbaGames?.length || 0} NBA games`);
+
+      for (const game of nbaGames || []) {
+        const gameId = String(game.game_id);
+        
+        for (const config of configs.filter(c => c.sport_type === 'nba')) {
+          const { data: existing } = await supabaseClient
+            .from('ai_completions')
+            .select('id')
+            .eq('game_id', gameId)
+            .eq('sport_type', 'nba')
+            .eq('widget_type', config.widget_type)
+            .maybeSingle();
+
+          if (!existing) {
+            console.log(`Missing: NBA ${gameId} - ${config.widget_type}`);
+            
+            const payload = buildNBAPayload(game, config.widget_type);
+
+            try {
+              const response = await fetch(`${supabaseUrl}/functions/v1/generate-ai-completion`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  game_id: gameId,
+                  sport_type: 'nba',
+                  widget_type: config.widget_type,
+                  game_data_payload: payload,
+                }),
+              });
+
+              const result = await response.json();
+              
+              if (result.success) {
+                totalGenerated++;
+                results.push({ gameId, widget: config.widget_type, status: 'generated' });
+              } else {
+                totalErrors++;
+                results.push({ gameId, widget: config.widget_type, status: 'error', error: result.error });
+              }
+            } catch (error) {
+              console.error(`Error generating completion: ${error.message}`);
+              totalErrors++;
+              results.push({ gameId, widget: config.widget_type, status: 'error', error: error.message });
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+    }
+
+    // Process NCAAB games
+    if (configs?.some(c => c.sport_type === 'ncaab')) {
+      console.log('Fetching NCAAB games...');
+      
+      // Get latest run_id for predictions
+      const { data: latestRun } = await cfbClient
+        .from('ncaab_predictions')
+        .select('run_id')
+        .order('as_of_ts_utc', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const { data: ncaabGames } = await cfbClient
+        .from('v_cbb_input_values')
+        .select('*')
+        .gte('game_date_et', todayStr)
+        .lte('game_date_et', futureStr);
+
+      console.log(`Found ${ncaabGames?.length || 0} NCAAB games`);
+
+      for (const game of ncaabGames || []) {
+        const gameId = String(game.game_id);
+        
+        // Try to fetch prediction if available
+        let prediction = null;
+        if (latestRun) {
+          const { data: pred } = await cfbClient
+            .from('ncaab_predictions')
+            .select('*')
+            .eq('game_id', game.game_id)
+            .eq('run_id', latestRun.run_id)
+            .maybeSingle();
+          prediction = pred;
+        }
+        
+        for (const config of configs.filter(c => c.sport_type === 'ncaab')) {
+          const { data: existing } = await supabaseClient
+            .from('ai_completions')
+            .select('id')
+            .eq('game_id', gameId)
+            .eq('sport_type', 'ncaab')
+            .eq('widget_type', config.widget_type)
+            .maybeSingle();
+
+          if (!existing) {
+            console.log(`Missing: NCAAB ${gameId} - ${config.widget_type}`);
+            
+            const payload = buildNCAABPayload(game, prediction, config.widget_type);
+
+            try {
+              const response = await fetch(`${supabaseUrl}/functions/v1/generate-ai-completion`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  game_id: gameId,
+                  sport_type: 'ncaab',
+                  widget_type: config.widget_type,
+                  game_data_payload: payload,
+                }),
+              });
+
+              const result = await response.json();
+              
+              if (result.success) {
+                totalGenerated++;
+                results.push({ gameId, widget: config.widget_type, status: 'generated' });
+              } else {
+                totalErrors++;
+                results.push({ gameId, widget: config.widget_type, status: 'error', error: result.error });
+              }
+            } catch (error) {
+              console.error(`Error generating completion: ${error.message}`);
+              totalErrors++;
+              results.push({ gameId, widget: config.widget_type, status: 'error', error: error.message });
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+    }
+
     console.log(`Completion check finished. Generated: ${totalGenerated}, Errors: ${totalErrors}`);
 
     return new Response(
@@ -314,6 +464,126 @@ function buildCFBPayload(game: any, widgetType: string): any {
         ou_prob: game.pred_total_proba || game.ou_result_prob,
         ou_line: game.api_over_line || game.total_line,
         predicted_result: (game.pred_total_proba || game.ou_result_prob || 0) > 0.5 ? 'over' : 'under',
+      },
+    };
+  }
+
+  return basePayload;
+}
+
+// Helper function to build NBA payload
+function buildNBAPayload(game: any, widgetType: string): any {
+  // Calculate away moneyline from home moneyline
+  const homeML = game.home_moneyline;
+  let awayML = null;
+  if (homeML) {
+    awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
+  }
+
+  const basePayload = {
+    game: {
+      away_team: game.away_team,
+      home_team: game.home_team,
+      game_date: game.game_date,
+      game_time: game.tipoff_time_et,
+    },
+    vegas_lines: {
+      home_spread: game.home_spread,
+      away_spread: game.home_spread ? -game.home_spread : null,
+      home_ml: homeML,
+      away_ml: awayML,
+      over_line: game.total_line,
+    },
+    team_stats: {
+      home_pace: game.home_adj_pace,
+      away_pace: game.away_adj_pace,
+      home_offense: game.home_adj_offense,
+      away_offense: game.away_adj_offense,
+      home_defense: game.home_adj_defense,
+      away_defense: game.away_adj_defense,
+    },
+    trends: {
+      home_ats_pct: game.home_ats_pct,
+      away_ats_pct: game.away_ats_pct,
+      home_over_pct: game.home_over_pct,
+      away_over_pct: game.away_over_pct,
+    },
+  };
+
+  if (widgetType === 'spread_prediction') {
+    return {
+      ...basePayload,
+      predictions: {
+        spread_line: game.home_spread,
+        note: 'Predictions based on team stats and trends',
+      },
+    };
+  } else if (widgetType === 'ou_prediction') {
+    return {
+      ...basePayload,
+      predictions: {
+        ou_line: game.total_line,
+        note: 'Predictions based on pace and scoring trends',
+      },
+    };
+  }
+
+  return basePayload;
+}
+
+// Helper function to build NCAAB payload
+function buildNCAABPayload(game: any, prediction: any, widgetType: string): any {
+  const basePayload = {
+    game: {
+      away_team: game.away_team,
+      home_team: game.home_team,
+      game_date: game.game_date_et,
+      game_time: game.start_utc || game.tipoff_time_et,
+      conference_game: game.conference_game,
+      neutral_site: game.neutral_site,
+    },
+    vegas_lines: {
+      home_spread: prediction?.vegas_home_spread || game.spread,
+      away_spread: prediction?.vegas_home_spread ? -prediction.vegas_home_spread : (game.spread ? -game.spread : null),
+      home_ml: prediction?.vegas_home_moneyline || game.homeMoneyline,
+      away_ml: prediction?.vegas_away_moneyline || game.awayMoneyline,
+      over_line: prediction?.vegas_total || game.over_under,
+    },
+    team_stats: {
+      home_pace: game.home_adj_pace,
+      away_pace: game.away_adj_pace,
+      home_offense: game.home_adj_offense,
+      away_offense: game.away_adj_offense,
+      home_defense: game.home_adj_defense,
+      away_defense: game.away_adj_defense,
+      home_ranking: game.home_ranking,
+      away_ranking: game.away_ranking,
+    },
+  };
+
+  if (widgetType === 'spread_prediction' && prediction) {
+    return {
+      ...basePayload,
+      predictions: {
+        spread_cover_prob: prediction.home_win_prob,
+        spread_line: prediction.vegas_home_spread,
+        predicted_team: prediction.home_win_prob > 0.5 ? 'home' : 'away',
+        pred_home_margin: prediction.pred_home_margin,
+      },
+    };
+  } else if (widgetType === 'ou_prediction' && prediction) {
+    // Calculate over/under probability based on predicted total vs line
+    const predTotal = prediction.pred_total_points;
+    const vegasTotal = prediction.vegas_total;
+    const overProb = predTotal && vegasTotal ? (predTotal > vegasTotal ? 0.6 : 0.4) : 0.5;
+    
+    return {
+      ...basePayload,
+      predictions: {
+        ou_prob: overProb,
+        ou_line: vegasTotal,
+        predicted_result: predTotal > vegasTotal ? 'over' : 'under',
+        pred_total_points: predTotal,
       },
     };
   }

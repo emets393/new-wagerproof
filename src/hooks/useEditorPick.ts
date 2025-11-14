@@ -5,7 +5,7 @@ import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import debug from '@/utils/debug';
 
-export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb') {
+export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb' | 'nba' | 'ncaab') {
   const { adminModeEnabled } = useAdminMode();
   const { user } = useAuth();
   const { toast } = useToast();

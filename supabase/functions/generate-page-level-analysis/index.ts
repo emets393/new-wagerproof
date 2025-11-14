@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface PageLevelRequest {
-  sport_type: 'nfl' | 'cfb';
+  sport_type: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   analysis_date?: string; // YYYY-MM-DD, defaults to today
   user_id?: string; // Admin who triggered it
 }
@@ -73,6 +73,22 @@ serve(async (req) => {
         .select('*');
 
       games = cfbGames || [];
+    } else if (sport_type === 'nba') {
+      const { data: nbaGames } = await cfbClient
+        .from('nba_input_values_view')
+        .select('*')
+        .gte('game_date', targetDate)
+        .lte('game_date', targetDate);
+
+      games = nbaGames || [];
+    } else if (sport_type === 'ncaab') {
+      const { data: ncaabGames } = await cfbClient
+        .from('v_cbb_input_values')
+        .select('*')
+        .gte('game_date_et', targetDate)
+        .lte('game_date_et', targetDate);
+
+      games = ncaabGames || [];
     }
 
     console.log(`Found ${games.length} games for ${sport_type} on ${targetDate}`);
@@ -88,7 +104,12 @@ serve(async (req) => {
     }
 
     // Fetch completions for all games
-    const gameIds = games.map(g => g.training_key || g.unique_id || `${g.away_team}_${g.home_team}`);
+    const gameIds = games.map(g => {
+      if (sport_type === 'nba' || sport_type === 'ncaab') {
+        return String(g.game_id);
+      }
+      return g.training_key || g.unique_id || `${g.away_team}_${g.home_team}`;
+    });
     
     const { data: completions } = await supabaseClient
       .from('ai_completions')
@@ -139,17 +160,28 @@ serve(async (req) => {
 
     // Build comprehensive payload
     const gamesWithCompletions = games.map(game => {
-      const gameId = game.training_key || game.unique_id || `${game.away_team}_${game.home_team}`;
+      const gameId = sport_type === 'nba' || sport_type === 'ncaab' 
+        ? String(game.game_id)
+        : (game.training_key || game.unique_id || `${game.away_team}_${game.home_team}`);
       const gameCompletions = completions?.filter(c => c.game_id === gameId) || [];
       const gameKey = `${sport_type}_${game.away_team}_${game.home_team}`;
       const polymarketData = polymarketCache.get(gameKey);
 
+      let gameData;
+      if (sport_type === 'nfl') {
+        gameData = buildNFLGameData(game, polymarketData);
+      } else if (sport_type === 'cfb') {
+        gameData = buildCFBGameData(game, polymarketData);
+      } else if (sport_type === 'nba') {
+        gameData = buildNBAGameData(game, polymarketData);
+      } else {
+        gameData = buildNCAABGameData(game, polymarketData);
+      }
+
       return {
         game_id: gameId,
         matchup: `${game.away_team} @ ${game.home_team}`,
-        game_data: sport_type === 'nfl' 
-          ? buildNFLGameData(game, polymarketData) 
-          : buildCFBGameData(game, polymarketData),
+        game_data: gameData,
         completions: gameCompletions.reduce((acc, comp) => {
           acc[comp.widget_type] = comp.completion_text;
           return acc;
@@ -388,6 +420,83 @@ function buildCFBGameData(game: any, polymarketData?: any): any {
   };
 }
 
+function buildNBAGameData(game: any, polymarketData?: any): any {
+  // Calculate away moneyline from home moneyline
+  const homeML = game.home_moneyline;
+  let awayML = null;
+  if (homeML) {
+    awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
+  }
+
+  return {
+    game: {
+      away_team: game.away_team,
+      home_team: game.home_team,
+      game_date: game.game_date,
+      game_time: game.tipoff_time_et,
+    },
+    vegas_lines: {
+      home_spread: game.home_spread,
+      away_spread: game.home_spread ? -game.home_spread : null,
+      home_ml: homeML,
+      away_ml: awayML,
+      over_line: game.total_line,
+    },
+    team_stats: {
+      home_pace: game.home_adj_pace,
+      away_pace: game.away_adj_pace,
+      home_offense: game.home_adj_offense,
+      away_offense: game.away_adj_offense,
+      home_defense: game.home_adj_defense,
+      away_defense: game.away_adj_defense,
+    },
+    trends: {
+      home_ats_pct: game.home_ats_pct,
+      away_ats_pct: game.away_ats_pct,
+      home_over_pct: game.home_over_pct,
+      away_over_pct: game.away_over_pct,
+    },
+    polymarket: polymarketData || null,
+    predictions: {
+      note: 'Analysis based on team stats and trends',
+    },
+  };
+}
+
+function buildNCAABGameData(game: any, polymarketData?: any): any {
+  return {
+    game: {
+      away_team: game.away_team,
+      home_team: game.home_team,
+      game_date: game.game_date_et,
+      game_time: game.start_utc || game.tipoff_time_et,
+      conference_game: game.conference_game,
+      neutral_site: game.neutral_site,
+    },
+    vegas_lines: {
+      home_spread: game.spread,
+      away_spread: game.spread ? -game.spread : null,
+      home_ml: game.homeMoneyline,
+      away_ml: game.awayMoneyline,
+      over_line: game.over_under,
+    },
+    team_stats: {
+      home_pace: game.home_adj_pace,
+      away_pace: game.away_adj_pace,
+      home_offense: game.home_adj_offense,
+      away_offense: game.away_adj_offense,
+      home_defense: game.home_adj_defense,
+      away_defense: game.away_adj_defense,
+      home_ranking: game.home_ranking,
+      away_ranking: game.away_ranking,
+    },
+    polymarket: polymarketData || null,
+    predictions: {
+      note: 'Analysis based on team stats and trends',
+    },
+  };
+}
+
 async function postToDiscord(
   webhookUrl: string,
   sportType: string,
@@ -395,9 +504,30 @@ async function postToDiscord(
   summary: string,
   date: string
 ): Promise<void> {
-  const sportEmoji = sportType === 'nfl' ? '🏈' : '🏈';
-  const sportLabel = sportType === 'nfl' ? 'NFL' : 'College Football';
-  const color = sportType === 'nfl' ? 0x0055A4 : 0xFF6B00; // NFL blue or CFB orange
+  const sportEmojis: Record<string, string> = {
+    nfl: '🏈',
+    cfb: '🏈',
+    nba: '🏀',
+    ncaab: '🏀',
+  };
+  
+  const sportLabels: Record<string, string> = {
+    nfl: 'NFL',
+    cfb: 'College Football',
+    nba: 'NBA',
+    ncaab: 'College Basketball',
+  };
+  
+  const sportColors: Record<string, number> = {
+    nfl: 0x0055A4,  // NFL blue
+    cfb: 0xFF6B00,  // CFB orange
+    nba: 0xFF6600,  // NBA orange
+    ncaab: 0x003366, // NCAAB navy
+  };
+  
+  const sportEmoji = sportEmojis[sportType] || '🏈';
+  const sportLabel = sportLabels[sportType] || sportType.toUpperCase();
+  const color = sportColors[sportType] || 0x0055A4;
 
   // Create embed fields for each value pick
   const fields = valuePicks.slice(0, 5).map((pick, index) => ({

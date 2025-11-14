@@ -49,6 +49,16 @@ interface PolymarketEventMarket {
   clobTokenIds?: string[];
 }
 
+interface PolymarketTeam {
+  id: number;
+  name: string;
+  abbreviation: string;
+  league: string;
+  logo?: string;
+  color?: string;
+  record?: string;
+}
+
 // Map city names to team mascots for better Polymarket matching
 const NFL_TEAM_MASCOTS: Record<string, string> = {
   'Arizona': 'Cardinals',
@@ -128,7 +138,402 @@ const CFB_TEAM_MAPPINGS: Record<string, string> = {
   'Louisville': 'Louisville',
 };
 
-// Get team mascot from city/school name
+// CBB teams - map common variations to Polymarket names
+// Uses same simple approach as CFB
+const CBB_TEAM_MAPPINGS: Record<string, string> = {
+  'Duke': 'Duke',
+  'North Carolina': 'North Carolina',
+  'Kansas': 'Kansas',
+  'Kentucky': 'Kentucky',
+  'UCLA': 'UCLA',
+  'Gonzaga': 'Gonzaga',
+  'Villanova': 'Villanova',
+  'Michigan': 'Michigan',
+  'Michigan State': 'Michigan State',
+  'Ohio State': 'Ohio State',
+  'Arizona': 'Arizona',
+  'Louisville': 'Louisville',
+  'Syracuse': 'Syracuse',
+  'Florida': 'Florida',
+  'Virginia': 'Virginia',
+  'Purdue': 'Purdue',
+  'Alabama': 'Alabama',
+  'Pittsburgh': 'Pittsburgh',
+  'West Virginia': 'West Virginia',
+  'Tennessee': 'Tennessee',
+  'Auburn': 'Auburn',
+  'Texas': 'Texas',
+  'Baylor': 'Baylor',
+  'Houston': 'Houston',
+  'UConn': 'UConn',
+  'Connecticut': 'UConn',
+  'Creighton': 'Creighton',
+  'Marquette': 'Marquette',
+  'Xavier': 'Xavier',
+  'Georgetown': 'Georgetown',
+  'Providence': 'Providence',
+  'Butler': 'Butler',
+  'Wisconsin': 'Wisconsin',
+  'Illinois': 'Illinois',
+  'Indiana': 'Indiana',
+  'Iowa': 'Iowa',
+  'Maryland': 'Maryland',
+  'Penn State': 'Penn State',
+  'Rutgers': 'Rutgers',
+  'Northwestern': 'Northwestern',
+  'Minnesota': 'Minnesota',
+  'Nebraska': 'Nebraska',
+  'USC': 'USC',
+  'Oregon': 'Oregon',
+  'Washington': 'Washington',
+  'Stanford': 'Stanford',
+  'Colorado': 'Colorado',
+  'Utah': 'Utah',
+  'Arizona State': 'Arizona State',
+  'Georgia': 'Georgia',
+  'LSU': 'LSU',
+  'Arkansas': 'Arkansas',
+  'Mississippi State': 'Mississippi State',
+  'Ole Miss': 'Ole Miss',
+  'Missouri': 'Missouri',
+  'South Carolina': 'South Carolina',
+  'Texas A&M': 'Texas A&M',
+  'Vanderbilt': 'Vanderbilt',
+  'Florida State': 'Florida State',
+  'Miami': 'Miami',
+  'Clemson': 'Clemson',
+  'Wake Forest': 'Wake Forest',
+  'Boston College': 'Boston College',
+  'NC State': 'NC State',
+  'Georgia Tech': 'Georgia Tech',
+  'Notre Dame': 'Notre Dame',
+  'BYU': 'BYU',
+  'San Diego State': 'San Diego State',
+  'Nevada': 'Nevada',
+  'UNLV': 'UNLV',
+  'New Mexico': 'New Mexico',
+  'Boise State': 'Boise State',
+  'Memphis': 'Memphis',
+  'SMU': 'SMU',
+  'UCF': 'UCF',
+  'Cincinnati': 'Cincinnati',
+  'Temple': 'Temple',
+  'Wichita State': 'Wichita State',
+  'VCU': 'VCU',
+  'Saint Louis': 'Saint Louis',
+  'Dayton': 'Dayton',
+  'Davidson': 'Davidson',
+  'Saint Mary\'s': 'Saint Mary\'s',
+  'St. Mary\'s': 'Saint Mary\'s',
+  'St. John\'s': 'St. John\'s',
+  'Seton Hall': 'Seton Hall',
+  'DePaul': 'DePaul',
+  'St. Joseph\'s': 'St. Joseph\'s',
+  'Oklahoma': 'Oklahoma',
+  'Oklahoma State': 'Oklahoma State',
+  'Kansas State': 'Kansas State',
+  'Texas Tech': 'Texas Tech',
+  'Iowa State': 'Iowa State',
+  'TCU': 'TCU',
+  'San José State': 'San Jose State',
+  'San Jose State': 'San Jose State',
+  'Fresno State': 'Fresno State',
+  'Colorado State': 'Colorado State',
+  'Wyoming': 'Wyoming',
+  'Air Force': 'Air Force',
+  'Central Michigan': 'Central Michigan',
+  'Eastern Michigan': 'Eastern Michigan',
+  'Western Michigan': 'Western Michigan',
+  'Northern Illinois': 'Northern Illinois',
+  'Ball State': 'Ball State',
+  'Toledo': 'Toledo',
+  'Bowling Green': 'Bowling Green',
+  'Kent State': 'Kent State',
+  'Akron': 'Akron',
+  'Ohio': 'Ohio',
+  'Miami (OH)': 'Miami (OH)',
+  'Buffalo': 'Buffalo',
+  'UMass': 'Massachusetts',
+  'Massachusetts': 'Massachusetts',
+  'Rhode Island': 'Rhode Island',
+  'George Washington': 'George Washington',
+  'George Mason': 'George Mason',
+  'Richmond': 'Richmond',
+  'Fordham': 'Fordham',
+  'La Salle': 'La Salle',
+  'Saint Joseph\'s': 'Saint Joseph\'s',
+  'Duquesne': 'Duquesne',
+  'Cornell': 'Cornell',
+  'Columbia': 'Columbia',
+  'Penn': 'Penn',
+  'Pennsylvania': 'Penn',
+  'Princeton': 'Princeton',
+  'Yale': 'Yale',
+  'Harvard': 'Harvard',
+  'Brown': 'Brown',
+  'Dartmouth': 'Dartmouth',
+  'Lafayette': 'Lafayette',
+  'Lehigh': 'Lehigh',
+  'Bucknell': 'Bucknell',
+  'Colgate': 'Colgate',
+  'Holy Cross': 'Holy Cross',
+  'Army': 'Army',
+  'Navy': 'Navy',
+  'Loyola Chicago': 'Loyola Chicago',
+  'Drake': 'Drake',
+  'Bradley': 'Bradley',
+  'Valparaiso': 'Valparaiso',
+  'Northern Iowa': 'Northern Iowa',
+  'Southern Illinois': 'Southern Illinois',
+  'Illinois State': 'Illinois State',
+  'Murray State': 'Murray State',
+  'Belmont': 'Belmont',
+  'Lipscomb': 'Lipscomb',
+  'Jacksonville State': 'Jacksonville State',
+  'Eastern Kentucky': 'Eastern Kentucky',
+  'Morehead State': 'Morehead State',
+  'Tennessee State': 'Tennessee State',
+  'Tennessee Tech': 'Tennessee Tech',
+  'Austin Peay': 'Austin Peay',
+  'SIU Edwardsville': 'SIU Edwardsville',
+  'UT Martin': 'UT Martin',
+  'Southeast Missouri State': 'Southeast Missouri State',
+  'UMass Lowell': 'Massachusetts-Lowell',
+  'Vermont': 'Vermont',
+  'Albany': 'Albany',
+  'Stony Brook': 'Stony Brook',
+  'Hartford': 'Hartford',
+  'Binghamton': 'Binghamton',
+  'UMBC': 'UMBC',
+  'New Hampshire': 'New Hampshire',
+  'Maine': 'Maine',
+  'Monmouth': 'Monmouth',
+  'Rider': 'Rider',
+  'Iona': 'Iona',
+  'Manhattan': 'Manhattan',
+  'Marist': 'Marist',
+  'Fairfield': 'Fairfield',
+  'Quinnipiac': 'Quinnipiac',
+  'Siena': 'Siena',
+  'Canisius': 'Canisius',
+  'Niagara': 'Niagara',
+  'St. Peter\'s': 'St. Peter\'s',
+  'Wagner': 'Wagner',
+  'Long Island University': 'Long Island University',
+  'LIU': 'Long Island University',
+  'Bryant': 'Bryant',
+  'Sacred Heart': 'Sacred Heart',
+  'Central Connecticut State': 'Central Connecticut State',
+  'Fairleigh Dickinson': 'Fairleigh Dickinson',
+  'Mount St. Mary\'s': 'Mount St. Mary\'s',
+  'Robert Morris': 'Robert Morris',
+  'South Alabama': 'South Alabama',
+  'Troy': 'Troy',
+  'Coastal Carolina': 'Coastal Carolina',
+  'Georgia State': 'Georgia State',
+  'Georgia Southern': 'Georgia Southern',
+  'Appalachian State': 'Appalachian State',
+  'Louisiana': 'Louisiana',
+  'UL Monroe': 'UL Monroe',
+  'Louisiana Monroe': 'UL Monroe',
+  'Arkansas State': 'Arkansas State',
+  'Texas State': 'Texas State',
+  'UT Arlington': 'UT Arlington',
+  'Little Rock': 'Little Rock',
+  'South Dakota State': 'South Dakota State',
+  'North Dakota State': 'North Dakota State',
+  'Oral Roberts': 'Oral Roberts',
+  'North Dakota': 'North Dakota',
+  'South Dakota': 'South Dakota',
+  'Denver': 'Denver',
+  'Omaha': 'Omaha',
+  'Western Illinois': 'Western Illinois',
+  'IUPUI': 'IUPUI',
+  'Purdue Fort Wayne': 'Purdue Fort Wayne',
+  'North Florida': 'North Florida',
+  'Jacksonville': 'Jacksonville',
+  'Kennesaw State': 'Kennesaw State',
+  'Liberty': 'Liberty',
+  'NJIT': 'NJIT',
+  'UIC': 'UIC',
+  'Milwaukee': 'Milwaukee',
+  'Wright State': 'Wright State',
+  'Cleveland State': 'Cleveland State',
+  'Youngstown State': 'Youngstown State',
+  'Green Bay': 'Green Bay',
+  'Oakland': 'Oakland',
+  'Detroit Mercy': 'Detroit Mercy',
+  'Northern Kentucky': 'Northern Kentucky',
+  'Alcorn State': 'Alcorn State',
+  'Jackson State': 'Jackson State',
+  'Southern': 'Southern',
+  'Grambling': 'Grambling',
+  'Alabama A&M': 'Alabama A&M',
+  'Alabama State': 'Alabama State',
+  'Prairie View A&M': 'Prairie View A&M',
+  'Texas Southern': 'Texas Southern',
+  'Arkansas-Pine Bluff': 'Arkansas-Pine Bluff',
+  'Mississippi Valley State': 'Mississippi Valley State',
+  'Howard': 'Howard',
+  'Morgan State': 'Morgan State',
+  'Norfolk State': 'Norfolk State',
+  'North Carolina A&T': 'North Carolina A&T',
+  'North Carolina Central': 'North Carolina Central',
+  'South Carolina State': 'South Carolina State',
+  'Delaware State': 'Delaware State',
+  'Coppin State': 'Coppin State',
+  'Maryland Eastern Shore': 'Maryland Eastern Shore',
+  'Florida A&M': 'Florida A&M',
+  'Bethune-Cookman': 'Bethune-Cookman',
+  'Hampton': 'Hampton',
+  'Charleston Southern': 'Charleston Southern',
+  'High Point': 'High Point',
+  'Winthrop': 'Winthrop',
+  'Radford': 'Radford',
+  'Presbyterian': 'Presbyterian',
+  'Gardner-Webb': 'Gardner-Webb',
+  'UNC Asheville': 'UNC Asheville',
+  'UNC Wilmington': 'UNC Wilmington',
+  'UNC Greensboro': 'UNC Greensboro',
+  'East Carolina': 'East Carolina',
+  'William & Mary': 'William & Mary',
+  'Towson': 'Towson',
+  'Elon': 'Elon',
+  'Drexel': 'Drexel',
+  'Hofstra': 'Hofstra',
+  'Delaware': 'Delaware',
+  'James Madison': 'James Madison',
+  'Northeastern': 'Northeastern',
+  'Charleston': 'Charleston',
+  'Samford': 'Samford',
+  'Chattanooga': 'Chattanooga',
+  'Mercer': 'Mercer',
+  'Furman': 'Furman',
+  'Western Carolina': 'Western Carolina',
+  'Wofford': 'Wofford',
+  'ETSU': 'ETSU',
+  'East Tennessee State': 'ETSU',
+  'The Citadel': 'The Citadel',
+  'VMI': 'VMI',
+  'Le Moyne': 'Le Moyne',
+};
+
+// Cache for Polymarket teams (to avoid repeated API calls)
+let polymarketTeamsCache: Map<string, PolymarketTeam[]> = new Map();
+let teamsCacheTimestamp: number = 0;
+const TEAMS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Fetch teams from Polymarket API for a given league
+ */
+async function fetchPolymarketTeams(league: 'cbb' | 'cfb'): Promise<PolymarketTeam[]> {
+  const cacheKey = league;
+  const now = Date.now();
+  
+  // Check cache
+  if (polymarketTeamsCache.has(cacheKey) && (now - teamsCacheTimestamp) < TEAMS_CACHE_DURATION) {
+    debug.log(`✅ Using cached ${league.toUpperCase()} teams`);
+    return polymarketTeamsCache.get(cacheKey) || [];
+  }
+  
+  try {
+    debug.log(`📊 Fetching ${league.toUpperCase()} teams from Polymarket...`);
+    
+    // Fetch all teams with pagination
+    let allTeams: PolymarketTeam[] = [];
+    let offset = 0;
+    const limit = 100;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const url = `https://gamma-api.polymarket.com/teams?league=${league}&limit=${limit}&offset=${offset}`;
+      
+      if (USE_PROXY) {
+        const { data, error } = await supabase.functions.invoke('polymarket-proxy', {
+          body: {
+            action: 'teams',
+            league: league,
+            limit: limit,
+            offset: offset,
+          },
+        });
+        
+        if (error) {
+          debug.error(`❌ Failed to fetch teams:`, error);
+          break;
+        }
+        
+        const teams = data?.teams || [];
+        
+        if (teams.length === 0) {
+          hasMore = false;
+        } else {
+          allTeams = [...allTeams, ...teams];
+          
+          if (teams.length < limit) {
+            hasMore = false;
+          } else {
+            offset += limit;
+          }
+        }
+      } else {
+        const response = await fetch(url);
+        if (!response.ok) break;
+        const teams = await response.json();
+        if (teams.length === 0) {
+          hasMore = false;
+        } else {
+          allTeams = [...allTeams, ...teams];
+          if (teams.length < limit) {
+            hasMore = false;
+          } else {
+            offset += limit;
+          }
+        }
+      }
+    }
+    
+    debug.log(`✅ Fetched ${allTeams.length} ${league.toUpperCase()} teams`);
+    
+    // Cache the results
+    polymarketTeamsCache.set(cacheKey, allTeams);
+    teamsCacheTimestamp = now;
+    
+    return allTeams;
+  } catch (error) {
+    debug.error(`❌ Error fetching ${league.toUpperCase()} teams:`, error);
+    return [];
+  }
+}
+
+/**
+ * Map our database team name to Polymarket team name
+ * Uses fuzzy matching to find the best match
+ */
+export async function mapTeamNameToPolymarket(
+  ourTeamName: string,
+  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
+): Promise<string | null> {
+  // For NFL, use existing mascot mapping
+  if (league === 'nfl') {
+    return getTeamMascot(ourTeamName, league);
+  }
+  
+  // For CFB, use the simple dictionary mapping (it works well for CFB)
+  if (league === 'cfb') {
+    return CFB_TEAM_MAPPINGS[ourTeamName] || ourTeamName;
+  }
+  
+  // For NCAAB/CBB, use the simple dictionary mapping (same approach as CFB)
+  if (league === 'ncaab') {
+    return CBB_TEAM_MAPPINGS[ourTeamName] || ourTeamName;
+  }
+  
+  // Fallback to original team name
+  return ourTeamName;
+}
+
+// Get team mascot from city/school name (legacy function, kept for backward compatibility)
 function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'): string {
   if (league === 'cfb' || league === 'ncaab') {
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
@@ -170,9 +575,10 @@ export async function getSportsMetadata(): Promise<PolymarketSport[]> {
  */
 async function getLeagueTagId(league: 'nfl' | 'cfb' | 'ncaab'): Promise<string | null> {
   const sports = await getSportsMetadata();
-  // Polymarket uses 'nfl' for NFL, 'cfb' for College Football, and 'ncaab' or 'cbb' for College Basketball
-  const sportName = league === 'nfl' ? 'nfl' : league === 'cfb' ? 'cfb' : 'ncaab';
-  const sport = sports.find((s) => s.sport?.toLowerCase() === sportName || (league === 'ncaab' && s.sport?.toLowerCase() === 'cbb'));
+  // Polymarket uses 'nfl' for NFL, 'cfb' for College Football, and 'cbb' for College Basketball
+  // Convert our 'ncaab' to Polymarket's 'cbb'
+  const sportName = league === 'nfl' ? 'nfl' : league === 'cfb' ? 'cfb' : 'cbb';
+  const sport = sports.find((s) => s.sport?.toLowerCase() === sportName);
   
   if (!sport) {
     debug.error(`❌ ${sportName.toUpperCase()} sport not found in Polymarket`);
@@ -356,23 +762,32 @@ function parseTeamsFromTitle(title: string): { awayTeam: string; homeTeam: strin
 /**
  * Find matching event from Polymarket events based on team names
  */
-function findMatchingEvent(
+async function findMatchingEvent(
   events: PolymarketEvent[],
   awayTeam: string,
   homeTeam: string,
   league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
-): PolymarketEvent | null {
+): Promise<PolymarketEvent | null> {
   if (!events || events.length === 0) return null;
 
   // Clean team names for matching
   const cleanTeamName = (name: string) =>
     name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 
-  // Get mascots for matching
-  const awayMascot = getTeamMascot(awayTeam, league);
-  const homeMascot = getTeamMascot(homeTeam, league);
+  // Get Polymarket team names for CFB/NCAAB, use mascots for NFL
+  let awayPolymarketName: string;
+  let homePolymarketName: string;
+  
+  if (league === 'nfl') {
+    awayPolymarketName = getTeamMascot(awayTeam, league);
+    homePolymarketName = getTeamMascot(homeTeam, league);
+  } else {
+    // For CFB/NCAAB, use the new mapping function
+    awayPolymarketName = await mapTeamNameToPolymarket(awayTeam, league) || awayTeam;
+    homePolymarketName = await mapTeamNameToPolymarket(homeTeam, league) || homeTeam;
+  }
 
-  debug.log(`🔍 Looking for event: ${awayTeam} (${awayMascot}) vs ${homeTeam} (${homeMascot})`);
+  debug.log(`🔍 Looking for event: ${awayTeam} (${awayPolymarketName}) vs ${homeTeam} (${homePolymarketName})`);
 
   for (const event of events) {
     const parsedTeams = parseTeamsFromTitle(event.title);
@@ -381,18 +796,28 @@ function findMatchingEvent(
 
     const eventAway = cleanTeamName(parsedTeams.awayTeam);
     const eventHome = cleanTeamName(parsedTeams.homeTeam);
+    const awayClean = cleanTeamName(awayPolymarketName);
+    const homeClean = cleanTeamName(homePolymarketName);
 
     // Check if event matches our game (either direction)
-    const awayMatch = eventAway.includes(cleanTeamName(awayMascot)) || 
-                      eventAway.includes(cleanTeamName(awayTeam));
-    const homeMatch = eventHome.includes(cleanTeamName(homeMascot)) ||
-                      eventHome.includes(cleanTeamName(homeTeam));
+    const awayMatch = eventAway.includes(awayClean) || 
+                      eventAway.includes(cleanTeamName(awayTeam)) ||
+                      awayClean.includes(eventAway.split(' ')[0]) ||
+                      eventAway.includes(awayClean.split(' ')[0]);
+    const homeMatch = eventHome.includes(homeClean) ||
+                      eventHome.includes(cleanTeamName(homeTeam)) ||
+                      homeClean.includes(eventHome.split(' ')[0]) ||
+                      eventHome.includes(homeClean.split(' ')[0]);
 
     // Also check reversed (sometimes Polymarket lists home team first)
-    const awayMatchReversed = eventHome.includes(cleanTeamName(awayMascot)) || 
-                              eventHome.includes(cleanTeamName(awayTeam));
-    const homeMatchReversed = eventAway.includes(cleanTeamName(homeMascot)) ||
-                              eventAway.includes(cleanTeamName(homeTeam));
+    const awayMatchReversed = eventHome.includes(awayClean) || 
+                              eventHome.includes(cleanTeamName(awayTeam)) ||
+                              awayClean.includes(eventHome.split(' ')[0]) ||
+                              eventHome.includes(awayClean.split(' ')[0]);
+    const homeMatchReversed = eventAway.includes(homeClean) ||
+                              eventAway.includes(cleanTeamName(homeTeam)) ||
+                              homeClean.includes(eventAway.split(' ')[0]) ||
+                              eventAway.includes(homeClean.split(' ')[0]);
 
     if ((awayMatch && homeMatch) || (awayMatchReversed && homeMatchReversed)) {
       debug.log('✅ Found matching event:', event.title);
@@ -788,7 +1213,7 @@ export async function getAllMarketsDataLive(
     }
 
     // Step 2: Find the matching event
-    const event = findMatchingEvent(events, awayTeam, homeTeam, league);
+    const event = await findMatchingEvent(events, awayTeam, homeTeam, league);
     
     if (!event) {
       debug.log('❌ No matching event found for this game');
@@ -960,7 +1385,7 @@ export async function getMarketTimeSeriesData(
     debug.log(`📊 Got ${events.length} NFL events, searching for match...`);
 
     // Step 2: Find the matching event for this game
-    const event = findMatchingEvent(events, awayTeam, homeTeam);
+    const event = await findMatchingEvent(events, awayTeam, homeTeam, 'nfl');
     
     if (!event) {
       debug.log('❌ No matching event found for this game');

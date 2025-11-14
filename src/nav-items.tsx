@@ -3,6 +3,8 @@ import { Basketball, DiscordLogo } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
+import NBA from "./pages/NBA";
+import NCAAB from "./pages/NCAAB";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import WagerBotChat from "./pages/WagerBotChat";
@@ -25,6 +27,7 @@ export interface NavItem {
   page?: React.ReactNode;
   requiresAdmin?: boolean;
   comingSoon?: boolean;
+  wip?: boolean;
   subItems?: Array<{
     title: string;
     to: string;
@@ -93,13 +96,15 @@ export const navItems: NavItem[] = [
     title: "NBA",
     to: "/nba",
     icon: <Basketball className="h-4 w-4" />,
-    comingSoon: true,
+    page: <NBA />,
+    wip: true,
   },
   {
     title: "NCAAB",
     to: "/ncaab",
     icon: <School className="h-4 w-4" />,
-    comingSoon: true,
+    page: <NCAAB />,
+    wip: true,
   },
   {
     title: "Community Picks",

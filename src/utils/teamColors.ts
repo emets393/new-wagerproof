@@ -238,6 +238,151 @@ export const getCFBTeamInitials = (teamName: string): string => {
   return initialsMap[teamName] || teamName.substring(0, 3).toUpperCase();
 };
 
+// NBA Team Colors
+export const getNBATeamColors = (teamName: string): { primary: string; secondary: string } => {
+  const colorMap: { [key: string]: { primary: string; secondary: string } } = {
+    'Atlanta Hawks': { primary: '#E03A3E', secondary: '#C1D32F' },
+    'Atlanta': { primary: '#E03A3E', secondary: '#C1D32F' },
+    'Boston Celtics': { primary: '#007A33', secondary: '#BA9653' },
+    'Boston': { primary: '#007A33', secondary: '#BA9653' },
+    'Brooklyn Nets': { primary: '#000000', secondary: '#FFFFFF' },
+    'Brooklyn': { primary: '#000000', secondary: '#FFFFFF' },
+    'Charlotte Hornets': { primary: '#1D1160', secondary: '#00788C' },
+    'Charlotte': { primary: '#1D1160', secondary: '#00788C' },
+    'Chicago Bulls': { primary: '#CE1141', secondary: '#000000' },
+    'Chicago': { primary: '#CE1141', secondary: '#000000' },
+    'Cleveland Cavaliers': { primary: '#860038', secondary: '#FDBB30' },
+    'Cleveland': { primary: '#860038', secondary: '#FDBB30' },
+    'Dallas Mavericks': { primary: '#00538C', secondary: '#002B5E' },
+    'Dallas': { primary: '#00538C', secondary: '#002B5E' },
+    'Denver Nuggets': { primary: '#0E2240', secondary: '#FEC524' },
+    'Denver': { primary: '#0E2240', secondary: '#FEC524' },
+    'Detroit Pistons': { primary: '#C8102E', secondary: '#1D42BA' },
+    'Detroit': { primary: '#C8102E', secondary: '#1D42BA' },
+    'Golden State Warriors': { primary: '#1D428A', secondary: '#FFC72C' },
+    'Golden State': { primary: '#1D428A', secondary: '#FFC72C' },
+    'Houston Rockets': { primary: '#CE1141', secondary: '#000000' },
+    'Houston': { primary: '#CE1141', secondary: '#000000' },
+    'Indiana Pacers': { primary: '#002D62', secondary: '#FDBB30' },
+    'Indiana': { primary: '#002D62', secondary: '#FDBB30' },
+    'LA Clippers': { primary: '#C8102E', secondary: '#1D428A' },
+    'Los Angeles Clippers': { primary: '#C8102E', secondary: '#1D428A' },
+    'LA Lakers': { primary: '#552583', secondary: '#FDB927' },
+    'Los Angeles Lakers': { primary: '#552583', secondary: '#FDB927' },
+    'Memphis Grizzlies': { primary: '#5D76A9', secondary: '#12173F' },
+    'Memphis': { primary: '#5D76A9', secondary: '#12173F' },
+    'Miami Heat': { primary: '#98002E', secondary: '#F9A01B' },
+    'Miami': { primary: '#98002E', secondary: '#F9A01B' },
+    'Milwaukee Bucks': { primary: '#00471B', secondary: '#EEE1C6' },
+    'Milwaukee': { primary: '#00471B', secondary: '#EEE1C6' },
+    'Minnesota Timberwolves': { primary: '#0C2340', secondary: '#236192' },
+    'Minnesota': { primary: '#0C2340', secondary: '#236192' },
+    'New Orleans Pelicans': { primary: '#0C2340', secondary: '#C8102E' },
+    'New Orleans': { primary: '#0C2340', secondary: '#C8102E' },
+    'New York Knicks': { primary: '#006BB6', secondary: '#F58426' },
+    'New York': { primary: '#006BB6', secondary: '#F58426' },
+    'Oklahoma City Thunder': { primary: '#007AC1', secondary: '#EF3B24' },
+    'Oklahoma City': { primary: '#007AC1', secondary: '#EF3B24' },
+    'Orlando Magic': { primary: '#0077C0', secondary: '#C4CED4' },
+    'Orlando': { primary: '#0077C0', secondary: '#C4CED4' },
+    'Philadelphia 76ers': { primary: '#006BB6', secondary: '#ED174C' },
+    'Philadelphia': { primary: '#006BB6', secondary: '#ED174C' },
+    'Phoenix Suns': { primary: '#1D1160', secondary: '#E56020' },
+    'Phoenix': { primary: '#1D1160', secondary: '#E56020' },
+    'Portland Trail Blazers': { primary: '#E03A3E', secondary: '#000000' },
+    'Portland': { primary: '#E03A3E', secondary: '#000000' },
+    'Sacramento Kings': { primary: '#5A2D81', secondary: '#63727A' },
+    'Sacramento': { primary: '#5A2D81', secondary: '#63727A' },
+    'San Antonio Spurs': { primary: '#C4CED4', secondary: '#000000' },
+    'San Antonio': { primary: '#C4CED4', secondary: '#000000' },
+    'Toronto Raptors': { primary: '#CE1141', secondary: '#000000' },
+    'Toronto': { primary: '#CE1141', secondary: '#000000' },
+    'Utah Jazz': { primary: '#002B5C', secondary: '#00471B' },
+    'Utah': { primary: '#002B5C', secondary: '#00471B' },
+    'Washington Wizards': { primary: '#002B5C', secondary: '#E31837' },
+    'Washington': { primary: '#002B5C', secondary: '#E31837' },
+  };
+  return colorMap[teamName] || { primary: '#6B7280', secondary: '#9CA3AF' };
+};
+
+// NCAAB Team Colors (reuse CFB colors for most teams)
+export const getNCAABTeamColors = (teamName: string): { primary: string; secondary: string } => {
+  // Most NCAAB teams use same colors as CFB, so we can reuse
+  return getCFBTeamColors(teamName);
+};
+
+// NBA Team Initials
+export const getNBATeamInitials = (teamName: string): string => {
+  const initialsMap: { [key: string]: string } = {
+    'Atlanta Hawks': 'ATL',
+    'Atlanta': 'ATL',
+    'Boston Celtics': 'BOS',
+    'Boston': 'BOS',
+    'Brooklyn Nets': 'BKN',
+    'Brooklyn': 'BKN',
+    'Charlotte Hornets': 'CHA',
+    'Charlotte': 'CHA',
+    'Chicago Bulls': 'CHI',
+    'Chicago': 'CHI',
+    'Cleveland Cavaliers': 'CLE',
+    'Cleveland': 'CLE',
+    'Dallas Mavericks': 'DAL',
+    'Dallas': 'DAL',
+    'Denver Nuggets': 'DEN',
+    'Denver': 'DEN',
+    'Detroit Pistons': 'DET',
+    'Detroit': 'DET',
+    'Golden State Warriors': 'GSW',
+    'Golden State': 'GSW',
+    'Houston Rockets': 'HOU',
+    'Houston': 'HOU',
+    'Indiana Pacers': 'IND',
+    'Indiana': 'IND',
+    'LA Clippers': 'LAC',
+    'Los Angeles Clippers': 'LAC',
+    'LA Lakers': 'LAL',
+    'Los Angeles Lakers': 'LAL',
+    'Memphis Grizzlies': 'MEM',
+    'Memphis': 'MEM',
+    'Miami Heat': 'MIA',
+    'Miami': 'MIA',
+    'Milwaukee Bucks': 'MIL',
+    'Milwaukee': 'MIL',
+    'Minnesota Timberwolves': 'MIN',
+    'Minnesota': 'MIN',
+    'New Orleans Pelicans': 'NOP',
+    'New Orleans': 'NOP',
+    'New York Knicks': 'NYK',
+    'New York': 'NYK',
+    'Oklahoma City Thunder': 'OKC',
+    'Oklahoma City': 'OKC',
+    'Orlando Magic': 'ORL',
+    'Orlando': 'ORL',
+    'Philadelphia 76ers': 'PHI',
+    'Philadelphia': 'PHI',
+    'Phoenix Suns': 'PHX',
+    'Phoenix': 'PHX',
+    'Portland Trail Blazers': 'POR',
+    'Portland': 'POR',
+    'Sacramento Kings': 'SAC',
+    'Sacramento': 'SAC',
+    'San Antonio Spurs': 'SAS',
+    'San Antonio': 'SAS',
+    'Toronto Raptors': 'TOR',
+    'Toronto': 'TOR',
+    'Utah Jazz': 'UTA',
+    'Utah': 'UTA',
+    'Washington Wizards': 'WAS',
+    'Washington': 'WAS',
+  };
+  return initialsMap[teamName] || teamName.substring(0, 3).toUpperCase();
+};
+
+// NCAAB Team Initials (reuse CFB initials for most teams)
+export const getNCAABTeamInitials = (teamName: string): string => {
+  return getCFBTeamInitials(teamName);
+};
+
 // Utility to get contrasting text color for readability
 export const getContrastingTextColor = (primaryColor: string, secondaryColor: string): string => {
   const hexToLuminance = (hex: string): number => {

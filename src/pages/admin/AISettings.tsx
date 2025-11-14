@@ -58,7 +58,7 @@ export default function AISettings() {
   
   // Payload tester state
   const [payloadTesterOpen, setPayloadTesterOpen] = useState(false);
-  const [testerSportType, setTesterSportType] = useState<'nfl' | 'cfb'>('nfl');
+  const [testerSportType, setTesterSportType] = useState<'nfl' | 'cfb' | 'nba' | 'ncaab'>('nfl');
   const [testerGamesData, setTesterGamesData] = useState<any[]>([]);
   const [testerTestPrompt, setTesterTestPrompt] = useState('');
   const [testerGeneratedResponse, setTesterGeneratedResponse] = useState<string>('');
@@ -1129,7 +1129,7 @@ export default function AISettings() {
               Page-Level Analysis Tester - {testerSportType.toUpperCase()}
             </DialogTitle>
             <DialogDescription>
-              Test and preview how the AI will analyze all games on the {testerSportType === 'nfl' ? 'NFL' : 'College Football'} page to identify value opportunities.
+              Test and preview how the AI will analyze all games on the {testerSportType === 'nfl' ? 'NFL' : testerSportType === 'cfb' ? 'College Football' : testerSportType === 'nba' ? 'NBA' : 'College Basketball'} page to identify value opportunities.
             </DialogDescription>
           </DialogHeader>
 
@@ -1142,7 +1142,7 @@ export default function AISettings() {
               </h3>
               <div className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
                 <p>
-                  <strong>1. Data Collection:</strong> The system gathers comprehensive data for every game from the {testerSportType === 'nfl' ? 'NFL' : 'CFB'} page: 
+                  <strong>1. Data Collection:</strong> The system gathers comprehensive data for every game from the {testerSportType === 'nfl' ? 'NFL' : testerSportType === 'cfb' ? 'CFB' : testerSportType === 'nba' ? 'NBA' : 'NCAAB'} page: 
                   model predictions, Vegas lines, public betting percentages, weather conditions, Polymarket prediction market odds, and any existing widget-level AI analyses.
                 </p>
                 <p>

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 interface StarButtonProps {
   gameId: string;
-  gameType: 'nfl' | 'cfb';
+  gameType: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   className?: string;
 }
 

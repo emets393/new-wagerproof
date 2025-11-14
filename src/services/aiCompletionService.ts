@@ -1,10 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import debug from '@/utils/debug';
+import { SportType } from '@/types/sports';
 
 export interface AICompletionConfig {
   id: string;
   widget_type: string;
-  sport_type: 'nfl' | 'cfb';
+  sport_type: SportType;
   system_prompt: string;
   enabled: boolean;
   created_at: string;
@@ -15,7 +16,7 @@ export interface AICompletionConfig {
 export interface AICompletion {
   id: string;
   game_id: string;
-  sport_type: 'nfl' | 'cfb';
+  sport_type: SportType;
   widget_type: string;
   completion_text: string;
   data_payload: any;
@@ -25,7 +26,7 @@ export interface AICompletion {
 
 export interface AIValueFind {
   id: string;
-  sport_type: 'nfl' | 'cfb';
+  sport_type: SportType;
   analysis_date: string;
   high_value_badges: any[];
   page_header_data: {
@@ -43,7 +44,7 @@ export interface AIValueFind {
 
 export interface PageLevelSchedule {
   id: string;
-  sport_type: 'nfl' | 'cfb';
+  sport_type: SportType;
   enabled: boolean;
   scheduled_time: string;
   day_of_week: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
@@ -57,7 +58,7 @@ export interface PageLevelSchedule {
  */
 export async function getAICompletion(
   gameId: string,
-  sportType: 'nfl' | 'cfb',
+  sportType: SportType,
   widgetType: string
 ): Promise<string | null> {
   try {
@@ -86,7 +87,7 @@ export async function getAICompletion(
  */
 export async function getGameCompletions(
   gameId: string,
-  sportType: 'nfl' | 'cfb'
+  sportType: SportType
 ): Promise<Record<string, string>> {
   try {
     const { data, error } = await supabase
@@ -163,7 +164,7 @@ export async function updateCompletionConfig(
  */
 export async function generateCompletion(
   gameId: string,
-  sportType: 'nfl' | 'cfb',
+  sportType: SportType,
   widgetType: string,
   gameDataPayload: any,
   customSystemPrompt?: string
@@ -195,7 +196,7 @@ export async function generateCompletion(
  * Trigger page-level analysis
  */
 export async function generatePageLevelAnalysis(
-  sportType: 'nfl' | 'cfb',
+  sportType: SportType,
   analysisDate?: string,
   userId?: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
@@ -233,7 +234,7 @@ export async function generatePageLevelAnalysis(
  * Get latest value finds for a sport
  */
 export async function getLatestValueFinds(
-  sportType: 'nfl' | 'cfb',
+  sportType: SportType,
   limit: number = 1
 ): Promise<AIValueFind[]> {
   try {
@@ -260,7 +261,7 @@ export async function getLatestValueFinds(
  * Get page-level schedule config
  */
 export async function getPageLevelSchedule(
-  sportType: 'nfl' | 'cfb'
+  sportType: SportType
 ): Promise<PageLevelSchedule | null> {
   try {
     const { data, error } = await supabase
@@ -285,7 +286,7 @@ export async function getPageLevelSchedule(
  * Update page-level schedule
  */
 export async function updatePageLevelSchedule(
-  sportType: 'nfl' | 'cfb',
+  sportType: SportType,
   updates: Partial<Pick<PageLevelSchedule, 'enabled' | 'scheduled_time' | 'day_of_week' | 'system_prompt' | 'auto_publish'>>
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -350,10 +351,12 @@ export async function updatePageLevelSchedule(
  */
 export function buildGameDataPayload(
   game: any,
-  sportType: 'nfl' | 'cfb',
+  sportType: SportType,
   widgetType: string,
   polymarketData?: any
 ): any {
+  const isFootball = sportType === 'nfl' || sportType === 'cfb';
+
   const basePayload = {
     game: {
       away_team: game.away_team,
@@ -362,17 +365,33 @@ export function buildGameDataPayload(
       game_time: game.game_time,
     },
     vegas_lines: {
-      home_spread: game.home_spread,
-      away_spread: game.away_spread,
-      home_ml: game.home_ml,
-      away_ml: game.away_ml,
-      over_line: sportType === 'nfl' ? game.over_line : (game.api_over_line || game.total_line),
+      home_spread: game.home_spread ?? game.api_spread ?? null,
+      away_spread: game.away_spread ?? (game.api_spread ? -game.api_spread : null),
+      home_ml: game.home_ml ?? game.home_moneyline ?? null,
+      away_ml: game.away_ml ?? game.away_moneyline ?? null,
+      over_line: isFootball
+        ? sportType === 'nfl'
+          ? game.over_line
+          : (game.api_over_line || game.total_line)
+        : game.over_line ?? game.total_line ?? game.api_over_line ?? null,
     },
     weather: {
-      temperature: sportType === 'nfl' ? game.temperature : (game.weather_temp_f || game.temperature),
-      wind_speed: sportType === 'nfl' ? game.wind_speed : (game.weather_windspeed_mph || game.wind_speed),
-      precipitation: game.precipitation,
-      icon: sportType === 'nfl' ? game.icon : (game.weather_icon_text || game.icon_code),
+      temperature: isFootball
+        ? sportType === 'nfl'
+          ? game.temperature
+          : (game.weather_temp_f || game.temperature)
+        : game.temperature ?? null,
+      wind_speed: isFootball
+        ? sportType === 'nfl'
+          ? game.wind_speed
+          : (game.weather_windspeed_mph || game.wind_speed)
+        : null,
+      precipitation: isFootball ? game.precipitation : null,
+      icon: isFootball
+        ? sportType === 'nfl'
+          ? game.icon
+          : (game.weather_icon_text || game.icon_code)
+        : null,
     },
     public_betting: {
       spread_split: game.spread_splits_label,
@@ -402,31 +421,47 @@ export function buildGameDataPayload(
 
   // Add widget-specific data
   if (widgetType === 'spread_prediction') {
-    const spreadProb = sportType === 'nfl' 
-      ? game.home_away_spread_cover_prob 
-      : (game.pred_spread_proba || game.home_away_spread_cover_prob);
+    const spreadProb = isFootball
+      ? sportType === 'nfl'
+        ? game.home_away_spread_cover_prob
+        : (game.pred_spread_proba || game.home_away_spread_cover_prob)
+      : game.spread_cover_prob ?? game.home_away_spread_cover_prob ?? null;
 
     return {
       ...basePayload,
       predictions: {
         spread_cover_prob: spreadProb,
-        spread_line: game.home_spread,
-        predicted_team: (spreadProb || 0) > 0.5 ? 'home' : 'away',
-        confidence_level: spreadProb <= 0.58 ? 'low' : spreadProb <= 0.65 ? 'moderate' : 'high',
+        spread_line: basePayload.vegas_lines.home_spread,
+        predicted_team: spreadProb === null || spreadProb === undefined ? null : spreadProb >= 0.5 ? 'home' : 'away',
+        confidence_level: spreadProb
+          ? spreadProb <= 0.58
+            ? 'low'
+            : spreadProb <= 0.65
+              ? 'moderate'
+              : 'high'
+          : 'low',
       },
     };
   } else if (widgetType === 'ou_prediction') {
-    const ouProb = sportType === 'nfl'
-      ? game.ou_result_prob
-      : (game.pred_total_proba || game.ou_result_prob);
+    const ouProb = isFootball
+      ? sportType === 'nfl'
+        ? game.ou_result_prob
+        : (game.pred_total_proba || game.ou_result_prob)
+      : game.ou_result_prob ?? game.pred_total_proba ?? null;
 
     return {
       ...basePayload,
       predictions: {
         ou_prob: ouProb,
         ou_line: basePayload.vegas_lines.over_line,
-        predicted_result: (ouProb || 0) > 0.5 ? 'over' : 'under',
-        confidence_level: ouProb <= 0.58 ? 'low' : ouProb <= 0.65 ? 'moderate' : 'high',
+        predicted_result: ouProb === null || ouProb === undefined ? null : ouProb >= 0.5 ? 'over' : 'under',
+        confidence_level: ouProb
+          ? ouProb <= 0.58
+            ? 'low'
+            : ouProb <= 0.65
+              ? 'moderate'
+              : 'high'
+          : 'low',
       },
     };
   }
@@ -465,7 +500,7 @@ export async function toggleValueFindPublished(
  * This allows admins to see and manage the most recent value finds regardless of status
  */
 export async function getUnpublishedValueFinds(
-  sportType: 'nfl' | 'cfb'
+  sportType: SportType
 ): Promise<AIValueFind | null> {
   try {
     const { data, error } = await supabase
@@ -488,7 +523,7 @@ export async function getUnpublishedValueFinds(
  * Get high value badges for a sport (only published)
  */
 export async function getHighValueBadges(
-  sportType: 'nfl' | 'cfb'
+  sportType: SportType
 ): Promise<Array<{ game_id: string; recommended_pick: string; confidence: number; tooltip_text: string }>> {
   try {
     const { data, error} = await supabase
@@ -513,7 +548,7 @@ export async function getHighValueBadges(
  * Get page header data for a sport (only published by default, unless admin mode is specified)
  */
 export async function getPageHeaderData(
-  sportType: 'nfl' | 'cfb',
+  sportType: SportType,
   includeUnpublished: boolean = false
 ): Promise<{ id: string; published: boolean; data: { summary_text: string; compact_picks: any[] } } | null> {
   try {
@@ -551,7 +586,7 @@ export async function getPageHeaderData(
  * Get editor cards for a sport (only published)
  */
 export async function getEditorCards(
-  sportType: 'nfl' | 'cfb'
+  sportType: SportType
 ): Promise<Array<any>> {
   try {
     const { data, error } = await supabase
