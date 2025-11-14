@@ -19,7 +19,7 @@ interface AIPayloadViewerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   game: any;
-  sportType: 'nfl' | 'cfb';
+  sportType: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   /** Callback fired when a new completion is successfully generated */
   onCompletionGenerated?: (gameId: string, widgetType: string) => void;
 }

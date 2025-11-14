@@ -21,19 +21,35 @@ serve(async (req) => {
     const cfbSupabaseKey = Deno.env.get('CFB_SUPABASE_ANON_KEY') ?? '';
     const cfbClient = createClient(cfbSupabaseUrl, cfbSupabaseKey);
 
-    console.log('Starting check for missing AI completions...');
+    // Parse request body to check for sport_type filter
+    let requestBody: { sport_type?: string } = {};
+    try {
+      requestBody = await req.json();
+    } catch {
+      // No body provided, process all sports
+    }
 
-    // Get enabled widget configs
-    const { data: configs, error: configError } = await supabaseClient
+    const filterSportType = requestBody.sport_type;
+
+    console.log(`Starting check for missing AI completions${filterSportType ? ` for ${filterSportType}` : ' for all sports'}...`);
+
+    // Get enabled widget configs, optionally filtered by sport_type
+    let configQuery = supabaseClient
       .from('ai_completion_configs')
       .select('widget_type, sport_type')
       .eq('enabled', true);
+    
+    if (filterSportType) {
+      configQuery = configQuery.eq('sport_type', filterSportType);
+    }
+
+    const { data: configs, error: configError } = await configQuery;
 
     if (configError) {
       throw new Error(`Error fetching configs: ${configError.message}`);
     }
 
-    console.log(`Found ${configs?.length || 0} enabled widget configs`);
+    console.log(`Found ${configs?.length || 0} enabled widget configs${filterSportType ? ` for ${filterSportType}` : ''}`);
 
     // Get date range (today + next 3 days)
     const today = new Date();

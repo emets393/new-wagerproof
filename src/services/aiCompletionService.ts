@@ -634,9 +634,10 @@ export async function deleteValueFind(
 
 /**
  * Bulk generate missing completions for games in the next 3 days
- * Calls the check-missing-completions edge function which handles both NFL and CFB
+ * Calls the check-missing-completions edge function which handles all sports
+ * @param sportType - Optional sport type to filter by. If not provided, generates for all sports.
  */
-export async function bulkGenerateMissingCompletions(): Promise<{
+export async function bulkGenerateMissingCompletions(sportType?: SportType): Promise<{
   success: boolean;
   totalGenerated?: number;
   totalErrors?: number;
@@ -644,10 +645,10 @@ export async function bulkGenerateMissingCompletions(): Promise<{
   error?: string;
 }> {
   try {
-    debug.log('Starting bulk completion generation...');
+    debug.log(`Starting bulk completion generation${sportType ? ` for ${sportType}` : ' for all sports'}...`);
     
     const { data, error } = await supabase.functions.invoke('check-missing-completions', {
-      body: {},
+      body: sportType ? { sport_type: sportType } : {},
     });
 
     if (error) {

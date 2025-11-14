@@ -193,8 +193,19 @@ export function AppLayout() {
       {/* Navigation Content */}
       <SidebarContent className="px-2 py-2 bg-sidebar">
         <SidebarMenu>
-          {visibleNavItems.map((item) => {
-            const { to, title, icon, comingSoon, wip, subItems } = item;
+          {visibleNavItems.map((item, index) => {
+            const { to, title, icon, comingSoon, wip, subItems, isHeader } = item;
+            
+            // Section Headers
+            if (isHeader) {
+              return (
+                <div key={`header-${title}-${index}`} className="px-3 py-2 mt-4 mb-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider group-data-[collapsible=icon]:hidden">
+                    {title}
+                  </span>
+                </div>
+              );
+            }
             
             // Coming Soon items
             if (comingSoon) {
@@ -217,7 +228,7 @@ export function AppLayout() {
             // Items with sub-navigation
             if (subItems && subItems.length > 0) {
               return (
-                <Collapsible key={to} defaultOpen={isActivePath(to)} className="group/collapsible">
+                <Collapsible key={to} defaultOpen={to ? isActivePath(to) : false} className="group/collapsible">
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton
@@ -225,13 +236,13 @@ export function AppLayout() {
                           e.preventDefault();
                           if (!user) {
                             setSignInPromptOpen(true);
-                          } else {
+                          } else if (to) {
                             navigate(to);
                           }
                         }}
-                        isActive={isActivePath(to)}
+                        isActive={to ? isActivePath(to) : false}
                         className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 cursor-pointer ${
-                          isActivePath(to) 
+                          to && isActivePath(to) 
                             ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
                             : subItems?.some(subItem => isActivePath(subItem.to))
                               ? 'bg-gradient-to-r from-honeydew-100 to-honeydew-50 dark:from-honeydew-900/20 dark:to-honeydew-800/10 text-honeydew-700 dark:text-honeydew-400 border-r-2 border-honeydew-500 shadow-md shadow-honeydew-400/15 dark:shadow-honeydew-400/8'
@@ -239,7 +250,7 @@ export function AppLayout() {
                         }`}
                       >
                         <span className={`transition-colors duration-200 ${
-                          isActivePath(to) || subItems?.some(subItem => isActivePath(subItem.to)) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
+                          (to && isActivePath(to)) || subItems?.some(subItem => isActivePath(subItem.to)) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
                         }`}>
                           {icon}
                         </span>
@@ -250,11 +261,11 @@ export function AppLayout() {
                             <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">WIP</span>
                           </div>
                         )}
-                        {(isActivePath(to) || subItems?.some(subItem => isActivePath(subItem.to))) && (
+                        {((to && isActivePath(to)) || subItems?.some(subItem => isActivePath(subItem.to))) && (
                           <div className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50 mr-2"></div>
                         )}
                         <ChevronRight className={`ml-auto h-4 w-4 transition-all duration-200 group-data-[state=open]/collapsible:rotate-90 ${
-                          isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
+                          to && isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
                         }`} />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
@@ -291,16 +302,16 @@ export function AppLayout() {
             return (
               <SidebarMenuItem key={to}>
                 <SidebarMenuButton
-                  onClick={() => handleNavItemClick(to)}
-                  isActive={isActivePath(to)}
+                  onClick={() => to && handleNavItemClick(to)}
+                  isActive={to ? isActivePath(to) : false}
                   className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 cursor-pointer ${
-                    isActivePath(to) 
+                    to && isActivePath(to) 
                       ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
                       : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
                   }`}
                 >
                   <span className={`transition-colors duration-200 ${
-                    isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
+                    to && isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
                   }`}>
                     {icon}
                   </span>
@@ -311,7 +322,7 @@ export function AppLayout() {
                       <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">WIP</span>
                     </div>
                   )}
-                  {isActivePath(to) && (
+                  {to && isActivePath(to) && (
                     <div className="ml-auto w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50"></div>
                   )}
                 </SidebarMenuButton>

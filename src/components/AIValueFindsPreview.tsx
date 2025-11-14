@@ -298,7 +298,12 @@ export function AIValueFindsPreview({
     }
   };
 
-  const sportLabel = valueFindData.sport_type === 'nfl' ? 'NFL' : 'College Football';
+  const sportLabel = 
+    valueFindData.sport_type === 'nfl' ? 'NFL' :
+    valueFindData.sport_type === 'cfb' ? 'College Football' :
+    valueFindData.sport_type === 'nba' ? 'NBA' :
+    valueFindData.sport_type === 'ncaab' ? 'College Basketball' :
+    'Unknown Sport';
 
   return (
     <>

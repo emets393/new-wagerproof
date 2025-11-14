@@ -8,6 +8,8 @@ const STORAGE_KEY = 'wagerproof_ai_completions_enabled';
 export interface CompletionSettings {
   nfl: boolean;
   cfb: boolean;
+  nba: boolean;
+  ncaab: boolean;
 }
 
 /**
@@ -24,16 +26,16 @@ export function getCompletionSettings(): CompletionSettings {
     console.error('Error reading completion settings from localStorage:', error);
   }
   
-  // Default: both enabled
-  return { nfl: true, cfb: true };
+  // Default: all enabled
+  return { nfl: true, cfb: true, nba: true, ncaab: true };
 }
 
 /**
  * Update the completion setting for a specific sport
- * @param sport - The sport to update ('nfl' or 'cfb')
+ * @param sport - The sport to update ('nfl', 'cfb', 'nba', or 'ncaab')
  * @param enabled - Whether completions should be enabled for this sport
  */
-export function setCompletionSetting(sport: 'nfl' | 'cfb', enabled: boolean): void {
+export function setCompletionSetting(sport: 'nfl' | 'cfb' | 'nba' | 'ncaab', enabled: boolean): void {
   try {
     const current = getCompletionSettings();
     const updated = { ...current, [sport]: enabled };
@@ -45,9 +47,9 @@ export function setCompletionSetting(sport: 'nfl' | 'cfb', enabled: boolean): vo
 
 /**
  * Check if completions are enabled for a specific sport
- * @param sport - The sport to check ('nfl' or 'cfb')
+ * @param sport - The sport to check ('nfl', 'cfb', 'nba', or 'ncaab')
  */
-export function areCompletionsEnabled(sport: 'nfl' | 'cfb'): boolean {
+export function areCompletionsEnabled(sport: 'nfl' | 'cfb' | 'nba' | 'ncaab'): boolean {
   const settings = getCompletionSettings();
   return settings[sport];
 }

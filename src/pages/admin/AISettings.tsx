@@ -37,6 +37,7 @@ import { getCompletionSettings, setCompletionSetting } from '@/utils/aiCompletio
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { getAllMarketsData } from '@/services/polymarketService';
 import { AIValueFindsPreview } from '@/components/AIValueFindsPreview';
+import { SportType } from '@/types/sports';
 import debug from '@/utils/debug';
 
 export default function AISettings() {
@@ -46,6 +47,8 @@ export default function AISettings() {
   const [configs, setConfigs] = useState<AICompletionConfig[]>([]);
   const [nflSchedule, setNflSchedule] = useState<PageLevelSchedule | null>(null);
   const [cfbSchedule, setCfbSchedule] = useState<PageLevelSchedule | null>(null);
+  const [nbaSchedule, setNbaSchedule] = useState<PageLevelSchedule | null>(null);
+  const [ncaabSchedule, setNcaabSchedule] = useState<PageLevelSchedule | null>(null);
   const [editedPrompts, setEditedPrompts] = useState<Record<string, string>>({});
   const [generatingAnalysis, setGeneratingAnalysis] = useState<Record<string, boolean>>({});
   
@@ -54,7 +57,8 @@ export default function AISettings() {
   
   // Bulk generation state
   const [bulkGenerating, setBulkGenerating] = useState(false);
-  const [bulkResults, setBulkResults] = useState<{ totalGenerated: number; totalErrors: number; } | null>(null);
+  const [bulkGeneratingSport, setBulkGeneratingSport] = useState<SportType | null>(null);
+  const [bulkResults, setBulkResults] = useState<{ totalGenerated: number; totalErrors: number; sport?: SportType } | null>(null);
   
   // Payload tester state
   const [payloadTesterOpen, setPayloadTesterOpen] = useState(false);
@@ -68,16 +72,18 @@ export default function AISettings() {
   // Preview state for unpublished value finds
   const [nflPreviewData, setNflPreviewData] = useState<AIValueFind | null>(null);
   const [cfbPreviewData, setCfbPreviewData] = useState<AIValueFind | null>(null);
+  const [nbaPreviewData, setNbaPreviewData] = useState<AIValueFind | null>(null);
+  const [ncaabPreviewData, setNcaabPreviewData] = useState<AIValueFind | null>(null);
   
   // Force unpublish state
-  const [forceUnpublishDialog, setForceUnpublishDialog] = useState<{ open: boolean; sport: 'nfl' | 'cfb' | null }>({
+  const [forceUnpublishDialog, setForceUnpublishDialog] = useState<{ open: boolean; sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' | null }>({
     open: false,
     sport: null
   });
   const [forceUnpublishing, setForceUnpublishing] = useState(false);
   
   // Delete state
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; sport: 'nfl' | 'cfb' | null }>({
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' | null }>({
     open: false,
     sport: null
   });
@@ -91,19 +97,27 @@ export default function AISettings() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [configsData, nflSched, cfbSched, nflPreview, cfbPreview] = await Promise.all([
+      const [configsData, nflSched, cfbSched, nbaSched, ncaabSched, nflPreview, cfbPreview, nbaPreview, ncaabPreview] = await Promise.all([
         getCompletionConfigs(),
         getPageLevelSchedule('nfl'),
         getPageLevelSchedule('cfb'),
+        getPageLevelSchedule('nba'),
+        getPageLevelSchedule('ncaab'),
         getUnpublishedValueFinds('nfl'),
         getUnpublishedValueFinds('cfb'),
+        getUnpublishedValueFinds('nba'),
+        getUnpublishedValueFinds('ncaab'),
       ]);
 
       setConfigs(configsData);
       setNflSchedule(nflSched);
       setCfbSchedule(cfbSched);
+      setNbaSchedule(nbaSched);
+      setNcaabSchedule(ncaabSched);
       setNflPreviewData(nflPreview);
       setCfbPreviewData(cfbPreview);
+      setNbaPreviewData(nbaPreview);
+      setNcaabPreviewData(ncaabPreview);
 
       // Initialize edited prompts
       const prompts: Record<string, string> = {};
@@ -112,6 +126,8 @@ export default function AISettings() {
       });
       if (nflSched) prompts[`schedule_nfl`] = nflSched.system_prompt;
       if (cfbSched) prompts[`schedule_cfb`] = cfbSched.system_prompt;
+      if (nbaSched) prompts[`schedule_nba`] = nbaSched.system_prompt;
+      if (ncaabSched) prompts[`schedule_ncaab`] = ncaabSched.system_prompt;
       setEditedPrompts(prompts);
 
     } catch (error) {
@@ -181,11 +197,15 @@ export default function AISettings() {
     }
   };
 
-  const handleSavePageLevelPrompt = async (sportType: 'nfl' | 'cfb') => {
+  const handleSavePageLevelPrompt = async (sportType: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {
     const key = `schedule_${sportType}`;
     setSaving(prev => ({ ...prev, [key]: true }));
     try {
-      const schedule = sportType === 'nfl' ? nflSchedule : cfbSchedule;
+      const schedule = 
+        sportType === 'nfl' ? nflSchedule :
+        sportType === 'cfb' ? cfbSchedule :
+        sportType === 'nba' ? nbaSchedule :
+        ncaabSchedule;
       if (!schedule) {
         throw new Error('Schedule not found');
       }
@@ -223,7 +243,11 @@ export default function AISettings() {
     setForceUnpublishing(true);
     try {
       const sportType = forceUnpublishDialog.sport;
-      const previewData = sportType === 'nfl' ? nflPreviewData : cfbPreviewData;
+      const previewData = 
+        sportType === 'nfl' ? nflPreviewData :
+        sportType === 'cfb' ? cfbPreviewData :
+        sportType === 'nba' ? nbaPreviewData :
+        ncaabPreviewData;
       
       if (!previewData) {
         throw new Error('No value finds to unpublish');
@@ -241,8 +265,12 @@ export default function AISettings() {
         const preview = await getUnpublishedValueFinds(sportType);
         if (sportType === 'nfl') {
           setNflPreviewData(preview);
-        } else {
+        } else if (sportType === 'cfb') {
           setCfbPreviewData(preview);
+        } else if (sportType === 'nba') {
+          setNbaPreviewData(preview);
+        } else {
+          setNcaabPreviewData(preview);
         }
       } else {
         throw new Error(result.error || 'Failed to unpublish');
@@ -266,7 +294,11 @@ export default function AISettings() {
     setDeleting(true);
     try {
       const sportType = deleteDialog.sport;
-      const previewData = sportType === 'nfl' ? nflPreviewData : cfbPreviewData;
+      const previewData = 
+        sportType === 'nfl' ? nflPreviewData :
+        sportType === 'cfb' ? cfbPreviewData :
+        sportType === 'nba' ? nbaPreviewData :
+        ncaabPreviewData;
       
       if (!previewData) {
         throw new Error('No value finds to delete');
@@ -283,8 +315,12 @@ export default function AISettings() {
         // Clear the preview data
         if (sportType === 'nfl') {
           setNflPreviewData(null);
-        } else {
+        } else if (sportType === 'cfb') {
           setCfbPreviewData(null);
+        } else if (sportType === 'nba') {
+          setNbaPreviewData(null);
+        } else {
+          setNcaabPreviewData(null);
         }
       } else {
         throw new Error(result.error || 'Failed to delete');
@@ -302,7 +338,7 @@ export default function AISettings() {
     }
   };
 
-  const handleToggleCompletions = (sport: 'nfl' | 'cfb', enabled: boolean) => {
+  const handleToggleCompletions = (sport: 'nfl' | 'cfb' | 'nba' | 'ncaab', enabled: boolean) => {
     setCompletionSetting(sport, enabled);
     setCompletionSettings(getCompletionSettings());
     
@@ -312,17 +348,19 @@ export default function AISettings() {
     });
   };
 
-  const handleBulkGenerate = async () => {
+  const handleBulkGenerate = async (sportType?: SportType) => {
     setBulkGenerating(true);
+    setBulkGeneratingSport(sportType || null);
     setBulkResults(null);
     
     try {
-      const result = await bulkGenerateMissingCompletions();
+      const result = await bulkGenerateMissingCompletions(sportType);
       
       if (result.success) {
         setBulkResults({
           totalGenerated: result.totalGenerated || 0,
           totalErrors: result.totalErrors || 0,
+          sport: sportType,
         });
         
         toast({
@@ -344,10 +382,11 @@ export default function AISettings() {
       });
     } finally {
       setBulkGenerating(false);
+      setBulkGeneratingSport(null);
     }
   };
 
-  const handleGeneratePageAnalysis = async (sportType: 'nfl' | 'cfb') => {
+  const handleGeneratePageAnalysis = async (sportType: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {
     setGeneratingAnalysis(prev => ({ ...prev, [sportType]: true }));
     try {
       const result = await generatePageLevelAnalysis(sportType);
@@ -629,6 +668,8 @@ export default function AISettings() {
 
   const nflConfigs = configs.filter(c => c.sport_type === 'nfl');
   const cfbConfigs = configs.filter(c => c.sport_type === 'cfb');
+  const nbaConfigs = configs.filter(c => c.sport_type === 'nba');
+  const ncaabConfigs = configs.filter(c => c.sport_type === 'ncaab');
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-6xl">
@@ -696,6 +737,30 @@ export default function AISettings() {
                   onCheckedChange={(checked) => handleToggleCompletions('cfb', checked)}
                 />
               </div>
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold">NBA Completions</span>
+                  <Badge variant={completionSettings.nba ? "default" : "secondary"}>
+                    {completionSettings.nba ? "Enabled" : "Disabled"}
+                  </Badge>
+                </div>
+                <Switch
+                  checked={completionSettings.nba}
+                  onCheckedChange={(checked) => handleToggleCompletions('nba', checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold">NCAAB Completions</span>
+                  <Badge variant={completionSettings.ncaab ? "default" : "secondary"}>
+                    {completionSettings.ncaab ? "Enabled" : "Disabled"}
+                  </Badge>
+                </div>
+                <Switch
+                  checked={completionSettings.ncaab}
+                  onCheckedChange={(checked) => handleToggleCompletions('ncaab', checked)}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -704,38 +769,117 @@ export default function AISettings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Play className="h-5 w-5" />
-                Bulk Generate Missing Completions
+                Generate Missing Completions
               </CardTitle>
               <CardDescription>
-                Check all games in the next 3 days for both NFL and CFB and generate completions for any that are missing.
+                Check all games in the next 3 days and generate completions for any that are missing.
                 This process may take several minutes depending on how many completions need to be generated.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button
-                onClick={handleBulkGenerate}
-                disabled={bulkGenerating}
-                size="lg"
-                className="w-full"
-              >
-                {bulkGenerating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating Completions...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 mr-2" />
-                    Generate All Missing Completions
-                  </>
-                )}
-              </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => handleBulkGenerate('nfl')}
+                  disabled={bulkGenerating}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {bulkGenerating && bulkGeneratingSport === 'nfl' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      NFL
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => handleBulkGenerate('cfb')}
+                  disabled={bulkGenerating}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {bulkGenerating && bulkGeneratingSport === 'cfb' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      CFB
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => handleBulkGenerate('nba')}
+                  disabled={bulkGenerating}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {bulkGenerating && bulkGeneratingSport === 'nba' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      NBA
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => handleBulkGenerate('ncaab')}
+                  disabled={bulkGenerating}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {bulkGenerating && bulkGeneratingSport === 'ncaab' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      NCAAB
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              <div className="pt-2 border-t">
+                <Button
+                  onClick={() => handleBulkGenerate()}
+                  disabled={bulkGenerating}
+                  size="lg"
+                  className="w-full"
+                >
+                  {bulkGenerating && !bulkGeneratingSport ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating for All Sports...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      Generate All Sports
+                    </>
+                  )}
+                </Button>
+              </div>
               
               {bulkResults && (
                 <Alert className={bulkResults.totalErrors > 0 ? 'border-orange-500' : 'border-green-500'}>
                   <CheckCircle2 className="h-4 w-4" />
                   <AlertDescription>
-                    <div className="font-semibold mb-1">Generation Complete</div>
+                    <div className="font-semibold mb-1">
+                      Generation Complete{bulkResults.sport ? ` (${bulkResults.sport.toUpperCase()})` : ' (All Sports)'}
+                    </div>
                     <div className="text-sm">
                       ✓ Generated: {bulkResults.totalGenerated} completions<br />
                       {bulkResults.totalErrors > 0 && (
@@ -749,12 +893,14 @@ export default function AISettings() {
           </Card>
 
           {/* NFL Configs */}
-          <div>
-            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-              🏈 NFL Configurations
-            </h2>
-            <div className="space-y-4">
-              {nflConfigs.map(config => (
+          <div className="relative rounded-2xl p-6 bg-gradient-to-br from-blue-500/10 via-blue-600/5 to-indigo-600/10 backdrop-blur-sm border border-blue-500/20 shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent rounded-2xl pointer-events-none"></div>
+            <div className="relative z-10">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                🏈 NFL Configurations
+              </h2>
+              <div className="space-y-4">
+                {nflConfigs.map(config => (
                 <Card key={config.id}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -810,17 +956,20 @@ export default function AISettings() {
                     </Button>
                   </CardContent>
                 </Card>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
           {/* CFB Configs */}
-          <div>
-            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-              🏈 College Football Configurations
-            </h2>
-            <div className="space-y-4">
-              {cfbConfigs.map(config => (
+          <div className="relative rounded-2xl p-6 bg-gradient-to-br from-orange-500/10 via-orange-600/5 to-red-600/10 backdrop-blur-sm border border-orange-500/20 shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent rounded-2xl pointer-events-none"></div>
+            <div className="relative z-10">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                🏈 College Football Configurations
+              </h2>
+              <div className="space-y-4">
+                {cfbConfigs.map(config => (
                 <Card key={config.id}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -876,7 +1025,146 @@ export default function AISettings() {
                     </Button>
                   </CardContent>
                 </Card>
-              ))}
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* NBA Configs */}
+          <div className="relative rounded-2xl p-6 bg-gradient-to-br from-purple-500/10 via-purple-600/5 to-pink-600/10 backdrop-blur-sm border border-purple-500/20 shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent rounded-2xl pointer-events-none"></div>
+            <div className="relative z-10">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                🏀 NBA Configurations
+              </h2>
+              <div className="space-y-4">
+                {nbaConfigs.map(config => (
+                <Card key={config.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          {config.widget_type.replace('_', ' ').toUpperCase()}
+                          {config.enabled && (
+                            <Badge className="bg-green-600">Enabled</Badge>
+                          )}
+                          {!config.enabled && (
+                            <Badge variant="secondary">Disabled</Badge>
+                          )}
+                        </CardTitle>
+                        <CardDescription>
+                          {config.updated_at && `Last updated: ${new Date(config.updated_at).toLocaleString()}`}
+                        </CardDescription>
+                      </div>
+                      <Switch
+                        checked={config.enabled}
+                        onCheckedChange={() => handleToggleEnabled(config)}
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">
+                        System Prompt
+                      </label>
+                      <Textarea
+                        value={editedPrompts[config.id] || ''}
+                        onChange={(e) => setEditedPrompts(prev => ({
+                          ...prev,
+                          [config.id]: e.target.value
+                        }))}
+                        className="min-h-[200px] font-mono text-sm"
+                      />
+                    </div>
+                    <Button
+                      onClick={() => handleSaveConfig(config)}
+                      disabled={saving[config.id] || editedPrompts[config.id] === config.system_prompt}
+                    >
+                      {saving[config.id] ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* NCAAB Configs */}
+          <div className="relative rounded-2xl p-6 bg-gradient-to-br from-cyan-500/10 via-cyan-600/5 to-teal-600/10 backdrop-blur-sm border border-cyan-500/20 shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent rounded-2xl pointer-events-none"></div>
+            <div className="relative z-10">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-cyan-600 dark:text-cyan-400">
+                🏀 College Basketball Configurations
+              </h2>
+              <div className="space-y-4">
+                {ncaabConfigs.map(config => (
+                <Card key={config.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          {config.widget_type.replace('_', ' ').toUpperCase()}
+                          {config.enabled && (
+                            <Badge className="bg-green-600">Enabled</Badge>
+                          )}
+                          {!config.enabled && (
+                            <Badge variant="secondary">Disabled</Badge>
+                          )}
+                        </CardTitle>
+                        <CardDescription>
+                          {config.updated_at && `Last updated: ${new Date(config.updated_at).toLocaleString()}`}
+                        </CardDescription>
+                      </div>
+                      <Switch
+                        checked={config.enabled}
+                        onCheckedChange={() => handleToggleEnabled(config)}
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">
+                        System Prompt
+                      </label>
+                      <Textarea
+                        value={editedPrompts[config.id] || ''}
+                        onChange={(e) => setEditedPrompts(prev => ({
+                          ...prev,
+                          [config.id]: e.target.value
+                        }))}
+                        className="min-h-[200px] font-mono text-sm"
+                      />
+                    </div>
+                    <Button
+                      onClick={() => handleSaveConfig(config)}
+                      disabled={saving[config.id] || editedPrompts[config.id] === config.system_prompt}
+                    >
+                      {saving[config.id] ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+                ))}
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -893,7 +1181,9 @@ export default function AISettings() {
 
           {/* NFL Schedule */}
           {nflSchedule && (
-            <Card>
+            <div className="relative rounded-2xl p-6 bg-gradient-to-br from-blue-500/10 via-blue-600/5 to-indigo-600/10 backdrop-blur-sm border border-blue-500/20 shadow-lg">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent rounded-2xl pointer-events-none"></div>
+              <Card className="relative z-10 bg-transparent border-none shadow-none">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
@@ -993,20 +1283,36 @@ export default function AISettings() {
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          {/* NFL Preview */}
-          {nflPreviewData && (
-            <AIValueFindsPreview
-              valueFindData={nflPreviewData}
-              onPublishToggle={() => fetchData()}
-              onRegenerate={() => handleGeneratePageAnalysis('nfl')}
-            />
+            
+            {/* NFL Preview */}
+            {nflPreviewData && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                    <Sparkles className="h-5 w-5" />
+                    NFL Value Finds Preview
+                  </h3>
+                  {nflPreviewData.published ? (
+                    <Badge className="bg-green-600">Published</Badge>
+                  ) : (
+                    <Badge variant="secondary">Unpublished</Badge>
+                  )}
+                </div>
+                <AIValueFindsPreview
+                  valueFindData={nflPreviewData}
+                  onPublishToggle={() => fetchData()}
+                  onRegenerate={() => handleGeneratePageAnalysis('nfl')}
+                />
+              </div>
+            )}
+            </div>
           )}
 
           {/* CFB Schedule */}
           {cfbSchedule && (
-            <Card>
+            <div className="relative rounded-2xl p-6 bg-gradient-to-br from-orange-500/10 via-orange-600/5 to-red-600/10 backdrop-blur-sm border border-orange-500/20 shadow-lg">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent rounded-2xl pointer-events-none"></div>
+              <Card className="relative z-10 bg-transparent border-none shadow-none">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
@@ -1106,15 +1412,269 @@ export default function AISettings() {
                 </div>
               </CardContent>
             </Card>
+            
+            {/* CFB Preview */}
+            {cfbPreviewData && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                    <Sparkles className="h-5 w-5" />
+                    College Football Value Finds Preview
+                  </h3>
+                  {cfbPreviewData.published ? (
+                    <Badge className="bg-green-600">Published</Badge>
+                  ) : (
+                    <Badge variant="secondary">Unpublished</Badge>
+                  )}
+                </div>
+                <AIValueFindsPreview
+                  valueFindData={cfbPreviewData}
+                  onPublishToggle={() => fetchData()}
+                  onRegenerate={() => handleGeneratePageAnalysis('cfb')}
+                />
+              </div>
+            )}
+            </div>
           )}
 
-          {/* CFB Preview */}
-          {cfbPreviewData && (
-            <AIValueFindsPreview
-              valueFindData={cfbPreviewData}
-              onPublishToggle={() => fetchData()}
-              onRegenerate={() => handleGeneratePageAnalysis('cfb')}
-            />
+          {/* NBA Schedule */}
+          {nbaSchedule && (
+            <div className="relative rounded-2xl p-6 bg-gradient-to-br from-purple-500/10 via-purple-600/5 to-pink-600/10 backdrop-blur-sm border border-purple-500/20 shadow-lg">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent rounded-2xl pointer-events-none"></div>
+              <Card className="relative z-10 bg-transparent border-none shadow-none">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    🏀 NBA Value Finds
+                    {nbaSchedule.enabled && (
+                      <Badge className="bg-green-600">Scheduled</Badge>
+                    )}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {nbaPreviewData && (
+                      <Button
+                        onClick={() => setForceUnpublishDialog({ open: true, sport: 'nba' })}
+                        variant="outline"
+                        size="sm"
+                        disabled={!nbaPreviewData.published}
+                        className={nbaPreviewData.published ? "border-orange-500/50 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950" : ""}
+                      >
+                        <EyeOff className="w-4 h-4 mr-2" />
+                        {nbaPreviewData.published ? 'Unpublish' : 'Already Unpublished'}
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => handleGeneratePageAnalysis('nba')}
+                      disabled={generatingAnalysis['nba']}
+                    >
+                      {generatingAnalysis['nba'] ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 mr-2" />
+                          Generate Now
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardTitle>
+                <CardDescription>
+                  {nbaSchedule.last_run_at && `Last run: ${new Date(nbaSchedule.last_run_at).toLocaleString()}`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <p className="font-medium">Scheduled Time</p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      {nbaSchedule.scheduled_time}
+                    </p>
+                  </div>
+                  <Switch checked={nbaSchedule.enabled} disabled />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Analysis System Prompt
+                  </label>
+                  <Textarea
+                    value={editedPrompts[`schedule_nba`] || ''}
+                    onChange={(e) => setEditedPrompts(prev => ({
+                      ...prev,
+                      [`schedule_nba`]: e.target.value
+                    }))}
+                    className="min-h-[300px] font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    This prompt guides the AI in analyzing all NBA games and identifying value opportunities
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => handleSavePageLevelPrompt('nba')}
+                    disabled={saving[`schedule_nba`] || editedPrompts[`schedule_nba`] === nbaSchedule.system_prompt}
+                  >
+                    {saving[`schedule_nba`] ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Prompt
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* NBA Preview */}
+            {nbaPreviewData && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                    <Sparkles className="h-5 w-5" />
+                    NBA Value Finds Preview
+                  </h3>
+                  {nbaPreviewData.published ? (
+                    <Badge className="bg-green-600">Published</Badge>
+                  ) : (
+                    <Badge variant="secondary">Unpublished</Badge>
+                  )}
+                </div>
+                <AIValueFindsPreview
+                  valueFindData={nbaPreviewData}
+                  onPublishToggle={() => fetchData()}
+                  onRegenerate={() => handleGeneratePageAnalysis('nba')}
+                />
+              </div>
+            )}
+            </div>
+          )}
+
+          {/* NCAAB Schedule */}
+          {ncaabSchedule && (
+            <div className="relative rounded-2xl p-6 bg-gradient-to-br from-cyan-500/10 via-cyan-600/5 to-teal-600/10 backdrop-blur-sm border border-cyan-500/20 shadow-lg">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent rounded-2xl pointer-events-none"></div>
+              <Card className="relative z-10 bg-transparent border-none shadow-none">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    🏀 College Basketball Value Finds
+                    {ncaabSchedule.enabled && (
+                      <Badge className="bg-green-600">Scheduled</Badge>
+                    )}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {ncaabPreviewData && (
+                      <Button
+                        onClick={() => setForceUnpublishDialog({ open: true, sport: 'ncaab' })}
+                        variant="outline"
+                        size="sm"
+                        disabled={!ncaabPreviewData.published}
+                        className={ncaabPreviewData.published ? "border-orange-500/50 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950" : ""}
+                      >
+                        <EyeOff className="w-4 h-4 mr-2" />
+                        {ncaabPreviewData.published ? 'Unpublish' : 'Already Unpublished'}
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => handleGeneratePageAnalysis('ncaab')}
+                      disabled={generatingAnalysis['ncaab']}
+                    >
+                      {generatingAnalysis['ncaab'] ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 mr-2" />
+                          Generate Now
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardTitle>
+                <CardDescription>
+                  {ncaabSchedule.last_run_at && `Last run: ${new Date(ncaabSchedule.last_run_at).toLocaleString()}`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <p className="font-medium">Scheduled Time</p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      {ncaabSchedule.scheduled_time}
+                    </p>
+                  </div>
+                  <Switch checked={ncaabSchedule.enabled} disabled />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Analysis System Prompt
+                  </label>
+                  <Textarea
+                    value={editedPrompts[`schedule_ncaab`] || ''}
+                    onChange={(e) => setEditedPrompts(prev => ({
+                      ...prev,
+                      [`schedule_ncaab`]: e.target.value
+                    }))}
+                    className="min-h-[300px] font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    This prompt guides the AI in analyzing all college basketball games and identifying value opportunities
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => handleSavePageLevelPrompt('ncaab')}
+                    disabled={saving[`schedule_ncaab`] || editedPrompts[`schedule_ncaab`] === ncaabSchedule.system_prompt}
+                  >
+                    {saving[`schedule_ncaab`] ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Prompt
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* NCAAB Preview */}
+            {ncaabPreviewData && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2 text-cyan-600 dark:text-cyan-400">
+                    <Sparkles className="h-5 w-5" />
+                    College Basketball Value Finds Preview
+                  </h3>
+                  {ncaabPreviewData.published ? (
+                    <Badge className="bg-green-600">Published</Badge>
+                  ) : (
+                    <Badge variant="secondary">Unpublished</Badge>
+                  )}
+                </div>
+                <AIValueFindsPreview
+                  valueFindData={ncaabPreviewData}
+                  onPublishToggle={() => fetchData()}
+                  onRegenerate={() => handleGeneratePageAnalysis('ncaab')}
+                />
+              </div>
+            )}
+            </div>
           )}
         </TabsContent>
 

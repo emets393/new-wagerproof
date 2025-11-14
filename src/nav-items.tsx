@@ -22,12 +22,13 @@ import CommunityVoting from "./pages/CommunityVoting";
 
 export interface NavItem {
   title: string;
-  to: string;
-  icon: React.ReactNode;
+  to?: string;
+  icon?: React.ReactNode;
   page?: React.ReactNode;
   requiresAdmin?: boolean;
   comingSoon?: boolean;
   wip?: boolean;
+  isHeader?: boolean;
   subItems?: Array<{
     title: string;
     to: string;
@@ -44,6 +45,10 @@ export const navItems: NavItem[] = [
     to: "/home",
     icon: <HomeIcon className="h-4 w-4" />,
     page: <Landing />,
+  },
+  {
+    title: "ANALYSIS",
+    isHeader: true,
   },
   {
     title: "Today in Sports",
@@ -67,6 +72,10 @@ export const navItems: NavItem[] = [
     to: "/scoreboard",
     icon: <Activity className="h-4 w-4" />,
     page: <ScoreBoard />,
+  },
+  {
+    title: "SPORTS",
+    isHeader: true,
   },
   {
     title: "College Football",
@@ -97,14 +106,16 @@ export const navItems: NavItem[] = [
     to: "/nba",
     icon: <Basketball className="h-4 w-4" />,
     page: <NBA />,
-    wip: true,
   },
   {
-    title: "NCAAB",
+    title: "College Basketball",
     to: "/ncaab",
     icon: <School className="h-4 w-4" />,
     page: <NCAAB />,
-    wip: true,
+  },
+  {
+    title: "COMMUNITY",
+    isHeader: true,
   },
   {
     title: "Community Picks",
@@ -130,6 +141,22 @@ export const navItems: NavItem[] = [
     page: <MobileApp />,
   },
   {
+    title: "Bet Slip Grader",
+    to: "/bet-slip-grader",
+    icon: <FileImage className="h-4 w-4" />,
+    page: <BetSlipGrader />,
+  },
+  {
+    title: "Learn WagerProof",
+    to: "/learn",
+    icon: <GraduationCap className="h-4 w-4" />,
+  },
+  {
+    title: "ADMIN",
+    isHeader: true,
+    requiresAdmin: true,
+  },
+  {
     title: "Admin",
     to: "/admin",
     icon: <Shield className="h-4 w-4" />,
@@ -147,17 +174,6 @@ export const navItems: NavItem[] = [
         icon: <Sparkles className="h-4 w-4" />,
       },
     ],
-  },
-  {
-    title: "Bet Slip Grader",
-    to: "/bet-slip-grader",
-    icon: <FileImage className="h-4 w-4" />,
-    page: <BetSlipGrader />,
-  },
-  {
-    title: "Learn WagerProof",
-    to: "/learn",
-    icon: <GraduationCap className="h-4 w-4" />,
   },
   {
     title: "Account",

@@ -16,6 +16,7 @@ import { TailingAvatarList } from '@/components/TailingAvatarList';
 import Dither from '@/components/Dither';
 import { useTheme } from '@/contexts/ThemeContext';
 import debug from '@/utils/debug';
+import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColors, getNFLTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials } from '@/utils/teamColors';
 
 interface GameSummary {
   gameId: string;
@@ -73,6 +74,7 @@ export default function TodayInSports() {
   const isDark = theme === 'dark';
   const [showAllValueAlerts, setShowAllValueAlerts] = useState(false);
   const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(false);
+  const [showAllTailedGames, setShowAllTailedGames] = useState(false);
   
   // Sport filters for each section
   const [todayGamesFilter, setTodayGamesFilter] = useState<SportFilter>('all');
@@ -125,6 +127,45 @@ export default function TodayInSports() {
       return 'bg-yellow-500/20 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/40 dark:border-yellow-500/30';
     }
     return 'bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-white border-gray-300 dark:border-white/20';
+  };
+
+  // Helper function to get team colors based on sport
+  const getTeamColors = (teamName: string, sport: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {
+    if (sport === 'nfl') return getNFLTeamColors(teamName);
+    if (sport === 'cfb') return getCFBTeamColors(teamName);
+    if (sport === 'nba') return getNBATeamColors(teamName);
+    if (sport === 'ncaab') return getNCAABTeamColors(teamName);
+    return { primary: '#6B7280', secondary: '#9CA3AF' };
+  };
+
+  // Helper function to get team initials based on sport
+  const getTeamInitials = (teamName: string, sport: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {
+    if (sport === 'nfl') return getNFLTeamInitials(teamName);
+    if (sport === 'cfb') return getCFBTeamInitials(teamName);
+    if (sport === 'nba') return getNBATeamInitials(teamName);
+    if (sport === 'ncaab') return getNCAABTeamInitials(teamName);
+    return teamName.split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase();
+  };
+
+  // Helper function to get contrasting text color for team circles
+  // Note: There's already a getContrastingTextColor function below, but this one is simpler for team circles
+  const getTeamCircleTextColor = (primaryColor: string, secondaryColor: string): string => {
+    // Convert hex to RGB
+    const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null;
+    };
+
+    const rgb = hexToRgb(primaryColor);
+    if (!rgb) return '#FFFFFF';
+
+    // Calculate luminance
+    const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+    return luminance > 0.5 ? '#000000' : '#FFFFFF';
   };
 
   // Helper function to filter by sport
@@ -510,7 +551,8 @@ export default function TodayInSports() {
             // Only add games within the next 7 days
             if (isThisWeek) {
               nbaMatchCount++;
-              const gameIdStr = String(game.game_id);
+              // Use training_key || unique_id to match what GameTailSection receives on NBA page
+              const gameIdStr = game.training_key || game.unique_id || String(game.game_id);
               // Combine game_date and tipoff_time_et to create a full datetime string
               // tipoff_time_et might be a full ISO datetime or just a time string
               let gameTimeValue: string | undefined = undefined;
@@ -536,7 +578,7 @@ export default function TodayInSports() {
               }
               
               gameSummaries.push({
-                gameId: gameIdStr, // Must match game_id used in GameTailSection
+                gameId: gameIdStr, // Must match training_key || unique_id used in GameTailSection
                 sport: 'nba',
                 awayTeam: game.away_team,
                 homeTeam: game.home_team,
@@ -546,7 +588,7 @@ export default function TodayInSports() {
                 totalLine: game.total_line,
                 awayMl: awayML,
                 homeMl: homeML,
-                nbaId: gameIdStr, // Store NBA game_id for querying nba_predictions
+                nbaId: String(game.game_id), // Store NBA game_id for querying nba_predictions
               });
             }
           }
@@ -624,7 +666,8 @@ export default function TodayInSports() {
             // Only add games within the next 7 days
             if (isThisWeek) {
               ncaabMatchCount++;
-              const gameIdStr = String(game.game_id);
+              // Use training_key || unique_id to match what GameTailSection receives on NCAAB page
+              const gameIdStr = game.training_key || game.unique_id || String(game.game_id);
               // Combine game_date_et and tipoff_time_et or start_utc to create a full datetime string
               // tipoff_time_et might be a full ISO datetime or just a time string
               let gameTimeValue: string | undefined = undefined;
@@ -645,7 +688,7 @@ export default function TodayInSports() {
               const vegasTotal = game.over_under || null;
               
               gameSummaries.push({
-                gameId: gameIdStr, // Must match game_id used in GameTailSection
+                gameId: gameIdStr, // Must match training_key || unique_id used in GameTailSection
                 sport: 'ncaab',
                 awayTeam: game.away_team,
                 homeTeam: game.home_team,
@@ -655,7 +698,7 @@ export default function TodayInSports() {
                 totalLine: vegasTotal,
                 awayMl: game.awayMoneyline || null,
                 homeMl: game.homeMoneyline || null,
-                ncaabId: gameIdStr, // Store NCAAB game_id for querying ncaab_predictions
+                ncaabId: String(game.game_id), // Store NCAAB game_id for querying ncaab_predictions
               });
             }
           }
@@ -1602,14 +1645,32 @@ export default function TodayInSports() {
       if (missingNbaGameIds.length > 0) {
         console.log('🏀 Fetching NBA game details for', missingNbaGameIds.length, 'games with tails');
         try {
-          const { data: nbaGamesData, error: nbaGamesError } = await collegeFootballSupabase
+          // Query by training_key or unique_id (matching what's stored in game_tails)
+          // Try training_key first, then unique_id
+          const { data: nbaGamesByTrainingKey, error: nbaError1 } = await collegeFootballSupabase
             .from('nba_input_values_view')
             .select('*')
-            .in('game_id', missingNbaGameIds.map(id => parseInt(id)).filter(id => !isNaN(id)));
+            .in('training_key', missingNbaGameIds);
+          
+          const { data: nbaGamesByUniqueId, error: nbaError2 } = await collegeFootballSupabase
+            .from('nba_input_values_view')
+            .select('*')
+            .in('unique_id', missingNbaGameIds);
+          
+          // Combine results, deduplicate by game_id
+          const nbaGamesMap = new Map();
+          [...(nbaGamesByTrainingKey || []), ...(nbaGamesByUniqueId || [])].forEach(game => {
+            if (!nbaGamesMap.has(game.game_id)) {
+              nbaGamesMap.set(game.game_id, game);
+            }
+          });
+          const nbaGamesData = Array.from(nbaGamesMap.values());
+          const nbaGamesError = nbaError1 || nbaError2;
           
           if (!nbaGamesError && nbaGamesData) {
             for (const game of nbaGamesData) {
-              const gameIdStr = String(game.game_id);
+              // Use training_key || unique_id to match what GameTailSection receives
+              const gameIdStr = game.training_key || game.unique_id || String(game.game_id);
               let gameTimeValue: string | undefined = undefined;
               if (game.tipoff_time_et) {
                 if (game.tipoff_time_et.includes('T') && (game.tipoff_time_et.includes('+') || game.tipoff_time_et.includes('Z'))) {
@@ -1629,7 +1690,7 @@ export default function TodayInSports() {
               }
               
               additionalGames.push({
-                gameId: gameIdStr,
+                gameId: gameIdStr, // Must match training_key || unique_id used in GameTailSection
                 sport: 'nba',
                 awayTeam: game.away_team,
                 homeTeam: game.home_team,
@@ -1639,7 +1700,7 @@ export default function TodayInSports() {
                 totalLine: game.total_line,
                 awayMl: awayML,
                 homeMl: homeML,
-                nbaId: gameIdStr,
+                nbaId: String(game.game_id), // Store NBA game_id for querying nba_predictions
               });
             }
             console.log(`🏀 Added ${additionalGames.length} NBA games with tails`);
@@ -1653,14 +1714,32 @@ export default function TodayInSports() {
       if (missingNcaabGameIds.length > 0) {
         console.log('🏀 Fetching NCAAB game details for', missingNcaabGameIds.length, 'games with tails');
         try {
-          const { data: ncaabGamesData, error: ncaabGamesError } = await collegeFootballSupabase
+          // Query by training_key or unique_id (matching what's stored in game_tails)
+          // Try training_key first, then unique_id
+          const { data: ncaabGamesByTrainingKey, error: ncaabError1 } = await collegeFootballSupabase
             .from('v_cbb_input_values')
             .select('*')
-            .in('game_id', missingNcaabGameIds.map(id => parseInt(id)).filter(id => !isNaN(id)));
+            .in('training_key', missingNcaabGameIds);
+          
+          const { data: ncaabGamesByUniqueId, error: ncaabError2 } = await collegeFootballSupabase
+            .from('v_cbb_input_values')
+            .select('*')
+            .in('unique_id', missingNcaabGameIds);
+          
+          // Combine results, deduplicate by game_id
+          const ncaabGamesMap = new Map();
+          [...(ncaabGamesByTrainingKey || []), ...(ncaabGamesByUniqueId || [])].forEach(game => {
+            if (!ncaabGamesMap.has(game.game_id)) {
+              ncaabGamesMap.set(game.game_id, game);
+            }
+          });
+          const ncaabGamesData = Array.from(ncaabGamesMap.values());
+          const ncaabGamesError = ncaabError1 || ncaabError2;
           
           if (!ncaabGamesError && ncaabGamesData) {
             for (const game of ncaabGamesData) {
-              const gameIdStr = String(game.game_id);
+              // Use training_key || unique_id to match what GameTailSection receives
+              const gameIdStr = game.training_key || game.unique_id || String(game.game_id);
               let gameTimeValue: string | undefined = undefined;
               if (game.start_utc) {
                 gameTimeValue = game.start_utc;
@@ -1676,7 +1755,7 @@ export default function TodayInSports() {
               const vegasTotal = game.over_under || null;
               
               additionalGames.push({
-                gameId: gameIdStr,
+                gameId: gameIdStr, // Must match training_key || unique_id used in GameTailSection
                 sport: 'ncaab',
                 awayTeam: game.away_team,
                 homeTeam: game.home_team,
@@ -1686,7 +1765,7 @@ export default function TodayInSports() {
                 totalLine: vegasTotal,
                 awayMl: game.awayMoneyline || null,
                 homeMl: game.homeMoneyline || null,
-                ncaabId: gameIdStr,
+                ncaabId: String(game.game_id), // Store NCAAB game_id for querying ncaab_predictions
               });
             }
             console.log(`🏀 Added ${ncaabGamesData.length} NCAAB games with tails`);
@@ -1750,7 +1829,7 @@ export default function TodayInSports() {
           const timeB = gameB?.gameTime || '';
           return timeA.localeCompare(timeB);
         })
-        .slice(0, 5) // Limit to top 5 games
+        // Don't limit here - return all games, UI will handle showing 5 vs all
         .map(([gameId, tails]) => {
           // Try multiple matching strategies for gameId (ensure both sides are strings)
           const gameIdStr = String(gameId);
@@ -2186,7 +2265,7 @@ export default function TodayInSports() {
                     High Tailing It
                   </CardTitle>
                   <CardDescription className="text-gray-600 dark:text-white/70">
-                    Top 5 most tailed games this week
+                    Most tailed games this week
                   </CardDescription>
                 </div>
                 <SportFilterButtons 
@@ -2205,8 +2284,11 @@ export default function TodayInSports() {
               ) : (() => {
                 const filteredTailedGames = filterBySport(allTailedGames || [], tailedGamesFilter);
                 return filteredTailedGames.length > 0 ? (
-                  <div className="space-y-4">
-                    {filteredTailedGames.map((game, idx) => {
+                  <>
+                    <div className="space-y-4">
+                      {filteredTailedGames
+                        .slice(0, showAllTailedGames ? filteredTailedGames.length : 5)
+                        .map((game, idx) => {
                     // Helper to normalize pick type for color function
                     const normalizePickType = (pickType: string) => {
                       if (pickType === 'moneyline') return 'Moneyline';
@@ -2238,15 +2320,75 @@ export default function TodayInSports() {
                           </Badge>
                         </div>
 
-                        {/* Game Info */}
+                        {/* Game Info with Team Circles and Tails in Row */}
                         <div className="mb-3">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white break-words">
-                            {game.awayTeam} @ {game.homeTeam}
-                          </p>
-                        </div>
-                      
-                        {/* Tailed Picks Breakdown */}
-                        <div className="space-y-2">
+                          <div className="flex items-center gap-4">
+                            {/* Team Matchup - Subcontainer with Neutral Background - Fixed Width */}
+                            <div className="flex flex-col gap-2 flex-shrink-0 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 w-[120px] sm:w-[140px]">
+                              {/* Away Team Circle */}
+                              {(() => {
+                                const awayColors = getTeamColors(game.awayTeam, game.sport);
+                                const awayInitials = getTeamInitials(game.awayTeam, game.sport);
+                                const awayTextColor = getTeamCircleTextColor(awayColors.primary, awayColors.secondary);
+                                
+                                return (
+                                  <div className="flex flex-col items-center">
+                                    <div
+                                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
+                                      style={{
+                                        background: `linear-gradient(135deg, ${awayColors.primary} 0%, ${awayColors.secondary} 100%)`,
+                                        color: awayTextColor,
+                                        border: `2px solid ${awayColors.primary}`,
+                                      }}
+                                    >
+                                      <span className="text-xs sm:text-sm font-bold">
+                                        {awayInitials}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
+                                      {game.awayTeam}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* @ Symbol */}
+                              <div className="flex flex-col items-center">
+                                <div className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center flex-shrink-0 mb-1">
+                                  <span className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">@</span>
+                                </div>
+                              </div>
+
+                              {/* Home Team Circle */}
+                              {(() => {
+                                const homeColors = getTeamColors(game.homeTeam, game.sport);
+                                const homeInitials = getTeamInitials(game.homeTeam, game.sport);
+                                const homeTextColor = getTeamCircleTextColor(homeColors.primary, homeColors.secondary);
+                                
+                                return (
+                                  <div className="flex flex-col items-center">
+                                    <div
+                                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
+                                      style={{
+                                        background: `linear-gradient(135deg, ${homeColors.primary} 0%, ${homeColors.secondary} 100%)`,
+                                        color: homeTextColor,
+                                        border: `2px solid ${homeColors.primary}`,
+                                      }}
+                                    >
+                                      <span className="text-xs sm:text-sm font-bold">
+                                        {homeInitials}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
+                                      {game.homeTeam}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Tailed Picks Breakdown - To the right */}
+                            <div className="flex-1 space-y-2 min-w-0">
                           {game.tails.map((tail, tidx) => {
                             // Format pick type label (same as GameTailSection)
                             const pickTypeLabels = {
@@ -2283,11 +2425,35 @@ export default function TodayInSports() {
                               </div>
                             );
                           })}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
-                  </div>
+                    </div>
+                    {filteredTailedGames.length > 5 && (
+                      <div className="flex justify-center mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowAllTailedGames(!showAllTailedGames)}
+                          className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
+                        >
+                          {showAllTailedGames ? (
+                            <>
+                              <ChevronUp className="h-4 w-4 mr-2" />
+                              Show Less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-4 w-4 mr-2" />
+                              View All ({filteredTailedGames.length - 5} more)
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <p className="text-gray-600 dark:text-gray-400 text-center py-8">
                     {tailedGamesFilter === 'all' 
