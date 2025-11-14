@@ -512,7 +512,7 @@ async function fetchPolymarketTeams(league: 'cbb' | 'cfb'): Promise<PolymarketTe
  */
 export async function mapTeamNameToPolymarket(
   ourTeamName: string,
-  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
+  league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 'nfl'
 ): Promise<string | null> {
   // For NFL, use existing mascot mapping
   if (league === 'nfl') {
@@ -529,14 +529,25 @@ export async function mapTeamNameToPolymarket(
     return CBB_TEAM_MAPPINGS[ourTeamName] || ourTeamName;
   }
   
+  // For NBA, use the simple dictionary mapping (same approach as CFB/CBB)
+  if (league === 'nba') {
+    // NBA teams typically use city + mascot format, so return as-is for now
+    // Can add NBA_TEAM_MAPPINGS if needed later
+    return ourTeamName;
+  }
+  
   // Fallback to original team name
   return ourTeamName;
 }
 
 // Get team mascot from city/school name (legacy function, kept for backward compatibility)
-function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'): string {
+function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 'nfl'): string {
   if (league === 'cfb' || league === 'ncaab') {
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
+  }
+  if (league === 'nba') {
+    // NBA teams typically use city + mascot format, so return as-is
+    return teamName;
   }
   return NFL_TEAM_MASCOTS[teamName] || teamName;
 }
@@ -573,12 +584,19 @@ export async function getSportsMetadata(): Promise<PolymarketSport[]> {
 /**
  * Get league tag ID from sports metadata
  * For CBB, uses tag_id 102114 (the correct tag for college basketball games)
+ * For NBA, uses tag_id 745 (the correct tag for NBA games)
  */
-async function getLeagueTagId(league: 'nfl' | 'cfb' | 'ncaab'): Promise<string | null> {
+async function getLeagueTagId(league: 'nfl' | 'cfb' | 'ncaab' | 'nba'): Promise<string | null> {
   // CBB uses specific tag_id 102114
   if (league === 'ncaab') {
     debug.log(`🏀 CBB tag ID: 102114`);
     return '102114';
+  }
+  
+  // NBA uses specific tag_id 745
+  if (league === 'nba') {
+    debug.log(`🏀 NBA tag ID: 745`);
+    return '745';
   }
   
   const sports = await getSportsMetadata();
@@ -602,10 +620,10 @@ async function getLeagueTagId(league: 'nfl' | 'cfb' | 'ncaab'): Promise<string |
 }
 
 /**
- * Get league events from Polymarket (NFL, CFB, or NCAAB)
+ * Get league events from Polymarket (NFL, CFB, NCAAB, or NBA)
  * Filters for actual game matchups (vs/@ pattern) to exclude props, futures, etc.
  */
-export async function getLeagueEvents(league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'): Promise<PolymarketEvent[]> {
+export async function getLeagueEvents(league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 'nfl'): Promise<PolymarketEvent[]> {
   try {
     const tagId = await getLeagueTagId(league);
     
@@ -782,7 +800,7 @@ async function findMatchingEvent(
   events: PolymarketEvent[],
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
+  league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 'nfl'
 ): Promise<PolymarketEvent | null> {
   if (!events || events.length === 0) return null;
 
@@ -1212,7 +1230,7 @@ export function groupByEventSlug(markets: PolymarketEventMarketClean[]): Grouped
 export async function getAllMarketsDataLive(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
+  league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   try {
     const awayMascot = getTeamMascot(awayTeam, league);
@@ -1288,7 +1306,7 @@ export async function getAllMarketsDataLive(
 async function getAllMarketsDataFromCache(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
+  league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   try {
     const gameKey = `${league}_${awayTeam}_${homeTeam}`;
@@ -1361,7 +1379,7 @@ async function getAllMarketsDataFromCache(
 export async function getAllMarketsData(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
+  league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   // Try cache first
   const cachedData = await getAllMarketsDataFromCache(awayTeam, homeTeam, league);

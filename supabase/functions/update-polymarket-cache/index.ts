@@ -161,8 +161,23 @@ serve(async (req) => {
       console.error('Error fetching NCAAB games:', ncaabError);
     }
 
+    // Fetch NBA games (if table exists)
+    let nbaGames: any[] = [];
+    try {
+      const { data: nbaData, error: nbaError } = await cfbSupabase
+        .from('nba_games')
+        .select('away_team, home_team, game_date')
+        .gte('game_date', today);
+      
+      if (!nbaError && nbaData) {
+        nbaGames = nbaData;
+      }
+    } catch (e) {
+      console.log('NBA games table may not exist, skipping...');
+    }
+
     // Combine and tag with league
-    const allGames: Array<{ away_team: string; home_team: string; league: 'nfl' | 'cfb' | 'ncaab'; training_key?: string }> = [];
+    const allGames: Array<{ away_team: string; home_team: string; league: 'nfl' | 'cfb' | 'ncaab' | 'nba'; training_key?: string }> = [];
     
     if (nflLines && nflLines.length > 0) {
       // Deduplicate NFL by training_key
@@ -183,6 +198,10 @@ serve(async (req) => {
       allGames.push(...ncaabGames.map(g => ({ ...g, league: 'ncaab' as const })));
     }
 
+    if (nbaGames && nbaGames.length > 0) {
+      allGames.push(...nbaGames.map(g => ({ ...g, league: 'nba' as const })));
+    }
+
     if (allGames.length === 0) {
       console.log('No games found to update');
       return new Response(
@@ -191,9 +210,10 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📊 Found ${allGames.length} games to update (${nflLines?.length || 0} NFL, ${cfbGames?.length || 0} CFB, ${ncaabGames?.length || 0} NCAAB)`);
+    console.log(`📊 Found ${allGames.length} games to update (${nflLines?.length || 0} NFL, ${cfbGames?.length || 0} CFB, ${ncaabGames?.length || 0} NCAAB, ${nbaGames?.length || 0} NBA)`);
 
-    // Step 2: Fetch sports metadata to get tag IDs for all leagues
+    // Step 2: Get tag IDs for all leagues (using hardcoded values for CBB and NBA)
+    // Fetch sports metadata for NFL and CFB
     const sportsResponse = await fetch('https://gamma-api.polymarket.com/sports', {
       headers: {
         'Accept': 'application/json',
@@ -201,31 +221,31 @@ serve(async (req) => {
       }
     });
 
-    if (!sportsResponse.ok) {
-      throw new Error('Failed to fetch sports metadata');
+    let nflTagId: string | null = null;
+    let cfbTagId: string | null = null;
+
+    if (sportsResponse.ok) {
+      const sportsList = await sportsResponse.json();
+      
+      // Get NFL tag
+      const nflSport = sportsList.find((s: any) => s.sport?.toLowerCase() === 'nfl');
+      const nflTagCandidates = nflSport?.tags.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
+      nflTagId = nflTagCandidates.find((t: string) => t !== '1') || nflTagCandidates[0];
+
+      // Get CFB tag
+      const cfbSport = sportsList.find((s: any) => s.sport?.toLowerCase() === 'cfb');
+      const cfbTagCandidates = cfbSport?.tags.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
+      cfbTagId = cfbTagCandidates.find((t: string) => t !== '1') || cfbTagCandidates[0];
     }
 
-    const sportsList = await sportsResponse.json();
-    
-    // Get NFL tag
-    const nflSport = sportsList.find((s: any) => s.sport?.toLowerCase() === 'nfl');
-    const nflTagCandidates = nflSport?.tags.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
-    const nflTagId = nflTagCandidates.find((t: string) => t !== '1') || nflTagCandidates[0];
+    // Use hardcoded tag IDs for CBB and NBA (these are the correct ones)
+    const ncaabTagId = '102114'; // CBB tag ID
+    const nbaTagId = '745'; // NBA tag ID
 
-    // Get CFB tag
-    const cfbSport = sportsList.find((s: any) => s.sport?.toLowerCase() === 'cfb');
-    const cfbTagCandidates = cfbSport?.tags.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
-    const cfbTagId = cfbTagCandidates.find((t: string) => t !== '1') || cfbTagCandidates[0];
-
-    // Get NCAAB tag (try both 'ncaab' and 'cbb')
-    const ncaabSport = sportsList.find((s: any) => s.sport?.toLowerCase() === 'ncaab' || s.sport?.toLowerCase() === 'cbb');
-    const ncaabTagCandidates = ncaabSport?.tags.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
-    const ncaabTagId = ncaabTagCandidates.find((t: string) => t !== '1') || ncaabTagCandidates[0];
-
-    console.log(`🏈 NFL tag ID: ${nflTagId}, 🏈 CFB tag ID: ${cfbTagId}, 🏀 NCAAB tag ID: ${ncaabTagId}`);
+    console.log(`🏈 NFL tag ID: ${nflTagId}, 🏈 CFB tag ID: ${cfbTagId}, 🏀 NCAAB tag ID: ${ncaabTagId}, 🏀 NBA tag ID: ${nbaTagId}`);
 
     // Step 3: Fetch events for all leagues
-    const allEvents: Array<{ event: any; league: 'nfl' | 'cfb' | 'ncaab' }> = [];
+    const allEvents: Array<{ event: any; league: 'nfl' | 'cfb' | 'ncaab' | 'nba' }> = [];
 
     if (nflTagId) {
       const nflEventsUrl = `https://gamma-api.polymarket.com/events?tag_id=${nflTagId}&closed=false&limit=100&related_tags=true`;
@@ -278,6 +298,30 @@ serve(async (req) => {
       }
     }
 
+    if (nbaTagId) {
+      const nbaEventsUrl = `https://gamma-api.polymarket.com/events?tag_id=${nbaTagId}&closed=false&limit=100&related_tags=true`;
+      const nbaEventsResponse = await fetch(nbaEventsUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'WagerProof-PolymarketCache/1.0'
+        }
+      });
+
+      if (nbaEventsResponse.ok) {
+        const nbaEventsData = await nbaEventsResponse.json();
+        const nbaEvents = Array.isArray(nbaEventsData) ? nbaEventsData : (nbaEventsData.events || nbaEventsData.data || []);
+        allEvents.push(...nbaEvents.map((e: any) => ({ event: e, league: 'nba' as const })));
+        console.log(`📋 Found ${nbaEvents.length} NBA events on Polymarket`);
+      }
+    }
+
+    // Filter events to only include games (vs/@ pattern) - excludes props, futures, etc.
+    const gameEvents = allEvents.filter((e: any) => {
+      const title = e.event.title || '';
+      return title.includes(' vs. ') || title.includes(' @ ');
+    });
+    console.log(`🔍 Filtered to ${gameEvents.length} game events (from ${allEvents.length} total events)`);
+
     let updatedCount = 0;
     const errors: string[] = [];
     const debugInfo: any[] = [];
@@ -288,8 +332,8 @@ serve(async (req) => {
         const gameKey = `${game.league}_${game.away_team}_${game.home_team}`;
         console.log(`\n🔍 Processing ${game.league.toUpperCase()}: ${game.away_team} vs ${game.home_team}`);
 
-        // Find matching event (filter by league)
-        const leagueEvents = allEvents.filter(e => e.league === game.league).map(e => e.event);
+        // Find matching event (filter by league and only game events)
+        const leagueEvents = gameEvents.filter(e => e.league === game.league).map(e => e.event);
         const event = findMatchingEvent(leagueEvents, game.away_team, game.home_team, game.league);
         
         if (!event) {
@@ -399,6 +443,7 @@ serve(async (req) => {
         nflGames: allGames.filter(g => g.league === 'nfl').length,
         cfbGames: allGames.filter(g => g.league === 'cfb').length,
         ncaabGames: allGames.filter(g => g.league === 'ncaab').length,
+        nbaGames: allGames.filter(g => g.league === 'nba').length,
         errors: errors.length > 0 ? errors : undefined,
         debug: debugInfo.slice(0, 10), // First 10 games for debugging
         availableEvents: allEvents.slice(0, 5).map((e: any) => ({ title: e.event.title, league: e.league }))
