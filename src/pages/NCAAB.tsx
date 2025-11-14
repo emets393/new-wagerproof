@@ -542,6 +542,12 @@ ${contextParts}
           // Edge values (delta) - like College Football
           home_spread_diff: homeSpreadDiff,
           over_line_diff: overLineDiff,
+          // Model predicted spread (for modal display) - pred_home_margin is the model's predicted spread
+          pred_spread: predHomeMargin,
+          pred_over_line: predTotalPoints,
+          // Vegas lines for reference
+          api_spread: vegasHomeSpread,
+          api_over_line: vegasTotal,
           // Score predictions for match simulator
           home_score_pred: prediction?.home_score_pred || null,
           away_score_pred: prediction?.away_score_pred || null,
@@ -582,18 +588,35 @@ ${contextParts}
     const completionsMap: Record<string, Record<string, string>> = {};
     
     for (const game of games) {
-      const gameId = game.training_key || game.unique_id;
-      try {
-        const completions = await getGameCompletions(gameId, 'ncaab');
-        if (Object.keys(completions).length > 0) {
-          completionsMap[gameId] = completions;
+      // Try multiple gameId formats to match what might be stored
+      const gameIdOptions = [
+        game.training_key,
+        game.unique_id,
+        game.id,
+        `${game.away_team}_${game.home_team}`,
+        String((game as any).game_id || game.id)
+      ].filter(Boolean) as string[];
+      
+      debug.log(`Game ${game.away_team} @ ${game.home_team} - Trying gameIds:`, gameIdOptions);
+      
+      for (const gameId of gameIdOptions) {
+        try {
+          const completions = await getGameCompletions(gameId, 'ncaab');
+          if (Object.keys(completions).length > 0) {
+            debug.log(`Found completions for gameId: ${gameId}`, completions);
+            // Use the first valid gameId format for the map
+            const primaryGameId = game.training_key || game.unique_id || gameId;
+            completionsMap[primaryGameId] = completions;
+            break; // Found completions, no need to try other formats
+          }
+        } catch (error) {
+          debug.error(`Error fetching completions for ${gameId}:`, error);
         }
-      } catch (error) {
-        debug.error(`Error fetching completions for ${gameId}:`, error);
       }
     }
     
     debug.log('AI completions fetched:', Object.keys(completionsMap).length, 'games have completions');
+    debug.log('Completion map:', completionsMap);
     setAiCompletions(completionsMap);
   };
 
@@ -1017,7 +1040,7 @@ ${contextParts}
               const homeTeamColors = getNCAABTeamColors(prediction.home_team);
               
               // Get high value badge for this game
-              const gameId = prediction.training_key || prediction.unique_id;
+              const gameId = prediction.training_key || prediction.unique_id || String((prediction as any).game_id || prediction.id);
               const highValueBadge = highValueBadges.get(gameId);
               
               // Debug log to check what ID fields are available
@@ -1047,7 +1070,7 @@ ${contextParts}
                       className={isLocked ? 'blur-sm opacity-50' : ''}
                     >
                   {/* Star Button for Admin Mode */}
-                  <StarButton gameId={prediction.training_key} gameType="ncaab" />
+                  <StarButton gameId={gameId} gameType="ncaab" />
                   
                   {/* AI Payload Viewer Button for Admin Mode */}
                   {adminModeEnabled && (

@@ -235,7 +235,27 @@ export function GameDetailsModal({
   );
   const awayTeamColors = getTeamColors(prediction.away_team);
   const homeTeamColors = getTeamColors(prediction.home_team);
+  // Try multiple gameId formats to match what might be stored in database
   const gameId = prediction.training_key || prediction.unique_id || prediction.id || `${prediction.away_team}_${prediction.home_team}`;
+  const gameIdAlternatives = [
+    prediction.training_key,
+    prediction.unique_id,
+    prediction.id,
+    String((prediction as any).game_id || prediction.id),
+    `${prediction.away_team}_${prediction.home_team}`
+  ].filter(Boolean) as string[];
+  
+  // Helper to get completion from any possible gameId format
+  const getCompletion = (widgetType: string): string | undefined => {
+    for (const id of gameIdAlternatives) {
+      const completion = aiCompletions[id]?.[widgetType];
+      if (completion) {
+        console.log(`Found ${widgetType} completion using gameId: ${id}`);
+        return completion;
+      }
+    }
+    return undefined;
+  };
 
   // Fetch H2H data for NFL
   useEffect(() => {
@@ -594,10 +614,14 @@ export function GameDetailsModal({
                       {/* Spread Explanation */}
                       {(() => {
                         const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
-                        if (!edgeInfo) return null;
+                        const aiExplanation = getCompletion('spread_prediction') || aiCompletions[gameId]?.['spread_prediction'];
                         
-                        const aiExplanation = aiCompletions[gameId]?.['spread_prediction'];
-                        const staticExplanation = getEdgeExplanation(edgeInfo.edgeValue, edgeInfo.teamName, 'spread');
+                        // Show if we have AI completion OR edge info
+                        if (!aiExplanation && !edgeInfo) return null;
+                        
+                        const staticExplanation = edgeInfo 
+                          ? getEdgeExplanation(edgeInfo.edgeValue, edgeInfo.teamName, 'spread')
+                          : 'Our model has analyzed this spread prediction.';
                         
                         return (
                           <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
@@ -683,12 +707,16 @@ export function GameDetailsModal({
                       {(() => {
                         const ouDiff = prediction.over_line_diff;
                         const hasOuData = ouDiff !== null || prediction.pred_over_line !== null || prediction.api_over_line !== null;
-                        if (!hasOuData) return null;
+                        const aiExplanation = getCompletion('ou_prediction') || aiCompletions[gameId]?.['ou_prediction'];
+                        
+                        // Show if we have AI completion OR OU data
+                        if (!aiExplanation && !hasOuData) return null;
                         
                         const isOver = (ouDiff ?? 0) > 0;
                         const magnitude = Math.abs(ouDiff ?? 0);
-                        const aiExplanation = aiCompletions[gameId]?.['ou_prediction'];
-                        const staticExplanation = getEdgeExplanation(magnitude, '', 'ou', isOver ? 'over' : 'under');
+                        const staticExplanation = hasOuData
+                          ? getEdgeExplanation(magnitude, '', 'ou', isOver ? 'over' : 'under')
+                          : 'Our model has analyzed this over/under prediction.';
                         
                         return (
                           <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
@@ -1022,19 +1050,19 @@ export function GameDetailsModal({
                                   </div>
                                 </div>
 
-                                <div className="text-center flex-1">
-                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamInitials(edgeInfo.teamName)}</div>
-                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                                    {edgeInfo.displayEdge}
-                                  </div>
+                              <div className="text-center flex-1">
+                                <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamInitials(edgeInfo.teamName)}</div>
+                                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                  {edgeInfo.displayEdge}
                                 </div>
+                              </div>
 
-                                <div className="text-center flex-1">
-                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Vegas Spread</div>
-                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                                    {formatSpread(edgeInfo.isHomeEdge ? prediction.home_spread : prediction.away_spread)}
-                                  </div>
+                              <div className="text-center flex-1">
+                                <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Model Spread</div>
+                                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                  {formatSignedHalf(edgeInfo.isHomeEdge ? prediction.pred_spread : (prediction.pred_spread !== null ? -prediction.pred_spread : null))}
                                 </div>
+                              </div>
                               </div>
                             </div>
 
@@ -1067,7 +1095,7 @@ export function GameDetailsModal({
                         const isOver = (ouDiff ?? 0) > 0;
                         const magnitude = Math.abs(ouDiff ?? 0);
                         const displayMagnitude = roundToHalf(magnitude).toString();
-                        const modelValue = prediction.over_line;
+                        const modelValue = prediction.pred_over_line;
 
                         const aiExplanation = aiCompletions[gameId]?.['ou_prediction'];
                         const staticExplanation = getEdgeExplanation(magnitude, '', 'ou', isOver ? 'over' : 'under');
@@ -1096,19 +1124,19 @@ export function GameDetailsModal({
                                   </div>
                                 </div>
 
-                                <div className="text-center flex-1">
-                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {isOver ? 'Over' : 'Under'}</div>
-                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                                    +{displayMagnitude}
-                                  </div>
+                              <div className="text-center flex-1">
+                                <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {isOver ? 'Over' : 'Under'}</div>
+                                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                  +{displayMagnitude}
                                 </div>
+                              </div>
 
-                                <div className="text-center flex-1">
-                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Vegas Total</div>
-                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                                    {modelValue || '-'}
-                                  </div>
+                              <div className="text-center flex-1">
+                                <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Model Total</div>
+                                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                  {formatHalfNoSign(prediction.pred_over_line)}
                                 </div>
+                              </div>
                               </div>
                             </div>
 

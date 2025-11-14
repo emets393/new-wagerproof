@@ -16,7 +16,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the college football supabase URL and key for fetching predictions
+    // Get the college football supabase URL and key from edge function secrets
     const cfbSupabaseUrl = Deno.env.get('CFB_SUPABASE_URL') ?? '';
     const cfbSupabaseKey = Deno.env.get('CFB_SUPABASE_ANON_KEY') ?? '';
     const cfbClient = createClient(cfbSupabaseUrl, cfbSupabaseKey);
