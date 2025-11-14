@@ -572,12 +572,18 @@ export async function getSportsMetadata(): Promise<PolymarketSport[]> {
 
 /**
  * Get league tag ID from sports metadata
+ * For CBB, uses tag_id 102114 (the correct tag for college basketball games)
  */
 async function getLeagueTagId(league: 'nfl' | 'cfb' | 'ncaab'): Promise<string | null> {
+  // CBB uses specific tag_id 102114
+  if (league === 'ncaab') {
+    debug.log(`🏀 CBB tag ID: 102114`);
+    return '102114';
+  }
+  
   const sports = await getSportsMetadata();
-  // Polymarket uses 'nfl' for NFL, 'cfb' for College Football, and 'cbb' for College Basketball
-  // Convert our 'ncaab' to Polymarket's 'cbb'
-  const sportName = league === 'nfl' ? 'nfl' : league === 'cfb' ? 'cfb' : 'cbb';
+  // Polymarket uses 'nfl' for NFL, 'cfb' for College Football
+  const sportName = league === 'nfl' ? 'nfl' : 'cfb';
   const sport = sports.find((s) => s.sport?.toLowerCase() === sportName);
   
   if (!sport) {
@@ -597,6 +603,7 @@ async function getLeagueTagId(league: 'nfl' | 'cfb' | 'ncaab'): Promise<string |
 
 /**
  * Get league events from Polymarket (NFL, CFB, or NCAAB)
+ * Filters for actual game matchups (vs/@ pattern) to exclude props, futures, etc.
  */
 export async function getLeagueEvents(league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'): Promise<PolymarketEvent[]> {
   try {
@@ -621,13 +628,22 @@ export async function getLeagueEvents(league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'): 
 
       const events = data?.events || [];
       debug.log(`✅ Found ${events.length} ${league.toUpperCase()} events`);
-      return events;
+      
+      // Filter for games only (vs/@ pattern) - excludes props, futures, etc.
+      const games = events.filter(event => parseTeamsFromTitle(event.title) !== null);
+      debug.log(`✅ Filtered to ${games.length} ${league.toUpperCase()} games`);
+      return games;
     } else {
       const url = `https://gamma-api.polymarket.com/events?tag_id=${tagId}&closed=false&limit=100&related_tags=true`;
       const response = await fetch(url);
       if (!response.ok) return [];
       const data = await response.json();
-      return Array.isArray(data) ? data : (data.events || data.data || []);
+      const events = Array.isArray(data) ? data : (data.events || data.data || []);
+      
+      // Filter for games only (vs/@ pattern) - excludes props, futures, etc.
+      const games = events.filter(event => parseTeamsFromTitle(event.title) !== null);
+      debug.log(`✅ Found ${games.length} ${league.toUpperCase()} games`);
+      return games;
     }
   } catch (error) {
     debug.error(`Error fetching ${league.toUpperCase()} events:`, error);
