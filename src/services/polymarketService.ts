@@ -80,7 +80,7 @@ const NFL_TEAM_MASCOTS: Record<string, string> = {
   'Las Vegas': 'Raiders',
   'Los Angeles Chargers': 'Chargers',
   'Los Angeles Rams': 'Rams',
-  'LA Chargers': 'Chargers',
+  'LA Clippers': 'Clippers',
   'LA Rams': 'Rams',
   'Miami': 'Dolphins',
   'Minnesota': 'Vikings',
@@ -95,6 +95,42 @@ const NFL_TEAM_MASCOTS: Record<string, string> = {
   'Tampa Bay': 'Buccaneers',
   'Tennessee': 'Titans',
   'Washington': 'Commanders',
+};
+
+// NBA teams - extract mascot from full name for Polymarket matching
+// Database has "Charlotte Hornets", Polymarket uses "Hornets"
+const NBA_TEAM_TO_MASCOT: Record<string, string> = {
+  'Atlanta Hawks': 'Hawks',
+  'Boston Celtics': 'Celtics',
+  'Brooklyn Nets': 'Nets',
+  'Charlotte Hornets': 'Hornets',
+  'Chicago Bulls': 'Bulls',
+  'Cleveland Cavaliers': 'Cavaliers',
+  'Dallas Mavericks': 'Mavericks',
+  'Denver Nuggets': 'Nuggets',
+  'Detroit Pistons': 'Pistons',
+  'Golden State Warriors': 'Warriors',
+  'Houston Rockets': 'Rockets',
+  'Indiana Pacers': 'Pacers',
+  'LA Clippers': 'Clippers',
+  'Los Angeles Clippers': 'Clippers',
+  'Los Angeles Lakers': 'Lakers',
+  'Memphis Grizzlies': 'Grizzlies',
+  'Miami Heat': 'Heat',
+  'Milwaukee Bucks': 'Bucks',
+  'Minnesota Timberwolves': 'Timberwolves',
+  'New Orleans Pelicans': 'Pelicans',
+  'New York Knicks': 'Knicks',
+  'Oklahoma City Thunder': 'Thunder',
+  'Orlando Magic': 'Magic',
+  'Philadelphia 76ers': '76ers',
+  'Phoenix Suns': 'Suns',
+  'Portland Trail Blazers': 'Trail Blazers',
+  'Sacramento Kings': 'Kings',
+  'San Antonio Spurs': 'Spurs',
+  'Toronto Raptors': 'Raptors',
+  'Utah Jazz': 'Jazz',
+  'Washington Wizards': 'Wizards',
 };
 
 // CFB teams - map common variations to Polymarket names
@@ -529,11 +565,19 @@ export async function mapTeamNameToPolymarket(
     return CBB_TEAM_MAPPINGS[ourTeamName] || ourTeamName;
   }
   
-  // For NBA, use the simple dictionary mapping (same approach as CFB/CBB)
+  // For NBA, extract mascot from full team name
   if (league === 'nba') {
-    // NBA teams typically use city + mascot format, so return as-is for now
-    // Can add NBA_TEAM_MAPPINGS if needed later
-    return ourTeamName;
+    // NBA: Extract mascot from full name (Charlotte Hornets -> Hornets)
+    const mascot = NBA_TEAM_TO_MASCOT[ourTeamName];
+    if (mascot) {
+      debug.log(`NBA team mapping: "${ourTeamName}" -> "${mascot}"`);
+      return mascot;
+    }
+    // Fallback: try to extract last word as mascot
+    const parts = ourTeamName.split(' ');
+    const extracted = parts[parts.length - 1];
+    debug.log(`NBA team fallback: "${ourTeamName}" -> "${extracted}"`);
+    return extracted;
   }
   
   // Fallback to original team name
@@ -546,8 +590,12 @@ function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'ncaab' | 'nba'
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
   }
   if (league === 'nba') {
-    // NBA teams typically use city + mascot format, so return as-is
-    return teamName;
+    // NBA: Extract mascot from full name
+    const mascot = NBA_TEAM_TO_MASCOT[teamName];
+    if (mascot) return mascot;
+    // Fallback: extract last word
+    const parts = teamName.split(' ');
+    return parts[parts.length - 1];
   }
   return NFL_TEAM_MASCOTS[teamName] || teamName;
 }
@@ -620,10 +668,50 @@ async function getLeagueTagId(league: 'nfl' | 'cfb' | 'ncaab' | 'nba'): Promise<
 }
 
 /**
- * Get league events from Polymarket (NFL, CFB, NCAAB, or NBA)
- * Filters for actual game matchups (vs/@ pattern) to exclude props, futures, etc.
+ * Get cached events from Supabase
  */
-export async function getLeagueEvents(league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 'nfl'): Promise<PolymarketEvent[]> {
+async function getLeagueEventsFromCache(league: 'nfl' | 'cfb' | 'ncaab' | 'nba'): Promise<PolymarketEvent[] | null> {
+  try {
+    debug.log(`🔍 Checking cache for ${league.toUpperCase()} events`);
+
+    // @ts-ignore - polymarket_events table exists but not in types yet
+    const { data, error } = await (supabase as any)
+      .from('polymarket_events')
+      .select('*')
+      .eq('league', league)
+      .single();
+
+    if (error || !data) {
+      debug.log('⚠️ No cached events found');
+      return null;
+    }
+
+    // Check if cache is fresh (less than 24 hours old)
+    // @ts-ignore
+    const lastUpdated = new Date(data.last_updated);
+    const now = new Date();
+    const hoursSinceUpdate = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60);
+    
+    if (hoursSinceUpdate > 24) {
+      debug.log('⚠️ Cache is stale (> 24 hours old)');
+      return null;
+    }
+
+    // @ts-ignore
+    const events = data.events || [];
+    debug.log(`✅ Found ${events.length} cached ${league.toUpperCase()} events (age: ${hoursSinceUpdate.toFixed(1)}h)`);
+    
+    return events;
+  } catch (error) {
+    debug.error('❌ Error getting cached events:', error);
+    return null;
+  }
+}
+
+/**
+ * Get league events from Polymarket API (live)
+ */
+async function getLeagueEventsLive(league: 'nfl' | 'cfb' | 'ncaab' | 'nba'): Promise<PolymarketEvent[]> {
   try {
     const tagId = await getLeagueTagId(league);
     
@@ -667,6 +755,25 @@ export async function getLeagueEvents(league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 
     debug.error(`Error fetching ${league.toUpperCase()} events:`, error);
     return [];
   }
+}
+
+/**
+ * Get league events from Polymarket (NFL, CFB, NCAAB, or NBA)
+ * Uses cached data first (updated daily), falls back to API if needed
+ * Filters for actual game matchups (vs/@ pattern) to exclude props, futures, etc.
+ */
+export async function getLeagueEvents(league: 'nfl' | 'cfb' | 'ncaab' | 'nba' = 'nfl'): Promise<PolymarketEvent[]> {
+  // Try cache first
+  const cachedEvents = await getLeagueEventsFromCache(league);
+  
+  if (cachedEvents && cachedEvents.length > 0) {
+    debug.log('✅ Using cached events');
+    return cachedEvents;
+  }
+
+  // Fall back to live API
+  debug.log('⚠️ Cache miss, falling back to live API');
+  return getLeagueEventsLive(league);
 }
 
 /**

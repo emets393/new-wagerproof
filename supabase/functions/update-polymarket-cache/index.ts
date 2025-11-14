@@ -49,6 +49,42 @@ const NFL_TEAM_MASCOTS: Record<string, string> = {
   'Washington': 'Commanders',
 };
 
+// NBA teams - extract mascot from full name for Polymarket matching
+// Database has "Charlotte Hornets", Polymarket uses "Hornets"
+const NBA_TEAM_TO_MASCOT: Record<string, string> = {
+  'Atlanta Hawks': 'Hawks',
+  'Boston Celtics': 'Celtics',
+  'Brooklyn Nets': 'Nets',
+  'Charlotte Hornets': 'Hornets',
+  'Chicago Bulls': 'Bulls',
+  'Cleveland Cavaliers': 'Cavaliers',
+  'Dallas Mavericks': 'Mavericks',
+  'Denver Nuggets': 'Nuggets',
+  'Detroit Pistons': 'Pistons',
+  'Golden State Warriors': 'Warriors',
+  'Houston Rockets': 'Rockets',
+  'Indiana Pacers': 'Pacers',
+  'LA Clippers': 'Clippers',
+  'Los Angeles Clippers': 'Clippers',
+  'Los Angeles Lakers': 'Lakers',
+  'Memphis Grizzlies': 'Grizzlies',
+  'Miami Heat': 'Heat',
+  'Milwaukee Bucks': 'Bucks',
+  'Minnesota Timberwolves': 'Timberwolves',
+  'New Orleans Pelicans': 'Pelicans',
+  'New York Knicks': 'Knicks',
+  'Oklahoma City Thunder': 'Thunder',
+  'Orlando Magic': 'Magic',
+  'Philadelphia 76ers': '76ers',
+  'Phoenix Suns': 'Suns',
+  'Portland Trail Blazers': 'Trail Blazers',
+  'Sacramento Kings': 'Kings',
+  'San Antonio Spurs': 'Spurs',
+  'Toronto Raptors': 'Raptors',
+  'Utah Jazz': 'Jazz',
+  'Washington Wizards': 'Wizards',
+};
+
 // CFB teams - map common variations to Polymarket names
 const CFB_TEAM_MAPPINGS: Record<string, string> = {
   'Ohio State': 'Ohio State',
@@ -102,12 +138,31 @@ function getTeamMascot(teamName: string): string {
   return NFL_TEAM_MASCOTS[teamName] || teamName;
 }
 
-// Get team name for matching (NFL uses mascots, CFB uses school names)
+// Get team name for matching with Polymarket format
+// NFL: uses mascots (Ravens, Dolphins)
+// NBA: uses mascots (Hornets, Bucks) - extract from full name
+// CFB: uses school names (Ohio State, Michigan)
+// NCAAB: Note - Polymarket uses full names like "Duke Blue Devils" but database has "Duke"
+//        The matching function will handle this via flexible matching
 function getTeamName(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): string {
+  if (league === 'nba') {
+    // NBA: Extract mascot from full name (Charlotte Hornets -> Hornets)
+    const mascot = NBA_TEAM_TO_MASCOT[teamName];
+    if (mascot) {
+      console.log(`NBA team mapping: "${teamName}" -> "${mascot}"`);
+      return mascot;
+    }
+    // Fallback: try to extract last word as mascot
+    const parts = teamName.split(' ');
+    const extracted = parts[parts.length - 1];
+    console.log(`NBA team fallback: "${teamName}" -> "${extracted}"`);
+    return extracted;
+  }
   if (league === 'cfb' || league === 'ncaab') {
+    // CFB/NCAAB: Use school name as-is, matching will handle mascot variations
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
   }
-  // NBA and NFL both use mascot-based names
+  // NFL uses mascot-based names
   return getTeamMascot(teamName);
 }
 
@@ -129,14 +184,19 @@ serve(async (req) => {
 
     console.log('🔄 Starting Polymarket cache update...');
 
-    // Step 1: Get current games for NFL, CFB, and NCAAB
+    // Step 1: Get current games for NFL, CFB, NCAAB, and NBA
     const today = new Date().toISOString().split('T')[0];
+    // Fetch games for next 7 days (matching frontend logic)
+    const weekFromNow = new Date();
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    const weekFromNowStr = weekFromNow.toISOString().split('T')[0];
     
     // Fetch NFL games
     const { data: nflLines, error: nflError } = await cfbSupabase
       .from('nfl_betting_lines')
       .select('away_team, home_team, game_date, training_key')
-      .gte('game_date', today);
+      .gte('game_date', today)
+      .lte('game_date', weekFromNowStr);
 
     if (nflError) {
       console.error('Error fetching NFL betting lines:', nflError);
@@ -155,25 +215,30 @@ serve(async (req) => {
     const { data: ncaabGames, error: ncaabError } = await cfbSupabase
       .from('v_cbb_input_values')
       .select('away_team, home_team, game_date_et')
-      .gte('game_date_et', today);
+      .gte('game_date_et', today)
+      .lte('game_date_et', weekFromNowStr);
 
     if (ncaabError) {
       console.error('Error fetching NCAAB games:', ncaabError);
     }
 
-    // Fetch NBA games (if table exists)
+    // Fetch NBA games from nba_input_values_view (same view used by NBA page)
     let nbaGames: any[] = [];
     try {
       const { data: nbaData, error: nbaError } = await cfbSupabase
-        .from('nba_games')
+        .from('nba_input_values_view')
         .select('away_team, home_team, game_date')
-        .gte('game_date', today);
+        .gte('game_date', today)
+        .lte('game_date', weekFromNowStr);
       
       if (!nbaError && nbaData) {
         nbaGames = nbaData;
+        console.log(`📋 Found ${nbaGames.length} NBA games from nba_input_values_view`);
+      } else if (nbaError) {
+        console.error('Error fetching NBA games:', nbaError);
       }
     } catch (e) {
-      console.log('NBA games table may not exist, skipping...');
+      console.log('NBA games view may not exist, skipping...', e);
     }
 
     // Combine and tag with league
@@ -322,12 +387,57 @@ serve(async (req) => {
     });
     console.log(`🔍 Filtered to ${gameEvents.length} game events (from ${allEvents.length} total events)`);
 
+    // Step 3.5: Cache the events list for each league
+    console.log('💾 Caching events list...');
+    const leagueTypes: Array<'nfl' | 'cfb' | 'ncaab' | 'nba'> = ['nfl', 'cfb', 'ncaab', 'nba'];
+    
+    for (const league of leagueTypes) {
+      const leagueEvents = gameEvents.filter(e => e.league === league).map(e => e.event);
+      const tagId = league === 'nfl' ? nflTagId : 
+                    league === 'cfb' ? cfbTagId : 
+                    league === 'ncaab' ? ncaabTagId : 
+                    nbaTagId;
+      
+      if (!tagId) continue;
+      
+      try {
+        const { error: cacheError } = await supabase
+          .from('polymarket_events')
+          .upsert({
+            league,
+            tag_id: tagId,
+            events: leagueEvents,
+            event_count: leagueEvents.length,
+            last_updated: new Date().toISOString(),
+          }, {
+            onConflict: 'league'
+          });
+        
+        if (cacheError) {
+          console.error(`❌ Error caching ${league.toUpperCase()} events:`, cacheError);
+        } else {
+          console.log(`✅ Cached ${leagueEvents.length} ${league.toUpperCase()} events`);
+        }
+      } catch (err) {
+        console.error(`❌ Error caching ${league.toUpperCase()} events:`, err);
+      }
+    }
+
     let updatedCount = 0;
     const errors: string[] = [];
     const debugInfo: any[] = [];
+    
+    // Track processing stats by league
+    const leagueStats = {
+      nfl: { total: 0, matched: 0, markets: 0 },
+      cfb: { total: 0, matched: 0, markets: 0 },
+      ncaab: { total: 0, matched: 0, markets: 0 },
+      nba: { total: 0, matched: 0, markets: 0 }
+    };
 
     // Step 4: Process each game
     for (const game of allGames) {
+      leagueStats[game.league].total++;
       try {
         const gameKey = `${game.league}_${game.away_team}_${game.home_team}`;
         console.log(`\n🔍 Processing ${game.league.toUpperCase()}: ${game.away_team} vs ${game.home_team}`);
@@ -350,6 +460,7 @@ serve(async (req) => {
           continue;
         }
 
+        leagueStats[game.league].matched++;
         debugInfo.push({
           game: gameKey,
           league: game.league,
@@ -418,6 +529,7 @@ serve(async (req) => {
             } else {
               console.log(`✅ Updated ${marketType}: ${currentAwayOdds}% - ${currentHomeOdds}%`);
               updatedCount++;
+              leagueStats[game.league].markets++;
             }
           } catch (err) {
             console.error(`❌ Error processing ${marketType}:`, err);
@@ -431,6 +543,7 @@ serve(async (req) => {
     }
 
     console.log(`\n✅ Cache update complete! Updated ${updatedCount} markets`);
+    console.log(`📊 League Stats:`, JSON.stringify(leagueStats, null, 2));
     if (errors.length > 0) {
       console.log(`⚠️ Errors: ${errors.length}`);
     }
@@ -444,6 +557,7 @@ serve(async (req) => {
         cfbGames: allGames.filter(g => g.league === 'cfb').length,
         ncaabGames: allGames.filter(g => g.league === 'ncaab').length,
         nbaGames: allGames.filter(g => g.league === 'nba').length,
+        leagueStats: leagueStats,
         errors: errors.length > 0 ? errors : undefined,
         debug: debugInfo.slice(0, 10), // First 10 games for debugging
         availableEvents: allEvents.slice(0, 5).map((e: any) => ({ title: e.event.title, league: e.league }))
@@ -464,20 +578,84 @@ serve(async (req) => {
 function findMatchingEvent(events: any[], awayTeam: string, homeTeam: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): any | null {
   const cleanName = (name: string) => name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
   
-  // Get team names for matching (mascots for NFL, school names for CFB)
+  // Get team names for matching (mascots for NFL, full names for CFB/NCAAB/NBA)
   const awayName = getTeamName(awayTeam, league);
   const homeName = getTeamName(homeTeam, league);
   
   console.log(`🔍 Looking for ${league.toUpperCase()}: ${awayTeam} (${awayName}) vs ${homeTeam} (${homeName})`);
   
+  // Extract key words from team names for flexible matching
+  const getKeyWords = (name: string, isNcaab: boolean = false): string[] => {
+    const cleaned = cleanName(name);
+    const words = cleaned.split(/\s+/).filter(w => w.length > 2); // Filter out short words like "LA"
+    
+    // For NCAAB, database has "Duke" but Polymarket has "Duke Blue Devils"
+    // We need to match on just the school name
+    if (isNcaab) {
+      // Return individual words and the full cleaned name
+      return [cleaned, ...words];
+    }
+    
+    // For NBA/NFL, also include the last word (usually the mascot: "Hornets", "Bucks", etc.)
+    if (words.length > 1) {
+      return [cleaned, words[words.length - 1], words.join(' ')];
+    }
+    return [cleaned];
+  };
+  
+  const isNcaab = league === 'ncaab';
+  const awayKeywords = getKeyWords(awayName, isNcaab);
+  const homeKeywords = getKeyWords(homeName, isNcaab);
+  
+  console.log(`  Away keywords: [${awayKeywords.join(', ')}]`);
+  console.log(`  Home keywords: [${homeKeywords.join(', ')}]`);
+  
   for (const event of events) {
     const title = event.title || '';
     const titleClean = cleanName(title);
-    const awayClean = cleanName(awayName);
-    const homeClean = cleanName(homeName);
     
-    // Match using team names
-    if (titleClean.includes(awayClean) && titleClean.includes(homeClean)) {
+    // For NCAAB, use word-based matching (any word from school name matches)
+    // For others, require full keyword match
+    let awayMatch = false;
+    let homeMatch = false;
+    
+    if (isNcaab) {
+      // NCAAB: Match if any word from school name appears in title
+      // e.g., "Duke" matches "Duke Blue Devils"
+      awayMatch = awayKeywords.some(keyword => {
+        // For single-word schools, match as word boundary
+        const words = titleClean.split(/\s+/);
+        return words.some(w => w === keyword || w.startsWith(keyword));
+      });
+      homeMatch = homeKeywords.some(keyword => {
+        const words = titleClean.split(/\s+/);
+        return words.some(w => w === keyword || w.startsWith(keyword));
+      });
+    } else {
+      // NBA/NFL/CFB: Standard keyword matching
+      awayMatch = awayKeywords.some(keyword => titleClean.includes(keyword));
+      homeMatch = homeKeywords.some(keyword => titleClean.includes(keyword));
+    }
+    
+    // Also check reversed (sometimes Polymarket lists home team first)
+    let awayMatchReversed = false;
+    let homeMatchReversed = false;
+    
+    if (isNcaab) {
+      awayMatchReversed = homeKeywords.some(keyword => {
+        const words = titleClean.split(/\s+/);
+        return words.some(w => w === keyword || w.startsWith(keyword));
+      });
+      homeMatchReversed = awayKeywords.some(keyword => {
+        const words = titleClean.split(/\s+/);
+        return words.some(w => w === keyword || w.startsWith(keyword));
+      });
+    } else {
+      awayMatchReversed = homeKeywords.some(keyword => titleClean.includes(keyword));
+      homeMatchReversed = awayKeywords.some(keyword => titleClean.includes(keyword));
+    }
+    
+    if ((awayMatch && homeMatch) || (awayMatchReversed && homeMatchReversed)) {
       console.log(`✅ Matched: "${title}"`);
       return event;
     }

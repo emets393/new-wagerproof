@@ -1,12 +1,12 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Users, Shield, Trophy } from 'lucide-react';
+import { Clock, Users, Shield, Trophy, Dribbble } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface TodayGameSummaryCardProps {
   gameId: string;
-  sport: 'nfl' | 'cfb';
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   awayTeam: string;
   homeTeam: string;
   awayLogo?: string;
@@ -38,24 +38,40 @@ export function TodayGameSummaryCard({
   const isDark = theme === 'dark';
 
   // Helper function to get sport icon
-  const getSportIcon = (sport: 'nfl' | 'cfb') => {
-    return sport === 'nfl' ? Shield : Trophy;
+  const getSportIcon = (sport: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {
+    if (sport === 'nfl') return Shield;
+    if (sport === 'cfb') return Trophy;
+    if (sport === 'nba' || sport === 'ncaab') return Dribbble;
+    return Trophy;
   };
 
   // Helper function to get sport color classes (matching TodayInSports.tsx)
-  const getSportColorClasses = (sport: 'nfl' | 'cfb') => {
+  const getSportColorClasses = (sport: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {
     if (sport === 'nfl') {
       return 'bg-blue-500/20 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/30';
     }
-    return 'bg-orange-500/20 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/40 dark:border-orange-500/30';
+    if (sport === 'cfb') {
+      return 'bg-orange-500/20 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/40 dark:border-orange-500/30';
+    }
+    if (sport === 'nba') {
+      return 'bg-red-500/20 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/30';
+    }
+    if (sport === 'ncaab') {
+      return 'bg-purple-500/20 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40 dark:border-purple-500/30';
+    }
+    return 'bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-white border-gray-300 dark:border-white/20';
   };
 
   const handleClick = () => {
     // Navigate to appropriate sport page with game in view
     if (sport === 'nfl') {
       navigate('/nfl');
-    } else {
+    } else if (sport === 'cfb') {
       navigate('/college-football');
+    } else if (sport === 'nba') {
+      navigate('/nba');
+    } else if (sport === 'ncaab') {
+      navigate('/ncaab');
     }
   };
 

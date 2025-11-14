@@ -90,6 +90,12 @@ serve(async (req) => {
       throw new Error('No schedule configuration found for today_in_sports');
     }
 
+    console.log('Schedule configuration retrieved:', {
+      enabled: schedule.enabled,
+      system_prompt_length: schedule.system_prompt?.length || 0,
+      system_prompt_preview: schedule.system_prompt?.substring(0, 100) || 'NO PROMPT'
+    });
+
     if (!schedule.enabled) {
       console.log('Today in Sports generation is disabled');
       return new Response(
@@ -108,6 +114,7 @@ serve(async (req) => {
     const userPrompt = `Generate today's sports briefing for ${today}. Focus on NFL and College Football. Include the latest breaking news, injury updates, betting line movements, and key storylines for today's games.`;
 
     console.log('Calling OpenAI with web search enabled...');
+    console.log('System prompt being used:', schedule.system_prompt || 'NO SYSTEM PROMPT');
 
     // Call OpenAI Responses API with web search
     const fullInput = `${schedule.system_prompt}\n\n---\n\n${userPrompt}`;

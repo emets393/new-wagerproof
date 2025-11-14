@@ -57,6 +57,9 @@ interface NCAABPrediction {
   // Edge values (delta) - like College Football
   home_spread_diff?: number | null;
   over_line_diff?: number | null;
+  // Score predictions for match simulator
+  home_score_pred?: number | null;
+  away_score_pred?: number | null;
   // NCAAB-specific fields
   home_ranking: number | null;
   away_ranking: number | null;
@@ -116,7 +119,7 @@ export default function NCAAB() {
   // Track predictions viewed when loaded
   useEffect(() => {
     if (!loading && predictions.length > 0) {
-      trackPredictionViewed('NCAAB', predictions.length, activeFilters.join(','), sortKey);
+      trackPredictionViewed('NCAAB' as any, predictions.length, activeFilters.join(','), sortKey);
     }
   }, [loading, predictions.length]);
 
@@ -445,7 +448,7 @@ ${contextParts}
         const gameIds = (ncaabGames || []).map(g => g.game_id);
         const { data: predictions, error: predsError } = await collegeFootballSupabase
           .from('ncaab_predictions')
-          .select('game_id, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, run_id, vegas_home_spread, vegas_total, vegas_home_moneyline, vegas_away_moneyline')
+          .select('game_id, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, run_id, vegas_home_spread, vegas_total, vegas_home_moneyline, vegas_away_moneyline, home_score_pred, away_score_pred')
           .eq('run_id', latestRun.run_id)
           .in('game_id', gameIds);
 
@@ -506,15 +509,23 @@ ${contextParts}
           ? predTotalPoints - vegasTotal
           : null;
         
+        // Get moneylines directly from columns - verified columns exist:
+        // v_cbb_input_values: homeMoneyline, awayMoneyline (camelCase)
+        // ncaab_predictions: vegas_home_moneyline, vegas_away_moneyline (snake_case)
+        // Use game values first (from v_cbb_input_values), fallback to prediction values
+        const homeML = game.homeMoneyline ?? prediction?.vegas_home_moneyline ?? null;
+        const awayML = game.awayMoneyline ?? prediction?.vegas_away_moneyline ?? null;
+        
         return {
           id: gameIdStr,
           away_team: game.away_team,
           home_team: game.home_team,
           training_key: gameIdStr,
           unique_id: gameIdStr,
-          // Betting lines from input values
-          home_ml: prediction?.vegas_home_moneyline || game.homeMoneyline || null,
-          away_ml: prediction?.vegas_away_moneyline || game.awayMoneyline || null,
+          // Betting lines - use both home and away moneylines directly from columns
+          // Prioritize input values table, fallback to predictions table
+          home_ml: homeML,
+          away_ml: awayML,
           home_spread: vegasHomeSpread,
           away_spread: vegasHomeSpread !== null ? -vegasHomeSpread : null,
           over_line: vegasTotal,
@@ -531,6 +542,9 @@ ${contextParts}
           // Edge values (delta) - like College Football
           home_spread_diff: homeSpreadDiff,
           over_line_diff: overLineDiff,
+          // Score predictions for match simulator
+          home_score_pred: prediction?.home_score_pred || null,
+          away_score_pred: prediction?.away_score_pred || null,
           // NCAAB-specific fields
           home_ranking: game.home_ranking || null,
           away_ranking: game.away_ranking || null,
@@ -558,7 +572,7 @@ ${contextParts}
   // Fetch AI completions for all games
   const fetchAICompletions = async (games: NCAABPrediction[]) => {
     // Check if completions are enabled
-    if (!areCompletionsEnabled('ncaab')) {
+    if (!areCompletionsEnabled('ncaab' as any)) {
       debug.log('NCAAB completions are disabled via emergency toggle, skipping fetch');
       setAiCompletions({});
       return;
@@ -678,33 +692,64 @@ ${contextParts}
     return spread.toString();
   };
 
-  const convertTimeToEST = (timeString: string): string => {
+  const convertTimeToEST = (timeString: string | null | undefined): string => {
+    if (!timeString || timeString.trim() === '') {
+      return 'TBD';
+    }
+
     try {
-      const [hours, minutes] = timeString.split(':').map(Number);
+      let date: Date;
       
-      // Add 4 hours to convert UTC to EST
-      const estHours = hours + 4;
+      // Check if it's an ISO datetime string (e.g., "2025-11-14T00:30:00Z" or "2025-11-14 00:30:00+00")
+      if (timeString.includes('T') || timeString.includes(' ') && timeString.length > 10) {
+        // Parse as ISO datetime
+        date = new Date(timeString);
+        if (isNaN(date.getTime())) {
+          debug.error('Invalid ISO datetime:', timeString);
+          return 'TBD';
+        }
+      } else {
+        // Assume it's a simple time string (e.g., "15:30:00" or "15:30")
+        const parts = timeString.split(':');
+        if (parts.length < 2) {
+          debug.error('Invalid time format:', timeString);
+          return 'TBD';
+        }
+        
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+        
+        if (isNaN(hours) || isNaN(minutes)) {
+          debug.error('Invalid time values:', timeString);
+          return 'TBD';
+        }
+        
+        // Create date for today with UTC time
+        const today = new Date();
+        date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes, 0));
+      }
       
-      // Handle day overflow (if hours go past 24)
-      const finalHours = estHours >= 24 ? estHours - 24 : estHours;
-      
-      // Create a date object for today with the adjusted time
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = today.getMonth();
-      const day = today.getDate();
-      
-      const estDate = new Date(year, month, day, finalHours, minutes, 0);
-      
-      // Format as EST time
-      return estDate.toLocaleTimeString('en-US', {
+      // Convert to EST/EDT using timezone-aware conversion
+      const timeStr = date.toLocaleTimeString('en-US', {
+        timeZone: 'America/New_York',
         hour: 'numeric',
         minute: '2-digit',
         hour12: true
-      }) + ' EST';
+      });
+      
+      // Determine if it's EST or EDT by checking the offset
+      // EST is UTC-5, EDT is UTC-4
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        timeZoneName: 'short'
+      });
+      const parts = formatter.formatToParts(date);
+      const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+      
+      return `${timeStr} ${tzName}`;
     } catch (error) {
-      debug.error('Error formatting time:', error);
-      return timeString;
+      debug.error('Error formatting time:', error, timeString);
+      return 'TBD';
     }
   };
 
@@ -951,7 +996,7 @@ ${contextParts}
       {/* AI Value Finds Header */}
       {pageHeaderData && (
         <PageHeaderValueFinds
-          sportType="ncaab"
+          sportType={"ncaab" as any}
           summaryText={pageHeaderData.summary_text}
           compactPicks={pageHeaderData.compact_picks}
           valueFindId={valueFindId || undefined}
@@ -1389,7 +1434,7 @@ ${contextParts}
         parseBettingSplit={parseBettingSplit}
         expandedBettingFacts={expandedBettingFacts}
         setExpandedBettingFacts={setExpandedBettingFacts}
-        teamMappings={teamMappings}
+        teamMappings={teamMappings as any}
       />
 
       {/* Mini WagerBot Chat */}
@@ -1409,7 +1454,7 @@ ${contextParts}
           open={payloadViewerOpen}
           onOpenChange={setPayloadViewerOpen}
           game={selectedPayloadGame}
-          sportType="ncaab"
+          sportType={"ncaab" as any}
           onCompletionGenerated={handleCompletionGenerated} // Refreshes completions after generation
         />
       )}

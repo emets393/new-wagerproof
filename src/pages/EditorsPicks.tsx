@@ -394,17 +394,56 @@ export default function EditorsPicks() {
               let formattedTime = line.game_time;
               if (line.game_time) {
                 try {
-                  const [hours, minutes] = line.game_time.split(':').map(Number);
-                  // Add 4 hours to convert UTC to EST
-                  const estHours = hours + 4;
-                  const finalHours = estHours >= 24 ? estHours - 24 : estHours;
-                  const today = new Date();
-                  const estDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), finalHours, minutes, 0);
-                  formattedTime = estDate.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                  }) + ' EST';
+                  const timeString = line.game_time;
+                  let date: Date;
+                  
+                  // Check if it's an ISO datetime string
+                  if (timeString.includes('T') || (timeString.includes(' ') && timeString.length > 10)) {
+                    date = new Date(timeString);
+                    if (isNaN(date.getTime())) {
+                      debug.error('Invalid ISO datetime:', timeString);
+                      formattedTime = line.game_time;
+                    } else {
+                      const timeStr = date.toLocaleTimeString('en-US', {
+                        timeZone: 'America/New_York',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+                      const formatter = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'America/New_York',
+                        timeZoneName: 'short'
+                      });
+                      const parts = formatter.formatToParts(date);
+                      const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+                      formattedTime = `${timeStr} ${tzName}`;
+                    }
+                  } else {
+                    // Assume it's a simple time string (e.g., "15:30:00" or "15:30")
+                    const parts = timeString.split(':');
+                    if (parts.length >= 2) {
+                      const hours = parseInt(parts[0], 10);
+                      const minutes = parseInt(parts[1], 10);
+                      
+                      if (!isNaN(hours) && !isNaN(minutes)) {
+                        const today = new Date();
+                        date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes, 0));
+                        const timeStr = date.toLocaleTimeString('en-US', {
+                          timeZone: 'America/New_York',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        });
+                        const formatter = new Intl.DateTimeFormat('en-US', {
+                          timeZone: 'America/New_York',
+                          timeZoneName: 'short'
+                        });
+                        const tzParts = formatter.formatToParts(date);
+                        const tzName = tzParts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+                        formattedTime = `${timeStr} ${tzName}`;
+                      }
+                    }
+                  }
                 } catch (error) {
                   debug.error('Error formatting NFL time:', error);
                 }

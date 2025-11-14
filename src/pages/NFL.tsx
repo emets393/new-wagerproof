@@ -839,33 +839,64 @@ ${contextParts}
     return spread.toString();
   };
 
-  const convertTimeToEST = (timeString: string): string => {
+  const convertTimeToEST = (timeString: string | null | undefined): string => {
+    if (!timeString || timeString.trim() === '') {
+      return 'TBD';
+    }
+
     try {
-      const [hours, minutes] = timeString.split(':').map(Number);
+      let date: Date;
       
-      // Add 4 hours to convert UTC to EST
-      const estHours = hours + 4;
+      // Check if it's an ISO datetime string (e.g., "2025-11-14T00:30:00Z" or "2025-11-14 00:30:00+00")
+      if (timeString.includes('T') || (timeString.includes(' ') && timeString.length > 10)) {
+        // Parse as ISO datetime
+        date = new Date(timeString);
+        if (isNaN(date.getTime())) {
+          debug.error('Invalid ISO datetime:', timeString);
+          return 'TBD';
+        }
+      } else {
+        // Assume it's a simple time string (e.g., "15:30:00" or "15:30")
+        const parts = timeString.split(':');
+        if (parts.length < 2) {
+          debug.error('Invalid time format:', timeString);
+          return 'TBD';
+        }
+        
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+        
+        if (isNaN(hours) || isNaN(minutes)) {
+          debug.error('Invalid time values:', timeString);
+          return 'TBD';
+        }
+        
+        // Create date for today with UTC time
+        const today = new Date();
+        date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes, 0));
+      }
       
-      // Handle day overflow (if hours go past 24)
-      const finalHours = estHours >= 24 ? estHours - 24 : estHours;
-      
-      // Create a date object for today with the adjusted time
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = today.getMonth();
-      const day = today.getDate();
-      
-      const estDate = new Date(year, month, day, finalHours, minutes, 0);
-      
-      // Format as EST time
-      return estDate.toLocaleTimeString('en-US', {
+      // Convert to EST/EDT using timezone-aware conversion
+      const timeStr = date.toLocaleTimeString('en-US', {
+        timeZone: 'America/New_York',
         hour: 'numeric',
         minute: '2-digit',
         hour12: true
-      }) + ' EST';
+      });
+      
+      // Determine if it's EST or EDT by checking the offset
+      // EST is UTC-5, EDT is UTC-4
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        timeZoneName: 'short'
+      });
+      const parts = formatter.formatToParts(date);
+      const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+      
+      return `${timeStr} ${tzName}`;
     } catch (error) {
-      debug.error('Error formatting time:', error);
-      return timeString;
+      debug.error('Error formatting time:', error, timeString);
+      return 'TBD';
     }
   };
 

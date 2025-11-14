@@ -53,6 +53,9 @@ interface NBAPrediction {
   home_away_spread_cover_prob: number | null;
   ou_result_prob: number | null;
   run_id: string | null;
+  // Edge values (delta) - like College Basketball
+  home_spread_diff?: number | null;
+  over_line_diff?: number | null;
   // Public betting splits (may not exist for basketball)
   spread_splits_label: string | null;
   total_splits_label: string | null;
@@ -107,7 +110,7 @@ export default function NBA() {
   // Track predictions viewed when loaded
   useEffect(() => {
     if (!loading && predictions.length > 0) {
-      trackPredictionViewed('NBA', predictions.length, activeFilters.join(','), sortKey);
+      trackPredictionViewed('NBA' as any, predictions.length, activeFilters.join(','), sortKey);
     }
   }, [loading, predictions.length]);
 
@@ -484,6 +487,19 @@ ${contextParts}
           awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
         }
         
+        // Calculate edge values (delta) - like College Basketball
+        const vegasHomeSpread = game.home_spread;
+        const modelFairHomeSpread = prediction?.model_fair_home_spread || null;
+        const homeSpreadDiff = (vegasHomeSpread !== null && modelFairHomeSpread !== null)
+          ? modelFairHomeSpread - vegasHomeSpread
+          : null;
+        
+        const vegasTotal = game.total_line;
+        const modelFairTotal = prediction?.model_fair_total || null;
+        const overLineDiff = (vegasTotal !== null && modelFairTotal !== null)
+          ? modelFairTotal - vegasTotal
+          : null;
+        
         // Calculate spread cover probability based on model's predicted margin vs Vegas spread
         let spreadCoverProb = null;
         if (prediction && prediction.model_fair_home_spread !== null && game.home_spread !== null) {
@@ -535,6 +551,9 @@ ${contextParts}
           home_away_spread_cover_prob: spreadCoverProb,
           ou_result_prob: ouProb,
           run_id: prediction?.run_id || null,
+          // Edge values (delta) - like College Basketball
+          home_spread_diff: homeSpreadDiff,
+          over_line_diff: overLineDiff,
           // Public betting splits (not available for basketball)
           spread_splits_label: null,
           ml_splits_label: null,
@@ -557,7 +576,7 @@ ${contextParts}
   // Fetch AI completions for all games
   const fetchAICompletions = async (games: NBAPrediction[]) => {
     // Check if completions are enabled
-    if (!areCompletionsEnabled('nba')) {
+    if (!areCompletionsEnabled('nba' as any)) {
       debug.log('NBA completions are disabled via emergency toggle, skipping fetch');
       setAiCompletions({});
       return;
@@ -648,33 +667,64 @@ ${contextParts}
     return spread.toString();
   };
 
-  const convertTimeToEST = (timeString: string): string => {
+  const convertTimeToEST = (timeString: string | null | undefined): string => {
+    if (!timeString || timeString.trim() === '') {
+      return 'TBD';
+    }
+
     try {
-      const [hours, minutes] = timeString.split(':').map(Number);
+      let date: Date;
       
-      // Add 4 hours to convert UTC to EST
-      const estHours = hours + 4;
+      // Check if it's an ISO datetime string (e.g., "2025-11-14T00:30:00Z" or "2025-11-14 00:30:00+00")
+      if (timeString.includes('T') || timeString.includes(' ') && timeString.length > 10) {
+        // Parse as ISO datetime
+        date = new Date(timeString);
+        if (isNaN(date.getTime())) {
+          debug.error('Invalid ISO datetime:', timeString);
+          return 'TBD';
+        }
+      } else {
+        // Assume it's a simple time string (e.g., "15:30:00" or "15:30")
+        const parts = timeString.split(':');
+        if (parts.length < 2) {
+          debug.error('Invalid time format:', timeString);
+          return 'TBD';
+        }
+        
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+        
+        if (isNaN(hours) || isNaN(minutes)) {
+          debug.error('Invalid time values:', timeString);
+          return 'TBD';
+        }
+        
+        // Create date for today with UTC time
+        const today = new Date();
+        date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes, 0));
+      }
       
-      // Handle day overflow (if hours go past 24)
-      const finalHours = estHours >= 24 ? estHours - 24 : estHours;
-      
-      // Create a date object for today with the adjusted time
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = today.getMonth();
-      const day = today.getDate();
-      
-      const estDate = new Date(year, month, day, finalHours, minutes, 0);
-      
-      // Format as EST time
-      return estDate.toLocaleTimeString('en-US', {
+      // Convert to EST/EDT using timezone-aware conversion
+      const timeStr = date.toLocaleTimeString('en-US', {
+        timeZone: 'America/New_York',
         hour: 'numeric',
         minute: '2-digit',
         hour12: true
-      }) + ' EST';
+      });
+      
+      // Determine if it's EST or EDT by checking the offset
+      // EST is UTC-5, EDT is UTC-4
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        timeZoneName: 'short'
+      });
+      const parts = formatter.formatToParts(date);
+      const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+      
+      return `${timeStr} ${tzName}`;
     } catch (error) {
-      debug.error('Error formatting time:', error);
-      return timeString;
+      debug.error('Error formatting time:', error, timeString);
+      return 'TBD';
     }
   };
 
@@ -738,6 +788,29 @@ ${contextParts}
   // Helper function to round to nearest 0.5 or whole number
   const roundToNearestHalf = (value: number): number => {
     return Math.round(value * 2) / 2;
+  };
+
+  // Helper function to format edge value (rounds to nearest 0.5)
+  const formatEdge = (value: number | null): string => {
+    if (value === null || isNaN(value)) return '-';
+    const rounded = roundToNearestHalf(Math.abs(value));
+    return rounded.toString();
+  };
+
+  // Helper function to get edge team info (like College Basketball)
+  const getEdgeInfo = (homeSpreadDiff: number | null, awayTeam: string, homeTeam: string) => {
+    if (homeSpreadDiff === null || isNaN(homeSpreadDiff)) return null;
+    
+    const isHomeEdge = homeSpreadDiff > 0;
+    const teamName = isHomeEdge ? homeTeam : awayTeam;
+    const edgeValue = Math.abs(homeSpreadDiff);
+    
+    return {
+      teamName,
+      edgeValue: roundToNearestHalf(edgeValue),
+      isHomeEdge,
+      displayEdge: formatEdge(homeSpreadDiff)
+    };
   };
 
 
@@ -898,7 +971,7 @@ ${contextParts}
       {/* AI Value Finds Header */}
       {pageHeaderData && (
         <PageHeaderValueFinds
-          sportType="nba"
+          sportType={"nba" as any}
           summaryText={pageHeaderData.summary_text}
           compactPicks={pageHeaderData.compact_picks}
           valueFindId={valueFindId || undefined}
@@ -1094,56 +1167,20 @@ ${contextParts}
                         <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Model Predictions</h4>
                       </div>
                       <div className="flex flex-wrap gap-3 justify-center items-start">
-                        {prediction.home_away_spread_cover_prob !== null && (() => {
-                          const isHome = prediction.home_away_spread_cover_prob > 0.5;
-                          const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
-                          const confidencePct = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
-                          const confidenceColor = confidencePct >= 65 ? 'bg-green-500' : confidencePct >= 58 ? 'bg-orange-500' : 'bg-red-500';
-                          const isFadeAlert = confidencePct >= 80;
+                        {/* Spread Edge - Show edge value (delta) like College Basketball */}
+                        {(() => {
+                          const edgeInfo = getEdgeInfo(prediction.home_spread_diff ?? null, prediction.away_team, prediction.home_team);
+                          if (!edgeInfo) return null;
                           
-                          const pillContent = (
-                            <div className={`${isFadeAlert ? 'bg-green-500/80 backdrop-blur-md' : confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
+                          const edgeValue = edgeInfo.edgeValue;
+                          const confidenceColor = edgeValue >= 7 ? 'bg-green-500' : edgeValue >= 3 ? 'bg-orange-500' : 'bg-gray-500';
+                          
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <Target className="h-3 w-3" />
-                              <span>{getTeamInitials(predictedTeam)} Spread {confidencePct}%</span>
+                              <span>Edge to {getTeamInitials(edgeInfo.teamName)} +{edgeInfo.displayEdge}</span>
                             </div>
                           );
-                          
-                          return isFadeAlert ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex flex-col items-center gap-1.5 cursor-help">
-                                  <MovingBorderButton
-                                    borderRadius="1.5rem"
-                                    containerClassName="h-auto w-auto p-0"
-                                    className="bg-transparent p-0 border-0 m-0"
-                                    borderClassName="bg-[radial-gradient(#22c55e_40%,transparent_60%)]"
-                                    duration={2000}
-                                    as="div"
-                                  >
-                                    {pillContent}
-                                  </MovingBorderButton>
-                                  <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">
-                                    <Zap className="h-3 w-3 fill-green-600 dark:fill-green-400" />
-                                    <span>FADE ALERT</span>
-                                  </div>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent 
-                                side="top" 
-                                className="max-w-xs p-3 pr-6 bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600"
-                                sideOffset={8}
-                                avoidCollisions={true}
-                                collisionPadding={8}
-                                style={{ 
-                                  zIndex: 99999
-                                }}
-                              >
-                                <p className="text-sm text-white dark:text-gray-100 leading-relaxed">
-                                  When a model shows extreme confidence (80%+), it may be overreacting to a single factor. Consider analyzing other factors and potentially fading (betting against) this prediction.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : pillContent;
                         })()}
                         {showNFLMoneylinePills && prediction.home_away_ml_prob !== null && (() => {
                           const isHome = prediction.home_away_ml_prob > 0.5;
@@ -1196,55 +1233,19 @@ ${contextParts}
                             </Tooltip>
                           ) : pillContent;
                         })()}
-                        {prediction.ou_result_prob !== null && (() => {
-                          const isOver = prediction.ou_result_prob > 0.5;
-                          const confidencePct = Math.round((isOver ? prediction.ou_result_prob : 1 - prediction.ou_result_prob) * 100);
-                          const confidenceColor = confidencePct >= 65 ? 'bg-purple-500' : confidencePct >= 58 ? 'bg-pink-500' : 'bg-gray-500';
-                          const isFadeAlert = confidencePct >= 80;
+                        {/* Over/Under Edge - Show edge value (delta) like College Basketball */}
+                        {prediction.over_line_diff !== null && (() => {
+                          const isOver = prediction.over_line_diff > 0;
+                          const magnitude = Math.abs(prediction.over_line_diff);
+                          const displayMagnitude = roundToNearestHalf(magnitude).toString();
+                          const confidenceColor = magnitude >= 7 ? (isOver ? 'bg-green-500' : 'bg-red-500') : magnitude >= 3 ? (isOver ? 'bg-orange-500' : 'bg-pink-500') : 'bg-gray-500';
                           
-                          const pillContent = (
-                            <div className={`${isFadeAlert ? 'bg-purple-500/80 backdrop-blur-md' : confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <BarChart className="h-3 w-3" />
-                              <span>{isOver ? 'Over' : 'Under'} {confidencePct}%</span>
+                              <span>Edge to {isOver ? 'Over' : 'Under'} +{displayMagnitude}</span>
                             </div>
                           );
-                          
-                          return isFadeAlert ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex flex-col items-center gap-1.5 cursor-help">
-                                  <MovingBorderButton
-                                    borderRadius="1.5rem"
-                                    containerClassName="h-auto w-auto p-0"
-                                    className="bg-transparent p-0 border-0 m-0"
-                                    borderClassName="bg-[radial-gradient(#a855f7_40%,transparent_60%)]"
-                                    duration={2000}
-                                    as="div"
-                                  >
-                                    {pillContent}
-                                  </MovingBorderButton>
-                                  <div className="flex items-center gap-1 text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                                    <Zap className="h-3 w-3 fill-purple-600 dark:fill-purple-400" />
-                                    <span>FADE ALERT</span>
-                                  </div>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent 
-                                side="top" 
-                                className="max-w-xs p-3 pr-6 bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600"
-                                sideOffset={8}
-                                avoidCollisions={true}
-                                collisionPadding={8}
-                                style={{ 
-                                  zIndex: 99999
-                                }}
-                              >
-                                <p className="text-sm text-white dark:text-gray-100 leading-relaxed">
-                                  When a model shows extreme confidence (80%+), it may be overreacting to a single factor. Consider analyzing other factors and potentially fading (betting against) this prediction.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : pillContent;
                         })()}
                       </div>
                     </div>
@@ -1342,7 +1343,7 @@ ${contextParts}
         parseBettingSplit={parseBettingSplit}
         expandedBettingFacts={expandedBettingFacts}
         setExpandedBettingFacts={setExpandedBettingFacts}
-        teamMappings={teamMappings}
+        teamMappings={teamMappings as any}
       />
 
       {/* Mini WagerBot Chat */}
@@ -1362,7 +1363,7 @@ ${contextParts}
           open={payloadViewerOpen}
           onOpenChange={setPayloadViewerOpen}
           game={selectedPayloadGame}
-          sportType="nba"
+          sportType={"nba" as any}
           onCompletionGenerated={handleCompletionGenerated} // Refreshes completions after generation
         />
       )}

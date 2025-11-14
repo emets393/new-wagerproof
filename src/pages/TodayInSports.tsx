@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TodayInSportsCompletionHeader } from '@/components/TodayInSportsCompletionHeader';
 import { TodayGameSummaryCard } from '@/components/TodayGameSummaryCard';
+import { GamesMarquee } from '@/components/GamesMarquee';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, Target, Flame, Lock, ChevronDown, ChevronUp, Shield, Trophy, ArrowRightLeft, BarChart, DollarSign, Percent, Users } from 'lucide-react';
+import { TrendingUp, Target, Flame, Lock, ChevronDown, ChevronUp, Shield, Trophy, ArrowRightLeft, BarChart, DollarSign, Percent, Users, Dribbble } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
@@ -18,7 +19,7 @@ import debug from '@/utils/debug';
 
 interface GameSummary {
   gameId: string;
-  sport: 'nfl' | 'cfb';
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   awayTeam: string;
   homeTeam: string;
   awayLogo?: string;
@@ -31,11 +32,13 @@ interface GameSummary {
   homeMl?: number;
   tailCount?: number;
   cfbId?: number; // CFB id for querying cfb_api_predictions
+  nbaId?: string; // NBA game_id for querying nba_predictions
+  ncaabId?: string; // NCAAB game_id for querying ncaab_predictions
 }
 
 interface ValueAlert {
   gameId: string;
-  sport: 'nfl' | 'cfb';
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   awayTeam: string;
   homeTeam: string;
   marketType: string;
@@ -45,7 +48,7 @@ interface ValueAlert {
 
 interface FadeAlert {
   gameId: string;
-  sport: 'nfl' | 'cfb';
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   awayTeam: string;
   homeTeam: string;
   pickType: string;
@@ -62,24 +65,44 @@ interface TopTailedGame extends GameSummary {
   }>;
 }
 
+type SportFilter = 'all' | 'nfl' | 'cfb' | 'nba' | 'ncaab';
+
 export default function TodayInSports() {
   const { isFreemiumUser } = useFreemiumAccess();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [showAllValueAlerts, setShowAllValueAlerts] = useState(false);
   const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(false);
+  
+  // Sport filters for each section
+  const [todayGamesFilter, setTodayGamesFilter] = useState<SportFilter>('all');
+  const [valueAlertsFilter, setValueAlertsFilter] = useState<SportFilter>('all');
+  const [fadeAlertsFilter, setFadeAlertsFilter] = useState<SportFilter>('all');
+  const [tailedGamesFilter, setTailedGamesFilter] = useState<SportFilter>('all');
 
   // Helper function to get sport icon
-  const getSportIcon = (sport: 'nfl' | 'cfb') => {
-    return sport === 'nfl' ? Shield : Trophy;
+  const getSportIcon = (sport: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {
+    if (sport === 'nfl') return Shield;
+    if (sport === 'cfb') return Trophy;
+    if (sport === 'nba' || sport === 'ncaab') return Dribbble;
+    return Trophy;
   };
 
   // Helper function to get sport color classes
-  const getSportColorClasses = (sport: 'nfl' | 'cfb') => {
+  const getSportColorClasses = (sport: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {
     if (sport === 'nfl') {
       return 'bg-blue-500/20 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/30';
     }
-    return 'bg-orange-500/20 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/40 dark:border-orange-500/30';
+    if (sport === 'cfb') {
+      return 'bg-orange-500/20 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/40 dark:border-orange-500/30';
+    }
+    if (sport === 'nba') {
+      return 'bg-red-500/20 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/30';
+    }
+    if (sport === 'ncaab') {
+      return 'bg-purple-500/20 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40 dark:border-purple-500/30';
+    }
+    return 'bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-white border-gray-300 dark:border-white/20';
   };
 
   // Helper function to get pick type icon
@@ -102,6 +125,75 @@ export default function TodayInSports() {
       return 'bg-yellow-500/20 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/40 dark:border-yellow-500/30';
     }
     return 'bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-white border-gray-300 dark:border-white/20';
+  };
+
+  // Helper function to filter by sport
+  const filterBySport = <T extends { sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' }>(
+    items: T[],
+    filter: SportFilter
+  ): T[] => {
+    if (filter === 'all') return items;
+    return items.filter(item => item.sport === filter);
+  };
+
+  // Helper component for sport filter buttons (styled like sport pills)
+  const SportFilterButtons = ({ 
+    currentFilter, 
+    onFilterChange 
+  }: { 
+    currentFilter: SportFilter; 
+    onFilterChange: (filter: SportFilter) => void;
+  }) => {
+    const filters: Array<{ value: SportFilter; label: string; icon: any; sport?: 'nfl' | 'cfb' | 'nba' | 'ncaab' }> = [
+      { value: 'all', label: 'All', icon: null },
+      { value: 'nfl', label: 'NFL', icon: Shield, sport: 'nfl' },
+      { value: 'cfb', label: 'CFB', icon: Trophy, sport: 'cfb' },
+      { value: 'nba', label: 'NBA', icon: Dribbble, sport: 'nba' },
+      { value: 'ncaab', label: 'NCAAB', icon: Dribbble, sport: 'ncaab' },
+    ];
+
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        {filters.map((filter) => {
+          const Icon = filter.icon;
+          const isActive = currentFilter === filter.value;
+          
+          // For "All" button, use neutral gray styling
+          if (filter.value === 'all') {
+            return (
+              <Badge
+                key={filter.value}
+                onClick={() => onFilterChange(filter.value)}
+                className={`cursor-pointer text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
+                    : 'bg-gray-200/50 dark:bg-white/10 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-white/20 hover:bg-gray-300/50 dark:hover:bg-white/20'
+                }`}
+              >
+                {filter.label}
+              </Badge>
+            );
+          }
+          
+          // For sport buttons, use sport pill styling with opacity for inactive
+          const sportColorClasses = filter.sport ? getSportColorClasses(filter.sport) : '';
+          return (
+            <Badge
+              key={filter.value}
+              onClick={() => onFilterChange(filter.value)}
+              className={`cursor-pointer flex items-center gap-1.5 text-xs font-medium transition-all ${
+                isActive
+                  ? sportColorClasses
+                  : `${sportColorClasses} opacity-50 hover:opacity-75`
+              }`}
+            >
+              {Icon && <Icon className="h-3 w-3" />}
+              <span>{filter.label}</span>
+            </Badge>
+          );
+        })}
+      </div>
+    );
   };
 
   // Get today's date in Eastern Time - MATCH NFL/CFB format
@@ -357,21 +449,234 @@ export default function TodayInSports() {
         debug.error('Exception fetching CFB games:', error);
       }
 
+      // Fetch NBA games - use nba_input_values_view (same as NBA page)
+      try {
+        debug.log('📊 Querying nba_input_values_view for NBA games...');
+        const { data: nbaGames, error: nbaError } = await collegeFootballSupabase
+          .from('nba_input_values_view')
+          .select('*')
+          .order('game_date', { ascending: true })
+          .order('tipoff_time_et', { ascending: true });
+
+        debug.log('NBA games query result:', { count: nbaGames?.length || 0, error: nbaError });
+        
+        if (nbaError) {
+          debug.error('NBA games error details:', nbaError);
+        }
+
+        if (!nbaError && nbaGames) {
+          console.log('========================================');
+          console.log('🏀 NBA GAMES DATA');
+          console.log('========================================');
+          console.log('Total NBA games fetched:', nbaGames.length);
+          
+          let nbaMatchCount = 0;
+          for (const game of nbaGames) {
+            // Extract date from tipoff_time_et (which is in ET) or fallback to game_date
+            let gameDate: string | null = null;
+            
+            if (game.tipoff_time_et) {
+              try {
+                // Parse tipoff_time_et and get the date in ET
+                const utcDate = new Date(game.tipoff_time_et);
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                  timeZone: 'America/New_York',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                });
+                
+                const parts = formatter.formatToParts(utcDate);
+                const year = parts.find(p => p.type === 'year')?.value;
+                const month = parts.find(p => p.type === 'month')?.value;
+                const day = parts.find(p => p.type === 'day')?.value;
+                
+                gameDate = `${year}-${month}-${day}`;
+              } catch (e) {
+                console.error('Error parsing NBA tipoff_time_et:', e);
+                // Fallback to game_date if parsing fails
+                gameDate = game.game_date;
+              }
+            } else {
+              // Fallback to game_date if tipoff_time_et is not available
+              gameDate = game.game_date;
+            }
+            
+            const isThisWeek = gameDate && gameDate >= today && gameDate <= weekFromNow;
+            
+            console.log(`${isThisWeek ? '✅ THIS WEEK' : '❌ NOT THIS WEEK'} - ${game.away_team} @ ${game.home_team}`);
+            console.log(`   tipoff_time_et: "${game.tipoff_time_et}" | game_date: "${game.game_date}" | extracted date: "${gameDate}" | range: "${today}" to "${weekFromNow}"`);
+            
+            // Only add games within the next 7 days
+            if (isThisWeek) {
+              nbaMatchCount++;
+              const gameIdStr = String(game.game_id);
+              // Combine game_date and tipoff_time_et to create a full datetime string
+              // tipoff_time_et might be a full ISO datetime or just a time string
+              let gameTimeValue: string | undefined = undefined;
+              if (game.tipoff_time_et) {
+                // Check if tipoff_time_et is already a full ISO datetime (contains 'T' and timezone info)
+                if (game.tipoff_time_et.includes('T') && (game.tipoff_time_et.includes('+') || game.tipoff_time_et.includes('Z'))) {
+                  // Already a full datetime, use it directly
+                  gameTimeValue = game.tipoff_time_et;
+                } else if (game.game_date) {
+                  // It's just a time string, combine with game_date
+                  const timeStr = game.tipoff_time_et.includes(':') && game.tipoff_time_et.split(':').length === 2
+                    ? `${game.tipoff_time_et}:00`
+                    : game.tipoff_time_et;
+                  gameTimeValue = `${game.game_date}T${timeStr}`;
+                }
+              }
+              
+              // Calculate away moneyline from home moneyline
+              const homeML = game.home_moneyline;
+              let awayML = null;
+              if (homeML) {
+                awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
+              }
+              
+              gameSummaries.push({
+                gameId: gameIdStr, // Must match game_id used in GameTailSection
+                sport: 'nba',
+                awayTeam: game.away_team,
+                homeTeam: game.home_team,
+                gameTime: gameTimeValue,
+                awaySpread: game.home_spread ? -game.home_spread : null,
+                homeSpread: game.home_spread,
+                totalLine: game.total_line,
+                awayMl: awayML,
+                homeMl: homeML,
+                nbaId: gameIdStr, // Store NBA game_id for querying nba_predictions
+              });
+            }
+          }
+          
+          console.log(`🏀 NBA GAMES MATCHED FOR THIS WEEK: ${nbaMatchCount} / ${nbaGames.length}`);
+          console.log('========================================');
+        } else if (nbaError) {
+          debug.error('Error fetching NBA games:', nbaError);
+        }
+      } catch (error) {
+        debug.error('Exception fetching NBA games:', error);
+      }
+
+      // Fetch NCAAB games - use v_cbb_input_values (same as NCAAB page)
+      try {
+        debug.log('📊 Querying v_cbb_input_values for NCAAB games...');
+        const { data: ncaabGames, error: ncaabError } = await collegeFootballSupabase
+          .from('v_cbb_input_values')
+          .select('*')
+          .order('game_date_et', { ascending: true })
+          .order('tipoff_time_et', { ascending: true });
+
+        debug.log('NCAAB games query result:', { count: ncaabGames?.length || 0, error: ncaabError });
+        
+        if (ncaabError) {
+          debug.error('NCAAB games error details:', ncaabError);
+        }
+
+        if (!ncaabError && ncaabGames) {
+          console.log('========================================');
+          console.log('🏀 NCAAB GAMES DATA');
+          console.log('========================================');
+          console.log('Total NCAAB games fetched:', ncaabGames.length);
+          
+          let ncaabMatchCount = 0;
+          for (const game of ncaabGames) {
+            // Extract date from start_utc or tipoff_time_et (which is in ET) or fallback to game_date_et
+            let gameDate: string | null = null;
+            
+            // Prefer start_utc, then tipoff_time_et, then game_date_et
+            const dateTimeSource = game.start_utc || game.tipoff_time_et;
+            
+            if (dateTimeSource) {
+              try {
+                // Parse the datetime and get the date in ET
+                const utcDate = new Date(dateTimeSource);
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                  timeZone: 'America/New_York',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                });
+                
+                const parts = formatter.formatToParts(utcDate);
+                const year = parts.find(p => p.type === 'year')?.value;
+                const month = parts.find(p => p.type === 'month')?.value;
+                const day = parts.find(p => p.type === 'day')?.value;
+                
+                gameDate = `${year}-${month}-${day}`;
+              } catch (e) {
+                console.error('Error parsing NCAAB datetime:', e);
+                // Fallback to game_date_et if parsing fails
+                gameDate = game.game_date_et;
+              }
+            } else {
+              // Fallback to game_date_et if no datetime source
+              gameDate = game.game_date_et;
+            }
+            
+            const isThisWeek = gameDate && gameDate >= today && gameDate <= weekFromNow;
+            
+            console.log(`${isThisWeek ? '✅ THIS WEEK' : '❌ NOT THIS WEEK'} - ${game.away_team} @ ${game.home_team}`);
+            console.log(`   start_utc: "${game.start_utc}" | tipoff_time_et: "${game.tipoff_time_et}" | game_date_et: "${game.game_date_et}" | extracted date: "${gameDate}" | range: "${today}" to "${weekFromNow}"`);
+            
+            // Only add games within the next 7 days
+            if (isThisWeek) {
+              ncaabMatchCount++;
+              const gameIdStr = String(game.game_id);
+              // Combine game_date_et and tipoff_time_et or start_utc to create a full datetime string
+              // tipoff_time_et might be a full ISO datetime or just a time string
+              let gameTimeValue: string | undefined = undefined;
+              if (game.start_utc) {
+                gameTimeValue = game.start_utc;
+              } else if (game.tipoff_time_et) {
+                // Check if tipoff_time_et is already a full ISO datetime
+                if (game.tipoff_time_et.includes('T') && (game.tipoff_time_et.includes('+') || game.tipoff_time_et.includes('Z'))) {
+                  gameTimeValue = game.tipoff_time_et;
+                } else if (game.game_date_et) {
+                  // It's just a time string, combine with game_date_et
+                  gameTimeValue = `${game.game_date_et}T${game.tipoff_time_et}`;
+                }
+              }
+              
+              // Get spreads and totals from game data
+              const vegasHomeSpread = game.spread || null;
+              const vegasTotal = game.over_under || null;
+              
+              gameSummaries.push({
+                gameId: gameIdStr, // Must match game_id used in GameTailSection
+                sport: 'ncaab',
+                awayTeam: game.away_team,
+                homeTeam: game.home_team,
+                gameTime: gameTimeValue,
+                awaySpread: vegasHomeSpread !== null ? -vegasHomeSpread : null,
+                homeSpread: vegasHomeSpread,
+                totalLine: vegasTotal,
+                awayMl: game.awayMoneyline || null,
+                homeMl: game.homeMoneyline || null,
+                ncaabId: gameIdStr, // Store NCAAB game_id for querying ncaab_predictions
+              });
+            }
+          }
+          
+          console.log(`🏀 NCAAB GAMES MATCHED FOR THIS WEEK: ${ncaabMatchCount} / ${ncaabGames.length}`);
+          console.log('========================================');
+        } else if (ncaabError) {
+          debug.error('Error fetching NCAAB games:', ncaabError);
+        }
+      } catch (error) {
+        debug.error('Exception fetching NCAAB games:', error);
+      }
+
       console.log('========================================');
       console.log('🎯 FINAL RESULTS');
       console.log('========================================');
       console.log('✅ Total games this week:', gameSummaries.length);
       console.log('🏈 NFL games:', gameSummaries.filter(g => g.sport === 'nfl').length);
       console.log('🏈 CFB games:', gameSummaries.filter(g => g.sport === 'cfb').length);
-      
-      // Log ALL CFB games with their gameTimes
-      const cfbGamesInSummary = gameSummaries.filter(g => g.sport === 'cfb');
-      console.log('\n🏈 ALL CFB GAMES IN WEEK SUMMARY:');
-      cfbGamesInSummary.forEach((game, idx) => {
-        console.log(`  ${idx + 1}. ${game.awayTeam} @ ${game.homeTeam}`);
-        console.log(`     gameTime: "${game.gameTime}"`);
-        console.log(`     gameId: "${game.gameId}"`);
-      });
+      console.log('🏀 NBA games:', gameSummaries.filter(g => g.sport === 'nba').length);
+      console.log('🏀 NCAAB games:', gameSummaries.filter(g => g.sport === 'ncaab').length);
       
       console.log('========================================');
       
@@ -452,18 +757,29 @@ export default function TodayInSports() {
 
   // Filter to get ONLY today's games
   const todayGames = weekGames?.filter(game => {
-    console.log('🔍 FILTERING GAME:', {
-      sport: game.sport,
-      away: game.awayTeam,
-      home: game.homeTeam,
-      gameTime: game.gameTime,
-      gameId: game.gameId
-    });
+    const isBball = game.sport === 'nba' || game.sport === 'ncaab';
+    if (isBball) {
+      console.log(`🏀 FILTERING ${game.sport.toUpperCase()} GAME:`, {
+        sport: game.sport,
+        away: game.awayTeam,
+        home: game.homeTeam,
+        gameTime: game.gameTime,
+        gameId: game.gameId
+      });
+    }
     
     // For games with gameTime, extract the date
     if (game.gameTime) {
       try {
+        // Parse the gameTime string (format: "YYYY-MM-DDTHH:MM:SS" or "YYYY-MM-DDTHH:MM")
         const utcDate = new Date(game.gameTime);
+        
+        // Check if date is valid
+        if (isNaN(utcDate.getTime())) {
+          console.error(`   ❌ Invalid date for ${game.sport}: "${game.gameTime}"`);
+          return false;
+        }
+        
         const formatter = new Intl.DateTimeFormat('en-US', {
           timeZone: 'America/New_York',
           year: 'numeric',
@@ -479,16 +795,20 @@ export default function TodayInSports() {
         const gameDate = `${year}-${month}-${day}`;
         const isToday = gameDate === today;
         
-        console.log(`   📅 gameTime: "${game.gameTime}" -> gameDate: "${gameDate}" | today: "${today}" | match: ${isToday}`);
+        if (isBball) {
+          console.log(`   🏀 ${game.sport.toUpperCase()} gameTime: "${game.gameTime}" -> gameDate: "${gameDate}" | today: "${today}" | match: ${isToday}`);
+        }
         
         return isToday;
       } catch (e) {
-        console.error('Error parsing game time:', e, game);
+        console.error(`Error parsing game time for ${game.sport}:`, e, game);
         return false;
       }
     }
     
-    console.log('   ❌ No gameTime field');
+    if (isBball) {
+      console.log(`   ❌ ${game.sport.toUpperCase()} game missing gameTime field`);
+    }
     return false;
   });
   
@@ -496,7 +816,15 @@ export default function TodayInSports() {
   console.log('📊 TODAY\'S GAMES FILTER RESULTS');
   console.log('========================================');
   console.log('Total week games:', weekGames?.length || 0);
+  console.log('  NFL:', weekGames?.filter(g => g.sport === 'nfl').length || 0);
+  console.log('  CFB:', weekGames?.filter(g => g.sport === 'cfb').length || 0);
+  console.log('  NBA:', weekGames?.filter(g => g.sport === 'nba').length || 0);
+  console.log('  NCAAB:', weekGames?.filter(g => g.sport === 'ncaab').length || 0);
   console.log('Today\'s games:', todayGames?.length || 0);
+  console.log('  NFL:', todayGames?.filter(g => g.sport === 'nfl').length || 0);
+  console.log('  CFB:', todayGames?.filter(g => g.sport === 'cfb').length || 0);
+  console.log('  NBA:', todayGames?.filter(g => g.sport === 'nba').length || 0);
+  console.log('  NCAAB:', todayGames?.filter(g => g.sport === 'ncaab').length || 0);
   console.log('Today\'s date:', today);
   console.log('========================================');
 
@@ -511,15 +839,55 @@ export default function TodayInSports() {
         return alerts;
       }
 
+      const basketballGames = weekGames.filter(g => g.sport === 'nba' || g.sport === 'ncaab');
       debug.log('Checking value alerts for', weekGames.length, 'games');
+      debug.log(`  🏀 Basketball games: ${basketballGames.length} (${basketballGames.filter(g => g.sport === 'nba').length} NBA, ${basketballGames.filter(g => g.sport === 'ncaab').length} NCAAB)`);
+
+      // Debug: Check what NBA game_keys exist in database
+      const { data: existingNbaMarkets } = await supabase
+        .from('polymarket_markets')
+        .select('game_key, league, away_team, home_team')
+        .eq('league', 'nba')
+        .limit(20);
+      
+      if (existingNbaMarkets && existingNbaMarkets.length > 0) {
+        const uniqueNbaKeys = [...new Set(existingNbaMarkets.map(m => m.game_key))];
+        debug.log(`  🏀 Found ${uniqueNbaKeys.length} unique NBA game_keys in database:`, uniqueNbaKeys.slice(0, 5));
+      } else {
+        debug.log(`  🏀 No NBA markets found in database - cache may need to be updated`);
+      }
 
       for (const game of weekGames) {
         try {
+          // Construct game_key matching the format used in update-polymarket-cache
+          // Format: {league}_{away_team}_{home_team} (using raw team names from database)
           const gameKey = `${game.sport}_${game.awayTeam}_${game.homeTeam}`;
-          const { data: markets } = await supabase
+          
+          const isBball = game.sport === 'nba' || game.sport === 'ncaab';
+          if (isBball) {
+            debug.log(`🏀 Checking Polymarket for ${game.sport.toUpperCase()}: ${game.awayTeam} @ ${game.homeTeam} (game_key: ${gameKey})`);
+          } else {
+            debug.log(`🔍 Checking Polymarket for ${game.sport}: ${game.awayTeam} @ ${game.homeTeam} (game_key: ${gameKey})`);
+          }
+          
+          const { data: markets, error: marketsError } = await supabase
             .from('polymarket_markets')
             .select('*')
-            .eq('game_key', gameKey);
+            .eq('game_key', gameKey)
+            .eq('league', game.sport);
+          
+          if (marketsError) {
+            debug.error(`Error fetching markets for ${gameKey}:`, marketsError);
+          }
+          
+          if (isBball) {
+            debug.log(`  🏀 Found ${markets?.length || 0} markets for ${game.sport.toUpperCase()} ${gameKey}`);
+            if (markets && markets.length > 0) {
+              debug.log(`  🏀 Market types found: ${markets.map(m => m.market_type).join(', ')}`);
+            }
+          } else {
+            debug.log(`  Found ${markets?.length || 0} markets for ${gameKey}`);
+          }
 
           if (markets) {
             for (const market of markets) {
@@ -625,9 +993,11 @@ export default function TodayInSports() {
 
       debug.log('Checking fade alerts for', weekGames.length, 'games');
 
-      // Separate NFL and CFB games
+      // Separate games by sport
       const nflGames = weekGames.filter(g => g.sport === 'nfl');
       const cfbGames = weekGames.filter(g => g.sport === 'cfb');
+      const nbaGames = weekGames.filter(g => g.sport === 'nba');
+      const ncaabGames = weekGames.filter(g => g.sport === 'ncaab');
 
       // Fetch NFL predictions
       if (nflGames.length > 0) {
@@ -774,6 +1144,160 @@ export default function TodayInSports() {
         }
       }
 
+      // Fetch NBA predictions - use edge values (similar to CFB)
+      if (nbaGames.length > 0) {
+        try {
+          // Get latest run_id
+          const { data: latestRun } = await collegeFootballSupabase
+            .from('nba_predictions')
+            .select('run_id, as_of_ts_utc')
+            .order('as_of_ts_utc', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestRun) {
+            const gameIds = nbaGames.map(g => g.nbaId || g.gameId).filter(Boolean);
+            const { data: nbaPredictions } = await collegeFootballSupabase
+              .from('nba_predictions')
+              .select('game_id, model_fair_home_spread, model_fair_total')
+              .eq('run_id', latestRun.run_id)
+              .in('game_id', gameIds);
+
+            const predictionMap = new Map((nbaPredictions || []).map(p => [String(p.game_id), p]));
+
+            for (const game of nbaGames) {
+              const gameId = String(game.nbaId || game.gameId);
+              const prediction = predictionMap.get(gameId);
+              if (prediction) {
+                // Calculate spread edge - use game data for vegas spread
+                const vegasSpread = game.homeSpread;
+                const modelFairSpread = prediction.model_fair_home_spread;
+                const spreadEdge = (vegasSpread !== null && modelFairSpread !== null)
+                  ? modelFairSpread - vegasSpread
+                  : null;
+
+                if (spreadEdge !== null && Math.abs(spreadEdge) > 3) {
+                  // NBA uses 3+ point edge threshold (smaller than CFB's 10)
+                  const isHome = spreadEdge > 0;
+                  const edgeValue = Math.abs(spreadEdge);
+                  
+                  alerts.push({
+                    gameId: game.gameId,
+                    sport: 'nba',
+                    awayTeam: game.awayTeam,
+                    homeTeam: game.homeTeam,
+                    pickType: 'Spread',
+                    predictedTeam: isHome ? game.homeTeam : game.awayTeam,
+                    confidence: Math.round(edgeValue * 10) / 10, // Store edge value as "confidence"
+                  });
+                }
+
+                // Calculate total edge - use game data for vegas total
+                const vegasTotal = game.totalLine;
+                const modelFairTotal = prediction.model_fair_total;
+                const totalEdge = (vegasTotal !== null && modelFairTotal !== null)
+                  ? modelFairTotal - vegasTotal
+                  : null;
+
+                if (totalEdge !== null && Math.abs(totalEdge) > 3) {
+                  const isOver = totalEdge > 0;
+                  const edgeValue = Math.abs(totalEdge);
+                  
+                  alerts.push({
+                    gameId: game.gameId,
+                    sport: 'nba',
+                    awayTeam: game.awayTeam,
+                    homeTeam: game.homeTeam,
+                    pickType: 'Total',
+                    predictedTeam: isOver ? 'Over' : 'Under',
+                    confidence: Math.round(edgeValue * 10) / 10,
+                  });
+                }
+              }
+            }
+          }
+        } catch (error) {
+          debug.error('Error fetching NBA prediction data:', error);
+        }
+      }
+
+      // Fetch NCAAB predictions - use edge values (similar to CFB)
+      if (ncaabGames.length > 0) {
+        try {
+          // Get latest run_id
+          const { data: latestRun } = await collegeFootballSupabase
+            .from('ncaab_predictions')
+            .select('run_id, as_of_ts_utc')
+            .order('as_of_ts_utc', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestRun) {
+            const gameIds = ncaabGames.map(g => g.ncaabId || g.gameId).filter(Boolean);
+            const { data: ncaabPredictions } = await collegeFootballSupabase
+              .from('ncaab_predictions')
+              .select('game_id, pred_home_margin, pred_total_points, vegas_home_spread, vegas_total')
+              .eq('run_id', latestRun.run_id)
+              .in('game_id', gameIds);
+
+            const predictionMap = new Map((ncaabPredictions || []).map(p => [String(p.game_id), p]));
+
+            for (const game of ncaabGames) {
+              const gameId = String(game.ncaabId || game.gameId);
+              const prediction = predictionMap.get(gameId);
+              if (prediction) {
+                // Calculate spread edge
+                const vegasSpread = prediction.vegas_home_spread || game.homeSpread;
+                const predMargin = prediction.pred_home_margin;
+                const spreadEdge = (vegasSpread !== null && predMargin !== null)
+                  ? predMargin - vegasSpread
+                  : null;
+
+                if (spreadEdge !== null && Math.abs(spreadEdge) > 5) {
+                  // NCAAB uses 5+ point edge threshold
+                  const isHome = spreadEdge > 0;
+                  const edgeValue = Math.abs(spreadEdge);
+                  
+                  alerts.push({
+                    gameId: game.gameId,
+                    sport: 'ncaab',
+                    awayTeam: game.awayTeam,
+                    homeTeam: game.homeTeam,
+                    pickType: 'Spread',
+                    predictedTeam: isHome ? game.homeTeam : game.awayTeam,
+                    confidence: Math.round(edgeValue * 10) / 10,
+                  });
+                }
+
+                // Calculate total edge
+                const vegasTotal = prediction.vegas_total || game.totalLine;
+                const predTotal = prediction.pred_total_points;
+                const totalEdge = (vegasTotal !== null && predTotal !== null)
+                  ? predTotal - vegasTotal
+                  : null;
+
+                if (totalEdge !== null && Math.abs(totalEdge) > 5) {
+                  const isOver = totalEdge > 0;
+                  const edgeValue = Math.abs(totalEdge);
+                  
+                  alerts.push({
+                    gameId: game.gameId,
+                    sport: 'ncaab',
+                    awayTeam: game.awayTeam,
+                    homeTeam: game.homeTeam,
+                    pickType: 'Total',
+                    predictedTeam: isOver ? 'Over' : 'Under',
+                    confidence: Math.round(edgeValue * 10) / 10,
+                  });
+                }
+              }
+            }
+          }
+        } catch (error) {
+          debug.error('Error fetching NCAAB prediction data:', error);
+        }
+      }
+
       return alerts;
     },
     enabled: !isFreemiumUser && !!weekGames,
@@ -790,19 +1314,29 @@ export default function TodayInSports() {
 
       debug.log('Fetching all games with tails for', weekGames.length, 'games');
 
-      const gameIds = weekGames.map(g => g.gameId).filter(Boolean); // Remove any undefined/null
+      // Convert all gameIds to strings to ensure type consistency with database (game_unique_id is text)
+      const gameIds = weekGames.map(g => String(g.gameId)).filter(Boolean); // Remove any undefined/null
       
       console.log('========================================');
       console.log('🎯 FETCHING ALL GAMES WITH TAILS');
       console.log('========================================');
+      console.log('Total weekGames:', weekGames.length);
+      console.log('  NFL:', weekGames.filter(g => g.sport === 'nfl').length);
+      console.log('  CFB:', weekGames.filter(g => g.sport === 'cfb').length);
+      console.log('  NBA:', weekGames.filter(g => g.sport === 'nba').length);
+      console.log('  NCAAB:', weekGames.filter(g => g.sport === 'ncaab').length);
       console.log('Total gameIds:', gameIds.length);
       
-      // Split by sport for debugging
-      const nflGameIds = weekGames.filter(g => g.sport === 'nfl').map(g => g.gameId).filter(Boolean);
-      const cfbGameIds = weekGames.filter(g => g.sport === 'cfb').map(g => g.gameId).filter(Boolean);
+      // Split by sport for debugging (convert to strings for consistency)
+      const nflGameIds = weekGames.filter(g => g.sport === 'nfl').map(g => String(g.gameId)).filter(Boolean);
+      const cfbGameIds = weekGames.filter(g => g.sport === 'cfb').map(g => String(g.gameId)).filter(Boolean);
+      const nbaGameIds = weekGames.filter(g => g.sport === 'nba').map(g => String(g.gameId)).filter(Boolean);
+      const ncaabGameIds = weekGames.filter(g => g.sport === 'ncaab').map(g => String(g.gameId)).filter(Boolean);
       
       console.log('NFL game IDs:', nflGameIds);
       console.log('CFB game IDs:', cfbGameIds);
+      console.log('🏀 NBA game IDs:', nbaGameIds);
+      console.log('🏀 NCAAB game IDs:', ncaabGameIds);
       console.log('');
       
       // First, query ALL tails to see what exists in the database
@@ -815,50 +1349,156 @@ export default function TodayInSports() {
         error: allTailsError,
         nflCount: allTails?.filter(t => t.sport === 'nfl').length || 0,
         cfbCount: allTails?.filter(t => t.sport === 'cfb').length || 0,
+        nbaCount: allTails?.filter(t => t.sport === 'nba').length || 0,
+        ncaabCount: allTails?.filter(t => t.sport === 'ncaab').length || 0,
       });
       
-      // Show unique CFB game IDs in database
+      // Show unique game IDs in database by sport
       const cfbTailsInDb = allTails?.filter(t => t.sport === 'cfb') || [];
+      const nbaTailsInDb = allTails?.filter(t => t.sport === 'nba') || [];
+      const ncaabTailsInDb = allTails?.filter(t => t.sport === 'ncaab') || [];
       const uniqueCfbGameIds = [...new Set(cfbTailsInDb.map(t => t.game_unique_id))];
+      const uniqueNbaGameIds = [...new Set(nbaTailsInDb.map(t => t.game_unique_id))];
+      const uniqueNcaabGameIds = [...new Set(ncaabTailsInDb.map(t => t.game_unique_id))];
       console.log('Unique CFB game IDs in database:', uniqueCfbGameIds);
+      console.log('🏀 Unique NBA game IDs in database:', uniqueNbaGameIds);
+      console.log('🏀 Unique NCAAB game IDs in database:', uniqueNcaabGameIds);
       console.log('CFB game IDs we\'re looking for:', cfbGameIds);
+      console.log('🏀 NBA game IDs we\'re looking for:', nbaGameIds);
+      console.log('🏀 NCAAB game IDs we\'re looking for:', ncaabGameIds);
+      
+      // Check for NBA/NCAAB gameId mismatches (both sides are already strings)
+      if (nbaGameIds.length > 0 && uniqueNbaGameIds.length > 0) {
+        const matchingNbaIds = nbaGameIds.filter(id => uniqueNbaGameIds.includes(id));
+        const missingNbaIds = nbaGameIds.filter(id => !uniqueNbaGameIds.includes(id));
+        console.log('🏀 NBA gameId matches:', matchingNbaIds.length, 'out of', nbaGameIds.length);
+        if (missingNbaIds.length > 0) {
+          console.log('⚠️ NBA gameIds with tails not in weekGames:', missingNbaIds);
+          console.log('   Unique NBA IDs in DB:', uniqueNbaGameIds);
+          console.log('   NBA IDs we have:', nbaGameIds);
+        }
+      }
+      
+      if (ncaabGameIds.length > 0 && uniqueNcaabGameIds.length > 0) {
+        const matchingNcaabIds = ncaabGameIds.filter(id => uniqueNcaabGameIds.includes(id));
+        const missingNcaabIds = ncaabGameIds.filter(id => !uniqueNcaabGameIds.includes(id));
+        console.log('🏀 NCAAB gameId matches:', matchingNcaabIds.length, 'out of', ncaabGameIds.length);
+        if (missingNcaabIds.length > 0) {
+          console.log('⚠️ NCAAB gameIds with tails not in weekGames:', missingNcaabIds);
+          console.log('   Unique NCAAB IDs in DB:', uniqueNcaabGameIds);
+          console.log('   NCAAB IDs we have:', ncaabGameIds);
+        }
+      }
       console.log('');
       
-      // Now get tails for this week's games
-      // Query tails for both NFL and CFB games separately to ensure we get all matches
-      const { data: tailsData, error: tailsError } = await supabase
-        .from('game_tails')
-        .select(`
-          game_unique_id,
-          pick_type,
-          team_selection,
-          user_id,
-          sport
-        `)
-        .in('game_unique_id', gameIds)
-        .or(`sport.eq.nfl,sport.eq.cfb`); // Explicitly include both sports
+      // Get tails for this week's games
+      let tailsData: any[] = [];
+      let tailsError: any = null;
+      
+      // First, get tails for games in our weekGames list
+      if (gameIds.length > 0) {
+        const { data: weekTailsData, error: weekTailsError } = await supabase
+          .from('game_tails')
+          .select(`
+            game_unique_id,
+            pick_type,
+            team_selection,
+            user_id,
+            sport
+          `)
+          .in('game_unique_id', gameIds)
+          .or(`sport.eq.nfl,sport.eq.cfb,sport.eq.nba,sport.eq.ncaab`);
+        
+        tailsData = weekTailsData || [];
+        tailsError = weekTailsError;
+      }
+      
+      // For NBA/NCAAB: Also fetch tails for games NOT in weekGames (they might be outside the week range)
+      // This ensures we show all tailed basketball games
+      const nbaTailGameIds = uniqueNbaGameIds.filter(id => !nbaGameIds.includes(id));
+      const ncaabTailGameIds = uniqueNcaabGameIds.filter(id => !ncaabGameIds.includes(id));
+      
+      if (nbaTailGameIds.length > 0 || ncaabTailGameIds.length > 0) {
+        console.log('🏀 Fetching additional NBA/NCAAB tails for games outside week range');
+        console.log('   NBA gameIds to fetch:', nbaTailGameIds);
+        console.log('   NCAAB gameIds to fetch:', ncaabTailGameIds);
+        
+        const additionalGameIds = [...nbaTailGameIds, ...ncaabTailGameIds];
+        const { data: additionalTailsData, error: additionalTailsError } = await supabase
+          .from('game_tails')
+          .select(`
+            game_unique_id,
+            pick_type,
+            team_selection,
+            user_id,
+            sport
+          `)
+          .in('game_unique_id', additionalGameIds)
+          .or(`sport.eq.nba,sport.eq.ncaab`);
+        
+        if (additionalTailsData && additionalTailsData.length > 0) {
+          console.log(`🏀 Found ${additionalTailsData.length} additional NBA/NCAAB tails`);
+          tailsData = [...tailsData, ...additionalTailsData];
+        }
+        
+        if (additionalTailsError) {
+          console.error('Error fetching additional NBA/NCAAB tails:', additionalTailsError);
+        }
+      }
 
       console.log('Tails query result:', { 
         count: tailsData?.length || 0, 
         error: tailsError,
         nflTails: tailsData?.filter(t => t.sport === 'nfl').length || 0,
         cfbTails: tailsData?.filter(t => t.sport === 'cfb').length || 0,
+        nbaTails: tailsData?.filter(t => t.sport === 'nba').length || 0,
+        ncaabTails: tailsData?.filter(t => t.sport === 'ncaab').length || 0,
         sample: tailsData?.[0],
         allGameIds: gameIds,
         nflGameIds: nflGameIds,
-        cfbGameIds: cfbGameIds
+        cfbGameIds: cfbGameIds,
+        nbaGameIds: nbaGameIds,
+        ncaabGameIds: ncaabGameIds
       });
+      
+      // Debug: Show which NBA/NCAAB gameIds from tailsData match our weekGames
+      if (tailsData && tailsData.length > 0) {
+        const nbaTailsFromQuery = tailsData.filter(t => t.sport === 'nba');
+        const ncaabTailsFromQuery = tailsData.filter(t => t.sport === 'ncaab');
+        if (nbaTailsFromQuery.length > 0) {
+          const nbaTailGameIds = [...new Set(nbaTailsFromQuery.map(t => t.game_unique_id))];
+          console.log('🏀 NBA tail gameIds from query:', nbaTailGameIds);
+          console.log('🏀 Do they match our weekGames?', nbaTailGameIds.map(id => ({
+            id,
+            inWeekGames: nbaGameIds.includes(id),
+            weekGame: weekGames.find(g => String(g.gameId) === id)
+          })));
+        }
+        if (ncaabTailsFromQuery.length > 0) {
+          const ncaabTailGameIds = [...new Set(ncaabTailsFromQuery.map(t => t.game_unique_id))];
+          console.log('🏀 NCAAB tail gameIds from query:', ncaabTailGameIds);
+          console.log('🏀 Do they match our weekGames?', ncaabTailGameIds.map(id => ({
+            id,
+            inWeekGames: ncaabGameIds.includes(id),
+            weekGame: weekGames.find(g => String(g.gameId) === id)
+          })));
+        }
+      }
       
       // Debug: Show which gameIds have tails
       if (tailsData && tailsData.length > 0) {
         const tailedGameIds = [...new Set(tailsData.map(t => t.game_unique_id))];
         const tailedNflIds = [...new Set(tailsData.filter(t => t.sport === 'nfl').map(t => t.game_unique_id))];
         const tailedCfbIds = [...new Set(tailsData.filter(t => t.sport === 'cfb').map(t => t.game_unique_id))];
+        const tailedNbaIds = [...new Set(tailsData.filter(t => t.sport === 'nba').map(t => t.game_unique_id))];
+        const tailedNcaabIds = [...new Set(tailsData.filter(t => t.sport === 'ncaab').map(t => t.game_unique_id))];
         
         console.log('Game IDs with tails:', {
           total: tailedGameIds.length,
           nfl: tailedNflIds,
-          cfb: tailedCfbIds
+          cfb: tailedCfbIds,
+          nba: tailedNbaIds,
+          ncaab: tailedNcaabIds
         });
         
         // Check for CFB gameIds that have tails but aren't in our weekGames
@@ -952,6 +1592,113 @@ export default function TodayInSports() {
         }
       }
 
+      // For NBA/NCAAB games with tails but not in weekGames, fetch their game details
+      const missingNbaGameIds = nbaTailGameIds.filter(id => !weekGames.some(g => String(g.gameId) === id));
+      const missingNcaabGameIds = ncaabTailGameIds.filter(id => !weekGames.some(g => String(g.gameId) === id));
+      
+      let additionalGames: GameSummary[] = [];
+      
+      // Fetch NBA game details for missing games
+      if (missingNbaGameIds.length > 0) {
+        console.log('🏀 Fetching NBA game details for', missingNbaGameIds.length, 'games with tails');
+        try {
+          const { data: nbaGamesData, error: nbaGamesError } = await collegeFootballSupabase
+            .from('nba_input_values_view')
+            .select('*')
+            .in('game_id', missingNbaGameIds.map(id => parseInt(id)).filter(id => !isNaN(id)));
+          
+          if (!nbaGamesError && nbaGamesData) {
+            for (const game of nbaGamesData) {
+              const gameIdStr = String(game.game_id);
+              let gameTimeValue: string | undefined = undefined;
+              if (game.tipoff_time_et) {
+                if (game.tipoff_time_et.includes('T') && (game.tipoff_time_et.includes('+') || game.tipoff_time_et.includes('Z'))) {
+                  gameTimeValue = game.tipoff_time_et;
+                } else if (game.game_date) {
+                  const timeStr = game.tipoff_time_et.includes(':') && game.tipoff_time_et.split(':').length === 2
+                    ? `${game.tipoff_time_et}:00`
+                    : game.tipoff_time_et;
+                  gameTimeValue = `${game.game_date}T${timeStr}`;
+                }
+              }
+              
+              const homeML = game.home_moneyline;
+              let awayML = null;
+              if (homeML) {
+                awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
+              }
+              
+              additionalGames.push({
+                gameId: gameIdStr,
+                sport: 'nba',
+                awayTeam: game.away_team,
+                homeTeam: game.home_team,
+                gameTime: gameTimeValue,
+                awaySpread: game.home_spread ? -game.home_spread : null,
+                homeSpread: game.home_spread,
+                totalLine: game.total_line,
+                awayMl: awayML,
+                homeMl: homeML,
+                nbaId: gameIdStr,
+              });
+            }
+            console.log(`🏀 Added ${additionalGames.length} NBA games with tails`);
+          }
+        } catch (error) {
+          console.error('Error fetching NBA game details:', error);
+        }
+      }
+      
+      // Fetch NCAAB game details for missing games
+      if (missingNcaabGameIds.length > 0) {
+        console.log('🏀 Fetching NCAAB game details for', missingNcaabGameIds.length, 'games with tails');
+        try {
+          const { data: ncaabGamesData, error: ncaabGamesError } = await collegeFootballSupabase
+            .from('v_cbb_input_values')
+            .select('*')
+            .in('game_id', missingNcaabGameIds.map(id => parseInt(id)).filter(id => !isNaN(id)));
+          
+          if (!ncaabGamesError && ncaabGamesData) {
+            for (const game of ncaabGamesData) {
+              const gameIdStr = String(game.game_id);
+              let gameTimeValue: string | undefined = undefined;
+              if (game.start_utc) {
+                gameTimeValue = game.start_utc;
+              } else if (game.tipoff_time_et) {
+                if (game.tipoff_time_et.includes('T') && (game.tipoff_time_et.includes('+') || game.tipoff_time_et.includes('Z'))) {
+                  gameTimeValue = game.tipoff_time_et;
+                } else if (game.game_date_et) {
+                  gameTimeValue = `${game.game_date_et}T${game.tipoff_time_et}`;
+                }
+              }
+              
+              const vegasHomeSpread = game.spread || null;
+              const vegasTotal = game.over_under || null;
+              
+              additionalGames.push({
+                gameId: gameIdStr,
+                sport: 'ncaab',
+                awayTeam: game.away_team,
+                homeTeam: game.home_team,
+                gameTime: gameTimeValue,
+                awaySpread: vegasHomeSpread !== null ? -vegasHomeSpread : null,
+                homeSpread: vegasHomeSpread,
+                totalLine: vegasTotal,
+                awayMl: game.awayMoneyline || null,
+                homeMl: game.homeMoneyline || null,
+                ncaabId: gameIdStr,
+              });
+            }
+            console.log(`🏀 Added ${ncaabGamesData.length} NCAAB games with tails`);
+          }
+        } catch (error) {
+          console.error('Error fetching NCAAB game details:', error);
+        }
+      }
+      
+      // Merge additional games with weekGames for matching
+      const allGamesForMatching = [...weekGames, ...additionalGames];
+      
       // Group by game (use finalTailsData which includes any fallback queries)
       const gameGroups = finalTailsData.reduce((acc, tail) => {
         if (!acc[tail.game_unique_id]) {
@@ -985,52 +1732,53 @@ export default function TodayInSports() {
       console.log('Game groups:', Object.keys(gameGroups));
       console.log('Game group counts:', Object.entries(gameGroups).map(([id, tails]) => ({ 
         id, 
-        count: tails.length,
-        sport: tails[0]?.sport 
+        count: (tails as any[]).length,
+        sport: (tails as any[])[0]?.sport 
       })));
       
       const gamesWithTails = Object.entries(gameGroups)
+        .map(([gameId, tails]): [string, any[]] => [gameId, tails as any[]])
         .sort(([, a], [, b]) => {
           // First sort by tail count (descending)
           if (b.length !== a.length) {
             return b.length - a.length;
           }
           // Then sort by game time
-          const gameA = weekGames.find(g => g.gameId === a[0]?.game_unique_id);
-          const gameB = weekGames.find(g => g.gameId === b[0]?.game_unique_id);
+          const gameA = allGamesForMatching.find(g => String(g.gameId) === String(a[0]?.game_unique_id));
+          const gameB = allGamesForMatching.find(g => String(g.gameId) === String(b[0]?.game_unique_id));
           const timeA = gameA?.gameTime || '';
           const timeB = gameB?.gameTime || '';
           return timeA.localeCompare(timeB);
         })
         .slice(0, 5) // Limit to top 5 games
         .map(([gameId, tails]) => {
-          // Try multiple matching strategies for gameId
-          let game = weekGames.find(g => g.gameId === gameId);
+          // Try multiple matching strategies for gameId (ensure both sides are strings)
+          const gameIdStr = String(gameId);
+          let game = allGamesForMatching.find(g => String(g.gameId) === gameIdStr);
           
-          // If not found, try string comparison
+          // If not found, try direct comparison (in case gameId is already a string)
           if (!game) {
-            game = weekGames.find(g => String(g.gameId) === String(gameId));
+            game = allGamesForMatching.find(g => g.gameId === gameId);
           }
           
           // If still not found, try case-insensitive string comparison
           if (!game) {
-            game = weekGames.find(g => String(g.gameId).toLowerCase() === String(gameId).toLowerCase());
+            game = allGamesForMatching.find(g => String(g.gameId).toLowerCase() === gameIdStr.toLowerCase());
           }
           
           if (!game) {
             console.log(`⚠️ Could not find game for gameId: ${gameId} (sport: ${tails[0]?.sport})`);
-            console.log(`   Available gameIds:`, weekGames.map(g => ({ 
+            console.log(`   Available gameIds:`, allGamesForMatching.map(g => ({ 
               id: g.gameId, 
               type: typeof g.gameId, 
               sport: g.sport,
               teams: `${g.awayTeam} @ ${g.homeTeam}`
             })));
             
-            // For CFB games, try to fetch game info from database if we have tails but no game match
-            if (tails[0]?.sport === 'cfb' && tails.length > 0) {
-              console.log(`   Attempting to fetch CFB game info for gameId: ${gameId}`);
-              // We'll skip this game for now since we don't have game details
-              // In a production system, you might want to fetch game details from the database
+            // For CFB/NBA/NCAAB games, log the mismatch for debugging
+            if ((tails[0]?.sport === 'cfb' || tails[0]?.sport === 'nba' || tails[0]?.sport === 'ncaab') && tails.length > 0) {
+              console.log(`   ⚠️ ${tails[0]?.sport.toUpperCase()} gameId mismatch: ${gameId} (sport: ${tails[0]?.sport})`);
+              console.log(`   This suggests the gameId format doesn't match what's stored in game_tails`);
             }
             return null;
           }
@@ -1070,7 +1818,25 @@ export default function TodayInSports() {
       // Log final results by sport
       const nflGames = gamesWithTails.filter(g => g.sport === 'nfl');
       const cfbGames = gamesWithTails.filter(g => g.sport === 'cfb');
-      console.log(`Final results: ${nflGames.length} NFL games, ${cfbGames.length} CFB games`);
+      const nbaGames = gamesWithTails.filter(g => g.sport === 'nba');
+      const ncaabGames = gamesWithTails.filter(g => g.sport === 'ncaab');
+      console.log(`Final results: ${nflGames.length} NFL games, ${cfbGames.length} CFB games, ${nbaGames.length} NBA games, ${ncaabGames.length} NCAAB games`);
+      
+      // Log detailed breakdown for basketball games
+      if (nbaGames.length > 0) {
+        console.log('🏀 NBA games with tails:', nbaGames.map(g => ({
+          gameId: g.gameId,
+          teams: `${g.awayTeam} @ ${g.homeTeam}`,
+          tailCount: g.tailCount
+        })));
+      }
+      if (ncaabGames.length > 0) {
+        console.log('🏀 NCAAB games with tails:', ncaabGames.map(g => ({
+          gameId: g.gameId,
+          teams: `${g.awayTeam} @ ${g.homeTeam}`,
+          tailCount: g.tailCount
+        })));
+      }
 
       console.log(`🎉 Returning ${gamesWithTails.length} games with tails`);
       console.log('========================================');
@@ -1128,13 +1894,21 @@ export default function TodayInSports() {
             WebkitBackdropFilter: 'blur(40px)',
           }}>
             <CardHeader className="px-4 md:px-6">
-              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                <Target className="h-5 w-5" />
-                Today's Games
-              </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-white/70">
-                Games happening today across NFL and College Football
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Target className="h-5 w-5" />
+                    Today's Games
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-white/70">
+                    Games happening today across NFL, College Football, NBA, and College Basketball
+                  </CardDescription>
+                </div>
+                <SportFilterButtons 
+                  currentFilter={todayGamesFilter} 
+                  onFilterChange={setTodayGamesFilter} 
+                />
+              </div>
             </CardHeader>
             <CardContent className="px-4 md:px-6">
               {weekGamesLoading ? (
@@ -1143,15 +1917,18 @@ export default function TodayInSports() {
                     <Skeleton key={i} className="h-40" />
                   ))}
                 </div>
-              ) : todayGames && todayGames.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {todayGames.map((game) => (
-                    <TodayGameSummaryCard key={game.gameId} {...game} />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-600 dark:text-gray-400 text-center py-8">No games scheduled for today</p>
-              )}
+              ) : (() => {
+                const filteredGames = filterBySport(todayGames || [], todayGamesFilter);
+                return filteredGames.length > 0 ? (
+                  <GamesMarquee games={filteredGames} />
+                ) : (
+                  <p className="text-gray-600 dark:text-gray-400 text-center py-8">
+                    {todayGamesFilter === 'all' 
+                      ? 'No games scheduled for today' 
+                      : `No ${todayGamesFilter.toUpperCase()} games scheduled for today`}
+                  </p>
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -1162,13 +1939,21 @@ export default function TodayInSports() {
             WebkitBackdropFilter: 'blur(40px)',
           }}>
             <CardHeader className="px-4 md:px-6">
-              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                <TrendingUp className="h-5 w-5" />
-                Value Summary
-              </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-white/70">
-                Polymarket alerts and high-confidence model predictions for remaining games this week
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <TrendingUp className="h-5 w-5" />
+                    Value Summary
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-white/70">
+                    Polymarket alerts and high-confidence model predictions for remaining games this week
+                  </CardDescription>
+                </div>
+                <SportFilterButtons 
+                  currentFilter={valueAlertsFilter} 
+                  onFilterChange={setValueAlertsFilter} 
+                />
+              </div>
             </CardHeader>
             <CardContent className="px-4 md:px-6 space-y-6">
               {/* Polymarket Value Alerts */}
@@ -1183,13 +1968,15 @@ export default function TodayInSports() {
                       <Skeleton key={i} className="h-24" />
                     ))}
                   </div>
-                ) : valueAlerts && valueAlerts.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {[...valueAlerts]
-                        .sort((a, b) => b.percentage - a.percentage)
-                        .slice(0, showAllValueAlerts ? valueAlerts.length : 6)
-                        .map((alert, idx) => (
+                ) : (() => {
+                  const filteredAlerts = filterBySport(valueAlerts || [], valueAlertsFilter);
+                  return filteredAlerts.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {[...filteredAlerts]
+                          .sort((a, b) => b.percentage - a.percentage)
+                          .slice(0, showAllValueAlerts ? filteredAlerts.length : 6)
+                          .map((alert, idx) => (
                         <div 
                           key={`${alert.gameId}-${alert.marketType}-${alert.side}-${idx}`}
                           className="p-4 rounded-lg bg-green-500/10 dark:bg-green-500/10 border border-green-500/30 dark:border-green-500/20 hover:border-green-500/50 dark:hover:border-green-500/40 transition-all"
@@ -1238,53 +2025,68 @@ export default function TodayInSports() {
                           </div>
                         </div>
                       ))}
-                    </div>
-                    {valueAlerts.length > 6 && (
-                      <div className="flex justify-center mt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowAllValueAlerts(!showAllValueAlerts)}
-                          className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
-                        >
-                          {showAllValueAlerts ? (
-                            <>
-                              <ChevronUp className="h-4 w-4 mr-2" />
-                              Show Less
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-4 w-4 mr-2" />
-                              Show More ({valueAlerts.length - 6} more)
-                            </>
-                          )}
-                        </Button>
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-gray-600 dark:text-gray-400 text-sm text-center py-4">No value alerts detected for remaining games this week</p>
-                )}
+                      {filteredAlerts.length > 6 && (
+                        <div className="flex justify-center mt-4">
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowAllValueAlerts(!showAllValueAlerts)}
+                            className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
+                          >
+                            {showAllValueAlerts ? (
+                              <>
+                                <ChevronUp className="h-4 w-4 mr-2" />
+                                Show Less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-4 w-4 mr-2" />
+                                Show More ({filteredAlerts.length - 6} more)
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-400 text-sm text-center py-4">
+                      {valueAlertsFilter === 'all' 
+                        ? 'No value alerts detected for remaining games this week'
+                        : `No ${valueAlertsFilter.toUpperCase()} value alerts detected for remaining games this week`}
+                    </p>
+                  );
+                })()}
               </div>
 
               {/* Model Prediction Fade Alerts */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Model Prediction Fade Alerts</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  High-confidence model predictions (≥80% NFL, &gt;10 point edge CFB) suggesting strong edges against the spread or total for remaining games this week
-                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Model Prediction Fade Alerts</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      High-confidence model predictions (≥80% NFL, &gt;10 point edge CFB, &gt;3 point edge NBA, &gt;5 point edge NCAAB) suggesting strong edges against the spread or total for remaining games this week
+                    </p>
+                  </div>
+                  <SportFilterButtons 
+                    currentFilter={fadeAlertsFilter} 
+                    onFilterChange={setFadeAlertsFilter} 
+                  />
+                </div>
                 {fadeAlertsLoading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {[...Array(4)].map((_, i) => (
                       <Skeleton key={i} className="h-24" />
                     ))}
                   </div>
-                ) : fadeAlerts && fadeAlerts.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {[...fadeAlerts]
-                        .sort((a, b) => b.confidence - a.confidence)
-                        .slice(0, showAllFadeAlerts ? fadeAlerts.length : 6)
-                        .map((alert, idx) => (
+                ) : (() => {
+                  const filteredFadeAlerts = filterBySport(fadeAlerts || [], fadeAlertsFilter);
+                  return filteredFadeAlerts.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {[...filteredFadeAlerts]
+                          .sort((a, b) => b.confidence - a.confidence)
+                          .slice(0, showAllFadeAlerts ? filteredFadeAlerts.length : 6)
+                          .map((alert, idx) => (
                         <div 
                           key={`${alert.gameId}-${alert.pickType}-${alert.predictedTeam}-${idx}`}
                           className="p-4 rounded-lg bg-purple-500/10 dark:bg-purple-500/10 border border-purple-500/30 dark:border-purple-500/20 hover:border-purple-500/50 dark:hover:border-purple-500/40 transition-all"
@@ -1315,7 +2117,7 @@ export default function TodayInSports() {
                             <Badge className="bg-purple-500 text-white flex items-center gap-1.5">
                               <Percent className="h-3 w-3" />
                               <span className="text-xs font-semibold">
-                                {alert.sport === 'cfb' ? `${alert.confidence}pt` : `${alert.confidence}%`}
+                                {alert.sport === 'nfl' ? `${alert.confidence}%` : `${alert.confidence}pt`}
                               </span>
                             </Badge>
                           </div>
@@ -1327,40 +2129,45 @@ export default function TodayInSports() {
                             </p>
                             <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
                               <span className="font-medium">{alert.predictedTeam}</span>
-                              {alert.sport === 'cfb' 
-                                ? ` - Model shows ${alert.confidence} point edge (strong edge indicator)`
-                                : ` - Model has ${alert.confidence}% confidence (strong edge indicator)`
+                              {alert.sport === 'nfl' 
+                                ? ` - Model has ${alert.confidence}% confidence (strong edge indicator)`
+                                : ` - Model shows ${alert.confidence} point edge (strong edge indicator)`
                               }
                             </p>
                           </div>
                         </div>
                       ))}
-                    </div>
-                    {fadeAlerts.length > 6 && (
-                      <div className="flex justify-center mt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowAllFadeAlerts(!showAllFadeAlerts)}
-                          className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
-                        >
-                          {showAllFadeAlerts ? (
-                            <>
-                              <ChevronUp className="h-4 w-4 mr-2" />
-                              Show Less
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-4 w-4 mr-2" />
-                              Show More ({fadeAlerts.length - 6} more)
-                            </>
-                          )}
-                        </Button>
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-gray-600 dark:text-gray-400 text-sm text-center py-4">No high-confidence predictions (≥80%) for remaining games this week</p>
-                )}
+                      {filteredFadeAlerts.length > 6 && (
+                        <div className="flex justify-center mt-4">
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowAllFadeAlerts(!showAllFadeAlerts)}
+                            className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
+                          >
+                            {showAllFadeAlerts ? (
+                              <>
+                                <ChevronUp className="h-4 w-4 mr-2" />
+                                Show Less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-4 w-4 mr-2" />
+                                Show More ({filteredFadeAlerts.length - 6} more)
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-400 text-sm text-center py-4">
+                      {fadeAlertsFilter === 'all' 
+                        ? 'No high-confidence predictions for remaining games this week'
+                        : `No ${fadeAlertsFilter.toUpperCase()} high-confidence predictions for remaining games this week`}
+                    </p>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>
@@ -1372,13 +2179,21 @@ export default function TodayInSports() {
             WebkitBackdropFilter: 'blur(40px)',
           }}>
             <CardHeader className="px-4 md:px-6">
-              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                <Flame className="h-5 w-5 text-orange-500" />
-                High Tailing It
-              </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-white/70">
-                Top 5 most tailed games this week
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Flame className="h-5 w-5 text-orange-500" />
+                    High Tailing It
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-white/70">
+                    Top 5 most tailed games this week
+                  </CardDescription>
+                </div>
+                <SportFilterButtons 
+                  currentFilter={tailedGamesFilter} 
+                  onFilterChange={setTailedGamesFilter} 
+                />
+              </div>
             </CardHeader>
             <CardContent className="px-4 md:px-6">
               {allTailedLoading ? (
@@ -1387,9 +2202,11 @@ export default function TodayInSports() {
                     <Skeleton key={i} className="h-24" />
                   ))}
                 </div>
-              ) : allTailedGames && allTailedGames.length > 0 ? (
-                <div className="space-y-4">
-                  {allTailedGames.map((game, idx) => {
+              ) : (() => {
+                const filteredTailedGames = filterBySport(allTailedGames || [], tailedGamesFilter);
+                return filteredTailedGames.length > 0 ? (
+                  <div className="space-y-4">
+                    {filteredTailedGames.map((game, idx) => {
                     // Helper to normalize pick type for color function
                     const normalizePickType = (pickType: string) => {
                       if (pickType === 'moneyline') return 'Moneyline';
@@ -1470,10 +2287,15 @@ export default function TodayInSports() {
                       </div>
                     );
                   })}
-                </div>
-              ) : (
-                <p className="text-gray-600 dark:text-gray-400 text-center py-8">No tailed games yet this week</p>
-              )}
+                  </div>
+                ) : (
+                  <p className="text-gray-600 dark:text-gray-400 text-center py-8">
+                    {tailedGamesFilter === 'all' 
+                      ? 'No tailed games yet this week'
+                      : `No ${tailedGamesFilter.toUpperCase()} tailed games yet this week`}
+                  </p>
+                );
+              })()}
             </CardContent>
           </Card>
         </>
@@ -1481,4 +2303,3 @@ export default function TodayInSports() {
     </div>
   );
 }
-

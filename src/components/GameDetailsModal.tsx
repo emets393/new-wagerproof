@@ -209,11 +209,30 @@ export function GameDetailsModal({
     </svg>
   );
 
-  const getTeamColors = 
+  // Spinning basketball loader for simulator
+  const BasketballLoader = () => (
+    <svg
+      className="h-8 w-8 animate-spin mr-2"
+      viewBox="0 0 64 64"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <circle cx="32" cy="32" r="28" fill="currentColor" className="text-orange-600" />
+      {/* Basketball curved lines */}
+      <path d="M32 4 Q20 20 20 32 Q20 44 32 60" stroke="white" strokeWidth="1.5" fill="none" />
+      <path d="M32 4 Q44 20 44 32 Q44 44 32 60" stroke="white" strokeWidth="1.5" fill="none" />
+      <line x1="32" y1="4" x2="32" y2="60" stroke="white" strokeWidth="1.5" />
+      <ellipse cx="32" cy="32" rx="28" ry="8" stroke="white" strokeWidth="1.5" fill="none" transform="rotate(90 32 32)" />
+    </svg>
+  );
+
+  const getTeamColors = (
     league === 'cfb' ? getCFBTeamColors :
     league === 'ncaab' ? getNCAABTeamColors :
     league === 'nba' ? getNBATeamColors :
-    getNFLTeamColors;
+    getNFLTeamColors
+  );
   const awayTeamColors = getTeamColors(prediction.away_team);
   const homeTeamColors = getTeamColors(prediction.home_team);
   const gameId = prediction.training_key || prediction.unique_id || prediction.id || `${prediction.away_team}_${prediction.home_team}`;
@@ -693,8 +712,8 @@ export function GameDetailsModal({
             </>
           )}
 
-          {/* NFL/NBA Content */}
-          {(league === 'nfl' || league === 'nba') && getFullTeamName && formatSpread && parseBettingSplit && (
+          {/* NFL Content */}
+          {league === 'nfl' && getFullTeamName && formatSpread && parseBettingSplit && (
             <>
               {/* NFL Model Predictions */}
               <div className="text-center">
@@ -908,7 +927,6 @@ export function GameDetailsModal({
                           </div>
                         );
                       })()}
-                      
                       {prediction.spread_splits_label && (() => {
                         const spreadData = parseBettingSplit(prediction.spread_splits_label);
                         if (!spreadData || !spreadData.team) return null;
@@ -926,11 +944,9 @@ export function GameDetailsModal({
                           </div>
                         );
                       })()}
-                      
                       {prediction.total_splits_label && (() => {
                         const totalData = parseBettingSplit(prediction.total_splits_label);
                         if (!totalData || !totalData.direction) return null;
-                        const isOver = totalData.direction === 'over';
                         const colorTheme = totalData.isSharp ? 'green' :
                                           totalData.percentage >= 70 ? 'purple' :
                                           totalData.percentage >= 60 ? 'blue' : 'neutral';
@@ -938,13 +954,10 @@ export function GameDetailsModal({
                                        colorTheme === 'purple' ? 'bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20' :
                                        colorTheme === 'blue' ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20' :
                                        'bg-gray-100 dark:bg-white/5 border-gray-300 dark:border-white/20';
-                        const arrow = isOver ? '▲' : '▼';
-                        const arrowColor = isOver ? 'text-green-400' : 'text-red-400';
                         return (
                           <div key="total" className={`${bgClass} backdrop-blur-sm rounded-lg border px-3 py-2 flex items-center gap-2`}>
-                            <BarChart className="h-3 w-3 text-orange-600 dark:text-orange-400" />
-                            <span className={`text-sm font-bold ${arrowColor}`}>{arrow}</span>
-                            <span className="text-xs font-semibold text-gray-900 dark:text-white">{totalData.team}</span>
+                            <BarChart className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                            <span className="text-xs font-semibold text-gray-900 dark:text-white">Total: {totalData.direction === 'over' ? 'Over' : 'Under'}</span>
                           </div>
                         );
                       })()}
@@ -952,9 +965,192 @@ export function GameDetailsModal({
                   </div>
                 </div>
               )}
+            </>
+          )}
 
-              {/* H2H Historical Data Section for NFL */}
+          {/* NBA Content - Show deltas like NCAAB */}
+          {league === 'nba' && getFullTeamName && formatSpread && parseBettingSplit && (
+            <>
+              {/* NBA Model Predictions */}
+              {(prediction.home_spread_diff !== null || prediction.over_line_diff !== null) && (
+                <div className="text-center">
+                  <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">Model Predictions</h4>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Spread Edge Display */}
+                      {(() => {
+                        const edgeInfo = getEdgeInfo(prediction.home_spread_diff, prediction.away_team, prediction.home_team);
+
+                        if (!edgeInfo) {
+                          return null;
+                        }
+
+                        const teamColors = league === 'nba' 
+                          ? (edgeInfo.isHomeEdge ? homeTeamColors : awayTeamColors)
+                          : getTeamColors(edgeInfo.teamName);
+                        
+                        const aiExplanation = aiCompletions[gameId]?.['spread_prediction'];
+                        const staticExplanation = getEdgeExplanation(edgeInfo.edgeValue, edgeInfo.teamName, 'spread');
+                        
+                        return (
+                          <>
+                            <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 shadow-sm p-3 sm:p-4">
+                              <div className="flex items-center justify-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-white/10">
+                                <Target className="h-4 w-4 text-green-400" />
+                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Spread</h5>
+                              </div>
+                              
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex-shrink-0">
+                                  <div 
+                                    className="h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
+                                    style={{
+                                      background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
+                                      borderColor: `${teamColors.primary}`
+                                    }}
+                                  >
+                                    <span 
+                                      className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                      style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
+                                    >
+                                      {getTeamInitials(edgeInfo.teamName)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="text-center flex-1">
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamInitials(edgeInfo.teamName)}</div>
+                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                    {edgeInfo.displayEdge}
+                                  </div>
+                                </div>
+
+                                <div className="text-center flex-1">
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Vegas Spread</div>
+                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                    {formatSpread(edgeInfo.isHomeEdge ? prediction.home_spread : prediction.away_spread)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Spread Explanation */}
+                            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Info className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                                <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
+                                {aiExplanation && (
+                                  <Sparkles className="h-3 w-3 text-purple-400 ml-auto" title="AI-powered analysis" />
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
+                                {renderTextWithLinks(aiExplanation || staticExplanation)}
+                              </p>
+                            </div>
+                          </>
+                        );
+                      })()}
+
+                      {/* Over/Under Edge Display */}
+                      {(() => {
+                        const ouDiff = prediction.over_line_diff;
+                        const hasOuData = ouDiff !== null;
+
+                        if (!hasOuData) {
+                          return null;
+                        }
+
+                        const isOver = (ouDiff ?? 0) > 0;
+                        const magnitude = Math.abs(ouDiff ?? 0);
+                        const displayMagnitude = roundToHalf(magnitude).toString();
+                        const modelValue = prediction.over_line;
+
+                        const aiExplanation = aiCompletions[gameId]?.['ou_prediction'];
+                        const staticExplanation = getEdgeExplanation(magnitude, '', 'ou', isOver ? 'over' : 'under');
+
+                        return (
+                          <>
+                            <div className={`rounded-xl border p-3 sm:p-4 backdrop-blur-sm shadow-sm ${
+                              isOver 
+                                ? 'bg-green-500/10 border-green-500/20' 
+                                : 'bg-red-500/10 border-red-500/20'
+                            }`}>
+                              <div className="flex items-center justify-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-white/10">
+                                <BarChart className="h-4 w-4 text-orange-400" />
+                                <h5 className="text-sm font-semibold text-gray-800 dark:text-white/90">Over/Under</h5>
+                              </div>
+                              
+                              <div className="flex items-center justify-between gap-4">
+                                <div className={`flex-shrink-0 rounded-lg p-3 ${
+                                  isOver ? 'bg-green-500/20' : 'bg-red-500/20'
+                                }`}>
+                                  <div className={`text-3xl sm:text-4xl font-black ${isOver ? 'text-green-400' : 'text-red-400'}`}>
+                                    {isOver ? '▲' : '▼'}
+                                  </div>
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mt-1">
+                                    {isOver ? 'Over' : 'Under'}
+                                  </div>
+                                </div>
+
+                                <div className="text-center flex-1">
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {isOver ? 'Over' : 'Under'}</div>
+                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                    +{displayMagnitude}
+                                  </div>
+                                </div>
+
+                                <div className="text-center flex-1">
+                                  <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Vegas Total</div>
+                                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                    {modelValue || '-'}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* O/U Explanation */}
+                            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-white/10 p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Info className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                                <h6 className="text-xs font-semibold text-gray-900 dark:text-white">What This Means</h6>
+                                {aiExplanation && (
+                                  <Sparkles className="h-3 w-3 text-purple-400 ml-auto" title="AI-powered analysis" />
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-700 dark:text-white/70 text-left leading-relaxed">
+                                {renderTextWithLinks(aiExplanation || staticExplanation)}
+                              </p>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Polymarket Widget for NBA */}
               <div className="text-center">
+                <PolymarketWidget
+                  awayTeam={prediction.away_team}
+                  homeTeam={prediction.home_team}
+                  gameDate={prediction.game_date}
+                  awayTeamColors={awayTeamColors}
+                  homeTeamColors={homeTeamColors}
+                  league={league}
+                  compact={false}
+                />
+              </div>
+            </>
+          )}
+
+          {/* H2H Historical Data Section for NFL */}
+          {league === 'nfl' && (
+            <div className="text-center">
                 <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
                   <div className="flex items-center justify-center gap-2">
                     <History className="h-5 w-5 text-amber-600 dark:text-amber-400" />
@@ -1111,9 +1307,11 @@ export function GameDetailsModal({
                   )}
                 </div>
               </div>
+            )}
 
-              {/* Line Movement Section for NFL */}
-              <div className="text-center">
+          {/* Line Movement Section for NFL */}
+          {league === 'nfl' && (
+            <div className="text-center">
                 <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-4">
                   <div className="flex items-center justify-center gap-2">
                     <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -1311,9 +1509,11 @@ export function GameDetailsModal({
                   )}
                 </div>
               </div>
+            )}
 
-              {/* Weather Section for NFL - Full Weather Details */}
-              <div className="text-center">
+          {/* Weather Section for NFL - Full Weather Details */}
+          {league === 'nfl' && (
+            <div className="text-center">
                 <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-3">
                   <div className="flex items-center justify-center gap-2">
                     <CloudRain className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
@@ -1370,11 +1570,10 @@ export function GameDetailsModal({
                   )}
                 </div>
               </div>
-            </>
-          )}
+            )}
 
-          {/* Weather Section for CFB/NCAAB - Full Weather Details */}
-          {(league === 'cfb' || league === 'ncaab') && (
+          {/* Weather Section for CFB Only - NCAAB plays indoors */}
+          {league === 'cfb' && (
             <div className="text-center">
               <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-gray-200 dark:border-white/20 space-y-3">
                 <div className="flex items-center justify-center gap-2">
@@ -1494,7 +1693,7 @@ export function GameDetailsModal({
                     >
                       {simLoadingById[prediction.id] ? (
                         <span className="flex items-center">
-                          <FootballLoader /> Simulating…
+                          {league === 'ncaab' ? <BasketballLoader /> : <FootballLoader />} Simulating…
                         </span>
                       ) : (
                         'Simulate Match'
@@ -1514,7 +1713,7 @@ export function GameDetailsModal({
                     >
                       {simLoadingById[prediction.id] ? (
                         <span className="flex items-center">
-                          <FootballLoader /> Simulating…
+                          {league === 'ncaab' ? <BasketballLoader /> : <FootballLoader />} Simulating…
                         </span>
                       ) : (
                         'Simulate Match'
@@ -1543,7 +1742,10 @@ export function GameDetailsModal({
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-foreground">
                       {(() => {
-                        const val = prediction.pred_away_points ?? prediction.pred_away_score;
+                        // Use basketball-specific fields for NCAAB, football fields for CFB
+                        const val = league === 'ncaab' 
+                          ? (prediction as any).away_score_pred ?? (prediction as any).pred_away_score
+                          : prediction.pred_away_points ?? prediction.pred_away_score;
                         return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
                       })()}
                     </div>
@@ -1570,7 +1772,10 @@ export function GameDetailsModal({
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-foreground">
                       {(() => {
-                        const val = prediction.pred_home_points ?? prediction.pred_home_score;
+                        // Use basketball-specific fields for NCAAB, football fields for CFB
+                        const val = league === 'ncaab'
+                          ? (prediction as any).home_score_pred ?? (prediction as any).pred_home_score
+                          : prediction.pred_home_points ?? prediction.pred_home_score;
                         return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
                       })()}
                     </div>

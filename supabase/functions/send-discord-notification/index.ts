@@ -63,11 +63,11 @@ serve(async (req) => {
     };
 
     // Use the new BuildShip endpoint for general messages
-    // Channel ID for #🗣️︳general channel
-    const channelId = '1428416705171951821'; // General channel ID
+    // Thread ID for Today in Sports thread
+    const channelId = '1437548685205700846'; // Today in Sports thread ID
     
     // Build payload for the general message endpoint
-    // The endpoint expects: embeds (array), channelId, botToken
+    // The endpoint expects: embeds (array), channelId (can be thread or channel), botToken
     const discordPayload = {
       embeds: [embed], // Use the embed we built above
       channelId: channelId,
