@@ -129,8 +129,8 @@ const CFB_TEAM_MAPPINGS: Record<string, string> = {
 };
 
 // Get team mascot from city/school name
-function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' = 'nfl'): string {
-  if (league === 'cfb') {
+function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'): string {
+  if (league === 'cfb' || league === 'ncaab') {
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
   }
   return NFL_TEAM_MASCOTS[teamName] || teamName;
@@ -168,10 +168,11 @@ export async function getSportsMetadata(): Promise<PolymarketSport[]> {
 /**
  * Get league tag ID from sports metadata
  */
-async function getLeagueTagId(league: 'nfl' | 'cfb'): Promise<string | null> {
+async function getLeagueTagId(league: 'nfl' | 'cfb' | 'ncaab'): Promise<string | null> {
   const sports = await getSportsMetadata();
-  const sportName = league === 'nfl' ? 'nfl' : 'cfb'; // Polymarket uses 'cfb' for College Football
-  const sport = sports.find((s) => s.sport?.toLowerCase() === sportName);
+  // Polymarket uses 'nfl' for NFL, 'cfb' for College Football, and 'ncaab' or 'cbb' for College Basketball
+  const sportName = league === 'nfl' ? 'nfl' : league === 'cfb' ? 'cfb' : 'ncaab';
+  const sport = sports.find((s) => s.sport?.toLowerCase() === sportName || (league === 'ncaab' && s.sport?.toLowerCase() === 'cbb'));
   
   if (!sport) {
     debug.error(`❌ ${sportName.toUpperCase()} sport not found in Polymarket`);
@@ -189,9 +190,9 @@ async function getLeagueTagId(league: 'nfl' | 'cfb'): Promise<string | null> {
 }
 
 /**
- * Get league events from Polymarket (NFL or CFB)
+ * Get league events from Polymarket (NFL, CFB, or NCAAB)
  */
-export async function getLeagueEvents(league: 'nfl' | 'cfb' = 'nfl'): Promise<PolymarketEvent[]> {
+export async function getLeagueEvents(league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'): Promise<PolymarketEvent[]> {
   try {
     const tagId = await getLeagueTagId(league);
     
@@ -213,7 +214,7 @@ export async function getLeagueEvents(league: 'nfl' | 'cfb' = 'nfl'): Promise<Po
       }
 
       const events = data?.events || [];
-      debug.log('✅ Found', events.length, 'NFL events');
+      debug.log(`✅ Found ${events.length} ${league.toUpperCase()} events`);
       return events;
     } else {
       const url = `https://gamma-api.polymarket.com/events?tag_id=${tagId}&closed=false&limit=100&related_tags=true`;
@@ -223,7 +224,7 @@ export async function getLeagueEvents(league: 'nfl' | 'cfb' = 'nfl'): Promise<Po
       return Array.isArray(data) ? data : (data.events || data.data || []);
     }
   } catch (error) {
-    debug.error('Error fetching NFL events:', error);
+    debug.error(`Error fetching ${league.toUpperCase()} events:`, error);
     return [];
   }
 }
@@ -358,7 +359,8 @@ function parseTeamsFromTitle(title: string): { awayTeam: string; homeTeam: strin
 function findMatchingEvent(
   events: PolymarketEvent[],
   awayTeam: string,
-  homeTeam: string
+  homeTeam: string,
+  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
 ): PolymarketEvent | null {
   if (!events || events.length === 0) return null;
 
@@ -367,8 +369,8 @@ function findMatchingEvent(
     name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 
   // Get mascots for matching
-  const awayMascot = getTeamMascot(awayTeam);
-  const homeMascot = getTeamMascot(homeTeam);
+  const awayMascot = getTeamMascot(awayTeam, league);
+  const homeMascot = getTeamMascot(homeTeam, league);
 
   debug.log(`🔍 Looking for event: ${awayTeam} (${awayMascot}) vs ${homeTeam} (${homeMascot})`);
 
@@ -769,7 +771,7 @@ export function groupByEventSlug(markets: PolymarketEventMarketClean[]): Grouped
 export async function getAllMarketsDataLive(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' = 'nfl'
+  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   try {
     const awayMascot = getTeamMascot(awayTeam, league);
@@ -781,12 +783,12 @@ export async function getAllMarketsDataLive(
     const events = await getLeagueEvents(league);
     
     if (!events || events.length === 0) {
-      debug.log('❌ No NFL events available from Polymarket');
+      debug.log(`❌ No ${league.toUpperCase()} events available from Polymarket`);
       return null;
     }
 
     // Step 2: Find the matching event
-    const event = findMatchingEvent(events, awayTeam, homeTeam);
+    const event = findMatchingEvent(events, awayTeam, homeTeam, league);
     
     if (!event) {
       debug.log('❌ No matching event found for this game');
@@ -845,7 +847,7 @@ export async function getAllMarketsDataLive(
 async function getAllMarketsDataFromCache(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' = 'nfl'
+  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   try {
     const gameKey = `${league}_${awayTeam}_${homeTeam}`;
@@ -918,7 +920,7 @@ async function getAllMarketsDataFromCache(
 export async function getAllMarketsData(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' = 'nfl'
+  league: 'nfl' | 'cfb' | 'ncaab' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   // Try cache first
   const cachedData = await getAllMarketsDataFromCache(awayTeam, homeTeam, league);

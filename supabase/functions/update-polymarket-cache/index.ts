@@ -103,10 +103,11 @@ function getTeamMascot(teamName: string): string {
 }
 
 // Get team name for matching (NFL uses mascots, CFB uses school names)
-function getTeamName(teamName: string, league: 'nfl' | 'cfb'): string {
-  if (league === 'cfb') {
+function getTeamName(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): string {
+  if (league === 'cfb' || league === 'ncaab') {
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
   }
+  // NBA and NFL both use mascot-based names
   return getTeamMascot(teamName);
 }
 
@@ -128,7 +129,7 @@ serve(async (req) => {
 
     console.log('🔄 Starting Polymarket cache update...');
 
-    // Step 1: Get current games for BOTH NFL and CFB
+    // Step 1: Get current games for NFL, CFB, and NCAAB
     const today = new Date().toISOString().split('T')[0];
     
     // Fetch NFL games
@@ -150,8 +151,18 @@ serve(async (req) => {
       console.error('Error fetching CFB games:', cfbError);
     }
 
+    // Fetch NCAAB games
+    const { data: ncaabGames, error: ncaabError } = await cfbSupabase
+      .from('v_cbb_input_values')
+      .select('away_team, home_team, game_date_et')
+      .gte('game_date_et', today);
+
+    if (ncaabError) {
+      console.error('Error fetching NCAAB games:', ncaabError);
+    }
+
     // Combine and tag with league
-    const allGames: Array<{ away_team: string; home_team: string; league: 'nfl' | 'cfb'; training_key?: string }> = [];
+    const allGames: Array<{ away_team: string; home_team: string; league: 'nfl' | 'cfb' | 'ncaab'; training_key?: string }> = [];
     
     if (nflLines && nflLines.length > 0) {
       // Deduplicate NFL by training_key
@@ -168,6 +179,10 @@ serve(async (req) => {
       allGames.push(...cfbGames.map(g => ({ ...g, league: 'cfb' as const })));
     }
 
+    if (ncaabGames && ncaabGames.length > 0) {
+      allGames.push(...ncaabGames.map(g => ({ ...g, league: 'ncaab' as const })));
+    }
+
     if (allGames.length === 0) {
       console.log('No games found to update');
       return new Response(
@@ -176,9 +191,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📊 Found ${allGames.length} games to update (${nflLines?.length || 0} NFL, ${cfbGames?.length || 0} CFB)`);
+    console.log(`📊 Found ${allGames.length} games to update (${nflLines?.length || 0} NFL, ${cfbGames?.length || 0} CFB, ${ncaabGames?.length || 0} NCAAB)`);
 
-    // Step 2: Fetch sports metadata to get tag IDs for both leagues
+    // Step 2: Fetch sports metadata to get tag IDs for all leagues
     const sportsResponse = await fetch('https://gamma-api.polymarket.com/sports', {
       headers: {
         'Accept': 'application/json',
@@ -202,10 +217,15 @@ serve(async (req) => {
     const cfbTagCandidates = cfbSport?.tags.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
     const cfbTagId = cfbTagCandidates.find((t: string) => t !== '1') || cfbTagCandidates[0];
 
-    console.log(`🏈 NFL tag ID: ${nflTagId}, 🏈 CFB tag ID: ${cfbTagId}`);
+    // Get NCAAB tag (try both 'ncaab' and 'cbb')
+    const ncaabSport = sportsList.find((s: any) => s.sport?.toLowerCase() === 'ncaab' || s.sport?.toLowerCase() === 'cbb');
+    const ncaabTagCandidates = ncaabSport?.tags.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
+    const ncaabTagId = ncaabTagCandidates.find((t: string) => t !== '1') || ncaabTagCandidates[0];
 
-    // Step 3: Fetch events for both leagues
-    const allEvents: Array<{ event: any; league: 'nfl' | 'cfb' }> = [];
+    console.log(`🏈 NFL tag ID: ${nflTagId}, 🏈 CFB tag ID: ${cfbTagId}, 🏀 NCAAB tag ID: ${ncaabTagId}`);
+
+    // Step 3: Fetch events for all leagues
+    const allEvents: Array<{ event: any; league: 'nfl' | 'cfb' | 'ncaab' }> = [];
 
     if (nflTagId) {
       const nflEventsUrl = `https://gamma-api.polymarket.com/events?tag_id=${nflTagId}&closed=false&limit=100&related_tags=true`;
@@ -238,6 +258,23 @@ serve(async (req) => {
         const cfbEvents = Array.isArray(cfbEventsData) ? cfbEventsData : (cfbEventsData.events || cfbEventsData.data || []);
         allEvents.push(...cfbEvents.map((e: any) => ({ event: e, league: 'cfb' as const })));
         console.log(`📋 Found ${cfbEvents.length} CFB events on Polymarket`);
+      }
+    }
+
+    if (ncaabTagId) {
+      const ncaabEventsUrl = `https://gamma-api.polymarket.com/events?tag_id=${ncaabTagId}&closed=false&limit=100&related_tags=true`;
+      const ncaabEventsResponse = await fetch(ncaabEventsUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'WagerProof-PolymarketCache/1.0'
+        }
+      });
+
+      if (ncaabEventsResponse.ok) {
+        const ncaabEventsData = await ncaabEventsResponse.json();
+        const ncaabEvents = Array.isArray(ncaabEventsData) ? ncaabEventsData : (ncaabEventsData.events || ncaabEventsData.data || []);
+        allEvents.push(...ncaabEvents.map((e: any) => ({ event: e, league: 'ncaab' as const })));
+        console.log(`📋 Found ${ncaabEvents.length} NCAAB events on Polymarket`);
       }
     }
 
@@ -361,6 +398,7 @@ serve(async (req) => {
         games: allGames.length,
         nflGames: allGames.filter(g => g.league === 'nfl').length,
         cfbGames: allGames.filter(g => g.league === 'cfb').length,
+        ncaabGames: allGames.filter(g => g.league === 'ncaab').length,
         errors: errors.length > 0 ? errors : undefined,
         debug: debugInfo.slice(0, 10), // First 10 games for debugging
         availableEvents: allEvents.slice(0, 5).map((e: any) => ({ title: e.event.title, league: e.league }))
@@ -378,7 +416,7 @@ serve(async (req) => {
 });
 
 // Helper: Find matching event
-function findMatchingEvent(events: any[], awayTeam: string, homeTeam: string, league: 'nfl' | 'cfb'): any | null {
+function findMatchingEvent(events: any[], awayTeam: string, homeTeam: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): any | null {
   const cleanName = (name: string) => name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
   
   // Get team names for matching (mascots for NFL, school names for CFB)
@@ -466,7 +504,7 @@ function extractMarkets(event: any): Record<string, { tokenId: string; question:
         const arr = JSON.parse(market.clobTokenIds);
         if (Array.isArray(arr) && arr.length > 0) {
           tokenId = arr[0]; // YES token
-          console.log(`✅ Found clobTokenIds (parsed): ${tokenId.substring(0, 20)}...`);
+          if (tokenId) console.log(`✅ Found clobTokenIds (parsed): ${tokenId.substring(0, 20)}...`);
         }
       } catch (e) {
         console.log(`⚠️ Failed to parse clobTokenIds: ${e.message}`);
@@ -474,7 +512,7 @@ function extractMarkets(event: any): Record<string, { tokenId: string; question:
     } else if (market.clobTokenIds && Array.isArray(market.clobTokenIds) && market.clobTokenIds.length > 0) {
       // Fallback if it's already an array
       tokenId = market.clobTokenIds[0];
-      console.log(`✅ Found clobTokenIds[0]: ${tokenId.substring(0, 20)}...`);
+      if (tokenId) console.log(`✅ Found clobTokenIds[0]: ${tokenId.substring(0, 20)}...`);
     } else if (market.tokens && Array.isArray(market.tokens)) {
       // Old format fallback
       const yesToken = market.tokens.find((t: any) => (t.outcome || '').toLowerCase() === 'yes');
