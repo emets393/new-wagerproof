@@ -40,6 +40,8 @@ interface NCAABPrediction {
   id: string;
   away_team: string;
   home_team: string;
+  away_team_id?: number | null;
+  home_team_id?: number | null;
   home_ml: number | null;
   away_ml: number | null;
   home_spread: number | null;
@@ -85,6 +87,7 @@ export default function NCAAB() {
   const { showNFLMoneylinePills } = useDisplaySettings();
   const [predictions, setPredictions] = useState<NCAABPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
+  const [teamMappingsById, setTeamMappingsById] = useState<Map<number, { espn_team_url: string; team_abbrev: string | null }>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -448,7 +451,7 @@ ${contextParts}
         const gameIds = (ncaabGames || []).map(g => g.game_id);
         const { data: predictions, error: predsError } = await collegeFootballSupabase
           .from('ncaab_predictions')
-          .select('game_id, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, run_id, vegas_home_spread, vegas_total, vegas_home_moneyline, vegas_away_moneyline, home_score_pred, away_score_pred')
+          .select('game_id, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, run_id, vegas_home_spread, vegas_total, vegas_home_moneyline, vegas_away_moneyline, home_score_pred, away_score_pred, model_fair_home_spread, home_team_id, away_team_id')
           .eq('run_id', latestRun.run_id)
           .in('game_id', gameIds);
 
@@ -465,30 +468,122 @@ ${contextParts}
       }
       
       // Step 3: Fetch team mappings for logos
+      console.log('🔍 [NCAAB] Fetching team mappings from ncaab_team_mapping...');
+      debug.log('🔍 Fetching team mappings from ncaab_team_mapping...');
+      
+      // First, try to get all columns to see what's available
+      const { data: allColumnsTest, error: testError } = await collegeFootballSupabase
+        .from('ncaab_team_mapping')
+        .select('*')
+        .limit(5);
+      
+      console.log('🔍 [NCAAB] Test query (all columns, limit 5):', { 
+        data: allColumnsTest, 
+        error: testError,
+        sampleRow: allColumnsTest?.[0],
+        sampleKeys: allColumnsTest?.[0] ? Object.keys(allColumnsTest[0]) : []
+      });
+      
+      // Now query the specific columns we need
+      // We need espn_team_id to construct the logo URL, not espn_team_url (which is the team page URL)
+      // Also need team_abbrev for team abbreviations
       const { data: teamMappingsData, error: teamMappingsError } = await collegeFootballSupabase
         .from('ncaab_team_mapping')
-        .select('*');
+        .select('api_team_id, espn_team_id, espn_team_url, team_abbrev');
+      
+      console.log('🔍 [NCAAB] Query response:', { 
+        data: teamMappingsData, 
+        error: teamMappingsError, 
+        dataLength: teamMappingsData?.length,
+        firstRow: teamMappingsData?.[0],
+        firstRowKeys: teamMappingsData?.[0] ? Object.keys(teamMappingsData[0]) : []
+      });
       
       if (teamMappingsError) {
-        debug.error('Error fetching team mappings:', teamMappingsError);
+        console.error('❌ [NCAAB] Error fetching team mappings:', teamMappingsError);
+        debug.error('❌ Error fetching team mappings:', teamMappingsError);
+        debug.error('Error details:', JSON.stringify(teamMappingsError, null, 2));
       } else {
-        debug.log('✅ Team mappings fetched:', teamMappingsData?.length);
+        console.log('✅ [NCAAB] Team mappings query succeeded. Data length:', teamMappingsData?.length || 0);
+        debug.log('✅ Team mappings query succeeded. Data length:', teamMappingsData?.length || 0);
+        if (teamMappingsData && teamMappingsData.length > 0) {
+          console.log('📋 [NCAAB] First few team mappings:', teamMappingsData.slice(0, 3));
+          console.log('📋 [NCAAB] Sample team mapping keys:', Object.keys(teamMappingsData[0] || {}));
+          debug.log('📋 First few team mappings:', teamMappingsData.slice(0, 3));
+          debug.log('📋 Sample team mapping keys:', Object.keys(teamMappingsData[0] || {}));
+          debug.log('📋 First team full object:', JSON.stringify(teamMappingsData[0], null, 2));
+        } else {
+          console.warn('⚠️ [NCAAB] Team mappings query returned empty array or null');
+          debug.warn('⚠️ Team mappings query returned empty array or null');
+        }
         // Log logo availability
-        const withLogos = (teamMappingsData || []).filter(t => t.logo_url && t.logo_url !== '/placeholder.svg' && t.logo_url.trim() !== '');
-        debug.log(`📊 Teams with logos: ${withLogos.length} out of ${teamMappingsData?.length || 0}`);
+        const withLogos = (teamMappingsData || []).filter(t => t.espn_team_url && t.espn_team_url.trim() !== '');
+        console.log(`📊 [NCAAB] Teams with ESPN logos: ${withLogos.length} out of ${teamMappingsData?.length || 0}`);
+        debug.log(`📊 Teams with ESPN logos: ${withLogos.length} out of ${teamMappingsData?.length || 0}`);
         if (withLogos.length > 0) {
-          debug.log('Sample teams with logos:', withLogos.slice(0, 5).map(t => `${t.team_name}: ${t.logo_url}`));
+          console.log('Sample teams with logos:', withLogos.slice(0, 5).map(t => `api_team_id=${t.api_team_id}: ${t.espn_team_url}`));
+          debug.log('Sample teams with logos:', withLogos.slice(0, 5).map(t => `api_team_id=${t.api_team_id}: ${t.espn_team_url}`));
         }
       }
       
-      const teamMappings = (teamMappingsData || []).map(team => ({
-        team_id: team.team_id,
-        team_name: team.team_name,
-        abbreviation: team.abbreviation,
-        logo_url: team.logo_url || '/placeholder.svg'
-      }));
+      // Create a map keyed by api_team_id (which matches home_team_id/away_team_id from v_cbb_input_values)
+      // Store the logo URL constructed from espn_team_id and team_abbrev
+      const teamMappingsMap = new Map<number, { espn_team_url: string; team_abbrev: string | null }>();
+      
+      if (!teamMappingsData || teamMappingsData.length === 0) {
+        console.error('❌ [NCAAB] teamMappingsData is empty or null! Cannot create map.');
+        debug.error('❌ teamMappingsData is empty or null! Cannot create map.');
+      } else {
+        console.log(`📦 [NCAAB] Processing ${teamMappingsData.length} team mappings...`);
+        debug.log(`📦 Processing ${teamMappingsData.length} team mappings...`);
+        (teamMappingsData || []).forEach((team, index) => {
+          // Use api_team_id as the key (this matches home_team_id/away_team_id from v_cbb_input_values)
+          if (team.api_team_id !== null && team.api_team_id !== undefined) {
+            const numericId = typeof team.api_team_id === 'string' ? parseInt(team.api_team_id, 10) : team.api_team_id;
+            
+            // Construct logo URL from espn_team_id
+            // ESPN college basketball logo pattern: https://a.espncdn.com/i/teamlogos/ncaa/500/{espn_team_id}.png
+            let logoUrl = '/placeholder.svg';
+            if (team.espn_team_id !== null && team.espn_team_id !== undefined) {
+              const espnTeamId = typeof team.espn_team_id === 'string' ? parseInt(team.espn_team_id, 10) : team.espn_team_id;
+              logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${espnTeamId}.png`;
+            }
+            
+            // Get team abbreviation
+            const teamAbbrev = team.team_abbrev || null;
+            
+            if (index < 10) {
+              console.log(`📝 [NCAAB] Mapping team ${index}: api_team_id=${numericId}, espn_team_id=${team.espn_team_id}, logoUrl=${logoUrl}, abbrev=${teamAbbrev}`);
+              debug.log(`📝 Mapping team ${index}: api_team_id=${numericId}, espn_team_id=${team.espn_team_id}, logoUrl=${logoUrl}, abbrev=${teamAbbrev}`);
+            }
+            
+            teamMappingsMap.set(numericId, {
+              espn_team_url: logoUrl,
+              team_abbrev: teamAbbrev
+            });
+          } else {
+            if (index < 5) {
+              console.warn(`⚠️ [NCAAB] Team ${index} has no api_team_id:`, team);
+              debug.log(`⚠️ Team ${index} has no api_team_id:`, team);
+            }
+          }
+        });
+        console.log(`✅ [NCAAB] Created teamMappingsMap with ${teamMappingsMap.size} entries`);
+        debug.log(`✅ Created teamMappingsMap with ${teamMappingsMap.size} entries (keyed by api_team_id)`);
+        
+        // Show sample of available IDs
+        const sampleIds = Array.from(teamMappingsMap.keys()).slice(0, 10);
+        console.log(`📊 [NCAAB] Sample api_team_ids in mapping:`, sampleIds);
+        debug.log(`📊 Sample api_team_ids in mapping:`, sampleIds);
+      }
+      
+      console.log('🔍 [NCAAB] Setting teamMappingsById state with map size:', teamMappingsMap.size);
+      
+      // Also keep the old structure for backward compatibility with getTeamLogo by name (empty for now since we don't have name fields)
+      const teamMappings: TeamMapping[] = [];
       
       setTeamMappings(teamMappings);
+      setTeamMappingsById(teamMappingsMap);
 
       // Step 4: Merge games with predictions
       // game_id in v_cbb_input_values = game_id in ncaab_predictions
@@ -498,9 +593,9 @@ ${contextParts}
         
         // Calculate edge values (delta) - like College Football
         const vegasHomeSpread = prediction?.vegas_home_spread || game.spread || null;
-        const predHomeMargin = prediction?.pred_home_margin || null;
-        const homeSpreadDiff = (vegasHomeSpread !== null && predHomeMargin !== null)
-          ? predHomeMargin - vegasHomeSpread
+        const modelFairHomeSpread = prediction?.model_fair_home_spread || null;
+        const homeSpreadDiff = (vegasHomeSpread !== null && modelFairHomeSpread !== null)
+          ? vegasHomeSpread - modelFairHomeSpread
           : null;
         
         const vegasTotal = prediction?.vegas_total || game.over_under || null;
@@ -516,10 +611,21 @@ ${contextParts}
         const homeML = game.homeMoneyline ?? prediction?.vegas_home_moneyline ?? null;
         const awayML = game.awayMoneyline ?? prediction?.vegas_away_moneyline ?? null;
         
+        // Get team IDs directly from v_cbb_input_values (game object)
+        const homeTeamId = game.home_team_id || null;
+        const awayTeamId = game.away_team_id || null;
+        
+        // Debug first few games
+        if ((ncaabGames || []).indexOf(game) < 3) {
+          debug.log(`🎮 Game ${gameIdStr}: ${game.away_team} (id: ${awayTeamId}) @ ${game.home_team} (id: ${homeTeamId})`);
+        }
+        
         return {
           id: gameIdStr,
           away_team: game.away_team,
           home_team: game.home_team,
+          away_team_id: awayTeamId,
+          home_team_id: homeTeamId,
           training_key: gameIdStr,
           unique_id: gameIdStr,
           // Betting lines - use both home and away moneylines directly from columns
@@ -542,8 +648,8 @@ ${contextParts}
           // Edge values (delta) - like College Football
           home_spread_diff: homeSpreadDiff,
           over_line_diff: overLineDiff,
-          // Model predicted spread (for modal display) - pred_home_margin is the model's predicted spread
-          pred_spread: predHomeMargin,
+          // Model predicted spread (for modal display) - use model_fair_home_spread or pred_home_margin
+          pred_spread: modelFairHomeSpread !== null ? modelFairHomeSpread : (prediction?.pred_home_margin || null),
           pred_over_line: predTotalPoints,
           // Vegas lines for reference
           api_spread: vegasHomeSpread,
@@ -646,9 +752,25 @@ ${contextParts}
   }, [predictions]);
 
   // Function to get team initials for circle display
-  const getTeamInitials = (teamName: string): string => {
+  // Uses team_abbrev from ncaab_team_mapping table, looked up by team ID
+  const getTeamInitials = (teamName: string, teamId?: number | null): string => {
+    // First try to look up by team_id from v_cbb_input_values
+    if (teamId !== null && teamId !== undefined) {
+      const numericTeamId = typeof teamId === 'string' ? parseInt(teamId, 10) : teamId;
+      
+      if (teamMappingsById.has(numericTeamId)) {
+        const mapping = teamMappingsById.get(numericTeamId);
+        if (mapping?.team_abbrev && mapping.team_abbrev.trim() !== '') {
+          return mapping.team_abbrev;
+        }
+      }
+    }
+    
+    // Fallback to name-based lookup (for backward compatibility)
     const mapping = teamMappings.find(m => m.team_name === teamName);
     if (mapping?.abbreviation) return mapping.abbreviation;
+    
+    // Final fallback to utility function
     return getNCAABTeamInitials(teamName);
   };
 
@@ -662,44 +784,33 @@ ${contextParts}
     };
   };
 
-  const getTeamLogo = (teamName: string): string => {
-    if (!teamName) return '/placeholder.svg';
+  const getTeamLogo = (teamName: string, teamId?: number | null): string => {
+    if (!teamName && !teamId) return '/placeholder.svg';
     
-    // Try exact match first
-    let mapping = teamMappings.find(m => m.team_name === teamName);
-    
-    // Try case-insensitive match
-    if (!mapping) {
-      mapping = teamMappings.find(m => 
-        m.team_name.toLowerCase() === teamName.toLowerCase()
-      );
+    // First try to look up by team_id from v_cbb_input_values
+    if (teamId !== null && teamId !== undefined) {
+      const numericTeamId = typeof teamId === 'string' ? parseInt(teamId, 10) : teamId;
+      
+      debug.log(`🔍 getTeamLogo: teamName=${teamName}, teamId=${numericTeamId}, mapSize=${teamMappingsById.size}, hasId=${teamMappingsById.has(numericTeamId)}`);
+      
+      if (teamMappingsById.has(numericTeamId)) {
+        const mapping = teamMappingsById.get(numericTeamId);
+        debug.log(`✅ Found mapping for id ${numericTeamId}:`, mapping);
+        
+        if (mapping?.espn_team_url && mapping.espn_team_url !== '/placeholder.svg' && mapping.espn_team_url.trim() !== '') {
+          debug.log(`✅ Returning logo URL: ${mapping.espn_team_url}`);
+          return mapping.espn_team_url;
+        } else {
+          debug.log(`⚠️ Mapping found but espn_team_url is empty:`, mapping?.espn_team_url);
+        }
+      } else {
+        const sampleIds = Array.from(teamMappingsById.keys()).slice(0, 5);
+        debug.log(`❌ Team ID ${numericTeamId} not found in map. Sample IDs:`, sampleIds);
+      }
     }
     
-    // Try partial matches (team name contains mapping or vice versa)
-    if (!mapping) {
-      const lowerTeamName = teamName.toLowerCase();
-      mapping = teamMappings.find(m => {
-        const lowerMappingName = m.team_name.toLowerCase();
-        return lowerTeamName.includes(lowerMappingName) || 
-               lowerMappingName.includes(lowerTeamName);
-      });
-    }
-    
-    // Try matching by abbreviation
-    if (!mapping) {
-      const teamInitials = getTeamInitials(teamName);
-      mapping = teamMappings.find(m => 
-        m.abbreviation && m.abbreviation.toLowerCase() === teamInitials.toLowerCase()
-      );
-    }
-    
-    const logoUrl = mapping?.logo_url;
-    if (logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '') {
-      debug.log(`✅ Found logo for ${teamName}: ${logoUrl}`);
-      return logoUrl;
-    }
-    
-    debug.log(`⚠️ No logo found for team: ${teamName}, available mappings:`, teamMappings.map(m => m.team_name));
+    // Fallback: return placeholder if ID lookup failed
+    debug.log(`⚠️ No logo found for team: ${teamName}${teamId ? ` (id: ${teamId})` : ''}`);
     return '/placeholder.svg';
   };
 
@@ -1117,7 +1228,7 @@ ${contextParts}
                       {/* Away Team */}
                       <div className="text-center flex-1">
                         {(() => {
-                          const logoUrl = getTeamLogo(prediction.away_team);
+                          const logoUrl = getTeamLogo(prediction.away_team, prediction.away_team_id);
                           const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
                           
                           // Debug logging for first few teams
@@ -1147,7 +1258,7 @@ ${contextParts}
                                       const fallback = document.createElement('span');
                                       fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
                                       fallback.style.color = getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary);
-                                      fallback.textContent = getTeamInitials(prediction.away_team);
+                                      fallback.textContent = getTeamInitials(prediction.away_team, prediction.away_team_id);
                                       parent.style.background = `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`;
                                       parent.appendChild(fallback);
                                     }
@@ -1158,7 +1269,7 @@ ${contextParts}
                                   className="text-xs sm:text-sm font-bold drop-shadow-md"
                                   style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
                                 >
-                                  {getTeamInitials(prediction.away_team)}
+                                  {getTeamInitials(prediction.away_team, prediction.away_team_id)}
                                 </span>
                               )}
                             </div>
@@ -1189,7 +1300,7 @@ ${contextParts}
                       {/* Home Team */}
                       <div className="text-center flex-1">
                         {(() => {
-                          const logoUrl = getTeamLogo(prediction.home_team);
+                          const logoUrl = getTeamLogo(prediction.home_team, prediction.home_team_id);
                           const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
                           
                           // Debug logging for first few teams
@@ -1219,7 +1330,7 @@ ${contextParts}
                                       const fallback = document.createElement('span');
                                       fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
                                       fallback.style.color = getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary);
-                                      fallback.textContent = getTeamInitials(prediction.home_team);
+                                      fallback.textContent = getTeamInitials(prediction.home_team, prediction.home_team_id);
                                       parent.style.background = `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`;
                                       parent.appendChild(fallback);
                                     }
@@ -1230,7 +1341,7 @@ ${contextParts}
                                   className="text-xs sm:text-sm font-bold drop-shadow-md"
                                   style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
                                 >
-                                  {getTeamInitials(prediction.home_team)}
+                                  {getTeamInitials(prediction.home_team, prediction.home_team_id)}
                                 </span>
                               )}
                             </div>
@@ -1289,16 +1400,22 @@ ${contextParts}
                           const edgeValue = edgeInfo.edgeValue;
                           const confidenceColor = edgeValue >= 7 ? 'bg-green-500' : edgeValue >= 3 ? 'bg-orange-500' : 'bg-gray-500';
                           
+                          // Get team ID for the team with the edge
+                          const teamId = edgeInfo.teamName === prediction.away_team 
+                            ? prediction.away_team_id 
+                            : prediction.home_team_id;
+                          
                           return (
                             <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <Target className="h-3 w-3" />
-                              <span>Edge to {getTeamInitials(edgeInfo.teamName)} +{edgeInfo.displayEdge}</span>
+                              <span>Edge to {getTeamInitials(edgeInfo.teamName, teamId)} +{edgeInfo.displayEdge}</span>
                             </div>
                           );
                         })()}
                         {showNFLMoneylinePills && prediction.home_away_ml_prob !== null && (() => {
                           const isHome = prediction.home_away_ml_prob > 0.5;
                           const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
+                          const predictedTeamId = isHome ? prediction.home_team_id : prediction.away_team_id;
                           const confidencePct = Math.round((isHome ? prediction.home_away_ml_prob : 1 - prediction.home_away_ml_prob) * 100);
                           const confidenceColor = confidencePct >= 65 ? 'bg-blue-500' : confidencePct >= 58 ? 'bg-indigo-500' : 'bg-gray-500';
                           const isFadeAlert = confidencePct >= 80;
@@ -1306,7 +1423,7 @@ ${contextParts}
                           const pillContent = (
                             <div className={`${isFadeAlert ? 'bg-blue-500/80 backdrop-blur-md' : confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <Users className="h-3 w-3" />
-                              <span>{getTeamInitials(predictedTeam)} ML {confidencePct}%</span>
+                              <span>{getTeamInitials(predictedTeam, predictedTeamId)} ML {confidencePct}%</span>
                             </div>
                           );
                           
@@ -1352,7 +1469,8 @@ ${contextParts}
                           const isOver = prediction.over_line_diff > 0;
                           const magnitude = Math.abs(prediction.over_line_diff);
                           const displayMagnitude = roundToNearestHalf(magnitude).toString();
-                          const confidenceColor = magnitude >= 7 ? (isOver ? 'bg-green-500' : 'bg-red-500') : magnitude >= 3 ? (isOver ? 'bg-orange-500' : 'bg-pink-500') : 'bg-gray-500';
+                          // Over = green, Under = red, 0 edge = gray
+                          const confidenceColor = magnitude === 0 || magnitude < 0.1 ? 'bg-gray-500' : (isOver ? 'bg-green-500' : 'bg-red-500');
                           
                           return (
                             <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
@@ -1458,6 +1576,7 @@ ${contextParts}
         expandedBettingFacts={expandedBettingFacts}
         setExpandedBettingFacts={setExpandedBettingFacts}
         teamMappings={teamMappings as any}
+        teamMappingsById={teamMappingsById}
       />
 
       {/* Mini WagerBot Chat */}
@@ -1484,3 +1603,4 @@ ${contextParts}
     </div>
   );
 }
+

@@ -491,7 +491,7 @@ ${contextParts}
         const vegasHomeSpread = game.home_spread;
         const modelFairHomeSpread = prediction?.model_fair_home_spread || null;
         const homeSpreadDiff = (vegasHomeSpread !== null && modelFairHomeSpread !== null)
-          ? modelFairHomeSpread - vegasHomeSpread
+          ? vegasHomeSpread - modelFairHomeSpread
           : null;
         
         const vegasTotal = game.total_line;
@@ -560,6 +560,9 @@ ${contextParts}
           // Vegas lines for reference
           api_spread: vegasHomeSpread,
           api_over_line: vegasTotal,
+          // Score predictions for match simulator
+          home_score_pred: prediction?.home_score_pred || null,
+          away_score_pred: prediction?.away_score_pred || null,
           // Public betting splits (not available for basketball)
           spread_splits_label: null,
           ml_splits_label: null,
@@ -668,14 +671,75 @@ ${contextParts}
 
   const getTeamLogo = (teamName: string): string => {
     if (!teamName) return '/placeholder.svg';
+    
+    // First try database mapping
     const mapping = teamMappings.find(m => {
       if (!m?.team_name) return false;
       return m.team_name === teamName || 
         teamName.includes(m.team_name) ||
         m.team_name.includes(teamName);
     });
-    debug.log(`Looking for logo for team: ${teamName}, found mapping:`, mapping);
-    return mapping?.logo_url || '/placeholder.svg';
+    
+    if (mapping?.logo_url && mapping.logo_url !== '/placeholder.svg' && mapping.logo_url.trim() !== '') {
+      return mapping.logo_url;
+    }
+    
+    // Fallback to ESPN NBA logo URLs
+    const espnLogoMap: { [key: string]: string } = {
+      'Atlanta Hawks': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
+      'Boston Celtics': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
+      'Brooklyn Nets': 'https://a.espncdn.com/i/teamlogos/nba/500/bkn.png',
+      'Charlotte Hornets': 'https://a.espncdn.com/i/teamlogos/nba/500/cha.png',
+      'Chicago Bulls': 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png',
+      'Cleveland Cavaliers': 'https://a.espncdn.com/i/teamlogos/nba/500/cle.png',
+      'Dallas Mavericks': 'https://a.espncdn.com/i/teamlogos/nba/500/dal.png',
+      'Denver Nuggets': 'https://a.espncdn.com/i/teamlogos/nba/500/den.png',
+      'Detroit Pistons': 'https://a.espncdn.com/i/teamlogos/nba/500/det.png',
+      'Golden State Warriors': 'https://a.espncdn.com/i/teamlogos/nba/500/gs.png',
+      'Houston Rockets': 'https://a.espncdn.com/i/teamlogos/nba/500/hou.png',
+      'Indiana Pacers': 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png',
+      'LA Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+      'Los Angeles Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+      'Los Angeles Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
+      'Memphis Grizzlies': 'https://a.espncdn.com/i/teamlogos/nba/500/mem.png',
+      'Miami Heat': 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png',
+      'Milwaukee Bucks': 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png',
+      'Minnesota Timberwolves': 'https://a.espncdn.com/i/teamlogos/nba/500/min.png',
+      'New Orleans Pelicans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
+      'New York Knicks': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
+      'Oklahoma City Thunder': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+      'Orlando Magic': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
+      'Philadelphia 76ers': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
+      'Phoenix Suns': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
+      'Portland Trail Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
+      'Sacramento Kings': 'https://a.espncdn.com/i/teamlogos/nba/500/sac.png',
+      'San Antonio Spurs': 'https://a.espncdn.com/i/teamlogos/nba/500/sa.png',
+      'Toronto Raptors': 'https://a.espncdn.com/i/teamlogos/nba/500/tor.png',
+      'Utah Jazz': 'https://a.espncdn.com/i/teamlogos/nba/500/utah.png',
+      'Washington Wizards': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png',
+    };
+    
+    // Try exact match first
+    if (espnLogoMap[teamName]) {
+      return espnLogoMap[teamName];
+    }
+    
+    // Try case-insensitive match
+    const lowerTeamName = teamName.toLowerCase();
+    const matchedKey = Object.keys(espnLogoMap).find(key => key.toLowerCase() === lowerTeamName);
+    if (matchedKey) {
+      return espnLogoMap[matchedKey];
+    }
+    
+    // Try partial match (team name contains mapping key or vice versa)
+    for (const [key, url] of Object.entries(espnLogoMap)) {
+      if (teamName.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(teamName.toLowerCase())) {
+        return url;
+      }
+    }
+    
+    debug.log(`⚠️ No logo found for team: ${teamName}`);
+    return '/placeholder.svg';
   };
 
   const formatMoneyline = (ml: number | null): string => {
@@ -1091,21 +1155,48 @@ ${contextParts}
                     <div className="flex justify-between items-start">
                       {/* Away Team */}
                       <div className="text-center flex-1">
-                        {/* Logo kept in code for color reference: {getTeamLogo(prediction.away_team)} */}
-                        <div 
-                          className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
-                          style={{
-                            background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
-                            borderColor: `${awayTeamColors.primary}`
-                          }}
-                        >
-                          <span 
-                            className="text-xs sm:text-sm font-bold drop-shadow-md"
-                            style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
-                          >
-                            {getTeamInitials(prediction.away_team)}
-                          </span>
-                        </div>
+                        {(() => {
+                          const logoUrl = getTeamLogo(prediction.away_team);
+                          const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                          
+                          return (
+                            <div className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden bg-white dark:bg-gray-800"
+                              style={{
+                                borderColor: `${awayTeamColors.primary}`,
+                                background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`
+                              }}
+                            >
+                              {hasLogo ? (
+                                <img 
+                                  src={logoUrl} 
+                                  alt={prediction.away_team}
+                                  className="w-full h-full object-contain p-1"
+                                  onError={(e) => {
+                                    // Fallback to circle with initials if image fails to load
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent && !parent.querySelector('.fallback-initials')) {
+                                      const fallback = document.createElement('span');
+                                      fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                      fallback.style.color = getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary);
+                                      fallback.textContent = getTeamInitials(prediction.away_team);
+                                      parent.style.background = `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`;
+                                      parent.appendChild(fallback);
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <span 
+                                  className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                  style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
+                                >
+                                  {getTeamInitials(prediction.away_team)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mb-0.5">
                           {getFullTeamName(prediction.away_team).city}
                         </div>
@@ -1130,21 +1221,48 @@ ${contextParts}
 
                       {/* Home Team */}
                       <div className="text-center flex-1">
-                        {/* Logo kept in code for color reference: {getTeamLogo(prediction.home_team)} */}
-                        <div 
-                          className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
-                          style={{
-                            background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
-                            borderColor: `${homeTeamColors.primary}`
-                          }}
-                        >
-                          <span 
-                            className="text-xs sm:text-sm font-bold drop-shadow-md"
-                            style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
-                          >
-                            {getTeamInitials(prediction.home_team)}
-                          </span>
-                        </div>
+                        {(() => {
+                          const logoUrl = getTeamLogo(prediction.home_team);
+                          const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                          
+                          return (
+                            <div className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden bg-white dark:bg-gray-800"
+                              style={{
+                                borderColor: `${homeTeamColors.primary}`,
+                                background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`
+                              }}
+                            >
+                              {hasLogo ? (
+                                <img 
+                                  src={logoUrl} 
+                                  alt={prediction.home_team}
+                                  className="w-full h-full object-contain p-1"
+                                  onError={(e) => {
+                                    // Fallback to circle with initials if image fails to load
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent && !parent.querySelector('.fallback-initials')) {
+                                      const fallback = document.createElement('span');
+                                      fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                      fallback.style.color = getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary);
+                                      fallback.textContent = getTeamInitials(prediction.home_team);
+                                      parent.style.background = `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`;
+                                      parent.appendChild(fallback);
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <span 
+                                  className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                  style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
+                                >
+                                  {getTeamInitials(prediction.home_team)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mb-0.5">
                           {getFullTeamName(prediction.home_team).city}
                         </div>
@@ -1261,7 +1379,8 @@ ${contextParts}
                           const isOver = prediction.over_line_diff > 0;
                           const magnitude = Math.abs(prediction.over_line_diff);
                           const displayMagnitude = roundToNearestHalf(magnitude).toString();
-                          const confidenceColor = magnitude >= 7 ? (isOver ? 'bg-green-500' : 'bg-red-500') : magnitude >= 3 ? (isOver ? 'bg-orange-500' : 'bg-pink-500') : 'bg-gray-500';
+                          // Over = green, Under = red, 0 edge = gray
+                          const confidenceColor = magnitude === 0 || magnitude < 0.1 ? 'bg-gray-500' : (isOver ? 'bg-green-500' : 'bg-red-500');
                           
                           return (
                             <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>

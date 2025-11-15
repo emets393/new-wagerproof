@@ -47,6 +47,8 @@ interface GameDetailsModalProps {
   setExpandedBettingFacts?: Dispatch<SetStateAction<Record<string, boolean>>>;
   // NFL/NBA-specific prop for team mappings (needed for line movement logos)
   teamMappings?: Array<{ city_and_name: string; team_name: string; logo_url: string }>;
+  // NCAAB-specific prop for team mappings by ID
+  teamMappingsById?: Map<number, { espn_team_url: string }>;
 }
 
 export function GameDetailsModal({
@@ -68,6 +70,7 @@ export function GameDetailsModal({
   expandedBettingFacts,
   setExpandedBettingFacts,
   teamMappings,
+  teamMappingsById,
 }: GameDetailsModalProps) {
   if (!prediction) return null;
 
@@ -331,8 +334,76 @@ export function GameDetailsModal({
   }, [isOpen, league, prediction?.training_key]);
 
   // Helper functions for NFL H2H and Line Movement
-  const getTeamLogo = (teamName: string): string => {
-    const logoMap: { [key: string]: string } = {
+  const getTeamLogo = (teamName: string, teamId?: number | null): string => {
+    // NCAAB logo mapping - use team ID to look up from mapping
+    if (league === 'ncaab' && teamMappingsById && teamId !== null && teamId !== undefined) {
+      const numericTeamId = typeof teamId === 'string' ? parseInt(teamId, 10) : teamId;
+      if (teamMappingsById.has(numericTeamId)) {
+        const mapping = teamMappingsById.get(numericTeamId);
+        if (mapping?.espn_team_url && mapping.espn_team_url !== '/placeholder.svg' && mapping.espn_team_url.trim() !== '') {
+          return mapping.espn_team_url;
+        }
+      }
+      // Fallback to placeholder if ID lookup fails
+      return '/placeholder.svg';
+    }
+    
+    // NBA logo mapping
+    if (league === 'nba') {
+      const nbaLogoMap: { [key: string]: string } = {
+        'Atlanta Hawks': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
+        'Boston Celtics': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
+        'Brooklyn Nets': 'https://a.espncdn.com/i/teamlogos/nba/500/bkn.png',
+        'Charlotte Hornets': 'https://a.espncdn.com/i/teamlogos/nba/500/cha.png',
+        'Chicago Bulls': 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png',
+        'Cleveland Cavaliers': 'https://a.espncdn.com/i/teamlogos/nba/500/cle.png',
+        'Dallas Mavericks': 'https://a.espncdn.com/i/teamlogos/nba/500/dal.png',
+        'Denver Nuggets': 'https://a.espncdn.com/i/teamlogos/nba/500/den.png',
+        'Detroit Pistons': 'https://a.espncdn.com/i/teamlogos/nba/500/det.png',
+        'Golden State Warriors': 'https://a.espncdn.com/i/teamlogos/nba/500/gs.png',
+        'Houston Rockets': 'https://a.espncdn.com/i/teamlogos/nba/500/hou.png',
+        'Indiana Pacers': 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png',
+        'LA Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+        'Los Angeles Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+        'Los Angeles Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
+        'Memphis Grizzlies': 'https://a.espncdn.com/i/teamlogos/nba/500/mem.png',
+        'Miami Heat': 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png',
+        'Milwaukee Bucks': 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png',
+        'Minnesota Timberwolves': 'https://a.espncdn.com/i/teamlogos/nba/500/min.png',
+        'New Orleans Pelicans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
+        'New York Knicks': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
+        'Oklahoma City Thunder': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+        'Orlando Magic': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
+        'Philadelphia 76ers': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
+        'Phoenix Suns': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
+        'Portland Trail Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
+        'Sacramento Kings': 'https://a.espncdn.com/i/teamlogos/nba/500/sac.png',
+        'San Antonio Spurs': 'https://a.espncdn.com/i/teamlogos/nba/500/sa.png',
+        'Toronto Raptors': 'https://a.espncdn.com/i/teamlogos/nba/500/tor.png',
+        'Utah Jazz': 'https://a.espncdn.com/i/teamlogos/nba/500/utah.png',
+        'Washington Wizards': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png',
+      };
+      
+      // Try exact match first
+      if (nbaLogoMap[teamName]) return nbaLogoMap[teamName];
+      
+      // Try case-insensitive match
+      const lowerTeamName = teamName.toLowerCase();
+      const matchedKey = Object.keys(nbaLogoMap).find(key => key.toLowerCase() === lowerTeamName);
+      if (matchedKey) return nbaLogoMap[matchedKey];
+      
+      // Try partial match
+      for (const [key, url] of Object.entries(nbaLogoMap)) {
+        if (teamName.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(teamName.toLowerCase())) {
+          return url;
+        }
+      }
+      
+      return 'https://a.espncdn.com/i/teamlogos/nba/500/default.png';
+    }
+    
+    // NFL logo mapping (default)
+    const nflLogoMap: { [key: string]: string } = {
       'Arizona': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
       'Atlanta': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
       'Baltimore': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
@@ -369,10 +440,10 @@ export function GameDetailsModal({
       'Washington': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
     };
     
-    if (logoMap[teamName]) return logoMap[teamName];
+    if (nflLogoMap[teamName]) return nflLogoMap[teamName];
     
     const lowerTeamName = teamName.toLowerCase();
-    for (const [key, value] of Object.entries(logoMap)) {
+    for (const [key, value] of Object.entries(nflLogoMap)) {
       if (key.toLowerCase() === lowerTeamName) {
         return value;
       }
@@ -512,12 +583,210 @@ export function GameDetailsModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-opacity-50 hover:[&::-webkit-scrollbar-thumb]:bg-opacity-80">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
-            {prediction.away_team} @ {prediction.home_team}
+          <DialogTitle className="text-2xl font-bold flex items-center justify-center gap-3">
+            <div className="flex items-center gap-2">
+              <img 
+                src={getTeamLogo(prediction.away_team, (prediction as any).away_team_id)} 
+                alt={`${prediction.away_team} logo`}
+                className="h-8 w-8 object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <span>{prediction.away_team}</span>
+            </div>
+            <span className="text-gray-500 dark:text-gray-400">@</span>
+            <div className="flex items-center gap-2">
+              <img 
+                src={getTeamLogo(prediction.home_team, (prediction as any).home_team_id)} 
+                alt={`${prediction.home_team} logo`}
+                className="h-8 w-8 object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <span>{prediction.home_team}</span>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Match Simulator Section - CFB/NCAAB/NBA */}
+          {(league === 'cfb' || league === 'ncaab' || league === 'nba') && (
+          <div className="text-center">
+            <div className="bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/20 space-y-4">
+              <div className="flex items-center justify-center gap-2">
+                <Sparkles className="h-5 w-5 text-amber-400" />
+                <h4 className="text-lg font-bold text-gray-900 dark:text-white">Match Simulator</h4>
+              </div>
+
+              {!simRevealedById[prediction.id] && (
+                <div className="flex justify-center">
+                  {focusedCardId === prediction.id ? (
+                    <MovingBorderButton
+                      borderRadius="0.5rem"
+                      containerClassName="h-auto w-auto"
+                      borderClassName="bg-[radial-gradient(hsl(var(--primary))_40%,transparent_60%)]"
+                      duration={3000}
+                      className="bg-card dark:bg-card text-foreground dark:text-foreground border-border px-6 py-6 text-lg font-bold h-full w-full"
+                      disabled={!!simLoadingById[prediction.id]}
+                      onClick={() => {
+                        setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
+                        setTimeout(() => {
+                          setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
+                          setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
+                        }, 2500);
+                      }}
+                    >
+                      {simLoadingById[prediction.id] ? (
+                        <span className="flex items-center">
+                          {league === 'ncaab' || league === 'nba' ? <BasketballLoader /> : <FootballLoader />} Simulating…
+                        </span>
+                      ) : (
+                        'Simulate Match'
+                      )}
+                    </MovingBorderButton>
+                  ) : (
+                    <Button
+                      disabled={!!simLoadingById[prediction.id]}
+                      onClick={() => {
+                        setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
+                        setTimeout(() => {
+                          setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
+                          setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
+                        }, 2500);
+                      }}
+                      className="px-6 py-6 text-lg font-bold bg-card dark:bg-card text-foreground dark:text-foreground border-2 border-border shadow-md hover:bg-muted/50"
+                    >
+                      {simLoadingById[prediction.id] ? (
+                        <span className="flex items-center">
+                          {league === 'ncaab' || league === 'nba' ? <BasketballLoader /> : <FootballLoader />} Simulating…
+                        </span>
+                      ) : (
+                        'Simulate Match'
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {simRevealedById[prediction.id] && (
+                <div className="flex justify-between items-center bg-gradient-to-br from-orange-50 to-orange-50 dark:from-orange-950/30 dark:to-orange-950/30 p-3 sm:p-4 rounded-lg border border-border">
+                  <div className="text-center flex-1">
+                    {(() => {
+                      const logoUrl = getTeamLogo(prediction.away_team, (prediction as any).away_team_id);
+                      const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                      return (
+                        <div 
+                          className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-1 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 shadow-lg overflow-hidden"
+                          style={{
+                            background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
+                            borderColor: `${awayTeamColors.primary}`
+                          }}
+                        >
+                          {hasLogo ? (
+                            <img 
+                              src={logoUrl} 
+                              alt={prediction.away_team}
+                              className="w-full h-full object-contain p-1"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent && !parent.querySelector('.fallback-initials')) {
+                                  const fallback = document.createElement('span');
+                                  fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                  fallback.style.color = getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary);
+                                  fallback.textContent = getTeamInitials(prediction.away_team);
+                                  parent.style.background = `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`;
+                                  parent.appendChild(fallback);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span 
+                              className="text-xs sm:text-sm font-bold drop-shadow-md"
+                              style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
+                            >
+                              {getTeamInitials(prediction.away_team)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <div className="text-xl sm:text-2xl font-bold text-foreground">
+                      {(() => {
+                        // Use basketball-specific fields for NCAAB/NBA, football fields for CFB
+                        const val = league === 'ncaab' || league === 'nba'
+                          ? (prediction as any).away_score_pred ?? (prediction as any).pred_away_score
+                          : prediction.pred_away_points ?? prediction.pred_away_score;
+                        return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
+                      })()}
+                    </div>
+                  </div>
+
+                  <div className="text-center px-3 sm:px-4">
+                    <div className="text-base sm:text-lg font-bold text-muted-foreground">VS</div>
+                  </div>
+
+                  <div className="text-center flex-1">
+                    {(() => {
+                      const logoUrl = getTeamLogo(prediction.home_team, (prediction as any).home_team_id);
+                      const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                      return (
+                        <div 
+                          className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 shadow-lg overflow-hidden"
+                          style={{
+                            background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
+                            borderColor: `${homeTeamColors.primary}`
+                          }}
+                        >
+                          {hasLogo ? (
+                            <img 
+                              src={logoUrl} 
+                              alt={prediction.home_team}
+                              className="w-full h-full object-contain p-1"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent && !parent.querySelector('.fallback-initials')) {
+                                  const fallback = document.createElement('span');
+                                  fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                  fallback.style.color = getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary);
+                                  fallback.textContent = getTeamInitials(prediction.home_team);
+                                  parent.style.background = `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`;
+                                  parent.appendChild(fallback);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span 
+                              className="text-xs sm:text-sm font-bold drop-shadow-md"
+                              style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
+                            >
+                              {getTeamInitials(prediction.home_team)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <div className="text-xl sm:text-2xl font-bold text-foreground">
+                      {(() => {
+                        // Use basketball-specific fields for NCAAB/NBA, football fields for CFB
+                        const val = league === 'ncaab' || league === 'nba'
+                          ? (prediction as any).home_score_pred ?? (prediction as any).pred_home_score
+                          : prediction.pred_home_points ?? prediction.pred_home_score;
+                        return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          )}
+
           {/* CFB/NCAAB Content */}
           {(league === 'cfb' || league === 'ncaab') && (
             <>
@@ -566,27 +835,63 @@ export function GameDetailsModal({
                               <div className="flex-shrink-0">
                                 {(() => {
                                   const teamColors = getTeamColors(edgeInfo.teamName);
+                                  // Get team ID for logo lookup (NCAAB)
+                                  const teamId = edgeInfo.teamName === prediction.away_team 
+                                    ? (prediction as any).away_team_id 
+                                    : (prediction as any).home_team_id;
+                                  const logoUrl = getTeamLogo(edgeInfo.teamName, teamId);
+                                  const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                                  
                                   return (
                                     <div 
-                                      className="h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
+                                      className="h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden"
                                       style={{
-                                        background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
+                                        background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
                                         borderColor: `${teamColors.primary}`
                                       }}
                                     >
-                                      <span 
-                                        className="text-xs sm:text-sm font-bold drop-shadow-md"
-                                        style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
-                                      >
-                                        {getTeamInitials(edgeInfo.teamName)}
-                                      </span>
+                                      {hasLogo ? (
+                                        <img 
+                                          src={logoUrl} 
+                                          alt={edgeInfo.teamName}
+                                          className="w-full h-full object-contain p-1"
+                                          onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.style.display = 'none';
+                                            const parent = target.parentElement;
+                                            if (parent && !parent.querySelector('.fallback-initials')) {
+                                              const fallback = document.createElement('span');
+                                              fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                              fallback.style.color = getContrastingTextColor(teamColors.primary, teamColors.secondary);
+                                              fallback.textContent = getTeamInitials(edgeInfo.teamName, teamId);
+                                              parent.style.background = `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`;
+                                              parent.appendChild(fallback);
+                                            }
+                                          }}
+                                        />
+                                      ) : (
+                                        <span 
+                                          className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                          style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
+                                        >
+                                          {getTeamInitials(edgeInfo.teamName, teamId)}
+                                        </span>
+                                      )}
                                     </div>
                                   );
                                 })()}
                               </div>
 
                               <div className="text-center flex-1">
-                                <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamInitials(edgeInfo.teamName)}</div>
+                                {(() => {
+                                  // Get team ID for the team with the edge
+                                  const teamId = edgeInfo.teamName === prediction.away_team 
+                                    ? (prediction as any).away_team_id 
+                                    : (prediction as any).home_team_id;
+                                  return (
+                                    <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamInitials(edgeInfo.teamName, teamId)}</div>
+                                  );
+                                })()}
                                 <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                                   {edgeInfo.displayEdge}
                                 </div>
@@ -804,7 +1109,13 @@ export function GameDetailsModal({
                                     className="text-xs sm:text-sm font-bold drop-shadow-md"
                                     style={{ color: getContrastingTextColor(predictedTeamColors.primary, predictedTeamColors.secondary) }}
                                   >
-                                    {getTeamInitials(predictedTeam)}
+                                    {(() => {
+                                      // Get team ID for the predicted team (NCAAB only, NFL/NBA don't use IDs)
+                                      const predictedTeamId = isHome 
+                                        ? (prediction as any).home_team_id 
+                                        : (prediction as any).away_team_id;
+                                      return getTeamInitials(predictedTeam, predictedTeamId);
+                                    })()}
                                   </span>
                                 </div>
                                 <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white text-center leading-snug">
@@ -1034,24 +1345,64 @@ export function GameDetailsModal({
                               
                               <div className="flex items-center justify-between gap-4">
                                 <div className="flex-shrink-0">
-                                  <div 
-                                    className="h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
-                                    style={{
-                                      background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
-                                      borderColor: `${teamColors.primary}`
-                                    }}
-                                  >
-                                    <span 
-                                      className="text-xs sm:text-sm font-bold drop-shadow-md"
-                                      style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
-                                    >
-                                      {getTeamInitials(edgeInfo.teamName)}
-                                    </span>
-                                  </div>
+                                  {(() => {
+                                    // Get team ID for logo lookup (NCAAB only, NBA uses name-based lookup)
+                                    const teamId = edgeInfo.teamName === prediction.away_team 
+                                      ? (prediction as any).away_team_id 
+                                      : (prediction as any).home_team_id;
+                                    const logoUrl = getTeamLogo(edgeInfo.teamName, teamId);
+                                    const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                                    
+                                    return (
+                                      <div 
+                                        className="h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden"
+                                        style={{
+                                          background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`,
+                                          borderColor: `${teamColors.primary}`
+                                        }}
+                                      >
+                                        {hasLogo ? (
+                                          <img 
+                                            src={logoUrl} 
+                                            alt={edgeInfo.teamName}
+                                            className="w-full h-full object-contain p-1"
+                                            onError={(e) => {
+                                              const target = e.target as HTMLImageElement;
+                                              target.style.display = 'none';
+                                              const parent = target.parentElement;
+                                              if (parent && !parent.querySelector('.fallback-initials')) {
+                                                const fallback = document.createElement('span');
+                                                fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                                fallback.style.color = getContrastingTextColor(teamColors.primary, teamColors.secondary);
+                                                fallback.textContent = getTeamInitials(edgeInfo.teamName, teamId);
+                                                parent.style.background = `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.secondary})`;
+                                                parent.appendChild(fallback);
+                                              }
+                                            }}
+                                          />
+                                        ) : (
+                                          <span 
+                                            className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                            style={{ color: getContrastingTextColor(teamColors.primary, teamColors.secondary) }}
+                                          >
+                                            {getTeamInitials(edgeInfo.teamName, teamId)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
 
                               <div className="text-center flex-1">
-                                <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamInitials(edgeInfo.teamName)}</div>
+                                {(() => {
+                                  // Get team ID for the team with the edge
+                                  const teamId = edgeInfo.teamName === prediction.away_team 
+                                    ? (prediction as any).away_team_id 
+                                    : (prediction as any).home_team_id;
+                                  return (
+                                    <div className="text-xs text-gray-600 dark:text-white/60 mb-1">Edge to {getTeamInitials(edgeInfo.teamName, teamId)}</div>
+                                  );
+                                })()}
                                 <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                                   {edgeInfo.displayEdge}
                                 </div>
@@ -1213,7 +1564,7 @@ export function GameDetailsModal({
                                 : 'bg-transparent'
                             }`}>
                               <img 
-                                src={getTeamLogo(prediction.away_team)} 
+                                src={getTeamLogo(prediction.away_team, (prediction as any).away_team_id)} 
                                 alt={`${prediction.away_team} logo`}
                                 className="object-contain w-8 h-8"
                               />
@@ -1225,7 +1576,7 @@ export function GameDetailsModal({
                                 : 'bg-transparent'
                             }`}>
                               <img 
-                                src={getTeamLogo(prediction.home_team)} 
+                                src={getTeamLogo(prediction.home_team, (prediction as any).home_team_id)} 
                                 alt={`${prediction.home_team} logo`}
                                 className="object-contain w-8 h-8"
                               />
@@ -1244,7 +1595,7 @@ export function GameDetailsModal({
                                 : 'bg-transparent'
                             }`}>
                               <img 
-                                src={getTeamLogo(prediction.away_team)} 
+                                src={getTeamLogo(prediction.away_team, (prediction as any).away_team_id)} 
                                 alt={`${prediction.away_team} logo`}
                                 className="object-contain w-8 h-8"
                               />
@@ -1256,7 +1607,7 @@ export function GameDetailsModal({
                                 : 'bg-transparent'
                             }`}>
                               <img 
-                                src={getTeamLogo(prediction.home_team)} 
+                                src={getTeamLogo(prediction.home_team, (prediction as any).home_team_id)} 
                                 alt={`${prediction.home_team} logo`}
                                 className="object-contain w-8 h-8"
                               />
@@ -1312,7 +1663,7 @@ export function GameDetailsModal({
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2">
                                 <img 
-                                  src={getTeamLogo(game.away_team)} 
+                                  src={getTeamLogo(game.away_team, (game as any).away_team_id)} 
                                   alt={game.away_team}
                                   className="object-contain h-6 w-6"
                                 />
@@ -1322,7 +1673,7 @@ export function GameDetailsModal({
                               <div className="flex items-center space-x-2">
                                 <span className="text-sm font-semibold text-gray-900 dark:text-white">{game.home_score}</span>
                                 <img 
-                                  src={getTeamLogo(game.home_team)} 
+                                  src={getTeamLogo(game.home_team, (game as any).home_team_id)} 
                                   alt={game.home_team}
                                   className="object-contain h-6 w-6"
                                 />
@@ -1378,7 +1729,7 @@ export function GameDetailsModal({
                           } : {}}
                         >
                           <img
-                            src={getTeamLogo(prediction.away_team)}
+                            src={getTeamLogo(prediction.away_team, (prediction as any).away_team_id)}
                             alt={`${prediction.away_team} logo`}
                             className="h-5 w-5"
                           />
@@ -1399,7 +1750,7 @@ export function GameDetailsModal({
                           } : {}}
                         >
                           <img
-                            src={getTeamLogo(prediction.home_team)}
+                            src={getTeamLogo(prediction.home_team, (prediction as any).home_team_id)}
                             alt={`${prediction.home_team} logo`}
                             className="h-5 w-5"
                           />
@@ -1692,127 +2043,6 @@ export function GameDetailsModal({
             </div>
           )}
 
-          {/* Match Simulator Section - CFB/NCAAB */}
-          {(league === 'cfb' || league === 'ncaab') && (
-          <div className="text-center">
-            <div className="bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/20 space-y-4">
-              <div className="flex items-center justify-center gap-2">
-                <Sparkles className="h-5 w-5 text-amber-400" />
-                <h4 className="text-lg font-bold text-gray-900 dark:text-white">Match Simulator</h4>
-              </div>
-
-              {!simRevealedById[prediction.id] && (
-                <div className="flex justify-center">
-                  {focusedCardId === prediction.id ? (
-                    <MovingBorderButton
-                      borderRadius="0.5rem"
-                      containerClassName="h-auto w-auto"
-                      borderClassName="bg-[radial-gradient(hsl(var(--primary))_40%,transparent_60%)]"
-                      duration={3000}
-                      className="bg-card dark:bg-card text-foreground dark:text-foreground border-border px-6 py-6 text-lg font-bold h-full w-full"
-                      disabled={!!simLoadingById[prediction.id]}
-                      onClick={() => {
-                        setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
-                        setTimeout(() => {
-                          setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
-                          setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
-                        }, 2500);
-                      }}
-                    >
-                      {simLoadingById[prediction.id] ? (
-                        <span className="flex items-center">
-                          {league === 'ncaab' ? <BasketballLoader /> : <FootballLoader />} Simulating…
-                        </span>
-                      ) : (
-                        'Simulate Match'
-                      )}
-                    </MovingBorderButton>
-                  ) : (
-                    <Button
-                      disabled={!!simLoadingById[prediction.id]}
-                      onClick={() => {
-                        setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
-                        setTimeout(() => {
-                          setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
-                          setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
-                        }, 2500);
-                      }}
-                      className="px-6 py-6 text-lg font-bold bg-card dark:bg-card text-foreground dark:text-foreground border-2 border-border shadow-md hover:bg-muted/50"
-                    >
-                      {simLoadingById[prediction.id] ? (
-                        <span className="flex items-center">
-                          {league === 'ncaab' ? <BasketballLoader /> : <FootballLoader />} Simulating…
-                        </span>
-                      ) : (
-                        'Simulate Match'
-                      )}
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {simRevealedById[prediction.id] && (
-                <div className="flex justify-between items-center bg-gradient-to-br from-orange-50 to-orange-50 dark:from-orange-950/30 dark:to-orange-950/30 p-3 sm:p-4 rounded-lg border border-border">
-                  <div className="text-center flex-1">
-                    <div 
-                      className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-1 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 shadow-lg"
-                      style={{
-                        background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
-                        borderColor: `${awayTeamColors.primary}`
-                      }}
-                    >
-                      <span 
-                        className="text-xs sm:text-sm font-bold drop-shadow-md"
-                        style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
-                      >
-                        {getTeamInitials(prediction.away_team)}
-                      </span>
-                    </div>
-                    <div className="text-xl sm:text-2xl font-bold text-foreground">
-                      {(() => {
-                        // Use basketball-specific fields for NCAAB, football fields for CFB
-                        const val = league === 'ncaab' 
-                          ? (prediction as any).away_score_pred ?? (prediction as any).pred_away_score
-                          : prediction.pred_away_points ?? prediction.pred_away_score;
-                        return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
-                      })()}
-                    </div>
-                  </div>
-
-                  <div className="text-center px-3 sm:px-4">
-                    <div className="text-base sm:text-lg font-bold text-muted-foreground">VS</div>
-                  </div>
-
-                  <div className="text-center flex-1">
-                    <div 
-                      className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 shadow-lg"
-                      style={{
-                        background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
-                        borderColor: `${homeTeamColors.primary}`
-                      }}
-                    >
-                      <span 
-                        className="text-xs sm:text-sm font-bold drop-shadow-md"
-                        style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
-                      >
-                        {getTeamInitials(prediction.home_team)}
-                      </span>
-                    </div>
-                    <div className="text-xl sm:text-2xl font-bold text-foreground">
-                      {(() => {
-                        // Use basketball-specific fields for NCAAB, football fields for CFB
-                        const val = league === 'ncaab'
-                          ? (prediction as any).home_score_pred ?? (prediction as any).pred_home_score
-                          : prediction.pred_home_points ?? prediction.pred_home_score;
-                        return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -10,19 +10,11 @@ export default defineConfig(({ mode }) => {
   
   return {
     server: {
-      host: "::",
+      host: "0.0.0.0",
       port: 8080,
       strictPort: true,
-      ...(isDevelopment && {
-        https: {
-          key: fs.readFileSync(path.resolve(__dirname, 'localhost-key.pem')),
-          cert: fs.readFileSync(path.resolve(__dirname, 'localhost-cert.pem')),
-        },
-        hmr: {
-          protocol: 'wss',
-          port: 8080,
-        },
-      }),
+      // Disable HTTPS for now - can be re-enabled if certificates are added
+      // https: false,
     },
     plugins: [
       react(),
