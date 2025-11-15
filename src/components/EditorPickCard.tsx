@@ -12,13 +12,13 @@ import { useToast } from '@/hooks/use-toast';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import Aurora from '@/components/magicui/aurora';
-import { getNFLTeamInitials, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { getNFLTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 
 interface EditorPickCardProps {
   pick: {
     id: string;
     game_id: string;
-    game_type: 'nfl' | 'cfb';
+    game_type: 'nfl' | 'cfb' | 'nba' | 'ncaab';
     selected_bet_type: string; // Can be single string or comma-separated string
     editors_notes: string | null;
     is_published: boolean;
@@ -54,9 +54,18 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
   
   // Helper to get team initials based on game type
   const getTeamInitials = (teamName: string) => {
-    return pick.game_type === 'nfl' 
-      ? getNFLTeamInitials(teamName) 
-      : getCFBTeamInitials(teamName);
+    switch (pick.game_type) {
+      case 'nfl':
+        return getNFLTeamInitials(teamName);
+      case 'cfb':
+        return getCFBTeamInitials(teamName);
+      case 'nba':
+        return getNBATeamInitials(teamName);
+      case 'ncaab':
+        return getNCAABTeamInitials(teamName);
+      default:
+        return getNFLTeamInitials(teamName); // fallback
+    }
   };
   
   // Parse bet types - handle both single strings and comma-separated strings
@@ -396,18 +405,48 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
           <div className="flex justify-center items-center space-x-2 sm:space-x-4 md:space-x-6">
             {/* Away Team Circle */}
             <div className="text-center flex-1 max-w-[120px] sm:max-w-[140px] md:max-w-[160px]">
-              <div
-                className="h-14 w-14 sm:h-16 sm:w-16 md:h-20 md:w-20 rounded-full flex items-center justify-center mx-auto mb-1.5 sm:mb-2 md:mb-3 shadow-lg transition-transform duration-200 hover:scale-105"
-                style={{
-                  background: `linear-gradient(135deg, ${gameData.away_team_colors.primary} 0%, ${gameData.away_team_colors.secondary} 100%)`,
-                  color: getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary),
-                  border: `2px solid ${gameData.away_team_colors.primary}`,
-                }}
-              >
-                <span className="text-base sm:text-lg md:text-2xl font-bold">
-                  {getTeamInitials(gameData.away_team)}
-                </span>
-              </div>
+              {(() => {
+                const logoUrl = gameData.away_logo;
+                const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                
+                return (
+                  <div
+                    className="h-14 w-14 sm:h-16 sm:w-16 md:h-20 md:w-20 rounded-full flex items-center justify-center mx-auto mb-1.5 sm:mb-2 md:mb-3 shadow-lg transition-transform duration-200 hover:scale-105 overflow-hidden bg-white dark:bg-gray-800"
+                    style={{
+                      background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${gameData.away_team_colors.primary} 0%, ${gameData.away_team_colors.secondary} 100%)`,
+                      border: `2px solid ${gameData.away_team_colors.primary}`,
+                    }}
+                  >
+                    {hasLogo ? (
+                      <img 
+                        src={logoUrl} 
+                        alt={gameData.away_team}
+                        className="w-full h-full object-contain p-1"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent && !parent.querySelector('.fallback-initials')) {
+                            const fallback = document.createElement('span');
+                            fallback.className = 'text-base sm:text-lg md:text-2xl font-bold fallback-initials';
+                            fallback.style.color = getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary);
+                            fallback.textContent = getTeamInitials(gameData.away_team);
+                            parent.style.background = `linear-gradient(135deg, ${gameData.away_team_colors.primary} 0%, ${gameData.away_team_colors.secondary} 100%)`;
+                            parent.appendChild(fallback);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span 
+                        className="text-base sm:text-lg md:text-2xl font-bold"
+                        style={{ color: getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary) }}
+                      >
+                        {getTeamInitials(gameData.away_team)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="text-xs sm:text-sm md:text-base font-bold mb-1 sm:mb-2 min-h-[2.5rem] sm:min-h-[3rem] md:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-0.5 sm:px-1 pt-1 sm:pt-2">
                 {gameData.away_team}
               </div>
@@ -420,18 +459,48 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
 
             {/* Home Team Circle */}
             <div className="text-center flex-1 max-w-[120px] sm:max-w-[140px] md:max-w-[160px]">
-              <div
-                className="h-14 w-14 sm:h-16 sm:w-16 md:h-20 md:w-20 rounded-full flex items-center justify-center mx-auto mb-1.5 sm:mb-2 md:mb-3 shadow-lg transition-transform duration-200 hover:scale-105"
-                style={{
-                  background: `linear-gradient(135deg, ${gameData.home_team_colors.primary} 0%, ${gameData.home_team_colors.secondary} 100%)`,
-                  color: getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary),
-                  border: `2px solid ${gameData.home_team_colors.primary}`,
-                }}
-              >
-                <span className="text-base sm:text-lg md:text-2xl font-bold">
-                  {getTeamInitials(gameData.home_team)}
-                </span>
-              </div>
+              {(() => {
+                const logoUrl = gameData.home_logo;
+                const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                
+                return (
+                  <div
+                    className="h-14 w-14 sm:h-16 sm:w-16 md:h-20 md:w-20 rounded-full flex items-center justify-center mx-auto mb-1.5 sm:mb-2 md:mb-3 shadow-lg transition-transform duration-200 hover:scale-105 overflow-hidden bg-white dark:bg-gray-800"
+                    style={{
+                      background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${gameData.home_team_colors.primary} 0%, ${gameData.home_team_colors.secondary} 100%)`,
+                      border: `2px solid ${gameData.home_team_colors.primary}`,
+                    }}
+                  >
+                    {hasLogo ? (
+                      <img 
+                        src={logoUrl} 
+                        alt={gameData.home_team}
+                        className="w-full h-full object-contain p-1"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent && !parent.querySelector('.fallback-initials')) {
+                            const fallback = document.createElement('span');
+                            fallback.className = 'text-base sm:text-lg md:text-2xl font-bold fallback-initials';
+                            fallback.style.color = getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary);
+                            fallback.textContent = getTeamInitials(gameData.home_team);
+                            parent.style.background = `linear-gradient(135deg, ${gameData.home_team_colors.primary} 0%, ${gameData.home_team_colors.secondary} 100%)`;
+                            parent.appendChild(fallback);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span 
+                        className="text-base sm:text-lg md:text-2xl font-bold"
+                        style={{ color: getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary) }}
+                      >
+                        {getTeamInitials(gameData.home_team)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="text-xs sm:text-sm md:text-base font-bold mb-1 sm:mb-2 min-h-[2.5rem] sm:min-h-[3rem] md:min-h-[3.5rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-0.5 sm:px-1 pt-1 sm:pt-2">
                 {gameData.home_team}
               </div>

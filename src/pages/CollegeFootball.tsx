@@ -832,7 +832,29 @@ ${contextParts}
   };
 
   const getTeamLogo = (teamName: string): string => {
-    const mapping = teamMappings.find(m => m.api === teamName);
+    if (!teamMappings || teamMappings.length === 0) {
+      return '';
+    }
+    
+    // Try exact match first
+    let mapping = teamMappings.find(m => m.api === teamName);
+    
+    // Try case-insensitive match
+    if (!mapping) {
+      const lowerTeamName = teamName.toLowerCase();
+      mapping = teamMappings.find(m => m.api && m.api.toLowerCase() === lowerTeamName);
+    }
+    
+    // Try partial match (teamName contains api or api contains teamName)
+    if (!mapping) {
+      const lowerTeamName = teamName.toLowerCase();
+      mapping = teamMappings.find(m => {
+        if (!m.api) return false;
+        const lowerApi = m.api.toLowerCase();
+        return lowerTeamName.includes(lowerApi) || lowerApi.includes(lowerTeamName);
+      });
+    }
+    
     return mapping?.logo_light || '';
   };
 
@@ -1474,20 +1496,47 @@ ${contextParts}
                     <div className="flex justify-center items-center space-x-3 sm:space-x-4">
                       {/* Away Team Circle */}
                       <div className="text-center w-[120px] sm:w-[140px]">
-                        <div 
-                          className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
-                          style={{
-                            background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
-                            borderColor: `${awayTeamColors.primary}`
-                          }}
-                        >
-                          <span 
-                            className="text-xs sm:text-sm font-bold drop-shadow-md"
-                            style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
-                          >
-                            {getTeamInitials(prediction.away_team)}
-                          </span>
-                        </div>
+                        {(() => {
+                          const logoUrl = getTeamLogo(prediction.away_team);
+                          const hasLogo = logoUrl && logoUrl.trim() !== '';
+                          return (
+                            <div 
+                              className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden"
+                              style={{
+                                background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
+                                borderColor: `${awayTeamColors.primary}`
+                              }}
+                            >
+                              {hasLogo ? (
+                                <img 
+                                  src={logoUrl} 
+                                  alt={prediction.away_team}
+                                  className="w-full h-full object-contain p-1"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent && !parent.querySelector('.fallback-initials')) {
+                                      const fallback = document.createElement('span');
+                                      fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                      fallback.style.color = getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary);
+                                      fallback.textContent = getTeamInitials(prediction.away_team);
+                                      parent.style.background = `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`;
+                                      parent.appendChild(fallback);
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <span 
+                                  className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                  style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
+                                >
+                                  {getTeamInitials(prediction.away_team)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div className="text-xs sm:text-sm font-bold mb-1 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-1">
                           {prediction.away_team}
                         </div>
@@ -1500,20 +1549,47 @@ ${contextParts}
 
                       {/* Home Team Circle */}
                       <div className="text-center w-[120px] sm:w-[140px]">
-                        <div 
-                          className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
-                          style={{
-                            background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
-                            borderColor: `${homeTeamColors.primary}`
-                          }}
-                        >
-                          <span 
-                            className="text-xs sm:text-sm font-bold drop-shadow-md"
-                            style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
-                          >
-                            {getTeamInitials(prediction.home_team)}
-                          </span>
-                        </div>
+                        {(() => {
+                          const logoUrl = getTeamLogo(prediction.home_team);
+                          const hasLogo = logoUrl && logoUrl.trim() !== '';
+                          return (
+                            <div 
+                              className="h-10 w-10 sm:h-14 sm:w-14 mx-auto mb-1.5 sm:mb-2 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden"
+                              style={{
+                                background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
+                                borderColor: `${homeTeamColors.primary}`
+                              }}
+                            >
+                              {hasLogo ? (
+                                <img 
+                                  src={logoUrl} 
+                                  alt={prediction.home_team}
+                                  className="w-full h-full object-contain p-1"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent && !parent.querySelector('.fallback-initials')) {
+                                      const fallback = document.createElement('span');
+                                      fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                      fallback.style.color = getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary);
+                                      fallback.textContent = getTeamInitials(prediction.home_team);
+                                      parent.style.background = `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`;
+                                      parent.appendChild(fallback);
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <span 
+                                  className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                  style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
+                                >
+                                  {getTeamInitials(prediction.home_team)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div className="text-xs sm:text-sm font-bold mb-1 min-h-[2.5rem] sm:min-h-[3rem] flex items-start justify-center text-foreground leading-tight text-center break-words px-1 pt-1">
                           {prediction.home_team}
                         </div>
@@ -1761,6 +1837,7 @@ ${contextParts}
         focusedCardId={focusedCardId}
         getTeamInitials={getTeamInitials}
         getContrastingTextColor={getContrastingTextColor}
+        cfbTeamMappings={teamMappings}
       />
 
       {/* Mini WagerBot Chat */}

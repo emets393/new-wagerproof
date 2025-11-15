@@ -16,11 +16,13 @@ import { Badge } from '@/components/ui/badge';
 import { ValueFindsSection } from '@/components/ValueFindsSection';
 import { useDisplaySettings } from '@/hooks/useDisplaySettings';
 import { useTheme } from '@/contexts/ThemeContext';
+import { getNBATeamColors, getNCAABTeamColors } from '@/utils/teamColors';
+import { getNBATeamLogo, getNCAABTeamLogo } from '@/utils/teamLogos';
 
 interface EditorPick {
   id: string;
   game_id: string;
-  game_type: 'nfl' | 'cfb';
+  game_type: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   editor_id: string;
   selected_bet_type: 'spread' | 'over_under' | 'moneyline';
   editors_notes: string | null;
@@ -284,9 +286,13 @@ export default function EditorsPicks() {
         debug.log('📊 Editor Picks found:', picksData);
         const nflGameIds = picksData.filter(p => p.game_type === 'nfl').map(p => p.game_id);
         const cfbGameIds = picksData.filter(p => p.game_type === 'cfb').map(p => p.game_id);
+        const nbaGameIds = picksData.filter(p => p.game_type === 'nba').map(p => p.game_id);
+        const ncaabGameIds = picksData.filter(p => p.game_type === 'ncaab').map(p => p.game_id);
 
         debug.log('🏈 NFL Game IDs to fetch:', nflGameIds);
         debug.log('🏈 CFB Game IDs to fetch:', cfbGameIds);
+        debug.log('🏀 NBA Game IDs to fetch:', nbaGameIds);
+        debug.log('🏀 NCAAB Game IDs to fetch:', ncaabGameIds);
 
         const gameDataMap = new Map<string, GameData>();
 
@@ -341,15 +347,38 @@ export default function EditorsPicks() {
           debug.error('CFB team mapping error:', cfbMappingError);
         }
 
-        // Helper function to get CFB team logo
+        // Helper function to get CFB team logo with flexible matching
         const getCFBTeamLogo = (teamName: string): string => {
-          const mapping = cfbTeamMappings?.find(m => m.api === teamName);
+          if (!cfbTeamMappings || cfbTeamMappings.length === 0) {
+            return '';
+          }
+          
+          // Try exact match first
+          let mapping = cfbTeamMappings.find(m => m.api === teamName);
+          
+          // Try case-insensitive match
+          if (!mapping) {
+            const lowerTeamName = teamName.toLowerCase();
+            mapping = cfbTeamMappings.find(m => m.api && m.api.toLowerCase() === lowerTeamName);
+          }
+          
+          // Try partial match (teamName contains api or api contains teamName)
+          if (!mapping) {
+            const lowerTeamName = teamName.toLowerCase();
+            mapping = cfbTeamMappings.find(m => {
+              if (!m.api) return false;
+              const lowerApi = m.api.toLowerCase();
+              return lowerTeamName.includes(lowerApi) || lowerApi.includes(lowerTeamName);
+            });
+          }
+          
           return mapping?.logo_light || '';
         };
 
         // Fetch NFL games - using the same approach as NFL.tsx
+        // Map: editors_picks.game_id -> nfl_betting_lines.training_key
         if (nflGameIds.length > 0) {
-          // First get the betting lines for these games using collegeFootballSupabase
+          // Get the betting lines for these games (includes game_time_et)
           const { data: bettingLines, error: linesError } = await collegeFootballSupabase
             .from('nfl_betting_lines')
             .select('*')
@@ -375,10 +404,11 @@ export default function EditorsPicks() {
               debug.log('Adding NFL game to map:', line.training_key, line.away_team, '@', line.home_team);
               
               // Format NFL date
-              let formattedDate = line.game_date;
-              if (line.game_date) {
+              const gameDateRaw = line.game_date;
+              let formattedDate = gameDateRaw;
+              if (gameDateRaw) {
                 try {
-                  const [year, month, day] = line.game_date.split('-').map(Number);
+                  const [year, month, day] = gameDateRaw.split('-').map(Number);
                   const date = new Date(year, month - 1, day);
                   formattedDate = date.toLocaleDateString('en-US', {
                     weekday: 'short',
@@ -390,63 +420,67 @@ export default function EditorsPicks() {
                 }
               }
               
-              // Format NFL time
-              let formattedTime = line.game_time;
-              if (line.game_time) {
+              // Format NFL time - get game_time_et from nfl_betting_lines (EST military time), convert to 12-hour format
+              let formattedTime = '';
+              if (line.game_time_et) {
                 try {
-                  const timeString = line.game_time;
-                  let date: Date;
-                  
-                  // Check if it's an ISO datetime string
-                  if (timeString.includes('T') || (timeString.includes(' ') && timeString.length > 10)) {
-                    date = new Date(timeString);
-                    if (isNaN(date.getTime())) {
-                      debug.error('Invalid ISO datetime:', timeString);
-                      formattedTime = line.game_time;
-                    } else {
-                      const timeStr = date.toLocaleTimeString('en-US', {
-                        timeZone: 'America/New_York',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true
-                      });
-                      const formatter = new Intl.DateTimeFormat('en-US', {
-                        timeZone: 'America/New_York',
-                        timeZoneName: 'short'
-                      });
-                      const parts = formatter.formatToParts(date);
-                      const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
-                      formattedTime = `${timeStr} ${tzName}`;
-                    }
-                  } else {
-                    // Assume it's a simple time string (e.g., "15:30:00" or "15:30")
-                    const parts = timeString.split(':');
-                    if (parts.length >= 2) {
-                      const hours = parseInt(parts[0], 10);
-                      const minutes = parseInt(parts[1], 10);
+                  const timeEt = line.game_time_et;
+                  // game_time_et format: "2025-11-17 20:15:00+00" - extract date and time
+                  if (timeEt.includes(' ')) {
+                    const [datePart, timePart] = timeEt.split(' ');
+                    // Remove timezone offset from time part (e.g., "20:15:00+00" -> "20:15:00")
+                    const timeStr = timePart.split('+')[0].split('-')[0];
+                    const [hoursStr, minutesStr] = timeStr.split(':');
+                    const hours = parseInt(hoursStr, 10);
+                    const minutes = parseInt(minutesStr || '0', 10);
+                    
+                    if (!isNaN(hours) && !isNaN(minutes) && datePart) {
+                      // game_time_et is in EST but being treated as UTC, so add 5 hours directly
+                      const estHours = hours + 5;
+                      let finalDate = datePart;
+                      let finalHours = estHours;
+                      let finalMinutes = minutes;
                       
-                      if (!isNaN(hours) && !isNaN(minutes)) {
-                        const today = new Date();
-                        date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes, 0));
-                        const timeStr = date.toLocaleTimeString('en-US', {
+                      // Handle day rollover if hours >= 24
+                      if (finalHours >= 24) {
+                        finalHours = finalHours % 24;
+                        // Add one day to the date
+                        const [year, month, day] = datePart.split('-').map(Number);
+                        const nextDay = new Date(year, month - 1, day + 1);
+                        finalDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+                      }
+                      
+                      const [year, month, day] = finalDate.split('-').map(Number);
+                      // Create date object in EST timezone with adjusted hours
+                      const date = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(finalHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')}:00-05:00`);
+                      
+                      if (!isNaN(date.getTime())) {
+                        // Format as 12-hour time in EST
+                        formattedTime = date.toLocaleTimeString('en-US', {
                           timeZone: 'America/New_York',
                           hour: 'numeric',
                           minute: '2-digit',
                           hour12: true
                         });
+                        // Get timezone abbreviation (EST/EDT)
                         const formatter = new Intl.DateTimeFormat('en-US', {
                           timeZone: 'America/New_York',
                           timeZoneName: 'short'
                         });
-                        const tzParts = formatter.formatToParts(date);
-                        const tzName = tzParts.find(part => part.type === 'timeZoneName')?.value || 'EST';
-                        formattedTime = `${timeStr} ${tzName}`;
+                        const parts = formatter.formatToParts(date);
+                        const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+                        formattedTime = `${formattedTime} ${tzName}`;
                       }
                     }
                   }
                 } catch (error) {
-                  debug.error('Error formatting NFL time:', error);
+                  debug.error('Error converting game_time_et:', error, line.game_time_et);
                 }
+              }
+              
+              // Fallback to other sources if game_time_et not available
+              if (!formattedTime && line.game_time) {
+                formattedTime = line.game_time;
               }
               
               gameDataMap.set(line.training_key, {
@@ -562,6 +596,239 @@ export default function EditorsPicks() {
                 home_team_colors: getCFBTeamColors(game.home_team),
               });
             });
+          }
+        }
+
+        // Fetch NBA games
+        if (nbaGameIds.length > 0) {
+          debug.log('🏀 Querying NBA games with IDs:', nbaGameIds);
+          
+          const { data: nbaGames, error: nbaError } = await collegeFootballSupabase
+            .from('nba_input_values_view')
+            .select('*')
+            .in('game_id', nbaGameIds);
+
+          debug.log('🏀 NBA Games fetched:', nbaGames?.length || 0);
+          debug.log('🏀 NBA Fetch error:', nbaError);
+
+
+          if (!nbaError && nbaGames) {
+            // Process games in parallel
+            await Promise.all(nbaGames.map(async (game) => {
+              debug.log('Adding NBA game to map:', game.game_id, game.away_team, '@', game.home_team);
+              
+              // Format date and time
+              let formattedDate = 'TBD';
+              let formattedTime = 'TBD';
+              
+              if (game.game_date) {
+                try {
+                  const [year, month, day] = game.game_date.split('-').map(Number);
+                  const date = new Date(year, month - 1, day);
+                  formattedDate = date.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                  });
+                } catch (error) {
+                  debug.error('Error formatting NBA date:', error);
+                }
+              }
+              
+              if (game.tipoff_time_et) {
+                try {
+                  // tipoff_time_et might be a full ISO datetime or just a time string
+                  let date: Date;
+                  if (game.tipoff_time_et.includes('T') || (game.tipoff_time_et.includes(' ') && game.tipoff_time_et.length > 10)) {
+                    date = new Date(game.tipoff_time_et);
+                  } else {
+                    // Combine with game_date to create proper datetime
+                    const [hours, minutes] = game.tipoff_time_et.split(':').map(Number);
+                    if (game.game_date && !isNaN(hours) && !isNaN(minutes)) {
+                      const [year, month, day] = game.game_date.split('-').map(Number);
+                      // Create date in EST timezone
+                      date = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00-05:00`);
+                    } else {
+                      date = new Date();
+                    }
+                  }
+                  
+                  formattedTime = date.toLocaleTimeString('en-US', {
+                    timeZone: 'America/New_York',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  });
+                  const formatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/New_York',
+                    timeZoneName: 'short'
+                  });
+                  const parts = formatter.formatToParts(date);
+                  const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+                  formattedTime = `${formattedTime} ${tzName}`;
+                } catch (error) {
+                  debug.error('Error formatting NBA time:', error);
+                }
+              }
+              
+              // Calculate away moneyline from home moneyline (same as NBA.tsx)
+              const homeML = game.home_moneyline;
+              let awayML = null;
+              if (homeML) {
+                awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
+              }
+              
+              // Get logos using the same utility functions as NBA page
+              const [awayLogo, homeLogo] = await Promise.all([
+                getNBATeamLogo(game.away_team),
+                getNBATeamLogo(game.home_team)
+              ]);
+              
+              gameDataMap.set(String(game.game_id), {
+                away_team: game.away_team,
+                home_team: game.home_team,
+                away_logo: awayLogo,
+                home_logo: homeLogo,
+                game_date: formattedDate,
+                game_time: formattedTime,
+                raw_game_date: game.game_date,
+                away_spread: game.home_spread ? -game.home_spread : null,
+                home_spread: game.home_spread,
+                over_line: game.total_line,
+                away_ml: awayML,
+                home_ml: homeML,
+                away_team_colors: getNBATeamColors(game.away_team),
+                home_team_colors: getNBATeamColors(game.home_team),
+              });
+            }));
+          }
+        }
+
+        // Fetch NCAAB games
+        if (ncaabGameIds.length > 0) {
+          debug.log('🏀 Querying NCAAB games with IDs:', ncaabGameIds);
+          
+          const { data: ncaabGames, error: ncaabError } = await collegeFootballSupabase
+            .from('v_cbb_input_values')
+            .select('*')
+            .in('game_id', ncaabGameIds);
+
+          debug.log('🏀 NCAAB Games fetched:', ncaabGames?.length || 0);
+          debug.log('🏀 NCAAB Fetch error:', ncaabError);
+
+          // Fetch NCAAB predictions for betting lines
+          const { data: latestRun, error: runError } = await collegeFootballSupabase
+            .from('ncaab_predictions')
+            .select('run_id, as_of_ts_utc')
+            .order('as_of_ts_utc', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          let predictionsMap = new Map();
+          if (!runError && latestRun && ncaabGames) {
+            const gameIds = ncaabGames.map(g => g.game_id);
+            const { data: predictions } = await collegeFootballSupabase
+              .from('ncaab_predictions')
+              .select('game_id, vegas_home_spread, vegas_total, vegas_home_moneyline, vegas_away_moneyline')
+              .eq('run_id', latestRun.run_id)
+              .in('game_id', gameIds);
+            
+            predictions?.forEach(pred => {
+              predictionsMap.set(pred.game_id, pred);
+            });
+          }
+
+
+          if (!ncaabError && ncaabGames) {
+            // Process games in parallel
+            await Promise.all(ncaabGames.map(async (game) => {
+              debug.log('Adding NCAAB game to map:', game.game_id, game.away_team, '@', game.home_team);
+              
+              const prediction = predictionsMap.get(game.game_id);
+              
+              // Get betting lines - prioritize from predictions, fallback to game data
+              const vegasHomeSpread = prediction?.vegas_home_spread ?? game.spread ?? null;
+              const vegasTotal = prediction?.vegas_total ?? game.over_under ?? null;
+              const homeML = game.homeMoneyline ?? prediction?.vegas_home_moneyline ?? null;
+              const awayML = game.awayMoneyline ?? prediction?.vegas_away_moneyline ?? null;
+              
+              // Format date and time
+              let formattedDate = 'TBD';
+              let formattedTime = 'TBD';
+              
+              if (game.game_date_et) {
+                try {
+                  const [year, month, day] = game.game_date_et.split('-').map(Number);
+                  const date = new Date(year, month - 1, day);
+                  formattedDate = date.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                  });
+                } catch (error) {
+                  debug.error('Error formatting NCAAB date:', error);
+                }
+              }
+              
+              const timeSource = game.start_utc || game.tipoff_time_et;
+              if (timeSource) {
+                try {
+                  let date: Date;
+                  if (timeSource.includes('T') || (timeSource.includes(' ') && timeSource.length > 10)) {
+                    date = new Date(timeSource);
+                  } else {
+                    // Combine with game_date_et to create proper datetime
+                    const [hours, minutes] = timeSource.split(':').map(Number);
+                    if (game.game_date_et && !isNaN(hours) && !isNaN(minutes)) {
+                      const [year, month, day] = game.game_date_et.split('-').map(Number);
+                      // Create date in EST timezone
+                      date = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00-05:00`);
+                    } else {
+                      date = new Date();
+                    }
+                  }
+                  
+                  formattedTime = date.toLocaleTimeString('en-US', {
+                    timeZone: 'America/New_York',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  });
+                  const formatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/New_York',
+                    timeZoneName: 'short'
+                  });
+                  const parts = formatter.formatToParts(date);
+                  const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+                  formattedTime = `${formattedTime} ${tzName}`;
+                } catch (error) {
+                  debug.error('Error formatting NCAAB time:', error);
+                }
+              }
+              
+              // Get logos using the same utility functions as NCAAB page
+              const [awayLogo, homeLogo] = await Promise.all([
+                getNCAABTeamLogo(game.away_team_id),
+                getNCAABTeamLogo(game.home_team_id)
+              ]);
+              
+              gameDataMap.set(String(game.game_id), {
+                away_team: game.away_team,
+                home_team: game.home_team,
+                away_logo: awayLogo,
+                home_logo: homeLogo,
+                game_date: formattedDate,
+                game_time: formattedTime,
+                raw_game_date: game.game_date_et || game.start_utc,
+                away_spread: vegasHomeSpread !== null ? -vegasHomeSpread : null,
+                home_spread: vegasHomeSpread,
+                over_line: vegasTotal,
+                away_ml: awayML,
+                home_ml: homeML,
+                away_team_colors: getNCAABTeamColors(game.away_team),
+                home_team_colors: getNCAABTeamColors(game.home_team),
+              });
+            }));
           }
         }
 

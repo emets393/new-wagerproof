@@ -455,11 +455,12 @@ ${contextParts}
         debug.warn('No prediction run_id found');
       }
       
-      // Step 2.5: Fetch betting lines for moneylines and public splits
-      debug.log('📊 Fetching betting lines for ML and public splits...');
+      // Step 2.5: Fetch betting lines for moneylines, public splits, and game_time_et
+      // Map: v_input_values_with_epa.home_away_unique -> nfl_betting_lines.training_key
+      debug.log('📊 Fetching betting lines for ML, public splits, and game_time_et...');
       const { data: bettingLines, error: bettingError } = await collegeFootballSupabase
         .from('nfl_betting_lines')
-        .select('training_key, home_ml, away_ml, over_line, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts')
+        .select('training_key, home_ml, away_ml, over_line, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time, game_time_et')
         .order('as_of_ts', { ascending: false });
 
       let bettingLinesMap = new Map();
@@ -517,15 +518,136 @@ ${contextParts}
       // Step 4: Merge games with predictions, betting lines, and weather
       // home_away_unique in v_input_values_with_epa = training_key in nfl_predictions_epa and nfl_betting_lines
       const predictionsWithData = (nflGames || []).map((game) => {
-        const prediction = predictionsMap.get(game.home_away_unique);
-        const bettingLine = bettingLinesMap.get(game.home_away_unique);
-        const weather = weatherMap.get(game.home_away_unique);
+        const matchKey = game.home_away_unique;
+        const prediction = predictionsMap.get(matchKey);
+        const bettingLine = bettingLinesMap.get(matchKey);
+        const weather = weatherMap.get(matchKey);
+        
+        // Get game_time_et from nfl_betting_lines (EST military time), convert to 12-hour format
+        // game_time_et format: "2025-11-17 20:15:00+00" (date + time in EST)
+        let gameTime = '';
+        debug.log(`🔍 Game ${matchKey}: bettingLine exists: ${!!bettingLine}, game_time_et: ${bettingLine?.game_time_et}`);
+        if (bettingLine?.game_time_et) {
+          try {
+            const timeEt = bettingLine.game_time_et;
+            debug.log(`   Converting game_time_et: ${timeEt}`);
+            // game_time_et is "2025-11-17 20:15:00+00" - extract date and time
+            if (timeEt.includes(' ')) {
+              const [datePart, timePart] = timeEt.split(' ');
+              // Remove timezone offset from time part (e.g., "20:15:00+00" -> "20:15:00")
+              const timeStr = timePart.split('+')[0].split('-')[0];
+              debug.log(`   Extracted date: ${datePart}, time: ${timeStr}`);
+              const [hoursStr, minutesStr] = timeStr.split(':');
+              const hours = parseInt(hoursStr, 10);
+              const minutes = parseInt(minutesStr || '0', 10);
+              
+              debug.log(`   Parsed hours: ${hours}, minutes: ${minutes}`);
+              if (!isNaN(hours) && !isNaN(minutes) && datePart) {
+                // game_time_et is in EST but being treated as UTC, so add 5 hours directly
+                const estHours = hours + 5;
+                let finalDate = datePart;
+                let finalHours = estHours;
+                let finalMinutes = minutes;
+                
+                // Handle day rollover if hours >= 24
+                if (finalHours >= 24) {
+                  finalHours = finalHours % 24;
+                  // Add one day to the date
+                  const [year, month, day] = datePart.split('-').map(Number);
+                  const nextDay = new Date(year, month - 1, day + 1);
+                  finalDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+                }
+                
+                const [year, month, day] = finalDate.split('-').map(Number);
+                // Create date object in EST timezone with adjusted hours
+                const date = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(finalHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')}:00-05:00`);
+                
+                debug.log(`   Created date object (added 5 hours): ${date.toISOString()}, final hours: ${finalHours}`);
+                if (!isNaN(date.getTime())) {
+                  // Format as 12-hour time in EST
+                  gameTime = date.toLocaleTimeString('en-US', {
+                    timeZone: 'America/New_York',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  });
+                  // Get timezone abbreviation (EST/EDT)
+                  const formatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/New_York',
+                    timeZoneName: 'short'
+                  });
+                  const parts = formatter.formatToParts(date);
+                  const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+                  gameTime = `${gameTime} ${tzName}`;
+                  debug.log(`   ✅ Converted to: ${gameTime}`);
+                }
+              }
+            }
+          } catch (error) {
+            debug.error('Error converting game_time_et:', error, bettingLine?.game_time_et);
+          }
+        }
+        
+        // Fallback to other sources if game_time_et not available - add 5 hours to these too
+        if (!gameTime) {
+          debug.log(`   ⚠️ No game_time_et, falling back and adding 5 hours`);
+          const fallbackTime = bettingLine?.game_time || game.game_time || '';
+          if (fallbackTime) {
+            try {
+              // Try to parse the fallback time and add 5 hours
+              const parts = fallbackTime.split(':');
+              if (parts.length >= 2) {
+                const hours = parseInt(parts[0], 10);
+                const minutes = parseInt(parts[1], 10);
+                if (!isNaN(hours) && !isNaN(minutes)) {
+                  const estHours = hours + 5;
+                  const gameDate = bettingLine?.game_date || game.game_date;
+                  if (gameDate) {
+                    const [year, month, day] = gameDate.split('-').map(Number);
+                    let finalDate = gameDate;
+                    let finalHours = estHours >= 24 ? estHours % 24 : estHours;
+                    if (estHours >= 24) {
+                      const nextDay = new Date(year, month - 1, day + 1);
+                      finalDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+                    }
+                    const [fYear, fMonth, fDay] = finalDate.split('-').map(Number);
+                    const date = new Date(`${fYear}-${String(fMonth).padStart(2, '0')}-${String(fDay).padStart(2, '0')}T${String(finalHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00-05:00`);
+                    if (!isNaN(date.getTime())) {
+                      gameTime = date.toLocaleTimeString('en-US', {
+                        timeZone: 'America/New_York',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+                      const formatter = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'America/New_York',
+                        timeZoneName: 'short'
+                      });
+                      const tzParts = formatter.formatToParts(date);
+                      const tzName = tzParts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+                      gameTime = `${gameTime} ${tzName}`;
+                    }
+                  }
+                }
+              }
+              if (!gameTime) {
+                gameTime = fallbackTime;
+              }
+            } catch (error) {
+              debug.error('Error processing fallback time:', error);
+              gameTime = fallbackTime;
+            }
+          }
+        }
         
         return {
           ...game,
           id: game.home_away_unique || `${game.home_team}_${game.away_team}_${game.game_date}`,
           training_key: game.home_away_unique,
           unique_id: game.home_away_unique,
+          // Use game_time_et from nfl_betting_lines (converted to 12-hour EST), fallback to other sources
+          game_time: gameTime,
+          game_date: bettingLine?.game_date || game.game_date || '',
           // Add prediction probabilities if available
           home_away_ml_prob: prediction?.home_away_ml_prob || null,
           home_away_spread_cover_prob: prediction?.home_away_spread_cover_prob || null,
@@ -780,9 +902,13 @@ ${contextParts}
   };
 
   const getTeamLogo = (teamName: string): string => {
+    // Try database first
     const mapping = teamMappings.find(m => m.team_name === teamName);
-    debug.log(`Looking for logo for team: ${teamName}, found mapping:`, mapping);
-    return mapping?.logo_url || '/placeholder.svg';
+    if (mapping?.logo_url && mapping.logo_url !== '/placeholder.svg' && mapping.logo_url.trim() !== '') {
+      return mapping.logo_url;
+    }
+    // Fallback to hardcoded ESPN URLs
+    return getNFLTeamLogo(teamName);
   };
 
   // Weather display component using Tabler icons
@@ -839,9 +965,14 @@ ${contextParts}
     return spread.toString();
   };
 
-  const convertTimeToEST = (timeString: string | null | undefined): string => {
+  const convertTimeToEST = (timeString: string | null | undefined, gameDate?: string | null): string => {
     if (!timeString || timeString.trim() === '') {
       return 'TBD';
+    }
+
+    // If the time is already formatted (contains AM/PM and EST/EDT), return it as-is
+    if ((timeString.includes('AM') || timeString.includes('PM')) && (timeString.includes('EST') || timeString.includes('EDT'))) {
+      return timeString;
     }
 
     try {
@@ -871,9 +1002,23 @@ ${contextParts}
           return 'TBD';
         }
         
-        // Create date for today with UTC time
-        const today = new Date();
-        date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes, 0));
+        // If we have a game_date, combine it with the time and treat as EST
+        if (gameDate) {
+          try {
+            const [year, month, day] = gameDate.split('-').map(Number);
+            // Create date in EST timezone (using -05:00 offset, will auto-adjust for DST)
+            date = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00-05:00`);
+          } catch (error) {
+            debug.error('Error combining game_date with time:', error);
+            // Fallback to today
+            const today = new Date();
+            date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes, 0));
+          }
+        } else {
+          // No game_date provided, assume time is in UTC (for backward compatibility)
+          const today = new Date();
+          date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes, 0));
+        }
       }
       
       // Convert to EST/EDT using timezone-aware conversion
@@ -1198,7 +1343,7 @@ ${contextParts}
                       {formatCompactDate(prediction.game_date)}
                     </div>
                     <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-white/80 bg-gray-100/80 dark:bg-white/5 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full border border-gray-300 dark:border-white/20 inline-block">
-                      {convertTimeToEST(prediction.game_time)}
+                      {convertTimeToEST(prediction.game_time, prediction.game_date)}
                     </div>
                   </div>
 
@@ -1207,21 +1352,49 @@ ${contextParts}
                     <div className="flex justify-between items-start">
                       {/* Away Team */}
                       <div className="text-center flex-1">
-                        {/* Logo kept in code for color reference: {getTeamLogo(prediction.away_team)} */}
-                        <div 
-                          className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
-                          style={{
-                            background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`,
-                            borderColor: `${awayTeamColors.primary}`
-                          }}
-                        >
-                          <span 
-                            className="text-xs sm:text-sm font-bold drop-shadow-md"
-                            style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
-                          >
-                            {getTeamInitials(prediction.away_team)}
-                          </span>
-                        </div>
+                        {(() => {
+                          const logoUrl = getTeamLogo(prediction.away_team);
+                          const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                          
+                          // Always try to show logo first, fallback to circle if it fails
+                          return (
+                            <div className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden bg-white dark:bg-gray-800"
+                              style={{
+                                borderColor: `${awayTeamColors.primary}`,
+                                background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`
+                              }}
+                            >
+                              {hasLogo ? (
+                                <img 
+                                  src={logoUrl} 
+                                  alt={prediction.away_team}
+                                  className="w-full h-full object-contain p-1"
+                                  onError={(e) => {
+                                    // Fallback to circle with initials if image fails to load
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent && !parent.querySelector('.fallback-initials')) {
+                                      const fallback = document.createElement('span');
+                                      fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                      fallback.style.color = getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary);
+                                      fallback.textContent = getTeamInitials(prediction.away_team);
+                                      parent.style.background = `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`;
+                                      parent.appendChild(fallback);
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <span 
+                                  className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                  style={{ color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }}
+                                >
+                                  {getTeamInitials(prediction.away_team)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mb-0.5">
                           {getFullTeamName(prediction.away_team).city}
                         </div>
@@ -1246,21 +1419,49 @@ ${contextParts}
 
                       {/* Home Team */}
                       <div className="text-center flex-1">
-                        {/* Logo kept in code for color reference: {getTeamLogo(prediction.home_team)} */}
-                        <div 
-                          className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg"
-                          style={{
-                            background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
-                            borderColor: `${homeTeamColors.primary}`
-                          }}
-                        >
-                          <span 
-                            className="text-xs sm:text-sm font-bold drop-shadow-md"
-                            style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
-                          >
-                            {getTeamInitials(prediction.home_team)}
-                          </span>
-                        </div>
+                        {(() => {
+                          const logoUrl = getTeamLogo(prediction.home_team);
+                          const hasLogo = logoUrl && logoUrl !== '/placeholder.svg' && logoUrl.trim() !== '';
+                          
+                          // Always try to show logo first, fallback to circle if it fails
+                          return (
+                            <div className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden bg-white dark:bg-gray-800"
+                              style={{
+                                borderColor: `${homeTeamColors.primary}`,
+                                background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`
+                              }}
+                            >
+                              {hasLogo ? (
+                                <img 
+                                  src={logoUrl} 
+                                  alt={prediction.home_team}
+                                  className="w-full h-full object-contain p-1"
+                                  onError={(e) => {
+                                    // Fallback to circle with initials if image fails to load
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent && !parent.querySelector('.fallback-initials')) {
+                                      const fallback = document.createElement('span');
+                                      fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
+                                      fallback.style.color = getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary);
+                                      fallback.textContent = getTeamInitials(prediction.home_team);
+                                      parent.style.background = `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`;
+                                      parent.appendChild(fallback);
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <span 
+                                  className="text-xs sm:text-sm font-bold drop-shadow-md"
+                                  style={{ color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }}
+                                >
+                                  {getTeamInitials(prediction.home_team)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mb-0.5">
                           {getFullTeamName(prediction.home_team).city}
                         </div>
