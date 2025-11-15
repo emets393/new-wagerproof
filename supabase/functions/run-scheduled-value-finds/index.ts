@@ -43,31 +43,18 @@ serve(async (req) => {
       const now = new Date();
       const [hours, minutes] = schedule.scheduled_time.split(':').map(Number);
       
-      // Get schedule frequency (daily or weekly)
-      const scheduleFrequency = (schedule as any).schedule_frequency ?? 'weekly'; // Default to weekly if not set
-      
       // Get day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
       const dayOfWeek = (schedule as any).day_of_week ?? 1; // Default to Monday if not set
       const currentDayOfWeek = now.getDay(); // JavaScript: 0 = Sunday, 1 = Monday, etc.
       
-      // Check if we already ran today (for daily) or this week (for weekly)
+      // Check if we already ran this week
       const lastRun = schedule.last_run_at ? new Date(schedule.last_run_at) : null;
-      let shouldRun = false;
-      
-      if (scheduleFrequency === 'daily') {
-        // For daily schedules, check if we already ran today
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const lastRunDate = lastRun ? new Date(lastRun.getFullYear(), lastRun.getMonth(), lastRun.getDate()) : null;
-        shouldRun = !lastRun || (lastRunDate && lastRunDate < today);
-      } else {
-        // For weekly schedules, check if we already ran this week
-        shouldRun = !lastRun || 
-          (lastRun.getDay() !== dayOfWeek) || // Different day of week
-          (now.getTime() - lastRun.getTime() > 7 * 24 * 60 * 60 * 1000); // More than 7 days ago
-      }
+      const shouldRun = !lastRun || 
+        (lastRun.getDay() !== dayOfWeek) || // Different day of week
+        (now.getTime() - lastRun.getTime() > 7 * 24 * 60 * 60 * 1000); // More than 7 days ago
 
-      // Check if current day matches scheduled day (only for weekly) and time matches (within 5 minutes)
-      const dayMatch = scheduleFrequency === 'daily' ? true : currentDayOfWeek === dayOfWeek;
+      // Check if current day matches scheduled day and time matches (within 5 minutes)
+      const dayMatch = currentDayOfWeek === dayOfWeek;
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
       const timeMatch = currentHour === hours && Math.abs(currentMinute - minutes) <= 5;
@@ -75,27 +62,16 @@ serve(async (req) => {
       if (shouldRun && dayMatch && timeMatch) {
         console.log(`Running scheduled generation for ${schedule.sport_type} at ${schedule.scheduled_time}...`);
         
-        // Determine which function to call based on sport_type
-        let functionName: string;
-        let functionBody: any;
-        
-        if (schedule.sport_type === 'today_in_sports') {
-          // Call today-in-sports-specific function
-          functionName = 'generate-today-in-sports-completion';
-          functionBody = { force: false }; // Don't force regenerate on scheduled runs
-        } else {
-          // Call the standard value finds function
-          functionName = 'generate-page-level-analysis';
-          functionBody = {
-            sport_type: schedule.sport_type,
-            analysis_date: now.toISOString().split('T')[0],
-            user_id: null, // System-generated
-          };
-        }
-
+        // Call the generate-page-level-analysis function
         const { data, error } = await supabaseClient.functions.invoke(
-          functionName,
-          { body: functionBody }
+          'generate-page-level-analysis',
+          {
+            body: {
+              sport_type: schedule.sport_type,
+              analysis_date: now.toISOString().split('T')[0],
+              user_id: null, // System-generated
+            },
+          }
         );
 
         if (error) {
@@ -106,14 +82,7 @@ serve(async (req) => {
             error: error.message,
           });
         } else {
-          console.log(`Successfully generated ${schedule.sport_type === 'today_in_sports' ? 'today in sports' : 'value finds'} for ${schedule.sport_type}`);
-          
-          // Update last_run_at timestamp
-          await supabaseClient
-            .from('ai_page_level_schedules')
-            .update({ last_run_at: now.toISOString() })
-            .eq('sport_type', schedule.sport_type);
-          
+          console.log(`Successfully generated value finds for ${schedule.sport_type}`);
           results.push({
             sport_type: schedule.sport_type,
             success: true,
@@ -121,11 +90,7 @@ serve(async (req) => {
           });
         }
       } else if (!shouldRun) {
-        if (scheduleFrequency === 'daily') {
-          console.log(`Skipping ${schedule.sport_type} - already ran today at ${schedule.last_run_at}`);
-        } else {
-          console.log(`Skipping ${schedule.sport_type} - already ran this week at ${schedule.last_run_at}`);
-        }
+        console.log(`Skipping ${schedule.sport_type} - already ran this week at ${schedule.last_run_at}`);
       } else if (!dayMatch) {
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         console.log(`Skipping ${schedule.sport_type} - not scheduled day (current: ${dayNames[currentDayOfWeek]}, scheduled: ${dayNames[dayOfWeek]})`);

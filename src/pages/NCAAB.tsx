@@ -7,7 +7,7 @@ import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Zap, Search, X } from 'lucide-react';
+import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Zap, Search } from 'lucide-react';
 import debug from '@/utils/debug';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { Link } from 'react-router-dom';
@@ -34,6 +34,7 @@ import { useDisplaySettings } from '@/hooks/useDisplaySettings';
 import { GameTailSection } from '@/components/GameTailSection';
 import { CardFooter } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
 import { getNCAABTeamColors, getNCAABTeamInitials } from '@/utils/teamColors';
 import { useSportsPageCache } from '@/hooks/useSportsPageCache';
 
@@ -98,7 +99,7 @@ export default function NCAAB() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>(['All Games']);
   const [sortKey, setSortKey] = useState<'none' | 'ml' | 'spread' | 'ou'>('none');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchText, setSearchText] = useState<string>('');
   
   // AI Completion state
   const [aiCompletions, setAiCompletions] = useState<Record<string, Record<string, string>>>({});
@@ -342,20 +343,8 @@ ${contextParts}
     return teamColors.primary;
   };
 
-  // Check if a game should be displayed based on active filters and search
+  // Check if a game should be displayed based on active filters
   const shouldDisplayGame = (prediction: NCAABPrediction): boolean => {
-    // First check search query
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      const awayTeam = prediction.away_team.toLowerCase();
-      const homeTeam = prediction.home_team.toLowerCase();
-      
-      if (!awayTeam.includes(query) && !homeTeam.includes(query)) {
-        return false;
-      }
-    }
-    
-    // Then check filters
     if (activeFilters.includes('All Games')) return true;
     
     // For now, just return true since we don't have betting splits data yet
@@ -1002,9 +991,31 @@ ${contextParts}
       return dateString;
     }
   };
+  // Displayed edge helpers (match UI rounding behavior)
+  const getDisplayedSpreadEdge = (p: NCAABPrediction): number => {
+    const val = p.home_spread_diff;
+    if (val === null || val === undefined || isNaN(Number(val))) return -Infinity;
+    return Math.round(Math.abs(Number(val)) * 2) / 2; // roundToHalf(abs)
+  };
+
+  const getDisplayedOUEdge = (p: NCAABPrediction): number => {
+    const val = p.over_line_diff as number | null | undefined;
+    if (val === null || val === undefined || isNaN(Number(val))) return -Infinity;
+    return Math.round(Math.abs(Number(val)) * 2) / 2; // roundToHalf(abs)
+  };
+
   // Build sorted list according to current sort selection
   const getSortedPredictions = (): NCAABPrediction[] => {
-    const list = predictions.filter(shouldDisplayGame);
+    // First filter by search text
+    let list = predictions.filter(shouldDisplayGame);
+    if (searchText.trim()) {
+      const search = searchText.toLowerCase();
+      list = list.filter(p => 
+        p.home_team.toLowerCase().includes(search) || 
+        p.away_team.toLowerCase().includes(search)
+      );
+    }
+    
     const byDateTime = (a: NCAABPrediction, b: NCAABPrediction) => {
       const dateComparison = a.game_date.localeCompare(b.game_date);
       if (dateComparison !== 0) return dateComparison;
@@ -1016,8 +1027,8 @@ ${contextParts}
     }
     const score = (p: NCAABPrediction): number => {
       if (sortKey === 'ml') return getDisplayedMlProb(p.home_away_ml_prob) ?? -1;
-      if (sortKey === 'spread') return getDisplayedSpreadProb(p.home_away_spread_cover_prob) ?? -1;
-      return getDisplayedOuProb(p.ou_result_prob) ?? -1;
+      if (sortKey === 'spread') return getDisplayedSpreadEdge(p);
+      return getDisplayedOUEdge(p);
     };
     const sorted = [...list].sort((a, b) => {
       const sb = score(b) - score(a);
@@ -1095,25 +1106,17 @@ ${contextParts}
         </div>
       </div>
       
-      {/* Search Bar */}
+      {/* Search Input */}
       <div className="mb-4">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
             type="text"
-            placeholder="Search matchups by team name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Search by team name..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="pl-10 w-full max-w-md"
           />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
         </div>
       </div>
 
@@ -1157,7 +1160,7 @@ ${contextParts}
               setSortAscending(false);
             }
           }}
-          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread probability (click to toggle direction)"}
+          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread edge (click to toggle direction)"}
         >
           {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
           <span className="hidden sm:inline">Sort: Spread</span>
@@ -1180,7 +1183,7 @@ ${contextParts}
               setSortAscending(false);
             }
           }}
-          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under probability (click to toggle direction)"}
+          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under edge (click to toggle direction)"}
         >
           {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
           <span className="hidden sm:inline">Sort: O/U</span>
@@ -1661,8 +1664,7 @@ ${contextParts}
       {predictions.length > 0 && (
         <div className="mt-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Showing {getSortedPredictions().length} of {predictions.length} predictions
-            {searchQuery && ` (filtered by "${searchQuery}")`}
+            Showing {predictions.length} predictions
           </p>
         </div>
       )}
