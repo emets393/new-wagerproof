@@ -35,6 +35,7 @@ import { GameTailSection } from '@/components/GameTailSection';
 import { CardFooter } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getNCAABTeamColors, getNCAABTeamInitials } from '@/utils/teamColors';
+import { useSportsPageCache } from '@/hooks/useSportsPageCache';
 
 interface NCAABPrediction {
   id: string;
@@ -85,6 +86,10 @@ export default function NCAAB() {
   const { isFreemiumUser } = useFreemiumAccess();
   const { adminModeEnabled } = useAdminMode();
   const { showNFLMoneylinePills } = useDisplaySettings();
+  
+  // Session cache hook
+  const { getCachedData, setCachedData, clearCache, restoreScrollPosition } = useSportsPageCache<NCAABPrediction>('ncaab');
+  
   const [predictions, setPredictions] = useState<NCAABPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [teamMappingsById, setTeamMappingsById] = useState<Map<number, { espn_team_url: string; team_abbrev: string | null }>>(new Map());
@@ -686,6 +691,18 @@ ${contextParts}
 
       setPredictions(predictionsWithData);
       setLastUpdated(new Date());
+      
+      // Save to cache (note: teamMappingsById is a Map, will be serialized/deserialized correctly by JSON)
+      setCachedData({
+        predictions: predictionsWithData,
+        teamMappings: Array.from(teamMappingsMap.entries()), // Convert Map to array for serialization
+        lastUpdated: Date.now(),
+        searchQuery,
+        sortKey,
+        sortAscending,
+        scrollPosition: 0,
+        activeFilters,
+      });
     } catch (err) {
       debug.error('Error fetching data:', err);
       setError(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -753,9 +770,57 @@ ${contextParts}
     }
   };
 
+  // Check cache on mount, fetch if no cache or expired
   useEffect(() => {
-    fetchData();
+    const cached = getCachedData();
+    
+    if (cached && cached.predictions.length > 0) {
+      debug.log('[Cache] Restoring from cache');
+      // Restore from cache
+      setPredictions(cached.predictions);
+      // Restore teamMappingsById Map from array
+      if (cached.teamMappings && Array.isArray(cached.teamMappings)) {
+        setTeamMappingsById(new Map(cached.teamMappings as any));
+      }
+      setLastUpdated(new Date(cached.lastUpdated));
+      setSearchQuery(cached.searchQuery || '');
+      // Validate sortKey type
+      const validSortKey = cached.sortKey as 'none' | 'ml' | 'spread' | 'ou';
+      if (['none', 'ml', 'spread', 'ou'].includes(validSortKey)) {
+        setSortKey(validSortKey);
+      } else {
+        setSortKey('none');
+      }
+      setSortAscending(cached.sortAscending || false);
+      setActiveFilters(cached.activeFilters || ['All Games']);
+      setLoading(false);
+      
+      // Restore scroll position after render
+      if (cached.scrollPosition > 0) {
+        restoreScrollPosition(cached.scrollPosition);
+      }
+    } else {
+      // No cache, fetch fresh data
+      debug.log('[Cache] No cache available, fetching fresh data');
+      fetchData();
+    }
   }, []);
+  
+  // Update cache when UI state changes (search, sort, filters)
+  useEffect(() => {
+    if (predictions.length > 0) {
+      const cached = getCachedData();
+      if (cached) {
+        setCachedData({
+          ...cached,
+          searchQuery,
+          sortKey,
+          sortAscending,
+          activeFilters,
+        });
+      }
+    }
+  }, [searchQuery, sortKey, sortAscending, activeFilters]);
   
   // Fetch AI completions when predictions are loaded
   useEffect(() => {
@@ -1125,7 +1190,10 @@ ${contextParts}
             </span>
           )}
           <LiquidButton 
-            onClick={fetchData} 
+            onClick={() => {
+              clearCache();
+              fetchData();
+            }} 
             disabled={loading} 
             variant="outline"
             className="bg-slate-50 dark:bg-muted text-foreground border-border text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2"

@@ -28,6 +28,7 @@ import { GameDetailsModal } from '@/components/GameDetailsModal';
 import { areCompletionsEnabled } from '@/utils/aiCompletionSettings';
 import { GameTailSection } from '@/components/GameTailSection';
 import { CardFooter } from '@/components/ui/card';
+import { useSportsPageCache } from '@/hooks/useSportsPageCache';
 
 interface CFBPrediction {
   id: string;
@@ -92,6 +93,10 @@ export default function CollegeFootball() {
   const { user } = useAuth();
   const { isFreemiumUser } = useFreemiumAccess();
   const { adminModeEnabled } = useAdminMode();
+  
+  // Session cache hook
+  const { getCachedData, setCachedData, clearCache, restoreScrollPosition } = useSportsPageCache<CFBPrediction>('college-football');
+  
   const [predictions, setPredictions] = useState<CFBPrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -584,6 +589,18 @@ ${contextParts}
       } else {
         setLastUpdated(new Date());
       }
+      
+      // Save to cache (mappings are already set earlier with setTeamMappings)
+      setCachedData({
+        predictions: predictionsWithWeather,
+        teamMappings: mappings || [],
+        lastUpdated: Date.now(),
+        searchQuery,
+        sortKey: sortMode, // CollegeFootball uses sortMode instead of sortKey
+        sortAscending,
+        scrollPosition: 0,
+        activeFilters,
+      });
     } catch (err) {
       debug.error('Error fetching data:', err);
       setError(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -634,8 +651,41 @@ ${contextParts}
     }
   };
 
+  // Check cache on mount, fetch if no cache or expired
   useEffect(() => {
-    fetchData();
+    const cached = getCachedData();
+    
+    if (cached && cached.predictions.length > 0) {
+      debug.log('[Cache] Restoring from cache');
+      // Restore from cache
+      setPredictions(cached.predictions);
+      if (cached.teamMappings) {
+        setTeamMappings(cached.teamMappings);
+      }
+      setLastUpdated(new Date(cached.lastUpdated));
+      setSearchQuery(cached.searchQuery || '');
+      // Restore sortMode (CollegeFootball uses sortMode instead of sortKey)
+      const validSortMode = cached.sortKey as SortMode;
+      if (['time', 'spread', 'total'].includes(validSortMode)) {
+        setSortMode(validSortMode);
+      } else {
+        setSortMode('time');
+      }
+      setSortAscending(cached.sortAscending || false);
+      setActiveFilters(cached.activeFilters || ['All Games']);
+      setLoading(false);
+      
+      // Restore scroll position after render
+      if (cached.scrollPosition > 0) {
+        restoreScrollPosition(cached.scrollPosition);
+      }
+    } else {
+      // No cache, fetch fresh data
+      debug.log('[Cache] No cache available, fetching fresh data');
+      fetchData();
+    }
+    
+    // Always fetch value finds
     fetchValueFinds();
     
     // Refresh value finds every 30 seconds to catch publish/unpublish changes
@@ -655,7 +705,23 @@ ${contextParts}
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [adminModeEnabled]); // Re-fetch when admin mode changes
+  }, [adminModeEnabled]);
+  
+  // Update cache when UI state changes (search, sort, filters)
+  useEffect(() => {
+    if (predictions.length > 0) {
+      const cached = getCachedData();
+      if (cached) {
+        setCachedData({
+          ...cached,
+          searchQuery,
+          sortKey: sortMode,
+          sortAscending,
+          activeFilters,
+        });
+      }
+    }
+  }, [searchQuery, sortMode, sortAscending, activeFilters]); // Re-fetch when admin mode changes
 
   // Fetch Value Finds data
   const fetchValueFinds = async () => {
@@ -1371,7 +1437,10 @@ ${contextParts}
             </span>
           )}
           <LiquidButton 
-            onClick={fetchData} 
+            onClick={() => {
+              clearCache();
+              fetchData();
+            }} 
             disabled={loading} 
             variant="outline"
             className="bg-slate-50 dark:bg-muted text-foreground border-border text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2"
