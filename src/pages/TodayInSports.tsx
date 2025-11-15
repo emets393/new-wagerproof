@@ -74,7 +74,6 @@ export default function TodayInSports() {
   const isDark = theme === 'dark';
   const [showAllValueAlerts, setShowAllValueAlerts] = useState(false);
   const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(false);
-  const [showAllTailedGames, setShowAllTailedGames] = useState(false);
   
   // Sport filters for each section
   const [todayGamesFilter, setTodayGamesFilter] = useState<SportFilter>('all');
@@ -2276,19 +2275,16 @@ export default function TodayInSports() {
             </CardHeader>
             <CardContent className="px-4 md:px-6">
               {allTailedLoading ? (
-                <div className="space-y-4">
+                <div className="flex gap-4 overflow-x-auto pb-4">
                   {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-24" />
+                    <Skeleton key={i} className="h-[400px] w-[320px] flex-shrink-0" />
                   ))}
                 </div>
               ) : (() => {
                 const filteredTailedGames = filterBySport(allTailedGames || [], tailedGamesFilter);
                 return filteredTailedGames.length > 0 ? (
-                  <>
-                    <div className="space-y-4">
-                      {filteredTailedGames
-                        .slice(0, showAllTailedGames ? filteredTailedGames.length : 5)
-                        .map((game, idx) => {
+                  <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0">
+                    {filteredTailedGames.map((game, idx) => {
                     // Helper to normalize pick type for color function
                     const normalizePickType = (pickType: string) => {
                       if (pickType === 'moneyline') return 'Moneyline';
@@ -2300,7 +2296,7 @@ export default function TodayInSports() {
                     return (
                       <div 
                         key={game.gameId}
-                        className="p-4 rounded-lg bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/30 dark:border-orange-500/20"
+                        className="p-4 rounded-lg bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/30 dark:border-orange-500/20 flex-shrink-0 w-[320px] sm:w-[360px]"
                       >
                         {/* Pills Row */}
                         <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -2431,29 +2427,7 @@ export default function TodayInSports() {
                       </div>
                     );
                   })}
-                    </div>
-                    {filteredTailedGames.length > 5 && (
-                      <div className="flex justify-center mt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowAllTailedGames(!showAllTailedGames)}
-                          className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
-                        >
-                          {showAllTailedGames ? (
-                            <>
-                              <ChevronUp className="h-4 w-4 mr-2" />
-                              Show Less
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-4 w-4 mr-2" />
-                              View All ({filteredTailedGames.length - 5} more)
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                  </>
+                  </div>
                 ) : (
                   <p className="text-gray-600 dark:text-gray-400 text-center py-8">
                     {tailedGamesFilter === 'all' 

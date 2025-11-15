@@ -43,18 +43,31 @@ serve(async (req) => {
       const now = new Date();
       const [hours, minutes] = schedule.scheduled_time.split(':').map(Number);
       
+      // Get schedule frequency (daily or weekly)
+      const scheduleFrequency = (schedule as any).schedule_frequency ?? 'weekly'; // Default to weekly if not set
+      
       // Get day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
       const dayOfWeek = (schedule as any).day_of_week ?? 1; // Default to Monday if not set
       const currentDayOfWeek = now.getDay(); // JavaScript: 0 = Sunday, 1 = Monday, etc.
       
-      // Check if we already ran this week
+      // Check if we already ran today (for daily) or this week (for weekly)
       const lastRun = schedule.last_run_at ? new Date(schedule.last_run_at) : null;
-      const shouldRun = !lastRun || 
-        (lastRun.getDay() !== dayOfWeek) || // Different day of week
-        (now.getTime() - lastRun.getTime() > 7 * 24 * 60 * 60 * 1000); // More than 7 days ago
+      let shouldRun = false;
+      
+      if (scheduleFrequency === 'daily') {
+        // For daily schedules, check if we already ran today
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const lastRunDate = lastRun ? new Date(lastRun.getFullYear(), lastRun.getMonth(), lastRun.getDate()) : null;
+        shouldRun = !lastRun || (lastRunDate && lastRunDate < today);
+      } else {
+        // For weekly schedules, check if we already ran this week
+        shouldRun = !lastRun || 
+          (lastRun.getDay() !== dayOfWeek) || // Different day of week
+          (now.getTime() - lastRun.getTime() > 7 * 24 * 60 * 60 * 1000); // More than 7 days ago
+      }
 
-      // Check if current day matches scheduled day and time matches (within 5 minutes)
-      const dayMatch = currentDayOfWeek === dayOfWeek;
+      // Check if current day matches scheduled day (only for weekly) and time matches (within 5 minutes)
+      const dayMatch = scheduleFrequency === 'daily' ? true : currentDayOfWeek === dayOfWeek;
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
       const timeMatch = currentHour === hours && Math.abs(currentMinute - minutes) <= 5;
@@ -90,7 +103,11 @@ serve(async (req) => {
           });
         }
       } else if (!shouldRun) {
-        console.log(`Skipping ${schedule.sport_type} - already ran this week at ${schedule.last_run_at}`);
+        if (scheduleFrequency === 'daily') {
+          console.log(`Skipping ${schedule.sport_type} - already ran today at ${schedule.last_run_at}`);
+        } else {
+          console.log(`Skipping ${schedule.sport_type} - already ran this week at ${schedule.last_run_at}`);
+        }
       } else if (!dayMatch) {
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         console.log(`Skipping ${schedule.sport_type} - not scheduled day (current: ${dayNames[currentDayOfWeek]}, scheduled: ${dayNames[dayOfWeek]})`);

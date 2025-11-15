@@ -48,6 +48,7 @@ export interface PageLevelSchedule {
   enabled: boolean;
   scheduled_time: string;
   day_of_week: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  schedule_frequency: 'daily' | 'weekly'; // Frequency of scheduled runs
   system_prompt: string;
   last_run_at: string | null;
   auto_publish: boolean;
@@ -287,7 +288,7 @@ export async function getPageLevelSchedule(
  */
 export async function updatePageLevelSchedule(
   sportType: SportType,
-  updates: Partial<Pick<PageLevelSchedule, 'enabled' | 'scheduled_time' | 'day_of_week' | 'system_prompt' | 'auto_publish'>>
+  updates: Partial<Pick<PageLevelSchedule, 'enabled' | 'scheduled_time' | 'day_of_week' | 'system_prompt' | 'auto_publish' | 'schedule_frequency'>>
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Filter out undefined values to avoid sending them to the database
@@ -297,6 +298,7 @@ export async function updatePageLevelSchedule(
     if (updates.day_of_week !== undefined) cleanUpdates.day_of_week = updates.day_of_week;
     if (updates.system_prompt !== undefined) cleanUpdates.system_prompt = updates.system_prompt;
     if (updates.auto_publish !== undefined) cleanUpdates.auto_publish = updates.auto_publish;
+    if ((updates as any).schedule_frequency !== undefined) cleanUpdates.schedule_frequency = (updates as any).schedule_frequency;
 
     debug.log('Updating schedule with:', { sportType, cleanUpdates });
 

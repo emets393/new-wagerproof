@@ -77,6 +77,7 @@ export function AIValueFindsPreview({
   // Schedule state
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduledTime, setScheduledTime] = useState('09:00');
+  const [scheduleFrequency, setScheduleFrequency] = useState<'daily' | 'weekly'>('weekly');
   const [dayOfWeek, setDayOfWeek] = useState<number>(1); // Default to Monday (1)
   const [autoPublish, setAutoPublish] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
@@ -99,6 +100,7 @@ export function AIValueFindsPreview({
       if (schedule) {
         setScheduleEnabled(schedule.enabled || false);
         setScheduledTime(schedule.scheduled_time || '09:00');
+        setScheduleFrequency((schedule as any).schedule_frequency || 'weekly'); // Default to weekly if not set
         setDayOfWeek((schedule as any).day_of_week ?? 1); // Default to Monday if not set
         // Handle case where auto_publish might not exist yet (migration not run)
         setAutoPublish((schedule as any).auto_publish ?? false);
@@ -166,12 +168,15 @@ export function AIValueFindsPreview({
         enabled: scheduleEnabled,
         scheduled_time: formattedTime,
         original_time: scheduledTime,
+        schedule_frequency: scheduleFrequency,
+        day_of_week: dayOfWeek,
         auto_publish: autoPublish,
       });
 
       const result = await updatePageLevelSchedule(valueFindData.sport_type, {
         enabled: scheduleEnabled,
         scheduled_time: formattedTime,
+        schedule_frequency: scheduleFrequency,
         day_of_week: dayOfWeek,
         auto_publish: autoPublish,
       });
@@ -207,11 +212,19 @@ export function AIValueFindsPreview({
       // Always show success since the schedule was saved
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const dayName = dayNames[dayOfWeek] || 'Monday';
+      
+      let scheduleDescription = 'Auto-generation disabled';
+      if (scheduleEnabled) {
+        if (scheduleFrequency === 'daily') {
+          scheduleDescription = `Value Finds will auto-generate daily at ${scheduledTime}${autoPublish ? ' and auto-publish' : ''}. The master scheduler will check this schedule hourly.`;
+        } else {
+          scheduleDescription = `Value Finds will auto-generate weekly on ${dayName}s at ${scheduledTime}${autoPublish ? ' and auto-publish' : ''}. The master scheduler will check this schedule hourly.`;
+        }
+      }
+      
       toast({
         title: 'Schedule saved!',
-        description: scheduleEnabled 
-          ? `Value Finds will auto-generate weekly on ${dayName}s at ${scheduledTime}${autoPublish ? ' and auto-publish' : ''}. The master scheduler will check this schedule hourly.`
-          : 'Auto-generation disabled',
+        description: scheduleDescription,
       });
     } catch (error) {
       debug.error('Error saving schedule:', error);
@@ -391,10 +404,10 @@ export function AIValueFindsPreview({
               <div className="flex items-center justify-between p-3 bg-background rounded-lg">
                 <div className="flex-1">
                   <Label htmlFor="auto-generate" className="text-base font-medium cursor-pointer">
-                    Auto-Generate Weekly
+                    Auto-Generate Value Finds
                   </Label>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Automatically generate new Value Finds weekly at the scheduled day and time
+                    Automatically generate new Value Finds on a schedule
                   </p>
                 </div>
                 <Switch
@@ -405,32 +418,54 @@ export function AIValueFindsPreview({
                 />
               </div>
 
-              {/* Day of Week and Scheduled Time */}
+              {/* Frequency, Day of Week and Scheduled Time */}
               {scheduleEnabled && (
                 <div className="space-y-3 p-3 bg-background rounded-lg">
                   <div>
-                    <Label htmlFor="day-of-week" className="text-base font-medium mb-2 block">
-                      Day of Week
+                    <Label htmlFor="schedule-frequency" className="text-base font-medium mb-2 block">
+                      Schedule Frequency
                     </Label>
                     <Select
-                      value={dayOfWeek.toString()}
-                      onValueChange={(value) => setDayOfWeek(parseInt(value, 10))}
+                      value={scheduleFrequency}
+                      onValueChange={(value: 'daily' | 'weekly') => setScheduleFrequency(value)}
                       disabled={savingSchedule}
                     >
-                      <SelectTrigger id="day-of-week" className="max-w-xs">
-                        <SelectValue placeholder="Select day" />
+                      <SelectTrigger id="schedule-frequency" className="max-w-xs">
+                        <SelectValue placeholder="Select frequency" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="0">Sunday</SelectItem>
-                        <SelectItem value="1">Monday</SelectItem>
-                        <SelectItem value="2">Tuesday</SelectItem>
-                        <SelectItem value="3">Wednesday</SelectItem>
-                        <SelectItem value="4">Thursday</SelectItem>
-                        <SelectItem value="5">Friday</SelectItem>
-                        <SelectItem value="6">Saturday</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {scheduleFrequency === 'weekly' && (
+                    <div>
+                      <Label htmlFor="day-of-week" className="text-base font-medium mb-2 block">
+                        Day of Week
+                      </Label>
+                      <Select
+                        value={dayOfWeek.toString()}
+                        onValueChange={(value) => setDayOfWeek(parseInt(value, 10))}
+                        disabled={savingSchedule}
+                      >
+                        <SelectTrigger id="day-of-week" className="max-w-xs">
+                          <SelectValue placeholder="Select day" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">Sunday</SelectItem>
+                          <SelectItem value="1">Monday</SelectItem>
+                          <SelectItem value="2">Tuesday</SelectItem>
+                          <SelectItem value="3">Wednesday</SelectItem>
+                          <SelectItem value="4">Thursday</SelectItem>
+                          <SelectItem value="5">Friday</SelectItem>
+                          <SelectItem value="6">Saturday</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
                   <div>
                     <Label htmlFor="scheduled-time" className="text-base font-medium mb-2 block">
                       Scheduled Time (24-hour format)
@@ -445,7 +480,9 @@ export function AIValueFindsPreview({
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Value Finds will be generated weekly on the selected day at this time (server timezone)
+                    {scheduleFrequency === 'daily' 
+                      ? 'Value Finds will be generated daily at this time (server timezone)'
+                      : 'Value Finds will be generated weekly on the selected day at this time (server timezone)'}
                   </p>
                 </div>
               )}

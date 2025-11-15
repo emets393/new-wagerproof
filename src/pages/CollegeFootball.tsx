@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles, Users, ArrowUp, ArrowDown, Box } from 'lucide-react';
+import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles, Users, ArrowUp, ArrowDown, Box, Search, X } from 'lucide-react';
 import CFBGameCard from '@/components/CFBGameCard';
 import debug from '@/utils/debug';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
@@ -99,6 +99,7 @@ export default function CollegeFootball() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>(['All Games']);
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   
   // AI Completion state
@@ -266,6 +267,18 @@ ${contextParts}
 
   // Check if a game should be displayed based on dropdown selections
   const shouldDisplaySelected = (prediction: CFBPrediction): boolean => {
+    // First check search query
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      const awayTeam = prediction.away_team.toLowerCase();
+      const homeTeam = prediction.home_team.toLowerCase();
+      
+      if (!awayTeam.includes(query) && !homeTeam.includes(query)) {
+        return false;
+      }
+    }
+    
+    // Then check game selection filter
     if (selectedGameIds.length === 0) return true; // no selection means show all
     return selectedGameIds.includes(String(prediction.id));
   };
@@ -1256,6 +1269,28 @@ ${contextParts}
 
       </div>
 
+      {/* Search Bar */}
+      <div className="mb-4">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search matchups by team name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Sort Controls with Refresh and Last Updated */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -1818,7 +1853,8 @@ ${contextParts}
       {predictions.length > 0 && (
         <div className="mt-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Showing {predictions.length} predictions
+            Showing {predictions.filter(shouldDisplaySelected).length} of {predictions.length} predictions
+            {searchQuery && ` (filtered by "${searchQuery}")`}
           </p>
         </div>
       )}
