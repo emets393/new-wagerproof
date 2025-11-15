@@ -592,7 +592,7 @@ ${contextParts}
         predictions: predictionsWithData,
         teamMappings: teamMappings,
         lastUpdated: Date.now(),
-        searchQuery,
+        searchQuery: searchText,
         sortKey,
         sortAscending,
         scrollPosition: 0,
@@ -676,7 +676,7 @@ ${contextParts}
         setTeamMappings(cached.teamMappings);
       }
       setLastUpdated(new Date(cached.lastUpdated));
-      setSearchQuery(cached.searchQuery || '');
+      setSearchText(cached.searchQuery || '');
       // Validate sortKey type
       const validSortKey = cached.sortKey as 'none' | 'ml' | 'spread' | 'ou';
       if (['none', 'ml', 'spread', 'ou'].includes(validSortKey)) {
@@ -708,7 +708,7 @@ ${contextParts}
       if (cached) {
         setCachedData({
           ...cached,
-          searchQuery,
+          searchQuery: searchText,
           sortKey,
           sortAscending,
           activeFilters,
@@ -717,7 +717,7 @@ ${contextParts}
     }, 500); // Wait 500ms after last change
     
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, sortKey, sortAscending, activeFilters, predictions.length]);
+  }, [searchText, sortKey, sortAscending, activeFilters, predictions.length]);
   
   // Fetch AI completions when predictions are loaded
   useEffect(() => {
