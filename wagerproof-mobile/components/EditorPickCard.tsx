@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { getBettingColors } from '@/constants/theme';
-import { getTeamInitials, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { getTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 
 interface EditorPickCardProps {
   pick: EditorPick;
@@ -19,7 +19,18 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
   
   // Get team initials based on game type
   const getInitials = (teamName: string) => {
-    return pick.game_type === 'nfl' ? getTeamInitials(teamName) : getCFBTeamInitials(teamName);
+    switch (pick.game_type) {
+      case 'nfl':
+        return getTeamInitials(teamName);
+      case 'cfb':
+        return getCFBTeamInitials(teamName);
+      case 'nba':
+        return getNBATeamInitials(teamName);
+      case 'ncaab':
+        return getNCAABTeamInitials(teamName);
+      default:
+        return getTeamInitials(teamName);
+    }
   };
 
   const formatSpread = (spread: number | null | undefined): string => {

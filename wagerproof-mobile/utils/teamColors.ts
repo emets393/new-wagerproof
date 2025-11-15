@@ -513,3 +513,75 @@ export const getCFBTeamInitials = (teamName: string): string => {
   return initialsMap[teamName] || teamName.substring(0, 3).toUpperCase();
 };
 
+// NBA Team Initials
+export const getNBATeamInitials = (teamName: string): string => {
+  const initialsMap: { [key: string]: string } = {
+    'Atlanta Hawks': 'ATL',
+    'Atlanta': 'ATL',
+    'Boston Celtics': 'BOS',
+    'Boston': 'BOS',
+    'Brooklyn Nets': 'BKN',
+    'Brooklyn': 'BKN',
+    'Charlotte Hornets': 'CHA',
+    'Charlotte': 'CHA',
+    'Chicago Bulls': 'CHI',
+    'Chicago': 'CHI',
+    'Cleveland Cavaliers': 'CLE',
+    'Cleveland': 'CLE',
+    'Dallas Mavericks': 'DAL',
+    'Dallas': 'DAL',
+    'Denver Nuggets': 'DEN',
+    'Denver': 'DEN',
+    'Detroit Pistons': 'DET',
+    'Detroit': 'DET',
+    'Golden State Warriors': 'GSW',
+    'Golden State': 'GSW',
+    'Houston Rockets': 'HOU',
+    'Houston': 'HOU',
+    'Indiana Pacers': 'IND',
+    'Indiana': 'IND',
+    'LA Clippers': 'LAC',
+    'Los Angeles Clippers': 'LAC',
+    'LA Lakers': 'LAL',
+    'Los Angeles Lakers': 'LAL',
+    'Memphis Grizzlies': 'MEM',
+    'Memphis': 'MEM',
+    'Miami Heat': 'MIA',
+    'Miami': 'MIA',
+    'Milwaukee Bucks': 'MIL',
+    'Milwaukee': 'MIL',
+    'Minnesota Timberwolves': 'MIN',
+    'Minnesota': 'MIN',
+    'New Orleans Pelicans': 'NOP',
+    'New Orleans': 'NOP',
+    'New York Knicks': 'NYK',
+    'New York': 'NYK',
+    'Oklahoma City Thunder': 'OKC',
+    'Oklahoma City': 'OKC',
+    'Orlando Magic': 'ORL',
+    'Orlando': 'ORL',
+    'Philadelphia 76ers': 'PHI',
+    'Philadelphia': 'PHI',
+    'Phoenix Suns': 'PHX',
+    'Phoenix': 'PHX',
+    'Portland Trail Blazers': 'POR',
+    'Portland': 'POR',
+    'Sacramento Kings': 'SAC',
+    'Sacramento': 'SAC',
+    'San Antonio Spurs': 'SAS',
+    'San Antonio': 'SAS',
+    'Toronto Raptors': 'TOR',
+    'Toronto': 'TOR',
+    'Utah Jazz': 'UTA',
+    'Utah': 'UTA',
+    'Washington Wizards': 'WAS',
+    'Washington': 'WAS',
+  };
+  return initialsMap[teamName] || teamName.substring(0, 3).toUpperCase();
+};
+
+// NCAAB Team Initials (reuse CFB initials for most teams)
+export const getNCAABTeamInitials = (teamName: string): string => {
+  return getCFBTeamInitials(teamName);
+};
+

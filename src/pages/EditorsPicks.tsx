@@ -18,6 +18,7 @@ import { useDisplaySettings } from '@/hooks/useDisplaySettings';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getNBATeamColors, getNCAABTeamColors } from '@/utils/teamColors';
 import { getNBATeamLogo, getNCAABTeamLogo } from '@/utils/teamLogos';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface EditorPick {
   id: string;
@@ -252,6 +253,7 @@ export default function EditorsPicks() {
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('active');
 
   // Redirect to welcome page if not authenticated
   useEffect(() => {
@@ -893,6 +895,31 @@ export default function EditorsPicks() {
 
   const draftPicks = picks.filter(p => !p.is_published);
   
+  // Helper function to check if a pick is for a past game
+  const isPastGame = (pick: EditorPick): boolean => {
+    const gameData = gamesData.get(pick.game_id);
+    
+    // If no game data or no date, consider it as active
+    if (!gameData || !gameData.raw_game_date) {
+      return false;
+    }
+    
+    try {
+      const gameDate = new Date(gameData.raw_game_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const gameDateOnly = new Date(gameDate);
+      gameDateOnly.setHours(0, 0, 0, 0);
+      
+      // Game is in the past if it's before today
+      return gameDateOnly < today;
+    } catch (error) {
+      debug.error('Error checking if game is past:', error);
+      return false;
+    }
+  };
+  
   // Filter published picks to only show games that haven't expired
   // For regular users, only filter out games that are more than 2 days old
   const publishedPicks = picks.filter(p => {
@@ -939,10 +966,21 @@ export default function EditorsPicks() {
     }
   });
   
+  // In admin mode, split published picks into active and historical
+  const activePicks = adminModeEnabled 
+    ? publishedPicks.filter(p => !isPastGame(p))
+    : publishedPicks;
+  
+  const historicalPicks = adminModeEnabled 
+    ? publishedPicks.filter(p => isPastGame(p))
+    : [];
+  
   debug.log(`📊 Picks Summary:`, {
     totalPicks: picks.length,
     publishedBeforeFilter: picks.filter(p => p.is_published).length,
     publishedAfterFilter: publishedPicks.length,
+    activePicks: activePicks.length,
+    historicalPicks: historicalPicks.length,
     draftPicks: draftPicks.length,
     adminModeEnabled
   });
@@ -1027,91 +1065,288 @@ export default function EditorsPicks() {
         </Card>
       )}
 
-      {/* Draft Picks (Admin Mode Only) */}
-      {adminModeEnabled && draftPicks.length > 0 && (
-        <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
-          background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
-          backdropFilter: 'blur(40px)',
-          WebkitBackdropFilter: 'blur(40px)',
-        }}>
-          <CardHeader className="px-4 md:px-6">
-            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-              <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-              <span>Drafts</span>
-              <Badge variant="secondary" className="bg-yellow-500 text-white">
-                {draftPicks.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 md:px-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {draftPicks.map(pick => {
-              const gameData = gamesData.get(pick.game_id);
-              
-              debug.log(`🎯 Draft: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
-              if (!gameData) {
-                debug.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
-              }
-              
-              if (!gameData) {
-                // Show placeholder card for missing game data
-                return (
-                  <Card key={pick.id} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
-                    <CardContent className="pt-6">
-                      <div className="text-center py-8">
-                        <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
-                        <h3 className="text-sm font-semibold mb-2">Game Data Not Found</h3>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          Game ID: {pick.game_id}<br />
-                          Type: {pick.game_type}
-                        </p>
-                        <p className="text-xs text-muted-foreground mb-4">
-                          The game may have been removed or the ID doesn't match any current games.
-                        </p>
-                        {adminModeEnabled && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const { error } = await supabase
-                                  .from('editors_picks')
-                                  .delete()
-                                  .eq('id', pick.id);
-                                
-                                if (error) throw error;
-                                fetchPicks();
-                              } catch (err) {
-                                debug.error('Error deleting pick:', err);
-                              }
-                            }}
-                          >
-                            Delete This Pick
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              }
+      {/* Admin Mode - Tabs for Active and Historical Picks */}
+      {adminModeEnabled && publishedPicks.length > 0 && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">
+            <TabsTrigger value="active" className="flex items-center gap-2">
+              Active Picks
+              {(draftPicks.length + activePicks.length) > 0 && (
+                <Badge variant="secondary" className="bg-green-500 text-white ml-1">
+                  {draftPicks.length + activePicks.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="historical" className="flex items-center gap-2">
+              Historical Picks
+              {historicalPicks.length > 0 && (
+                <Badge variant="secondary" className="bg-gray-500 text-white ml-1">
+                  {historicalPicks.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-              return (
-                <EditorPickCard
-                  key={pick.id}
-                  pick={pick}
-                  gameData={gameData}
-                  onUpdate={fetchPicks}
-                  onDelete={fetchPicks}
-                />
-              );
-            })}
-            </div>
-          </CardContent>
-        </Card>
+          {/* Active Picks Tab */}
+          <TabsContent value="active" className="space-y-6">
+            {/* Draft Picks */}
+            {draftPicks.length > 0 && (
+              <Card className="-mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
+                background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+              }}>
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                    <span>Drafts</span>
+                    <Badge variant="secondary" className="bg-yellow-500 text-white">
+                      {draftPicks.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 md:px-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {draftPicks.map(pick => {
+                    const gameData = gamesData.get(pick.game_id);
+                    
+                    debug.log(`🎯 Draft: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
+                    if (!gameData) {
+                      debug.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
+                    }
+                    
+                    if (!gameData) {
+                      // Show placeholder card for missing game data
+                      return (
+                        <Card key={pick.id} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
+                          <CardContent className="pt-6">
+                            <div className="text-center py-8">
+                              <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+                              <h3 className="text-sm font-semibold mb-2">Game Data Not Found</h3>
+                              <p className="text-xs text-muted-foreground mb-3">
+                                Game ID: {pick.game_id}<br />
+                                Type: {pick.game_type}
+                              </p>
+                              <p className="text-xs text-muted-foreground mb-4">
+                                The game may have been removed or the ID doesn't match any current games.
+                              </p>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const { error } = await supabase
+                                      .from('editors_picks')
+                                      .delete()
+                                      .eq('id', pick.id);
+                                    
+                                    if (error) throw error;
+                                    fetchPicks();
+                                  } catch (err) {
+                                    debug.error('Error deleting pick:', err);
+                                  }
+                                }}
+                              >
+                                Delete This Pick
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+
+                    return (
+                      <EditorPickCard
+                        key={pick.id}
+                        pick={pick}
+                        gameData={gameData}
+                        onUpdate={fetchPicks}
+                        onDelete={fetchPicks}
+                      />
+                    );
+                  })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Active Published Picks */}
+            {activePicks.length > 0 && (
+              <Card className="-mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
+                background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+              }}>
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Star className="h-5 w-5 text-green-500 fill-green-500" />
+                    <span>Published</span>
+                    <Badge variant="secondary" className="bg-green-500 text-white">
+                      {activePicks.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 md:px-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {activePicks.map(pick => {
+                    const gameData = gamesData.get(pick.game_id);
+                    
+                    if (!gameData) {
+                      return (
+                        <Card key={pick.id} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
+                          <CardContent className="pt-6">
+                            <div className="text-center py-8">
+                              <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+                              <h3 className="text-sm font-semibold mb-2">Game Data Not Found</h3>
+                              <p className="text-xs text-muted-foreground mb-3">
+                                Game ID: {pick.game_id}<br />
+                                Type: {pick.game_type}
+                              </p>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const { error } = await supabase
+                                      .from('editors_picks')
+                                      .delete()
+                                      .eq('id', pick.id);
+                                    
+                                    if (error) throw error;
+                                    fetchPicks();
+                                  } catch (err) {
+                                    debug.error('Error deleting pick:', err);
+                                  }
+                                }}
+                              >
+                                Delete This Pick
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+
+                    return (
+                      <EditorPickCard
+                        key={pick.id}
+                        pick={pick}
+                        gameData={gameData}
+                        onUpdate={fetchPicks}
+                        onDelete={fetchPicks}
+                      />
+                    );
+                  })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {draftPicks.length === 0 && activePicks.length === 0 && (
+              <Card className="-mx-4 md:mx-0">
+                <CardContent className="pt-6">
+                  <div className="text-center py-12">
+                    <Star className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Active Picks</h3>
+                    <p className="text-muted-foreground">
+                      Star games to create new picks or check the Historical tab.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Historical Picks Tab */}
+          <TabsContent value="historical">
+            {historicalPicks.length > 0 ? (
+              <Card className="-mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
+                background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+              }}>
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Star className="h-5 w-5 text-gray-500 fill-gray-500" />
+                    <span>Historical Picks</span>
+                    <Badge variant="secondary" className="bg-gray-500 text-white">
+                      {historicalPicks.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 md:px-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {historicalPicks.map(pick => {
+                    const gameData = gamesData.get(pick.game_id);
+                    
+                    if (!gameData) {
+                      return (
+                        <Card key={pick.id} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
+                          <CardContent className="pt-6">
+                            <div className="text-center py-8">
+                              <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+                              <h3 className="text-sm font-semibold mb-2">Game Data Not Found</h3>
+                              <p className="text-xs text-muted-foreground mb-3">
+                                Game ID: {pick.game_id}<br />
+                                Type: {pick.game_type}
+                              </p>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const { error } = await supabase
+                                      .from('editors_picks')
+                                      .delete()
+                                      .eq('id', pick.id);
+                                    
+                                    if (error) throw error;
+                                    fetchPicks();
+                                  } catch (err) {
+                                    debug.error('Error deleting pick:', err);
+                                  }
+                                }}
+                              >
+                                Delete This Pick
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+
+                    return (
+                      <EditorPickCard
+                        key={pick.id}
+                        pick={pick}
+                        gameData={gameData}
+                        onUpdate={fetchPicks}
+                        onDelete={fetchPicks}
+                      />
+                    );
+                  })}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="-mx-4 md:mx-0">
+                <CardContent className="pt-6">
+                  <div className="text-center py-12">
+                    <Star className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Historical Picks</h3>
+                    <p className="text-muted-foreground">
+                      Historical picks from past games will appear here.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
 
-      {/* Published Picks */}
-      {publishedPicks.length > 0 && (
+      {/* Regular User View - Published Picks */}
+      {!adminModeEnabled && publishedPicks.length > 0 && (
         <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
           background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
           backdropFilter: 'blur(40px)',

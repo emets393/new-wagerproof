@@ -3,7 +3,7 @@
 export interface EditorPick {
   id: string;
   game_id: string;
-  game_type: 'nfl' | 'cfb';
+  game_type: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   editor_id: string;
   selected_bet_type: string;
   editors_notes: string | null;

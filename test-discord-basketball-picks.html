@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Discord Basketball Picks Integration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🏀 Test Discord Basketball Picks Integration</h1>
+    
+    <div class="test-section">
+        <h2>Test NBA Pick</h2>
+        <button onclick="testNBAPick()">Send Test NBA Pick to Discord</button>
+        <div id="nba-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test NCAAB Pick</h2>
+        <button onclick="testNCAABPick()">Send Test NCAAB Pick to Discord</button>
+        <div id="ncaab-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test NFL Pick (Control)</h2>
+        <button onclick="testNFLPick()">Send Test NFL Pick to Discord</button>
+        <div id="nfl-result" class="result"></div>
+    </div>
+
+    <script>
+        const DISCORD_ENDPOINT = 'https://xna68l.buildship.run/discord-editor-pick-post';
+        const CHANNEL_ID = '1428843931889569893'; // editors-picks channel
+
+        async function testPick(gameType, pickData, gameData, resultElementId) {
+            const resultEl = document.getElementById(resultElementId);
+            resultEl.textContent = 'Sending...';
+            resultEl.className = 'result';
+            
+            const payload = {
+                pickData: {
+                    id: 'test-' + gameType + '-' + Date.now(),
+                    gameId: 'test-game-123',
+                    gameType: gameType,
+                    selectedBetTypes: pickData.selectedBetTypes,
+                    editorNotes: pickData.editorNotes
+                },
+                gameData: gameData,
+                channelId: CHANNEL_ID
+            };
+            
+            console.log('Sending payload:', payload);
+            
+            try {
+                const response = await fetch(DISCORD_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    resultEl.textContent = `✅ SUCCESS!\n\nStatus: ${response.status}\nResponse: ${responseText}`;
+                    resultEl.className = 'result success';
+                } else {
+                    resultEl.textContent = `❌ FAILED!\n\nStatus: ${response.status}\nError: ${responseText}`;
+                    resultEl.className = 'result error';
+                }
+            } catch (error) {
+                resultEl.textContent = `❌ ERROR!\n\n${error.message}`;
+                resultEl.className = 'result error';
+            }
+        }
+
+        function testNBAPick() {
+            testPick('nba', {
+                selectedBetTypes: ['spread_home', 'over'],
+                editorNotes: 'Test NBA pick - Lakers have been dominant at home this season, averaging 118 PPG. Their defense has also been strong, holding opponents to 105 PPG.'
+            }, {
+                awayTeam: 'Golden State Warriors',
+                homeTeam: 'Los Angeles Lakers',
+                awayLogo: 'https://example.com/warriors-logo.png',
+                homeLogo: 'https://example.com/lakers-logo.png',
+                gameDate: 'Sat, Nov 16',
+                gameTime: '7:00 PM EST',
+                awaySpread: 5.5,
+                homeSpread: -5.5,
+                awayMl: 185,
+                homeMl: -220,
+                overLine: 225.5,
+                homeTeamColors: { primary: '#552583', secondary: '#FDB927' },
+                awayTeamColors: { primary: '#1D428A', secondary: '#FFC72C' }
+            }, 'nba-result');
+        }
+
+        function testNCAABPick() {
+            testPick('ncaab', {
+                selectedBetTypes: ['ml_away', 'under'],
+                editorNotes: 'Test NCAAB pick - Duke has excellent defensive metrics and UNC has struggled on the road in conference play. This rivalry game typically features strong defense.'
+            }, {
+                awayTeam: 'Duke',
+                homeTeam: 'North Carolina',
+                awayLogo: 'https://example.com/duke-logo.png',
+                homeLogo: 'https://example.com/unc-logo.png',
+                gameDate: 'Sat, Nov 16',
+                gameTime: '8:00 PM EST',
+                awaySpread: -3.5,
+                homeSpread: 3.5,
+                awayMl: -155,
+                homeMl: 135,
+                overLine: 145.5,
+                homeTeamColors: { primary: '#7BAFD4', secondary: '#FFFFFF' },
+                awayTeamColors: { primary: '#003087', secondary: '#FFFFFF' }
+            }, 'ncaab-result');
+        }
+
+        function testNFLPick() {
+            testPick('nfl', {
+                selectedBetTypes: ['spread_away'],
+                editorNotes: 'Test NFL pick - Chiefs offense has been clicking and the Raiders defense has struggled against elite QBs all season.'
+            }, {
+                awayTeam: 'Kansas City',
+                homeTeam: 'Las Vegas',
+                awayLogo: 'https://example.com/chiefs-logo.png',
+                homeLogo: 'https://example.com/raiders-logo.png',
+                gameDate: 'Sun, Nov 17',
+                gameTime: '4:25 PM EST',
+                awaySpread: -7.5,
+                homeSpread: 7.5,
+                awayMl: -350,
+                homeMl: 280,
+                overLine: 42.5,
+                homeTeamColors: { primary: '#000000', secondary: '#A5ACAF' },
+                awayTeamColors: { primary: '#E31837', secondary: '#FFB81C' }
+            }, 'nfl-result');
+        }
+    </script>
+</body>
+</html>
+

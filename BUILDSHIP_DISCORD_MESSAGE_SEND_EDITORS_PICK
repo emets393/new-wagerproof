@@ -1,0 +1,184 @@
+export default async function ({ pickData, gameData, channelId, botToken }) {
+  
+  // Sport-specific configuration
+  const getSportConfig = (gameType) => {
+    const configs = {
+      'nfl': { emoji: '🏈', label: 'NFL' },
+      'cfb': { emoji: '🏈', label: 'College Football' },
+      'nba': { emoji: '🏀', label: 'NBA' },
+      'ncaab': { emoji: '🏀', label: 'College Basketball' }
+    };
+    return configs[gameType] || { emoji: '🏈', label: 'PICK' };
+  };
+
+  // Helper functions
+  const formatSpread = (spread) => {
+    if (!spread && spread !== 0) return '-';
+    return spread > 0 ? `+${spread}` : spread.toString();
+  };
+
+  const formatMoneyline = (ml) => {
+    if (!ml && ml !== 0) return '-';
+    return ml > 0 ? `+${ml}` : ml.toString();
+  };
+
+  const formatBetType = (betType, gameData) => {
+    const map = {
+      'spread_away': `🎯 Spread: **${gameData.awayTeam}** ${formatSpread(gameData.awaySpread)}`,
+      'spread_home': `🎯 Spread: **${gameData.homeTeam}** ${formatSpread(gameData.homeSpread)}`,
+      'ml_away': `💰 Moneyline: **${gameData.awayTeam}** ${formatMoneyline(gameData.awayMl)}`,
+      'ml_home': `💰 Moneyline: **${gameData.homeTeam}** ${formatMoneyline(gameData.homeMl)}`,
+      'over': `📈 Over **${gameData.overLine || 'N/A'}**`,
+      'under': `📉 Under **${gameData.overLine || 'N/A'}**`
+    };
+    return map[betType] || betType;
+  };
+
+  const hexToDecimal = (hex) => {
+    try {
+      return parseInt(hex.replace('#', ''), 16);
+    } catch (error) {
+      return 1096577;
+    }
+  };
+
+  const getEmbedColor = (selectedBetTypes, gameData) => {
+    if (!Array.isArray(selectedBetTypes) || selectedBetTypes.length === 0) {
+      return hexToDecimal('#10b981');
+    }
+    
+    const firstBet = selectedBetTypes[0];
+    if (firstBet?.includes('home') && gameData?.homeTeamColors?.primary) {
+      return hexToDecimal(gameData.homeTeamColors.primary);
+    }
+    if (firstBet?.includes('away') && gameData?.awayTeamColors?.primary) {
+      return hexToDecimal(gameData.awayTeamColors.primary);
+    }
+    return hexToDecimal('#10b981');
+  };
+
+  // Determine which logos to show based on bet selection
+  const getLogoConfig = (selectedBetTypes, gameData) => {
+    if (!Array.isArray(selectedBetTypes) || selectedBetTypes.length === 0) {
+      // Default: show both logos
+      return {
+        thumbnail: { url: gameData.awayLogo || "" },
+        image: { url: gameData.homeLogo || "" }
+      };
+    }
+
+    const firstBet = selectedBetTypes[0];
+    
+    // If betting on away team, show away logo large
+    if (firstBet === 'spread_away' || firstBet === 'ml_away') {
+      return {
+        thumbnail: { url: gameData.homeLogo || "" },
+        image: { url: gameData.awayLogo || "" }
+      };
+    }
+    
+    // If betting on home team, show home logo large
+    if (firstBet === 'spread_home' || firstBet === 'ml_home') {
+      return {
+        thumbnail: { url: gameData.awayLogo || "" },
+        image: { url: gameData.homeLogo || "" }
+      };
+    }
+    
+    // If betting over/under, show both logos equally
+    if (firstBet === 'over' || firstBet === 'under') {
+      return {
+        thumbnail: { url: gameData.awayLogo || "" },
+        image: { url: gameData.homeLogo || "" }
+      };
+    }
+
+    // Default fallback
+    return {
+      thumbnail: { url: gameData.awayLogo || "" },
+      image: { url: gameData.homeLogo || "" }
+    };
+  };
+
+  try {
+    // Validate inputs
+    if (!botToken) {
+      throw new Error('Bot token is required');
+    }
+    if (!channelId) {
+      throw new Error('Channel ID is required');
+    }
+    if (!pickData || !pickData.selectedBetTypes) {
+      throw new Error('Invalid pickData');
+    }
+
+    // Build formatted bets
+    const formattedBets = pickData.selectedBetTypes
+      .map(bet => formatBetType(bet, gameData))
+      .join('\n');
+
+    const embedColor = getEmbedColor(pickData.selectedBetTypes, gameData);
+    const logoConfig = getLogoConfig(pickData.selectedBetTypes, gameData);
+    const sportConfig = getSportConfig(pickData.gameType);
+
+    const gameInfo = gameData.gameDate && gameData.gameTime 
+      ? `${gameData.gameDate} at ${gameData.gameTime}`
+      : gameData.gameDate || gameData.gameTime || 'TBD';
+
+    // Build Discord embed payload
+    const payload = {
+      embeds: [{
+        title: `${sportConfig.emoji} NEW EDITOR'S PICK`,
+        description: `**${gameData.awayTeam || 'Away Team'}** @ **${gameData.homeTeam || 'Home Team'}**`,
+        color: embedColor,
+        fields: [
+          { name: "📅 Game Time", value: gameInfo, inline: false },
+          { name: "🎲 Pick(s)", value: formattedBets, inline: false },
+          { name: "📊 Analysis", value: pickData.editorNotes || "No analysis provided.", inline: false }
+        ],
+        thumbnail: logoConfig.thumbnail,
+        image: logoConfig.image,
+        footer: {
+          text: `WagerBot • Editor's Pick • ${sportConfig.label}`,
+          icon_url: "https://wagerproof.com/wagerproof-logo.png"
+        },
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+    // Send to Discord via Bot API
+    const discordApiUrl = `https://discord.com/api/v10/channels/${channelId}/messages`;
+    
+    const response = await fetch(discordApiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bot ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Discord API error (${response.status}): ${errorData.message || response.statusText}`);
+    }
+
+    const messageData = await response.json();
+
+    return {
+      success: true,
+      message: 'Message sent to Discord successfully',
+      messageId: messageData.id,
+      channelId: channelId,
+      timestamp: new Date().toISOString()
+    };
+
+  } catch (error) {
+    console.error('Error sending to Discord:', error.message);
+    return {
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
