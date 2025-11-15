@@ -58,6 +58,14 @@ A dropdown menu component with:
 - Filters games before displaying them
 - Shows filter button even when no games are live
 
+### 4. Updated Live Score Ticker (`src/components/LiveScoreTicker.tsx`)
+
+**Integration:**
+- Applies the same sports filter to the ticker
+- Filters out games from disabled sports
+- Ticker hides completely if all games are filtered out
+- Debug logs show filtered count vs total count
+
 **Visual Feedback:**
 1. **Active Filter Alert** (appears when filters active):
    - Info alert showing "Showing X of Y sports"
@@ -94,6 +102,7 @@ A dropdown menu component with:
 - Clicks "None" to disable all
 - Enables only NBA and NCAAB
 - Filter persists - user only sees basketball games on future visits
+- The live ticker (shown at top of all pages) also only shows NBA/NCAAB games
 
 **Scenario 2: Multi-Sport View**
 - User wants to see all sports
@@ -145,14 +154,30 @@ A dropdown menu component with:
 4. **Fast**: No loading time, instant filtering
 5. **Intuitive**: Clear visual feedback on filter state
 6. **Flexible**: Easy to enable/disable multiple sports at once
+7. **Consistent**: Filter applies to both scoreboard page AND live ticker across all pages
+
+## Scope of Filtering
+
+### What Gets Filtered:
+✅ **ScoreBoard Page** - Main scoreboard with all game cards
+✅ **Live Score Ticker** - Horizontal scrolling ticker at top of pages
+✅ **Consistent Everywhere** - Same filter applies site-wide
+
+### What Doesn't Get Filtered:
+- Individual sport pages (NFL, NBA, etc.) - these always show their specific sport
+- Editor's picks
+- Chat/social features
+- Search results (may be added in future)
 
 ## Future Enhancements
 
 Potential improvements:
+- **Mobile App**: Add same filter to React Native mobile app
 - Sync preferences across devices (requires user account/database)
 - Remember different filter sets (presets)
 - Show preview count in dropdown before applying
 - Add "Favorites" quick filter
 - Filter by conference (for college sports)
 - Notification preferences per sport
+- Apply filter to other areas (search, recommendations, etc.)
 

@@ -2277,7 +2277,7 @@ export default function TodayInSports() {
               {allTailedLoading ? (
                 <div className="flex gap-4 overflow-x-auto pb-4">
                   {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-[400px] w-[320px] flex-shrink-0" />
+                    <Skeleton key={i} className="h-[500px] w-[380px] sm:w-[420px] flex-shrink-0" />
                   ))}
                 </div>
               ) : (() => {
@@ -2296,7 +2296,7 @@ export default function TodayInSports() {
                     return (
                       <div 
                         key={game.gameId}
-                        className="p-4 rounded-lg bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/30 dark:border-orange-500/20 flex-shrink-0 w-[320px] sm:w-[360px]"
+                        className="p-4 rounded-lg bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/30 dark:border-orange-500/20 flex-shrink-0 w-[380px] sm:w-[420px]"
                       >
                         {/* Pills Row */}
                         <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -2316,75 +2316,72 @@ export default function TodayInSports() {
                           </Badge>
                         </div>
 
-                        {/* Game Info with Team Circles and Tails in Row */}
-                        <div className="mb-3">
-                          <div className="flex items-center gap-4">
-                            {/* Team Matchup - Subcontainer with Neutral Background - Fixed Width */}
-                            <div className="flex flex-col gap-2 flex-shrink-0 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 w-[120px] sm:w-[140px]">
-                              {/* Away Team Circle */}
-                              {(() => {
-                                const awayColors = getTeamColors(game.awayTeam, game.sport);
-                                const awayInitials = getTeamInitials(game.awayTeam, game.sport);
-                                const awayTextColor = getTeamCircleTextColor(awayColors.primary, awayColors.secondary);
-                                
-                                return (
-                                  <div className="flex flex-col items-center">
-                                    <div
-                                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
-                                      style={{
-                                        background: `linear-gradient(135deg, ${awayColors.primary} 0%, ${awayColors.secondary} 100%)`,
-                                        color: awayTextColor,
-                                        border: `2px solid ${awayColors.primary}`,
-                                      }}
-                                    >
-                                      <span className="text-xs sm:text-sm font-bold">
-                                        {awayInitials}
-                                      </span>
-                                    </div>
-                                    <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
-                                      {game.awayTeam}
+                        {/* Team Matchup - Full Width with Row Layout */}
+                        <div className="mb-4">
+                          <div className="flex items-center justify-center gap-3 px-3 py-3 rounded-lg bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                            {/* Away Team Circle */}
+                            {(() => {
+                              const awayColors = getTeamColors(game.awayTeam, game.sport);
+                              const awayInitials = getTeamInitials(game.awayTeam, game.sport);
+                              const awayTextColor = getTeamCircleTextColor(awayColors.primary, awayColors.secondary);
+                              
+                              return (
+                                <div className="flex flex-col items-center flex-1 min-w-0">
+                                  <div
+                                    className="h-12 w-12 sm:h-14 sm:w-14 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
+                                    style={{
+                                      background: `linear-gradient(135deg, ${awayColors.primary} 0%, ${awayColors.secondary} 100%)`,
+                                      color: awayTextColor,
+                                      border: `2px solid ${awayColors.primary}`,
+                                    }}
+                                  >
+                                    <span className="text-sm font-bold">
+                                      {awayInitials}
                                     </span>
                                   </div>
-                                );
-                              })()}
-
-                              {/* @ Symbol */}
-                              <div className="flex flex-col items-center">
-                                <div className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center flex-shrink-0 mb-1">
-                                  <span className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">@</span>
+                                  <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
+                                    {game.awayTeam}
+                                  </span>
                                 </div>
-                              </div>
+                              );
+                            })()}
 
-                              {/* Home Team Circle */}
-                              {(() => {
-                                const homeColors = getTeamColors(game.homeTeam, game.sport);
-                                const homeInitials = getTeamInitials(game.homeTeam, game.sport);
-                                const homeTextColor = getTeamCircleTextColor(homeColors.primary, homeColors.secondary);
-                                
-                                return (
-                                  <div className="flex flex-col items-center">
-                                    <div
-                                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
-                                      style={{
-                                        background: `linear-gradient(135deg, ${homeColors.primary} 0%, ${homeColors.secondary} 100%)`,
-                                        color: homeTextColor,
-                                        border: `2px solid ${homeColors.primary}`,
-                                      }}
-                                    >
-                                      <span className="text-xs sm:text-sm font-bold">
-                                        {homeInitials}
-                                      </span>
-                                    </div>
-                                    <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
-                                      {game.homeTeam}
-                                    </span>
-                                  </div>
-                                );
-                              })()}
+                            {/* @ Symbol */}
+                            <div className="flex items-center justify-center flex-shrink-0">
+                              <span className="text-xl font-bold text-gray-400 dark:text-gray-500">@</span>
                             </div>
 
-                            {/* Tailed Picks Breakdown - To the right */}
-                            <div className="flex-1 space-y-2 min-w-0">
+                            {/* Home Team Circle */}
+                            {(() => {
+                              const homeColors = getTeamColors(game.homeTeam, game.sport);
+                              const homeInitials = getTeamInitials(game.homeTeam, game.sport);
+                              const homeTextColor = getTeamCircleTextColor(homeColors.primary, homeColors.secondary);
+                              
+                              return (
+                                <div className="flex flex-col items-center flex-1 min-w-0">
+                                  <div
+                                    className="h-12 w-12 sm:h-14 sm:w-14 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
+                                    style={{
+                                      background: `linear-gradient(135deg, ${homeColors.primary} 0%, ${homeColors.secondary} 100%)`,
+                                      color: homeTextColor,
+                                      border: `2px solid ${homeColors.primary}`,
+                                    }}
+                                  >
+                                    <span className="text-sm font-bold">
+                                      {homeInitials}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
+                                    {game.homeTeam}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Tailed Picks Breakdown - Below Teams */}
+                        <div className="space-y-2">
                           {game.tails.map((tail, tidx) => {
                             // Format pick type label (same as GameTailSection)
                             const pickTypeLabels = {
@@ -2408,21 +2405,19 @@ export default function TodayInSports() {
                             const PickTypeIcon = getPickTypeIcon(normalizedPickType);
                             
                             return (
-                              <div key={tidx} className="flex items-center gap-2 text-xs flex-wrap">
-                                <Badge className={`${getPickTypeColorClasses(normalizedPickType)} flex items-center gap-1.5 shrink-0`}>
+                              <div key={tidx} className="flex flex-col gap-2 p-3 rounded-lg bg-white/50 dark:bg-black/20 border border-gray-200 dark:border-gray-700">
+                                <Badge className={`${getPickTypeColorClasses(normalizedPickType)} flex items-center gap-1.5 w-fit`}>
                                   <PickTypeIcon className="h-3 w-3" />
                                   <span className="text-xs font-medium">
                                     {sideLabel} {tail.pickType !== 'over_under' && pickTypeLabel}
                                   </span>
                                 </Badge>
-                                <div className="flex-1 min-w-0 overflow-hidden">
-                                  <TailingAvatarList users={tail.users} size="sm" maxVisible={5} />
+                                <div className="w-full">
+                                  <TailingAvatarList users={tail.users} size="sm" maxVisible={10} />
                                 </div>
                               </div>
                             );
                           })}
-                            </div>
-                          </div>
                         </div>
                       </div>
                     );

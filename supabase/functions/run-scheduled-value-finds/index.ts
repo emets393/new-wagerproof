@@ -75,16 +75,27 @@ serve(async (req) => {
       if (shouldRun && dayMatch && timeMatch) {
         console.log(`Running scheduled generation for ${schedule.sport_type} at ${schedule.scheduled_time}...`);
         
-        // Call the generate-page-level-analysis function
+        // Determine which function to call based on sport_type
+        let functionName: string;
+        let functionBody: any;
+        
+        if (schedule.sport_type === 'today_in_sports') {
+          // Call today-in-sports-specific function
+          functionName = 'generate-today-in-sports-completion';
+          functionBody = { force: false }; // Don't force regenerate on scheduled runs
+        } else {
+          // Call the standard value finds function
+          functionName = 'generate-page-level-analysis';
+          functionBody = {
+            sport_type: schedule.sport_type,
+            analysis_date: now.toISOString().split('T')[0],
+            user_id: null, // System-generated
+          };
+        }
+
         const { data, error } = await supabaseClient.functions.invoke(
-          'generate-page-level-analysis',
-          {
-            body: {
-              sport_type: schedule.sport_type,
-              analysis_date: now.toISOString().split('T')[0],
-              user_id: null, // System-generated
-            },
-          }
+          functionName,
+          { body: functionBody }
         );
 
         if (error) {
@@ -95,7 +106,14 @@ serve(async (req) => {
             error: error.message,
           });
         } else {
-          console.log(`Successfully generated value finds for ${schedule.sport_type}`);
+          console.log(`Successfully generated ${schedule.sport_type === 'today_in_sports' ? 'today in sports' : 'value finds'} for ${schedule.sport_type}`);
+          
+          // Update last_run_at timestamp
+          await supabaseClient
+            .from('ai_page_level_schedules')
+            .update({ last_run_at: now.toISOString() })
+            .eq('sport_type', schedule.sport_type);
+          
           results.push({
             sport_type: schedule.sport_type,
             success: true,
