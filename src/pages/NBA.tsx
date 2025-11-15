@@ -96,6 +96,7 @@ export default function NBA() {
   // Value Finds state
   const [highValueBadges, setHighValueBadges] = useState<Map<string, any>>(new Map());
   const [pageHeaderData, setPageHeaderData] = useState<{ summary_text: string; compact_picks: any[] } | null>(null);
+  const [valueFindsLoading, setValueFindsLoading] = useState(true);
   const [valueFindId, setValueFindId] = useState<string | null>(null);
   const [valueFindPublished, setValueFindPublished] = useState<boolean>(false);
   
@@ -145,6 +146,7 @@ export default function NBA() {
 
   const fetchValueFinds = async () => {
     try {
+      setValueFindsLoading(true);
       const [badges, headerData] = await Promise.all([
         getHighValueBadges('nba'),
         getPageHeaderData('nba', adminModeEnabled), // Pass admin mode to include unpublished data
@@ -169,6 +171,8 @@ export default function NBA() {
       }
     } catch (error) {
       debug.error('Error fetching value finds:', error);
+    } finally {
+      setValueFindsLoading(false);
     }
   };
 
@@ -677,7 +681,6 @@ ${contextParts}
     const cached = getCachedData();
     
     if (cached && cached.predictions.length > 0) {
-      debug.log('[Cache] Restoring from cache');
       // Restore from cache
       setPredictions(cached.predictions);
       if (cached.teamMappings) {
@@ -702,14 +705,16 @@ ${contextParts}
       }
     } else {
       // No cache, fetch fresh data
-      debug.log('[Cache] No cache available, fetching fresh data');
       fetchData();
     }
   }, []);
   
-  // Update cache when UI state changes (search, sort, filters)
+  // Update cache when UI state changes (debounced to avoid excessive writes)
   useEffect(() => {
-    if (predictions.length > 0) {
+    if (predictions.length === 0) return;
+    
+    // Debounce cache updates to avoid excessive sessionStorage writes
+    const timeoutId = setTimeout(() => {
       const cached = getCachedData();
       if (cached) {
         setCachedData({
@@ -720,8 +725,10 @@ ${contextParts}
           activeFilters,
         });
       }
-    }
-  }, [searchQuery, sortKey, sortAscending, activeFilters]);
+    }, 500); // Wait 500ms after last change
+    
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, sortKey, sortAscending, activeFilters, predictions.length]);
   
   // Fetch AI completions when predictions are loaded
   useEffect(() => {
@@ -1158,22 +1165,22 @@ ${contextParts}
         </Card>
       )}
 
-      {/* AI Value Finds Header */}
-      {pageHeaderData && (
-        <PageHeaderValueFinds
-          sportType={"nba" as any}
-          summaryText={pageHeaderData.summary_text}
-          compactPicks={pageHeaderData.compact_picks}
-          valueFindId={valueFindId || undefined}
-          isPublished={valueFindPublished}
-          onTogglePublish={fetchValueFinds}
-          onDelete={fetchValueFinds}
-        />
-      )}
-
       <div className="space-y-6 sm:space-y-8">
         <div className="-mx-4 md:mx-0">
           <div className="grid gap-2 sm:gap-3 md:gap-4 auto-rows-fr" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
+            {/* AI Value Finds Header - First Card in Grid */}
+            {(valueFindsLoading || pageHeaderData) && (
+              <PageHeaderValueFinds
+                sportType="nba"
+                summaryText={pageHeaderData?.summary_text || ''}
+                compactPicks={pageHeaderData?.compact_picks || []}
+                valueFindId={valueFindId || undefined}
+                isPublished={valueFindPublished}
+                onTogglePublish={fetchValueFinds}
+                onDelete={fetchValueFinds}
+                isLoading={valueFindsLoading}
+              />
+            )}
             {getSortedPredictions()
               .map((prediction, index) => {
               // Freemium logic: Only show first 2 games, blur the rest

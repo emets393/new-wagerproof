@@ -15,6 +15,7 @@ interface NFLGameCardProps {
   homeTeamColors: { primary: string; secondary: string };
   homeSpread: number | null;
   awaySpread: number | null;
+  alwaysShowAurora?: boolean;
 }
 
 export default function NFLGameCard({
@@ -26,7 +27,8 @@ export default function NFLGameCard({
   awayTeamColors,
   homeTeamColors,
   homeSpread,
-  awaySpread
+  awaySpread,
+  alwaysShowAurora = false
 }: NFLGameCardProps) {
   
   // Determine the favored team (negative spread) and create aurora color stops
@@ -69,29 +71,48 @@ export default function NFLGameCard({
         color={["#93c5fd", "#c4b5fd", "#93c5fd"]}
         className="relative z-10 !bg-transparent p-0 min-h-0 w-full max-w-full min-w-0"
       >
-        {/* Aurora Effect - Only visible when this card is hovered */}
-        <AnimatePresence>
-          {isHovered && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg"
-              style={{ 
-                mixBlendMode: 'screen',
-                filter: 'brightness(1.2) contrast(1.1)'
-              }}
-            >
-              <Aurora
-                colorStops={auroraColors}
-                amplitude={1.2}
-                blend={0.6}
-                speed={0.8}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Aurora Effect - Visible when hovered or always shown */}
+        {alwaysShowAurora ? (
+          <div
+            className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg"
+            style={{ 
+              mixBlendMode: 'screen',
+              filter: 'brightness(1.2) contrast(1.1)',
+              opacity: isHovered ? 0.8 : 0.6,
+              transition: 'opacity 0.5s ease-in-out'
+            }}
+          >
+            <Aurora
+              colorStops={auroraColors}
+              amplitude={1.2}
+              blend={0.6}
+              speed={0.8}
+            />
+          </div>
+        ) : (
+          <AnimatePresence>
+            {isHovered && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+                className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg"
+                style={{ 
+                  mixBlendMode: 'screen',
+                  filter: 'brightness(1.2) contrast(1.1)'
+                }}
+              >
+                <Aurora
+                  colorStops={auroraColors}
+                  amplitude={1.2}
+                  blend={0.6}
+                  speed={0.8}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
         <motion.div
           whileHover={{ 
             scale: 1.015,
