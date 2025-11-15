@@ -695,22 +695,38 @@ ${contextParts}
       setActiveFilters(cached.activeFilters || ['All Games']);
       setLoading(false);
       
+      // Restore value finds from cache if available
+      if (cached.valueFinds) {
+        if (cached.valueFinds.highValueBadges) {
+          const badgesMap = new Map();
+          cached.valueFinds.highValueBadges.forEach(badge => {
+            badgesMap.set(badge.game_id, badge);
+          });
+          setHighValueBadges(badgesMap);
+        }
+        setPageHeaderData(cached.valueFinds.pageHeaderData || null);
+        setValueFindId(cached.valueFinds.valueFindId || null);
+        setValueFindPublished(cached.valueFinds.valueFindPublished || false);
+        setValueFindsLoading(false);
+      } else {
+        // No value finds in cache, fetch them
+        fetchValueFinds();
+      }
+      
       // Restore scroll position after render
       if (cached.scrollPosition > 0) {
         restoreScrollPosition(cached.scrollPosition);
       }
     } else {
-      // No cache, fetch fresh data
+      // No cache, fetch fresh data and value finds
       fetchData();
+      fetchValueFinds();
     }
     
-    // Always fetch value finds
-    fetchValueFinds();
-    
-    // Refresh value finds every 30 seconds to catch publish/unpublish changes
+    // Refresh value finds every 2 minutes (increased from 30s to reduce calls)
     const interval = setInterval(() => {
       fetchValueFinds();
-    }, 30000); // 30 seconds
+    }, 120000); // 2 minutes
     
     // Also refresh when the tab becomes visible (user switches back to the tab)
     const handleVisibilityChange = () => {
@@ -772,6 +788,20 @@ ${contextParts}
         setPageHeaderData(null);
         setValueFindId(null);
         setValueFindPublished(false);
+      }
+      
+      // Update cache with value finds data
+      const cached = getCachedData();
+      if (cached) {
+        setCachedData({
+          ...cached,
+          valueFinds: {
+            highValueBadges: badges,
+            pageHeaderData: headerData?.data || null,
+            valueFindId: headerData?.id || null,
+            valueFindPublished: headerData?.published || false,
+          },
+        });
       }
     } catch (error) {
       debug.error('Error fetching value finds:', error);

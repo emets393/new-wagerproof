@@ -182,6 +182,20 @@ export default function NCAAB() {
         setValueFindId(null);
         setValueFindPublished(false);
       }
+      
+      // Update cache with value finds data
+      const cached = getCachedData();
+      if (cached) {
+        setCachedData({
+          ...cached,
+          valueFinds: {
+            highValueBadges: badges,
+            pageHeaderData: headerData?.data || null,
+            valueFindId: headerData?.id || null,
+            valueFindPublished: headerData?.published || false,
+          },
+        });
+      }
     } catch (error) {
       debug.error('Error fetching value finds:', error);
     } finally {
@@ -786,6 +800,24 @@ ${contextParts}
       setSortAscending(cached.sortAscending || false);
       setActiveFilters(cached.activeFilters || ['All Games']);
       setLoading(false);
+      
+      // Restore value finds from cache if available
+      if (cached.valueFinds) {
+        if (cached.valueFinds.highValueBadges) {
+          const badgesMap = new Map();
+          cached.valueFinds.highValueBadges.forEach(badge => {
+            badgesMap.set(badge.game_id, badge);
+          });
+          setHighValueBadges(badgesMap);
+        }
+        setPageHeaderData(cached.valueFinds.pageHeaderData || null);
+        setValueFindId(cached.valueFinds.valueFindId || null);
+        setValueFindPublished(cached.valueFinds.valueFindPublished || false);
+        setValueFindsLoading(false);
+      } else {
+        // No value finds in cache, fetch them
+        fetchValueFinds();
+      }
       
       // Restore scroll position after render
       if (cached.scrollPosition > 0) {

@@ -17,6 +17,7 @@ import Dither from '@/components/Dither';
 import { useTheme } from '@/contexts/ThemeContext';
 import debug from '@/utils/debug';
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColors, getNFLTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials } from '@/utils/teamColors';
+import { useTodayInSportsCache } from '@/hooks/useTodayInSportsCache';
 
 interface GameSummary {
   gameId: string;
@@ -72,15 +73,54 @@ export default function TodayInSports() {
   const { isFreemiumUser } = useFreemiumAccess();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const [showAllValueAlerts, setShowAllValueAlerts] = useState(false);
-  const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(false);
-  const [showAllTailedGames, setShowAllTailedGames] = useState(false);
+  
+  // Initialize cache hook
+  const { getCachedUIState, setCachedUIState, restoreScrollPosition } = useTodayInSportsCache();
+  
+  // Initialize state from cache or defaults
+  const cachedState = getCachedUIState();
+  const [showAllValueAlerts, setShowAllValueAlerts] = useState(cachedState?.showAllValueAlerts ?? false);
+  const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(cachedState?.showAllFadeAlerts ?? false);
+  const [showAllTailedGames, setShowAllTailedGames] = useState(cachedState?.showAllTailedGames ?? false);
   
   // Sport filters for each section
-  const [todayGamesFilter, setTodayGamesFilter] = useState<SportFilter>('all');
-  const [valueAlertsFilter, setValueAlertsFilter] = useState<SportFilter>('all');
-  const [fadeAlertsFilter, setFadeAlertsFilter] = useState<SportFilter>('all');
-  const [tailedGamesFilter, setTailedGamesFilter] = useState<SportFilter>('all');
+  const [todayGamesFilter, setTodayGamesFilter] = useState<SportFilter>(cachedState?.todayGamesFilter ?? 'all');
+  const [valueAlertsFilter, setValueAlertsFilter] = useState<SportFilter>(cachedState?.valueAlertsFilter ?? 'all');
+  const [fadeAlertsFilter, setFadeAlertsFilter] = useState<SportFilter>(cachedState?.fadeAlertsFilter ?? 'all');
+  const [tailedGamesFilter, setTailedGamesFilter] = useState<SportFilter>(cachedState?.tailedGamesFilter ?? 'all');
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    if (cachedState && cachedState.scrollPosition > 0) {
+      restoreScrollPosition(cachedState.scrollPosition);
+    }
+  }, []); // Only run once on mount
+
+  // Save UI state when it changes (debounced to avoid excessive writes)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setCachedUIState({
+        showAllValueAlerts,
+        showAllFadeAlerts,
+        showAllTailedGames,
+        todayGamesFilter,
+        valueAlertsFilter,
+        fadeAlertsFilter,
+        tailedGamesFilter,
+      });
+    }, 500); // Wait 500ms after last change
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    showAllValueAlerts,
+    showAllFadeAlerts,
+    showAllTailedGames,
+    todayGamesFilter,
+    valueAlertsFilter,
+    fadeAlertsFilter,
+    tailedGamesFilter,
+    setCachedUIState,
+  ]);
 
   // Helper function to get sport icon
   const getSportIcon = (sport: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {

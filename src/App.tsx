@@ -46,7 +46,17 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LiveScoreTicker } from "./components/LiveScoreTicker";
 import { AnnouncementsBanner } from "./components/AnnouncementsBanner";
 
-const queryClient = new QueryClient();
+// Configure React Query with optimized caching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // Keep unused data in cache for 10 minutes (previously cacheTime)
+      refetchOnWindowFocus: false, // Don't refetch on window focus (reduces unnecessary calls)
+      retry: 1, // Only retry failed queries once
+    },
+  },
+});
 
 // Component to scroll to top on landing page
 function ScrollToTop() {

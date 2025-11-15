@@ -43,12 +43,42 @@ interface CFBPrediction {
   pred_home_score: number | null; // Predicted home score
 }
 
+interface NBAPrediction {
+  game_id: number;
+  home_team: string;
+  away_team: string;
+  home_win_prob: number | null;
+  away_win_prob: number | null;
+  home_spread: number | null; // Vegas home spread
+  over_line: number | null; // Vegas total/over line
+  home_away_ml_prob: number | null; // Derived from home_win_prob
+  home_away_spread_cover_prob: number | null; // Derived from model_fair_home_spread vs vegas
+  ou_result_prob: number | null; // Derived from model_fair_total vs vegas
+  model_fair_home_spread: number | null;
+  pred_total_points: number | null; // Using model_fair_total from database
+}
+
+interface NCAABPrediction {
+  game_id: number;
+  home_team: string;
+  away_team: string;
+  home_win_prob: number | null;
+  away_win_prob: number | null;
+  vegas_home_spread: number | null;
+  vegas_total: number | null;
+  home_away_ml_prob: number | null; // Derived from home_win_prob
+  home_away_spread_cover_prob: number | null; // Derived from home_win_prob
+  ou_result_prob: number | null; // Derived from pred_total_points vs vegas_total
+  pred_total_points: number | null;
+  model_fair_home_spread: number | null;
+}
+
 /**
  * Calculate if predictions are hitting based on current scores
  */
 function calculatePredictionStatus(
   game: LiveGame,
-  prediction: NFLPredictionWithLines | CFBPrediction
+  prediction: NFLPredictionWithLines | CFBPrediction | NBAPrediction | NCAABPrediction
 ): GamePredictions {
   const awayScore = game.away_score;
   const homeScore = game.home_score;
@@ -59,13 +89,21 @@ function calculatePredictionStatus(
     hasAnyHitting: false
   };
 
-  // Check if this is a CFB prediction with score/edge data
+  // Check prediction type
   const isCFB = 'pred_home_score' in prediction && prediction.pred_home_score !== null;
+  const isNBA = 'game_id' in prediction && typeof (prediction as any).game_id === 'number' && !('vegas_home_spread' in prediction);
+  const isNCAAB = 'game_id' in prediction && 'vegas_home_spread' in prediction;
 
   // Moneyline prediction
-  let mlProb = 'home_away_ml_prob' in prediction 
-    ? prediction.home_away_ml_prob 
-    : prediction.pred_ml_proba;
+  let mlProb: number | null = null;
+  if ('home_away_ml_prob' in prediction) {
+    mlProb = prediction.home_away_ml_prob;
+  } else if ('pred_ml_proba' in prediction) {
+    mlProb = prediction.pred_ml_proba;
+  } else if ('home_win_prob' in prediction) {
+    // For NBA/NCAAB, derive from home_win_prob
+    mlProb = (prediction as NBAPrediction | NCAABPrediction).home_win_prob;
+  }
 
   // For CFB, derive moneyline from predicted scores if probability not available
   if (mlProb === null && isCFB) {
@@ -75,6 +113,11 @@ function calculatePredictionStatus(
       mlProb = cfbPred.pred_home_score > cfbPred.pred_away_score ? 0.6 : 0.4;
       debug.log(`      📊 CFB ML: Derived from predicted scores (Home: ${cfbPred.pred_home_score}, Away: ${cfbPred.pred_away_score})`);
     }
+  }
+  
+  // For basketball, if home_win_prob is null, we can't determine moneyline
+  if (mlProb === null && (isNBA || isNCAAB)) {
+    debug.log(`      ⚠️  Basketball ML: No home_win_prob available`);
   }
 
   if (mlProb !== null) {
@@ -95,13 +138,24 @@ function calculatePredictionStatus(
   }
 
   // Spread prediction
-  let spreadProb = 'home_away_spread_cover_prob' in prediction
-    ? prediction.home_away_spread_cover_prob
-    : prediction.pred_spread_proba;
+  let spreadProb: number | null = null;
+  if ('home_away_spread_cover_prob' in prediction) {
+    spreadProb = prediction.home_away_spread_cover_prob;
+  } else if ('pred_spread_proba' in prediction) {
+    spreadProb = prediction.pred_spread_proba;
+  } else if ('home_win_prob' in prediction) {
+    // For basketball, use home_win_prob as proxy for spread cover probability
+    spreadProb = (prediction as NBAPrediction | NCAABPrediction).home_win_prob;
+  }
 
-  const spreadLine = 'home_spread' in prediction
-    ? prediction.home_spread
-    : prediction.api_spread;
+  let spreadLine: number | null = null;
+  if ('home_spread' in prediction) {
+    spreadLine = prediction.home_spread;
+  } else if ('api_spread' in prediction) {
+    spreadLine = prediction.api_spread;
+  } else if ('vegas_home_spread' in prediction) {
+    spreadLine = (prediction as NCAABPrediction).vegas_home_spread;
+  }
 
   // For CFB, derive spread pick from home_spread_diff if probability not available
   if (spreadProb === null && isCFB) {
@@ -110,6 +164,17 @@ function calculatePredictionStatus(
       // Positive home_spread_diff = edge to home, negative = edge to away
       spreadProb = cfbPred.home_spread_diff > 0 ? 0.6 : 0.4;
       debug.log(`      📊 CFB Spread: Derived from home_spread_diff (${cfbPred.home_spread_diff})`);
+    }
+  }
+  
+  // For basketball, derive spread probability from model_fair_home_spread vs vegas if available
+  if (spreadProb === null && (isNBA || isNCAAB)) {
+    const bballPred = prediction as NBAPrediction | NCAABPrediction;
+    if (bballPred.model_fair_home_spread !== null && spreadLine !== null) {
+      const spreadDiff = spreadLine - bballPred.model_fair_home_spread;
+      // If model thinks home should be favored more than vegas, edge to home
+      spreadProb = spreadDiff < 0 ? 0.6 : 0.4;
+      debug.log(`      📊 Basketball Spread: Derived from model_fair vs vegas (diff: ${spreadDiff})`);
     }
   }
 
@@ -136,14 +201,23 @@ function calculatePredictionStatus(
     if (isHitting) predictions.hasAnyHitting = true;
   }
 
-  // Over/Under prediction
-  let ouProb = 'ou_result_prob' in prediction
-    ? prediction.ou_result_prob
-    : prediction.pred_total_proba;
+  // Over/Under prediction - calculate line first
+  let ouLine: number | null = null;
+  if ('over_line' in prediction) {
+    ouLine = prediction.over_line;
+  } else if ('api_over_line' in prediction) {
+    ouLine = prediction.api_over_line;
+  } else if ('vegas_total' in prediction) {
+    ouLine = (prediction as NCAABPrediction).vegas_total;
+  }
 
-  const ouLine = 'over_line' in prediction
-    ? prediction.over_line
-    : prediction.api_over_line;
+  // Calculate O/U probability
+  let ouProb: number | null = null;
+  if ('ou_result_prob' in prediction) {
+    ouProb = prediction.ou_result_prob;
+  } else if ('pred_total_proba' in prediction) {
+    ouProb = prediction.pred_total_proba;
+  }
 
   // For CFB, derive O/U pick from over_line_diff if probability not available
   if (ouProb === null && isCFB) {
@@ -152,6 +226,15 @@ function calculatePredictionStatus(
       // Positive over_line_diff = edge to over, negative = edge to under
       ouProb = cfbPred.over_line_diff > 0 ? 0.6 : 0.4;
       debug.log(`      📊 CFB O/U: Derived from over_line_diff (${cfbPred.over_line_diff})`);
+    }
+  }
+  
+  // For basketball, derive O/U from pred_total_points vs vegas_total if not already set
+  if (ouProb === null && (isNBA || isNCAAB)) {
+    const bballPred = prediction as NBAPrediction | NCAABPrediction;
+    if (bballPred.pred_total_points !== null && ouLine !== null) {
+      ouProb = bballPred.pred_total_points > ouLine ? 0.6 : 0.4;
+      debug.log(`      📊 Basketball O/U: Derived from pred_total_points (${bballPred.pred_total_points}) vs line (${ouLine})`);
     }
   }
 
@@ -310,22 +393,183 @@ async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
 }
 
 /**
+ * Fetch NBA predictions from nba_predictions table and nba_input_values_view
+ */
+async function fetchNBAPredictions(): Promise<NBAPrediction[]> {
+  try {
+    // Get the latest run_id
+    const { data: latestRun, error: runError } = await collegeFootballSupabase
+      .from('nba_predictions')
+      .select('run_id, as_of_ts_utc')
+      .order('as_of_ts_utc', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (runError || !latestRun) {
+      debug.log('No NBA predictions found');
+      return [];
+    }
+
+    // Fetch predictions with the latest run_id
+    const { data: predictions, error: predsError } = await collegeFootballSupabase
+      .from('nba_predictions')
+      .select('game_id, home_team, away_team, home_win_prob, away_win_prob, model_fair_home_spread, model_fair_total, run_id')
+      .eq('run_id', latestRun.run_id);
+
+    if (predsError) {
+      debug.error('Error fetching NBA predictions:', predsError);
+      return [];
+    }
+
+    // Fetch betting lines from nba_input_values_view
+    const { data: inputValues, error: inputError } = await collegeFootballSupabase
+      .from('nba_input_values_view')
+      .select('game_id, home_spread, total_line');
+
+    if (inputError) {
+      debug.error('Error fetching NBA betting lines:', inputError);
+    }
+
+    // Merge predictions with betting lines
+    const merged = (predictions || []).map(pred => {
+      const input = inputValues?.find(iv => iv.game_id === pred.game_id);
+      
+      // Calculate spread cover probability based on model's fair spread vs Vegas spread
+      let spreadCoverProb = null;
+      if (pred.model_fair_home_spread !== null && input?.home_spread !== null) {
+        const spreadDiff = input.home_spread - pred.model_fair_home_spread;
+        if (pred.model_fair_home_spread < input.home_spread) {
+          spreadCoverProb = 0.5 + Math.min(Math.abs(spreadDiff) * 0.05, 0.35);
+        } else {
+          spreadCoverProb = 0.5 - Math.min(Math.abs(spreadDiff) * 0.05, 0.35);
+        }
+      } else if (pred.home_win_prob) {
+        spreadCoverProb = pred.home_win_prob;
+      }
+      
+      // Calculate over/under probability based on predicted total vs Vegas line
+      let ouProb = null;
+      if (pred.model_fair_total !== null && input?.total_line !== null) {
+        const totalDiff = pred.model_fair_total - input.total_line;
+        if (totalDiff > 0) {
+          ouProb = 0.5 + Math.min(Math.abs(totalDiff) * 0.02, 0.35);
+        } else {
+          ouProb = 0.5 - Math.min(Math.abs(totalDiff) * 0.02, 0.35);
+        }
+      }
+
+      return {
+        game_id: pred.game_id,
+        home_team: pred.home_team,
+        away_team: pred.away_team,
+        home_win_prob: pred.home_win_prob,
+        away_win_prob: pred.away_win_prob,
+        home_spread: input?.home_spread || null,
+        over_line: input?.total_line || null,
+        home_away_ml_prob: pred.home_win_prob,
+        home_away_spread_cover_prob: spreadCoverProb,
+        ou_result_prob: ouProb,
+        model_fair_home_spread: pred.model_fair_home_spread,
+        pred_total_points: pred.model_fair_total
+      } as NBAPrediction;
+    });
+
+    debug.log(`📊 Fetched ${merged.length} NBA predictions with lines`);
+    return merged;
+  } catch (error) {
+    debug.error('Error in fetchNBAPredictions:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch NCAAB predictions from ncaab_predictions table
+ */
+async function fetchNCAABPredictions(): Promise<NCAABPrediction[]> {
+  try {
+    // Get the latest run_id
+    const { data: latestRun, error: runError } = await collegeFootballSupabase
+      .from('ncaab_predictions')
+      .select('run_id, as_of_ts_utc')
+      .order('as_of_ts_utc', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (runError || !latestRun) {
+      debug.log('No NCAAB predictions found');
+      return [];
+    }
+
+    // Fetch predictions with the latest run_id
+    const { data: predictions, error: predsError } = await collegeFootballSupabase
+      .from('ncaab_predictions')
+      .select('game_id, home_team, away_team, home_win_prob, away_win_prob, vegas_home_spread, vegas_total, pred_total_points, model_fair_home_spread, run_id')
+      .eq('run_id', latestRun.run_id);
+
+    if (predsError) {
+      debug.error('Error fetching NCAAB predictions:', predsError);
+      return [];
+    }
+
+    // Map to NCAABPrediction interface
+    const mapped = (predictions || []).map(pred => {
+      // Calculate over/under probability based on predicted total vs Vegas line
+      let ouProb = null;
+      if (pred.pred_total_points !== null && pred.vegas_total !== null) {
+        ouProb = pred.pred_total_points > pred.vegas_total ? 0.6 : 0.4;
+      }
+
+      return {
+        game_id: pred.game_id,
+        home_team: pred.home_team,
+        away_team: pred.away_team,
+        home_win_prob: pred.home_win_prob,
+        away_win_prob: pred.away_win_prob,
+        vegas_home_spread: pred.vegas_home_spread,
+        vegas_total: pred.vegas_total,
+        home_away_ml_prob: pred.home_win_prob,
+        home_away_spread_cover_prob: pred.home_win_prob, // Use home_win_prob as proxy
+        ou_result_prob: ouProb,
+        pred_total_points: pred.pred_total_points,
+        model_fair_home_spread: pred.model_fair_home_spread
+      } as NCAABPrediction;
+    });
+
+    debug.log(`📊 Fetched ${mapped.length} NCAAB predictions`);
+    return mapped;
+  } catch (error) {
+    debug.error('Error in fetchNCAABPredictions:', error);
+    return [];
+  }
+}
+
+/**
  * Enrich live games with prediction data
  */
 async function enrichGamesWithPredictions(games: LiveGame[]): Promise<LiveGame[]> {
   if (!games || games.length === 0) return games;
 
-  // Fetch predictions for both leagues
-  const [nflPredictions, cfbPredictions] = await Promise.all([
+  // Fetch predictions for all leagues
+  const [nflPredictions, cfbPredictions, nbaPredictions, ncaabPredictions] = await Promise.all([
     fetchNFLPredictions(),
-    fetchCFBPredictions()
+    fetchCFBPredictions(),
+    fetchNBAPredictions(),
+    fetchNCAABPredictions()
   ]);
 
-  debug.log(`Fetched ${nflPredictions.length} NFL predictions and ${cfbPredictions.length} CFB predictions`);
+  debug.log(`Fetched ${nflPredictions.length} NFL, ${cfbPredictions.length} CFB, ${nbaPredictions.length} NBA, ${ncaabPredictions.length} NCAAB predictions`);
+  
+  // Log sample prediction game_ids for debugging
+  if (nbaPredictions.length > 0) {
+    debug.log(`NBA Prediction sample game_ids:`, nbaPredictions.slice(0, 3).map(p => p.game_id));
+  }
+  if (ncaabPredictions.length > 0) {
+    debug.log(`NCAAB Prediction sample game_ids:`, ncaabPredictions.slice(0, 3).map(p => p.game_id));
+  }
 
   // Enrich each game with its predictions
   return games.map(game => {
-    let matchedPrediction: NFLPredictionWithLines | CFBPrediction | null = null;
+    let matchedPrediction: NFLPredictionWithLines | CFBPrediction | NBAPrediction | NCAABPrediction | null = null;
 
     if (game.league === 'NFL') {
       debug.log(`🔍 Trying to match NFL game: ${game.away_team} @ ${game.home_team}`);
@@ -373,6 +617,92 @@ async function enrichGamesWithPredictions(games: LiveGame[]): Promise<LiveGame[]
       } else {
         debug.log(`   ⚠️  No prediction found for CFB game: ${game.away_team} @ ${game.home_team}`);
       }
+    } else if (game.league === 'NBA') {
+      debug.log(`🏀 Trying to match NBA game: ${game.away_team} @ ${game.home_team} (game_id: ${game.game_id})`);
+      
+      // Extract numeric game_id from format "NBA-401704933"
+      const gameIdStr = game.game_id.replace(/^NBA-/, '');
+      const gameIdNum = parseInt(gameIdStr, 10);
+      
+      // Try matching by game_id first
+      if (!isNaN(gameIdNum)) {
+        matchedPrediction = nbaPredictions.find(pred => pred.game_id === gameIdNum) || null;
+        
+        if (matchedPrediction) {
+          debug.log(`   ✅ Matched NBA game by game_id: ${game.away_team} @ ${game.home_team}`, {
+            game_id: gameIdNum,
+            prediction: matchedPrediction,
+            scores: { away: game.away_score, home: game.home_score }
+          });
+        } else {
+          // If game_id matching fails, try team name matching
+          debug.log(`   ⚠️  No game_id match for NBA game (${gameIdNum}), trying team name matching...`);
+          matchedPrediction = nbaPredictions.find(pred => {
+            const matches = gamesMatch(
+              { home_team: game.home_team, away_team: game.away_team },
+              { home_team: pred.home_team, away_team: pred.away_team }
+            );
+            if (matches) {
+              debug.log(`   ✅ Matched NBA game by team names: ${game.away_team} @ ${game.home_team}`, {
+                prediction_game_id: pred.game_id,
+                espn_game_id: gameIdNum,
+                prediction: pred,
+                scores: { away: game.away_score, home: game.home_score }
+              });
+            }
+            return matches;
+          }) || null;
+          
+          if (!matchedPrediction) {
+            debug.log(`   ⚠️  No prediction found for NBA game: ${game.away_team} @ ${game.home_team}`);
+          }
+        }
+      } else {
+        debug.log(`   ⚠️  Invalid game_id for NBA game: ${game.game_id}`);
+      }
+    } else if (game.league === 'NCAAB') {
+      debug.log(`🏀 Trying to match NCAAB game: ${game.away_team} @ ${game.home_team} (game_id: ${game.game_id})`);
+      
+      // Extract numeric game_id from format "NCAAB-401704933"
+      const gameIdStr = game.game_id.replace(/^NCAAB-/, '');
+      const gameIdNum = parseInt(gameIdStr, 10);
+      
+      // Try matching by game_id first
+      if (!isNaN(gameIdNum)) {
+        matchedPrediction = ncaabPredictions.find(pred => pred.game_id === gameIdNum) || null;
+        
+        if (matchedPrediction) {
+          debug.log(`   ✅ Matched NCAAB game by game_id: ${game.away_team} @ ${game.home_team}`, {
+            game_id: gameIdNum,
+            prediction: matchedPrediction,
+            scores: { away: game.away_score, home: game.home_score }
+          });
+        } else {
+          // If game_id matching fails, try team name matching
+          debug.log(`   ⚠️  No game_id match for NCAAB game (${gameIdNum}), trying team name matching...`);
+          matchedPrediction = ncaabPredictions.find(pred => {
+            const matches = gamesMatch(
+              { home_team: game.home_team, away_team: game.away_team },
+              { home_team: pred.home_team, away_team: pred.away_team }
+            );
+            if (matches) {
+              debug.log(`   ✅ Matched NCAAB game by team names: ${game.away_team} @ ${game.home_team}`, {
+                prediction_game_id: pred.game_id,
+                espn_game_id: gameIdNum,
+                prediction: pred,
+                scores: { away: game.away_score, home: game.home_score }
+              });
+            }
+            return matches;
+          }) || null;
+          
+          if (!matchedPrediction) {
+            debug.log(`   ⚠️  No prediction found for NCAAB game: ${game.away_team} @ ${game.home_team}`);
+          }
+        }
+      } else {
+        debug.log(`   ⚠️  Invalid game_id for NCAAB game: ${game.game_id}`);
+      }
     }
 
     if (matchedPrediction) {
@@ -406,7 +736,17 @@ export async function getLiveScores(): Promise<LiveGame[]> {
     debug.log(`📺 Sample live game teams:`, {
       league: games[0].league,
       home: games[0].home_team,
-      away: games[0].away_team
+      away: games[0].away_team,
+      game_id: games[0].game_id
+    });
+  }
+  
+  // Log basketball games specifically
+  const basketballGames = games.filter(g => g.league === 'NBA' || g.league === 'NCAAB');
+  if (basketballGames.length > 0) {
+    debug.log(`🏀 Found ${basketballGames.length} basketball games:`);
+    basketballGames.forEach(g => {
+      debug.log(`   ${g.league}: ${g.away_abbr} @ ${g.home_abbr}, game_id: ${g.game_id}`);
     });
   }
   

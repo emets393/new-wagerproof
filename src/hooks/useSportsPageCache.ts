@@ -4,7 +4,7 @@ import debug from '@/utils/debug';
 // Cache expiration time: 5 minutes
 const CACHE_TTL = 5 * 60 * 1000;
 
-export type SportType = 'nfl' | 'nba' | 'ncaab' | 'college-football';
+export type SportType = 'nfl' | 'nba' | 'ncaab' | 'college-football' | 'today-in-sports';
 
 interface CachedData<T = any> {
   predictions: T[];
@@ -15,6 +15,13 @@ interface CachedData<T = any> {
   sortAscending: boolean;
   scrollPosition: number;
   activeFilters?: string[];
+  // Value finds data (for Polymarket alerts, etc.)
+  valueFinds?: {
+    highValueBadges?: any[];
+    pageHeaderData?: any;
+    valueFindId?: string | null;
+    valueFindPublished?: boolean;
+  };
   timestamp: number;
 }
 
