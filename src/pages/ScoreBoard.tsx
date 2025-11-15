@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLiveScores } from "@/hooks/useLiveScores";
-import { useSportsFilter } from "@/hooks/useSportsFilter";
 import { LiveScoreCard } from "@/components/LiveScoreCard";
 import { LiveScorePredictionCard } from "@/components/LiveScorePredictionCard";
-import { SportsFilterButton } from "@/components/SportsFilterButton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,14 +26,10 @@ const LEAGUE_CONFIG: Record<string, { name: string; icon: any; order: number }> 
 export default function ScoreBoard() {
   const navigate = useNavigate();
   const { games, hasLiveGames, isLoading, error } = useLiveScores();
-  const { isSportEnabled, enabledCount, totalCount } = useSportsFilter();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Filter games based on user preferences
-  const filteredGames = games.filter(game => isSportEnabled(game.league));
-  
   // Group games by league
-  const gamesByLeague = filteredGames.reduce((acc, game) => {
+  const gamesByLeague = games.reduce((acc, game) => {
     if (!acc[game.league]) {
       acc[game.league] = [];
     }
@@ -49,10 +43,6 @@ export default function ScoreBoard() {
     const orderB = LEAGUE_CONFIG[b]?.order ?? 999;
     return orderA - orderB;
   });
-  
-  // Check if filtering has hidden all games
-  const hasActiveFilters = enabledCount < totalCount;
-  const hasFilteredGames = filteredGames.length > 0;
 
   if (isLoading) {
     return (
@@ -84,19 +74,7 @@ export default function ScoreBoard() {
   if (!hasLiveGames) {
     return (
       <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold mb-2">Live Score Board</h1>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Real-time scores and model predictions for all live games
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <SportsFilterButton />
-            </div>
-          </div>
-        </div>
+        <h1 className="text-3xl font-bold mb-6">Live Score Board</h1>
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="rounded-full bg-muted p-6 mb-4">
             <Trophy className="h-12 w-12 text-muted-foreground" />
@@ -122,7 +100,6 @@ export default function ScoreBoard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <SportsFilterButton />
             <Button
               variant="ghost"
               size="sm"
@@ -153,30 +130,6 @@ export default function ScoreBoard() {
           </div>
         </div>
       </div>
-
-      {/* Active Filter Indicator */}
-      {hasActiveFilters && (
-        <Alert className="mb-6 border-primary/50 bg-primary/5">
-          <AlertCircle className="h-4 w-4 text-primary" />
-          <AlertDescription className="text-sm">
-            Showing {enabledCount} of {totalCount} sports. 
-            {!hasFilteredGames && " All filtered sports have no live games."}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* No Filtered Games Message */}
-      {!hasFilteredGames && (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="rounded-full bg-muted p-6 mb-4">
-            <Trophy className="h-12 w-12 text-muted-foreground" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">No Games Match Your Filter</h2>
-          <p className="text-muted-foreground max-w-md mb-4">
-            The selected sports don't have any live games right now. Try adjusting your filter or check back later.
-          </p>
-        </div>
-      )}
 
       {/* Dynamic League Sections */}
       {sortedLeagues.map(league => {

@@ -26,6 +26,16 @@ interface SharpnessRow {
   spread_sharpness_2025?: number;
 }
 
+// Calculate current NFL week for 2025 season
+// NFL 2025 season typically starts around September 4-7 (Week 1)
+function getCurrentNFLWeek(): number {
+  const now = new Date();
+  const seasonStart = new Date('2025-09-04'); // Approximate start of 2025 NFL season
+  const weeksSinceStart = Math.floor((now.getTime() - seasonStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+  const currentWeek = Math.max(1, Math.min(18, weeksSinceStart + 1)); // NFL has 18 weeks
+  return currentWeek;
+}
+
 export default function NFLTeaserSharpness() {
   const { theme } = useTheme();
   const [rows, setRows] = useState<SharpnessRow[]>([]);
@@ -36,6 +46,7 @@ export default function NFLTeaserSharpness() {
   const chartRef = useRef<HTMLDivElement>(null);
   const [matchups, setMatchups] = useState<Array<{ label: string; teams: [string, string] }>>([]);
   const [selectedMatchup, setSelectedMatchup] = useState<string>('');
+  const currentWeek = getCurrentNFLWeek();
 
   useEffect(() => {
     const load = async () => {
@@ -231,7 +242,7 @@ export default function NFLTeaserSharpness() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
           <div className="flex items-center gap-3">
             <button onClick={() => window.history.back()} className="text-sm px-3 py-2 rounded border bg-white dark:bg-background hover:bg-gray-50 dark:hover:bg-muted text-gray-900 dark:text-foreground border-gray-300 dark:border-border transition-colors">← Back</button>
-            <h1 className="text-lg sm:text-2xl font-bold text-foreground">NFL Teaser Sharpness (Weeks 1–5 2025)</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-foreground">NFL Teaser Sharpness (Weeks 1–{currentWeek} 2025)</h1>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
             <div className="inline-flex rounded-full overflow-hidden border border-gray-300 dark:border-border bg-white dark:bg-background">

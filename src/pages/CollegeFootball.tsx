@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles, Users, ArrowUp, ArrowDown, Box, Search, X } from 'lucide-react';
+import { RefreshCw, AlertCircle, ChevronUp, ChevronDown, Brain, Target, BarChart, Info, Sparkles, Users, ArrowUp, ArrowDown, Box, Search } from 'lucide-react';
 import CFBGameCard from '@/components/CFBGameCard';
 import debug from '@/utils/debug';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
@@ -29,6 +29,8 @@ import { areCompletionsEnabled } from '@/utils/aiCompletionSettings';
 import { GameTailSection } from '@/components/GameTailSection';
 import { CardFooter } from '@/components/ui/card';
 import { useSportsPageCache } from '@/hooks/useSportsPageCache';
+import { Input } from '@/components/ui/input';
+import { getTodayInET } from '@/utils/dateUtils';
 
 interface CFBPrediction {
   id: string;
@@ -103,8 +105,8 @@ export default function CollegeFootball() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>(['All Games']);
+  const [searchText, setSearchText] = useState<string>('');
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   
   // AI Completion state
@@ -272,20 +274,38 @@ ${contextParts}
 
   // Check if a game should be displayed based on dropdown selections
   const shouldDisplaySelected = (prediction: CFBPrediction): boolean => {
-    // First check search query
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      const awayTeam = prediction.away_team.toLowerCase();
-      const homeTeam = prediction.home_team.toLowerCase();
-      
-      if (!awayTeam.includes(query) && !homeTeam.includes(query)) {
-        return false;
-      }
-    }
-    
-    // Then check game selection filter
     if (selectedGameIds.length === 0) return true; // no selection means show all
     return selectedGameIds.includes(String(prediction.id));
+  };
+
+  // Helper to check if a game is from today or in the future
+  const isGameCurrentOrFuture = (prediction: CFBPrediction): boolean => {
+    const today = getTodayInET();
+    const timeStr = prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime;
+    if (!timeStr) return true; // If no date, treat as current
+    
+    try {
+      const gameDate = new Date(timeStr);
+      if (isNaN(gameDate.getTime())) return true; // Invalid date, treat as current
+      
+      // Get the date in ET timezone
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      
+      const parts = formatter.formatToParts(gameDate);
+      const year = parts.find(p => p.type === 'year')?.value;
+      const month = parts.find(p => p.type === 'month')?.value;
+      const day = parts.find(p => p.type === 'day')?.value;
+      const gameDateStr = `${year}-${month}-${day}`;
+      
+      return gameDateStr >= today;
+    } catch (e) {
+      return true; // Error parsing, treat as current
+    }
   };
 
   // Displayed edge helpers (match UI rounding behavior)
@@ -1335,25 +1355,17 @@ ${contextParts}
 
       </div>
 
-      {/* Search Bar */}
+      {/* Search Input */}
       <div className="mb-4">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
             type="text"
-            placeholder="Search matchups by team name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Search by team name..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="pl-10 w-full max-w-md"
           />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
         </div>
       </div>
 
@@ -1497,29 +1509,57 @@ ${contextParts}
         {/* Display all games in a single grid, ordered by date and time */}
         <div className="-mx-4 md:mx-0">
           <div className="grid gap-2 sm:gap-3 md:gap-4 auto-rows-fr" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
-            {predictions
-              .filter(shouldDisplaySelected)
-            .sort((a, b) => {
-              let result = 0;
-              if (sortMode === 'spread') {
-                result = getDisplayedSpreadEdge(b) - getDisplayedSpreadEdge(a);
-              } else if (sortMode === 'ou') {
-                result = getDisplayedOUEdge(b) - getDisplayedOUEdge(a);
-              } else {
-                // default: by time
+            {(() => {
+              // Filter games
+              let filtered = predictions
+                .filter(shouldDisplaySelected)
+                .filter(p => {
+                  if (!searchText.trim()) return true;
+                  const search = searchText.toLowerCase();
+                  return p.home_team.toLowerCase().includes(search) || 
+                         p.away_team.toLowerCase().includes(search);
+                });
+              
+              // Separate into current/future and past games
+              const currentGames = filtered.filter(isGameCurrentOrFuture);
+              const pastGames = filtered.filter(p => !isGameCurrentOrFuture(p));
+              
+              // Sort current/future games
+              const sortedCurrent = [...currentGames].sort((a, b) => {
+                let result = 0;
+                if (sortMode === 'spread') {
+                  result = getDisplayedSpreadEdge(b) - getDisplayedSpreadEdge(a);
+                } else if (sortMode === 'ou') {
+                  result = getDisplayedOUEdge(b) - getDisplayedOUEdge(a);
+                } else {
+                  // default: by time
+                  const timeA = a.start_time || a.start_date || a.game_datetime || a.datetime;
+                  const timeB = b.start_time || b.start_date || b.game_datetime || b.datetime;
+                  if (timeA && timeB) {
+                    result = new Date(timeA).getTime() - new Date(timeB).getTime();
+                  } else {
+                    const idA = String(a.id || '');
+                    const idB = String(b.id || '');
+                    result = idA.localeCompare(idB);
+                  }
+                }
+                // Apply ascending/descending based on sortAscending flag
+                return sortAscending ? -result : result;
+              });
+              
+              // Sort past games by time (most recent first)
+              const sortedPast = [...pastGames].sort((a, b) => {
                 const timeA = a.start_time || a.start_date || a.game_datetime || a.datetime;
                 const timeB = b.start_time || b.start_date || b.game_datetime || b.datetime;
                 if (timeA && timeB) {
-                  result = new Date(timeA).getTime() - new Date(timeB).getTime();
-                } else {
-                  const idA = String(a.id || '');
-                  const idB = String(b.id || '');
-                  result = idA.localeCompare(idB);
+                  return new Date(timeB).getTime() - new Date(timeA).getTime(); // Most recent first
                 }
-              }
-              // Apply ascending/descending based on sortAscending flag
-              return sortAscending ? -result : result;
-            })
+                return 0;
+              });
+              
+              // Return current/future games first, then past games
+              return [...sortedCurrent, ...sortedPast];
+            })()
             .map((prediction, index) => {
               // Freemium logic: Only show first 2 games, blur the rest
               const isLocked = isFreemiumUser && index >= 2;
@@ -1922,8 +1962,7 @@ ${contextParts}
       {predictions.length > 0 && (
         <div className="mt-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Showing {predictions.filter(shouldDisplaySelected).length} of {predictions.length} predictions
-            {searchQuery && ` (filtered by "${searchQuery}")`}
+            Showing {predictions.length} predictions
           </p>
         </div>
       )}

@@ -1,7 +1,7 @@
 export interface LiveGame {
   id: string;
   game_id: string;
-  league: 'NFL' | 'NCAAF' | 'NBA' | 'NCAAB';
+  league: 'NFL' | 'NCAAF';
   away_team: string;
   away_abbr: string;
   away_score: number;

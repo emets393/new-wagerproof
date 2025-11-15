@@ -1,32 +1,22 @@
 import debug from '@/utils/debug';
 import { useLiveScores } from "@/hooks/useLiveScores";
-import { useSportsFilter } from "@/hooks/useSportsFilter";
 import { LiveScoreCard } from "./LiveScoreCard";
 import { Marquee } from "@/components/magicui/marquee";
 import { cn } from "@/lib/utils";
 
 export function LiveScoreTicker() {
   const { games, hasLiveGames, isLoading } = useLiveScores();
-  const { isSportEnabled } = useSportsFilter();
 
   // Don't render if no live games or still loading
   if (!hasLiveGames || isLoading) {
     return null;
   }
 
-  // Filter games based on user preferences
-  const filteredGames = games.filter(game => isSportEnabled(game.league));
-  
-  // Don't render if all games are filtered out
-  if (filteredGames.length === 0) {
-    return null;
-  }
-
   // Count games with predictions for debugging
-  const gamesWithPredictions = filteredGames.filter(g => g.predictions).length;
-  const gamesWithHitting = filteredGames.filter(g => g.predictions?.hasAnyHitting).length;
+  const gamesWithPredictions = games.filter(g => g.predictions).length;
+  const gamesWithHitting = games.filter(g => g.predictions?.hasAnyHitting).length;
   
-  debug.log(`🏈 Live Score Ticker: ${filteredGames.length} games (filtered from ${games.length}), ${gamesWithPredictions} with predictions, ${gamesWithHitting} with hitting predictions`);
+  debug.log(`🏈 Live Score Ticker: ${games.length} games, ${gamesWithPredictions} with predictions, ${gamesWithHitting} with hitting predictions`);
 
   return (
     <div
@@ -53,7 +43,7 @@ export function LiveScoreTicker() {
           className="[--duration:40s] !overflow-visible"
           repeat={3}
         >
-          {filteredGames.map((game) => (
+          {games.map((game) => (
             <div key={game.id} className="mx-1.5 flex-shrink-0">
               <LiveScoreCard game={game} />
             </div>

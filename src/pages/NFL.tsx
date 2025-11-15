@@ -7,7 +7,7 @@ import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Zap, Search, X } from 'lucide-react';
+import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, CloudRain, Calendar, Clock, Info, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Zap, Search } from 'lucide-react';
 import debug from '@/utils/debug';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
 import { Link } from 'react-router-dom';
@@ -35,6 +35,8 @@ import { GameTailSection } from '@/components/GameTailSection';
 import { CardFooter } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSportsPageCache } from '@/hooks/useSportsPageCache';
+import { Input } from '@/components/ui/input';
+import { getTodayInET } from '@/utils/dateUtils';
 
 interface NFLPrediction {
   id: string;
@@ -63,6 +65,9 @@ interface NFLPrediction {
   spread_splits_label: string | null;
   total_splits_label: string | null;
   ml_splits_label: string | null;
+  // Edge values (delta)
+  home_spread_diff?: number | null;
+  over_line_diff?: number | null;
 }
 
 interface TeamMapping {
@@ -87,7 +92,7 @@ export default function NFL() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>(['All Games']);
   const [sortKey, setSortKey] = useState<'none' | 'ml' | 'spread' | 'ou'>('none');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchText, setSearchText] = useState<string>('');
   
   // AI Completion state
   const [aiCompletions, setAiCompletions] = useState<Record<string, Record<string, string>>>({});
@@ -328,20 +333,8 @@ ${contextParts}
     return teamColors.primary;
   };
 
-  // Check if a game should be displayed based on active filters and search
+  // Check if a game should be displayed based on active filters
   const shouldDisplayGame = (prediction: NFLPrediction): boolean => {
-    // First check search query
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      const awayTeam = prediction.away_team.toLowerCase();
-      const homeTeam = prediction.home_team.toLowerCase();
-      
-      if (!awayTeam.includes(query) && !homeTeam.includes(query)) {
-        return false;
-      }
-    }
-    
-    // Then check filters
     if (activeFilters.includes('All Games')) return true;
     
     // For now, just return true since we don't have betting splits data yet
@@ -478,7 +471,7 @@ ${contextParts}
       debug.log('📊 Fetching betting lines for ML, public splits, and game_time_et...');
       const { data: bettingLines, error: bettingError } = await collegeFootballSupabase
         .from('nfl_betting_lines')
-        .select('training_key, home_ml, away_ml, over_line, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time, game_time_et')
+        .select('training_key, home_ml, away_ml, over_line, home_spread, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time, game_time_et')
         .order('as_of_ts', { ascending: false });
 
       let bettingLinesMap = new Map();
@@ -658,6 +651,21 @@ ${contextParts}
           }
         }
         
+        // Calculate edge values (delta) - like NBA/NCAAB
+        // Note: NFL predictions table may not have model_fair fields, so we set edge to null
+        // Edge calculation would require model fair spread/total values which may not be available
+        const vegasHomeSpread = bettingLine?.home_spread || game.home_spread || null;
+        const modelFairHomeSpread = (prediction as any)?.model_fair_home_spread || ((prediction as any)?.pred_home_margin ? -(prediction as any).pred_home_margin : null) || null;
+        const homeSpreadDiff = (vegasHomeSpread !== null && modelFairHomeSpread !== null)
+          ? vegasHomeSpread - modelFairHomeSpread
+          : null;
+        
+        const vegasTotal = bettingLine?.over_line || game.ou_vegas_line || null;
+        const modelFairTotal = (prediction as any)?.model_fair_total || (prediction as any)?.pred_total_points || null;
+        const overLineDiff = (vegasTotal !== null && modelFairTotal !== null)
+          ? modelFairTotal - vegasTotal
+          : null;
+        
         return {
           ...game,
           id: game.home_away_unique || `${game.home_team}_${game.away_team}_${game.game_date}`,
@@ -674,7 +682,12 @@ ${contextParts}
           // Add Vegas lines from betting_lines table
           home_ml: bettingLine?.home_ml || null,
           away_ml: bettingLine?.away_ml || null,
-          over_line: bettingLine?.over_line || game.ou_vegas_line || null,
+          home_spread: vegasHomeSpread,
+          away_spread: vegasHomeSpread !== null ? -vegasHomeSpread : null,
+          over_line: vegasTotal,
+          // Edge values (delta)
+          home_spread_diff: homeSpreadDiff,
+          over_line_diff: overLineDiff,
           // Add public betting splits
           spread_splits_label: bettingLine?.spread_splits_label || null,
           ml_splits_label: bettingLine?.ml_splits_label || null,
@@ -1153,30 +1166,83 @@ ${contextParts}
       return dateString;
     }
   };
+  // Helper to check if a game is from today or in the future
+  const isGameCurrentOrFuture = (prediction: NFLPrediction): boolean => {
+    const today = getTodayInET();
+    if (!prediction.game_date) return true; // If no date, treat as current
+    
+    try {
+      // game_date is already in YYYY-MM-DD format
+      return prediction.game_date >= today;
+    } catch (e) {
+      return true; // Error parsing, treat as current
+    }
+  };
+
+  // Displayed edge helpers (match UI rounding behavior)
+  const getDisplayedSpreadEdge = (p: NFLPrediction): number => {
+    const val = p.home_spread_diff;
+    if (val === null || val === undefined || isNaN(Number(val))) return -Infinity;
+    return Math.round(Math.abs(Number(val)) * 2) / 2; // roundToHalf(abs)
+  };
+
+  const getDisplayedOUEdge = (p: NFLPrediction): number => {
+    const val = p.over_line_diff as number | null | undefined;
+    if (val === null || val === undefined || isNaN(Number(val))) return -Infinity;
+    return Math.round(Math.abs(Number(val)) * 2) / 2; // roundToHalf(abs)
+  };
+
   // Build sorted list according to current sort selection
   const getSortedPredictions = (): NFLPrediction[] => {
-    const list = predictions.filter(shouldDisplayGame);
+    // First filter by search text
+    let list = predictions.filter(shouldDisplayGame);
+    if (searchText.trim()) {
+      const search = searchText.toLowerCase();
+      list = list.filter(p => 
+        p.home_team.toLowerCase().includes(search) || 
+        p.away_team.toLowerCase().includes(search)
+      );
+    }
+    
+    // Separate into current/future and past games
+    const currentGames = list.filter(isGameCurrentOrFuture);
+    const pastGames = list.filter(p => !isGameCurrentOrFuture(p));
+    
     const byDateTime = (a: NFLPrediction, b: NFLPrediction) => {
       const dateComparison = a.game_date.localeCompare(b.game_date);
       if (dateComparison !== 0) return dateComparison;
       return a.game_time.localeCompare(b.game_time);
     };
+    
+    // Sort current/future games
+    let sortedCurrent: NFLPrediction[];
     if (sortKey === 'none') {
-      const sorted = [...list].sort(byDateTime);
-      return sortAscending ? sorted.reverse() : sorted;
+      sortedCurrent = [...currentGames].sort(byDateTime);
+      sortedCurrent = sortAscending ? sortedCurrent.reverse() : sortedCurrent;
+    } else {
+      const score = (p: NFLPrediction): number => {
+        if (sortKey === 'ml') return getDisplayedMlProb(p.home_away_ml_prob) ?? -1;
+        if (sortKey === 'spread') return getDisplayedSpreadEdge(p);
+        return getDisplayedOUEdge(p);
+      };
+      sortedCurrent = [...currentGames].sort((a, b) => {
+        const sb = score(b) - score(a);
+        if (sb !== 0) return sb;
+        return byDateTime(a, b);
+      });
+      // Apply ascending/descending based on sortAscending flag
+      sortedCurrent = sortAscending ? sortedCurrent.reverse() : sortedCurrent;
     }
-    const score = (p: NFLPrediction): number => {
-      if (sortKey === 'ml') return getDisplayedMlProb(p.home_away_ml_prob) ?? -1;
-      if (sortKey === 'spread') return getDisplayedSpreadProb(p.home_away_spread_cover_prob) ?? -1;
-      return getDisplayedOuProb(p.ou_result_prob) ?? -1;
-    };
-    const sorted = [...list].sort((a, b) => {
-      const sb = score(b) - score(a);
-      if (sb !== 0) return sb;
-      return byDateTime(a, b);
+    
+    // Sort past games by date/time (most recent first)
+    const sortedPast = [...pastGames].sort((a, b) => {
+      const dateComparison = b.game_date.localeCompare(a.game_date); // Most recent first
+      if (dateComparison !== 0) return dateComparison;
+      return b.game_time.localeCompare(a.game_time);
     });
-    // Apply ascending/descending based on sortAscending flag
-    return sortAscending ? sorted.reverse() : sorted;
+    
+    // Return current/future games first, then past games
+    return [...sortedCurrent, ...sortedPast];
   };
 
 
@@ -1213,25 +1279,17 @@ ${contextParts}
 
   return (
     <div className="w-full">
-      {/* Search Bar */}
+      {/* Search Input */}
       <div className="mb-4">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
             type="text"
-            placeholder="Search matchups by team name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Search by team name..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="pl-10 w-full max-w-md"
           />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
         </div>
       </div>
 
@@ -1275,7 +1333,7 @@ ${contextParts}
               setSortAscending(false);
             }
           }}
-          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread probability (click to toggle direction)"}
+          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Spread edge (click to toggle direction)"}
         >
           {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
           <span className="hidden sm:inline">Sort: Spread</span>
@@ -1298,7 +1356,7 @@ ${contextParts}
               setSortAscending(false);
             }
           }}
-          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under probability (click to toggle direction)"}
+          title={isFreemiumUser ? "Subscribe to unlock sorting" : "Sort by highest Over/Under edge (click to toggle direction)"}
         >
           {isFreemiumUser && <Lock className="h-3 w-3 mr-1" />}
           <span className="hidden sm:inline">Sort: O/U</span>
@@ -1834,8 +1892,7 @@ ${contextParts}
       {predictions.length > 0 && (
         <div className="mt-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Showing {getSortedPredictions().length} of {predictions.length} predictions
-            {searchQuery && ` (filtered by "${searchQuery}")`}
+            Showing {predictions.length} predictions
           </p>
         </div>
       )}
