@@ -95,94 +95,121 @@ export function TermsAcceptance() {
       >
         <Text style={styles.lastUpdated}>**Last Updated: October 15, 2025**</Text>
 
-        <Text style={styles.sectionTitle}>1. Nature of Our Service & Disclaimers</Text>
+        <Text style={styles.sectionTitle}>1. Acceptance of the Terms of Service</Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Sports Betting Advice & Analytics Only</Text>: WagerProof provides data-driven sports betting insights, analysis, and educational tools. Our Service offers statistical models, trend analysis, and predictions to assist users in making informed decisions.
+          These terms and conditions of service are entered into by and between you and WagerProof LLC, a Texas limited liability company ("WagerProof," "Company," "we," or "us"). The following terms and conditions of service, together with any documents they expressly incorporate by reference (collectively, "Terms of Service"), govern your access to and use of https://wagerproof.bet (the "Website"), including any content, functionality, and services offered on or through the Website, whether as a guest or a registered user, (collectively, the "Services").
         </Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>NOT Financial or Betting Advice</Text>: <Text style={styles.bold}>WagerProof DOES NOT provide financial advice, investment advice, or direct betting recommendations.</Text> The information and tools provided are for informational and entertainment purposes only. You should not consider any content on the Service as a solicitation, recommendation, or endorsement to place any wagers or engage in any gambling activity.
-        </Text>
-        <Text style={styles.paragraph}>
-          <Text style={styles.bold}>No Guarantees of Winnings</Text>: <Text style={styles.bold}>We do not guarantee any profits, winnings, or positive outcomes from using our Service.</Text> Sports betting inherently involves risk, and past performance is not indicative of future results.
-        </Text>
-        <Text style={styles.paragraph}>
-          <Text style={styles.bold}>User Responsibility</Text>: <Text style={styles.bold}>You are solely responsible for your own betting decisions, actions, and any financial gains or losses incurred.</Text> You acknowledge and agree that you use the Service at your own risk.
-        </Text>
-        <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Not a Gambling Operator</Text>: WagerProof is not a bookmaker, gambling operator, or a platform for placing bets. We do not accept or process wagers.
-        </Text>
-        <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Legal Compliance</Text>: You are responsible for ensuring that your use of the Service complies with all applicable laws and regulations in your jurisdiction regarding sports betting and online services. We do not condone illegal gambling.
+          Please read the Terms of Service carefully before you start to use the Services. By clicking "I Accept," creating an account, accessing, or using the Services in any manner, you acknowledge that you have read, understood, and agree to be bound and abide by these Terms of Service, including our Privacy Policy, found at https://wagerproof.bet/privacy-policy, which is hereby incorporated herein by reference. If you do not agree to these Terms of Service, you are not authorized to access or use the Services and must immediately cease all use of the Services.
         </Text>
 
-        <Text style={styles.sectionTitle}>2. User Accounts</Text>
+        <Text style={styles.sectionTitle}>2. Nature of Service & Disclaimers</Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Eligibility</Text>: You must be at least 18 years old to create an account and use our Service. By creating an account, you represent and warrant that you are at least 18 years old.
+          <Text style={styles.bold}>Sports Data Analytics Only</Text>: WagerProof provides data-driven sports insights, statistical analysis, and educational tools through proprietary machine learning models and algorithms. The Services offer statistical models, trend analysis, predictive analytics, and data visualizations to assist users in making informed decisions. All content is for informational and educational purposes only.
         </Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Account Information</Text>: When you create an account, you agree to provide accurate, current, and complete information. You are responsible for maintaining the confidentiality of your account password and for all activities that occur under your account.
+          <Text style={styles.bold}>NOT Financial or Betting Advice</Text>: <Text style={styles.bold}>WagerProof DOES NOT provide financial advice, investment advice, or direct betting recommendations, whether through the Services or otherwise.</Text> The information, data, analytics, and tools provided through the Services are for informational, educational, and entertainment purposes only. You should not consider any materials provided on or through the Services as a solicitation, recommendation, offer, or endorsement to place any wagers or engage in any gambling activity.
         </Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Account Termination</Text>: We reserve the right to suspend or terminate your account at our sole discretion, without notice or liability, for any reason, including if you violate these Terms.
-        </Text>
-
-        <Text style={styles.sectionTitle}>3. Subscriptions and Payments</Text>
-        <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Subscription Plans</Text>: We offer various subscription plans (e.g., Basic, Pro, Enterprise) with different features and pricing. Details of these plans are available on our website.
+          <Text style={styles.bold}>NO GUARANTEES OF ACCURACY OR OUTCOMES</Text>: <Text style={styles.bold}>WE MAKE NO GUARANTEES, REPRESENTATIONS, OR WARRANTIES REGARDING THE ACCURACY, RELIABILITY, OR COMPLETENESS OF OUR DATA, ANALYTICS, PREDICTIONS, OR MODELS. WE DO NOT GUARANTEE ANY PROFITS, WINNINGS, POSITIVE OUTCOMES, OR SPECIFIC RESULTS FROM USING OUR SERVICES. SPORTS OUTCOMES ARE INHERENTLY UNPREDICTABLE AND INVOLVE SUBSTANTIAL RISK OF LOSS. PAST PERFORMANCE OF OUR MODELS OR PREDICTIONS IS NOT INDICATIVE OF FUTURE RESULTS. YOU MAY LOSE MONEY BY RELYING ON OUR SERVICES.</Text>
         </Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Billing</Text>: Subscriptions are billed on a recurring basis (e.g., monthly or annually) through our third-party payment processor, Stripe. By subscribing, you authorize Stripe to charge your designated payment method at the beginning of each billing cycle.
+          <Text style={styles.bold}>USER RESPONSIBILITY AND ASSUMPTION OF RISK</Text>: <Text style={styles.bold}>YOU ARE SOLELY AND EXCLUSIVELY RESPONSIBLE FOR YOUR OWN DECISIONS, ACTIONS, AND ANY FINANCIAL GAINS OR LOSSES INCURRED. YOU ACKNOWLEDGE AND EXPRESSLY AGREE THAT: (A) YOU USE THE SERVICES ENTIRELY AT YOUR OWN RISK; (B) YOU HAVE CONDUCTED YOUR OWN INDEPENDENT RESEARCH AND ANALYSIS; (C) YOU ARE NOT RELYING SOLELY ON WAGERPROOF'S DATA OR ANALYTICS; (D) YOU UNDERSTAND THE RISKS ASSOCIATED WITH SPORTS BETTING AND GAMBLING; AND (E) YOU HAVE THE FINANCIAL MEANS TO ABSORB ANY LOSSES YOU MAY INCUR. YOU HEREBY RELEASE AND HOLD HARMLESS WAGERPROOF FROM ANY AND ALL CLAIMS ARISING FROM YOUR USE OF THE SERVICES OR ANY BETTING ACTIVITIES.</Text>
         </Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Price Changes</Text>: We reserve the right to change our subscription fees at any time. Any price changes will be communicated to you in advance, and you will have the option to cancel your subscription before the new prices take effect.
+          <Text style={styles.bold}>NOT A GAMBLING OPERATOR</Text>: <Text style={styles.bold}>WAGERPROOF IS NOT A BOOKMAKER, CASINO, GAMBLING OPERATOR, SPORTSBOOK, OR A PLATFORM FOR PLACING BETS. WE DO NOT ACCEPT, PROCESS, FACILITATE, OR HAVE ANY INVOLVEMENT IN WAGERS, BETS, OR GAMBLING TRANSACTIONS OF ANY KIND. WE DO NOT HOLD ANY GAMBLING LICENSES OR PERMITS. WAGERPROOF IS SOLELY A DATA ANALYTICS AND INFORMATION SERVICES PROVIDER. WAGERPROOF DOES NOT CONDONE ILLEGAL GAMBLING.</Text>
         </Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Cancellations and Refunds</Text>: You may cancel your subscription at any time. Cancellations will take effect at the end of your current billing period. We generally do not offer refunds for partial subscription periods, except as required by law.
+          The information and materials presented on or through the Services are made available solely for general information, educational, and entertainment purposes. We do not warrant the accuracy, completeness, or usefulness of this information. Any reliance you place on such information is strictly at your own risk.
         </Text>
 
-        <Text style={styles.sectionTitle}>4. Acceptable Use Policy</Text>
-        <Text style={styles.paragraph}>You agree not to use the Service to:</Text>
-        <Text style={styles.listItem}>• Violate any local, state, national, or international law or regulation.</Text>
-        <Text style={styles.listItem}>• Engage in any activity that is fraudulent, misleading, or deceptive.</Text>
-        <Text style={styles.listItem}>• Transmit any harmful, threatening, defamatory, obscene, or otherwise objectionable content.</Text>
-        <Text style={styles.listItem}>• Interfere with or disrupt the integrity or performance of the Service.</Text>
-
-        <Text style={styles.sectionTitle}>5. Intellectual Property</Text>
+        <Text style={styles.sectionTitle}>3. Accessing Services and Account Security</Text>
         <Text style={styles.paragraph}>
-          All content on the Service, including text, graphics, logos, images, software, models, data, and the compilation thereof, is the property of WagerProof or its suppliers and protected by copyright and other intellectual property laws.
+          The Services are offered and available only to users who are 18 years of age or older, and reside in the United States or any of its territories or possessions. By using the Services, you represent and warrant that you are of legal age to form a binding contract with the Company and meet all of the foregoing eligibility requirements. You further warrant that you are legally permitted to access the Services in your jurisdiction.
         </Text>
 
-        <Text style={styles.sectionTitle}>6. WagerBot and AI Usage</Text>
+        <Text style={styles.sectionTitle}>4. Subscriptions and Payments</Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>Informational Tool</Text>: The WagerBot is an AI-powered analytical tool designed to provide insights based on available data.
+          <Text style={styles.bold}>Subscription Plans</Text>: We offer various subscription plans (e.g., Basic, Pro, Enterprise) with different features and pricing.
         </Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>AI Limitations</Text>: <Text style={styles.bold}>The responses and analyses provided by WagerBot are machine-generated and should not be taken as definitive or infallible advice.</Text> WagerBot may generate incomplete, inaccurate, or biased information.
+          <Text style={styles.bold}>Billing</Text>: Subscriptions are billed on a recurring basis through our third-party payment processor, Stripe.
         </Text>
-
-        <Text style={styles.sectionTitle}>7. Limitation of Liability</Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL WAGERPROOF, ITS AFFILIATES, OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, SUPPLIERS, OR LICENSORS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.</Text>
+          <Text style={styles.bold}>Price Changes</Text>: We reserve the right to change our subscription fees at any time.
         </Text>
-
-        <Text style={styles.sectionTitle}>8. Indemnification</Text>
         <Text style={styles.paragraph}>
-          You agree to indemnify and hold harmless WagerProof, its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, liabilities, damages, losses, and expenses arising out of your use of the Service.
+          <Text style={styles.bold}>Cancellations and Refunds</Text>: You may cancel your subscription at any time. We do not offer refunds for partial subscription periods, except as expressly provided in these Terms of Service, in cases of material breach by WagerProof, or as may be required by applicable law.
         </Text>
 
-        <Text style={styles.sectionTitle}>9. Governing Law and Jurisdiction</Text>
+        <Text style={styles.sectionTitle}>5. Prohibited Uses</Text>
         <Text style={styles.paragraph}>
-          These Terms shall be governed and construed in accordance with the laws of Texas. You agree to submit to the exclusive jurisdiction of the courts located in Austin, Texas.
+          You may use the Services only for lawful purposes and in accordance with these Terms of Service. You agree not to use the Services in any way that violates any applicable federal, state, local, or international law or regulation, including gambling laws or regulations.
         </Text>
 
-        <Text style={styles.sectionTitle}>10. Changes to These Terms</Text>
+        <Text style={styles.sectionTitle}>6. Monitoring and Enforcement; Termination</Text>
         <Text style={styles.paragraph}>
-          We reserve the right to modify or replace these Terms at any time at our sole discretion. If a revision is material, we will provide at least 30 days' notice.
+          We have the right to terminate or suspend your access to all or part of the Services for any or no reason, including without limitation, any violation of these Terms of Service.
         </Text>
 
-        <Text style={styles.sectionTitle}>11. Contact Us</Text>
+        <Text style={styles.sectionTitle}>7. Links</Text>
         <Text style={styles.paragraph}>
-          If you have any questions about these Terms, please contact us at: admin@wagerproof.bet
+          If the Services contains links to other resources provided by third parties, these links are provided for your convenience only. We have no control over the contents of those sites or resources and accept no responsibility for them.
+        </Text>
+
+        <Text style={styles.sectionTitle}>8. Intellectual Property</Text>
+        <Text style={styles.paragraph}>
+          The Services and their contents, features, and functionality are owned by WagerProof, its licensors, or other providers of such material and are protected by United States and international copyright, trademark, patent, trade secret, and other intellectual property or proprietary rights laws.
+        </Text>
+
+        <Text style={styles.sectionTitle}>9. Use of Artificial Intelligence</Text>
+        <Text style={styles.paragraph}>
+          The Services use analytical tools that use artificial intelligence and/or machine learning models (collectively, "AI") designed to provide insights based on available data. You understand and acknowledge that: (a) the information or materials provided by or through the Services may be machine-generated using AI; (b) AI may generate incomplete, inaccurate, biased, outdated, or misleading information, hallucinations, and/or other errors; (c) information or materials provided by or through the Services do not constitute financial, gambling, investment, or professional advice of any kind; and (d) you use the Services and the outputs provided by or through the Services solely at your own risk.
+        </Text>
+
+        <Text style={styles.sectionTitle}>10. Limitation of Liability</Text>
+        <Text style={styles.paragraph}>
+          <Text style={styles.bold}>TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL WAGERPROOF, ITS AFFILIATES, OR ITS OR THEIR MEMBERS, OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, SUPPLIERS, OR LICENSORS BE LIABLE FOR DAMAGES OF ANY KIND, INCLUDING WITHOUT LIMITATION, LOSS OF REVENUE, LOSS OF PROFITS, GAMBLING LOSSES, BETTING LOSSES, FINANCIAL LOSSES FROM RELIANCE ON WAGERBOT OR ANY AI-GENERATED CONTENT, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR USE OR INABILITY TO USE THE SERVICES.</Text>
+        </Text>
+
+        <Text style={styles.sectionTitle}>11. Indemnification</Text>
+        <Text style={styles.paragraph}>
+          You agree to defend, indemnify, and hold harmless WagerProof, its affiliates, and its and their respective members, officers, directors, employees, agents, licensors, suppliers, successors, and assigns from and against any and all claims, liabilities, damages, losses, judgements, awards, fees, penalties, fines, and expenses, including reasonable attorneys' fees and costs, arising out of or in any way connected with your access to or use of the Services, your violation of these Terms of Service, any gambling or betting activities you engage in based on information from the Services, or your violation of any applicable laws or regulations.
+        </Text>
+
+        <Text style={styles.sectionTitle}>12. Governing Law and Jurisdiction</Text>
+        <Text style={styles.paragraph}>
+          All matters relating to the Services and these Terms of Service shall be governed and construed in accordance with the laws of Texas, without regard to its conflict of law provisions. Any legal suit, action, or proceeding arising out of, or related to, these Terms of Service or the Services shall be instituted exclusively in the federal courts of the United States or the courts of the State of Texas, in each case located in the City of Austin and County of Travis.
+        </Text>
+
+        <Text style={styles.sectionTitle}>13. Arbitration</Text>
+        <Text style={styles.paragraph}>
+          Any dispute, controversy, or claim arising out of or relating to these Terms of Service or the use of the Services shall be determined by binding arbitration in Austin, Texas, before one arbitrator. The arbitration shall be administered by the American Arbitration Association in accordance with its Commercial Arbitration Rules.
+        </Text>
+
+        <Text style={styles.sectionTitle}>14. Limitation on Time to File Claims</Text>
+        <Text style={styles.paragraph}>
+          <Text style={styles.bold}>ANY CAUSE OF ACTION OR CLAIM YOU MAY HAVE ARISING OUT OF OR RELATING TO THESE TERMS OF SERVICE OR THE SERVICES MUST BE COMMENCED WITHIN ONE (1) YEAR AFTER THE CAUSE OF ACTION ACCRUES; OTHERWISE, SUCH CAUSE OF ACTION OR CLAIM IS PERMANENTLY BARRED.</Text>
+        </Text>
+
+        <Text style={styles.sectionTitle}>15. Waiver and Severability</Text>
+        <Text style={styles.paragraph}>
+          Any waiver by WagerProof of any term or condition set out in these Terms of Service must be in writing and signed by an authorized representative of the Company to be effective. If any provision of these Terms of Service is held by a court or other tribunal of competent jurisdiction to be invalid, illegal, or unenforceable, such provision shall be reformed to the minimum extent necessary to make it valid and enforceable while preserving its intent.
+        </Text>
+
+        <Text style={styles.sectionTitle}>16. Changes to These Terms of Service</Text>
+        <Text style={styles.paragraph}>
+          We reserve the right to modify or replace these Terms of Service at any time at our sole discretion. If a revision is material, we will provide at least thirty (30) days' notice prior to any new terms taking effect. By continuing to access or use our Service after those revisions become effective, you agree to be bound by the revised terms.
+        </Text>
+
+        <Text style={styles.sectionTitle}>17. Entire Agreement</Text>
+        <Text style={styles.paragraph}>
+          These Terms of Service, including the documents incorporated by reference herein, constitute the sole and entire agreement between you and WagerProof LLC regarding the Services and supersede all prior and contemporaneous understandings, agreements, representations, and warranties, both written and oral, regarding the Services.
+        </Text>
+
+        <Text style={styles.sectionTitle}>18. Contact Us</Text>
+        <Text style={styles.paragraph}>
+          Any notices or questions concerning these Terms of Service should be directed to: admin@wagerproof.bet
         </Text>
       </ScrollView>
 
