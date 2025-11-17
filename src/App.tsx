@@ -26,6 +26,10 @@ import CommunityVoting from "./pages/CommunityVoting";
 import AccessDenied from "./pages/AccessDenied";
 import AISettings from "./pages/admin/AISettings";
 import TodayInSportsAdmin from "./pages/admin/TodayInSportsAdmin";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminSettings from "./pages/admin/AdminSettings";
+import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
@@ -186,6 +190,10 @@ function AppRoutes() {
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
           <Route path="/mobile-app" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
+          <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
+          <Route path="/admin/announcements" element={<ProtectedRoute><AdminAnnouncements /></ProtectedRoute>} />
           <Route path="/admin/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
           <Route path="/admin/today-in-sports" element={<ProtectedRoute><TodayInSportsAdmin /></ProtectedRoute>} />
           <Route path="/polymarket-test" element={<PolymarketTest />} />

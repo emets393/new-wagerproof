@@ -110,14 +110,28 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
+    // Get current date info for better context
+    const now = new Date();
+    const easternTime = toZonedTime(now, 'America/New_York');
+    const dayOfWeek = format(easternTime, 'EEEE'); // e.g., "Monday"
+    const fullDate = format(easternTime, 'MMMM d, yyyy'); // e.g., "November 16, 2025"
+    
+    // Inject current date at the top of the system prompt
+    const dateContext = `TODAY'S DATE: ${dayOfWeek}, ${fullDate} (${today})
+
+IMPORTANT: You must ONLY provide news, updates, and information for ${dayOfWeek}, ${fullDate}. Do not include information from previous days or future days. Focus exclusively on what is happening TODAY.`;
+
+    const enhancedSystemPrompt = `${dateContext}\n\n${schedule.system_prompt}`;
+    
     // Prepare the prompt for today's sports news
-    const userPrompt = `Generate today's sports briefing for ${today}. Focus on NFL and College Football. Include the latest breaking news, injury updates, betting line movements, and key storylines for today's games.`;
+    const userPrompt = `Generate today's sports briefing for ${dayOfWeek}, ${fullDate}. Focus on NFL and College Football. Include the latest breaking news, injury updates, betting line movements, and key storylines for today's games.`;
 
     console.log('Calling OpenAI with web search enabled...');
-    console.log('System prompt being used:', schedule.system_prompt || 'NO SYSTEM PROMPT');
+    console.log('Date context:', dateContext);
+    console.log('Enhanced system prompt being used:', enhancedSystemPrompt.substring(0, 200) + '...');
 
     // Call OpenAI Responses API with web search
-    const fullInput = `${schedule.system_prompt}\n\n---\n\n${userPrompt}`;
+    const fullInput = `${enhancedSystemPrompt}\n\n---\n\n${userPrompt}`;
     
     const openaiResponse = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
@@ -126,7 +140,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         tools: [
           {
             type: 'web_search_preview',

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TodayInSportsCompletionHeader } from '@/components/TodayInSportsCompletionHeader';
 import { TodayGameSummaryCard } from '@/components/TodayGameSummaryCard';
@@ -7,7 +7,7 @@ import { GamesMarquee } from '@/components/GamesMarquee';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, Target, Flame, Lock, ChevronDown, ChevronUp, Shield, Trophy, ArrowRightLeft, BarChart, DollarSign, Percent, Users, Dribbble } from 'lucide-react';
+import { TrendingUp, Target, Flame, Lock, ChevronDown, ChevronUp, Shield, Trophy, ArrowRightLeft, BarChart, DollarSign, Percent, Users, Dribbble, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
@@ -73,6 +73,7 @@ export default function TodayInSports() {
   const { isFreemiumUser } = useFreemiumAccess();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const queryClient = useQueryClient();
   
   // Initialize cache hook
   const { getCachedUIState, setCachedUIState, restoreScrollPosition } = useTodayInSportsCache();
@@ -82,6 +83,7 @@ export default function TodayInSports() {
   const [showAllValueAlerts, setShowAllValueAlerts] = useState(cachedState?.showAllValueAlerts ?? false);
   const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(cachedState?.showAllFadeAlerts ?? false);
   const [showAllTailedGames, setShowAllTailedGames] = useState(cachedState?.showAllTailedGames ?? false);
+  const [isRefreshingValueSummary, setIsRefreshingValueSummary] = useState(false);
   
   // Sport filters for each section
   const [todayGamesFilter, setTodayGamesFilter] = useState<SportFilter>(cachedState?.todayGamesFilter ?? 'all');
@@ -275,6 +277,21 @@ export default function TodayInSports() {
         })}
       </div>
     );
+  };
+
+  // Handler for refreshing Value Summary section
+  const handleRefreshValueSummary = async () => {
+    setIsRefreshingValueSummary(true);
+    try {
+      // Invalidate both value alerts and fade alerts queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['value-alerts'] }),
+        queryClient.invalidateQueries({ queryKey: ['fade-alerts'] }),
+      ]);
+    } finally {
+      // Keep spinner for at least 500ms for better UX
+      setTimeout(() => setIsRefreshingValueSummary(false), 500);
+    }
   };
 
   // Get today's date in Eastern Time - MATCH NFL/CFB format
@@ -2058,15 +2075,27 @@ export default function TodayInSports() {
             WebkitBackdropFilter: 'blur(40px)',
           }}>
             <CardHeader className="px-4 md:px-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <TrendingUp className="h-5 w-5" />
-                    Value Summary
-                  </CardTitle>
-                  <CardDescription className="text-gray-600 dark:text-white/70">
-                    Polymarket alerts and high-confidence model predictions for remaining games this week
-                  </CardDescription>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                      <TrendingUp className="h-5 w-5" />
+                      Value Summary
+                    </CardTitle>
+                    <CardDescription className="text-gray-600 dark:text-white/70">
+                      Polymarket alerts and high-confidence model predictions for remaining games this week
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshValueSummary}
+                    disabled={isRefreshingValueSummary}
+                    className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-2 self-start sm:self-auto"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshingValueSummary ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </Button>
                 </div>
                 <SportFilterButtons 
                   currentFilter={valueAlertsFilter} 

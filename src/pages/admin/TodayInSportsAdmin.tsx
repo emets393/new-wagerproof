@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Brain, Save, Loader2, Play, Clock, CheckCircle2, Sparkles, CalendarDays, Trash2, Upload, AlertCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Brain, Save, Loader2, Play, Clock, CheckCircle2, Sparkles, CalendarDays, Trash2, Upload, AlertCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { renderTextWithLinks } from '@/utils/markdownLinks';
@@ -29,6 +30,7 @@ export default function TodayInSportsAdmin() {
   const [saving, setSaving] = useState(false);
   const [todaySchedule, setTodaySchedule] = useState<PageLevelSchedule | null>(null);
   const [todayPrompt, setTodayPrompt] = useState<string>('');
+  const [scheduledTime, setScheduledTime] = useState<string>('10:00');
   const [todayCompletion, setTodayCompletion] = useState<TodayInSportsCompletion | null>(null);
   const [generatingToday, setGeneratingToday] = useState(false);
   const [sendingDiscord, setSendingDiscord] = useState(false);
@@ -52,6 +54,11 @@ export default function TodayInSportsAdmin() {
 
       if (todaySched) {
         setTodayPrompt(todaySched.system_prompt);
+        // Parse scheduled_time (HH:MM:SS) to HH:MM for input field
+        if (todaySched.scheduled_time) {
+          const timeParts = todaySched.scheduled_time.split(':');
+          setScheduledTime(`${timeParts[0]}:${timeParts[1]}`);
+        }
       }
     } catch (error) {
       debug.error('Error fetching Today in Sports data:', error);
@@ -68,15 +75,19 @@ export default function TodayInSportsAdmin() {
   const handleSaveTodayPrompt = async () => {
     setSaving(true);
     try {
+      // Convert HH:MM to HH:MM:SS for database
+      const scheduledTimeFormatted = `${scheduledTime}:00`;
+      
       const success = await updateTodayInSportsSchedule({
-        system_prompt: todayPrompt
+        system_prompt: todayPrompt,
+        scheduled_time: scheduledTimeFormatted,
       });
 
       if (success) {
         await fetchData();
         toast({
           title: 'Saved',
-          description: 'Today in Sports system prompt updated',
+          description: 'Today in Sports settings updated successfully',
         });
       } else {
         throw new Error('Update failed');
@@ -85,7 +96,7 @@ export default function TodayInSportsAdmin() {
       debug.error('Error saving today prompt:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save system prompt',
+        description: 'Failed to save settings',
         variant: 'destructive'
       });
     } finally {
@@ -331,7 +342,19 @@ export default function TodayInSportsAdmin() {
           <Sparkles className="h-4 w-4" />
           <AlertDescription>
             The Today in Sports completion generates a daily sports news briefing using ChatGPT with web search.
-            It runs automatically at 10 AM CST and posts to Discord #🗣️︳general channel.
+            It runs automatically at your scheduled time and posts to Discord #🗣️︳general channel.
+          </AlertDescription>
+        </Alert>
+
+        {/* Model Information Alert */}
+        <Alert className="border-green-500 bg-green-50 dark:bg-green-950/20">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800 dark:text-green-200">
+            <strong>✅ Current Model: gpt-4o</strong>
+            <br />
+            <span className="text-sm">
+              Web search is enabled via OpenAI Responses API. The model uses real-time web search for accurate, up-to-date sports news and information.
+            </span>
           </AlertDescription>
         </Alert>
 
@@ -340,13 +363,31 @@ export default function TodayInSportsAdmin() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="w-5 h-5" />
-              System Prompt Configuration
+              Configuration
             </CardTitle>
             <CardDescription>
-              Control what the AI focuses on when generating the daily sports briefing
+              Control when and how the AI generates the daily sports briefing
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Scheduled Time Input */}
+            <div>
+              <label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Scheduled Generation Time
+              </label>
+              <Input
+                type="time"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                className="max-w-xs"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Server time (UTC). The automation checks every hour and runs if within 5 minutes of this time.
+              </p>
+            </div>
+
+            {/* System Prompt */}
             <div>
               <label className="text-sm font-medium mb-2 block">System Prompt</label>
               <Textarea
@@ -356,6 +397,7 @@ export default function TodayInSportsAdmin() {
                 placeholder="System prompt for today in sports completion..."
               />
             </div>
+
             <Button
               onClick={handleSaveTodayPrompt}
               disabled={saving}
@@ -369,7 +411,7 @@ export default function TodayInSportsAdmin() {
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  Save System Prompt
+                  Save Configuration
                 </>
               )}
             </Button>
@@ -625,10 +667,14 @@ export default function TodayInSportsAdmin() {
           <Alert>
             <Clock className="h-4 w-4" />
             <AlertDescription>
-              <strong>Automated Schedule:</strong> Completions generate daily at 10:00 AM CST and automatically post to Discord.
+              <strong>Automated Schedule:</strong> Completions generate daily at {scheduledTime} (UTC) and automatically post to Discord.
               {!todaySchedule.enabled && (
                 <span className="text-orange-600 ml-2">(Currently Disabled)</span>
               )}
+              <br />
+              <span className="text-xs text-muted-foreground">
+                The master scheduler runs hourly and checks if it's time to generate. Web search is enabled via OpenAI Responses API.
+              </span>
             </AlertDescription>
           </Alert>
         )}

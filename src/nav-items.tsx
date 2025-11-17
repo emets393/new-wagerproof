@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -163,6 +163,21 @@ export const navItems: NavItem[] = [
     page: <Admin />,
     requiresAdmin: true,
     subItems: [
+      {
+        title: "Settings",
+        to: "/admin/settings",
+        icon: <Settings className="h-4 w-4" />,
+      },
+      {
+        title: "Users",
+        to: "/admin/users",
+        icon: <Users className="h-4 w-4" />,
+      },
+      {
+        title: "Announcements",
+        to: "/admin/announcements",
+        icon: <Megaphone className="h-4 w-4" />,
+      },
       {
         title: "AI Settings",
         to: "/admin/ai-settings",

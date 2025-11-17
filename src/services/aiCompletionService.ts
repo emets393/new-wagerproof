@@ -947,6 +947,7 @@ export async function sendTestDiscordNotification(completionText: string): Promi
 export async function updateTodayInSportsSchedule(updates: {
   system_prompt?: string;
   enabled?: boolean;
+  scheduled_time?: string;
 }): Promise<boolean> {
   try {
     const { error } = await supabase
