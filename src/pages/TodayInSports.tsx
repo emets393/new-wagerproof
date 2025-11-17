@@ -2091,7 +2091,7 @@ export default function TodayInSports() {
                     size="sm"
                     onClick={handleRefreshValueSummary}
                     disabled={isRefreshingValueSummary}
-                    className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-2 self-start sm:self-auto"
+                    className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto"
                   >
                     <RefreshCw className={`h-4 w-4 ${isRefreshingValueSummary ? 'animate-spin' : ''}`} />
                     <span>Refresh</span>
