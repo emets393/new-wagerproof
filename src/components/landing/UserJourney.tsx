@@ -75,10 +75,8 @@ const UserJourney = () => {
                   loading="lazy"
                 />
               </div>
-              {/* Micro Chat Overlay - Demo Illustration - Desktop only */}
-              <div className="hidden md:block">
-                <MicroChat isOpen={isChatOpen} />
-              </div>
+              {/* Micro Chat Overlay - Demo Illustration */}
+              <MicroChat isOpen={isChatOpen} />
               
               {/* Useful AI Feature Container - Bottom Left - Desktop only */}
               <div className={`hidden md:block absolute bottom-4 left-4 z-20 w-[280px] sm:w-[320px] pointer-events-none transition-all duration-700 ${
@@ -109,13 +107,6 @@ const UserJourney = () => {
                     </p>
                   </div>
                 </ShineBorder>
-              </div>
-            </div>
-            
-            {/* Mobile Chat - Stacked below dashboard on small screens */}
-            <div className="md:hidden mt-4 relative">
-              <div className="relative" style={{ marginTop: '-20px' }}>
-                <MicroChat isOpen={isChatOpen} />
               </div>
             </div>
           </div>

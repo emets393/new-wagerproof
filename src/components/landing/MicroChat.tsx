@@ -90,7 +90,7 @@ const MicroChat = ({ isOpen }: { isOpen: boolean }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="md:absolute relative md:-top-4 md:-right-4 z-20 w-full md:w-[320px] md:sm:w-[360px] max-w-[360px] mx-auto md:mx-0 pointer-events-none" style={{ position: 'relative', isolation: 'isolate' }}>
+    <div className="absolute -top-4 -right-4 z-20 w-[320px] sm:w-[360px] pointer-events-none" style={{ position: 'absolute', isolation: 'isolate' }}>
       <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-green-500 dark:border-green-400 overflow-hidden backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500 pointer-events-none">
         {/* Header */}
         <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-500 to-emerald-600 pointer-events-none">
