@@ -31,13 +31,13 @@ const RecipeImport = () => {
     <section
       id="recipes"
       ref={sectionRef}
-      className={`py-14 bg-transparent transition-opacity duration-700 ${inViewSection ? "opacity-100 animate-fade-in" : "opacity-0"}`}
+      className={`py-8 md:py-14 bg-transparent transition-opacity duration-700 ${inViewSection ? "opacity-100 animate-fade-in" : "opacity-0"}`}
     >
       <div className={`relative flex w-full flex-col items-center justify-center transition-all duration-700 ${inViewSection ? "animate-scale-in" : "scale-95 opacity-0"}`}>
         {/* TrueFocus Text */}
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 my-8 py-8 lg:px-[65px]">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 my-4 md:my-8 py-4 md:py-8 lg:px-[65px]">
           <div className="text-center max-w-5xl mx-auto transition-all duration-700">
-            <div className="flex justify-center items-center mb-8">
+            <div className="flex justify-center items-center mb-4 md:mb-8">
               <TrueFocus
                 customWords={["Find", "Alpha", "Instead", "Of Noise"]}
                 manualMode={false}

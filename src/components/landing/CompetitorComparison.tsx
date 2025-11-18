@@ -262,7 +262,7 @@ export function CompetitorComparison() {
               </div>
 
               {/* Message from Developers */}
-              <div className="mt-12 p-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 rounded-lg border-2 border-gray-300 dark:border-gray-600">
+              <div className="mt-12 p-0 md:p-8 md:bg-gradient-to-br md:from-gray-50 md:to-gray-100 md:dark:from-gray-700/50 md:dark:to-gray-800/50 md:rounded-lg md:border-2 md:border-gray-300 md:dark:border-gray-600">
                 <h4 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-gray-100">
                   A Message from the Developers
                 </h4>

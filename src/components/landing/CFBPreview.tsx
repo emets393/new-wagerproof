@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Shield, Trophy, BarChart, ScatterChart, School, Star, Bot } from 'lucide-react';
-import { Basketball } from 'phosphor-react';
+import { AlertCircle, Shield, Trophy, BarChart, ScatterChart, School, Star, Bot, Home, Newspaper, Activity, Users, MessageSquare, Smartphone, FileImage, Share2, GraduationCap, User } from 'lucide-react';
+import { Basketball, DiscordLogo } from 'phosphor-react';
 import CFBMiniCard from './CFBMiniCard';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 
@@ -199,8 +199,8 @@ export default function CFBPreview() {
           </div>
           <div className="flex">
             {/* Sidebar Skeleton */}
-            <div className="w-64 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 p-4 hidden lg:block">
-              <Skeleton className="h-4 w-20 mb-3" />
+            <div className="w-16 md:w-64 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 p-2 md:p-4">
+              <Skeleton className="h-4 w-20 mb-3 hidden md:block" />
               <div className="space-y-2">
                 {[...Array(8)].map((_, i) => (
                   <Skeleton key={i} className="h-8 w-full rounded-lg" />
@@ -208,7 +208,7 @@ export default function CFBPreview() {
               </div>
             </div>
             {/* Content Skeleton */}
-            <div className="flex-1 p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex-1 p-3 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               {[...Array(4)].map((_, i) => (
                 <Skeleton key={i} className="h-32 w-full rounded-lg" />
               ))}
@@ -236,39 +236,42 @@ export default function CFBPreview() {
           </div>
           <div className="flex">
             {/* Show sidebar even in error state */}
-            <div className="w-64 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 p-4 hidden lg:block">
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                  Navigation
-                </div>
-                {[
-                  { icon: Shield, label: 'NFL', active: false },
-                  { icon: Trophy, label: 'College Football', active: true },
-                  { icon: BarChart, label: 'NFL Analytics', active: false },
-                  { icon: ScatterChart, label: 'NFL Teaser Sharpness', active: false },
-                  { icon: Basketball, label: 'NBA', active: false },
-                  { icon: School, label: 'NCAAB', active: false },
-                  { icon: Star, label: "Editor's Picks", active: false },
-                  { icon: Bot, label: 'WagerBot Chat', active: false },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                      item.active
-                        ? 'bg-honeydew-100 dark:bg-honeydew-900/30 text-honeydew-700 dark:text-honeydew-400 font-medium'
-                        : 'text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    <item.icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                    {item.active && (
-                      <div className="ml-auto w-2 h-2 bg-honeydew-500 rounded-full"></div>
-                    )}
-                  </div>
-                ))}
+            <div className="w-16 md:w-64 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 p-2 md:p-4">
+              <div className="space-y-1">
+                {sidebarItems.map((item, index) => {
+                  if (item.isHeader) {
+                    return (
+                      <div
+                        key={`header-${index}`}
+                        className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-4 mb-2 px-1 md:px-3 first:mt-0 hidden md:block"
+                      >
+                        {item.label}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={item.label}
+                      className={`flex items-center justify-center md:justify-start gap-0 md:gap-3 px-1 md:px-3 py-2 rounded-lg text-sm transition-colors ${
+                        item.active
+                          ? 'bg-honeydew-100 dark:bg-honeydew-900/30 text-honeydew-700 dark:text-honeydew-400 font-medium'
+                          : 'text-gray-600 dark:text-gray-400'
+                      }`}
+                      title={item.label}
+                    >
+                      {item.icon && (
+                        <item.icon className="w-4 h-4 flex-shrink-0" weight={item.icon === DiscordLogo ? "fill" : undefined} />
+                      )}
+                      <span className="hidden md:inline">{item.label}</span>
+                      {item.active && (
+                        <div className="hidden md:block ml-auto w-2 h-2 bg-honeydew-500 rounded-full"></div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div className="flex-1 p-6">
+            <div className="flex-1 p-3 md:p-6">
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
@@ -282,19 +285,41 @@ export default function CFBPreview() {
     );
   }
 
-  const sidebarItems = [
-    { icon: Shield, label: 'NFL', active: false },
-    { icon: Trophy, label: 'College Football', active: true },
-    { icon: BarChart, label: 'NFL Analytics', active: false },
-    { icon: ScatterChart, label: 'NFL Teaser Sharpness', active: false },
-    { icon: Basketball, label: 'NBA', active: false },
-    { icon: School, label: 'NCAAB', active: false },
-    { icon: Star, label: "Editor's Picks", active: false },
-    { icon: Bot, label: 'WagerBot Chat', active: false },
+  const sidebarItems: Array<{
+    icon: React.ComponentType<{ className?: string }> | typeof DiscordLogo | null;
+    label: string;
+    active: boolean;
+    isHeader: boolean;
+  }> = [
+    // Home
+    { icon: Home, label: 'Home', active: false, isHeader: false },
+    // ANALYSIS section
+    { icon: null, label: 'ANALYSIS', active: false, isHeader: true },
+    { icon: Newspaper, label: 'Today in Sports', active: false, isHeader: false },
+    { icon: Star, label: "Editors Picks", active: false, isHeader: false },
+    { icon: Bot, label: 'WagerBot Chat', active: false, isHeader: false },
+    { icon: Activity, label: 'Score Board', active: false, isHeader: false },
+    // SPORTS section
+    { icon: null, label: 'SPORTS', active: false, isHeader: true },
+    { icon: Trophy, label: 'College Football', active: true, isHeader: false },
+    { icon: Shield, label: 'NFL', active: false, isHeader: false },
+    { icon: Basketball, label: 'NBA', active: false, isHeader: false },
+    { icon: School, label: 'College Basketball', active: false, isHeader: false },
+    // COMMUNITY section
+    { icon: null, label: 'COMMUNITY', active: false, isHeader: true },
+    { icon: Users, label: 'Community Picks', active: false, isHeader: false },
+    { icon: MessageSquare, label: 'Feature Requests', active: false, isHeader: false },
+    { icon: DiscordLogo, label: 'Discord Channel', active: false, isHeader: false },
+    { icon: Smartphone, label: 'iOS/Android App', active: false, isHeader: false },
+    { icon: FileImage, label: 'Bet Slip Grader', active: false, isHeader: false },
+    { icon: Share2, label: 'Share Win', active: false, isHeader: false },
+    { icon: GraduationCap, label: 'Learn WagerProof', active: false, isHeader: false },
+    // Account
+    { icon: User, label: 'Account', active: false, isHeader: false },
   ];
 
   return (
-    <div className="w-full max-w-7xl mx-auto mt-8 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+    <div className="w-full max-w-7xl mx-auto mt-4 md:mt-8 mb-4 md:mb-0 animate-fade-in" style={{ animationDelay: '0.2s' }}>
       <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-2xl bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
         {/* Dashboard Header */}
         <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
@@ -317,34 +342,46 @@ export default function CFBPreview() {
         
         {/* Main Content Area with Sidebar */}
         <div className="flex">
-          {/* Mini Sidebar */}
-          <div className="w-64 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 p-4 hidden lg:block">
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                Navigation
-              </div>
-              {sidebarItems.map((item, index) => (
-                <div
-                  key={item.label}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    item.active
-                      ? 'bg-honeydew-100 dark:bg-honeydew-900/30 text-honeydew-700 dark:text-honeydew-400 font-medium'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                  }`}
-                >
-                  <item.icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                  {item.active && (
-                    <div className="ml-auto w-2 h-2 bg-honeydew-500 rounded-full"></div>
-                  )}
-                </div>
-              ))}
+          {/* Mini Sidebar - Icon only on mobile, full on desktop */}
+          <div className="w-16 md:w-64 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 p-2 md:p-4">
+            <div className="space-y-1">
+              {sidebarItems.map((item, index) => {
+                if (item.isHeader) {
+                  return (
+                    <div
+                      key={`header-${index}`}
+                      className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-4 mb-2 px-1 md:px-3 first:mt-0 hidden md:block"
+                    >
+                      {item.label}
+                    </div>
+                  );
+                }
+                return (
+                  <div
+                    key={item.label}
+                    className={`flex items-center justify-center md:justify-start gap-0 md:gap-3 px-1 md:px-3 py-2 rounded-lg text-sm transition-colors ${
+                      item.active
+                        ? 'bg-honeydew-100 dark:bg-honeydew-900/30 text-honeydew-700 dark:text-honeydew-400 font-medium'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                    }`}
+                    title={item.label}
+                  >
+                    {item.icon && (
+                      <item.icon className="w-4 h-4 flex-shrink-0" weight={item.icon === DiscordLogo ? "fill" : undefined} />
+                    )}
+                    <span className="hidden md:inline">{item.label}</span>
+                    {item.active && (
+                      <div className="hidden md:block ml-auto w-2 h-2 bg-honeydew-500 rounded-full"></div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           
           {/* Games Grid */}
-          <div className="flex-1 p-6 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[400px]">
-            {predictions.slice(0, 4).map((prediction) => {
+          <div className="flex-1 p-3 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+            {predictions.slice(0, 4).map((prediction, index) => {
               const awayTeamColors = getCFBTeamColors(prediction.away_team);
               const homeTeamColors = getCFBTeamColors(prediction.home_team);
               
@@ -355,6 +392,7 @@ export default function CFBPreview() {
                   awayTeamColors={awayTeamColors}
                   homeTeamColors={homeTeamColors}
                   getTeamLogo={getTeamLogo}
+                  cardIndex={index}
                 />
               );
             })}

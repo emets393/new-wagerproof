@@ -23,7 +23,7 @@ const Hero = () => {
   // Slower, more elegant animation
   const slowTransition = { duration: 6, repeat: Infinity, ease: "linear" as const };
 
-  return <section className="relative min-h-screen pt-24 md:pt-32 px-4 md:px-6 pb-16 overflow-hidden transition-colors duration-500">
+  return <section className="relative min-h-screen pt-24 md:pt-32 px-4 md:px-6 pb-4 md:pb-16 overflow-hidden transition-colors duration-500">
       {/* Light Rays Background Effect */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <LightRays

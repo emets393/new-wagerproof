@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { 
   Target, 
   Brain, 
@@ -11,11 +9,11 @@ import {
   Trophy,
   Zap,
   ArrowRight,
-  BarChart3
+  BarChart3,
+  AlertTriangle
 } from "lucide-react";
 
 export function FeatureDemo() {
-  const [activeFeature, setActiveFeature] = useState<'edge-finder' | 'ai-simulator'>('edge-finder');
 
   const edgeFinderData = {
     game: {
@@ -79,6 +77,32 @@ export function FeatureDemo() {
     ]
   };
 
+  const outliersData = {
+    game: {
+      away_team: 'Cincinnati',
+      home_team: 'New England',
+      spread: '+8.5'
+    },
+    outliers: [
+      {
+        type: 'Spread',
+        public_percentage: 21,
+        model_confidence: 58,
+        discrepancy: 37,
+        recommendation: 'Value Play',
+        team: 'Cincinnati'
+      },
+      {
+        type: 'Total',
+        public_percentage: 65,
+        model_confidence: 35,
+        discrepancy: 30,
+        recommendation: 'Fade Alert',
+        team: 'Under'
+      }
+    ]
+  };
+
   return (
     <section className="py-14 bg-transparent">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -91,61 +115,23 @@ export function FeatureDemo() {
           >
             Professional-Grade Tools
           </motion.h2>
-          <motion.p
-            className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            One of our many tools, use <span className="font-semibold text-green-600 dark:text-green-400">Edge Finder</span> to spot model vs. market discrepancies. <span className="font-semibold text-purple-600 dark:text-purple-400">AI Game Simulator</span> can show matchup outcomes and probabilities.
-          </motion.p>
         </div>
 
-        {/* Feature Toggle */}
-        <motion.div 
-          className="flex justify-center mb-8"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4 }}
-        >
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-1 flex shadow-lg border border-gray-200 dark:border-gray-700">
-            <Button
-              variant={activeFeature === 'edge-finder' ? 'default' : 'ghost'}
-              onClick={() => setActiveFeature('edge-finder')}
-              className={`flex items-center gap-2 text-sm ${
-                activeFeature === 'edge-finder' 
-                  ? 'bg-green-500 hover:bg-green-600 text-white' 
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              <Target className="h-4 w-4" />
-              Edge Finder
-            </Button>
-            <Button
-              variant={activeFeature === 'ai-simulator' ? 'default' : 'ghost'}
-              onClick={() => setActiveFeature('ai-simulator')}
-              className={`flex items-center gap-2 text-sm ${
-                activeFeature === 'ai-simulator' 
-                  ? 'bg-green-500 hover:bg-green-600 text-white' 
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              <Brain className="h-4 w-4" />
-              AI Game Simulator
-            </Button>
-          </div>
-        </motion.div>
-
-        {/* Feature Demos */}
-        <AnimatePresence mode="wait">
-          {activeFeature === 'edge-finder' && (
-            <motion.div
-              key="edge-finder"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="max-w-2xl mx-auto"
-            >
+        {/* Fan Stacked Feature Demos */}
+        <div className="relative flex justify-center items-center min-h-[700px] py-20 overflow-visible px-4" style={{ perspective: '1000px' }}>
+          {/* Edge Finder Card - Left Side */}
+          <motion.div
+            initial={{ opacity: 0, rotate: -12, y: 50, scale: 0.9, x: '-50%' }}
+            animate={{ opacity: 1, rotate: -8, y: 0, scale: 1, x: 'calc(-50% - 200px)' }}
+            transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
+            whileHover={{ rotate: -5, scale: 1.05, z: 50, y: -10 }}
+            className="absolute z-10 w-[380px] max-w-[calc(100vw-2rem)] sm:w-[380px] bottom-0"
+            style={{ 
+              transformStyle: 'preserve-3d',
+              transformOrigin: 'bottom center',
+              left: '50%',
+            }}
+          >
               {/* Mini Edge Finder Demo */}
               <div className="bg-white dark:bg-gray-800 border border-green-500/20 rounded-xl p-6 shadow-xl">
                 <div className="flex items-center gap-2 mb-6">
@@ -228,17 +214,133 @@ export function FeatureDemo() {
                   </ul>
                 </div>
               </div>
-            </motion.div>
-          )}
+          </motion.div>
 
-          {activeFeature === 'ai-simulator' && (
-            <motion.div
-              key="ai-simulator"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="max-w-2xl mx-auto"
-            >
+          {/* Prediction Market Outliers Card - Center */}
+          <motion.div
+            initial={{ opacity: 0, rotate: 0, y: 50, scale: 0.9, x: '-50%' }}
+            animate={{ opacity: 1, rotate: 0, y: 0, scale: 1, x: '-50%' }}
+            transition={{ delay: 0.3, duration: 0.6, ease: "easeOut" }}
+            whileHover={{ rotate: 0, scale: 1.05, z: 50, y: -10 }}
+            className="absolute z-30 w-[380px] max-w-[calc(100vw-2rem)] sm:w-[380px] bottom-0"
+            style={{ 
+              transformStyle: 'preserve-3d',
+              transformOrigin: 'bottom center',
+              left: '50%',
+            }}
+          >
+              {/* Mini Prediction Market Outliers Demo */}
+              <div className="bg-white dark:bg-gray-800 border border-orange-500/20 rounded-xl p-6 shadow-xl">
+                <div className="flex items-center gap-2 mb-6">
+                  <TrendingUp className="h-6 w-6 text-orange-500" />
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Prediction Market Outliers</h3>
+                  <Badge className="bg-orange-500/20 text-orange-600 dark:text-orange-400 text-xs border border-orange-500/30">
+                    Live Demo
+                  </Badge>
+                </div>
+
+                {/* Mini Game Header */}
+                <div className="flex justify-between items-center mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div className="text-center">
+                    <div className="h-10 w-10 mx-auto mb-2 bg-orange-500/20 rounded-full flex items-center justify-center border border-orange-500/30">
+                      <span className="text-sm font-bold text-orange-600 dark:text-orange-400">CIN</span>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Cincinnati</p>
+                  </div>
+                  <span className="text-xl font-bold text-gray-400">@</span>
+                  <div className="text-center">
+                    <div className="h-10 w-10 mx-auto mb-2 bg-blue-500/20 rounded-full flex items-center justify-center border border-blue-500/30">
+                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">NE</span>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">New England</p>
+                  </div>
+                </div>
+
+                {/* Outliers List */}
+                <div className="space-y-3 mb-6">
+                  {outliersData.outliers.map((outlier, index) => (
+                    <div key={index} className={`p-4 rounded-lg border ${
+                      outlier.recommendation === 'Value Play' 
+                        ? 'bg-green-500/10 border-green-500/20' 
+                        : 'bg-red-500/10 border-red-500/20'
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className={`h-4 w-4 ${
+                            outlier.recommendation === 'Value Play' 
+                              ? 'text-green-500' 
+                              : 'text-red-500'
+                          }`} />
+                          <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {outlier.type} Outlier
+                          </span>
+                        </div>
+                        <Badge className={`text-xs ${
+                          outlier.recommendation === 'Value Play' 
+                            ? 'bg-green-500 text-white' 
+                            : 'bg-red-500 text-white'
+                        }`}>
+                          {outlier.recommendation}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        <div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Public Betting</p>
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">{outlier.public_percentage}%</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Model Confidence</p>
+                          <p className={`text-sm font-bold ${
+                            outlier.recommendation === 'Value Play' 
+                              ? 'text-green-600 dark:text-green-400' 
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {outlier.model_confidence}%
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          <span className="font-semibold">{outlier.discrepancy}%</span> discrepancy - {outlier.team} {outlier.type}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Compact Benefits */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BarChart3 className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">Why It's Superior</span>
+                  </div>
+                  <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
+                      <span>Real-time public betting data</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
+                      <span>Contrarian opportunity alerts</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+          </motion.div>
+
+          {/* AI Simulator Card - Right Side */}
+          <motion.div
+            initial={{ opacity: 0, rotate: 12, y: 50, scale: 0.9, x: '-50%' }}
+            animate={{ opacity: 1, rotate: 8, y: 50, scale: 1, x: 'calc(-50% + 200px)' }}
+            transition={{ delay: 0.4, duration: 0.6, ease: "easeOut" }}
+            whileHover={{ rotate: 5, scale: 1.05, z: 50, y: 40 }}
+            className="absolute z-20 w-[380px] max-w-[calc(100vw-2rem)] sm:w-[380px] bottom-0"
+            style={{ 
+              transformStyle: 'preserve-3d',
+              transformOrigin: 'bottom center',
+              left: '50%',
+            }}
+          >
               {/* Mini AI Game Simulator Demo */}
               <div className="bg-white dark:bg-gray-800 border border-purple-500/20 rounded-xl p-6 shadow-xl">
                 <div className="flex items-center gap-2 mb-6">
@@ -325,9 +427,8 @@ export function FeatureDemo() {
                   </ul>
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </motion.div>
+        </div>
       </div>
     </section>
   );

@@ -1,44 +1,32 @@
 
-import React, { useState } from "react";
-import { BarChart3, TrendingUp, Target, Bot } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bot } from "lucide-react";
 import { useInViewAnimation } from "@/hooks/useInViewAnimation";
 import ShineBorder from "@/components/magicui/shine-border";
 import GlassIcon from "@/components/magicui/glass-icon";
+import MicroChat from "@/components/landing/MicroChat";
 
-const steps = [
-  {
-    title: "Analyze Data",
-    description: "Access real-time stats, trends, and matchup analysis powered by professional models",
-    icon: <BarChart3 />,
-    iconColor: "pink",
-    borderColor: ["#ec4899", "#f472b6", "#ec4899"],
-  },
-  {
-    title: "Find Edges",
-    description: "Identify betting opportunities where models disagree with market lines",
-    icon: <TrendingUp />,
-    iconColor: "blue",
-    borderColor: ["#3b82f6", "#60a5fa", "#3b82f6"],
-  },
-  {
-    title: "Make Picks",
-    description: "Get confident predictions with probability breakdowns and risk assessment",
-    icon: <Target />,
-    iconColor: "purple",
-    borderColor: ["#a855f7", "#c084fc", "#a855f7"],
-  },
-  {
-    title: "Useful AI",
-    description: "Our chat assistant uses the real live model data to explain any line, percentage, or rationale to you",
-    icon: <Bot />,
-    iconColor: "green",
-    borderColor: ["#22c55e", "#4ade80", "#22c55e"],
-  },
-];
+const usefulAIStep = {
+  title: "Useful AI",
+  description: "Our chat assistant uses the real live model data to explain any line, percentage, or rationale to you",
+  icon: <Bot />,
+  iconColor: "green",
+  borderColor: ["#22c55e", "#4ade80", "#22c55e"],
+};
 
 const UserJourney = () => {
   const [sectionRef, inView] = useInViewAnimation<HTMLElement>();
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  
+  // Auto-open chat when section comes into view
+  useEffect(() => {
+    if (inView) {
+      const timer = setTimeout(() => {
+        setIsChatOpen(true);
+      }, 2000); // Open after 2 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [inView]);
 
   return (
     <section
@@ -58,71 +46,78 @@ const UserJourney = () => {
           </p>
         </div>
 
-        <div className="relative">
-          {/* Connecting line with gradient and curve */}
-          <svg
-            className="absolute top-1/2 left-0 w-full h-4 -translate-y-1/2 hidden lg:block"
-            preserveAspectRatio="none"
-            viewBox="0 0 1000 20"
-          >
-            <path
-              d="M0,10 C250,30 750,-10 1000,10"
-              fill="none"
-              stroke="url(#gradient)"
-              strokeWidth="2"
-              className={`transition-all duration-1000 ${
-                inView ? "opacity-100" : "opacity-0"
-              }`}
-            />
-            <defs>
-              <linearGradient id="gradient" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#ec4899" />
-                <stop offset="33%" stopColor="#8b5cf6" />
-                <stop offset="66%" stopColor="#6366f1" />
-                <stop offset="100%" stopColor="#22c55e" />
-              </linearGradient>
-            </defs>
-          </svg>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {steps.map((step, idx) => (
-              <div
-                key={step.title}
-                className={`transition-all duration-700 delay-${idx * 100} ${
-                  inView
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-10"
-                }`}
-                onMouseEnter={() => setHoveredIndex(idx)}
-                onMouseLeave={() => setHoveredIndex(null)}
-              >
+        {/* Screenshot Image */}
+        <div className="mb-0">
+          <div className="relative max-w-7xl mx-auto">
+            <div className="relative rounded-lg overflow-visible shadow-2xl bg-gray-100 dark:bg-gray-900 pulse-border-container">
+              <style>{`
+                @keyframes borderPulse {
+                  0%, 100% {
+                    border-color: rgba(34, 197, 94, 0.4);
+                    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+                  }
+                  50% {
+                    border-color: #22c55e;
+                    box-shadow: 0 0 20px 4px rgba(34, 197, 94, 0.6);
+                  }
+                }
+                
+                .pulse-border-container {
+                  animation: borderPulse 2s ease-in-out infinite;
+                  border: 3px solid rgba(34, 197, 94, 0.4) !important;
+                }
+              `}</style>
+              <div className="rounded-lg overflow-hidden relative z-0">
+                <img 
+                  src="/dashscreen.png"
+                  alt="WagerProof Dashboard" 
+                  className="w-full h-auto rounded-lg block"
+                  loading="lazy"
+                />
+              </div>
+              {/* Micro Chat Overlay - Demo Illustration - Desktop only */}
+              <div className="hidden md:block">
+                <MicroChat isOpen={isChatOpen} />
+              </div>
+              
+              {/* Useful AI Feature Container - Bottom Left - Desktop only */}
+              <div className={`hidden md:block absolute bottom-4 left-4 z-20 w-[280px] sm:w-[320px] pointer-events-none transition-all duration-700 ${
+                inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
+              }`}>
                 <ShineBorder
-                  className="h-full w-full bg-white dark:bg-gray-800 hover:shadow-xl transition-all hover:-translate-y-1 duration-300"
+                  className="h-full w-full bg-white dark:bg-gray-800 shadow-xl"
                   borderRadius={16}
                   borderWidth={1}
                   duration={14}
-                  color={step.borderColor}
+                  color={usefulAIStep.borderColor}
                 >
                   <div className="flex flex-col h-full p-3">
                     <div className="mb-4">
                       <GlassIcon
-                        icon={step.icon}
-                        color={step.iconColor}
-                        label={step.title}
+                        icon={usefulAIStep.icon}
+                        color={usefulAIStep.iconColor}
+                        label={usefulAIStep.title}
                         size="md"
-                        isHovered={hoveredIndex === idx}
+                        isHovered={false}
                       />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                      {step.title}
+                      {usefulAIStep.title}
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400 flex-grow">
-                      {step.description}
+                    <p className="text-gray-600 dark:text-gray-400 flex-grow text-sm">
+                      {usefulAIStep.description}
                     </p>
                   </div>
                 </ShineBorder>
               </div>
-            ))}
+            </div>
+            
+            {/* Mobile Chat - Stacked below dashboard on small screens */}
+            <div className="md:hidden mt-4 relative">
+              <div className="relative" style={{ marginTop: '-20px' }}>
+                <MicroChat isOpen={isChatOpen} />
+              </div>
+            </div>
           </div>
         </div>
       </div>

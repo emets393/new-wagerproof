@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2 } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -147,6 +147,11 @@ export const navItems: NavItem[] = [
     page: <BetSlipGrader />,
   },
   {
+    title: "Share Win",
+    to: "/share-win",
+    icon: <Share2 className="h-4 w-4" />,
+  },
+  {
     title: "Learn WagerProof",
     to: "/learn",
     icon: <GraduationCap className="h-4 w-4" />,
@@ -177,6 +182,11 @@ export const navItems: NavItem[] = [
         title: "Announcements",
         to: "/admin/announcements",
         icon: <Megaphone className="h-4 w-4" />,
+      },
+      {
+        title: "User Wins",
+        to: "/admin/user-wins",
+        icon: <Trophy className="h-4 w-4" />,
       },
       {
         title: "AI Settings",

@@ -30,9 +30,11 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
+import UserWinsAdmin from "./pages/admin/UserWinsAdmin";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
+import ShareWin from "./pages/ShareWin";
 import ScoreBoard from "./pages/ScoreBoard";
 import LiveScoreDiagnostics from "./pages/LiveScoreDiagnostics";
 import PolymarketTest from "./pages/PolymarketTest";
@@ -183,6 +185,7 @@ function AppRoutes() {
           <Route path="/scoreboard/diagnostics" element={<ProtectedRoute><LiveScoreDiagnostics /></ProtectedRoute>} />
           <Route path="/today-in-sports" element={<ProtectedRoute allowFreemium={true}><TodayInSports /></ProtectedRoute>} />
           <Route path="/bet-slip-grader" element={<ProtectedRoute><BetSlipGrader /></ProtectedRoute>} />
+          <Route path="/share-win" element={<ProtectedRoute><ShareWin /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
           <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} />
           <Route path="/community-voting" element={<ProtectedRoute><CommunityVoting /></ProtectedRoute>} />
@@ -193,6 +196,7 @@ function AppRoutes() {
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
           <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
+          <Route path="/admin/user-wins" element={<ProtectedRoute><UserWinsAdmin /></ProtectedRoute>} />
           <Route path="/admin/announcements" element={<ProtectedRoute><AdminAnnouncements /></ProtectedRoute>} />
           <Route path="/admin/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
           <Route path="/admin/today-in-sports" element={<ProtectedRoute><TodayInSportsAdmin /></ProtectedRoute>} />

@@ -37,11 +37,10 @@ const NavBar = () => {
   // Scrolled: only slightly more narrow for a more subtle change
   // Example: Unscrolled (w-[98vw] max-w-4xl mx-auto mt-4), Scrolled (w-[94vw] max-w-2xl mx-auto mt-4)
   const unscrolledClasses = "mx-auto mt-4 w-[98vw] max-w-4xl bg-white/10 dark:bg-gray-900/10 border-none backdrop-blur-0 shadow-none";
-  const scrolledClasses = "mx-auto mt-4 w-[96vw] max-w-[68rem] bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl shadow-2xl border-none animate-fade-in";
+  const scrolledClasses = "mx-auto mt-4 w-[96vw] max-w-[68rem] bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border-none animate-fade-in";
   return <nav className={"top-0 left-0 right-0 z-50 transition-all duration-300 fixed" + (scrolled ? ` ${scrolledClasses}` : ` ${unscrolledClasses}`)} style={{
     padding: navPadding,
     borderRadius: borderRadius,
-    boxShadow: scrolled ? "0 8px 36px 0 rgba(115,182,158,0.13), 0 2px 12px 0 #e0f2e9" : undefined,
     marginTop: scrolled ? undefined : 0,
     transition: "all 0.35s cubic-bezier(0.35,0.85,0.4,1)"
   }}>
@@ -126,7 +125,7 @@ const NavBar = () => {
             </button>
           </div>
         </div>
-        {isMenuOpen && <div className="md:hidden py-3 px-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 animate-fade-in shadow-xl" style={{
+        {isMenuOpen && <div className="md:hidden py-3 px-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 animate-fade-in" style={{
         borderRadius: `0 0 ${borderRadius} ${borderRadius}`
       }}>
             <div className="flex flex-col space-y-2">

@@ -33,13 +33,15 @@ interface CFBMiniCardProps {
   awayTeamColors: { primary: string; secondary: string };
   homeTeamColors: { primary: string; secondary: string };
   getTeamLogo: (teamName: string) => string;
+  cardIndex?: number;
 }
 
 export default function CFBMiniCard({ 
   prediction, 
   awayTeamColors, 
   homeTeamColors, 
-  getTeamLogo 
+  getTeamLogo,
+  cardIndex = 0
 }: CFBMiniCardProps) {
   
   const formatMoneyline = (ml: number | null): string => {
@@ -147,27 +149,27 @@ export default function CFBMiniCard({
 
   return (
     <div 
-      className="relative rounded-2xl p-[2px] hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden"
+      className="relative rounded-xl md:rounded-2xl p-[2px] hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden"
       style={{
         background: auroraStyle.borderImage || 'linear-gradient(45deg, #73b69e, #a8d5ba)'
       }}
     >
       <div 
-        className="relative rounded-2xl p-4 w-full h-full overflow-hidden"
+        className="relative rounded-xl md:rounded-2xl p-2 md:p-4 w-full h-full overflow-hidden"
         style={{
           background: auroraStyle.background
         }}
       >
       {/* Subtle aurora overlay effect */}
       <div 
-        className="absolute inset-0 rounded-2xl opacity-20 pointer-events-none"
+        className="absolute inset-0 rounded-xl md:rounded-2xl opacity-20 pointer-events-none"
         style={{
           background: `radial-gradient(circle at 30% 20%, ${awayTeamColors.primary}20 0%, transparent 50%), 
                       radial-gradient(circle at 70% 80%, ${homeTeamColors.primary}20 0%, transparent 50%)`
         }}
       />
       
-      <div className="relative z-10 space-y-3">
+      <div className="relative z-10 space-y-2 md:space-y-3">
         {/* Game Time */}
         <div className="text-center">
           <div className="text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -178,17 +180,17 @@ export default function CFBMiniCard({
         {/* Teams Row */}
         <div className="flex items-center justify-between">
           {/* Away Team */}
-          <div className="flex items-center space-x-2 flex-1">
+          <div className="flex items-center space-x-1 md:space-x-2 flex-1">
             {getTeamLogo(prediction.away_team) && (
               <img 
                 src={getTeamLogo(prediction.away_team)} 
                 alt={`${prediction.away_team} logo`}
-                className="h-10 w-10 drop-shadow-sm"
+                className="h-6 w-6 md:h-10 md:w-10 drop-shadow-sm"
               />
             )}
             <div className="min-w-0 flex-1">
               <div 
-                className="text-sm font-bold truncate"
+                className="text-xs md:text-sm font-bold truncate"
                 style={{ color: awayTeamColors.primary }}
               >
                 {getTeamAcronym(prediction.away_team)}
@@ -197,15 +199,15 @@ export default function CFBMiniCard({
           </div>
 
           {/* @ Symbol */}
-          <div className="px-2">
-            <span className="text-lg font-bold text-gray-400 dark:text-gray-500">@</span>
+          <div className="px-1 md:px-2">
+            <span className="text-sm md:text-lg font-bold text-gray-400 dark:text-gray-500">@</span>
           </div>
 
           {/* Home Team */}
-          <div className="flex items-center space-x-2 flex-1 justify-end">
+          <div className="flex items-center space-x-1 md:space-x-2 flex-1 justify-end">
             <div className="min-w-0 flex-1 text-right">
               <div 
-                className="text-sm font-bold truncate"
+                className="text-xs md:text-sm font-bold truncate"
                 style={{ color: homeTeamColors.primary }}
               >
                 {getTeamAcronym(prediction.home_team)}
@@ -215,46 +217,46 @@ export default function CFBMiniCard({
               <img 
                 src={getTeamLogo(prediction.home_team)} 
                 alt={`${prediction.home_team} logo`}
-                className="h-10 w-10 drop-shadow-sm"
+                className="h-6 w-6 md:h-10 md:w-10 drop-shadow-sm"
               />
             )}
           </div>
         </div>
 
         {/* Betting Lines */}
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="grid grid-cols-3 gap-1 md:gap-2 text-center">
           {/* Away ML & Spread */}
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-blue-600 dark:text-blue-400">
+          <div className="space-y-0.5 md:space-y-1">
+            <div className="text-[10px] md:text-xs font-medium text-blue-600 dark:text-blue-400">
               {formatMoneyline(prediction.away_moneyline || prediction.away_ml)}
             </div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+            <div className="text-[10px] md:text-xs font-medium text-gray-700 dark:text-gray-300">
               {formatSpread(prediction.api_spread ? -prediction.api_spread : null)}
             </div>
           </div>
 
           {/* Total */}
-          <div className="space-y-1">
-            <div className="text-xs font-bold text-gray-600 dark:text-gray-400">Total</div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+          <div className="space-y-0.5 md:space-y-1">
+            <div className="text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400">Total</div>
+            <div className="text-[10px] md:text-xs font-medium text-gray-700 dark:text-gray-300">
               {prediction.api_over_line || prediction.total_line || '-'}
             </div>
           </div>
 
           {/* Home ML & Spread */}
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-green-600 dark:text-green-400">
+          <div className="space-y-0.5 md:space-y-1">
+            <div className="text-[10px] md:text-xs font-medium text-green-600 dark:text-green-400">
               {formatMoneyline(prediction.home_moneyline || prediction.home_ml)}
             </div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+            <div className="text-[10px] md:text-xs font-medium text-gray-700 dark:text-gray-300">
               {formatSpread(prediction.api_spread)}
             </div>
           </div>
         </div>
 
-        {/* Model Confidence Indicator */}
+        {/* Model Confidence Indicator - Hidden on mobile */}
         {modelConfidence > 0 && (
-          <div className="flex justify-center">
+          <div className="hidden md:flex justify-center">
             <div className="px-3 py-1 rounded-full bg-background/80 backdrop-blur-sm border border-primary/20">
               <div className="text-xs font-bold text-foreground">
                 Model Confidence: {modelConfidence}%
@@ -263,9 +265,9 @@ export default function CFBMiniCard({
           </div>
         )}
 
-        {/* Mini Model Predictions */}
+        {/* Mini Model Predictions - Hidden on mobile */}
         {(spreadEdge || ouEdge) && (
-          <div className="grid grid-cols-2 gap-2 text-center">
+          <div className="hidden md:grid grid-cols-2 gap-2 text-center">
             {/* Spread Edge */}
             {spreadEdge && (
               <div className="bg-background/60 backdrop-blur-sm rounded-lg p-2 border border-border/50">
@@ -290,22 +292,54 @@ export default function CFBMiniCard({
 
         {/* Premium Features Preview - Blurred Mockups */}
         <div className="space-y-2">
-          <div className="text-center">
+          <div className="text-center hidden md:block">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Model Predictions
             </div>
           </div>
           
-          {/* Blurred Feature Tiles */}
+          {/* Blurred Feature Tiles - Different feature per card on mobile, all on desktop */}
           <div className="grid grid-cols-1 gap-2 relative">
-            {/* Edge Analysis Mockup */}
-            <div className="relative overflow-hidden rounded-lg border border-border/30">
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 p-3">
+            {/* Edge Analysis Mockup - Show on card 0 (mobile) or always (desktop) */}
+            <div className={`relative overflow-hidden rounded-lg border border-border/30 ${cardIndex !== 0 ? 'hidden md:block' : ''}`}>
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 p-2 md:p-3">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium text-muted-foreground">Edge Analysis</div>
-                  <div className="text-xs font-bold text-blue-600 dark:text-blue-400">+2.3 pts</div>
+                  <div className="text-[10px] md:text-xs font-medium text-muted-foreground">Edge Analysis</div>
+                  <div className="text-[10px] md:text-xs font-bold text-blue-600 dark:text-blue-400">+2.3 pts</div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Advanced model edge detection</div>
+                <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">Advanced model edge detection</div>
+              </div>
+              {/* Progressive blur overlay */}
+              <div 
+                className="absolute inset-0 overflow-hidden pointer-events-none" 
+                style={{ 
+                  borderRadius: '0.5rem',
+                  WebkitMask: 'radial-gradient(circle, white 100%, transparent 100%)',
+                  mask: 'radial-gradient(circle, white 100%, transparent 100%)'
+                }}
+              >
+                <BlurEffect
+                  position="right"
+                  intensity={120}
+                  className="bg-gradient-to-r from-transparent via-white/20 to-white/80 dark:via-black/20 dark:to-black/80 w-3/5 pointer-events-none"
+                />
+              </div>
+              {/* Lock icon - positioned on top */}
+              <div className="absolute top-1 right-1 md:top-2 md:right-2 z-10 pointer-events-none">
+                <div className="bg-white/90 dark:bg-black/90 backdrop-blur-sm rounded-full p-1 md:p-1.5 shadow-lg border border-white/20 dark:border-black/20">
+                  <Lock className="w-2 h-2 md:w-3 md:h-3 text-gray-700 dark:text-gray-300" />
+                </div>
+              </div>
+            </div>
+
+            {/* Public Split Mockup - Show on card 1 (mobile) or always (desktop) */}
+            <div className={`relative overflow-hidden rounded-lg border border-border/30 ${cardIndex !== 1 ? 'hidden md:block' : ''}`}>
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 p-2 md:p-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] md:text-xs font-medium text-muted-foreground">Public Split</div>
+                  <div className="text-[10px] md:text-xs font-bold text-green-600 dark:text-green-400">73% / 27%</div>
+                </div>
+                <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">Sharp vs public money flow</div>
               </div>
               {/* Progressive blur overlay */}
               <div 
@@ -330,46 +364,14 @@ export default function CFBMiniCard({
               </div>
             </div>
 
-            {/* Public Split Mockup */}
-            <div className="relative overflow-hidden rounded-lg border border-border/30">
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 p-3">
+            {/* Simulate Game Mockup - Show on cards 2 & 3 (mobile) or always (desktop) */}
+            <div className={`relative overflow-hidden rounded-lg border border-border/30 ${cardIndex !== 2 && cardIndex !== 3 ? 'hidden md:block' : ''}`}>
+              <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 p-2 md:p-3">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium text-muted-foreground">Public Split</div>
-                  <div className="text-xs font-bold text-green-600 dark:text-green-400">73% / 27%</div>
+                  <div className="text-[10px] md:text-xs font-medium text-muted-foreground">Simulate Game</div>
+                  <div className="text-[10px] md:text-xs font-bold text-orange-600 dark:text-orange-400">28 - 21</div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Sharp vs public money flow</div>
-              </div>
-              {/* Progressive blur overlay */}
-              <div 
-                className="absolute inset-0 overflow-hidden pointer-events-none" 
-                style={{ 
-                  borderRadius: '0.5rem',
-                  WebkitMask: 'radial-gradient(circle, white 100%, transparent 100%)',
-                  mask: 'radial-gradient(circle, white 100%, transparent 100%)'
-                }}
-              >
-                <BlurEffect
-                  position="right"
-                  intensity={120}
-                  className="bg-gradient-to-r from-transparent via-white/20 to-white/80 dark:via-black/20 dark:to-black/80 w-3/5 pointer-events-none"
-                />
-              </div>
-              {/* Lock icon - positioned on top */}
-              <div className="absolute top-2 right-2 z-10 pointer-events-none">
-                <div className="bg-white/90 dark:bg-black/90 backdrop-blur-sm rounded-full p-1.5 shadow-lg border border-white/20 dark:border-black/20">
-                  <Lock className="w-3 h-3 text-gray-700 dark:text-gray-300" />
-                </div>
-              </div>
-            </div>
-
-            {/* Simulate Game Mockup */}
-            <div className="relative overflow-hidden rounded-lg border border-border/30">
-              <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 p-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium text-muted-foreground">Simulate Game</div>
-                  <div className="text-xs font-bold text-orange-600 dark:text-orange-400">28 - 21</div>
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">AI game simulation results</div>
+                <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">AI game simulation results</div>
               </div>
               {/* Progressive blur overlay */}
               <div 

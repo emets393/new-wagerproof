@@ -15,8 +15,33 @@ import { SEO } from "@/components/landing/SEO";
 import { StructuredData } from "@/components/landing/StructuredData";
 import FloatingThemeToggle from "@/components/FloatingThemeToggle";
 
+import UserWinsSection from "@/components/landing/UserWinsSection";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
 const NewLanding = () => {
   useRandomNotifications();
+  
+  const { data: showUserWins, isLoading: isLoadingSettings } = useQuery({
+    queryKey: ['landing-show-user-wins'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('show_user_wins_section')
+        .single();
+      
+      if (error) {
+        console.error('Error fetching show_user_wins_section:', error);
+        return false;
+      }
+      const result = (data as any)?.show_user_wins_section || false;
+      console.log('show_user_wins_section value:', result);
+      return result;
+    },
+    staleTime: 0, // Always refetch
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
+  });
 
   // Ensure page always loads at the top
   useEffect(() => {
@@ -87,6 +112,8 @@ const NewLanding = () => {
       <div className="space-y-6">
         <RecipeImport />
         <FeatureDemo />
+        {/* Debug: showUserWins = {String(showUserWins)}, isLoadingSettings = {String(isLoadingSettings)} */}
+        {showUserWins === true && <UserWinsSection />}
         <UserJourney />
         <CompetitorComparison />
         <Testimonials />
