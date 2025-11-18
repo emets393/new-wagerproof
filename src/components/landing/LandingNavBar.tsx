@@ -37,7 +37,7 @@ const NavBar = () => {
   // Scrolled: only slightly more narrow for a more subtle change
   // Example: Unscrolled (w-[98vw] max-w-4xl mx-auto mt-4), Scrolled (w-[94vw] max-w-2xl mx-auto mt-4)
   const unscrolledClasses = "mx-auto mt-4 w-[98vw] max-w-4xl bg-white/10 dark:bg-gray-900/10 border-none backdrop-blur-0 shadow-none";
-  const scrolledClasses = "mx-auto mt-4 w-[96vw] max-w-[68rem] bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border-none animate-fade-in";
+  const scrolledClasses = "mx-auto mt-4 w-[96vw] max-w-[68rem] bg-white/40 dark:bg-gray-900/40 backdrop-blur-2xl border-none animate-fade-in";
   return <nav className={"top-0 left-0 right-0 z-50 transition-all duration-300 fixed" + (scrolled ? ` ${scrolledClasses}` : ` ${unscrolledClasses}`)} style={{
     padding: navPadding,
     borderRadius: borderRadius,

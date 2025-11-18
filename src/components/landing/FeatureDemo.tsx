@@ -137,9 +137,6 @@ export function FeatureDemo() {
                 <div className="flex items-center gap-2 mb-6">
                   <Target className="h-6 w-6 text-green-500" />
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">Edge Finder</h3>
-                  <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 text-xs border border-green-500/30">
-                    Live Demo
-                  </Badge>
                 </div>
 
                 {/* Mini Game Header */}
@@ -234,9 +231,6 @@ export function FeatureDemo() {
                 <div className="flex items-center gap-2 mb-6">
                   <TrendingUp className="h-6 w-6 text-orange-500" />
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">Prediction Market Outliers</h3>
-                  <Badge className="bg-orange-500/20 text-orange-600 dark:text-orange-400 text-xs border border-orange-500/30">
-                    Live Demo
-                  </Badge>
                 </div>
 
                 {/* Mini Game Header */}
@@ -346,9 +340,6 @@ export function FeatureDemo() {
                 <div className="flex items-center gap-2 mb-6">
                   <Brain className="h-6 w-6 text-purple-500" />
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">AI Game Simulator</h3>
-                  <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs border border-purple-500/30">
-                    Live Demo
-                  </Badge>
                 </div>
 
                 {/* Mini Consensus Prediction */}
