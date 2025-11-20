@@ -52,6 +52,7 @@ import { MinimalHeader } from "./components/MinimalHeader";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LiveScoreTicker } from "./components/LiveScoreTicker";
 import { AnnouncementsBanner } from "./components/AnnouncementsBanner";
+import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
 
 // Configure React Query with optimized caching
 const queryClient = new QueryClient({
@@ -210,27 +211,29 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <HelmetProvider>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <ScrollToTop />
-            <MixpanelStatusCheck />
-            <AuthProvider>
-              <RevenueCatProvider>
-                <AdminModeProvider>
-                  <AppRoutes />
-                </AdminModeProvider>
-              </RevenueCatProvider>
-            </AuthProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  </HelmetProvider>
+  <GlobalErrorBoundary>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <ScrollToTop />
+              <MixpanelStatusCheck />
+              <AuthProvider>
+                <RevenueCatProvider>
+                  <AdminModeProvider>
+                    <AppRoutes />
+                  </AdminModeProvider>
+                </RevenueCatProvider>
+              </AuthProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
+  </GlobalErrorBoundary>
 );
 
 export default App;

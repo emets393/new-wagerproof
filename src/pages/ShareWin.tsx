@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Upload, CheckCircle2, Trophy, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Upload, CheckCircle2, Trophy, Trash2, Coffee, Heart, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import debug from "@/utils/debug";
@@ -26,6 +27,7 @@ export default function ShareWin() {
   const [isPublic, setIsPublic] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTipJarPrompt, setShowTipJarPrompt] = useState(false);
 
   // Fetch user's past uploads
   const { data: myWins, isLoading: isLoadingWins } = useQuery({
@@ -148,6 +150,9 @@ export default function ShareWin() {
       setIsPublic(true);
       queryClient.invalidateQueries({ queryKey: ['my-wins'] });
       
+      // Show tip jar prompt after successful submission
+      setShowTipJarPrompt(true);
+      
     } catch (err: any) {
       debug.error("Error sharing win:", err);
       setError(err.message || "Failed to submit your win. Please try again.");
@@ -158,6 +163,53 @@ export default function ShareWin() {
 
   return (
     <div className="container max-w-4xl mx-auto py-8 px-4 space-y-8">
+      {/* Tip Jar Prompt Dialog */}
+      <Dialog open={showTipJarPrompt} onOpenChange={setShowTipJarPrompt}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 dark:from-primary/30 dark:to-primary/20 flex items-center justify-center">
+                <Coffee className="w-8 h-8 text-primary" />
+              </div>
+            </div>
+            <DialogTitle className="text-center text-2xl">Congratulations on Your Win! 🎉</DialogTitle>
+            <DialogDescription className="text-center text-base pt-2">
+              We're thrilled to celebrate your success with you!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <p className="text-sm text-muted-foreground text-center">
+              If WagerProof helped you hit this win, consider leaving a tip to support our development team. 
+              Every tip helps us build more amazing features for you!
+            </p>
+            <div className="flex items-center justify-center gap-1 pt-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-primary">Totally optional, but greatly appreciated!</span>
+              <Sparkles className="w-4 h-4 text-primary" />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowTipJarPrompt(false)}
+              className="w-full sm:w-auto"
+            >
+              Maybe Later
+            </Button>
+            <Button
+              onClick={() => {
+                setShowTipJarPrompt(false);
+                navigate('/tip-jar');
+              }}
+              className="w-full sm:w-auto"
+            >
+              <Heart className="w-4 h-4 mr-2" />
+              Visit Tip Jar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Upload Section */}
       <div className="max-w-2xl mx-auto">
         <Card className="border-green-500/20 shadow-lg bg-card/50 backdrop-blur-sm">

@@ -1383,28 +1383,30 @@ ${contextParts}
                           
                           // Always try to show logo first, fallback to circle if it fails
                           return (
-                            <div className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden bg-white dark:bg-gray-800"
-                              style={{
+                            <div className={`h-16 w-16 sm:h-20 sm:w-20 mx-auto mb-2 sm:mb-3 flex items-center justify-center transition-transform duration-200 hover:scale-105 ${!hasLogo ? 'rounded-full border-2 shadow-lg overflow-hidden bg-white dark:bg-gray-800' : ''}`}
+                              style={!hasLogo ? {
                                 borderColor: `${awayTeamColors.primary}`,
-                                background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`
-                              }}
+                                background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`
+                              } : {}}
                             >
                               {hasLogo ? (
                                 <img 
                                   src={logoUrl} 
                                   alt={prediction.away_team}
-                                  className="w-full h-full object-contain p-1"
+                                  className="w-full h-full object-contain"
                                   onError={(e) => {
                                     // Fallback to circle with initials if image fails to load
                                     const target = e.target as HTMLImageElement;
                                     target.style.display = 'none';
                                     const parent = target.parentElement;
                                     if (parent && !parent.querySelector('.fallback-initials')) {
+                                      parent.className = parent.className + ' rounded-full border-2 shadow-lg overflow-hidden bg-white dark:bg-gray-800';
                                       const fallback = document.createElement('span');
                                       fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
                                       fallback.style.color = getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary);
                                       fallback.textContent = getTeamInitials(prediction.away_team, prediction.away_team_id);
                                       parent.style.background = `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.secondary})`;
+                                      parent.style.borderColor = `${awayTeamColors.primary}`;
                                       parent.appendChild(fallback);
                                     }
                                   }}
@@ -1455,28 +1457,30 @@ ${contextParts}
                           
                           // Always try to show logo first, fallback to circle if it fails
                           return (
-                            <div className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-2 sm:mb-3 rounded-full flex items-center justify-center border-2 transition-transform duration-200 hover:scale-105 shadow-lg overflow-hidden bg-white dark:bg-gray-800"
-                              style={{
+                            <div className={`h-16 w-16 sm:h-20 sm:w-20 mx-auto mb-2 sm:mb-3 flex items-center justify-center transition-transform duration-200 hover:scale-105 ${!hasLogo ? 'rounded-full border-2 shadow-lg overflow-hidden bg-white dark:bg-gray-800' : ''}`}
+                              style={!hasLogo ? {
                                 borderColor: `${homeTeamColors.primary}`,
-                                background: hasLogo ? 'transparent' : `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`
-                              }}
+                                background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`
+                              } : {}}
                             >
                               {hasLogo ? (
                                 <img 
                                   src={logoUrl} 
                                   alt={prediction.home_team}
-                                  className="w-full h-full object-contain p-1"
+                                  className="w-full h-full object-contain"
                                   onError={(e) => {
                                     // Fallback to circle with initials if image fails to load
                                     const target = e.target as HTMLImageElement;
                                     target.style.display = 'none';
                                     const parent = target.parentElement;
                                     if (parent && !parent.querySelector('.fallback-initials')) {
+                                      parent.className = parent.className + ' rounded-full border-2 shadow-lg overflow-hidden bg-white dark:bg-gray-800';
                                       const fallback = document.createElement('span');
                                       fallback.className = 'text-xs sm:text-sm font-bold drop-shadow-md fallback-initials';
                                       fallback.style.color = getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary);
                                       fallback.textContent = getTeamInitials(prediction.home_team, prediction.home_team_id);
                                       parent.style.background = `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`;
+                                      parent.style.borderColor = `${homeTeamColors.primary}`;
                                       parent.appendChild(fallback);
                                     }
                                   }}
