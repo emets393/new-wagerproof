@@ -40,6 +40,7 @@ import LiveScoreDiagnostics from "./pages/LiveScoreDiagnostics";
 import PolymarketTest from "./pages/PolymarketTest";
 import MobileApp from "./pages/MobileApp";
 import TodayInSports from "./pages/TodayInSports";
+import TipJar from "./pages/TipJar";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
@@ -186,6 +187,7 @@ function AppRoutes() {
           <Route path="/today-in-sports" element={<ProtectedRoute allowFreemium={true}><TodayInSports /></ProtectedRoute>} />
           <Route path="/bet-slip-grader" element={<ProtectedRoute><BetSlipGrader /></ProtectedRoute>} />
           <Route path="/share-win" element={<ProtectedRoute><ShareWin /></ProtectedRoute>} />
+          <Route path="/tip-jar" element={<ProtectedRoute><TipJar /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
           <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} />
           <Route path="/community-voting" element={<ProtectedRoute><CommunityVoting /></ProtectedRoute>} />

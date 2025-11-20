@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2 } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -19,6 +19,7 @@ import Discord from "./pages/Discord";
 import ScoreBoard from "./pages/ScoreBoard";
 import MobileApp from "./pages/MobileApp";
 import CommunityVoting from "./pages/CommunityVoting";
+import TipJar from "./pages/TipJar";
 
 export interface NavItem {
   title: string;
@@ -118,21 +119,32 @@ export const navItems: NavItem[] = [
     isHeader: true,
   },
   {
+    title: "Discord Channel",
+    to: "/discord",
+    icon: <DiscordLogo className="h-4 w-4" weight="fill" />,
+    page: <Discord />,
+  },
+  {
     title: "Community Picks",
     to: "/community-voting",
     icon: <Users className="h-4 w-4" />,
     page: <CommunityVoting />,
   },
   {
+    title: "Share Win",
+    to: "/share-win",
+    icon: <Share2 className="h-4 w-4" />,
+  },
+  {
+    title: "Tip Jar",
+    to: "/tip-jar",
+    icon: <Coffee className="h-4 w-4" />,
+    page: <TipJar />,
+  },
+  {
     title: "Feature Requests",
     to: "/feature-requests",
     icon: <MessageSquare className="h-4 w-4" />,
-  },
-  {
-    title: "Discord Channel",
-    to: "/discord",
-    icon: <DiscordLogo className="h-4 w-4" weight="fill" />,
-    page: <Discord />,
   },
   {
     title: "iOS/Android App",
@@ -145,11 +157,6 @@ export const navItems: NavItem[] = [
     to: "/bet-slip-grader",
     icon: <FileImage className="h-4 w-4" />,
     page: <BetSlipGrader />,
-  },
-  {
-    title: "Share Win",
-    to: "/share-win",
-    icon: <Share2 className="h-4 w-4" />,
   },
   {
     title: "Learn WagerProof",
