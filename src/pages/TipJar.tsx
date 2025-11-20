@@ -42,7 +42,17 @@ export default function TipJar() {
             clearInterval(interval);
             // Redirect to Stripe after countdown
             setTimeout(() => {
-              window.open(stripeUrl, '_blank', 'noopener,noreferrer');
+              // Check if running as PWA or mobile app
+              const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                           (window.navigator as any).standalone === true ||
+                           document.referrer.includes('android-app://');
+              
+              // Use window.location.href for PWA/mobile to force redirect to external browser
+              if (isPWA || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                window.location.href = stripeUrl;
+              } else {
+                window.open(stripeUrl, '_blank', 'noopener,noreferrer');
+              }
               setShowThankYou(false);
               setPendingStripeUrl(null);
               setCountdown(null);
@@ -69,7 +79,17 @@ export default function TipJar() {
       setShowThankYou(true);
     } else if (url) {
       // If confetti hasn't loaded yet, just redirect
-      window.open(url, '_blank', 'noopener,noreferrer');
+      // Check if running as PWA or mobile app
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                   (window.navigator as any).standalone === true ||
+                   document.referrer.includes('android-app://');
+      
+      // Use window.location.href for PWA/mobile to force redirect to external browser
+      if (isPWA || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        window.location.href = url;
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
     }
   };
 
@@ -180,7 +200,7 @@ export default function TipJar() {
 
         {/* Main Card */}
         <Card className="w-full max-w-3xl">
-          <CardHeader className="text-center space-y-2 sm:space-y-3 px-0 sm:px-6 pt-4 sm:pt-6">
+          <CardHeader className="text-center space-y-2 sm:space-y-3 px-4 sm:px-6 pt-4 sm:pt-6">
             <div className="flex items-center justify-center gap-2">
               <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-bold">Tip Jar</CardTitle>
               <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-red-500 fill-red-500" />
@@ -189,13 +209,13 @@ export default function TipJar() {
               Help us keep building amazing features for you!
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 sm:space-y-6 md:space-y-8 px-0 sm:px-6 pb-4 sm:pb-6">
+          <CardContent className="space-y-4 sm:space-y-6 md:space-y-8 px-4 sm:px-6 pb-4 sm:pb-6">
             {/* Appreciative Message */}
             <div className="text-center space-y-2">
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                 Did we help you hit a big win? 🎉
               </p>
-              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed sm:px-2">
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed px-2">
                 Your support means the world to us and helps us continue improving WagerProof. 
                 Every tip goes directly to our development team to build more features, fix bugs, 
                 and make your betting experience even better.
@@ -269,7 +289,7 @@ export default function TipJar() {
         </Card>
 
         {/* Footer Note */}
-        <p className="text-[10px] sm:text-xs text-muted-foreground text-center max-w-md px-0 sm:px-4">
+        <p className="text-[10px] sm:text-xs text-muted-foreground text-center max-w-md px-4">
           Tips are processed securely through Stripe. All tips go directly to supporting WagerProof development.
         </p>
       </div>
