@@ -30,6 +30,7 @@ interface EditorPick {
   is_published: boolean;
   created_at: string;
   updated_at: string;
+  betslip_links?: Record<string, string> | null;
 }
 
 interface GameData {

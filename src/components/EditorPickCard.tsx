@@ -13,6 +13,7 @@ import { useAdminMode } from '@/contexts/AdminModeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import Aurora from '@/components/magicui/aurora';
 import { getNFLTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { SportsbookButtons } from '@/components/SportsbookButtons';
 
 interface EditorPickCardProps {
   pick: {
@@ -23,6 +24,7 @@ interface EditorPickCardProps {
     editors_notes: string | null;
     is_published: boolean;
     editor_id: string;
+    betslip_links?: Record<string, string> | null; // JSONB from database
   };
   gameData: {
     away_team: string;
@@ -723,6 +725,26 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
               <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                 <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 mb-1.5 sm:mb-2">Analysis</h4>
                 <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{notes}</p>
+              </div>
+            )}
+
+            {/* Sportsbook Buttons */}
+            {pick.is_published && (
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                <SportsbookButtons
+                  pickId={pick.id}
+                  gameType={pick.game_type}
+                  awayTeam={gameData.away_team}
+                  homeTeam={gameData.home_team}
+                  selectedBetType={pick.selected_bet_type}
+                  awaySpread={gameData.away_spread}
+                  homeSpread={gameData.home_spread}
+                  overLine={gameData.over_line}
+                  awayMl={gameData.away_ml}
+                  homeMl={gameData.home_ml}
+                  existingLinks={pick.betslip_links || null}
+                  onLinksUpdated={onUpdate}
+                />
               </div>
             )}
 
