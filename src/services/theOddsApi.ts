@@ -16,6 +16,10 @@ if (!API_KEY) {
   throw new Error('VITE_THE_ODDS_API_KEY environment variable is required');
 }
 
+// Request deduplication: Prevent multiple components from making the same API call simultaneously
+// This is like a "loading lock" - if someone is already fetching NBA odds, others wait for that result
+const activeRequests = new Map<string, Promise<OddsApiResponse>>();
+
 export interface OddsApiEvent {
   id: string;
   sport_key: string;
@@ -87,6 +91,16 @@ export async function fetchOdds(
     }
   }
 
+  // Request deduplication: Check if another component is already fetching this sport
+  // This prevents 5 picks from making 5 simultaneous API calls for the same sport
+  const requestKey = `${sportKey}-${bookmakers.join(',')}`;
+  const existingRequest = activeRequests.get(requestKey);
+  
+  if (existingRequest) {
+    console.log(`⏳ Waiting for existing API request for ${sportKey}... (preventing duplicate call)`);
+    return existingRequest;
+  }
+
   const url = `${THE_ODDS_API_BASE}/sports/${sportKey}/odds`;
   const params = new URLSearchParams({
     regions: 'us',
@@ -96,9 +110,11 @@ export async function fetchOdds(
     includeLinks: 'true', // Include betslip links in response
   });
 
-  try {
-    console.log(`📡 Fetching odds from API for ${sportKey}...`);
-    const response = await fetch(`${url}?${params.toString()}`);
+  // Create the request promise and store it
+  const requestPromise = (async () => {
+    try {
+      console.log(`📡 Fetching odds from API for ${sportKey}...`);
+      const response = await fetch(`${url}?${params.toString()}`);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -122,27 +138,36 @@ export async function fetchOdds(
       throw error;
     }
 
-    const events = await response.json();
-    const rateLimitRemaining = response.headers.get('x-requests-remaining');
-    const rateLimitUsed = response.headers.get('x-requests-used');
+      const events = await response.json();
+      const rateLimitRemaining = response.headers.get('x-requests-remaining');
+      const rateLimitUsed = response.headers.get('x-requests-used');
 
-    const eventsArray = Array.isArray(events) ? events : [];
-    
-    // Cache the results
-    if (useCache && eventsArray.length > 0) {
-      setCachedOdds(sportKey, eventsArray);
-      console.log(`💾 Cached odds for ${sportKey} (${eventsArray.length} events)`);
+      const eventsArray = Array.isArray(events) ? events : [];
+      
+      // Cache the results
+      if (useCache && eventsArray.length > 0) {
+        setCachedOdds(sportKey, eventsArray);
+        console.log(`💾 Cached odds for ${sportKey} (${eventsArray.length} events)`);
+      }
+
+      return {
+        events: eventsArray,
+        rateLimitRemaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : undefined,
+        rateLimitUsed: rateLimitUsed ? parseInt(rateLimitUsed, 10) : undefined,
+      };
+    } catch (error) {
+      console.error('Error fetching odds from The Odds API:', error);
+      throw error;
+    } finally {
+      // Clean up: Remove the request from active requests after it completes (success or failure)
+      activeRequests.delete(requestKey);
     }
+  })();
 
-    return {
-      events: eventsArray,
-      rateLimitRemaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : undefined,
-      rateLimitUsed: rateLimitUsed ? parseInt(rateLimitUsed, 10) : undefined,
-    };
-  } catch (error) {
-    console.error('Error fetching odds from The Odds API:', error);
-    throw error;
-  }
+  // Store the promise so other components can wait for it
+  activeRequests.set(requestKey, requestPromise);
+  
+  return requestPromise;
 }
 
 /**

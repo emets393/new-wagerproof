@@ -3,7 +3,7 @@
  * Displays top 5 sportsbooks as buttons and additional sportsbooks in a dropdown
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -51,6 +51,10 @@ export function SportsbookButtons({
   const [loading, setLoading] = useState(false);
   const [betslipLinks, setBetslipLinks] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  
+  // Track if we've already saved links to prevent duplicate saves
+  const hasSavedLinks = useRef(false);
+  const hasAttemptedFetch = useRef(false);
 
   // Determine which team/line to use based on bet type
   const getBetDetails = () => {
@@ -83,6 +87,14 @@ export function SportsbookButtons({
         setLoading(false);
         return;
       }
+
+      // Prevent duplicate fetches - only fetch once per component mount
+      if (hasAttemptedFetch.current) {
+        console.log(`⏭️ Already attempted fetch for pick ${pickId}, skipping...`);
+        return;
+      }
+      
+      hasAttemptedFetch.current = true;
 
       // No stored links, fetch from API
       setLoading(true);
@@ -118,26 +130,31 @@ export function SportsbookButtons({
           betDetails.line
         );
 
-        // Save links to database
-        if (Object.keys(links).length > 0) {
+        // Save links to database (only once)
+        if (Object.keys(links).length > 0 && !hasSavedLinks.current) {
+          hasSavedLinks.current = true; // Set flag BEFORE the async operation
+          
           const { error: updateError } = await supabase
             .from('editors_picks')
-            .update({ betslip_links: links })
+            .update({ betslip_links: links as any })
             .eq('id', pickId);
 
           if (updateError) {
             console.error('Error saving betslip links:', updateError);
+            hasSavedLinks.current = false; // Reset on error so it can retry
             // Still show links even if save fails
           } else {
             console.log(`💾 Saved betslip links to database for pick ${pickId}`);
-            // Trigger parent update to refresh data
-            onLinksUpdated?.();
+            // NOTE: We do NOT call onLinksUpdated() here anymore!
+            // This was causing an infinite loop because it triggered parent re-render
+            // The links will be available on next page load from the database
           }
         }
 
         setBetslipLinks(links);
       } catch (err: any) {
         console.error('Error loading odds:', err);
+        hasAttemptedFetch.current = false; // Reset on error so it can retry
         
         // Handle quota exceeded error specifically
         if (err?.isQuotaExceeded || err?.message?.includes('quota')) {
@@ -161,7 +178,9 @@ export function SportsbookButtons({
     };
 
     loadOdds();
-  }, [pickId, gameType, awayTeam, homeTeam, selectedBetType, existingLinks, onLinksUpdated]);
+    // CRITICAL: Removed onLinksUpdated from dependencies to prevent infinite loop
+    // Each parent re-render creates a new function reference, which would trigger this effect again
+  }, [pickId, gameType, awayTeam, homeTeam, selectedBetType, existingLinks]);
 
   const handleSportsbookClick = (sportsbookKey: string) => {
     const link = betslipLinks[sportsbookKey];

@@ -1364,6 +1364,7 @@ export type Database = {
       }
       editors_picks: {
         Row: {
+          betslip_links: Json | null
           created_at: string | null
           editor_id: string
           editors_notes: string | null
@@ -1375,6 +1376,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          betslip_links?: Json | null
           created_at?: string | null
           editor_id: string
           editors_notes?: string | null
@@ -1386,6 +1388,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          betslip_links?: Json | null
           created_at?: string | null
           editor_id?: string
           editors_notes?: string | null
