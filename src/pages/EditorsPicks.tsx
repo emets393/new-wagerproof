@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Star, Loader2, Sparkles, ExternalLink } from 'lucide-react';
+import { AlertCircle, Star, Loader2, Sparkles, ExternalLink, Plus } from 'lucide-react';
 import debug from '@/utils/debug';
 import { EditorPickCard } from '@/components/EditorPickCard';
+import { EditorPickCreatorModal } from '@/components/EditorPickCreatorModal';
+import { EditorPicksStats } from '@/components/EditorPicksStats';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,6 +33,14 @@ interface EditorPick {
   created_at: string;
   updated_at: string;
   betslip_links?: Record<string, string> | null;
+  pick_value?: string | null;
+  best_price?: string | null;
+  sportsbook?: string | null;
+  units?: number | null;
+  is_free_pick?: boolean;
+  archived_game_data?: any;
+  bet_type?: string | null;
+  result?: 'won' | 'lost' | 'push' | 'pending' | null;
 }
 
 interface GameData {
@@ -254,7 +264,37 @@ export default function EditorsPicks() {
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('active');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const saved = localStorage.getItem('editorsPicks_activeTab');
+    return saved || 'active';
+  });
+  const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(() => {
+    const saved = localStorage.getItem('editorsPicks_sportFilter');
+    return saved || null;
+  });
+  
+  // Modal state for creating/editing picks
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPick, setEditingPick] = useState<EditorPick | null>(null);
+
+  const handleOpenCreateModal = () => {
+    setEditingPick(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (pick: EditorPick) => {
+    setEditingPick(pick);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingPick(null);
+  };
+
+  const handleModalSuccess = () => {
+    fetchPicks();
+  };
 
   // Redirect to welcome page if not authenticated
   useEffect(() => {
@@ -994,7 +1034,37 @@ export default function EditorsPicks() {
           <Star className="h-8 w-8 text-yellow-500 fill-yellow-500" />
           <h1 className="text-2xl sm:text-3xl font-bold">Editor's Picks</h1>
         </div>
+        {adminModeEnabled && (
+          <Button onClick={handleOpenCreateModal} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create Pick
+          </Button>
+        )}
       </div>
+
+      {/* Stats Component */}
+      {picks.length > 0 && (
+        <EditorPicksStats 
+          picks={picks} 
+          selectedSport={selectedSportFilter}
+          onSportChange={(sport) => {
+            setSelectedSportFilter(sport);
+            if (sport) {
+              localStorage.setItem('editorsPicks_sportFilter', sport);
+            } else {
+              localStorage.removeItem('editorsPicks_sportFilter');
+            }
+          }}
+        />
+      )}
+
+      {/* Editor Pick Creator Modal */}
+      <EditorPickCreatorModal
+        open={isModalOpen}
+        onClose={handleCloseModal}
+        onSuccess={handleModalSuccess}
+        editingPick={editingPick}
+      />
 
       {error && (
         <Alert className="mb-6" variant="destructive">
@@ -1067,8 +1137,11 @@ export default function EditorsPicks() {
       )}
 
       {/* Admin Mode - Tabs for Active and Historical Picks */}
-      {adminModeEnabled && publishedPicks.length > 0 && (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+      {adminModeEnabled && (publishedPicks.length > 0 || draftPicks.length > 0) && (
+        <Tabs value={activeTab} onValueChange={(value) => {
+          setActiveTab(value);
+          localStorage.setItem('editorsPicks_activeTab', value);
+        }} className="mb-6">
           <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">
             <TabsTrigger value="active" className="flex items-center gap-2">
               Active Picks
@@ -1163,6 +1236,7 @@ export default function EditorsPicks() {
                         gameData={gameData}
                         onUpdate={fetchPicks}
                         onDelete={fetchPicks}
+                        onEdit={() => handleOpenEditModal(pick)}
                       />
                     );
                   })}
@@ -1235,6 +1309,7 @@ export default function EditorsPicks() {
                         gameData={gameData}
                         onUpdate={fetchPicks}
                         onDelete={fetchPicks}
+                        onEdit={() => handleOpenEditModal(pick)}
                       />
                     );
                   })}
@@ -1323,6 +1398,7 @@ export default function EditorsPicks() {
                         gameData={gameData}
                         onUpdate={fetchPicks}
                         onDelete={fetchPicks}
+                        onEdit={() => handleOpenEditModal(pick)}
                       />
                     );
                   })}
@@ -1421,6 +1497,7 @@ export default function EditorsPicks() {
                   gameData={gameData}
                   onUpdate={fetchPicks}
                   onDelete={fetchPicks}
+                  onEdit={() => handleOpenEditModal(pick)}
                 />
               );
             })}

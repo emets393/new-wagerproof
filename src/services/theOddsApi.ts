@@ -12,8 +12,7 @@ const THE_ODDS_API_BASE = 'https://api.the-odds-api.com/v4';
 const API_KEY = import.meta.env.VITE_THE_ODDS_API_KEY;
 
 if (!API_KEY) {
-  console.error('❌ VITE_THE_ODDS_API_KEY is not set. Please configure it in Netlify or .env file.');
-  throw new Error('VITE_THE_ODDS_API_KEY environment variable is required');
+  console.warn('⚠️ VITE_THE_ODDS_API_KEY is not set. Odds features will be disabled. Please configure it in Netlify or .env file.');
 }
 
 // Request deduplication: Prevent multiple components from making the same API call simultaneously
@@ -77,6 +76,12 @@ export async function fetchOdds(
   bookmakers: string[] = TOP_SPORTSBOOKS.map(sb => sb.key), // Default to top 5 only
   useCache: boolean = true // Use cache by default
 ): Promise<OddsApiResponse> {
+  // Return empty response if API key is not configured
+  if (!API_KEY) {
+    console.warn(`⚠️ Skipping odds fetch for ${sportKey} - API key not configured`);
+    return { events: [], rateLimitRemaining: undefined, rateLimitUsed: undefined };
+  }
+
   // Check cache first
   if (useCache) {
     const cachedEvents = getCachedOdds(sportKey);

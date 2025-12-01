@@ -1,19 +1,15 @@
-import debug from '@/utils/debug';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Trash2, Edit, Send } from 'lucide-react';
-import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { Edit, CheckCircle2, XCircle, Minus, RotateCcw } from 'lucide-react';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import Aurora from '@/components/magicui/aurora';
 import { getNFLTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { SportsbookButtons } from '@/components/SportsbookButtons';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { calculateUnits } from '@/utils/unitsCalculation';
 
 interface EditorPickCardProps {
   pick: {
@@ -25,6 +21,14 @@ interface EditorPickCardProps {
     is_published: boolean;
     editor_id: string;
     betslip_links?: Record<string, string> | null; // JSONB from database
+    pick_value?: string | null;
+    best_price?: string | null;
+    sportsbook?: string | null;
+    units?: number | null;
+    is_free_pick?: boolean;
+    archived_game_data?: any;
+    bet_type?: string | null;
+    result?: 'won' | 'lost' | 'push' | 'pending' | null;
   };
   gameData: {
     away_team: string;
@@ -33,6 +37,7 @@ interface EditorPickCardProps {
     home_logo?: string;
     game_date?: string;
     game_time?: string;
+    raw_game_date?: string; // Raw date for comparison (YYYY-MM-DD or ISO string)
     away_spread?: number | null;
     home_spread?: number | null;
     over_line?: number | null;
@@ -44,12 +49,62 @@ interface EditorPickCardProps {
   };
   onUpdate?: () => void;
   onDelete?: () => void;
+  onEdit?: () => void;
 }
 
-export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPickCardProps) {
+export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickCardProps) {
   const { adminModeEnabled } = useAdminMode();
   const { toast } = useToast();
-  const [isEditing, setIsEditing] = useState(!pick.is_published);
+  
+  // Check if game date has passed (for showing result buttons)
+  const isGamePast = (): boolean => {
+    if (!gameData.raw_game_date && !gameData.game_date) return false;
+    
+    const gameDateStr = gameData.raw_game_date || gameData.game_date;
+    if (!gameDateStr) return false;
+    
+    try {
+      // Parse date string (could be YYYY-MM-DD or ISO format)
+      const gameDate = new Date(gameDateStr.split('T')[0]);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      gameDate.setHours(0, 0, 0, 0);
+      
+      return gameDate < today;
+    } catch {
+      return false;
+    }
+  };
+  
+  const handleResultUpdate = async (result: 'won' | 'lost' | 'push') => {
+    try {
+      const { error } = await supabase
+        .from('editors_picks')
+        .update({ result: result } as any)
+        .eq('id', pick.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Result Updated',
+        description: `Pick marked as ${result}.`,
+      });
+      
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating result:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update result. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  // Calculate units for display
+  const unitsCalc = calculateUnits(pick.result, pick.best_price, pick.units);
   
   // Detect Android to skip Aurora (WebGL issues on Android)
   const isAndroid = /Android/i.test(navigator.userAgent);
@@ -88,9 +143,8 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
     });
   };
   
-  const [selectedBetTypes, setSelectedBetTypes] = useState<string[]>(parseBetTypes(pick.selected_bet_type));
-  const [notes, setNotes] = useState(pick.editors_notes || '');
-  const [isLoading, setIsLoading] = useState(false);
+  const selectedBetTypes = parseBetTypes(pick.selected_bet_type);
+  const notes = pick.editors_notes || '';
   
   const getAuroraColors = (): string[] => {
     const firstBet = selectedBetTypes[0];
@@ -115,17 +169,6 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
 
   const auroraColors = getAuroraColors();
 
-  // Toggle a bet type selection
-  const toggleBetType = (betType: string) => {
-    setSelectedBetTypes(prev => {
-      if (prev.includes(betType)) {
-        return prev.filter(t => t !== betType);
-      } else {
-        return [...prev, betType];
-      }
-    });
-  };
-
   const formatSpread = (spread: number | null | undefined): string => {
     if (spread === null || spread === undefined) return '-';
     if (spread > 0) return `+${spread}`;
@@ -138,227 +181,11 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
     return ml.toString();
   };
 
-  const handlePublish = async () => {
-    if (!notes.trim()) {
-      toast({
-        title: 'Notes Required',
-        description: 'Please add editor notes before publishing.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (selectedBetTypes.length === 0) {
-      toast({
-        title: 'Bet Selection Required',
-        description: 'Please select at least one bet type.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const updateData = {
-        selected_bet_type: selectedBetTypes.join(','), // Store as comma-separated string
-        editors_notes: notes.trim(),
-        is_published: true,
-        updated_at: new Date().toISOString(),
-      };
-      
-      debug.log('📤 Publishing with data:', updateData);
-      
-      const { error } = await supabase
-        .from('editors_picks')
-        .update(updateData)
-        .eq('id', pick.id);
-
-      if (error) {
-        debug.error('❌ Supabase error:', error);
-        throw error;
-      }
-
-      // Post to Discord after successful publish
-      try {
-        debug.log('🔔 Posting to Discord...');
-        
-        const discordPayload = {
-          pickData: {
-            id: pick.id,
-            gameId: pick.game_id,
-            gameType: pick.game_type,
-            selectedBetTypes: selectedBetTypes,
-            editorNotes: notes.trim(),
-          },
-          gameData: {
-            awayTeam: gameData.away_team,
-            homeTeam: gameData.home_team,
-            awayLogo: gameData.away_logo,
-            homeLogo: gameData.home_logo,
-            gameDate: gameData.game_date,
-            gameTime: gameData.game_time,
-            awaySpread: gameData.away_spread,
-            homeSpread: gameData.home_spread,
-            awayMl: gameData.away_ml,
-            homeMl: gameData.home_ml,
-            overLine: gameData.over_line,
-            homeTeamColors: gameData.home_team_colors,
-            awayTeamColors: gameData.away_team_colors,
-          },
-          channelId: '1428843931889569893', // editors-picks channel
-        };
-
-        const discordResponse = await fetch('https://xna68l.buildship.run/discord-editor-pick-post', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(discordPayload),
-        });
-
-        if (!discordResponse.ok) {
-          const errorText = await discordResponse.text();
-          debug.error('❌ Discord post failed:', errorText);
-          // Don't throw - pick is published, Discord is secondary
-        } else {
-          debug.log('✅ Posted to Discord successfully');
-        }
-      } catch (discordError) {
-        debug.error('❌ Error posting to Discord:', discordError);
-        // Don't throw - pick is already published
-      }
-
-      toast({
-        title: 'Pick Published',
-        description: 'Your editor pick is now visible to all users.',
-      });
-      setIsEditing(false);
-      onUpdate?.();
-    } catch (error) {
-      debug.error('Error publishing pick:', error);
-      debug.error('Error details:', JSON.stringify(error, null, 2));
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast({
-        title: 'Error',
-        description: `Failed to publish pick: ${errorMessage}`,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSaveDraft = async () => {
-    if (selectedBetTypes.length === 0) {
-      toast({
-        title: 'Bet Selection Required',
-        description: 'Please select at least one bet type.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const updateData = {
-        selected_bet_type: selectedBetTypes.join(','), // Store as comma-separated string
-        editors_notes: notes.trim(),
-        updated_at: new Date().toISOString(),
-      };
-      
-      debug.log('💾 Saving draft with data:', updateData);
-      
-      const { error } = await supabase
-        .from('editors_picks')
-        .update(updateData)
-        .eq('id', pick.id);
-
-      if (error) {
-        debug.error('❌ Supabase error:', error);
-        debug.error('Error details:', JSON.stringify(error, null, 2));
-        throw error;
-      }
-
-      toast({
-        title: 'Draft Saved',
-        description: 'Your changes have been saved.',
-      });
-      onUpdate?.();
-    } catch (error) {
-      debug.error('Error saving draft:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save draft. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUnpublish = async () => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase
-        .from('editors_picks')
-        .update({
-          is_published: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', pick.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Pick Unpublished',
-        description: 'Pick moved back to drafts.',
-      });
-      setIsEditing(true);
-      onUpdate?.();
-    } catch (error) {
-      debug.error('Error unpublishing pick:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to unpublish pick. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this editor pick?')) return;
-
-    setIsLoading(true);
-    try {
-      const { error } = await supabase
-        .from('editors_picks')
-        .delete()
-        .eq('id', pick.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Pick Deleted',
-        description: 'Editor pick has been removed.',
-      });
-      onDelete?.();
-    } catch (error) {
-      debug.error('Error deleting pick:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete pick. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <Card className="relative overflow-hidden bg-gradient-to-b from-gray-600/95 via-gray-300/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-blue-200 dark:border-blue-800 shadow-xl hover:shadow-2xl transition-shadow">
-      {/* Aurora Effect - Skip on Android due to WebGL compatibility issues */}
+      {/* Aurora Effect - Skip on Android due to WebGL compatibility issues, and skip for past games to save resources */}
       <AnimatePresence>
-        {pick.is_published && !isAndroid && (
+        {pick.is_published && !isAndroid && !isGamePast() && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -375,14 +202,31 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Status Badge */}
-      {!pick.is_published && (
-        <div className="absolute top-4 right-4 z-10">
+      {/* Status Badges */}
+      <div className="absolute top-4 right-4 z-10 flex gap-2 flex-wrap">
+        {pick.result && (
+          <Badge 
+            variant="secondary" 
+            className={
+              pick.result === 'won' ? 'bg-green-500 text-white' :
+              pick.result === 'lost' ? 'bg-red-500 text-white' :
+              'bg-gray-500 text-white'
+            }
+          >
+            {pick.result === 'won' ? 'WON' : pick.result === 'lost' ? 'LOST' : 'PUSH'}
+          </Badge>
+        )}
+        {pick.is_free_pick && (
+          <Badge variant="secondary" className="bg-green-500 text-white">
+            FREE PICK
+          </Badge>
+        )}
+        {!pick.is_published && (
           <Badge variant="secondary" className="bg-yellow-500 text-white">
             DRAFT
           </Badge>
-        </div>
-      )}
+        )}
+      </div>
 
       <CardContent className="space-y-3 sm:space-y-4 md:space-y-6 pt-3 pb-3 sm:pt-4 sm:pb-4 md:pt-6 md:pb-6 px-3 sm:px-4 md:px-6 relative z-10">
         {/* Game Date and Time */}
@@ -554,136 +398,57 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
           </div>
         </div>
 
-        {/* Selected Bet Section */}
-        {isEditing && adminModeEnabled ? (
-          <div className="space-y-4 pt-4 border-t-2 border-gray-200 dark:border-gray-700">
-            <div>
-              <Label className="text-sm font-bold text-gray-900 dark:text-gray-100">Select Bet Types (Multiple Allowed)</Label>
-              <div className="mt-2 space-y-3">
-                {/* Spread Options */}
-                <div className="space-y-2 pl-2 border-l-2 border-blue-300 dark:border-blue-700">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">SPREAD</div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="spread_away" 
-                      checked={selectedBetTypes.includes('spread_away')}
-                      onCheckedChange={() => toggleBetType('spread_away')}
-                    />
-                    <Label htmlFor="spread_away" className="cursor-pointer font-normal">
-                      {gameData.away_team} {formatSpread(gameData.away_spread)}
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="spread_home" 
-                      checked={selectedBetTypes.includes('spread_home')}
-                      onCheckedChange={() => toggleBetType('spread_home')}
-                    />
-                    <Label htmlFor="spread_home" className="cursor-pointer font-normal">
-                      {gameData.home_team} {formatSpread(gameData.home_spread)}
-                    </Label>
-                  </div>
+        {/* Pick Details Section */}
+        <div className="space-y-4 pt-4 border-t-2 border-gray-200 dark:border-gray-700">
+          {/* Display Pick Value - prioritize new pick_value field, fallback to old bet type display */}
+          <div className="bg-blue-50 dark:bg-blue-900/30 p-3 sm:p-4 rounded-lg border-2 border-blue-200 dark:border-blue-700">
+            <h4 className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 mb-2 sm:mb-3">Editor's Pick</h4>
+            
+            {/* Show new pick_value if available */}
+            {pick.pick_value ? (
+              <div className="space-y-2">
+                <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {pick.pick_value}
                 </div>
-
-                {/* Moneyline Options */}
-                <div className="space-y-2 pl-2 border-l-2 border-green-300 dark:border-green-700">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">MONEYLINE</div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="ml_away" 
-                      checked={selectedBetTypes.includes('ml_away')}
-                      onCheckedChange={() => toggleBetType('ml_away')}
-                    />
-                    <Label htmlFor="ml_away" className="cursor-pointer font-normal">
-                      {gameData.away_team} {formatMoneyline(gameData.away_ml)}
-                    </Label>
+                
+                {/* Best Price and Sportsbook */}
+                {(pick.best_price || pick.sportsbook) && (
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    {pick.best_price && (
+                      <span className="bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 px-2 py-1 rounded font-semibold">
+                        {pick.best_price}
+                      </span>
+                    )}
+                    {pick.sportsbook && (
+                      <span className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">
+                        @ {pick.sportsbook}
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="ml_home" 
-                      checked={selectedBetTypes.includes('ml_home')}
-                      onCheckedChange={() => toggleBetType('ml_home')}
-                    />
-                    <Label htmlFor="ml_home" className="cursor-pointer font-normal">
-                      {gameData.home_team} {formatMoneyline(gameData.home_ml)}
-                    </Label>
+                )}
+                
+                {/* Units */}
+                {pick.units && (
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="font-semibold">{pick.units}</span> unit{pick.units !== 1 ? 's' : ''}
                   </div>
-                </div>
-
-                {/* Over/Under Options */}
-                <div className="space-y-2 pl-2 border-l-2 border-purple-300 dark:border-purple-700">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">OVER/UNDER</div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="over" 
-                      checked={selectedBetTypes.includes('over')}
-                      onCheckedChange={() => toggleBetType('over')}
-                    />
-                    <Label htmlFor="over" className="cursor-pointer font-normal">
-                      Over {gameData.over_line || 'N/A'}
-                    </Label>
+                )}
+                
+                {/* Units Result Display */}
+                {pick.result && pick.result !== 'pending' && (
+                  <div className={`text-sm font-bold ${
+                    unitsCalc.netUnits > 0 ? 'text-green-600 dark:text-green-400' :
+                    unitsCalc.netUnits < 0 ? 'text-red-600 dark:text-red-400' :
+                    'text-gray-600 dark:text-gray-400'
+                  }`}>
+                    {unitsCalc.netUnits > 0 ? '+' : ''}{unitsCalc.netUnits.toFixed(2)} units
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="under" 
-                      checked={selectedBetTypes.includes('under')}
-                      onCheckedChange={() => toggleBetType('under')}
-                    />
-                    <Label htmlFor="under" className="cursor-pointer font-normal">
-                      Under {gameData.over_line || 'N/A'}
-                    </Label>
-                  </div>
-                </div>
+                )}
               </div>
-            </div>
-
-            <div>
-              <Label htmlFor="notes" className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                Editor's Notes
-              </Label>
-              <Textarea
-                id="notes"
-                placeholder="Share your analysis and reasoning for this pick..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="mt-2 min-h-[120px]"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              {!pick.is_published ? (
-                <>
-                  <Button 
-                    onClick={handlePublish} 
-                    disabled={isLoading} 
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700"
-                  >
-                    {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                    Publish
-                  </Button>
-                  <Button onClick={handleSaveDraft} disabled={isLoading} variant="outline" className="flex-1">
-                    {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                    Save Draft
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={() => setIsEditing(false)} variant="outline" className="flex-1">
-                  Cancel Edit
-                </Button>
-              )}
-              <Button onClick={handleDelete} disabled={isLoading} variant="destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4 pt-4 border-t-2 border-gray-200 dark:border-gray-700">
-            {/* Display Selected Bets */}
-            <div className="bg-blue-50 dark:bg-blue-900/30 p-3 sm:p-4 rounded-lg border-2 border-blue-200 dark:border-blue-700">
-              <h4 className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 mb-2 sm:mb-3">Editor's Picks</h4>
+            ) : (
+              /* Fallback to old bet type display for legacy picks */
               <div className="space-y-1.5 sm:space-y-2">
                 {selectedBetTypes.map((betType, index) => {
-                  // Helper function to get bet display text
                   const getBetDisplay = (type: string) => {
                     switch(type) {
                       case 'spread_away':
@@ -698,7 +463,6 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
                         return `Over ${gameData.over_line || 'N/A'}`;
                       case 'under':
                         return `Under ${gameData.over_line || 'N/A'}`;
-                      // Legacy support
                       case 'spread':
                         return `Spread: ${gameData.home_team} ${formatSpread(gameData.home_spread)}`;
                       case 'moneyline':
@@ -718,51 +482,134 @@ export function EditorPickCard({ pick, gameData, onUpdate, onDelete }: EditorPic
                   );
                 })}
               </div>
+            )}
+          </div>
+
+          {/* Display Notes */}
+          {notes && (
+            <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 mb-1.5 sm:mb-2">Analysis</h4>
+              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{notes}</p>
             </div>
+          )}
 
-            {/* Display Notes */}
-            {notes && (
-              <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 mb-1.5 sm:mb-2">Analysis</h4>
-                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{notes}</p>
-              </div>
-            )}
+          {/* Sportsbook Buttons */}
+          {pick.is_published && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <SportsbookButtons
+                pickId={pick.id}
+                gameType={pick.game_type}
+                awayTeam={gameData.away_team}
+                homeTeam={gameData.home_team}
+                selectedBetType={pick.selected_bet_type}
+                awaySpread={gameData.away_spread}
+                homeSpread={gameData.home_spread}
+                overLine={gameData.over_line}
+                awayMl={gameData.away_ml}
+                homeMl={gameData.home_ml}
+                existingLinks={pick.betslip_links || null}
+                onLinksUpdated={onUpdate}
+              />
+            </div>
+          )}
 
-            {/* Sportsbook Buttons */}
-            {pick.is_published && (
-              <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                <SportsbookButtons
-                  pickId={pick.id}
-                  gameType={pick.game_type}
-                  awayTeam={gameData.away_team}
-                  homeTeam={gameData.home_team}
-                  selectedBetType={pick.selected_bet_type}
-                  awaySpread={gameData.away_spread}
-                  homeSpread={gameData.home_spread}
-                  overLine={gameData.over_line}
-                  awayMl={gameData.away_ml}
-                  homeMl={gameData.home_ml}
-                  existingLinks={pick.betslip_links || null}
-                  onLinksUpdated={onUpdate}
-                />
-              </div>
-            )}
-
-            {/* Admin Actions for Published Picks */}
-            {adminModeEnabled && pick.is_published && (
+          {/* Admin Actions */}
+          {adminModeEnabled && (
+            <div className="flex flex-col gap-2">
               <div className="flex gap-2">
-                <Button onClick={() => setIsEditing(true)} variant="outline" className="flex-1">
+                <Button onClick={onEdit} variant="outline" className="flex-1">
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
-                <Button onClick={handleUnpublish} disabled={isLoading} variant="outline" className="flex-1">
-                  {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                  Unpublish
-                </Button>
               </div>
-            )}
-          </div>
-        )}
+              
+              {/* Result Buttons - Only show if game date has passed */}
+              {isGamePast() && (
+                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleResultUpdate('won')}
+                      variant={pick.result === 'won' ? 'default' : 'outline'}
+                      className={`flex-1 ${
+                        pick.result === 'won' 
+                          ? 'bg-green-600 hover:bg-green-700 text-white' 
+                          : ''
+                      }`}
+                      size="sm"
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Won
+                    </Button>
+                    <Button
+                      onClick={() => handleResultUpdate('lost')}
+                      variant={pick.result === 'lost' ? 'default' : 'outline'}
+                      className={`flex-1 ${
+                        pick.result === 'lost' 
+                          ? 'bg-red-600 hover:bg-red-700 text-white' 
+                          : ''
+                      }`}
+                      size="sm"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Lost
+                    </Button>
+                    <Button
+                      onClick={() => handleResultUpdate('push')}
+                      variant={pick.result === 'push' ? 'default' : 'outline'}
+                      className={`flex-1 ${
+                        pick.result === 'push' 
+                          ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                          : ''
+                      }`}
+                      size="sm"
+                    >
+                      <Minus className="h-4 w-4 mr-2" />
+                      Push
+                    </Button>
+                  </div>
+                  
+                  {/* Clear Result Button - Only show if a result is set */}
+                  {pick.result && pick.result !== 'pending' && (
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const { error } = await supabase
+                            .from('editors_picks')
+                            .update({ result: null } as any)
+                            .eq('id', pick.id);
+                          
+                          if (error) throw error;
+                          
+                          toast({
+                            title: 'Result Cleared',
+                            description: 'Pick result has been reset.',
+                          });
+                          
+                          if (onUpdate) {
+                            onUpdate();
+                          }
+                        } catch (error) {
+                          console.error('Error clearing result:', error);
+                          toast({
+                            title: 'Error',
+                            description: 'Failed to clear result. Please try again.',
+                            variant: 'destructive',
+                          });
+                        }
+                      }}
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Clear Result
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
