@@ -162,7 +162,7 @@ export function EditorPickListItem({ pick, gameData, onUpdate, onEdit }: EditorP
       {/* Main Row */}
       <div 
         className={cn(
-          "relative flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl transition-all duration-300 border",
+          "relative flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-xl transition-all duration-300 border",
           "bg-white/50 dark:bg-gray-900/50 hover:bg-white/80 dark:hover:bg-gray-900/80",
           "border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700",
           "backdrop-blur-md shadow-sm hover:shadow-md",
@@ -178,7 +178,7 @@ export function EditorPickListItem({ pick, gameData, onUpdate, onEdit }: EditorP
         {/* Game Info & Matchup Section */}
         <div className="flex items-center gap-4 flex-1 min-w-0 pl-2">
           {/* Date Box */}
-          <div className="hidden sm:flex flex-col items-center justify-center min-w-[70px] px-1 py-1 bg-gray-100 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700/50 gap-0.5">
+          <div className="flex flex-col items-center justify-center min-w-[70px] px-1 py-1 bg-gray-100 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700/50 gap-0.5">
             {gameData.raw_game_date ? (() => {
               try {
                 // Parse date correctly accounting for timezone issues if needed, 
@@ -273,7 +273,7 @@ export function EditorPickListItem({ pick, gameData, onUpdate, onEdit }: EditorP
         </div>
 
         {/* The Pick Section - Includes Analysis Inline */}
-        <div className="flex flex-col flex-[1.5] gap-3 min-w-[200px] pl-2 sm:pl-4 border-l border-gray-200 dark:border-gray-800">
+        <div className="flex flex-col flex-[1.5] gap-3 min-w-[200px] pl-2 md:pl-4 border-t md:border-t-0 md:border-l border-gray-200 dark:border-gray-800 pt-4 md:pt-0">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-0.5">
@@ -338,7 +338,7 @@ export function EditorPickListItem({ pick, gameData, onUpdate, onEdit }: EditorP
         </div>
 
         {/* Actions Section */}
-        <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 pl-2 sm:pl-4 border-l border-gray-200 dark:border-gray-800">
+        <div className="flex flex-row md:flex-col items-center md:items-end gap-2 pl-2 md:pl-4 border-t md:border-t-0 md:border-l border-gray-200 dark:border-gray-800 pt-4 md:pt-0 justify-end">
            {adminModeEnabled && (
              <Button 
                variant="ghost" 
