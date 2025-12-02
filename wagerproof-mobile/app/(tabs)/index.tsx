@@ -7,12 +7,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { NFLGameCard } from '@/components/NFLGameCard';
 import { CFBGameCard } from '@/components/CFBGameCard';
+import { NBAGameCard } from '@/components/NBAGameCard';
+import { NCAABGameCard } from '@/components/NCAABGameCard';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
+import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
+import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
+import { NBAGame } from '@/types/nba';
+import { NCAABGame } from '@/types/ncaab';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLiveScores } from '@/hooks/useLiveScores';
@@ -35,6 +41,8 @@ export default function FeedScreen() {
   const { hasLiveGames } = useLiveScores();
   const { openGameSheet } = useNFLGameSheet();
   const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
+  const { openGameSheet: openNBAGameSheet } = useNBAGameSheet();
+  const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
   
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
@@ -43,6 +51,8 @@ export default function FeedScreen() {
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [nflGames, setNflGames] = useState<NFLPrediction[]>([]);
   const [cfbGames, setCfbGames] = useState<CFBPrediction[]>([]);
+  const [nbaGames, setNbaGames] = useState<NBAGame[]>([]);
+  const [ncaabGames, setNcaabGames] = useState<NCAABGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,8 +95,8 @@ export default function FeedScreen() {
   const sports: SportOption[] = [
     { id: 'nfl', label: 'NFL', available: true },
     { id: 'cfb', label: 'CFB', available: true },
-    { id: 'nba', label: 'NBA', available: false },
-    { id: 'ncaab', label: 'NCAAB', available: false },
+    { id: 'nba', label: 'NBA', available: true },
+    { id: 'ncaab', label: 'NCAAB', available: true },
   ];
 
   // Show search bar with bounce animation
@@ -369,6 +379,223 @@ export default function FeedScreen() {
     }
   };
 
+  // Helper to calculate away ML from home ML
+  const calculateAwayML = (homeML: number | null): number | null => {
+    if (homeML === null) return null;
+    return homeML > 0 ? -(homeML + 100) : 100 - homeML;
+  };
+
+  // Fetch NBA data
+  const fetchNBAData = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      console.log('🏀 Fetching NBA games for date:', today);
+      
+      // Fetch from nba_input_values_view
+      const { data: inputValues, error: inputError } = await collegeFootballSupabase
+        .from('nba_input_values_view')
+        .select('*')
+        .gte('game_date', today)
+        .order('game_date', { ascending: true })
+        .order('tipoff_time_et', { ascending: true });
+
+      if (inputError) throw inputError;
+      
+      console.log(`🏀 Found ${inputValues?.length || 0} NBA games`);
+      if (!inputValues || inputValues.length === 0) {
+        setNbaGames([]);
+        return;
+      }
+
+      // Fetch latest run_id for predictions
+      const { data: latestRun } = await collegeFootballSupabase
+        .from('nba_predictions')
+        .select('run_id, as_of_ts_utc')
+        .order('as_of_ts_utc', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Fetch predictions with latest run_id
+      let predictionMap = new Map();
+      if (latestRun) {
+        const gameIds = inputValues.map((g: any) => g.game_id);
+        const { data: predictions } = await collegeFootballSupabase
+          .from('nba_predictions')
+          .select('game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id')
+          .eq('run_id', latestRun.run_id)
+          .in('game_id', gameIds);
+
+        predictions?.forEach((pred: any) => {
+          predictionMap.set(pred.game_id, pred);
+        });
+      }
+
+      // Merge input values with predictions
+      const games: NBAGame[] = inputValues.map((input: any) => {
+        const prediction = predictionMap.get(input.game_id);
+        const gameIdStr = String(input.game_id);
+        
+        // Calculate spread cover probability
+        let spreadCoverProb = null;
+        if (prediction && prediction.model_fair_home_spread !== null && input.home_spread !== null) {
+          const spreadDiff = Math.abs(prediction.model_fair_home_spread - input.home_spread);
+          if (prediction.model_fair_home_spread < input.home_spread) {
+            spreadCoverProb = 0.5 + Math.min(spreadDiff * 0.05, 0.35);
+          } else {
+            spreadCoverProb = 0.5 - Math.min(spreadDiff * 0.05, 0.35);
+          }
+        } else if (prediction?.home_win_prob) {
+          spreadCoverProb = prediction.home_win_prob;
+        }
+        
+        // Calculate over/under probability
+        let ouProb = null;
+        if (prediction && prediction.model_fair_total !== null && input.total_line !== null) {
+          const totalDiff = prediction.model_fair_total - input.total_line;
+          if (totalDiff > 0) {
+            ouProb = 0.5 + Math.min(Math.abs(totalDiff) * 0.02, 0.35);
+          } else {
+            ouProb = 0.5 - Math.min(Math.abs(totalDiff) * 0.02, 0.35);
+          }
+        }
+        
+        return {
+          id: gameIdStr,
+          game_id: input.game_id,
+          away_team: input.away_team,
+          home_team: input.home_team,
+          home_ml: input.home_moneyline,
+          away_ml: calculateAwayML(input.home_moneyline),
+          home_spread: input.home_spread,
+          away_spread: input.home_spread ? -input.home_spread : null,
+          over_line: input.total_line,
+          game_date: input.game_date,
+          game_time: input.tipoff_time_et,
+          training_key: gameIdStr,
+          unique_id: gameIdStr,
+          home_adj_offense: input.home_adj_offense,
+          away_adj_offense: input.away_adj_offense,
+          home_adj_defense: input.home_adj_defense,
+          away_adj_defense: input.away_adj_defense,
+          home_adj_pace: input.home_adj_pace,
+          away_adj_pace: input.away_adj_pace,
+          home_ats_pct: input.home_ats_pct,
+          away_ats_pct: input.away_ats_pct,
+          home_over_pct: input.home_over_pct,
+          away_over_pct: input.away_over_pct,
+          home_away_ml_prob: prediction?.home_win_prob || null,
+          home_away_spread_cover_prob: spreadCoverProb,
+          ou_result_prob: ouProb,
+          run_id: prediction?.run_id || null,
+          home_score_pred: prediction?.home_score_pred || null,
+          away_score_pred: prediction?.away_score_pred || null,
+          model_fair_home_spread: prediction?.model_fair_home_spread || null,
+          model_fair_total: prediction?.model_fair_total || null,
+        };
+      });
+
+      setNbaGames(games);
+    } catch (err) {
+      console.error('Error fetching NBA data:', err);
+      setError('Failed to fetch NBA games');
+    }
+  };
+
+  // Fetch NCAAB data
+  const fetchNCAABData = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      console.log('🏀 Fetching NCAAB games for date:', today);
+      
+      // Fetch from v_cbb_input_values
+      const { data: inputValues, error: inputError } = await collegeFootballSupabase
+        .from('v_cbb_input_values')
+        .select('*')
+        .gte('game_date_et', today)
+        .order('game_date_et', { ascending: true })
+        .order('tipoff_time_et', { ascending: true });
+
+      if (inputError) throw inputError;
+      
+      console.log(`🏀 Found ${inputValues?.length || 0} NCAAB games`);
+      if (!inputValues || inputValues.length === 0) {
+        setNcaabGames([]);
+        return;
+      }
+
+      // Get latest run_id for predictions
+      const { data: latestRun } = await collegeFootballSupabase
+        .from('ncaab_predictions')
+        .select('run_id, as_of_ts_utc')
+        .order('as_of_ts_utc', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let predictionMap = new Map();
+      
+      if (latestRun) {
+        const gameIds = inputValues.map((g: any) => g.game_id);
+        const { data: predictions } = await collegeFootballSupabase
+          .from('ncaab_predictions')
+          .select('*')
+          .eq('run_id', latestRun.run_id)
+          .in('game_id', gameIds);
+
+        predictions?.forEach((pred: any) => {
+          predictionMap.set(pred.game_id, pred);
+        });
+      }
+
+      // Merge input values with predictions
+      const games: NCAABGame[] = inputValues.map((input: any) => {
+        const prediction = predictionMap.get(input.game_id);
+        const gameIdStr = String(input.game_id);
+        
+        return {
+          id: gameIdStr,
+          game_id: input.game_id,
+          away_team: input.away_team,
+          home_team: input.home_team,
+          home_ml: prediction?.vegas_home_moneyline || input.homeMoneyline,
+          away_ml: prediction?.vegas_away_moneyline || input.awayMoneyline,
+          home_spread: prediction?.vegas_home_spread || input.spread,
+          away_spread: prediction?.vegas_home_spread ? -prediction.vegas_home_spread : (input.spread ? -input.spread : null),
+          over_line: prediction?.vegas_total || input.over_under,
+          game_date: input.game_date_et,
+          game_time: input.start_utc || input.tipoff_time_et,
+          training_key: gameIdStr,
+          unique_id: gameIdStr,
+          home_adj_offense: input.home_adj_offense,
+          away_adj_offense: input.away_adj_offense,
+          home_adj_defense: input.home_adj_defense,
+          away_adj_defense: input.away_adj_defense,
+          home_adj_pace: input.home_adj_pace,
+          away_adj_pace: input.away_adj_pace,
+          home_ranking: input.home_ranking,
+          away_ranking: input.away_ranking,
+          conference_game: input.conference_game,
+          neutral_site: input.neutral_site,
+          home_away_ml_prob: prediction?.home_win_prob || null,
+          home_away_spread_cover_prob: prediction?.home_win_prob || null,
+          ou_result_prob: prediction && prediction.pred_total_points && prediction.vegas_total
+            ? (prediction.pred_total_points > prediction.vegas_total ? 0.6 : 0.4)
+            : null,
+          pred_home_margin: prediction?.pred_home_margin || null,
+          pred_total_points: prediction?.pred_total_points || null,
+          run_id: prediction?.run_id || null,
+          home_score_pred: prediction?.home_score_pred || null,
+          away_score_pred: prediction?.away_score_pred || null,
+          model_fair_home_spread: prediction?.model_fair_home_spread || null,
+        };
+      });
+
+      setNcaabGames(games);
+    } catch (err) {
+      console.error('Error fetching NCAAB data:', err);
+      setError('Failed to fetch NCAAB games');
+    }
+  };
+
   // Fetch data on mount and when sport changes
   const fetchData = async () => {
     try {
@@ -379,6 +606,10 @@ export default function FeedScreen() {
         await fetchNFLData();
       } else if (selectedSport === 'cfb') {
         await fetchCFBData();
+      } else if (selectedSport === 'nba') {
+        await fetchNBAData();
+      } else if (selectedSport === 'ncaab') {
+        await fetchNCAABData();
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -401,8 +632,10 @@ export default function FeedScreen() {
   const currentGames = useMemo(() => {
     if (selectedSport === 'nfl') return nflGames;
     if (selectedSport === 'cfb') return cfbGames;
+    if (selectedSport === 'nba') return nbaGames;
+    if (selectedSport === 'ncaab') return ncaabGames;
     return [];
-  }, [selectedSport, nflGames, cfbGames]);
+  }, [selectedSport, nflGames, cfbGames, nbaGames, ncaabGames]);
 
   // Filter games by search text (team names and cities)
   const filteredGames = useMemo(() => {
@@ -438,9 +671,10 @@ export default function FeedScreen() {
           return edgeB - edgeA;
         });
       } else {
+        // NFL, NBA, NCAAB all use probability-based sorting
         return games.sort((a, b) => {
-          const probA = Math.max((a as NFLPrediction).home_away_spread_cover_prob || 0, 1 - ((a as NFLPrediction).home_away_spread_cover_prob || 0));
-          const probB = Math.max((b as NFLPrediction).home_away_spread_cover_prob || 0, 1 - ((b as NFLPrediction).home_away_spread_cover_prob || 0));
+          const probA = Math.max((a as any).home_away_spread_cover_prob || 0, 1 - ((a as any).home_away_spread_cover_prob || 0));
+          const probB = Math.max((b as any).home_away_spread_cover_prob || 0, 1 - ((b as any).home_away_spread_cover_prob || 0));
           return probB - probA;
         });
       }
@@ -454,9 +688,10 @@ export default function FeedScreen() {
           return edgeB - edgeA;
         });
       } else {
+        // NFL, NBA, NCAAB all use probability-based sorting
         return games.sort((a, b) => {
-          const probA = Math.max((a as NFLPrediction).ou_result_prob || 0, 1 - ((a as NFLPrediction).ou_result_prob || 0));
-          const probB = Math.max((b as NFLPrediction).ou_result_prob || 0, 1 - ((b as NFLPrediction).ou_result_prob || 0));
+          const probA = Math.max((a as any).ou_result_prob || 0, 1 - ((a as any).ou_result_prob || 0));
+          const probB = Math.max((b as any).ou_result_prob || 0, 1 - ((b as any).ou_result_prob || 0));
           return probB - probA;
         });
       }
@@ -473,11 +708,28 @@ export default function FeedScreen() {
     openCFBGameSheet(game);
   };
 
-  const renderGameCard = ({ item }: { item: NFLPrediction | CFBPrediction }) => {
+  const handleNBAGamePress = (game: NBAGame) => {
+    openNBAGameSheet(game);
+  };
+
+  const handleNCAABGamePress = (game: NCAABGame) => {
+    openNCAABGameSheet(game);
+  };
+
+  const renderGameCard = ({ item }: { item: NFLPrediction | CFBPrediction | NBAGame | NCAABGame }) => {
     if (selectedSport === 'nfl') {
       return <NFLGameCard game={item as NFLPrediction} onPress={() => handleGamePress(item as NFLPrediction)} />;
     }
-    return <CFBGameCard game={item as CFBPrediction} onPress={() => handleCFBGamePress(item as CFBPrediction)} />;
+    if (selectedSport === 'cfb') {
+      return <CFBGameCard game={item as CFBPrediction} onPress={() => handleCFBGamePress(item as CFBPrediction)} />;
+    }
+    if (selectedSport === 'nba') {
+      return <NBAGameCard game={item as NBAGame} onPress={() => handleNBAGamePress(item as NBAGame)} />;
+    }
+    if (selectedSport === 'ncaab') {
+      return <NCAABGameCard game={item as NCAABGame} onPress={() => handleNCAABGamePress(item as NCAABGame)} />;
+    }
+    return null;
   };
 
   const renderSearchBar = () => {

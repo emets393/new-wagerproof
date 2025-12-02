@@ -7,10 +7,14 @@ import { ThemeProvider, useThemeContext } from '../contexts/ThemeContext';
 import { SettingsProvider } from '../contexts/SettingsContext';
 import { NFLGameSheetProvider } from '../contexts/NFLGameSheetContext';
 import { CFBGameSheetProvider } from '../contexts/CFBGameSheetContext';
+import { NBAGameSheetProvider } from '../contexts/NBAGameSheetContext';
+import { NCAABGameSheetProvider } from '../contexts/NCAABGameSheetContext';
 import { RevenueCatProvider } from '../contexts/RevenueCatContext';
 import { OnboardingGuard } from '../components/OnboardingGuard';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
+import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
+import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
 import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 
@@ -75,6 +79,8 @@ function RootNavigator() {
         </Stack>
         <NFLGameBottomSheet />
         <CFBGameBottomSheet />
+        <NBAGameBottomSheet />
+        <NCAABGameBottomSheet />
       </>
     </OnboardingGuard>
   );
@@ -91,7 +97,11 @@ function RootLayoutContent() {
             <RevenueCatProvider>
               <NFLGameSheetProvider>
                 <CFBGameSheetProvider>
-                  <RootNavigator />
+                  <NBAGameSheetProvider>
+                    <NCAABGameSheetProvider>
+                      <RootNavigator />
+                    </NCAABGameSheetProvider>
+                  </NBAGameSheetProvider>
                 </CFBGameSheetProvider>
               </NFLGameSheetProvider>
             </RevenueCatProvider>

@@ -105,20 +105,13 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
           <View style={styles.dateContainer}>
             {gameData.game_date && (
               <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>
-                {typeof gameData.game_date === 'string' 
-                  ? new Date(gameData.game_date).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })
-                  : String(gameData.game_date)
-                }
+                {gameData.game_date}
               </Text>
             )}
             {gameData.game_time && (
               <View style={[styles.timeBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
                 <Text style={[styles.timeText, { color: theme.colors.onSurfaceVariant }]}>
-                  {typeof gameData.game_time === 'string' ? gameData.game_time : String(gameData.game_time)}
+                  {gameData.game_time}
                 </Text>
               </View>
             )}
