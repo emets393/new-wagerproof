@@ -1620,7 +1620,26 @@ ${contextParts}
                     className={isLocked ? 'blur-sm opacity-50' : ''}
                   >
                   {/* Star Button for Admin Mode */}
-                  <StarButton gameId={prediction.id} gameType="cfb" />
+                  <StarButton 
+                    gameId={prediction.id} 
+                    gameType="cfb"
+                    gameData={{
+                      awayTeam: prediction.away_team,
+                      homeTeam: prediction.home_team,
+                      awayLogo: getTeamLogo(prediction.away_team),
+                      homeLogo: getTeamLogo(prediction.home_team),
+                      gameDate: formatStartTime(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime).date,
+                      gameTime: formatStartTime(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime).time,
+                      rawGameDate: prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime,
+                      awaySpread: prediction.api_spread ? -prediction.api_spread : null,
+                      homeSpread: prediction.api_spread,
+                      awayMl: prediction.away_moneyline,
+                      homeMl: prediction.home_moneyline,
+                      overLine: prediction.api_over_line,
+                      homeTeamColors: homeTeamColors,
+                      awayTeamColors: awayTeamColors,
+                    }}
+                  />
                   
                   {/* AI Payload Button for Admin Mode */}
                   {adminModeEnabled && (

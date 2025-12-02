@@ -10,6 +10,7 @@ import { SportsbookButtons } from '@/components/SportsbookButtons';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { calculateUnits } from '@/utils/unitsCalculation';
+import { cn } from '@/lib/utils';
 
 interface EditorPickCardProps {
   pick: {
@@ -182,16 +183,21 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
   };
 
   return (
-    <Card className="relative overflow-hidden bg-gradient-to-b from-gray-600/95 via-gray-300/90 to-gray-100/90 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-blue-200 dark:border-blue-800 shadow-xl hover:shadow-2xl transition-shadow">
+    <Card className={cn(
+      "relative overflow-hidden transition-all duration-300 group border",
+      "bg-white/50 dark:bg-gray-900/50 hover:bg-white/80 dark:hover:bg-gray-900/80",
+      "border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700",
+      "backdrop-blur-md shadow-sm hover:shadow-md"
+    )}>
       {/* Aurora Effect - Skip on Android due to WebGL compatibility issues, and skip for past games to save resources */}
       <AnimatePresence>
         {pick.is_published && !isAndroid && !isGamePast() && (
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: 0.6 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg opacity-60"
+            className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg"
           >
             <Aurora
               colorStops={auroraColors}
@@ -238,7 +244,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
               </div>
             )}
             {gameData.game_time && (
-              <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 sm:px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700 inline-block">
+              <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100/80 dark:bg-gray-800/80 px-2 sm:px-3 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50 inline-block backdrop-blur-sm">
                 {gameData.game_time}
               </div>
             )}
@@ -300,7 +306,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
 
             {/* @ Symbol */}
             <div className="text-center px-1 sm:px-2">
-              <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-400 dark:text-gray-500">@</span>
+              <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-400/50 dark:text-gray-500/50">@</span>
             </div>
 
             {/* Home Team Circle */}
@@ -374,7 +380,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
 
             {/* Total */}
             <div className="text-center px-1 sm:px-2 md:px-4 flex-shrink-0">
-              <div className="text-[10px] sm:text-xs md:text-sm font-bold text-foreground bg-primary/10 dark:bg-primary/20 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 rounded-full border border-primary/30">
+              <div className="text-[10px] sm:text-xs md:text-sm font-bold text-foreground bg-primary/5 dark:bg-primary/10 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 rounded-full border border-primary/20 backdrop-blur-sm">
                 Total: {gameData.over_line || '-'}
               </div>
             </div>
@@ -399,15 +405,15 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
         </div>
 
         {/* Pick Details Section */}
-        <div className="space-y-4 pt-4 border-t-2 border-gray-200 dark:border-gray-700">
+        <div className="space-y-4 pt-4 border-t-2 border-gray-200/50 dark:border-gray-700/50">
           {/* Display Pick Value - prioritize new pick_value field, fallback to old bet type display */}
-          <div className="bg-blue-50 dark:bg-blue-900/30 p-3 sm:p-4 rounded-lg border-2 border-blue-200 dark:border-blue-700">
-            <h4 className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 mb-2 sm:mb-3">Editor's Pick</h4>
+          <div className="bg-blue-50/50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-lg border-2 border-blue-200/50 dark:border-blue-700/50 backdrop-blur-sm">
+            <h4 className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 mb-2 sm:mb-3 uppercase tracking-wider opacity-80">Editor's Pick</h4>
             
             {/* Show new pick_value if available */}
             {pick.pick_value ? (
               <div className="space-y-2">
-                <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
                   {pick.pick_value}
                 </div>
                 
@@ -415,12 +421,12 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
                 {(pick.best_price || pick.sportsbook) && (
                   <div className="flex flex-wrap gap-2 text-sm">
                     {pick.best_price && (
-                      <span className="bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 px-2 py-1 rounded font-semibold">
+                      <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-2 py-1 rounded font-semibold border border-green-200 dark:border-green-800">
                         {pick.best_price}
                       </span>
                     )}
                     {pick.sportsbook && (
-                      <span className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">
+                      <span className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 shadow-sm">
                         @ {pick.sportsbook}
                       </span>
                     )}
@@ -429,8 +435,8 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
                 
                 {/* Units */}
                 {pick.units && (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    <span className="font-semibold">{pick.units}</span> unit{pick.units !== 1 ? 's' : ''}
+                  <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{pick.units}</span> unit{pick.units !== 1 ? 's' : ''}
                   </div>
                 )}
                 
@@ -487,15 +493,15 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
 
           {/* Display Notes */}
           {notes && (
-            <div className="bg-gradient-to-br from-gray-50 to-slate-50/30 dark:from-gray-800/50 dark:to-slate-800/20 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-              <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 mb-1.5 sm:mb-2">Analysis</h4>
-              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{notes}</p>
+            <div className="bg-gray-50/80 dark:bg-gray-800/40 p-3 sm:p-4 rounded-lg border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-sm">
+              <h4 className="text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 mb-1.5 sm:mb-2 uppercase tracking-wider">Analysis</h4>
+              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words leading-relaxed">{notes}</p>
             </div>
           )}
 
           {/* Sportsbook Buttons */}
           {pick.is_published && (
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="pt-2 border-t border-gray-200/60 dark:border-gray-700/60">
               <SportsbookButtons
                 pickId={pick.id}
                 gameType={pick.game_type}
@@ -614,4 +620,3 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
     </Card>
   );
 }
-

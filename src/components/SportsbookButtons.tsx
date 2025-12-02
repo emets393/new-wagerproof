@@ -31,6 +31,7 @@ interface SportsbookButtonsProps {
   homeMl?: number | null;
   existingLinks?: Record<string, string> | null; // Links from database
   onLinksUpdated?: () => void; // Callback when links are saved
+  compact?: boolean;
 }
 
 export function SportsbookButtons({
@@ -46,6 +47,7 @@ export function SportsbookButtons({
   homeMl,
   existingLinks,
   onLinksUpdated,
+  compact = false,
 }: SportsbookButtonsProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -117,7 +119,9 @@ export function SportsbookButtons({
         const matchingEvent = findMatchingEvent(awayTeam, homeTeam, events);
 
         if (!matchingEvent) {
-          setError('Game not found in sportsbooks');
+          // Don't set error state here to avoid showing "Game not found" message to users
+          // Just return early, effectively showing nothing
+          setLoading(false);
           return;
         }
 
@@ -205,7 +209,12 @@ export function SportsbookButtons({
   }
 
   if (error || Object.keys(betslipLinks).length === 0) {
+    // Don't show anything if no links are found, unless it's a quota error
     const isQuotaError = error?.includes('quota') || error?.includes('quota exceeded');
+    
+    if (!isQuotaError) {
+      return null;
+    }
     
     return (
       <div className="text-sm py-2">
@@ -216,20 +225,18 @@ export function SportsbookButtons({
               The Odds API quota has been reached. Please upgrade your plan or try again later.
             </div>
           </div>
-        ) : (
-          <div className="text-muted-foreground">
-            {error || 'Sportsbook links unavailable'}
-          </div>
-        )}
+        ) : null}
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 pt-2">
-      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-        Place Your Bet
-      </div>
+    <div className={`space-y-2 ${compact ? 'pt-0' : 'pt-2'}`}>
+      {!compact && (
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Place Your Bet
+        </div>
+      )}
 
       {/* Top 5 Sportsbooks */}
       <div className="flex flex-wrap gap-2">
@@ -242,7 +249,7 @@ export function SportsbookButtons({
               size="sm"
               onClick={() => handleSportsbookClick(sportsbook.key)}
               disabled={!hasLink}
-              className="flex items-center gap-1.5"
+              className={`flex items-center gap-1.5 ${compact ? 'h-7 text-xs px-2' : ''}`}
             >
               {sportsbook.displayName}
               {hasLink && <ExternalLink className="h-3 w-3" />}

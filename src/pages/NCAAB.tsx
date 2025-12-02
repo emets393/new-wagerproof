@@ -1326,7 +1326,26 @@ ${contextParts}
                       className={isLocked ? 'blur-sm opacity-50' : ''}
                     >
                   {/* Star Button for Admin Mode */}
-                  <StarButton gameId={gameId} gameType="ncaab" />
+                  <StarButton 
+                    gameId={gameId} 
+                    gameType="ncaab"
+                    gameData={{
+                      awayTeam: prediction.away_team,
+                      homeTeam: prediction.home_team,
+                      awayLogo: getTeamLogo(prediction.away_team, prediction.away_team_id),
+                      homeLogo: getTeamLogo(prediction.home_team, prediction.home_team_id),
+                      gameDate: formatCompactDate(prediction.game_date),
+                      gameTime: convertTimeToEST(prediction.game_time),
+                      rawGameDate: prediction.game_date,
+                      awaySpread: prediction.away_spread,
+                      homeSpread: prediction.home_spread,
+                      awayMl: prediction.away_ml,
+                      homeMl: prediction.home_ml,
+                      overLine: prediction.over_line,
+                      homeTeamColors: homeTeamColors,
+                      awayTeamColors: awayTeamColors,
+                    }}
+                  />
                   
                   {/* AI Payload Viewer Button for Admin Mode */}
                   {adminModeEnabled && (

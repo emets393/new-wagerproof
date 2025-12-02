@@ -5,7 +5,26 @@ import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import debug from '@/utils/debug';
 
-export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb' | 'nba' | 'ncaab') {
+// Archived game data structure for historical preservation
+export interface ArchivedGameData {
+  awayTeam: string;
+  homeTeam: string;
+  awayLogo?: string;
+  homeLogo?: string;
+  gameDate?: string;
+  gameTime?: string;
+  rawGameDate?: string;
+  awaySpread?: number | null;
+  homeSpread?: number | null;
+  awayMl?: number | null;
+  homeMl?: number | null;
+  overLine?: number | null;
+  homeTeamColors?: { primary: string; secondary: string };
+  awayTeamColors?: { primary: string; secondary: string };
+  archived_at?: string;
+}
+
+export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb' | 'nba' | 'ncaab', gameData?: ArchivedGameData) {
   const { adminModeEnabled } = useAdminMode();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -88,24 +107,37 @@ export function useEditorPick(gameId: string, gameType: 'nfl' | 'cfb' | 'nba' | 
           description: 'Game removed from your editor picks.',
         });
       } else {
-        // Create a new draft pick
+        // Create a new draft pick with archived game data for historical preservation
+        const archivedData = gameData ? {
+          ...gameData,
+          archived_at: new Date().toISOString(),
+        } : null;
+
         debug.log('📝 Creating new pick with data:', {
           game_id: gameId,
           game_type: gameType,
           editor_id: user.id,
           selected_bet_type: 'spread',
           is_published: false,
+          has_archived_data: !!archivedData,
         });
+
+        const insertData: any = {
+          game_id: gameId,
+          game_type: gameType,
+          editor_id: user.id,
+          selected_bet_type: 'spread_home', // Default to home spread
+          is_published: false,
+        };
+
+        // Include archived game data if available
+        if (archivedData) {
+          insertData.archived_game_data = archivedData;
+        }
 
         const { data, error } = await supabase
           .from('editors_picks')
-          .insert({
-            game_id: gameId,
-            game_type: gameType,
-            editor_id: user.id,
-            selected_bet_type: 'spread_home', // Default to home spread
-            is_published: false,
-          })
+          .insert(insertData)
           .select()
           .single();
 

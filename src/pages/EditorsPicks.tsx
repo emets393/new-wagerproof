@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Star, Loader2, Sparkles, ExternalLink, Plus } from 'lucide-react';
+import { AlertCircle, Star, Loader2, Sparkles, ExternalLink, Plus, LayoutGrid, List } from 'lucide-react';
 import debug from '@/utils/debug';
 import { EditorPickCard } from '@/components/EditorPickCard';
+import { EditorPickListItem } from '@/components/EditorPickListItem';
 import { EditorPickCreatorModal } from '@/components/EditorPickCreatorModal';
 import { EditorPicksStats } from '@/components/EditorPicksStats';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
@@ -267,6 +268,9 @@ export default function EditorsPicks() {
   const [activeTab, setActiveTab] = useState<string>(() => {
     const saved = localStorage.getItem('editorsPicks_activeTab');
     return saved || 'active';
+  });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    return (localStorage.getItem('editorsPicks_viewMode') as 'grid' | 'list') || 'list';
   });
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(() => {
     const saved = localStorage.getItem('editorsPicks_sportFilter');
@@ -875,6 +879,35 @@ export default function EditorsPicks() {
           }
         }
 
+        debug.log('🗺️ Game data map size before archived fallback:', gameDataMap.size);
+        
+        // Fallback: For picks without game data in live tables, use archived_game_data
+        for (const pick of picksData as EditorPick[]) {
+          const pickGameId = String(pick.game_id);
+          if (!gameDataMap.has(pickGameId) && pick.archived_game_data) {
+            const archived = pick.archived_game_data;
+            debug.log(`📦 Using archived_game_data for pick ${pickGameId} (${pick.game_type}):`, archived);
+            
+            // Transform camelCase archived data to snake_case GameData format
+            gameDataMap.set(pickGameId, {
+              away_team: archived.awayTeam || archived.away_team || 'Unknown',
+              home_team: archived.homeTeam || archived.home_team || 'Unknown',
+              away_logo: archived.awayLogo || archived.away_logo || '',
+              home_logo: archived.homeLogo || archived.home_logo || '',
+              game_date: archived.gameDate || archived.game_date || 'TBD',
+              game_time: archived.gameTime || archived.game_time || '',
+              raw_game_date: archived.rawGameDate || archived.raw_game_date || archived.gameDate || archived.game_date,
+              away_spread: archived.awaySpread ?? archived.away_spread ?? null,
+              home_spread: archived.homeSpread ?? archived.home_spread ?? null,
+              over_line: archived.overLine ?? archived.over_line ?? null,
+              away_ml: archived.awayMl ?? archived.away_ml ?? null,
+              home_ml: archived.homeMl ?? archived.home_ml ?? null,
+              away_team_colors: archived.awayTeamColors || archived.away_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
+              home_team_colors: archived.homeTeamColors || archived.home_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
+            });
+          }
+        }
+        
         debug.log('🗺️ Final game data map size:', gameDataMap.size);
         debug.log('🗺️ Game data map keys:', Array.from(gameDataMap.keys()));
         debug.log('🗺️ Game data map keys types:', Array.from(gameDataMap.keys()).map(k => `${k} (${typeof k})`));
@@ -936,8 +969,8 @@ export default function EditorsPicks() {
 
   const draftPicks = picks.filter(p => !p.is_published);
   
-  // Helper function to check if a pick is for a past game
-  const isPastGame = (pick: EditorPick): boolean => {
+  // Helper function to check if a pick is for a historical game (older than a week)
+  const isHistoricalGame = (pick: EditorPick): boolean => {
     const gameData = gamesData.get(pick.game_id);
     
     // If no game data or no date, consider it as active
@@ -950,26 +983,30 @@ export default function EditorsPicks() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
+      // Create date for 7 days ago
+      const oneWeekAgo = new Date(today);
+      oneWeekAgo.setDate(today.getDate() - 7);
+      
       const gameDateOnly = new Date(gameDate);
       gameDateOnly.setHours(0, 0, 0, 0);
       
-      // Game is in the past if it's before today
-      return gameDateOnly < today;
+      // Game is historical if it's older than a week
+      return gameDateOnly < oneWeekAgo;
     } catch (error) {
-      debug.error('Error checking if game is past:', error);
+      debug.error('Error checking if game is historical:', error);
       return false;
     }
   };
   
   // Filter published picks to only show games that haven't expired
-  // For regular users, only filter out games that are more than 2 days old
+  // For regular users, only filter out games that are more than 7 days old (matching historical definition)
   const publishedPicks = picks.filter(p => {
     if (!p.is_published) return false;
     
     // In admin mode, show all published picks including expired ones
     if (adminModeEnabled) return true;
     
-    // For regular users, show picks from upcoming games and recent past games (within last 2 days)
+    // For regular users, show picks from upcoming games and recent past games (within last 7 days)
     const gameData = gamesData.get(p.game_id);
     
     // If no game data or no date, show the pick
@@ -989,8 +1026,8 @@ export default function EditorsPicks() {
       // Calculate days difference (negative = future, positive = past)
       const daysDiff = Math.floor((today.getTime() - gameDateOnly.getTime()) / (1000 * 60 * 60 * 24));
       
-      // Show all future games (daysDiff < 0) and games from the last 2 days (daysDiff <= 2)
-      const shouldShow = daysDiff <= 2; // This covers future games (negative) and recent past games
+      // Show all future games (daysDiff < 0) and games from the last 7 days (daysDiff <= 7)
+      const shouldShow = daysDiff <= 7; // This covers future games (negative) and recent past games up to 1 week
       
       debug.log(`🔍 Pick ${p.game_id} (${p.game_type}):`, {
         gameDate: gameDateOnly.toDateString(),
@@ -1009,12 +1046,103 @@ export default function EditorsPicks() {
   
   // In admin mode, split published picks into active and historical
   const activePicks = adminModeEnabled 
-    ? publishedPicks.filter(p => !isPastGame(p))
+    ? publishedPicks.filter(p => !isHistoricalGame(p))
     : publishedPicks;
   
   const historicalPicks = adminModeEnabled 
-    ? publishedPicks.filter(p => isPastGame(p))
+    ? publishedPicks.filter(p => isHistoricalGame(p))
     : [];
+  
+  // Helper function to group picks by date
+  interface DateGroup {
+    title: string;
+    dateObj: Date;
+    picks: EditorPick[];
+  }
+
+  const groupPicksByDate = (picksToGroup: EditorPick[], sortDesc: boolean = false): DateGroup[] => {
+    const groups = new Map<string, { dateObj: Date, picks: EditorPick[] }>();
+    const noDatePicks: EditorPick[] = [];
+
+    picksToGroup.forEach(pick => {
+      const gameData = gamesData.get(pick.game_id);
+      
+      if (!gameData || !gameData.raw_game_date) {
+        noDatePicks.push(pick);
+        return;
+      }
+
+      try {
+        // Create date object from raw date string
+        // Handle ISO strings and simple YYYY-MM-DD
+        const dateStr = gameData.raw_game_date;
+        let dateObj: Date;
+        
+        if (dateStr.includes('T')) {
+          dateObj = new Date(dateStr);
+        } else {
+          const [year, month, day] = dateStr.split('-').map(Number);
+          dateObj = new Date(year, month - 1, day);
+        }
+        
+        // Create a standardized key for grouping (YYYY-MM-DD)
+        const key = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        
+        if (!groups.has(key)) {
+          groups.set(key, { dateObj, picks: [] });
+        }
+        
+        groups.get(key)?.picks.push(pick);
+      } catch (e) {
+        console.error('Error parsing date for grouping:', e);
+        noDatePicks.push(pick);
+      }
+    });
+
+    // Convert map to array and sort
+    const sortedGroups: DateGroup[] = Array.from(groups.entries()).map(([_, value]) => {
+      // Format date nicely for display
+      const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+      // Use custom formatting to ensure consistency
+      const dayName = value.dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+      const monthName = value.dateObj.toLocaleDateString('en-US', { month: 'short' });
+      const dayNum = value.dateObj.getDate();
+      const title = `${dayName}, ${monthName} ${dayNum}`;
+      
+      return {
+        title,
+        dateObj: value.dateObj,
+        picks: value.picks
+      };
+    });
+
+    // Sort groups by date
+    sortedGroups.sort((a, b) => {
+      return sortDesc 
+        ? b.dateObj.getTime() - a.dateObj.getTime() 
+        : a.dateObj.getTime() - b.dateObj.getTime();
+    });
+
+    // Add "No Date" group at the end if needed
+    if (noDatePicks.length > 0 && adminModeEnabled) {
+      sortedGroups.push({
+        title: 'Date Not Found',
+        dateObj: new Date(0), // very old date to put at bottom
+        picks: noDatePicks
+      });
+    }
+
+    return sortedGroups;
+  };
+  
+  // Sort groups: Active/Draft/Published -> DESC (Newest/Future at top), Historical -> DESC (Newest at top)
+  // User requested: "timeline with the oldest picks at the bottom"
+  // "Older" games (earlier dates) should be at the bottom.
+  
+  const groupedDraftPicks = groupPicksByDate(draftPicks, true);
+  const groupedActivePicks = groupPicksByDate(activePicks, true);
+  const groupedHistoricalPicks = groupPicksByDate(historicalPicks, true);
+  const groupedPublishedPicks = groupPicksByDate(publishedPicks, true);
   
   debug.log(`📊 Picks Summary:`, {
     totalPicks: picks.length,
@@ -1026,6 +1154,92 @@ export default function EditorsPicks() {
     adminModeEnabled
   });
 
+  // Helper to render grouped picks
+  const renderGroupedPicks = (groups: DateGroup[]) => {
+    if (groups.length === 0) return null;
+
+    return (
+      <div className="space-y-8">
+        {groups.map((group) => (
+          <div key={group.title} className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800"></div>
+              <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-2 bg-background">
+                {group.title}
+              </span>
+              <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800"></div>
+            </div>
+            
+            <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
+              {group.picks.map(pick => {
+                const gameData = gamesData.get(pick.game_id);
+                
+                if (!gameData) {
+                  // Only show placeholder card for admins
+                  if (!adminModeEnabled) return null;
+                  
+                  return (
+                    <Card key={pick.id} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
+                      <CardContent className="pt-6">
+                        <div className="text-center py-8">
+                          <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+                          <h3 className="text-sm font-semibold mb-2">Game Data Not Found</h3>
+                          <p className="text-xs text-muted-foreground mb-3">
+                            Game ID: {pick.game_id}<br />
+                            Type: {pick.game_type}
+                          </p>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const { error } = await supabase
+                                  .from('editors_picks')
+                                  .delete()
+                                  .eq('id', pick.id);
+                                
+                                if (error) throw error;
+                                fetchPicks();
+                              } catch (err) {
+                                debug.error('Error deleting pick:', err);
+                              }
+                            }}
+                          >
+                            Delete This Pick
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+
+                return viewMode === 'list' ? (
+                  <EditorPickListItem
+                    key={pick.id}
+                    pick={pick}
+                    gameData={gameData}
+                    onUpdate={fetchPicks}
+                    onDelete={fetchPicks}
+                    onEdit={() => handleOpenEditModal(pick)}
+                  />
+                ) : (
+                  <EditorPickCard
+                    key={pick.id}
+                    pick={pick}
+                    gameData={gameData}
+                    onUpdate={fetchPicks}
+                    onDelete={fetchPicks}
+                    onEdit={() => handleOpenEditModal(pick)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Header */}
@@ -1034,12 +1248,40 @@ export default function EditorsPicks() {
           <Star className="h-8 w-8 text-yellow-500 fill-yellow-500" />
           <h1 className="text-2xl sm:text-3xl font-bold">Editor's Picks</h1>
         </div>
-        {adminModeEnabled && (
-          <Button onClick={handleOpenCreateModal} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Create Pick
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center p-1 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-8 w-8 p-0 rounded-md ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-muted-foreground hover:text-primary'}`}
+              onClick={() => {
+                setViewMode('grid');
+                localStorage.setItem('editorsPicks_viewMode', 'grid');
+              }}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-8 w-8 p-0 rounded-md ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-muted-foreground hover:text-primary'}`}
+              onClick={() => {
+                setViewMode('list');
+                localStorage.setItem('editorsPicks_viewMode', 'list');
+              }}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {adminModeEnabled && (
+            <Button onClick={handleOpenCreateModal} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create Pick
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats Component */}
@@ -1073,21 +1315,6 @@ export default function EditorsPicks() {
         </Alert>
       )}
 
-      {/* Diagnostic info for debugging - remove after issue is resolved */}
-      {!adminModeEnabled && picks.length > 0 && (
-        <Alert className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Debug Info: Found {picks.filter(p => p.is_published).length} published picks in database. 
-            After filtering: {publishedPicks.length} picks to display.
-            {picks.filter(p => p.is_published).length > 0 && publishedPicks.length === 0 && (
-              <span className="block mt-2 text-yellow-600 font-semibold">
-                ⚠️ All published picks were filtered out (likely due to game dates being too old).
-              </span>
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Empty State - Show when there are no published picks for users or no picks at all for admins */}
       {((publishedPicks.length === 0 && !adminModeEnabled) || (picks.length === 0 && adminModeEnabled)) && !error && (
@@ -1180,67 +1407,7 @@ export default function EditorsPicks() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 md:px-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {draftPicks.map(pick => {
-                    const gameData = gamesData.get(pick.game_id);
-                    
-                    debug.log(`🎯 Draft: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
-                    if (!gameData) {
-                      debug.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
-                    }
-                    
-                    if (!gameData) {
-                      // Show placeholder card for missing game data
-                      return (
-                        <Card key={pick.id} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
-                          <CardContent className="pt-6">
-                            <div className="text-center py-8">
-                              <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
-                              <h3 className="text-sm font-semibold mb-2">Game Data Not Found</h3>
-                              <p className="text-xs text-muted-foreground mb-3">
-                                Game ID: {pick.game_id}<br />
-                                Type: {pick.game_type}
-                              </p>
-                              <p className="text-xs text-muted-foreground mb-4">
-                                The game may have been removed or the ID doesn't match any current games.
-                              </p>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={async () => {
-                                  try {
-                                    const { error } = await supabase
-                                      .from('editors_picks')
-                                      .delete()
-                                      .eq('id', pick.id);
-                                    
-                                    if (error) throw error;
-                                    fetchPicks();
-                                  } catch (err) {
-                                    debug.error('Error deleting pick:', err);
-                                  }
-                                }}
-                              >
-                                Delete This Pick
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    }
-
-                    return (
-                      <EditorPickCard
-                        key={pick.id}
-                        pick={pick}
-                        gameData={gameData}
-                        onUpdate={fetchPicks}
-                        onDelete={fetchPicks}
-                        onEdit={() => handleOpenEditModal(pick)}
-                      />
-                    );
-                  })}
-                  </div>
+                  {renderGroupedPicks(groupedDraftPicks)}
                 </CardContent>
               </Card>
             )}
@@ -1262,58 +1429,7 @@ export default function EditorsPicks() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 md:px-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {activePicks.map(pick => {
-                    const gameData = gamesData.get(pick.game_id);
-                    
-                    if (!gameData) {
-                      return (
-                        <Card key={pick.id} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
-                          <CardContent className="pt-6">
-                            <div className="text-center py-8">
-                              <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
-                              <h3 className="text-sm font-semibold mb-2">Game Data Not Found</h3>
-                              <p className="text-xs text-muted-foreground mb-3">
-                                Game ID: {pick.game_id}<br />
-                                Type: {pick.game_type}
-                              </p>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={async () => {
-                                  try {
-                                    const { error } = await supabase
-                                      .from('editors_picks')
-                                      .delete()
-                                      .eq('id', pick.id);
-                                    
-                                    if (error) throw error;
-                                    fetchPicks();
-                                  } catch (err) {
-                                    debug.error('Error deleting pick:', err);
-                                  }
-                                }}
-                              >
-                                Delete This Pick
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    }
-
-                    return (
-                      <EditorPickCard
-                        key={pick.id}
-                        pick={pick}
-                        gameData={gameData}
-                        onUpdate={fetchPicks}
-                        onDelete={fetchPicks}
-                        onEdit={() => handleOpenEditModal(pick)}
-                      />
-                    );
-                  })}
-                  </div>
+                  {renderGroupedPicks(groupedActivePicks)}
                 </CardContent>
               </Card>
             )}
@@ -1351,58 +1467,7 @@ export default function EditorsPicks() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 md:px-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {historicalPicks.map(pick => {
-                    const gameData = gamesData.get(pick.game_id);
-                    
-                    if (!gameData) {
-                      return (
-                        <Card key={pick.id} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
-                          <CardContent className="pt-6">
-                            <div className="text-center py-8">
-                              <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
-                              <h3 className="text-sm font-semibold mb-2">Game Data Not Found</h3>
-                              <p className="text-xs text-muted-foreground mb-3">
-                                Game ID: {pick.game_id}<br />
-                                Type: {pick.game_type}
-                              </p>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={async () => {
-                                  try {
-                                    const { error } = await supabase
-                                      .from('editors_picks')
-                                      .delete()
-                                      .eq('id', pick.id);
-                                    
-                                    if (error) throw error;
-                                    fetchPicks();
-                                  } catch (err) {
-                                    debug.error('Error deleting pick:', err);
-                                  }
-                                }}
-                              >
-                                Delete This Pick
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    }
-
-                    return (
-                      <EditorPickCard
-                        key={pick.id}
-                        pick={pick}
-                        gameData={gameData}
-                        onUpdate={fetchPicks}
-                        onDelete={fetchPicks}
-                        onEdit={() => handleOpenEditModal(pick)}
-                      />
-                    );
-                  })}
-                  </div>
+                  {renderGroupedPicks(groupedHistoricalPicks)}
                 </CardContent>
               </Card>
             ) : (
@@ -1439,69 +1504,7 @@ export default function EditorsPicks() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 md:px-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {publishedPicks.map(pick => {
-              const gameData = gamesData.get(pick.game_id);
-              
-              debug.log(`🎯 Published: Looking for game ${pick.game_id} (type: ${typeof pick.game_id}) [${pick.game_type}]:`, gameData ? 'FOUND ✅' : 'NOT FOUND ❌');
-              if (!gameData) {
-                debug.log(`   Available keys:`, Array.from(gamesData.keys()).join(', '));
-              }
-              
-              if (!gameData) {
-                // Show placeholder card for missing game data
-                return (
-                  <Card key={pick.id} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
-                    <CardContent className="pt-6">
-                      <div className="text-center py-8">
-                        <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
-                        <h3 className="text-sm font-semibold mb-2">Game Data Not Found</h3>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          Game ID: {pick.game_id}<br />
-                          Type: {pick.game_type}
-                        </p>
-                        <p className="text-xs text-muted-foreground mb-4">
-                          The game may have been removed or the ID doesn't match any current games.
-                        </p>
-                        {adminModeEnabled && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const { error } = await supabase
-                                  .from('editors_picks')
-                                  .delete()
-                                  .eq('id', pick.id);
-                                
-                                if (error) throw error;
-                                fetchPicks();
-                              } catch (err) {
-                                debug.error('Error deleting pick:', err);
-                              }
-                            }}
-                          >
-                            Delete This Pick
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              }
-
-              return (
-                <EditorPickCard
-                  key={pick.id}
-                  pick={pick}
-                  gameData={gameData}
-                  onUpdate={fetchPicks}
-                  onDelete={fetchPicks}
-                  onEdit={() => handleOpenEditModal(pick)}
-                />
-              );
-            })}
-            </div>
+            {renderGroupedPicks(groupedPublishedPicks)}
           </CardContent>
         </Card>
       )}
@@ -1516,4 +1519,3 @@ export default function EditorsPicks() {
     </div>
   );
 }
-

@@ -1,16 +1,17 @@
 import { Star, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useEditorPick } from '@/hooks/useEditorPick';
+import { useEditorPick, ArchivedGameData } from '@/hooks/useEditorPick';
 import { cn } from '@/lib/utils';
 
 interface StarButtonProps {
   gameId: string;
   gameType: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   className?: string;
+  gameData?: ArchivedGameData;
 }
 
-export function StarButton({ gameId, gameType, className }: StarButtonProps) {
-  const { isStarred, isLoading, toggleStar, showStar } = useEditorPick(gameId, gameType);
+export function StarButton({ gameId, gameType, className, gameData }: StarButtonProps) {
+  const { isStarred, isLoading, toggleStar, showStar } = useEditorPick(gameId, gameType, gameData);
 
   if (!showStar) return null;
 
