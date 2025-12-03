@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { format, subDays, startOfMonth, startOfYear, subMonths } from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { DateRange } from 'react-day-picker';
 import { supabase } from '@/integrations/supabase/client';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertCircle, Star, Loader2, Sparkles, ExternalLink, Plus, LayoutGrid, List } from 'lucide-react';
 import debug from '@/utils/debug';
 import { EditorPickCard } from '@/components/EditorPickCard';
@@ -22,6 +27,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { getNBATeamColors, getNCAABTeamColors } from '@/utils/teamColors';
 import { getNBATeamLogo, getNCAABTeamLogo } from '@/utils/teamLogos';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 interface EditorPick {
   id: string;
@@ -275,6 +281,37 @@ export default function EditorsPicks() {
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(() => {
     const saved = localStorage.getItem('editorsPicks_sportFilter');
     return saved || null;
+  });
+  
+  // Date range filter for historical picks (default: show all - no filter)
+  const getDefaultDateRange = (): DateRange | undefined => {
+    // Return undefined to show all picks by default
+    return undefined;
+  };
+  
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const saved = localStorage.getItem('editorsPicks_dateRange');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        
+        // If saved as null/undefined string, return undefined
+        if (parsed === null || parsed === 'null' || parsed === 'undefined') {
+          return undefined;
+        }
+        
+        const from = parsed.from ? new Date(parsed.from) : undefined;
+        const to = parsed.to ? new Date(parsed.to) : undefined;
+        
+        // Validate dates
+        if (from && !isNaN(from.getTime()) && to && !isNaN(to.getTime())) {
+          return { from, to };
+        }
+      } catch (e) {
+        debug.error('Error parsing saved date range:', e);
+      }
+    }
+    return getDefaultDateRange();
   });
   
   // Modal state for creating/editing picks
@@ -888,15 +925,165 @@ export default function EditorsPicks() {
             const archived = pick.archived_game_data;
             debug.log(`📦 Using archived_game_data for pick ${pickGameId} (${pick.game_type}):`, archived);
             
+            const awayTeam = archived.awayTeam || archived.away_team || 'Unknown';
+            const homeTeam = archived.homeTeam || archived.home_team || 'Unknown';
+            
+            // Fetch logos if missing or invalid - ensure they're strings
+            let awayLogo: string = '';
+            let homeLogo: string = '';
+            
+            // Safely extract logo values, ensuring they're strings
+            const awayLogoRaw = archived.awayLogo || archived.away_logo;
+            const homeLogoRaw = archived.homeLogo || archived.home_logo;
+            
+            if (typeof awayLogoRaw === 'string' && awayLogoRaw.trim() !== '') {
+              awayLogo = awayLogoRaw;
+            }
+            if (typeof homeLogoRaw === 'string' && homeLogoRaw.trim() !== '') {
+              homeLogo = homeLogoRaw;
+            }
+            
+            // If logos are missing or invalid, try to fetch them based on game type
+            if ((!awayLogo || awayLogo === '/placeholder.svg') && awayTeam !== 'Unknown') {
+              try {
+                if (pick.game_type === 'nba') {
+                  awayLogo = await getNBATeamLogo(awayTeam);
+                } else if (pick.game_type === 'ncaab') {
+                  // For NCAAB, we'd need team ID, but archived data might not have it
+                  // Try to get logo from team name if possible
+                  awayLogo = '/placeholder.svg'; // Will fallback to initials
+                } else if (pick.game_type === 'nfl') {
+                  // Use the helper function from NFL.tsx logic
+                  const nflLogoMap: { [key: string]: string } = {
+                    'Arizona': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
+                    'Atlanta': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
+                    'Baltimore': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
+                    'Buffalo': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
+                    'Carolina': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
+                    'Chicago': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
+                    'Cincinnati': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
+                    'Cleveland': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
+                    'Dallas': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
+                    'Denver': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
+                    'Detroit': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
+                    'Green Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
+                    'Houston': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
+                    'Indianapolis': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
+                    'Jacksonville': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
+                    'Kansas City': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
+                    'Las Vegas': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
+                    'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+                    'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+                    'LA Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+                    'LA Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+                    'Miami': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
+                    'Minnesota': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
+                    'New England': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
+                    'New Orleans': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
+                    'NY Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
+                    'NY Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
+                    'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
+                    'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
+                    'San Francisco': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
+                    'Seattle': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
+                    'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
+                    'Tennessee': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
+                    'Washington': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
+                  };
+                  awayLogo = nflLogoMap[awayTeam] || '/placeholder.svg';
+                } else if (pick.game_type === 'cfb') {
+                  // Try to get CFB logo from team mapping
+                  const cfbMapping = cfbTeamMappings?.find(m => m.api === awayTeam);
+                  awayLogo = cfbMapping?.logo_light || '/placeholder.svg';
+                }
+              } catch (e) {
+                debug.error('Error fetching away logo:', e);
+                awayLogo = '/placeholder.svg';
+              }
+            }
+            
+            if ((!homeLogo || homeLogo === '/placeholder.svg') && homeTeam !== 'Unknown') {
+              try {
+                if (pick.game_type === 'nba') {
+                  homeLogo = await getNBATeamLogo(homeTeam);
+                } else if (pick.game_type === 'ncaab') {
+                  homeLogo = '/placeholder.svg'; // Will fallback to initials
+                } else if (pick.game_type === 'nfl') {
+                  const nflLogoMap: { [key: string]: string } = {
+                    'Arizona': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
+                    'Atlanta': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
+                    'Baltimore': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
+                    'Buffalo': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
+                    'Carolina': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
+                    'Chicago': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
+                    'Cincinnati': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
+                    'Cleveland': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
+                    'Dallas': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
+                    'Denver': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
+                    'Detroit': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
+                    'Green Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
+                    'Houston': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
+                    'Indianapolis': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
+                    'Jacksonville': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
+                    'Kansas City': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
+                    'Las Vegas': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
+                    'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+                    'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+                    'LA Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+                    'LA Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+                    'Miami': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
+                    'Minnesota': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
+                    'New England': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
+                    'New Orleans': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
+                    'NY Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
+                    'NY Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
+                    'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
+                    'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
+                    'San Francisco': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
+                    'Seattle': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
+                    'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
+                    'Tennessee': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
+                    'Washington': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
+                  };
+                  homeLogo = nflLogoMap[homeTeam] || '/placeholder.svg';
+                } else if (pick.game_type === 'cfb') {
+                  const cfbMapping = cfbTeamMappings?.find(m => m.api === homeTeam);
+                  homeLogo = cfbMapping?.logo_light || '/placeholder.svg';
+                }
+              } catch (e) {
+                debug.error('Error fetching home logo:', e);
+                homeLogo = '/placeholder.svg';
+              }
+            }
+            
+            // Clean up date strings - remove "INVALID DATE" text if present
+            let gameDate = archived.gameDate || archived.game_date || 'TBD';
+            let rawGameDate = archived.rawGameDate || archived.raw_game_date || archived.game_date_et || archived.start_utc || archived.gameDate || archived.game_date;
+            
+            // Remove "INVALID DATE" from date strings
+            if (typeof gameDate === 'string') {
+              gameDate = gameDate.replace(/INVALID DATE/gi, '').replace(/NaN/gi, '').trim() || 'TBD';
+            }
+            if (typeof rawGameDate === 'string') {
+              rawGameDate = rawGameDate.replace(/INVALID DATE/gi, '').replace(/NaN/gi, '').trim() || '';
+              
+              // If rawGameDate is still formatted like "Mon, Dec 1" (no year, no YYYY-MM-DD pattern),
+              // we need to handle it in the filter logic with year inference
+              // But log it so we know it's happening
+              if (rawGameDate && !rawGameDate.match(/^\d{4}-\d{2}-\d{2}/) && !rawGameDate.includes('T')) {
+                debug.log(`⚠️ Pick ${pickGameId} has formatted date in raw_game_date: "${rawGameDate}" - will need year inference`);
+              }
+            }
+            
             // Transform camelCase archived data to snake_case GameData format
             gameDataMap.set(pickGameId, {
-              away_team: archived.awayTeam || archived.away_team || 'Unknown',
-              home_team: archived.homeTeam || archived.home_team || 'Unknown',
-              away_logo: archived.awayLogo || archived.away_logo || '',
-              home_logo: archived.homeLogo || archived.home_logo || '',
-              game_date: archived.gameDate || archived.game_date || 'TBD',
+              away_team: awayTeam,
+              home_team: homeTeam,
+              away_logo: awayLogo,
+              home_logo: homeLogo,
+              game_date: gameDate,
               game_time: archived.gameTime || archived.game_time || '',
-              raw_game_date: archived.rawGameDate || archived.raw_game_date || archived.gameDate || archived.game_date,
+              raw_game_date: rawGameDate,
               away_spread: archived.awaySpread ?? archived.away_spread ?? null,
               home_spread: archived.homeSpread ?? archived.home_spread ?? null,
               over_line: archived.overLine ?? archived.over_line ?? null,
@@ -998,20 +1185,17 @@ export default function EditorsPicks() {
     }
   };
   
-  // Filter published picks to only show games that haven't expired
-  // For regular users, only filter out games that are more than 7 days old (matching historical definition)
-  const publishedPicks = picks.filter(p => {
-    if (!p.is_published) return false;
-    
-    // In admin mode, show all published picks including expired ones
-    if (adminModeEnabled) return true;
-    
-    // For regular users, show picks from upcoming games and recent past games (within last 7 days)
+  // Get all published picks (no filtering yet - we'll split into active/historical)
+  const allPublishedPicks = picks.filter(p => p.is_published);
+  
+  // Split published picks into active and historical for ALL users
+  // Active: games within last 7 days or future games
+  // Historical: games older than 7 days
+  const activePicks = allPublishedPicks.filter(p => {
     const gameData = gamesData.get(p.game_id);
     
-    // If no game data or no date, show the pick
+    // If no game data or no date, consider it as active
     if (!gameData || !gameData.raw_game_date) {
-      debug.log(`🔍 Pick ${p.game_id} - No game data, showing anyway`);
       return true;
     }
     
@@ -1026,32 +1210,181 @@ export default function EditorsPicks() {
       // Calculate days difference (negative = future, positive = past)
       const daysDiff = Math.floor((today.getTime() - gameDateOnly.getTime()) / (1000 * 60 * 60 * 24));
       
-      // Show all future games (daysDiff < 0) and games from the last 7 days (daysDiff <= 7)
-      const shouldShow = daysDiff <= 7; // This covers future games (negative) and recent past games up to 1 week
-      
-      debug.log(`🔍 Pick ${p.game_id} (${p.game_type}):`, {
-        gameDate: gameDateOnly.toDateString(),
-        today: today.toDateString(),
-        daysDiff,
-        isFuture: daysDiff < 0,
-        shouldShow
-      });
-      
-      return shouldShow;
+      // Active: future games (daysDiff < 0) and games from the last 7 days (daysDiff <= 7)
+      return daysDiff <= 7;
     } catch (error) {
       debug.error('Error filtering pick:', error);
       return true; // Show the pick if there's an error parsing the date
     }
   });
   
-  // In admin mode, split published picks into active and historical
-  const activePicks = adminModeEnabled 
-    ? publishedPicks.filter(p => !isHistoricalGame(p))
-    : publishedPicks;
+  const historicalPicks = allPublishedPicks.filter(p => {
+    const gameData = gamesData.get(p.game_id);
+    
+    // If no game data or no date, don't consider it historical
+    if (!gameData || !gameData.raw_game_date) {
+      return false;
+    }
+    
+    try {
+      const gameDate = new Date(gameData.raw_game_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const gameDateOnly = new Date(gameDate);
+      gameDateOnly.setHours(0, 0, 0, 0);
+      
+      // Calculate days difference (negative = future, positive = past)
+      const daysDiff = Math.floor((today.getTime() - gameDateOnly.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Historical: games older than 7 days (daysDiff > 7)
+      return daysDiff > 7;
+    } catch (error) {
+      debug.error('Error filtering pick:', error);
+      return false; // Don't show as historical if there's an error
+    }
+  });
   
-  const historicalPicks = adminModeEnabled 
-    ? publishedPicks.filter(p => isHistoricalGame(p))
-    : [];
+  // Filter historical picks by date range
+  const filteredHistoricalPicks = historicalPicks.filter(p => {
+    // If date range is not set, show all picks
+    if (!dateRange || !dateRange.from || !dateRange.to) {
+      debug.log('No date range set, showing all historical picks');
+      return true;
+    }
+    
+    const gameData = gamesData.get(p.game_id);
+    if (!gameData || !gameData.raw_game_date) {
+      debug.log(`Pick ${p.id} has no game data or raw_game_date`);
+      return false;
+    }
+    
+    try {
+      // Parse game date - CRITICAL: raw_game_date should be YYYY-MM-DD format
+      const rawDate = gameData.raw_game_date;
+      
+      debug.log(`Pick ${p.id} raw data:`, {
+        raw_game_date: rawDate,
+        game_date: gameData.game_date,
+        game_type: p.game_type
+      });
+      
+      if (typeof rawDate !== 'string') {
+        debug.log(`Pick ${p.id} raw_game_date is not a string:`, typeof rawDate, rawDate);
+        return false;
+      }
+      
+      const cleanDate = rawDate.replace(/INVALID DATE/gi, '').replace(/NaN/gi, '').trim();
+      
+      if (!cleanDate || cleanDate === 'TBD' || cleanDate === '') {
+        debug.log(`Pick ${p.id} has invalid/empty raw_game_date: "${rawDate}"`);
+        return false;
+      }
+      
+      let gameDate: Date;
+      
+      // Try to parse the date
+      if (cleanDate.includes('T')) {
+        // ISO format: 2024-12-01T12:00:00Z
+        gameDate = new Date(cleanDate);
+      } else if (cleanDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // YYYY-MM-DD format
+        const [year, month, day] = cleanDate.split('-').map(Number);
+        gameDate = new Date(year, month - 1, day);
+      } else {
+        // Try generic parse as last resort
+        debug.log(`Pick ${p.id} using generic Date parse for: "${cleanDate}"`);
+        gameDate = new Date(cleanDate);
+      }
+      
+      // Check if date is valid
+      if (isNaN(gameDate.getTime())) {
+        debug.log(`Pick ${p.id} has invalid gameDate after parsing: "${cleanDate}"`);
+        return false;
+      }
+      
+      // Check if year seems reasonable (between 2020 and 2030)
+      // If year is unreasonable, try to infer the correct year
+      let year = gameDate.getFullYear();
+      if (year < 2020 || year > 2030) {
+        debug.log(`Pick ${p.id} has unreasonable year ${year}, attempting to infer correct year`);
+        
+        // Date format is likely "Mon, Dec 1" without year
+        // Infer the year based on current date and month
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const gameMonth = gameDate.getMonth();
+        const gameDay = gameDate.getDate();
+        
+        // Try current year first, then last year
+        const possibleYears = [currentYear, currentYear - 1];
+        
+        for (const testYear of possibleYears) {
+          const testDate = new Date(testYear, gameMonth, gameDay);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          testDate.setHours(0, 0, 0, 0);
+          const daysDiff = Math.floor((today.getTime() - testDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          debug.log(`Pick ${p.id} testing year ${testYear}: ${testDate.toISOString().split('T')[0]}, daysDiff: ${daysDiff}`);
+          
+          // Accept dates that are in the past and within 1 year
+          // This allows both recent games (for default 30 day filter) and older historical games
+          if (daysDiff >= 0 && daysDiff < 365) {
+            gameDate = testDate;
+            year = testYear;
+            debug.log(`Pick ${p.id} ✅ inferred year ${testYear} for "${cleanDate}" -> ${testDate.toISOString().split('T')[0]} (${daysDiff} days ago)`);
+            break;
+          } else {
+            debug.log(`Pick ${p.id} ❌ year ${testYear} rejected: daysDiff=${daysDiff} (need 0-365)`);
+          }
+        }
+        
+        // If still unreasonable, reject it
+        if (year < 2020 || year > 2030) {
+          debug.log(`Pick ${p.id} still has unreasonable year ${year} after inference`);
+          return false;
+        }
+      }
+      
+      // Normalize to date only (no time)
+      const gameDateOnly = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
+      
+      const fromDate = new Date(dateRange.from);
+      const fromDateOnly = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+      
+      const toDate = new Date(dateRange.to);
+      const toDateOnly = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+      
+      const isInRange = gameDateOnly >= fromDateOnly && gameDateOnly <= toDateOnly;
+      
+      debug.log(`Pick ${p.id} date filter result:`, {
+        cleanDate,
+        parsedYear: year,
+        gameDateOnly: gameDateOnly.toISOString().split('T')[0],
+        fromDateOnly: fromDateOnly.toISOString().split('T')[0],
+        toDateOnly: toDateOnly.toISOString().split('T')[0],
+        isInRange
+      });
+      
+      return isInRange;
+    } catch (error) {
+      debug.error('Error filtering by date range:', error, p.id, gameData.raw_game_date);
+      return false;
+    }
+  });
+  
+  debug.log('Historical picks filtering:', {
+    totalHistoricalPicks: historicalPicks.length,
+    filteredCount: filteredHistoricalPicks.length,
+    dateRange: dateRange ? {
+      from: dateRange.from?.toISOString(),
+      to: dateRange.to?.toISOString()
+    } : 'none'
+  });
+  
+  // For backward compatibility, publishedPicks represents active picks for regular users
+  const publishedPicks = activePicks;
   
   // Helper function to group picks by date
   interface DateGroup {
@@ -1075,14 +1408,38 @@ export default function EditorsPicks() {
       try {
         // Create date object from raw date string
         // Handle ISO strings and simple YYYY-MM-DD
-        const dateStr = gameData.raw_game_date;
+        let dateStr = gameData.raw_game_date;
+        
+        // Clean up invalid date strings
+        if (typeof dateStr === 'string') {
+          dateStr = dateStr.replace(/INVALID DATE/gi, '').replace(/NaN/gi, '').trim();
+        }
+        
+        if (!dateStr || dateStr === 'TBD' || dateStr === '') {
+          noDatePicks.push(pick);
+          return;
+        }
+        
         let dateObj: Date;
         
         if (dateStr.includes('T')) {
           dateObj = new Date(dateStr);
-        } else {
+        } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          // YYYY-MM-DD format
           const [year, month, day] = dateStr.split('-').map(Number);
+          if (isNaN(year) || isNaN(month) || isNaN(day)) {
+            noDatePicks.push(pick);
+            return;
+          }
           dateObj = new Date(year, month - 1, day);
+        } else {
+          dateObj = new Date(dateStr);
+        }
+        
+        // Check if date is valid
+        if (isNaN(dateObj.getTime())) {
+          noDatePicks.push(pick);
+          return;
         }
         
         // Create a standardized key for grouping (YYYY-MM-DD)
@@ -1101,9 +1458,16 @@ export default function EditorsPicks() {
 
     // Convert map to array and sort
     const sortedGroups: DateGroup[] = Array.from(groups.entries()).map(([_, value]) => {
+      // Check if date is valid before formatting
+      if (isNaN(value.dateObj.getTime())) {
+        return {
+          title: 'Date Not Found',
+          dateObj: new Date(0),
+          picks: value.picks
+        };
+      }
+      
       // Format date nicely for display
-      const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
-      // Use custom formatting to ensure consistency
       const dayName = value.dateObj.toLocaleDateString('en-US', { weekday: 'long' });
       const monthName = value.dateObj.toLocaleDateString('en-US', { month: 'short' });
       const dayNum = value.dateObj.getDate();
@@ -1141,13 +1505,56 @@ export default function EditorsPicks() {
   
   const groupedDraftPicks = groupPicksByDate(draftPicks, true);
   const groupedActivePicks = groupPicksByDate(activePicks, true);
-  const groupedHistoricalPicks = groupPicksByDate(historicalPicks, true);
+  const groupedHistoricalPicks = groupPicksByDate(filteredHistoricalPicks, true);
   const groupedPublishedPicks = groupPicksByDate(publishedPicks, true);
+  
+  // Date range preset handlers
+  const applyDatePreset = (preset: string) => {
+    if (preset === 'all') {
+      setDateRange(undefined);
+      localStorage.setItem('editorsPicks_dateRange', 'null');
+      return;
+    }
+    
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    let from: Date;
+    
+    switch (preset) {
+      case 'lastWeek':
+        from = subDays(today, 7);
+        break;
+      case 'lastMonth':
+        from = subMonths(today, 1);
+        break;
+      case 'last30Days':
+        from = subDays(today, 30);
+        break;
+      case 'last90Days':
+        from = subDays(today, 90);
+        break;
+      case 'thisMonth':
+        from = startOfMonth(today);
+        break;
+      case 'thisYear':
+        from = startOfYear(today);
+        break;
+      default:
+        from = subDays(today, 30);
+    }
+    
+    from.setHours(0, 0, 0, 0);
+    const newRange = { from, to: today };
+    setDateRange(newRange);
+    localStorage.setItem('editorsPicks_dateRange', JSON.stringify({
+      from: from.toISOString(),
+      to: today.toISOString(),
+    }));
+  };
   
   debug.log(`📊 Picks Summary:`, {
     totalPicks: picks.length,
-    publishedBeforeFilter: picks.filter(p => p.is_published).length,
-    publishedAfterFilter: publishedPicks.length,
+    allPublishedPicks: allPublishedPicks.length,
     activePicks: activePicks.length,
     historicalPicks: historicalPicks.length,
     draftPicks: draftPicks.length,
@@ -1316,8 +1723,8 @@ export default function EditorsPicks() {
       )}
 
 
-      {/* Empty State - Show when there are no published picks for users or no picks at all for admins */}
-      {((publishedPicks.length === 0 && !adminModeEnabled) || (picks.length === 0 && adminModeEnabled)) && !error && (
+      {/* Empty State - Show when there are no published picks */}
+      {allPublishedPicks.length === 0 && !error && (
         <Card className="overflow-hidden">
           <CardContent className="pt-6">
             <div className="text-center py-12 px-4">
@@ -1363,8 +1770,8 @@ export default function EditorsPicks() {
         </Card>
       )}
 
-      {/* Admin Mode - Tabs for Active and Historical Picks */}
-      {adminModeEnabled && (publishedPicks.length > 0 || draftPicks.length > 0) && (
+      {/* Tabs for Active and Historical Picks - Available to All Users */}
+      {allPublishedPicks.length > 0 && (
         <Tabs value={activeTab} onValueChange={(value) => {
           setActiveTab(value);
           localStorage.setItem('editorsPicks_activeTab', value);
@@ -1372,9 +1779,9 @@ export default function EditorsPicks() {
           <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">
             <TabsTrigger value="active" className="flex items-center gap-2">
               Active Picks
-              {(draftPicks.length + activePicks.length) > 0 && (
+              {(adminModeEnabled ? draftPicks.length + activePicks.length : activePicks.length) > 0 && (
                 <Badge variant="secondary" className="bg-green-500 text-white ml-1">
-                  {draftPicks.length + activePicks.length}
+                  {adminModeEnabled ? draftPicks.length + activePicks.length : activePicks.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -1382,7 +1789,7 @@ export default function EditorsPicks() {
               Historical Picks
               {historicalPicks.length > 0 && (
                 <Badge variant="secondary" className="bg-gray-500 text-white ml-1">
-                  {historicalPicks.length}
+                  {dateRange ? filteredHistoricalPicks.length : historicalPicks.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -1390,8 +1797,8 @@ export default function EditorsPicks() {
 
           {/* Active Picks Tab */}
           <TabsContent value="active" className="space-y-6">
-            {/* Draft Picks */}
-            {draftPicks.length > 0 && (
+            {/* Draft Picks - Admin Only */}
+            {adminModeEnabled && draftPicks.length > 0 && (
               <Card className="-mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
                 background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
                 backdropFilter: 'blur(40px)',
@@ -1434,14 +1841,16 @@ export default function EditorsPicks() {
               </Card>
             )}
 
-            {draftPicks.length === 0 && activePicks.length === 0 && (
+            {(adminModeEnabled ? draftPicks.length === 0 && activePicks.length === 0 : activePicks.length === 0) && (
               <Card className="-mx-4 md:mx-0">
                 <CardContent className="pt-6">
                   <div className="text-center py-12">
                     <Star className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold mb-2">No Active Picks</h3>
                     <p className="text-muted-foreground">
-                      Star games to create new picks or check the Historical tab.
+                      {adminModeEnabled 
+                        ? 'Star games to create new picks or check the Historical tab.'
+                        : 'Check the Historical tab to see older picks.'}
                     </p>
                   </div>
                 </CardContent>
@@ -1458,16 +1867,158 @@ export default function EditorsPicks() {
                 WebkitBackdropFilter: 'blur(40px)',
               }}>
                 <CardHeader className="px-4 md:px-6">
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <Star className="h-5 w-5 text-gray-500 fill-gray-500" />
-                    <span>Historical Picks</span>
-                    <Badge variant="secondary" className="bg-gray-500 text-white">
-                      {historicalPicks.length}
-                    </Badge>
-                  </CardTitle>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                      <Star className="h-5 w-5 text-gray-500 fill-gray-500" />
+                      <span>Historical Picks</span>
+                      <Badge variant="secondary" className="bg-gray-500 text-white">
+                        {filteredHistoricalPicks.length}
+                      </Badge>
+                      {filteredHistoricalPicks.length !== historicalPicks.length && (
+                        <Badge variant="outline" className="text-xs">
+                          of {historicalPicks.length}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    
+                    {/* Date Range Picker */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="date"
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "w-full sm:w-auto justify-start text-left font-normal",
+                            !dateRange && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange?.from ? (
+                            dateRange.to ? (
+                              <>
+                                {format(dateRange.from, "LLL dd, y")} -{" "}
+                                {format(dateRange.to, "LLL dd, y")}
+                              </>
+                            ) : (
+                              format(dateRange.from, "LLL dd, y")
+                            )
+                          ) : (
+                            <span>All Time</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="end">
+                        <div className="flex flex-col">
+                          {/* Preset Buttons */}
+                          <div className="flex flex-col gap-1 p-3 border-b">
+                            <div className="text-sm font-semibold mb-2 text-muted-foreground">Quick Select</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Button
+                                variant={!dateRange ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => applyDatePreset('all')}
+                                className="text-xs h-8"
+                              >
+                                All Time
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => applyDatePreset('last30Days')}
+                                className="text-xs h-8"
+                              >
+                                Last 30 Days
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => applyDatePreset('last90Days')}
+                                className="text-xs h-8"
+                              >
+                                Last 90 Days
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => applyDatePreset('thisMonth')}
+                                className="text-xs h-8"
+                              >
+                                This Month
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => applyDatePreset('thisYear')}
+                                className="text-xs h-8 col-span-2"
+                              >
+                                This Year
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Calendar */}
+                          <div className="p-3">
+                            <div className="text-sm font-semibold mb-2 text-muted-foreground">Custom Range</div>
+                            <Calendar
+                              initialFocus
+                              mode="range"
+                              defaultMonth={dateRange?.from}
+                              selected={dateRange}
+                              onSelect={(range) => {
+                                setDateRange(range);
+                                if (range?.from && range?.to) {
+                                  localStorage.setItem('editorsPicks_dateRange', JSON.stringify({
+                                    from: range.from.toISOString(),
+                                    to: range.to.toISOString(),
+                                  }));
+                                }
+                              }}
+                              numberOfMonths={2}
+                            />
+                            
+                            {/* Clear Button */}
+                            {dateRange && (
+                              <div className="mt-3 pt-3 border-t">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setDateRange(undefined);
+                                    localStorage.setItem('editorsPicks_dateRange', 'null');
+                                  }}
+                                  className="w-full"
+                                >
+                                  Clear Filter
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 md:px-6">
-                  {renderGroupedPicks(groupedHistoricalPicks)}
+                  {filteredHistoricalPicks.length > 0 ? (
+                    renderGroupedPicks(groupedHistoricalPicks)
+                  ) : (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground mb-4">
+                        No picks found in the selected date range.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setDateRange(undefined);
+                          localStorage.setItem('editorsPicks_dateRange', 'null');
+                        }}
+                      >
+                        Show All Picks
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -1485,28 +2036,6 @@ export default function EditorsPicks() {
             )}
           </TabsContent>
         </Tabs>
-      )}
-
-      {/* Regular User View - Published Picks */}
-      {!adminModeEnabled && publishedPicks.length > 0 && (
-        <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
-          background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
-          backdropFilter: 'blur(40px)',
-          WebkitBackdropFilter: 'blur(40px)',
-        }}>
-          <CardHeader className="px-4 md:px-6">
-            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-              <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-              <span>Published Picks</span>
-              <Badge variant="secondary" className="bg-green-500 text-white">
-                {publishedPicks.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 md:px-6">
-            {renderGroupedPicks(groupedPublishedPicks)}
-          </CardContent>
-        </Card>
       )}
 
       {/* Value Finds Sections */}

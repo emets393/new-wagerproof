@@ -179,49 +179,81 @@ export function EditorPickListItem({ pick, gameData, onUpdate, onEdit }: EditorP
         <div className="flex items-center gap-4 flex-1 min-w-0 pl-2">
           {/* Date Box */}
           <div className="flex flex-col items-center justify-center min-w-[70px] px-1 py-1 bg-gray-100 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700/50 gap-0.5">
-            {gameData.raw_game_date ? (() => {
+            {(() => {
               try {
-                // Parse date correctly accounting for timezone issues if needed, 
-                // but raw_game_date is usually YYYY-MM-DD or ISO.
-                // We want: Top: "Nov 17", Middle: "Sunday", Bottom: Time
-                const dateObj = new Date(gameData.raw_game_date.includes('T') ? gameData.raw_game_date : gameData.raw_game_date + 'T12:00:00');
-                const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
-                const dayNum = dateObj.getDate(); // Use getDate() directly as it respects the parsed date object
-                // Note: getDate() uses local time, which might be off if timezone is not handled. 
-                // Better to use UTC methods if the string is UTC, but usually these are game dates.
-                // Let's rely on the pre-formatted game_date string components if possible to match existing logic
-                // gameData.game_date format: "Sun, Nov 17"
-                const dateParts = gameData.game_date ? gameData.game_date.split(', ') : [];
-                // dateParts[0] = "Sun", dateParts[1] = "Nov 17"
+                // Use game_date if available (pre-formatted), otherwise parse raw_game_date
+                if (gameData.game_date && gameData.game_date !== 'TBD' && !gameData.game_date.includes('INVALID')) {
+                  const dateParts = gameData.game_date.split(', ');
+                  if (dateParts.length >= 2) {
+                    const dayOfWeek = dateParts[0];
+                    const monthDate = dateParts[1];
+                    
+                    // Map short day names to full names
+                    const dayNameMap: { [key: string]: string } = {
+                      'Sun': 'Sunday', 'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday',
+                      'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday'
+                    };
+                    const fullDayName = dayNameMap[dayOfWeek] || dayOfWeek;
+                    
+                    return (
+                      <>
+                        <span className="text-[10px] uppercase font-semibold text-gray-500 dark:text-gray-400 leading-tight">
+                          {monthDate}
+                        </span>
+                        <span className="text-sm font-extrabold text-gray-900 dark:text-gray-100 leading-tight py-0.5">
+                          {fullDayName}
+                        </span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
+                          {gameData.game_time?.split(' ')[0] || 'TBD'} {gameData.game_time?.split(' ').slice(1).join(' ') || ''}
+                        </span>
+                      </>
+                    );
+                  }
+                }
                 
-                const dayOfWeek = dateParts[0] || dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-                // Expand short day name if needed, or just use what we have.
-                // User asked for "Day of the week" bold in middle.
-                // If "Sun" is short, map it to "Sunday".
-                const fullDayName = new Date(gameData.raw_game_date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }); 
-                // Using UTC to avoid timezone shifts on pure dates
+                // Fallback to parsing raw_game_date
+                if (gameData.raw_game_date && gameData.raw_game_date !== 'TBD' && !gameData.raw_game_date.includes('INVALID')) {
+                  let dateObj: Date;
+                  
+                  if (gameData.raw_game_date.includes('T')) {
+                    dateObj = new Date(gameData.raw_game_date);
+                  } else if (gameData.raw_game_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    // YYYY-MM-DD format
+                    const [year, month, day] = gameData.raw_game_date.split('-').map(Number);
+                    dateObj = new Date(year, month - 1, day);
+                  } else {
+                    dateObj = new Date(gameData.raw_game_date);
+                  }
+                  
+                  // Check if date is valid
+                  if (isNaN(dateObj.getTime())) {
+                    return <span className="text-xs text-gray-500">TBD</span>;
+                  }
+                  
+                  const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
+                  const dayNum = dateObj.getDate();
+                  const fullDayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                  
+                  return (
+                    <>
+                      <span className="text-[10px] uppercase font-semibold text-gray-500 dark:text-gray-400 leading-tight">
+                        {month} {dayNum}
+                      </span>
+                      <span className="text-sm font-extrabold text-gray-900 dark:text-gray-100 leading-tight py-0.5">
+                        {fullDayName}
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
+                        {gameData.game_time?.split(' ')[0] || 'TBD'} {gameData.game_time?.split(' ').slice(1).join(' ') || ''}
+                      </span>
+                    </>
+                  );
+                }
                 
-                const monthDate = dateParts[1] || `${month} ${dayNum}`;
-                
-                return (
-                  <>
-                    <span className="text-[10px] uppercase font-semibold text-gray-500 dark:text-gray-400 leading-tight">
-                      {monthDate}
-                    </span>
-                    <span className="text-sm font-extrabold text-gray-900 dark:text-gray-100 leading-tight py-0.5">
-                      {fullDayName}
-                    </span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
-                      {gameData.game_time?.split(' ')[0] || 'TBD'} {gameData.game_time?.split(' ').slice(1).join(' ')}
-                    </span>
-                  </>
-                );
+                return <span className="text-xs text-gray-500">TBD</span>;
               } catch (e) {
-                return <span className="text-xs">TBD</span>;
+                return <span className="text-xs text-gray-500">TBD</span>;
               }
-            })() : (
-              <span className="text-xs text-gray-500">TBD</span>
-            )}
+            })()}
           </div>
 
           {/* Teams */}
