@@ -232,61 +232,39 @@ export function SportsbookButtons({
 
   return (
     <div className={`space-y-2 ${compact ? 'pt-0' : 'pt-2'}`}>
-      {!compact && (
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Place Your Bet
-        </div>
-      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="default" 
+            size={compact ? "sm" : "default"}
+            className={`w-full flex items-center justify-center gap-2 ${compact ? 'h-8 text-xs' : ''} bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md border-0 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]`}
+          >
+            <span>Place Bet</span>
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56 max-h-[300px] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl rounded-xl p-1.5">
+           <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+             Available Sportsbooks
+           </div>
+           
+          {[...TOP_SPORTSBOOKS, ...ADDITIONAL_SPORTSBOOKS].map((sportsbook) => {
+            const hasLink = !!betslipLinks[sportsbook.key];
+            if (!hasLink) return null;
 
-      {/* Top 5 Sportsbooks */}
-      <div className="flex flex-wrap gap-2">
-        {TOP_SPORTSBOOKS.map((sportsbook) => {
-          const hasLink = !!betslipLinks[sportsbook.key];
-          return (
-            <Button
-              key={sportsbook.key}
-              variant={hasLink ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleSportsbookClick(sportsbook.key)}
-              disabled={!hasLink}
-              className={`flex items-center gap-1.5 ${compact ? 'h-7 text-xs px-2' : ''}`}
-            >
-              {sportsbook.displayName}
-              {hasLink && <ExternalLink className="h-3 w-3" />}
-            </Button>
-          );
-        })}
-      </div>
-
-      {/* Additional Free US Sportsbooks Dropdown */}
-      {/* Note: Additional sportsbooks will only appear if fetchOdds was called with getAllFreeUSBookmakers() */}
-      {ADDITIONAL_SPORTSBOOKS.some(sb => betslipLinks[sb.key]) && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full">
-              More Sportsbooks ({ADDITIONAL_SPORTSBOOKS.filter(sb => betslipLinks[sb.key]).length})
-              <ChevronDown className="h-4 w-4 ml-2" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 max-h-[300px] overflow-y-auto">
-            {ADDITIONAL_SPORTSBOOKS.map((sportsbook) => {
-              const hasLink = !!betslipLinks[sportsbook.key];
-              if (!hasLink) return null;
-
-              return (
-                <DropdownMenuItem
-                  key={sportsbook.key}
-                  onClick={() => handleSportsbookClick(sportsbook.key)}
-                  className="flex items-center justify-between cursor-pointer"
-                >
-                  {sportsbook.displayName}
-                  <ExternalLink className="h-3 w-3" />
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+            return (
+              <DropdownMenuItem
+                key={sportsbook.key}
+                onClick={() => handleSportsbookClick(sportsbook.key)}
+                className="flex items-center justify-between cursor-pointer py-2.5 px-3 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:bg-blue-50 dark:focus:bg-blue-900/20 transition-colors"
+              >
+                <span className="font-medium text-gray-700 dark:text-gray-200">{sportsbook.displayName}</span>
+                <ExternalLink className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

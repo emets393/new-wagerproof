@@ -16,7 +16,7 @@ export function TermsAcceptance() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (isChecked && hasScrolledToBottom) {
+    if (isChecked) {
       // Start pulsing animation
       Animated.loop(
         Animated.sequence([
@@ -36,7 +36,7 @@ export function TermsAcceptance() {
       // Stop animation
       pulseAnim.setValue(0);
     }
-  }, [isChecked, hasScrolledToBottom, pulseAnim]);
+  }, [isChecked, pulseAnim]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
@@ -55,7 +55,7 @@ export function TermsAcceptance() {
   };
 
   const handleNext = () => {
-    if (isChecked && hasScrolledToBottom) {
+    if (isChecked) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Store the timestamp of terms acceptance
       updateOnboardingData({ 
@@ -219,14 +219,13 @@ export function TermsAcceptance() {
           <Checkbox
             value={isChecked}
             onValueChange={handleCheckboxChange}
-            disabled={!hasScrolledToBottom}
             color={hasScrolledToBottom ? '#22c55e' : '#6b7280'}
             style={styles.checkbox}
           />
           <Text 
             style={[
               styles.checkboxLabel, 
-              { opacity: hasScrolledToBottom ? 1 : 0.5 }
+              { opacity: hasScrolledToBottom ? 1 : 0.7 }
             ]}
           >
             I have read and agree to the Terms and Conditions
@@ -236,7 +235,7 @@ export function TermsAcceptance() {
         <Animated.View
           style={[
             styles.buttonWrapper,
-            isChecked && hasScrolledToBottom && {
+            isChecked && {
               opacity: pulseAnim.interpolate({
                 inputRange: [0, 1],
                 outputRange: [0.7, 1],
@@ -248,10 +247,10 @@ export function TermsAcceptance() {
             onPress={handleNext}
             fullWidth
             variant="glass"
-            disabled={!isChecked || !hasScrolledToBottom}
+            disabled={!isChecked}
             style={[
               styles.continueButton,
-              isChecked && hasScrolledToBottom && styles.buttonActive,
+              isChecked && styles.buttonActive,
             ]}
           >
             Continue

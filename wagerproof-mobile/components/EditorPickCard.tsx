@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Card, useTheme } from 'react-native-paper';
+import { View, Text, StyleSheet, Image, Platform } from 'react-native';
+import { useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { getBettingColors } from '@/constants/theme';
 import { getTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { calculateUnits } from '@/utils/unitsCalculation';
+import { BlurView } from 'expo-blur';
 
 interface EditorPickCardProps {
   pick: EditorPick;
@@ -15,7 +16,6 @@ interface EditorPickCardProps {
 export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
-  const bettingColors = getBettingColors(isDark);
   
   // Get team initials based on game type
   const getInitials = (teamName: string) => {
@@ -36,39 +36,15 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
   const formatSpread = (spread: number | null | undefined): string => {
     if (spread === null || spread === undefined) return '-';
     if (spread > 0) return `+${spread}`;
+    if (spread === 0) return 'PK';
     return spread.toString();
   };
 
   const formatMoneyline = (ml: number | null | undefined): string => {
     if (ml === null || ml === undefined) return '-';
     if (ml > 0) return `+${ml}`;
+    if (ml === 0) return 'Even';
     return ml.toString();
-  };
-
-  const getBetDisplay = (type: string) => {
-    switch(type) {
-      case 'spread_away':
-        return `Spread: ${gameData.away_team} ${formatSpread(gameData.away_spread)}`;
-      case 'spread_home':
-        return `Spread: ${gameData.home_team} ${formatSpread(gameData.home_spread)}`;
-      case 'ml_away':
-        return `Moneyline: ${gameData.away_team} ${formatMoneyline(gameData.away_ml)}`;
-      case 'ml_home':
-        return `Moneyline: ${gameData.home_team} ${formatMoneyline(gameData.home_ml)}`;
-      case 'over':
-        return `Over ${gameData.over_line || 'N/A'}`;
-      case 'under':
-        return `Under ${gameData.over_line || 'N/A'}`;
-      // Legacy support
-      case 'spread':
-        return `Spread: ${gameData.home_team} ${formatSpread(gameData.home_spread)}`;
-      case 'moneyline':
-        return `Moneyline: ${gameData.home_team} ${formatMoneyline(gameData.home_ml)}`;
-      case 'over_under':
-        return `Over ${gameData.over_line || 'N/A'}`;
-      default:
-        return type;
-    }
   };
 
   // Parse bet types
@@ -88,260 +64,490 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
   };
 
   const selectedBetTypes = parseBetTypes(pick.selected_bet_type);
+  
+  // Calculate units
+  const unitsCalc = calculateUnits(pick.result, pick.best_price, pick.units);
+
+  // Determine gradient colors based on bet
+  const getGradientColors = (): readonly [string, string, string] => {
+    const firstBet = selectedBetTypes[0];
+    const alpha = isDark ? 0.15 : 0.1;
+
+    const hexToRgba = (hex: string, a: number) => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    };
+
+    if (firstBet?.includes('home')) {
+      return [
+        hexToRgba(gameData.home_team_colors.primary, alpha),
+        hexToRgba(gameData.home_team_colors.secondary, alpha * 0.5),
+        hexToRgba(gameData.home_team_colors.primary, 0)
+      ];
+    }
+    if (firstBet?.includes('away')) {
+      return [
+        hexToRgba(gameData.away_team_colors.primary, alpha),
+        hexToRgba(gameData.away_team_colors.secondary, alpha * 0.5),
+        hexToRgba(gameData.away_team_colors.primary, 0)
+      ];
+    }
+    
+    return [
+      hexToRgba(theme.colors.primary, alpha),
+      hexToRgba(theme.colors.primary, alpha * 0.5),
+      'transparent'
+    ];
+  };
+
+  const gradientColors = getGradientColors();
 
   return (
-    <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-      {/* Thin Gradient Border at Top */}
+    <View style={[
+      styles.cardContainer, 
+      { 
+        backgroundColor: isDark ? 'rgba(30, 30, 30, 0.6)' : 'rgba(255, 255, 255, 0.8)',
+        borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+      }
+    ]}>
+      {/* Background Gradient */}
       <LinearGradient
-        colors={[gameData.away_team_colors.primary, gameData.away_team_colors.secondary, gameData.home_team_colors.primary, gameData.home_team_colors.secondary]}
+        colors={gradientColors}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.gradientBorder}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
       />
 
-      <Card.Content style={styles.content}>
-        {/* Game Date and Time */}
-        {(gameData.game_date || gameData.game_time) && (
-          <View style={styles.dateContainer}>
-            {gameData.game_date && (
-              <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>
-                {gameData.game_date}
-              </Text>
-            )}
-            {gameData.game_time && (
-              <View style={[styles.timeBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
-                <Text style={[styles.timeText, { color: theme.colors.onSurfaceVariant }]}>
-                  {gameData.game_time}
+      {/* Badges Row */}
+      <View style={styles.badgesRow}>
+        {pick.result && pick.result !== 'pending' && (
+          <View style={[
+            styles.badge, 
+            { backgroundColor: pick.result === 'won' ? '#10b981' : pick.result === 'lost' ? '#ef4444' : '#6b7280' }
+          ]}>
+            <Text style={styles.badgeText}>{pick.result.toUpperCase()}</Text>
+          </View>
+        )}
+        {pick.is_free_pick && (
+          <View style={[styles.badge, { backgroundColor: '#10b981' }]}>
+            <Text style={styles.badgeText}>FREE PICK</Text>
+          </View>
+        )}
+        {!pick.is_published && (
+          <View style={[styles.badge, { backgroundColor: '#eab308' }]}>
+            <Text style={styles.badgeText}>DRAFT</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Header: Date & Time */}
+      <View style={styles.header}>
+        {gameData.game_date && (
+          <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>
+            {gameData.game_date}
+          </Text>
+        )}
+        {gameData.game_time && (
+          <View style={[styles.timeBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+            <Text style={[styles.timeText, { color: theme.colors.onSurfaceVariant }]}>
+              {gameData.game_time}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Matchup Section */}
+      <View style={styles.matchupContainer}>
+        {/* Away Team */}
+        <View style={styles.teamColumn}>
+          <View style={[styles.logoContainer, { borderColor: gameData.away_team_colors.primary }]}>
+            {gameData.away_logo ? (
+              <Image source={{ uri: gameData.away_logo }} style={styles.teamLogo} resizeMode="contain" />
+            ) : (
+              <View style={[styles.initialsFallback, { backgroundColor: gameData.away_team_colors.primary }]}>
+                <Text style={[styles.initialsText, { color: getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary) }]}>
+                  {getInitials(gameData.away_team)}
                 </Text>
               </View>
             )}
           </View>
-        )}
+          <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+            {gameData.away_team}
+          </Text>
+        </View>
 
-        {/* Teams with Color Circles */}
-        <View style={styles.teamsRow}>
-          {/* Away Team */}
-          <View style={styles.teamColumn}>
-            {/* Team Circle with Initials */}
-            <LinearGradient
-              colors={[gameData.away_team_colors.primary, gameData.away_team_colors.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.teamCircle, { borderColor: gameData.away_team_colors.primary }]}
-            >
-              <Text style={[styles.teamInitials, { color: getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary) }]}>
-                {getInitials(gameData.away_team)}
+        {/* VS / Lines */}
+        <View style={styles.centerColumn}>
+          <Text style={[styles.atSymbol, { color: theme.colors.outline }]}>@</Text>
+          
+          {/* Betting Lines Grid */}
+          <View style={styles.bettingLinesGrid}>
+            <View style={styles.bettingLineCol}>
+              <Text 
+                style={[styles.oddsText, { color: theme.colors.primary }]} 
+                numberOfLines={1} 
+                adjustsFontSizeToFit 
+                minimumFontScale={0.8}
+              >
+                {formatMoneyline(gameData.away_ml)}
               </Text>
-            </LinearGradient>
-            <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
-              {gameData.away_team}
-            </Text>
-            <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
-              {formatSpread(gameData.away_spread)}
-            </Text>
-            <Text style={[styles.mlText, { color: bettingColors.awayMoneyline }]}>
-              {formatMoneyline(gameData.away_ml)}
-            </Text>
-          </View>
+              <Text 
+                style={[styles.spreadText, { color: theme.colors.onSurface }]} 
+                numberOfLines={1} 
+                adjustsFontSizeToFit 
+                minimumFontScale={0.8}
+              >
+                {formatSpread(gameData.away_spread)}
+              </Text>
+            </View>
+            
+            <View style={styles.totalContainer}>
+              <View style={[styles.totalBadge, { borderColor: theme.colors.outline, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
+                <Text style={[styles.totalText, { color: theme.colors.onSurfaceVariant }]}>
+                  {gameData.over_line || '-'}
+                </Text>
+              </View>
+            </View>
 
-          {/* Center */}
-          <View style={styles.centerColumn}>
-            <Text style={[styles.atSymbol, { color: theme.colors.outlineVariant }]}>@</Text>
-            <View style={[styles.totalBadge, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
-              <Text style={[styles.totalText, { color: theme.colors.onSurfaceVariant }]}>
-                Total: {gameData.over_line || '-'}
+            <View style={styles.bettingLineCol}>
+              <Text 
+                style={[styles.oddsText, { color: theme.colors.primary }]} 
+                numberOfLines={1} 
+                adjustsFontSizeToFit 
+                minimumFontScale={0.8}
+              >
+                {formatMoneyline(gameData.home_ml)}
+              </Text>
+              <Text 
+                style={[styles.spreadText, { color: theme.colors.onSurface }]} 
+                numberOfLines={1} 
+                adjustsFontSizeToFit 
+                minimumFontScale={0.8}
+              >
+                {formatSpread(gameData.home_spread)}
               </Text>
             </View>
           </View>
-
-          {/* Home Team */}
-          <View style={styles.teamColumn}>
-            {/* Team Circle with Initials */}
-            <LinearGradient
-              colors={[gameData.home_team_colors.primary, gameData.home_team_colors.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.teamCircle, { borderColor: gameData.home_team_colors.primary }]}
-            >
-              <Text style={[styles.teamInitials, { color: getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary) }]}>
-                {getInitials(gameData.home_team)}
-              </Text>
-            </LinearGradient>
-            <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
-              {gameData.home_team}
-            </Text>
-            <Text style={[styles.spreadText, { color: theme.colors.onSurfaceVariant }]}>
-              {formatSpread(gameData.home_spread)}
-            </Text>
-            <Text style={[styles.mlText, { color: bettingColors.homeMoneyline }]}>
-              {formatMoneyline(gameData.home_ml)}
-            </Text>
-          </View>
         </View>
 
-        {/* Editor's Picks Section */}
-        <View style={[styles.picksSection, { backgroundColor: theme.colors.primaryContainer }]}>
-          <Text style={[styles.picksTitle, { color: theme.colors.onPrimaryContainer }]}>
-            Editor's Picks
-          </Text>
-          <View style={styles.picksList}>
-            {selectedBetTypes.map((betType, index) => (
-              <View key={index} style={styles.pickItem}>
-                <Text style={[styles.pickBullet, { color: theme.colors.primary }]}>•</Text>
-                <Text style={[styles.pickText, { color: theme.colors.onPrimaryContainer }]}>
-                  {getBetDisplay(betType)}
+        {/* Home Team */}
+        <View style={styles.teamColumn}>
+          <View style={[styles.logoContainer, { borderColor: gameData.home_team_colors.primary }]}>
+            {gameData.home_logo ? (
+              <Image source={{ uri: gameData.home_logo }} style={styles.teamLogo} resizeMode="contain" />
+            ) : (
+              <View style={[styles.initialsFallback, { backgroundColor: gameData.home_team_colors.primary }]}>
+                <Text style={[styles.initialsText, { color: getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary) }]}>
+                  {getInitials(gameData.home_team)}
                 </Text>
               </View>
-            ))}
+            )}
           </View>
+          <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+            {gameData.home_team}
+          </Text>
         </View>
+      </View>
 
-        {/* Editor's Notes */}
-        {pick.editors_notes && (
-          <View style={[styles.notesSection, { backgroundColor: theme.colors.surfaceVariant }]}>
-            <Text style={[styles.notesTitle, { color: theme.colors.onSurfaceVariant }]}>
-              Analysis
+      {/* Editor's Pick Section */}
+      <View style={[
+        styles.pickSection, 
+        { 
+          backgroundColor: isDark ? 'rgba(30, 58, 138, 0.2)' : 'rgba(239, 246, 255, 0.8)',
+          borderColor: isDark ? 'rgba(30, 64, 175, 0.3)' : 'rgba(191, 219, 254, 1)'
+        }
+      ]}>
+        <Text style={[styles.sectionLabel, { color: isDark ? '#93c5fd' : '#1e40af' }]}>EDITOR'S PICK</Text>
+        
+        {pick.pick_value ? (
+          <View>
+            <Text style={[styles.pickValueText, { color: theme.colors.onSurface }]}>
+              {pick.pick_value}
             </Text>
-            <Text style={[styles.notesText, { color: theme.colors.onSurfaceVariant }]}>
-              {pick.editors_notes}
-            </Text>
+            
+            <View style={styles.pickMetaRow}>
+              {pick.best_price && (
+                <View style={[styles.metaBadge, { backgroundColor: isDark ? 'rgba(6, 95, 70, 0.3)' : '#dcfce7', borderColor: isDark ? '#065f46' : '#bbf7d0' }]}>
+                  <Text style={[styles.metaText, { color: isDark ? '#a7f3d0' : '#166534' }]}>
+                    {pick.best_price}
+                  </Text>
+                </View>
+              )}
+              {pick.sportsbook && (
+                <View style={[styles.metaBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#e5e7eb' }]}>
+                  <Text style={[styles.metaText, { color: theme.colors.onSurfaceVariant }]}>
+                    @ {pick.sportsbook}
+                  </Text>
+                </View>
+              )}
+              {pick.units && (
+                <Text style={[styles.unitsText, { color: theme.colors.onSurfaceVariant }]}>
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{pick.units}</Text> unit{pick.units !== 1 ? 's' : ''}
+                </Text>
+              )}
+            </View>
+
+            {/* Result Display */}
+            {pick.result && pick.result !== 'pending' && (
+              <Text style={[
+                styles.resultText, 
+                { 
+                  color: unitsCalc.netUnits > 0 ? '#10b981' : unitsCalc.netUnits < 0 ? '#ef4444' : theme.colors.onSurfaceVariant 
+                }
+              ]}>
+                {unitsCalc.netUnits > 0 ? '+' : ''}{unitsCalc.netUnits.toFixed(2)} units
+              </Text>
+            )}
+          </View>
+        ) : (
+          /* Fallback for old picks */
+          <View style={styles.legacyPickContainer}>
+            {selectedBetTypes.map((betType, index) => {
+              const getBetDisplay = (type: string) => {
+                switch(type) {
+                  case 'spread_away': return `Spread: ${gameData.away_team} ${formatSpread(gameData.away_spread)}`;
+                  case 'spread_home': return `Spread: ${gameData.home_team} ${formatSpread(gameData.home_spread)}`;
+                  case 'ml_away': return `Moneyline: ${gameData.away_team} ${formatMoneyline(gameData.away_ml)}`;
+                  case 'ml_home': return `Moneyline: ${gameData.home_team} ${formatMoneyline(gameData.home_ml)}`;
+                  case 'over': return `Over ${gameData.over_line || 'N/A'}`;
+                  case 'under': return `Under ${gameData.over_line || 'N/A'}`;
+                  default: return type;
+                }
+              };
+              return (
+                <View key={index} style={styles.legacyPickRow}>
+                  <Text style={[styles.legacyPickBullet, { color: theme.colors.primary }]}>•</Text>
+                  <Text style={[styles.legacyPickText, { color: theme.colors.onSurface }]}>{getBetDisplay(betType)}</Text>
+                </View>
+              );
+            })}
           </View>
         )}
-      </Card.Content>
-    </Card>
+      </View>
+
+      {/* Analysis / Notes */}
+      {pick.editors_notes && (
+        <View style={[
+          styles.notesSection, 
+          { 
+            backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+          }
+        ]}>
+          <Text style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant, opacity: 0.7 }]}>ANALYSIS</Text>
+          <Text style={[styles.notesText, { color: theme.colors.onSurface }]}>
+            {pick.editors_notes}
+          </Text>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginBottom: 16,
-    borderRadius: 12,
-    elevation: 4,
+  cardContainer: {
+    borderRadius: 16,
+    marginVertical: 8,
+    borderWidth: 1,
     overflow: 'hidden',
+    padding: 16,
   },
-  gradientBorder: {
-    height: 4,
-  },
-  content: {
-    paddingVertical: 12,
-  },
-  dateContainer: {
+  badgesRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+    marginBottom: 8,
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  header: {
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 16,
+    marginTop: 4,
   },
   dateText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   timeBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingVertical: 2,
+    borderRadius: 12,
   },
   timeText: {
     fontSize: 11,
     fontWeight: '500',
   },
-  teamsRow: {
+  matchupContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: 16,
-    gap: 8,
   },
   teamColumn: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    maxWidth: '35%',
   },
-  teamCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  logoContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'white',
     marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  teamInitials: {
-    fontSize: 14,
-    fontWeight: 'bold',
+  teamLogo: {
+    width: 40,
+    height: 40,
   },
-  teamName: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    minHeight: 32,
-  },
-  spreadText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  mlText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  centerColumn: {
-    alignItems: 'center',
+  initialsFallback: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
     justifyContent: 'center',
-    gap: 6,
+    alignItems: 'center',
   },
-  atSymbol: {
+  initialsText: {
     fontSize: 18,
     fontWeight: 'bold',
   },
+  teamName: {
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  centerColumn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 12,
+  },
+  atSymbol: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    opacity: 0.3,
+    marginBottom: 8,
+  },
+  bettingLinesGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  bettingLineCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  oddsText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  spreadText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  totalContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
   totalBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
     borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
   totalText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  pickSection: {
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  pickValueText: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  pickMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
+  },
+  metaBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  metaText: {
     fontSize: 11,
     fontWeight: '600',
   },
-  picksSection: {
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+  unitsText: {
+    fontSize: 12,
   },
-  picksTitle: {
+  resultText: {
     fontSize: 13,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontWeight: '700',
+    marginTop: 4,
   },
-  picksList: {
+  legacyPickContainer: {
+    gap: 4,
+  },
+  legacyPickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
-  pickItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
+  legacyPickBullet: {
+    fontSize: 14,
   },
-  pickBullet: {
-    fontSize: 16,
-    lineHeight: 20,
-  },
-  pickText: {
+  legacyPickText: {
     fontSize: 14,
     fontWeight: '600',
-    flex: 1,
   },
   notesSection: {
     padding: 12,
-    borderRadius: 8,
-  },
-  notesTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 6,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   notesText: {
     fontSize: 13,
     lineHeight: 20,
   },
 });
-

@@ -24,7 +24,7 @@ import { EarlyAccess } from '../../components/onboarding/steps/Step15_EarlyAcces
 import { Paywall, PaywallProvider } from '../../components/onboarding/steps/Step16_Paywall';
 
 const { width } = Dimensions.get('window');
-const TOTAL_STEPS = 17;
+const TOTAL_STEPS = 16;
 
 const stepComponents = {
   1: PersonalizationIntro,
@@ -42,8 +42,8 @@ const stepComponents = {
   13: ValueClaim,
   14: AcquisitionSource,
   15: DataTransparency,
-  16: EarlyAccess,
-  17: Paywall,
+  // 16: EarlyAccess, // Disabled - not showing early access message
+  16: Paywall,
 };
 
 function OnboardingContent() {
@@ -121,7 +121,7 @@ function OnboardingContent() {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Progress Indicator with Back Button - Only show if not on Paywall */}
-      {displayStep !== 17 && (
+      {displayStep !== 16 && (
         <ProgressIndicator 
           currentStep={gradientStep} 
           totalSteps={TOTAL_STEPS}
@@ -139,7 +139,7 @@ function OnboardingContent() {
           },
         ]}
       >
-        {displayStep === 17 ? (
+        {displayStep === 16 ? (
           <PaywallProvider>
             <ScrollView
               contentContainerStyle={styles.scrollContent}

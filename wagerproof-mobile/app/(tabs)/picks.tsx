@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList } from 'react-native';
 import { useTheme, Card, ActivityIndicator, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,6 +10,8 @@ import { EditorPickCard } from '@/components/EditorPickCard';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColors } from '@/constants/teamColors';
+import { SportFilter } from '@/components/SportFilter';
+import { StatsSummary } from '@/components/StatsSummary';
 
 // Helper to get NBA team logo
 const getNBATeamLogo = async (teamName: string): Promise<string> => {
@@ -89,7 +91,7 @@ const getNCAABTeamLogo = async (teamId: number | null | undefined): Promise<stri
         .select('api_team_id, espn_team_id, team_abbrev');
 
       if (!error && data) {
-        ncaabTeamMappingsCache = new Map();
+        const newCache = new Map<number, { espn_team_url: string; team_abbrev: string | null }>();
         data.forEach((team: any) => {
           if (team.api_team_id !== null && team.api_team_id !== undefined) {
             const numericId = typeof team.api_team_id === 'string' ? parseInt(team.api_team_id, 10) : team.api_team_id;
@@ -100,12 +102,13 @@ const getNCAABTeamLogo = async (teamId: number | null | undefined): Promise<stri
               logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${espnTeamId}.png`;
             }
             
-            ncaabTeamMappingsCache.set(numericId, {
+            newCache.set(numericId, {
               espn_team_url: logoUrl,
               team_abbrev: team.team_abbrev || null
             });
           }
         });
+        ncaabTeamMappingsCache = newCache;
       }
     } catch (error) {
       console.error('Error fetching NCAAB team mappings:', error);
@@ -181,6 +184,7 @@ export default function PicksScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSport, setSelectedSport] = useState<string | null>(null);
 
   const fetchPicks = async () => {
     try {
@@ -196,10 +200,8 @@ export default function PicksScreen() {
       if (picksError) throw picksError;
 
       // Filter picks to only show games from last 7 days + future games
-      const filteredPicks = (picksData || []).filter((pick: EditorPick) => {
-        // We'll filter after getting game data, for now just set all picks
-        return true;
-      });
+      // Note: We'll do strict filtering after fetching game data to verify dates
+      // But for now, let's process everything returned
 
       // Fetch game data for all picks
       if (picksData && picksData.length > 0) {
@@ -241,8 +243,8 @@ export default function PicksScreen() {
         // Fetch NFL games
         if (nflGameIds.length > 0) {
           const { data: bettingLines, error: linesError } = await collegeFootballSupabase
-            .from('nfl_betting_lines')
-            .select('*')
+                .from('nfl_betting_lines')
+                .select('*')
             .in('training_key', nflGameIds);
 
           if (!linesError && bettingLines) {
@@ -251,18 +253,18 @@ export default function PicksScreen() {
               if (line.game_date) {
                 try {
                   const [year, month, day] = line.game_date.split('-').map(Number);
-                  const date = new Date(year, month - 1, day);
-                  formattedDate = date.toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
-                  });
-                } catch (error) {
-                  console.error('Error formatting NFL date:', error);
+                    const date = new Date(year, month - 1, day);
+                    formattedDate = date.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric'
+                    });
+                  } catch (error) {
+                    console.error('Error formatting NFL date:', error);
+                  }
                 }
-              }
-
-              // Format NFL time
+                
+                // Format NFL time
               let formattedTime = '';
               if (line.game_time_et) {
                 try {
@@ -287,10 +289,10 @@ export default function PicksScreen() {
                       
                       if (!isNaN(date.getTime())) {
                         formattedTime = date.toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          hour12: true
-                        }) + ' EST';
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    }) + ' EST';
                       }
                     }
                   }
@@ -308,8 +310,8 @@ export default function PicksScreen() {
                 home_team: line.home_team,
                 away_logo: getNFLTeamLogo(line.away_team),
                 home_logo: getNFLTeamLogo(line.home_team),
-                game_date: formattedDate,
-                game_time: formattedTime,
+                  game_date: formattedDate,
+                  game_time: formattedTime,
                 raw_game_date: line.game_date,
                 away_spread: line.away_spread,
                 home_spread: line.home_spread,
@@ -331,53 +333,53 @@ export default function PicksScreen() {
           });
           
           const { data: cfbGames, error: cfbError } = await collegeFootballSupabase
-            .from('cfb_live_weekly_inputs')
-            .select('*')
+                .from('cfb_live_weekly_inputs')
+                .select('*')
             .in('id', numericIds);
 
           if (!cfbError && cfbGames) {
             cfbGames.forEach((game: any) => {
               const startTimeString = game.start_time || game.start_date || game.game_datetime || game.datetime;
               
-              let formattedDate = 'TBD';
-              let formattedTime = 'TBD';
-              
-              if (startTimeString) {
-                try {
-                  const utcDate = new Date(startTimeString);
-                  
-                  const estMonth = utcDate.toLocaleString('en-US', {
-                    timeZone: 'America/New_York',
-                    month: 'short'
-                  }).toUpperCase();
-                  const estDay = utcDate.toLocaleString('en-US', {
-                    timeZone: 'America/New_York',
-                    day: 'numeric'
-                  });
-                  const estYear = utcDate.toLocaleString('en-US', {
-                    timeZone: 'America/New_York',
-                    year: 'numeric'
-                  });
-                  formattedDate = `${estMonth} ${estDay}, ${estYear}`;
-                  
-                  formattedTime = utcDate.toLocaleTimeString('en-US', {
-                    timeZone: 'America/New_York',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                  }) + ' EST';
-                } catch (error) {
-                  console.error('Error formatting CFB date/time:', error);
+                let formattedDate = 'TBD';
+                let formattedTime = 'TBD';
+                
+                if (startTimeString) {
+                  try {
+                    const utcDate = new Date(startTimeString);
+                    
+                    const estMonth = utcDate.toLocaleString('en-US', {
+                      timeZone: 'America/New_York',
+                      month: 'short'
+                    }).toUpperCase();
+                    const estDay = utcDate.toLocaleString('en-US', {
+                      timeZone: 'America/New_York',
+                      day: 'numeric'
+                    });
+                    const estYear = utcDate.toLocaleString('en-US', {
+                      timeZone: 'America/New_York',
+                      year: 'numeric'
+                    });
+                    formattedDate = `${estMonth} ${estDay}, ${estYear}`;
+                    
+                    formattedTime = utcDate.toLocaleTimeString('en-US', {
+                      timeZone: 'America/New_York',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    }) + ' EST';
+                  } catch (error) {
+                    console.error('Error formatting CFB date/time:', error);
+                  }
                 }
-              }
-              
+
               gameDataMap.set(String(game.id), {
                 away_team: game.away_team,
                 home_team: game.home_team,
                 away_logo: getCFBTeamLogo(game.away_team),
                 home_logo: getCFBTeamLogo(game.home_team),
-                game_date: formattedDate,
-                game_time: formattedTime,
+                  game_date: formattedDate,
+                  game_time: formattedTime,
                 raw_game_date: startTimeString,
                 away_spread: game.api_spread ? -game.api_spread : null,
                 home_spread: game.api_spread,
@@ -388,9 +390,9 @@ export default function PicksScreen() {
                 away_team_colors: getCFBTeamColors(game.away_team),
                 home_team_colors: getCFBTeamColors(game.home_team),
               });
-            });
-          }
-        }
+                });
+              }
+            }
 
         // Fetch NBA games
         if (nbaGameIds.length > 0) {
@@ -608,7 +610,7 @@ export default function PicksScreen() {
 
         setGamesData(gameDataMap);
 
-        // Now filter picks to only show games from last 7 days + future games
+        // Filter picks to only show games from last 7 days + future games
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -663,7 +665,13 @@ export default function PicksScreen() {
     Linking.openURL('https://www.tiktok.com/@wagerproof');
   };
 
-  // Group picks by date
+  // Memoize filtered picks based on selected sport
+  const filteredPicks = useMemo(() => {
+    if (!selectedSport) return picks;
+    return picks.filter(pick => pick.game_type === selectedSport);
+  }, [picks, selectedSport]);
+
+  // Group filtered picks by date
   const groupPicksByDate = (picksToGroup: EditorPick[]): DateGroup[] => {
     const groups = new Map<string, { dateObj: Date, picks: EditorPick[] }>();
     const noDatePicks: EditorPick[] = [];
@@ -727,7 +735,7 @@ export default function PicksScreen() {
     return sortedGroups;
   };
 
-  const groupedPicks = groupPicksByDate(picks);
+  const groupedPicks = groupPicksByDate(filteredPicks);
 
   const renderSectionHeader = ({ section }: { section: DateGroup }) => (
     <View style={[styles.sectionHeader, { backgroundColor: theme.colors.background }]}>
@@ -764,6 +772,20 @@ export default function PicksScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Frosted Glass Header */}
+      <BlurView
+        intensity={80}
+        tint={theme.dark ? 'dark' : 'light'}
+        style={[styles.headerBlur, { paddingTop: insets.top + 16 }]}
+      >
+        <View style={styles.headerContent}>
+          <MaterialCommunityIcons name="star" size={32} color={isDark ? '#FFD700' : '#FFD700'} style={styles.starIcon} />
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
+            Editor's Picks
+          </Text>
+        </View>
+      </BlurView>
+
       {error ? (
         <View style={styles.centerContainer}>
           <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
@@ -775,7 +797,7 @@ export default function PicksScreen() {
             <Card.Content>
               <View style={styles.emptyContent}>
                 <MaterialCommunityIcons 
-                  name="sparkles" 
+                  name="creation" 
                   size={80} 
                   color={isDark ? '#FFD700' : '#FFB81C'} 
                   style={styles.sparkleIcon}
@@ -813,30 +835,21 @@ export default function PicksScreen() {
           contentContainerStyle={[
             styles.listContent, 
             { 
-              paddingTop: insets.top + 80,
               paddingBottom: 65 + insets.bottom + 20 
             }
           ]}
+          ListHeaderComponent={
+            <View style={{ paddingTop: insets.top + 80, marginBottom: 16 }}>
+              <StatsSummary picks={filteredPicks} />
+              <SportFilter selectedSport={selectedSport} onSportChange={setSelectedSport} />
+            </View>
+          }
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} progressViewOffset={insets.top + 80} />
           }
           stickySectionHeadersEnabled={false}
         />
       )}
-
-      {/* Frosted Glass Header */}
-      <BlurView
-        intensity={80}
-        tint={theme.dark ? 'dark' : 'light'}
-        style={[styles.headerBlur, { paddingTop: insets.top + 16 }]}
-      >
-        <View style={styles.headerContent}>
-          <MaterialCommunityIcons name="star" size={32} color={isDark ? '#FFD700' : '#FFD700'} style={styles.starIcon} />
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            Editor's Picks
-          </Text>
-        </View>
-      </BlurView>
     </View>
   );
 }

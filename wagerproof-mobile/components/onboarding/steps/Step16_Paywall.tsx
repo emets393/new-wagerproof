@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, createContext, useContext, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { useTheme, ActivityIndicator, Switch } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { useRevenueCat } from '../../../contexts/RevenueCatContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -18,6 +19,10 @@ const PaywallContext = createContext<{
   selectedPlan: 'yearly' | 'monthly';
   setSelectedPlan: (plan: 'yearly' | 'monthly') => void;
   setFreeTrialEnabled: (enabled: boolean) => void;
+  monthlyPrice: string;
+  yearlyPrice: string;
+  yearlyMonthlyPrice: string;
+  rcLoading: boolean;
 } | null>(null);
 
 const features = [
@@ -48,9 +53,79 @@ const testimonial = {
 function usePaywallState() {
   const { submitOnboardingData } = useOnboarding();
   const router = useRouter();
+  const { packages, refreshOfferings, isLoading: rcLoading } = useRevenueCat();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
   const [freeTrialEnabled, setFreeTrialEnabled] = useState(true);
+  const [monthlyPrice, setMonthlyPrice] = useState<string>('$19.99');
+  const [yearlyPrice, setYearlyPrice] = useState<string>('$99');
+  const [yearlyMonthlyPrice, setYearlyMonthlyPrice] = useState<string>('$8.25');
+
+  // Load pricing from RevenueCat
+  useEffect(() => {
+    refreshOfferings();
+  }, []);
+
+  useEffect(() => {
+    if (packages && packages.length > 0) {
+      console.log('📦 All available packages:', packages.map(pkg => ({
+        identifier: pkg.identifier,
+        productId: pkg.product?.identifier,
+        price: pkg.product?.priceString,
+      })));
+
+      // Find regular (non-discount) monthly package
+      // Prioritize packages WITHOUT 'discount' in identifier
+      const monthlyPkg = packages.find(pkg => 
+        !pkg.identifier.toLowerCase().includes('discount') &&
+        (pkg.identifier === '$rc_monthly' ||
+         pkg.identifier.toLowerCase().includes('monthly') ||
+         pkg.product.identifier.toLowerCase().includes('monthly'))
+      ) || packages.find(pkg => 
+        pkg.identifier.toLowerCase().includes('monthly') ||
+        pkg.product.identifier.toLowerCase().includes('monthly')
+      );
+
+      // Find regular (non-discount) yearly package
+      // Prioritize packages WITHOUT 'discount' in identifier
+      // Also prioritize $rc_annual over other annual packages
+      const yearlyPkg = packages.find(pkg => 
+        !pkg.identifier.toLowerCase().includes('discount') &&
+        (pkg.identifier === '$rc_annual' ||
+         pkg.identifier.toLowerCase().includes('annual') ||
+         pkg.identifier.toLowerCase().includes('yearly') ||
+         pkg.product.identifier.toLowerCase().includes('annual') ||
+         pkg.product.identifier.toLowerCase().includes('yearly'))
+      ) || packages.find(pkg => 
+        pkg.identifier.toLowerCase().includes('annual') ||
+        pkg.identifier.toLowerCase().includes('yearly') ||
+        pkg.product.identifier.toLowerCase().includes('annual') ||
+        pkg.product.identifier.toLowerCase().includes('yearly')
+      );
+
+      console.log('📌 Selected packages:', {
+        monthly: monthlyPkg ? {
+          identifier: monthlyPkg.identifier,
+          price: monthlyPkg.product?.priceString
+        } : null,
+        yearly: yearlyPkg ? {
+          identifier: yearlyPkg.identifier,
+          price: yearlyPkg.product?.priceString
+        } : null
+      });
+
+      if (monthlyPkg?.product?.priceString) {
+        setMonthlyPrice(monthlyPkg.product.priceString);
+      }
+      if (yearlyPkg?.product?.priceString) {
+        setYearlyPrice(yearlyPkg.product.priceString);
+        // Calculate monthly equivalent
+        const yearlyAmount = yearlyPkg.product.price;
+        const monthlyEquivalent = (yearlyAmount / 12).toFixed(2);
+        setYearlyMonthlyPrice(`$${monthlyEquivalent}`);
+      }
+    }
+  }, [packages]);
 
   const handleContinue = async () => {
     if (isSubmitting) return;
@@ -95,6 +170,10 @@ function usePaywallState() {
     freeTrialEnabled,
     setFreeTrialEnabled,
     handleContinue,
+    monthlyPrice,
+    yearlyPrice,
+    yearlyMonthlyPrice,
+    rcLoading,
   };
 }
 
@@ -110,6 +189,10 @@ export function PaywallProvider({ children }: { children: React.ReactNode }) {
       selectedPlan: state.selectedPlan,
       setSelectedPlan: state.setSelectedPlan,
       setFreeTrialEnabled: state.setFreeTrialEnabled,
+      monthlyPrice: state.monthlyPrice,
+      yearlyPrice: state.yearlyPrice,
+      yearlyMonthlyPrice: state.yearlyMonthlyPrice,
+      rcLoading: state.rcLoading,
     }}>
       {children}
     </PaywallContext.Provider>
@@ -121,7 +204,7 @@ export function PaywallBottomCTA() {
   const context = useContext(PaywallContext);
   if (!context) return null;
   
-  const { isSubmitting, freeTrialEnabled, handleContinue } = context;
+  const { isSubmitting, handleContinue, selectedPlan } = context;
 
   return (
     <View style={styles.fixedBottomContainer} pointerEvents="box-none">
@@ -133,7 +216,7 @@ export function PaywallBottomCTA() {
         <View style={styles.bottomContent}>
           <View style={styles.noPaymentRow}>
             <MaterialCommunityIcons name="shield-check-outline" size={16} color="rgba(255, 255, 255, 0.7)" />
-            <Text style={styles.noPaymentText}>No Payment Now</Text>
+            <Text style={styles.noPaymentText}>Cancel Anytime</Text>
           </View>
           
           <TouchableOpacity 
@@ -145,17 +228,15 @@ export function PaywallBottomCTA() {
             {isSubmitting ? (
               <ActivityIndicator size="small" color="#000" />
             ) : (
-              <Text style={styles.ctaButtonText}>Try for $0.00</Text>
+              <Text style={styles.ctaButtonText}>Continue</Text>
             )}
           </TouchableOpacity>
           
           <Text style={styles.billingText}>
-            {freeTrialEnabled ? '7 days free, then ' : ''}$1.25 per month – Billed yearly
+            {selectedPlan === 'yearly' 
+              ? `${context.yearlyMonthlyPrice} per month – Billed yearly` 
+              : `${context.monthlyPrice} per month`}
           </Text>
-          
-          <TouchableOpacity onPress={() => Alert.alert('Plans', 'View all available plans')}>
-            <Text style={styles.seeAllPlans}>See All Plans</Text>
-          </TouchableOpacity>
         </View>
       </LinearGradient>
     </View>
@@ -166,7 +247,7 @@ export function PaywallContent() {
   const context = useContext(PaywallContext);
   if (!context) return null;
   
-  const { selectedPlan, setSelectedPlan, freeTrialEnabled, setFreeTrialEnabled } = context;
+  const { selectedPlan, setSelectedPlan, freeTrialEnabled, setFreeTrialEnabled, monthlyPrice, yearlyPrice, rcLoading } = context;
 
   return (
     <View style={styles.contentWrapper}>
@@ -201,10 +282,20 @@ export function PaywallContent() {
                     styles.planName,
                     selectedPlan !== 'yearly' && styles.inactiveText
                   ]}>Yearly</Text>
-                  <Text style={[
-                    styles.planPrice,
-                    selectedPlan !== 'yearly' && styles.inactiveText
-                  ]}>$99 /year</Text>
+                  {rcLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <View>
+                      <Text style={[
+                        styles.planPrice,
+                        selectedPlan !== 'yearly' && styles.inactiveText
+                      ]}>{context.yearlyMonthlyPrice} /month</Text>
+                      <Text style={[
+                        styles.planSubPrice,
+                        selectedPlan !== 'yearly' && styles.inactiveText
+                      ]}>Billed yearly ({yearlyPrice})</Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.bestValueBadge}>
                   <Text style={styles.bestValueText}>BEST VALUE</Text>
@@ -226,15 +317,19 @@ export function PaywallContent() {
               selectedPlan !== 'monthly' && styles.pricingCardInactive
             ]}>
               <View style={styles.pricingHeader}>
-                <View>z
+                <View>
                   <Text style={[
                     styles.planName,
                     selectedPlan !== 'monthly' && styles.inactiveText
                   ]}>Monthly</Text>
-                  <Text style={[
-                    styles.planPrice,
-                    selectedPlan !== 'monthly' && styles.inactiveText
-                  ]}>$19.99 /month</Text>
+                  {rcLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={[
+                      styles.planPrice,
+                      selectedPlan !== 'monthly' && styles.inactiveText
+                    ]}>{monthlyPrice} /month</Text>
+                  )}
                 </View>
               </View>
             </View>
@@ -407,9 +502,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   planPrice: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontWeight: '600',
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  planSubPrice: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '500',
   },
   inactiveText: {
     opacity: 0.5,
