@@ -301,7 +301,8 @@ export function EditorPickCreatorModal({
         }
       };
 
-      const { formattedDate, formattedTime } = formatGameDateTime(selectedGame?.gameDate || new Date().toISOString());
+      const rawGameDate = selectedGame?.gameDate || new Date().toISOString();
+      const { formattedDate, formattedTime } = formatGameDateTime(rawGameDate);
       
       const archivedGameData = selectedGame ? {
         awayTeam: selectedGame.awayTeam,
@@ -310,6 +311,7 @@ export function EditorPickCreatorModal({
         homeLogo: getTeamLogo(selectedGame.homeTeam, league),
         gameDate: formattedDate,
         gameTime: formattedTime,
+        rawGameDate: rawGameDate, // Store the raw date (YYYY-MM-DD or ISO format) for filtering
         awaySpread: selectedGame.awaySpread,
         homeSpread: selectedGame.homeSpread,
         awayMl: selectedGame.awayML,
