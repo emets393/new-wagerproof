@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,19 +7,22 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
-  ScrollView,
   Platform,
 } from 'react-native';
 import { useRevenueCat } from '../contexts/RevenueCatContext';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-// Lazy load PaywallView to avoid errors if native module isn't available
-let PaywallView: any = null;
+// Lazy load RevenueCatUI for Paywalls V2
+let RevenueCatUI: any = null;
+let PaywallComponent: any = null;
+let PAYWALL_RESULT: any = null;
 try {
   if (Platform.OS !== 'web') {
     const purchasesUI = require('react-native-purchases-ui');
-    PaywallView = purchasesUI.PaywallView;
+    RevenueCatUI = purchasesUI.default;
+    PaywallComponent = RevenueCatUI?.Paywall;
+    PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
   }
 } catch (error: any) {
   console.warn('Could not load react-native-purchases-ui:', error.message);
@@ -41,15 +44,11 @@ export function RevenueCatPaywall({
   const { theme } = useThemeContext();
   const {
     offering,
-    packages,
     isLoading,
-    purchase,
-    restore,
     error,
     refreshOfferings,
   } = useRevenueCat();
-  const [isPurchasing, setIsPurchasing] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -57,41 +56,25 @@ export function RevenueCatPaywall({
     }
   }, [visible, refreshOfferings]);
 
-  const handlePurchase = async (packageToPurchase: any) => {
-    try {
-      setIsPurchasing(true);
-      await purchase(packageToPurchase);
-      Alert.alert('Success', 'Your subscription is now active!', [
-        { text: 'OK', onPress: () => {
-          onPurchaseComplete?.();
-          onClose();
-        }},
-      ]);
-    } catch (err: any) {
-      if (err.message !== 'Purchase cancelled by user') {
-        Alert.alert('Purchase Failed', err.message || 'An error occurred during purchase');
-      }
-    } finally {
-      setIsPurchasing(false);
-    }
-  };
+  const handlePurchaseCompleted = useCallback(async ({ customerInfo }: any) => {
+    console.log('Purchase completed:', customerInfo);
+    Alert.alert('Success', 'Your subscription is now active!', [
+      { text: 'OK', onPress: () => {
+        onPurchaseComplete?.();
+        onClose();
+      }},
+    ]);
+  }, [onPurchaseComplete, onClose]);
 
-  const handleRestore = async () => {
-    try {
-      setIsRestoring(true);
-      await restore();
-      Alert.alert('Success', 'Purchases restored successfully!', [
-        { text: 'OK', onPress: () => {
-          onRestoreComplete?.();
-          onClose();
-        }},
-      ]);
-    } catch (err: any) {
-      Alert.alert('Restore Failed', err.message || 'Failed to restore purchases');
-    } finally {
-      setIsRestoring(false);
-    }
-  };
+  const handleRestoreCompleted = useCallback(async ({ customerInfo }: any) => {
+    console.log('Restore completed:', customerInfo);
+    Alert.alert('Success', 'Purchases restored successfully!', [
+      { text: 'OK', onPress: () => {
+        onRestoreComplete?.();
+        onClose();
+      }},
+    ]);
+  }, [onRestoreComplete, onClose]);
 
   if (!visible) return null;
 
@@ -146,26 +129,44 @@ export function RevenueCatPaywall({
             </TouchableOpacity>
           </View>
         ) : offering ? (
-          <ScrollView
-            style={styles.content}
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* RevenueCat Paywall View */}
-            {PaywallView ? (
-              <PaywallView
-                offering={offering}
-                onPurchaseCompleted={(customerInfo: any) => {
-                  console.log('Purchase completed:', customerInfo);
-                  handlePurchase(null); // The purchase is already completed by PaywallView
+          <View style={styles.content}>
+            {/* RevenueCat Paywall V2 - Don't pass offering to auto-use attached paywall */}
+            {PaywallComponent ? (
+              <PaywallComponent
+                options={{
+                  // Don't pass offering - let RevenueCat auto-select the current offering's V2 paywall
+                  // This fixes issues where fallback paywall shows instead of custom V2
+                  // offering: offering,
                 }}
-                onRestoreCompleted={(customerInfo: any) => {
-                  console.log('Restore completed:', customerInfo);
-                  handleRestore();
+                style={styles.paywall}
+                onPurchaseStarted={({ packageBeingPurchased }: any) => {
+                  console.log('Purchase started:', packageBeingPurchased?.identifier);
+                  setIsProcessing(true);
                 }}
-                onError={(error: any) => {
-                  console.error('Paywall error:', error);
-                  Alert.alert('Error', error.message || 'An error occurred');
+                onPurchaseCompleted={handlePurchaseCompleted}
+                onPurchaseError={({ error: purchaseError }: any) => {
+                  console.error('Purchase error:', purchaseError?.message);
+                  setIsProcessing(false);
+                  Alert.alert('Error', purchaseError?.message || 'An error occurred during purchase');
+                }}
+                onPurchaseCancelled={() => {
+                  console.log('Purchase cancelled');
+                  setIsProcessing(false);
+                }}
+                onRestoreStarted={() => {
+                  console.log('Restore started');
+                  setIsProcessing(true);
+                }}
+                onRestoreCompleted={handleRestoreCompleted}
+                onRestoreError={({ error: restoreError }: any) => {
+                  console.error('Restore error:', restoreError?.message);
+                  setIsProcessing(false);
+                  Alert.alert('Restore Failed', restoreError?.message || 'Failed to restore purchases');
+                }}
+                onDismiss={() => {
+                  console.log('Paywall dismissed');
+                  setIsProcessing(false);
+                  onClose();
                 }}
               />
             ) : (
@@ -183,28 +184,13 @@ export function RevenueCatPaywall({
                 </Text>
               </View>
             )}
-
-            {/* Restore Purchases Button */}
-            <TouchableOpacity
-              onPress={handleRestore}
-              disabled={isRestoring}
-              style={styles.restoreButton}
-            >
-              {isRestoring ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              ) : (
-                <Text style={[styles.restoreButtonText, { color: theme.colors.primary }]}>
-                  Restore Purchases
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Terms and Privacy */}
-            <Text style={[styles.termsText, { color: theme.colors.textSecondary }]}>
-              By continuing, you agree to our Terms of Service and Privacy Policy.
-              Subscriptions will auto-renew unless cancelled at least 24 hours before the end of the current period.
-            </Text>
-          </ScrollView>
+            
+            {isProcessing && (
+              <View style={styles.processingOverlay}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+              </View>
+            )}
+          </View>
         ) : (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons
@@ -250,8 +236,8 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  contentContainer: {
-    padding: 20,
+  paywall: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -297,20 +283,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  restoreButton: {
-    marginTop: 20,
-    paddingVertical: 12,
+  processingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  restoreButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  termsText: {
-    marginTop: 20,
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 16,
+    zIndex: 10,
   },
 });
 

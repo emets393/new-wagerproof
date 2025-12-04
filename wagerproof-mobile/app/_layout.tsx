@@ -9,12 +9,14 @@ import { NFLGameSheetProvider } from '../contexts/NFLGameSheetContext';
 import { CFBGameSheetProvider } from '../contexts/CFBGameSheetContext';
 import { NBAGameSheetProvider } from '../contexts/NBAGameSheetContext';
 import { NCAABGameSheetProvider } from '../contexts/NCAABGameSheetContext';
+import { WagerBotChatSheetProvider } from '../contexts/WagerBotChatSheetContext';
 import { RevenueCatProvider } from '../contexts/RevenueCatContext';
 import { OnboardingGuard } from '../components/OnboardingGuard';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
 import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
 import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
+import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 
@@ -60,7 +62,7 @@ function RootNavigator() {
             contentStyle: { backgroundColor: theme.colors.background },
           }}
         >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen 
             name="(onboarding)" 
@@ -81,6 +83,7 @@ function RootNavigator() {
         <CFBGameBottomSheet />
         <NBAGameBottomSheet />
         <NCAABGameBottomSheet />
+        <WagerBotChatBottomSheet />
       </>
     </OnboardingGuard>
   );
@@ -99,7 +102,9 @@ function RootLayoutContent() {
                 <CFBGameSheetProvider>
                   <NBAGameSheetProvider>
                     <NCAABGameSheetProvider>
-                      <RootNavigator />
+                      <WagerBotChatSheetProvider>
+                        <RootNavigator />
+                      </WagerBotChatSheetProvider>
                     </NCAABGameSheetProvider>
                   </NBAGameSheetProvider>
                 </CFBGameSheetProvider>

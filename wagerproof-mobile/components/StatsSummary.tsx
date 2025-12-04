@@ -85,7 +85,8 @@ export function StatsSummary({ picks }: StatsSummaryProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
+    paddingTop: 24,
+    marginBottom: 12,
     paddingHorizontal: 16,
   },
   row: {

@@ -21,7 +21,7 @@ import { MethodologyClaim2 } from '../../components/onboarding/steps/Step12_Meth
 import { AcquisitionSource } from '../../components/onboarding/steps/Step13_AcquisitionSource';
 import { DataTransparency } from '../../components/onboarding/steps/Step14_DataTransparency';
 import { EarlyAccess } from '../../components/onboarding/steps/Step15_EarlyAccess';
-import { Paywall, PaywallProvider } from '../../components/onboarding/steps/Step16_Paywall';
+import { RevenueCatPaywallStep } from '../../components/onboarding/steps/Step16_RevenueCatPaywall';
 
 const { width } = Dimensions.get('window');
 const TOTAL_STEPS = 16;
@@ -43,7 +43,7 @@ const stepComponents = {
   14: AcquisitionSource,
   15: DataTransparency,
   // 16: EarlyAccess, // Disabled - not showing early access message
-  16: Paywall,
+  16: RevenueCatPaywallStep,
 };
 
 function OnboardingContent() {
@@ -140,17 +140,7 @@ function OnboardingContent() {
         ]}
       >
         {displayStep === 16 ? (
-          <PaywallProvider>
-            <ScrollView
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-            >
-              <CurrentStepComponent />
-            </ScrollView>
-            {/* Paywall Bottom CTA - Render outside ScrollView but inside Provider */}
-            <Paywall.BottomCTA />
-          </PaywallProvider>
+          <CurrentStepComponent />
         ) : (
           <ScrollView
             contentContainerStyle={styles.scrollContent}

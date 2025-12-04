@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, Image, TouchableOpacity, FlatList, Dimensions } from 'react-native';
 import { useTheme, Chip, ActivityIndicator, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { LiveScoreTicker } from '@/components/LiveScoreTicker';
+import { BlurView } from 'expo-blur';
+import PagerView from 'react-native-pager-view';
 import { NFLGameCard } from '@/components/NFLGameCard';
 import { CFBGameCard } from '@/components/CFBGameCard';
 import { NBAGameCard } from '@/components/NBAGameCard';
@@ -14,6 +15,7 @@ import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
@@ -22,6 +24,11 @@ import { NCAABGame } from '@/types/ncaab';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLiveScores } from '@/hooks/useLiveScores';
+import { useDrawer } from '../_layout';
+import { useThemeContext } from '@/contexts/ThemeContext';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
 type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
 type SortMode = 'time' | 'spread' | 'ou';
@@ -31,55 +38,94 @@ interface SportOption {
   label: string;
   available: boolean;
   badge?: string;
+  icon: string;
 }
 
 export default function FeedScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { open: openDrawer } = useDrawer();
   const { scrollY, scrollYClamped } = useScroll();
   const insets = useSafeAreaInsets();
-  const { hasLiveGames } = useLiveScores();
   const { openGameSheet } = useNFLGameSheet();
   const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
   const { openGameSheet: openNBAGameSheet } = useNBAGameSheet();
   const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
+  const { user } = useAuth();
+  const { isDark } = useThemeContext();
+  const pagerRef = useRef<PagerView>(null);
+  const tabsScrollViewRef = useRef<ScrollView>(null);
+
+  // Animation values
+  const scrollOffset = useRef(new Animated.Value(0)).current;
+  const scrollPosition = useRef(new Animated.Value(0)).current;
+  const absolutePosition = useMemo(() => Animated.add(scrollPosition, scrollOffset), [scrollPosition, scrollOffset]);
+  const [tabMeasures, setTabMeasures] = useState<Array<{x: number, width: number}>>(new Array(4).fill({ x: 0, width: 0 }));
   
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
-  const [sortMode, setSortMode] = useState<SortMode>('time');
-  const [searchText, setSearchText] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  
+  // Cached data state - keeps data for each sport separately
+  const [cachedData, setCachedData] = useState<{
+    nfl: { games: NFLPrediction[], lastFetch: number | null };
+    cfb: { games: CFBPrediction[], lastFetch: number | null };
+    nba: { games: NBAGame[], lastFetch: number | null };
+    ncaab: { games: NCAABGame[], lastFetch: number | null };
+  }>({
+    nfl: { games: [], lastFetch: null },
+    cfb: { games: [], lastFetch: null },
+    nba: { games: [], lastFetch: null },
+    ncaab: { games: [], lastFetch: null },
+  });
+  
+  // Per-sport state
+  const [sortModes, setSortModes] = useState<Record<Sport, SortMode>>({
+    nfl: 'time',
+    cfb: 'time',
+    nba: 'time',
+    ncaab: 'time',
+  });
+  const [searchTexts, setSearchTexts] = useState<Record<Sport, string>>({
+    nfl: '',
+    cfb: '',
+    nba: '',
+    ncaab: '',
+  });
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
-  const [nflGames, setNflGames] = useState<NFLPrediction[]>([]);
-  const [cfbGames, setCfbGames] = useState<CFBPrediction[]>([]);
-  const [nbaGames, setNbaGames] = useState<NBAGame[]>([]);
-  const [ncaabGames, setNcaabGames] = useState<NCAABGame[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchBarVisible, setSearchBarVisible] = useState(false);
+  const [loading, setLoading] = useState<Record<Sport, boolean>>({
+    nfl: true,
+    cfb: false,
+    nba: false,
+    ncaab: false,
+  });
+  const [refreshing, setRefreshing] = useState<Record<Sport, boolean>>({
+    nfl: false,
+    cfb: false,
+    nba: false,
+    ncaab: false,
+  });
+  const [error, setError] = useState<Record<Sport, string | null>>({
+    nfl: null,
+    cfb: null,
+    nba: null,
+    ncaab: null,
+  });
   
-  // Animated values for search bar
-  const searchBarTranslateY = useRef(new Animated.Value(-72)).current;
-  const searchBarOpacity = useRef(new Animated.Value(0)).current;
-  const searchBarScale = useRef(new Animated.Value(0.8)).current;
+  // Calculate header heights (must match tab bar calculation)
+  const HEADER_TOP_HEIGHT = 56; // Header top section height
+  const TABS_HEIGHT = 48; // Sport tabs height
+  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT + TABS_HEIGHT;
+  const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
   
-  // Timer for auto-hiding search bar
-  const searchBarTimer = useRef<number | null>(null);
-
-  // Calculate header and tab bar heights
-  const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
-  const PILLS_HEIGHT = 72;
-  const SEARCH_BAR_HEIGHT = 72; // Search bar height
-  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT + (searchBarVisible ? SEARCH_BAR_HEIGHT : 0);
-  
-  // Header translates up as user scrolls up
+  // Header slides up completely as user scrolls up (like tab bar slides down)
   const headerTranslate = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
     outputRange: [0, -TOTAL_COLLAPSIBLE_HEIGHT],
     extrapolate: 'clamp',
   });
 
-  // Header opacity fades out progressively
+  // Header fades out as user scrolls up
   const headerOpacity = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
     outputRange: [1, 0],
@@ -92,93 +138,17 @@ export default function FeedScreen() {
     { useNativeDriver: true }
   );
 
+  const onPageScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { position: scrollPosition, offset: scrollOffset } }],
+    { useNativeDriver: false }
+  ), []);
+
   const sports: SportOption[] = [
-    { id: 'nfl', label: 'NFL', available: true },
-    { id: 'cfb', label: 'CFB', available: true },
-    { id: 'nba', label: 'NBA', available: true },
-    { id: 'ncaab', label: 'NCAAB', available: true },
+    { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
+    { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
+    { id: 'nba', label: 'NBA', available: true, icon: 'basketball' },
+    { id: 'ncaab', label: 'NCAAB', available: true, icon: 'basketball-hoop' },
   ];
-
-  // Show search bar with bounce animation
-  const showSearchBar = () => {
-    setSearchBarVisible(true);
-    
-    // Clear any existing timer
-    if (searchBarTimer.current) {
-      clearTimeout(searchBarTimer.current);
-    }
-    
-    // Animate in with bounce spring - all using native driver
-    Animated.parallel([
-      Animated.spring(searchBarTranslateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 10,
-        stiffness: 100,
-      }),
-      Animated.spring(searchBarOpacity, {
-        toValue: 1,
-        useNativeDriver: true,
-        damping: 10,
-        stiffness: 100,
-      }),
-      Animated.spring(searchBarScale, {
-        toValue: 1,
-        useNativeDriver: true,
-        damping: 10,
-        stiffness: 100,
-      }),
-    ]).start();
-  };
-
-  // Hide search bar with animation
-  const hideSearchBar = () => {
-    // Clear timer
-    if (searchBarTimer.current) {
-      clearTimeout(searchBarTimer.current);
-      searchBarTimer.current = null;
-    }
-    
-    // Animate out - all using native driver
-    Animated.parallel([
-      Animated.timing(searchBarTranslateY, {
-        toValue: -72,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(searchBarOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(searchBarScale, {
-        toValue: 0.8,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setSearchBarVisible(false);
-      setSearchText(''); // Clear search text when hiding
-    });
-  };
-
-  // Toggle search bar
-  const toggleSearchBar = () => {
-    if (searchBarVisible) {
-      hideSearchBar();
-    } else {
-      showSearchBar();
-    }
-  };
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (searchBarTimer.current) {
-        clearTimeout(searchBarTimer.current);
-      }
-    };
-  }, []);
 
   // Fetch NFL data - matches web app approach using v_input_values_with_epa view
   const fetchNFLData = async () => {
@@ -200,7 +170,7 @@ export default function FeedScreen() {
       console.log(`🏈 Found ${nflGames?.length || 0} NFL games from view`);
       
       if (!nflGames || nflGames.length === 0) {
-        setNflGames([]);
+        setCachedData(prev => ({ ...prev, nfl: { games: [], lastFetch: Date.now() } }));
         return;
       }
 
@@ -300,10 +270,15 @@ export default function FeedScreen() {
       });
 
       console.log(`📊 NFL: ${predictionsWithData.length} games, ${predictionsMap.size} have predictions`);
-      setNflGames(predictionsWithData);
+      
+      // Update cached data
+      setCachedData(prev => ({
+        ...prev,
+        nfl: { games: predictionsWithData, lastFetch: Date.now() }
+      }));
     } catch (err) {
       console.error('Error fetching NFL data:', err);
-      setError('Failed to fetch NFL games');
+      setError(prev => ({ ...prev, nfl: 'Failed to fetch NFL games' }));
     }
   };
 
@@ -367,10 +342,13 @@ export default function FeedScreen() {
         };
       });
 
-      setCfbGames(predictionsWithData);
+      setCachedData(prev => ({
+        ...prev,
+        cfb: { games: predictionsWithData, lastFetch: Date.now() }
+      }));
     } catch (err) {
       console.error('Error fetching CFB data:', err);
-      setError('Failed to fetch CFB games');
+      setError(prev => ({ ...prev, cfb: 'Failed to fetch CFB games' }));
     }
   };
 
@@ -400,7 +378,7 @@ export default function FeedScreen() {
       console.log(`🏀 Found ${inputValues?.length || 0} NBA games from view`);
       if (!inputValues || inputValues.length === 0) {
         console.log('⚠️ NBA: No games returned from query');
-        setNbaGames([]);
+        setCachedData(prev => ({ ...prev, nba: { games: [], lastFetch: Date.now() } }));
         return;
       }
 
@@ -492,10 +470,13 @@ export default function FeedScreen() {
       });
 
       console.log(`📊 NBA: ${games.length} games, ${predictionMap.size} have predictions`);
-      setNbaGames(games);
+      setCachedData(prev => ({
+        ...prev,
+        nba: { games, lastFetch: Date.now() }
+      }));
     } catch (err) {
       console.error('Error fetching NBA data:', err);
-      setError('Failed to fetch NBA games');
+      setError(prev => ({ ...prev, nba: 'Failed to fetch NBA games' }));
     }
   };
 
@@ -519,7 +500,7 @@ export default function FeedScreen() {
       console.log(`🏀 Found ${inputValues?.length || 0} NCAAB games from view`);
       if (!inputValues || inputValues.length === 0) {
         console.log('⚠️ NCAAB: No games returned from query');
-        setNcaabGames([]);
+        setCachedData(prev => ({ ...prev, ncaab: { games: [], lastFetch: Date.now() } }));
         return;
       }
 
@@ -590,53 +571,69 @@ export default function FeedScreen() {
       });
 
       console.log(`📊 NCAAB: ${games.length} games, ${predictionMap.size} have predictions`);
-      setNcaabGames(games);
+      setCachedData(prev => ({
+        ...prev,
+        ncaab: { games, lastFetch: Date.now() }
+      }));
     } catch (err) {
       console.error('Error fetching NCAAB data:', err);
-      setError('Failed to fetch NCAAB games');
+      setError(prev => ({ ...prev, ncaab: 'Failed to fetch NCAAB games' }));
     }
   };
 
-  // Fetch data on mount and when sport changes
-  const fetchData = async () => {
+  // Fetch data for a specific sport
+  const fetchDataForSport = useCallback(async (sport: Sport, forceRefresh = false) => {
+    // Check if we have cached data and it's recent (less than 5 minutes old)
+    const cached = cachedData[sport];
+    if (!forceRefresh && cached.lastFetch && Date.now() - cached.lastFetch < 5 * 60 * 1000) {
+      console.log(`Using cached data for ${sport}`);
+      return;
+    }
+    
     try {
-      setError(null);
-      setLoading(true);
+      setError(prev => ({ ...prev, [sport]: null }));
+      setLoading(prev => ({ ...prev, [sport]: true }));
       
-      if (selectedSport === 'nfl') {
+      if (sport === 'nfl') {
         await fetchNFLData();
-      } else if (selectedSport === 'cfb') {
+      } else if (sport === 'cfb') {
         await fetchCFBData();
-      } else if (selectedSport === 'nba') {
+      } else if (sport === 'nba') {
         await fetchNBAData();
-      } else if (selectedSport === 'ncaab') {
+      } else if (sport === 'ncaab') {
         await fetchNCAABData();
       }
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error(`Error fetching ${sport} data:`, err);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoading(prev => ({ ...prev, [sport]: false }));
+      setRefreshing(prev => ({ ...prev, [sport]: false }));
     }
-  };
+  }, [cachedData]);
 
+  // Load data when component mounts
   useEffect(() => {
-    fetchData();
+    fetchDataForSport(selectedSport);
+  }, []);
+
+  // Handle sport change - load data if not cached
+  useEffect(() => {
+    fetchDataForSport(selectedSport);
   }, [selectedSport]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchData();
-  };
+  // Refresh handler for pull-to-refresh
+  const onRefresh = useCallback((sport: Sport) => {
+    setRefreshing(prev => ({ ...prev, [sport]: true }));
+    fetchDataForSport(sport, true);
+  }, [fetchDataForSport]);
 
-  // Get current games based on selected sport
+  // Get current games, search text, and sort mode for selected sport
   const currentGames = useMemo(() => {
-    if (selectedSport === 'nfl') return nflGames;
-    if (selectedSport === 'cfb') return cfbGames;
-    if (selectedSport === 'nba') return nbaGames;
-    if (selectedSport === 'ncaab') return ncaabGames;
-    return [];
-  }, [selectedSport, nflGames, cfbGames, nbaGames, ncaabGames]);
+    return cachedData[selectedSport].games;
+  }, [selectedSport, cachedData]);
+  
+  const searchText = searchTexts[selectedSport];
+  const sortMode = sortModes[selectedSport];
 
   // Filter games by search text (team names and cities)
   const filteredGames = useMemo(() => {
@@ -733,259 +730,348 @@ export default function FeedScreen() {
     return null;
   };
 
-  const renderSearchBar = () => {
-    if (!searchBarVisible) return null;
+  // Handle page change from swipe
+  const handlePageSelected = useCallback((e: any) => {
+    const page = e.nativeEvent.position;
+    setCurrentPage(page);
+    const sport = sports[page].id;
+    setSelectedSport(sport);
     
-    // Use dark color with transparency for both light and dark modes
-    const iconColor = theme.colors.onSurfaceVariant;
-    const searchBgColor = theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)';
-    const placeholderColor = theme.dark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)';
+    // Scroll tab bar to keep active tab in view
+    if (tabMeasures[page] && tabsScrollViewRef.current) {
+      const { x, width } = tabMeasures[page];
+      const scrollX = x - (SCREEN_WIDTH / 2) + (width / 2);
+      tabsScrollViewRef.current.scrollTo({ x: scrollX, animated: true });
+    }
+  }, [tabMeasures]);
+
+  // Measure tabs
+  const onTabMeasure = (index: number, event: any) => {
+    const { x, width } = event.nativeEvent.layout;
+    setTabMeasures(prev => {
+      const newMeasures = [...prev];
+      newMeasures[index] = { x, width };
+      return newMeasures;
+    });
+  };
+
+  // Interpolate indicator position and width
+  const indicatorLeft = absolutePosition.interpolate({
+    inputRange: sports.map((_, i) => i),
+    outputRange: tabMeasures.map(m => m.x),
+    extrapolate: 'clamp'
+  });
+
+  const indicatorWidth = absolutePosition.interpolate({
+    inputRange: sports.map((_, i) => i),
+    outputRange: tabMeasures.map(m => m.width),
+    extrapolate: 'clamp'
+  });
+
+  // Handle tab press
+  const handleTabPress = useCallback((index: number) => {
+    pagerRef.current?.setPage(index);
+    setCurrentPage(index);
+    setSelectedSport(sports[index].id);
+  }, []);
+
+  // Render list header with search and filters for a specific sport
+  const renderListHeader = (sport: Sport) => (
+    <View style={[styles.listHeader, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.searchContainer, { 
+        backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+        borderColor: theme.colors.outlineVariant,
+      }]}>
+        <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.onSurface }]}
+          placeholder="Search teams or cities..."
+          placeholderTextColor={theme.colors.onSurfaceVariant}
+          value={searchTexts[sport]}
+          onChangeText={(text) => setSearchTexts(prev => ({ ...prev, [sport]: text }))}
+        />
+        {searchTexts[sport].length > 0 && (
+          <TouchableOpacity onPress={() => setSearchTexts(prev => ({ ...prev, [sport]: '' }))}>
+            <MaterialCommunityIcons
+              name="close-circle"
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <Menu
+        visible={sortMenuVisible}
+        onDismiss={() => setSortMenuVisible(false)}
+        anchor={
+          <TouchableOpacity 
+            style={[styles.filterButton, { backgroundColor: theme.colors.surfaceVariant }]}
+            onPress={() => setSortMenuVisible(true)}
+          >
+            <MaterialCommunityIcons 
+              name="sort" 
+              size={20} 
+              color={theme.colors.onSurface} 
+            />
+          </TouchableOpacity>
+        }
+        anchorPosition="bottom"
+        contentStyle={{ marginTop: 40 }}
+      >
+        <Menu.Item 
+          onPress={() => { 
+            setSortModes(prev => ({ ...prev, [sport]: 'time' })); 
+            setSortMenuVisible(false); 
+          }} 
+          title="Sort by Time" 
+          leadingIcon="clock-outline" 
+        />
+        <Menu.Item 
+          onPress={() => { 
+            setSortModes(prev => ({ ...prev, [sport]: 'spread' })); 
+            setSortMenuVisible(false); 
+          }} 
+          title="Sort by Spread Value" 
+          leadingIcon="chart-line" 
+        />
+        <Menu.Item 
+          onPress={() => { 
+            setSortModes(prev => ({ ...prev, [sport]: 'ou' })); 
+            setSortMenuVisible(false); 
+          }} 
+          title="Sort by O/U Value" 
+          leadingIcon="numeric" 
+        />
+      </Menu>
+    </View>
+  );
+
+  // Render a sport page
+  const renderSportPage = (sport: Sport) => {
+    const games = cachedData[sport].games;
+    const searchTerm = searchTexts[sport];
+    const currentSortMode = sortModes[sport];
+    const isLoading = loading[sport];
+    const isRefreshing = refreshing[sport];
+    const errorMsg = error[sport];
+    
+    // Filter games
+    const filtered = useMemo(() => {
+      if (!searchTerm.trim()) return games;
+      const search = searchTerm.toLowerCase();
+      return games.filter(game => {
+        const homeTeam = game.home_team.toLowerCase();
+        const awayTeam = game.away_team.toLowerCase();
+        return homeTeam.includes(search) || awayTeam.includes(search);
+      });
+    }, [games, searchTerm]);
+    
+    // Sort games
+    const sorted = useMemo(() => {
+      const gamesCopy = [...filtered];
+      
+      if (currentSortMode === 'time') {
+        return gamesCopy.sort((a, b) => {
+          const timeA = new Date(a.game_date).getTime();
+          const timeB = new Date(b.game_date).getTime();
+          return timeA - timeB;
+        });
+      }
+      
+      if (currentSortMode === 'spread') {
+        if (sport === 'cfb') {
+          return gamesCopy.sort((a, b) => {
+            const edgeA = Math.abs((a as CFBPrediction).home_spread_diff || 0);
+            const edgeB = Math.abs((b as CFBPrediction).home_spread_diff || 0);
+            return edgeB - edgeA;
+          });
+        } else {
+          return gamesCopy.sort((a, b) => {
+            const probA = Math.max((a as any).home_away_spread_cover_prob || 0, 1 - ((a as any).home_away_spread_cover_prob || 0));
+            const probB = Math.max((b as any).home_away_spread_cover_prob || 0, 1 - ((b as any).home_away_spread_cover_prob || 0));
+            return probB - probA;
+          });
+        }
+      }
+      
+      if (currentSortMode === 'ou') {
+        if (sport === 'cfb') {
+          return gamesCopy.sort((a, b) => {
+            const edgeA = Math.abs((a as CFBPrediction).over_line_diff || 0);
+            const edgeB = Math.abs((b as CFBPrediction).over_line_diff || 0);
+            return edgeB - edgeA;
+          });
+        } else {
+          return gamesCopy.sort((a, b) => {
+            const probA = Math.max((a as any).ou_result_prob || 0, 1 - ((a as any).ou_result_prob || 0));
+            const probB = Math.max((b as any).ou_result_prob || 0, 1 - ((b as any).ou_result_prob || 0));
+            return probB - probA;
+          });
+        }
+      }
+      
+      return gamesCopy;
+    }, [filtered, currentSortMode, sport]);
     
     return (
-      <Animated.View 
-        style={[
-          styles.searchWrapper,
-          {
-            opacity: searchBarOpacity,
-            transform: [
-              { translateY: searchBarTranslateY },
-              { scale: searchBarScale }
-            ],
-          }
-        ]}
-      >
-        <View style={[styles.searchContainer, { backgroundColor: searchBgColor }]}>
-          <MaterialCommunityIcons name="magnify" size={20} color={iconColor} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.colors.onSurface }]}
-            placeholder="Search teams or cities..."
-            placeholderTextColor={placeholderColor}
-            value={searchText}
-            onChangeText={setSearchText}
-            autoFocus={true}
-          />
-          {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchText('')}>
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={20}
-                color={iconColor}
+      <View key={sport} style={styles.pageContainer}>
+        {isLoading && !isRefreshing ? (
+          <View style={{ paddingTop: TOTAL_HEADER_HEIGHT }}>
+            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.colors.primary} />
+          </View>
+        ) : errorMsg ? (
+          <View style={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT }]}>
+            <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>{errorMsg}</Text>
+          </View>
+        ) : sorted.length === 0 ? (
+          <View style={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT }]}>
+            <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
+            <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
+              {searchTerm ? 'No games match your search' : 'No games available'}
+            </Text>
+          </View>
+        ) : (
+          <Animated.FlatList
+            data={sorted}
+            renderItem={renderGameCard}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[
+              styles.listContent,
+              { 
+                paddingTop: TOTAL_HEADER_HEIGHT,
+                paddingBottom: 65 + insets.bottom + 20 
+              }
+            ]}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            bounces={false}
+            overScrollMode="never"
+            showsVerticalScrollIndicator={true}
+            ListHeaderComponent={renderListHeader(sport)}
+            refreshControl={
+              <RefreshControl 
+                refreshing={isRefreshing} 
+                onRefresh={() => onRefresh(sport)}
+                colors={[theme.colors.primary]}
+                progressViewOffset={TOTAL_HEADER_HEIGHT}
               />
-            </TouchableOpacity>
-          )}
-        </View>
-      </Animated.View>
+            }
+          />
+        )}
+      </View>
     );
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {/* Animated Collapsible Header */}
+        {/* Fixed Header with Frosted Glass Effect - Slides away on scroll */}
         <Animated.View
           style={[
-            styles.collapsibleHeader,
-          {
-            transform: [{ translateY: headerTranslate }],
-            opacity: headerOpacity,
-            paddingTop: insets.top,
-            backgroundColor: theme.colors.background,
-          },
-        ]}
-      >
-        {/* Header with Title and Inline Live Ticker */}
-        <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
+            styles.fixedHeaderContainer,
+            {
+              transform: [{ translateY: headerTranslate }],
+              opacity: headerOpacity,
+            },
+          ]}
+        >
+          <BlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            style={[styles.fixedHeader, { paddingTop: insets.top }]}
+          >
           <View style={styles.headerTop}>
-            <View style={styles.titleContainer}>
-              <Image
-                source={theme.dark 
-                  ? require('@/assets/wagerproofGreenDark.png')
-                  : require('@/assets/wagerproofGreenLight.png')
+            <TouchableOpacity 
+              onPress={() => {
+                console.log('Hamburger menu pressed');
+                try {
+                  openDrawer();
+                } catch (error) {
+                  console.error('Error opening drawer:', error);
                 }
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              {!hasLiveGames && (
-                <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feed</Text>
-              )}
+              }} 
+              style={styles.menuButton}
+            >
+              <MaterialCommunityIcons name="menu" size={28} color={theme.colors.onSurface} />
+            </TouchableOpacity>
+            
+            <View style={styles.titleContainer}>
+              <Text style={[styles.titleMain, { color: theme.colors.onSurface }]}>Wager</Text>
+              <Text style={[styles.titleProof, { color: '#00E676' }]}>Proof</Text>
             </View>
-            {hasLiveGames && (
-              <View style={styles.inlineTickerContainer}>
-                <LiveScoreTicker onNavigateToScoreboard={() => {
-                  router.push('/(modals)/scoreboard');
-                }} />
-              </View>
+            
+            {user && (
+              <TouchableOpacity 
+                onPress={() => router.push('/chat' as any)}
+                style={styles.chatButton}
+              >
+                <MaterialCommunityIcons name="message-text" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
             )}
           </View>
-        </View>
 
-        {/* Sport Pills with Sort Dropdown */}
-        <View style={[styles.pillsWrapper, { backgroundColor: theme.colors.background }]}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillsContent}
-          >
-            {/* Search Icon Button */}
-            <TouchableOpacity 
-              style={[styles.sortButton, { 
-                backgroundColor: searchBarVisible ? theme.colors.primary : theme.colors.surfaceVariant 
-              }]}
-              onPress={toggleSearchBar}
+          {/* Sports Tabs */}
+          <View style={styles.sportsTabsContainer}>
+            <ScrollView 
+              ref={tabsScrollViewRef}
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sportsTabsContent}
             >
-              <MaterialCommunityIcons 
-                name="magnify" 
-                size={20} 
-                color={searchBarVisible ? '#FFFFFF' : theme.colors.primary} 
-              />
-            </TouchableOpacity>
+              {sports.map((sport, index) => {
+                const isSelected = currentPage === index;
+                return (
+                  <TouchableOpacity
+                    key={sport.id}
+                    style={styles.sportTab}
+                    onPress={() => sport.available && handleTabPress(index)}
+                    disabled={!sport.available}
+                    onLayout={(e) => onTabMeasure(index, e)}
+                  >
+                    <Text style={[
+                      styles.sportTabText, 
+                      { 
+                        color: isSelected ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
+                        fontWeight: isSelected ? '700' : '500',
+                        opacity: sport.available ? 1 : 0.4
+                      }
+                    ]}>
+                      {sport.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              
+              {/* Animated Indicator */}
+              {tabMeasures.some(m => m.width > 0) && (
+                <Animated.View 
+                  style={[
+                    styles.sportIndicator, 
+                    { 
+                      backgroundColor: '#00E676',
+                      left: 0, // Animated via transform
+                      width: indicatorWidth,
+                      transform: [{ translateX: indicatorLeft }]
+                    }
+                  ]} 
+                />
+              )}
+            </ScrollView>
+          </View>
+          </BlurView>
+        </Animated.View>
 
-            {/* Sort Dropdown */}
-            <Menu
-              visible={sortMenuVisible}
-              onDismiss={() => setSortMenuVisible(false)}
-              contentStyle={{ marginTop: 48 }}
-              anchor={
-                <TouchableOpacity 
-                  style={[styles.sortButton, { backgroundColor: theme.colors.surfaceVariant }]}
-                  onPress={() => setSortMenuVisible(!sortMenuVisible)}
-                >
-                  <MaterialCommunityIcons 
-                    name={sortMode === 'time' ? 'clock-outline' : sortMode === 'spread' ? 'chart-line' : 'numeric'} 
-                    size={20} 
-                    color={theme.colors.primary} 
-                  />
-                  <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              }
-              anchorPosition="bottom"
-            >
-              <Menu.Item
-                onPress={() => {
-                  setSortMode('time');
-                  setSortMenuVisible(false);
-                }}
-                title="Time"
-                leadingIcon="clock-outline"
-                style={styles.menuItem}
-                trailingIcon=""
-              />
-              <Menu.Item
-                onPress={() => {
-                  setSortMode('spread');
-                  setSortMenuVisible(false);
-                }}
-                title="Spread"
-                leadingIcon="chart-line"
-                style={styles.menuItem}
-                trailingIcon=""
-              />
-              <Menu.Item
-                onPress={() => {
-                  setSortMode('ou');
-                  setSortMenuVisible(false);
-                }}
-                title="O/U"
-                leadingIcon="numeric"
-                style={styles.menuItem}
-                trailingIcon=""
-              />
-            </Menu>
-
-            {sports.map((sport) => (
-              <Chip
-                key={sport.id}
-                selected={selectedSport === sport.id}
-                showSelectedCheck={false}
-                onPress={() => sport.available && setSelectedSport(sport.id)}
-                disabled={!sport.available}
-                style={[
-                  styles.sportChip,
-                  selectedSport === sport.id && { backgroundColor: theme.colors.primary },
-                  !sport.available && { opacity: 0.4 }
-                ]}
-                textStyle={[
-                  styles.sportChipText,
-                  selectedSport === sport.id && { color: '#FFFFFF' }
-                ]}
-              >
-                {sport.label}
-              </Chip>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Search Bar - Part of collapsible header */}
-        {renderSearchBar()}
-        
-        {/* Bottom gradient fade to transparent */}
-        <LinearGradient
-          colors={[
-            theme.colors.background,
-            theme.dark ? 'rgba(28, 28, 30, 0)' : 'rgba(246, 246, 246, 0)'
-          ]}
-          style={styles.headerGradient}
-          pointerEvents="none"
-        />
-      </Animated.View>
-
-      {/* Games List */}
-      {loading ? (
-        <Animated.FlatList
-          data={Array(5).fill(null)}
-          renderItem={() => <GameCardShimmer />}
-          keyExtractor={(_, index) => `shimmer-${index}`}
-          contentContainerStyle={[
-            styles.listContent,
-            { 
-              paddingTop: TOTAL_COLLAPSIBLE_HEIGHT + 40,
-              paddingBottom: 65 + insets.bottom + 20 
-            }
-          ]}
-          scrollEventThrottle={16}
-          bounces={false}
-          overScrollMode="never"
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={false}
-        />
-      ) : error ? (
-        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT + 29 }]}>
-          <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
-          <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-        </View>
-      ) : sortedGames.length === 0 ? (
-        <View style={[styles.centerContainer, { marginTop: TOTAL_COLLAPSIBLE_HEIGHT + 29 }]}>
-          <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
-          <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-            {searchText ? 'No games match your search' : 'No games available'}
-          </Text>
-        </View>
-      ) : (
-        <Animated.FlatList
-          data={sortedGames}
-          renderItem={renderGameCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[
-            styles.listContent,
-            { 
-              paddingTop: TOTAL_COLLAPSIBLE_HEIGHT + 40,
-              paddingBottom: 65 + insets.bottom + 20 
-            }
-          ]}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          bounces={false}
-          overScrollMode="never"
-          showsVerticalScrollIndicator={true}
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh}
-              colors={[theme.colors.primary]}
-              progressViewOffset={TOTAL_COLLAPSIBLE_HEIGHT}
-            />
-          }
-        />
-      )}
+        {/* Swipeable Sport Pages */}
+        <AnimatedPagerView
+          ref={pagerRef}
+          style={styles.pagerView}
+          initialPage={0}
+          onPageSelected={handlePageSelected}
+          onPageScroll={onPageScroll}
+        >
+          {sports.map(sport => renderSportPage(sport.id))}
+        </AnimatedPagerView>
     </View>
   );
 }
@@ -994,110 +1080,123 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  collapsibleHeader: {
+  pagerView: {
+    flex: 1,
+  },
+  pageContainer: {
+    flex: 1,
+    width: SCREEN_WIDTH,
+  },
+  fixedHeaderContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
   },
-  headerGradient: {
-    position: 'absolute',
-    bottom: -20,
-    left: 0,
-    right: 0,
-    height: 20,
-  },
-  header: {
-    paddingTop: 8,
-    paddingBottom: 8,
+  fixedHeader: {
+    width: '100%',
+    paddingBottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
   },
   headerTop: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    height: 56,
+    gap: 16,
+  },
+  menuButton: {
+    padding: 4,
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    flexShrink: 0,
-  },
-  logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  inlineTickerContainer: {
     flex: 1,
-    marginLeft: 12,
   },
-  searchWrapper: {
+  titleMain: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  titleProof: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  chatButton: {
+    padding: 8,
+  },
+  headerRight: {
+    width: 32, // Balances the menu button
+  },
+  sportsTabsContainer: {
+    height: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
+  },
+  sportsTabsContent: {
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 24,
+  },
+  sportTab: {
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    paddingHorizontal: 4,
+  },
+  sportTabText: {
+    fontSize: 16,
+  },
+  sportIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+  },
+  listHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    height: 72,
+    flexDirection: 'row',
+    gap: 12,
   },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
     gap: 8,
-    borderRadius: 16,
-    minHeight: 48,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    paddingVertical: 0,
+    fontSize: 15,
+    height: '100%',
+    padding: 0,
+  },
+  filterButton: {
+    width: 40,
     height: 40,
-    textAlignVertical: 'center',
-  },
-  pillsWrapper: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  pillsContent: {
-    gap: 8,
-    alignItems: 'center',
-    paddingRight: 8,
-  },
-  sportChip: {
     borderRadius: 20,
-  },
-  sportChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  sortButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  menuItem: {
-    maxHeight: 48,
+    justifyContent: 'center',
   },
   listContent: {
-    padding: 16,
+    paddingHorizontal: 0,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
   },
   errorText: {
     marginTop: 15,

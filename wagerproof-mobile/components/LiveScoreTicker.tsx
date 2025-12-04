@@ -28,7 +28,7 @@ export function LiveScoreTicker({ onNavigateToScoreboard }: LiveScoreTickerProps
   const { games: liveGames, hasLiveGames: hasRealLiveGames } = useLiveScores();
   
   const offset = useSharedValue(0);
-  const duration = 15000; // Duration in milliseconds for one full scroll
+  const duration = 30000; // Duration in milliseconds for one full scroll (slower)
 
   // DUMMY DATA for testing - Only used when useDummyData is true
   const dummyGames: LiveGame[] = [

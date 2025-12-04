@@ -471,13 +471,16 @@ export async function presentCustomerCenter(): Promise<void> {
 }
 
 /**
- * Present RevenueCat Paywall UI
+ * Present RevenueCat Paywall V2 UI
  * Uses the official RevenueCatUI.presentPaywall() method
  * Returns the paywall result (PURCHASED, RESTORED, CANCELLED, NOT_PRESENTED, ERROR)
+ * 
+ * Paywalls V2 are fully configured in the RevenueCat dashboard.
+ * The offering parameter is optional - if not provided, uses the current offering.
  */
 export async function presentPaywall(offering?: any): Promise<string> {
   try {
-    console.log('📱 presentPaywall() called');
+    console.log('📱 presentPaywall() called - Paywalls V2');
     console.log('Platform:', Platform.OS);
     console.log('Offering provided:', !!offering);
     
@@ -498,7 +501,8 @@ export async function presentPaywall(offering?: any): Promise<string> {
       const purchasesUI = require('react-native-purchases-ui');
       RevenueCatUI = purchasesUI.default;
       PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
-      console.log('✅ RevenueCatUI module loaded');
+      console.log('✅ RevenueCatUI module loaded (V2)');
+      console.log('✅ Available PAYWALL_RESULT values:', Object.keys(PAYWALL_RESULT || {}));
     } catch (error: any) {
       console.error('❌ Could not load react-native-purchases-ui:', error);
       throw new Error('RevenueCat UI module not available. Make sure the app is rebuilt after installing react-native-purchases-ui.');
@@ -508,31 +512,45 @@ export async function presentPaywall(offering?: any): Promise<string> {
       throw new Error('RevenueCat UI is not available');
     }
 
-    // Present paywall
-    console.log('🎬 Calling RevenueCatUI.presentPaywall()...');
-    const paywallResult = offering 
-      ? await RevenueCatUI.presentPaywall({ offering })
-      : await RevenueCatUI.presentPaywall();
+    // Present paywall using V2 API
+    // Note: For V2, the paywall is configured in the dashboard and attached to an offering
+    console.log('🎬 Calling RevenueCatUI.presentPaywall() with V2 API...');
+    const paywallResult = await RevenueCatUI.presentPaywall({
+      offering: offering || undefined,
+      displayCloseButton: true, // Only affects original template paywalls, ignored for V2
+    });
     
-    console.log('✅ Paywall presented, result:', paywallResult);
+    console.log('✅ Paywall V2 presented, result:', paywallResult);
     
     // Return the result as a string for easier comparison
     return paywallResult;
   } catch (error: any) {
-    console.error('❌ Error presenting paywall:', error);
+    console.error('❌ Error presenting paywall V2:', error);
     throw error;
   }
 }
 
 /**
- * Present RevenueCat Paywall if user doesn't have required entitlement
+ * Present RevenueCat Paywall V2 if user doesn't have required entitlement
  * Uses the official RevenueCatUI.presentPaywallIfNeeded() method
+ * 
+ * This is the recommended way to show paywalls - it automatically checks
+ * if the user already has the entitlement and only shows the paywall if needed.
  */
 export async function presentPaywallIfNeeded(requiredEntitlementIdentifier: string, offering?: any): Promise<string> {
   try {
+    console.log('📱 presentPaywallIfNeeded() called - Paywalls V2');
+    console.log('Required entitlement:', requiredEntitlementIdentifier);
+    console.log('Offering provided:', !!offering);
+    
     // Check if we're on web (native modules don't work on web)
     if (Platform.OS === 'web') {
       throw new Error('RevenueCat Paywalls are not available on web platform');
+    }
+
+    // Check if RevenueCat is configured
+    if (!isConfigured) {
+      throw new Error('RevenueCat is not configured. Make sure initializeRevenueCat() was called successfully.');
     }
 
     // Lazy load RevenueCatUI
@@ -540,6 +558,7 @@ export async function presentPaywallIfNeeded(requiredEntitlementIdentifier: stri
     try {
       const purchasesUI = require('react-native-purchases-ui');
       RevenueCatUI = purchasesUI.default;
+      console.log('✅ RevenueCatUI module loaded for presentPaywallIfNeeded');
     } catch (error: any) {
       console.error('Could not load react-native-purchases-ui:', error);
       throw new Error('RevenueCat UI module not available. Make sure the app is rebuilt after installing react-native-purchases-ui.');
@@ -549,11 +568,15 @@ export async function presentPaywallIfNeeded(requiredEntitlementIdentifier: stri
       throw new Error('RevenueCat UI is not available');
     }
 
-    // Present paywall if needed
-    const paywallResult = offering
-      ? await RevenueCatUI.presentPaywallIfNeeded({ offering, requiredEntitlementIdentifier })
-      : await RevenueCatUI.presentPaywallIfNeeded({ requiredEntitlementIdentifier });
+    // Present paywall if needed using V2 API
+    console.log('🎬 Calling RevenueCatUI.presentPaywallIfNeeded() with V2 API...');
+    const paywallResult = await RevenueCatUI.presentPaywallIfNeeded({
+      requiredEntitlementIdentifier,
+      offering: offering || undefined,
+      displayCloseButton: true, // Only affects original template paywalls, ignored for V2
+    });
     
+    console.log('✅ Paywall V2 presentIfNeeded result:', paywallResult);
     return paywallResult;
   } catch (error: any) {
     console.error('Error presenting paywall if needed:', error);

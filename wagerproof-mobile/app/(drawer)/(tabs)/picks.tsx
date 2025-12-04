@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList, ScrollView, Dimensions, TouchableOpacity, Animated } from 'react-native';
 import { useTheme, Card, ActivityIndicator, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import PagerView from 'react-native-pager-view';
+import { useDrawer } from '../_layout';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabase';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
@@ -10,8 +14,22 @@ import { EditorPickCard } from '@/components/EditorPickCard';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColors } from '@/constants/teamColors';
-import { SportFilter } from '@/components/SportFilter';
 import { StatsSummary } from '@/components/StatsSummary';
+import { useScroll } from '@/contexts/ScrollContext';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
+const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
+
+type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
+
+interface SportOption {
+  id: Sport;
+  label: string;
+  available: boolean;
+  badge?: string;
+  icon: string;
+}
 
 // Helper to get NBA team logo
 const getNBATeamLogo = async (teamName: string): Promise<string> => {
@@ -177,14 +195,62 @@ interface DateGroup {
 
 export default function PicksScreen() {
   const theme = useTheme();
+  const router = useRouter();
+  const { open: openDrawer } = useDrawer();
+  const { user } = useAuth();
   const { isDark } = useThemeContext();
+  const { scrollY, scrollYClamped } = useScroll();
   const insets = useSafeAreaInsets();
+  const pagerRef = useRef<PagerView>(null);
+  const tabsScrollViewRef = useRef<ScrollView>(null);
+
+  // Animation values
+  const scrollOffset = useRef(new Animated.Value(0)).current;
+  const scrollPosition = useRef(new Animated.Value(0)).current;
+  const absolutePosition = useMemo(() => Animated.add(scrollPosition, scrollOffset), [scrollPosition, scrollOffset]);
+  const [tabMeasures, setTabMeasures] = useState<Array<{x: number, width: number}>>(new Array(4).fill({ x: 0, width: 0 }));
+
+  // State
+  const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
+  const [currentPage, setCurrentPage] = useState(0);
   const [picks, setPicks] = useState<EditorPick[]>([]);
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedSport, setSelectedSport] = useState<string | null>(null);
+
+  const sports: SportOption[] = [
+    { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
+    { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
+    { id: 'nba', label: 'NBA', available: true, icon: 'basketball' },
+    { id: 'ncaab', label: 'NCAAB', available: true, icon: 'basketball-hoop' },
+  ];
+
+  // Calculate header heights (must match feed page calculation)
+  const HEADER_TOP_HEIGHT = 56; // Header top section height
+  const TABS_HEIGHT = 48; // Sport tabs height
+  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT + TABS_HEIGHT;
+  const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
+  
+  // Header slides up completely as user scrolls up (like tab bar slides down)
+  const headerTranslate = scrollYClamped.interpolate({
+    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [0, -TOTAL_COLLAPSIBLE_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  // Header fades out as user scrolls up
+  const headerOpacity = scrollYClamped.interpolate({
+    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Handle scroll event for header and bottom tab bar animation
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: true }
+  );
 
   const fetchPicks = async () => {
     try {
@@ -243,8 +309,8 @@ export default function PicksScreen() {
         // Fetch NFL games
         if (nflGameIds.length > 0) {
           const { data: bettingLines, error: linesError } = await collegeFootballSupabase
-                .from('nfl_betting_lines')
-                .select('*')
+            .from('nfl_betting_lines')
+            .select('*')
             .in('training_key', nflGameIds);
 
           if (!linesError && bettingLines) {
@@ -333,8 +399,8 @@ export default function PicksScreen() {
           });
           
           const { data: cfbGames, error: cfbError } = await collegeFootballSupabase
-                .from('cfb_live_weekly_inputs')
-                .select('*')
+            .from('cfb_live_weekly_inputs')
+            .select('*')
             .in('id', numericIds);
 
           if (!cfbError && cfbGames) {
@@ -390,9 +456,9 @@ export default function PicksScreen() {
                 away_team_colors: getCFBTeamColors(game.away_team),
                 home_team_colors: getCFBTeamColors(game.home_team),
               });
-                });
-              }
-            }
+            });
+          }
+        }
 
         // Fetch NBA games
         if (nbaGameIds.length > 0) {
@@ -665,14 +731,58 @@ export default function PicksScreen() {
     Linking.openURL('https://www.tiktok.com/@wagerproof');
   };
 
-  // Memoize filtered picks based on selected sport
-  const filteredPicks = useMemo(() => {
-    if (!selectedSport) return picks;
-    return picks.filter(pick => pick.game_type === selectedSport);
-  }, [picks, selectedSport]);
+  const onPageScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { position: scrollPosition, offset: scrollOffset } }],
+    { useNativeDriver: false }
+  ), []);
 
-  // Group filtered picks by date
-  const groupPicksByDate = (picksToGroup: EditorPick[]): DateGroup[] => {
+  // Handle page change from swipe
+  const handlePageSelected = useCallback((e: any) => {
+    const page = e.nativeEvent.position;
+    setCurrentPage(page);
+    const sport = sports[page].id;
+    setSelectedSport(sport);
+    
+    // Scroll tab bar to keep active tab in view
+    if (tabMeasures[page] && tabsScrollViewRef.current) {
+      const { x, width } = tabMeasures[page];
+      const scrollX = x - (SCREEN_WIDTH / 2) + (width / 2);
+      tabsScrollViewRef.current.scrollTo({ x: scrollX, animated: true });
+    }
+  }, [tabMeasures]);
+
+  // Measure tabs
+  const onTabMeasure = (index: number, event: any) => {
+    const { x, width } = event.nativeEvent.layout;
+    setTabMeasures(prev => {
+      const newMeasures = [...prev];
+      newMeasures[index] = { x, width };
+      return newMeasures;
+    });
+  };
+
+  // Interpolate indicator position and width
+  const indicatorLeft = absolutePosition.interpolate({
+    inputRange: sports.map((_, i) => i),
+    outputRange: tabMeasures.map(m => m.x),
+    extrapolate: 'clamp'
+  });
+
+  const indicatorWidth = absolutePosition.interpolate({
+    inputRange: sports.map((_, i) => i),
+    outputRange: tabMeasures.map(m => m.width),
+    extrapolate: 'clamp'
+  });
+
+  // Handle tab press
+  const handleTabPress = useCallback((index: number) => {
+    pagerRef.current?.setPage(index);
+    setCurrentPage(index);
+    setSelectedSport(sports[index].id);
+  }, []);
+
+  // Group picks by date
+  const groupPicksByDate = useCallback((picksToGroup: EditorPick[]): DateGroup[] => {
     const groups = new Map<string, { dateObj: Date, picks: EditorPick[] }>();
     const noDatePicks: EditorPick[] = [];
 
@@ -733,9 +843,7 @@ export default function PicksScreen() {
     }
 
     return sortedGroups;
-  };
-
-  const groupedPicks = groupPicksByDate(filteredPicks);
+  }, [gamesData]);
 
   const renderSectionHeader = ({ section }: { section: DateGroup }) => (
     <View style={[styles.sectionHeader, { backgroundColor: theme.colors.background }]}>
@@ -759,97 +867,230 @@ export default function PicksScreen() {
     );
   };
 
-  if (loading) {
+  const renderSportPage = (sport: Sport) => {
+    // Filter picks for this sport
+    const sportPicks = useMemo(() => {
+      return picks.filter(pick => pick.game_type === sport);
+    }, [picks, sport]);
+
+    const groupedPicks = useMemo(() => groupPicksByDate(sportPicks), [sportPicks, groupPicksByDate]);
+    
+    if (loading && !refreshing) {
+      return (
+        <View key={sport} style={styles.pageContainer}>
+          <View style={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT }]}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
+              Loading picks...
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (error) {
+        return (
+            <View key={sport} style={styles.pageContainer}>
+                <View style={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT }]}>
+                  <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
+                  <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+                </View>
+            </View>
+        );
+    }
+
+    if (sportPicks.length === 0) {
+      return (
+        <View key={sport} style={styles.pageContainer}>
+          <ScrollView 
+            contentContainerStyle={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT + 40 }]}
+            refreshControl={
+              <RefreshControl 
+                refreshing={refreshing} 
+                onRefresh={onRefresh} 
+                colors={[theme.colors.primary]} 
+                progressViewOffset={TOTAL_HEADER_HEIGHT}
+              />
+            }
+          >
+            <Card style={[styles.emptyCard, { backgroundColor: theme.colors.surface }]}>
+              <Card.Content>
+                <View style={styles.emptyContent}>
+                  <MaterialCommunityIcons 
+                    name="creation" 
+                    size={80} 
+                    color={isDark ? '#FFD700' : '#FFB81C'} 
+                    style={styles.sparkleIcon}
+                  />
+                  <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
+                    No {sport.toUpperCase()} Picks
+                  </Text>
+                  <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                    Check back later for expert picks for this sport.
+                  </Text>
+                  <Button 
+                    mode="contained" 
+                    onPress={handleOpenTikTok}
+                    style={styles.tiktokButton}
+                    contentStyle={styles.tiktokButtonContent}
+                    labelStyle={styles.tiktokButtonLabel}
+                    buttonColor="#E91E63"
+                    icon={() => <MaterialCommunityIcons name="music-note" size={20} color="white" />}
+                  >
+                    Follow @wagerproof on TikTok
+                  </Button>
+                </View>
+              </Card.Content>
+            </Card>
+          </ScrollView>
+        </View>
+      );
+    }
+
     return (
-      <View style={[styles.centerContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
-          Loading picks...
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Frosted Glass Header */}
-      <BlurView
-        intensity={80}
-        tint={theme.dark ? 'dark' : 'light'}
-        style={[styles.headerBlur, { paddingTop: insets.top + 16 }]}
-      >
-        <View style={styles.headerContent}>
-          <MaterialCommunityIcons name="star" size={32} color={isDark ? '#FFD700' : '#FFD700'} style={styles.starIcon} />
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            Editor's Picks
-          </Text>
-        </View>
-      </BlurView>
-
-      {error ? (
-        <View style={styles.centerContainer}>
-          <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
-          <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-        </View>
-      ) : picks.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Card style={[styles.emptyCard, { backgroundColor: theme.colors.surface }]}>
-            <Card.Content>
-              <View style={styles.emptyContent}>
-                <MaterialCommunityIcons 
-                  name="creation" 
-                  size={80} 
-                  color={isDark ? '#FFD700' : '#FFB81C'} 
-                  style={styles.sparkleIcon}
-                />
-                <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
-                  Fresh Picks Coming Soon!
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                  We're preparing our latest expert picks for you. In the meantime, get daily betting insights and analysis from our main channel!
-                </Text>
-                <Button 
-                  mode="contained" 
-                  onPress={handleOpenTikTok}
-                  style={styles.tiktokButton}
-                  contentStyle={styles.tiktokButtonContent}
-                  labelStyle={styles.tiktokButtonLabel}
-                  buttonColor="#E91E63"
-                  icon={() => <MaterialCommunityIcons name="music-note" size={20} color="white" />}
-                >
-                  Follow @wagerproof on TikTok
-                </Button>
-                <Text style={[styles.emptyFooter, { color: theme.colors.onSurfaceVariant }]}>
-                  Daily picks • Analysis • Expert insights
-                </Text>
-              </View>
-            </Card.Content>
-          </Card>
-        </View>
-      ) : (
-        <SectionList
+      <View key={sport} style={styles.pageContainer}>
+        <AnimatedSectionList
           sections={groupedPicks}
-          renderItem={renderPickCard}
-          renderSectionHeader={renderSectionHeader}
-          keyExtractor={(item) => item.id}
+          renderItem={renderPickCard as any}
+          renderSectionHeader={renderSectionHeader as any}
+          keyExtractor={(item: any) => item.id}
           contentContainerStyle={[
             styles.listContent, 
             { 
+              paddingTop: TOTAL_HEADER_HEIGHT,
               paddingBottom: 65 + insets.bottom + 20 
             }
           ]}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          bounces={false}
+          overScrollMode="never"
           ListHeaderComponent={
-            <View style={{ paddingTop: insets.top + 80, marginBottom: 16 }}>
-              <StatsSummary picks={filteredPicks} />
-              <SportFilter selectedSport={selectedSport} onSportChange={setSelectedSport} />
+            <View>
+              <StatsSummary picks={sportPicks} />
             </View>
           }
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} progressViewOffset={insets.top + 80} />
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh} 
+              colors={[theme.colors.primary]} 
+              progressViewOffset={TOTAL_HEADER_HEIGHT}
+            />
           }
           stickySectionHeadersEnabled={false}
         />
-      )}
+      </View>
+    );
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Fixed Header with Frosted Glass Effect - Slides away on scroll */}
+      <Animated.View
+        style={[
+          styles.fixedHeaderContainer,
+          {
+            transform: [{ translateY: headerTranslate }],
+            opacity: headerOpacity,
+          },
+        ]}
+      >
+        <BlurView
+          intensity={80}
+          tint={isDark ? 'dark' : 'light'}
+          style={[styles.fixedHeader, { paddingTop: insets.top }]}
+        >
+        <View style={styles.headerTop}>
+          <TouchableOpacity 
+            onPress={() => {
+              try {
+                openDrawer();
+              } catch (error) {
+                console.error('Error opening drawer:', error);
+              }
+            }} 
+            style={styles.menuButton}
+          >
+            <MaterialCommunityIcons name="menu" size={28} color={theme.colors.onSurface} />
+          </TouchableOpacity>
+          
+          <View style={styles.titleContainer}>
+            <Text style={[styles.titleMain, { color: theme.colors.onSurface }]}>Wager</Text>
+            <Text style={[styles.titleProof, { color: '#00E676' }]}>Proof</Text>
+          </View>
+          
+          {user && (
+            <TouchableOpacity 
+              onPress={() => router.push('/chat' as any)}
+              style={styles.chatButton}
+            >
+              <MaterialCommunityIcons name="message-text" size={24} color={theme.colors.onSurface} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Sports Tabs */}
+        <View style={styles.sportsTabsContainer}>
+          <ScrollView 
+            ref={tabsScrollViewRef}
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.sportsTabsContent}
+          >
+            {sports.map((sport, index) => {
+              const isSelected = currentPage === index;
+              return (
+                <TouchableOpacity
+                  key={sport.id}
+                  style={styles.sportTab}
+                  onPress={() => sport.available && handleTabPress(index)}
+                  disabled={!sport.available}
+                  onLayout={(e) => onTabMeasure(index, e)}
+                >
+                  <Text style={[
+                    styles.sportTabText, 
+                    { 
+                      color: isSelected ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
+                      fontWeight: isSelected ? '700' : '500',
+                      opacity: sport.available ? 1 : 0.4
+                    }
+                  ]}>
+                    {sport.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            
+            {/* Animated Indicator */}
+            {tabMeasures.some(m => m.width > 0) && (
+              <Animated.View 
+                style={[
+                  styles.sportIndicator, 
+                  { 
+                    backgroundColor: '#00E676',
+                    left: 0, // Animated via transform
+                    width: indicatorWidth,
+                    transform: [{ translateX: indicatorLeft }]
+                  }
+                ]} 
+              />
+            )}
+          </ScrollView>
+        </View>
+        </BlurView>
+      </Animated.View>
+
+      {/* Swipeable Sport Pages */}
+      <AnimatedPagerView
+        ref={pagerRef}
+        style={styles.pagerView}
+        initialPage={0}
+        onPageSelected={handlePageSelected}
+        onPageScroll={onPageScroll}
+      >
+        {sports.map(sport => renderSportPage(sport.id))}
+      </AnimatedPagerView>
     </View>
   );
 }
@@ -858,33 +1099,85 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerBlur: {
+  pagerView: {
+    flex: 1,
+  },
+  pageContainer: {
+    flex: 1,
+    width: SCREEN_WIDTH,
+  },
+  fixedHeaderContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 100,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    zIndex: 1000,
   },
-  headerContent: {
+  fixedHeader: {
+    width: '100%',
+    paddingBottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    paddingHorizontal: 16,
+    height: 56,
+    gap: 16,
   },
-  starIcon: {
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+  menuButton: {
+    padding: 4,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  titleMain: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  titleProof: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  chatButton: {
+    padding: 8,
+  },
+  sportsTabsContainer: {
+    height: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
+  },
+  sportsTabsContent: {
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 24,
+  },
+  sportTab: {
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    paddingHorizontal: 4,
+  },
+  sportTabText: {
+    fontSize: 16,
+  },
+  sportIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   listContent: {
-    padding: 16,
+    paddingHorizontal: 16,
   },
   centerContainer: {
     flex: 1,

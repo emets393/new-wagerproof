@@ -3,10 +3,10 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Animated, 
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
-import WagerBotChat from '../../components/WagerBotChat';
-import { fetchAndFormatGameContext } from '../../services/gameDataService';
+import WagerBotChat from '@/components/WagerBotChat';
+import { fetchAndFormatGameContext } from '@/services/gameDataService';
 
 export default function ChatScreen() {
   const theme = useTheme();

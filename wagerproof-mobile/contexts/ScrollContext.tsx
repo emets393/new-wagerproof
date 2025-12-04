@@ -19,6 +19,8 @@ export function ScrollProvider({ children }: { children: React.ReactNode }) {
   const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + SEARCH_HEIGHT + PILLS_HEIGHT + SORT_HEIGHT;
   
   // Create diffClamp at the context level so it's shared
+  // diffClamp ensures the value only changes within the specified range
+  // This prevents bounce from causing unexpected animations
   const scrollYClamped = useRef(
     Animated.diffClamp(scrollY, 0, TOTAL_COLLAPSIBLE_HEIGHT)
   ).current;

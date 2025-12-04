@@ -225,10 +225,12 @@ export function NCAABGameCard({ game, onPress }: NCAABGameCardProps) {
           )}
 
           {/* Predicted Score if available */}
-          {game.pred_home_margin !== null && game.pred_total_points !== null && (
+          {(game.pred_home_margin != null || game.pred_total_points != null) && (
             <View style={styles.predictedScoreContainer}>
               <Text style={[styles.predictedScoreLabel, { color: theme.colors.onSurfaceVariant }]}>
-                Predicted: {game.home_team} by {Math.abs(game.pred_home_margin).toFixed(1)} | Total: {game.pred_total_points.toFixed(1)}
+                {game.pred_home_margin != null && `Predicted: ${game.home_team} by ${Math.abs(game.pred_home_margin).toFixed(1)}`}
+                {game.pred_home_margin != null && game.pred_total_points != null && ' | '}
+                {game.pred_total_points != null && `Total: ${game.pred_total_points.toFixed(1)}`}
               </Text>
             </View>
           )}

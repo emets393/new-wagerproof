@@ -38,6 +38,7 @@ interface WagerBotChatProps {
   onBack?: () => void;
   scrollY?: Animated.Value;
   headerHeight?: number;
+  isInBottomSheet?: boolean; // Disable KeyboardAvoidingView when in bottom sheet
 }
 
 const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
@@ -47,6 +48,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   onRefresh,
   onBack,
   scrollY,
+  isInBottomSheet = false,
   headerHeight = 0,
 }, ref) => {
   const theme = useTheme();
@@ -840,6 +842,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
+        enabled={!isInBottomSheet}
       >
         {/* Welcome Screen (shows when no messages) */}
         {showWelcome && (
@@ -1159,7 +1162,11 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         )}
 
         {/* Input Area - Always visible at bottom */}
-        <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background }]}>
+        <View style={[
+          styles.inputWrapper, 
+          { backgroundColor: theme.colors.background },
+          isInBottomSheet && { paddingBottom: 60 }
+        ]}>
           {/* Selected Images Preview */}
           {selectedImages.length > 0 && (
             <View style={styles.imagePreviewContainer}>
