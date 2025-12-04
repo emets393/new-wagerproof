@@ -504,44 +504,67 @@ export default function EditorsPicks() {
                 }
               }
               
-              // Format NFL time - get game_time_et from nfl_betting_lines (EST military time), convert to 12-hour format
+              // Format NFL time - get game_time_et from nfl_betting_lines
+              // Add 5 hours to whatever time we get
               let formattedTime = '';
               if (line.game_time_et) {
                 try {
                   const timeEt = line.game_time_et;
-                  // game_time_et format: "2025-11-17 20:15:00+00" - extract date and time
-                  if (timeEt.includes(' ')) {
-                    const [datePart, timePart] = timeEt.split(' ');
-                    // Remove timezone offset from time part (e.g., "20:15:00+00" -> "20:15:00")
-                    const timeStr = timePart.split('+')[0].split('-')[0];
-                    const [hoursStr, minutesStr] = timeStr.split(':');
-                    const hours = parseInt(hoursStr, 10);
-                    const minutes = parseInt(minutesStr || '0', 10);
+                  
+                  // Parse the full datetime string as UTC (handles +00 offset correctly)
+                  let date = new Date(timeEt);
+                  
+                  if (isNaN(date.getTime())) {
+                    debug.error('Invalid datetime:', timeEt);
+                    formattedTime = 'TBD';
+                  } else {
+                    // Add 5 hours to the date
+                    date = new Date(date.getTime() + (5 * 60 * 60 * 1000));
                     
-                    if (!isNaN(hours) && !isNaN(minutes) && datePart) {
-                      // game_time_et is in EST but being treated as UTC, so add 5 hours directly
-                      const estHours = hours + 5;
-                      let finalDate = datePart;
-                      let finalHours = estHours;
-                      let finalMinutes = minutes;
+                    // Format as 12-hour time
+                    formattedTime = date.toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    });
+                    
+                    // Get timezone abbreviation (EST/EDT)
+                    const formatter = new Intl.DateTimeFormat('en-US', {
+                      timeZone: 'America/New_York',
+                      timeZoneName: 'short'
+                    });
+                    const parts = formatter.formatToParts(date);
+                    const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+                    formattedTime = `${formattedTime} ${tzName}`;
+                  }
+                } catch (error) {
+                  debug.error('Error converting game_time_et:', error, line.game_time_et);
+                  formattedTime = 'TBD';
+                }
+              }
+              
+              // Fallback to other sources if game_time_et not available - add 5 hours (matching NFL.tsx logic)
+              // game_time is in UTC format, so we need to add 5 hours to convert to EST
+              if (!formattedTime && line.game_time) {
+                try {
+                  const fallbackTime = line.game_time;
+                  debug.log(`   ⚠️ No game_time_et, falling back to game_time: ${fallbackTime}`);
+                  // Parse the time string (format: "08:00:00" or "08:00" in UTC)
+                  const parts = fallbackTime.split(':');
+                  if (parts.length >= 2) {
+                    const hours = parseInt(parts[0], 10);
+                    const minutes = parseInt(parts[1] || '0', 10);
+                    if (!isNaN(hours) && !isNaN(minutes) && gameDateRaw) {
+                      // Create date object with the time
+                      const [year, month, day] = gameDateRaw.split('-').map(Number);
+                      let date = new Date(year, month - 1, day, hours, minutes, 0);
                       
-                      // Handle day rollover if hours >= 24
-                      if (finalHours >= 24) {
-                        finalHours = finalHours % 24;
-                        // Add one day to the date
-                        const [year, month, day] = datePart.split('-').map(Number);
-                        const nextDay = new Date(year, month - 1, day + 1);
-                        finalDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
-                      }
-                      
-                      const [year, month, day] = finalDate.split('-').map(Number);
-                      // Create date object in EST timezone with adjusted hours
-                      const date = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(finalHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')}:00-05:00`);
+                      // Add 5 hours to whatever time we have
+                      date = new Date(date.getTime() + (5 * 60 * 60 * 1000));
                       
                       if (!isNaN(date.getTime())) {
-                        // Format as 12-hour time in EST
+                        // Format as 12-hour time
                         formattedTime = date.toLocaleTimeString('en-US', {
-                          timeZone: 'America/New_York',
                           hour: 'numeric',
                           minute: '2-digit',
                           hour12: true
@@ -551,20 +574,21 @@ export default function EditorsPicks() {
                           timeZone: 'America/New_York',
                           timeZoneName: 'short'
                         });
-                        const parts = formatter.formatToParts(date);
-                        const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
+                        const formatParts = formatter.formatToParts(date);
+                        const tzName = formatParts.find(part => part.type === 'timeZoneName')?.value || 'EST';
                         formattedTime = `${formattedTime} ${tzName}`;
+                        debug.log(`   ✅ Converted fallback time: ${fallbackTime} -> ${formattedTime}`);
                       }
+                    } else {
+                      formattedTime = fallbackTime; // Fallback to original if parsing fails
                     }
+                  } else {
+                    formattedTime = fallbackTime; // Fallback to original if format is unexpected
                   }
                 } catch (error) {
-                  debug.error('Error converting game_time_et:', error, line.game_time_et);
+                  debug.error('Error converting fallback game_time:', error, line.game_time);
+                  formattedTime = line.game_time; // Fallback to original on error
                 }
-              }
-              
-              // Fallback to other sources if game_time_et not available
-              if (!formattedTime && line.game_time) {
-                formattedTime = line.game_time;
               }
               
               gameDataMap.set(line.training_key, {
@@ -1189,9 +1213,14 @@ export default function EditorsPicks() {
   const allPublishedPicks = picks.filter(p => p.is_published);
   
   // Split published picks into active and historical for ALL users
-  // Active: games within last 7 days or future games
-  // Historical: games older than 7 days
+  // Active: picks without a result (won/lost/push) AND games within last 7 days or future games
+  // Historical: picks with a result (won/lost/push) OR games older than 7 days
   const activePicks = allPublishedPicks.filter(p => {
+    // If pick has a result (won/lost/push), it should be in historical, not active
+    if (p.result && p.result !== 'pending' && p.result !== null) {
+      return false;
+    }
+    
     const gameData = gamesData.get(p.game_id);
     
     // If no game data or no date, consider it as active
@@ -1219,9 +1248,14 @@ export default function EditorsPicks() {
   });
   
   const historicalPicks = allPublishedPicks.filter(p => {
+    // If pick has a result (won/lost/push), it should be in historical
+    if (p.result && p.result !== 'pending' && p.result !== null) {
+      return true;
+    }
+    
     const gameData = gamesData.get(p.game_id);
     
-    // If no game data or no date, don't consider it historical
+    // If no game data or no date, don't consider it historical (unless it has a result)
     if (!gameData || !gameData.raw_game_date) {
       return false;
     }
