@@ -28,7 +28,7 @@ export async function fetchNFLPredictions(): Promise<NFLPrediction[]> {
     // Fetch predictions with the latest run_id from yesterday onwards
     const { data: predictions, error: predsError } = await collegeFootballSupabase
       .from('nfl_predictions_epa')
-      .select('training_key, home_team, away_team, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, game_date, game_time')
+      .select('training_key, home_team, away_team, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, game_date')
       .gte('game_date', yesterdayStr)
       .eq('run_id', latestRun.run_id);
 

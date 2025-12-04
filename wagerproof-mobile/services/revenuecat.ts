@@ -1,7 +1,16 @@
 import { Platform, NativeModules } from 'react-native';
 
-// RevenueCat API Key
-const REVENUECAT_API_KEY = 'test_WwRgjLydsPjgngueRMOVfVgWZzg';
+// RevenueCat API Keys - Platform specific
+const REVENUECAT_API_KEY_IOS = 'test_WwRgjLydsPjgngueRMOVfVgWZzg';
+const REVENUECAT_API_KEY_ANDROID = 'goog_cilRlGISDEjNmpNebMglZPXnPLb';
+
+// Get the appropriate API key based on platform
+const getRevenueCatApiKey = (): string => {
+  if (Platform.OS === 'android') {
+    return REVENUECAT_API_KEY_ANDROID;
+  }
+  return REVENUECAT_API_KEY_IOS;
+};
 
 // Entitlement identifier
 export const ENTITLEMENT_IDENTIFIER = 'WagerProof Pro';
@@ -141,20 +150,39 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
     }
 
     // Configure RevenueCat first (must be called before any other methods)
-    // TODO: Replace REVENUECAT_API_KEY with your production key before release
+    // Use platform-specific API key
+    const apiKey = getRevenueCatApiKey();
+    console.log('🔑 Configuring RevenueCat with platform:', Platform.OS);
+    console.log('🔑 Using API key:', apiKey.substring(0, 20) + '...');
+    console.log('🔑 Full API key:', apiKey);
+    console.log('🔑 API key length:', apiKey.length);
+    console.log('🔑 API key starts with:', Platform.OS === 'android' ? 'goog_' : 'test_');
+    
     await PurchasesModule.configure({
-      apiKey: REVENUECAT_API_KEY,
+      apiKey: apiKey,
       appUserID: userId || null, // Use anonymous ID if not logged in
     });
+    
+    console.log('✅ RevenueCat configured successfully for', Platform.OS);
+    
+    // Verify configuration by checking if we can get customer info
+    try {
+      const testCustomerInfo = await PurchasesModule.getCustomerInfo();
+      console.log('✅ Configuration verified - customer info retrieved');
+      console.log('✅ Customer info entitlements:', Object.keys(testCustomerInfo.entitlements.active || {}));
+    } catch (verifyError: any) {
+      console.warn('⚠️ Could not verify configuration:', verifyError.message);
+    }
 
     isConfigured = true;
+    console.log('✅ RevenueCat configuration completed');
 
     // Set log level AFTER configuration
     // Enable debug logging in development
     if (__DEV__ && LOG_LEVEL) {
       try {
         PurchasesModule.setLogLevel(LOG_LEVEL.DEBUG);
-        console.log('RevenueCat debug logging enabled');
+        console.log('✅ RevenueCat debug logging enabled');
       } catch (logError) {
         console.warn('Could not set RevenueCat log level:', logError);
       }
@@ -168,7 +196,7 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
     //   console.warn('Could not set allow sharing store account:', e);
     // }
 
-    console.log('RevenueCat initialized successfully');
+    console.log('✅ RevenueCat initialized successfully');
   } catch (error: any) {
     console.error('Error initializing RevenueCat:', error);
     // Don't throw - allow app to continue without RevenueCat
@@ -272,6 +300,113 @@ export async function getOfferings(): Promise<any> {
 }
 
 /**
+ * Get all offerings (not just current)
+ */
+export async function getAllOfferings(): Promise<any> {
+  try {
+    console.log('📦 getAllOfferings() called');
+    console.log('📦 Platform:', Platform.OS);
+    console.log('📦 isConfigured:', isConfigured);
+    
+    const PurchasesModule = getPurchasesModule();
+    if (!isConfigured || !PurchasesModule) {
+      console.error('❌ RevenueCat not configured or module not available');
+      console.error('❌ isConfigured:', isConfigured);
+      console.error('❌ PurchasesModule:', !!PurchasesModule);
+      return null;
+    }
+    
+    console.log('📦 Fetching offerings from RevenueCat...');
+    const offerings = await PurchasesModule.getOfferings();
+    
+    console.log('📦 Offerings received:', {
+      hasAll: !!offerings.all,
+      hasCurrent: !!offerings.current,
+      allKeys: offerings.all ? Object.keys(offerings.all) : [],
+      currentId: offerings.current?.identifier,
+    });
+    
+    return offerings;
+  } catch (error: any) {
+    console.error('❌ Error fetching all offerings:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    return null;
+  }
+}
+
+/**
+ * Sync purchases and refresh offerings from server
+ * This forces a refresh from RevenueCat servers, bypassing cache
+ */
+export async function syncPurchases(): Promise<void> {
+  try {
+    const PurchasesModule = getPurchasesModule();
+    if (!isConfigured || !PurchasesModule) {
+      throw new Error('RevenueCat is not configured');
+    }
+    console.log('🔄 Syncing purchases and refreshing offerings...');
+    await PurchasesModule.syncPurchases();
+    console.log('✅ Sync completed');
+  } catch (error) {
+    console.error('Error syncing purchases:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get a specific offering by identifier
+ */
+export async function getOfferingById(identifier: string): Promise<any> {
+  try {
+    const PurchasesModule = getPurchasesModule();
+    if (!isConfigured || !PurchasesModule) {
+      console.error('❌ RevenueCat not configured or module not available');
+      return null;
+    }
+    
+    console.log('📦 Fetching all offerings...');
+    const offerings = await PurchasesModule.getOfferings();
+    
+    console.log('📦 Full offerings object:', JSON.stringify(offerings, null, 2));
+    console.log('📦 Platform:', Platform.OS);
+    console.log('📦 Looking for offering:', identifier);
+    
+    // Log all available offering identifiers
+    if (offerings.all) {
+      const allIdentifiers = Object.keys(offerings.all);
+      console.log('📦 Available offering identifiers:', allIdentifiers);
+      
+      // Check if the offering exists in offerings.all
+      if (offerings.all[identifier]) {
+        console.log('✅ Found offering:', identifier);
+        return offerings.all[identifier];
+      } else {
+        console.warn('⚠️ Offering not found in offerings.all');
+        console.warn('⚠️ Available offerings:', allIdentifiers);
+      }
+    } else {
+      console.warn('⚠️ offerings.all is null or undefined');
+    }
+    
+    // Also check current offering
+    if (offerings.current) {
+      console.log('📦 Current offering identifier:', offerings.current.identifier);
+      if (offerings.current.identifier === identifier) {
+        console.log('✅ Found offering as current:', identifier);
+        return offerings.current;
+      }
+    }
+    
+    console.warn('⚠️ Offering not found:', identifier);
+    return null;
+  } catch (error) {
+    console.error('❌ Error fetching offering by ID:', error);
+    return null;
+  }
+}
+
+/**
  * Purchase a package
  */
 export async function purchasePackage(packageToPurchase: any): Promise<any> {
@@ -331,6 +466,97 @@ export async function presentCustomerCenter(): Promise<void> {
     }
   } catch (error: any) {
     console.error('Error presenting Customer Center:', error);
+    throw error;
+  }
+}
+
+/**
+ * Present RevenueCat Paywall UI
+ * Uses the official RevenueCatUI.presentPaywall() method
+ * Returns the paywall result (PURCHASED, RESTORED, CANCELLED, NOT_PRESENTED, ERROR)
+ */
+export async function presentPaywall(offering?: any): Promise<string> {
+  try {
+    console.log('📱 presentPaywall() called');
+    console.log('Platform:', Platform.OS);
+    console.log('Offering provided:', !!offering);
+    
+    // Check if we're on web (native modules don't work on web)
+    if (Platform.OS === 'web') {
+      throw new Error('RevenueCat Paywalls are not available on web platform');
+    }
+
+    // Check if RevenueCat is configured
+    if (!isConfigured) {
+      throw new Error('RevenueCat is not configured. Make sure initializeRevenueCat() was called successfully.');
+    }
+
+    // Lazy load RevenueCatUI
+    let RevenueCatUI: any = null;
+    let PAYWALL_RESULT: any = null;
+    try {
+      const purchasesUI = require('react-native-purchases-ui');
+      RevenueCatUI = purchasesUI.default;
+      PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
+      console.log('✅ RevenueCatUI module loaded');
+    } catch (error: any) {
+      console.error('❌ Could not load react-native-purchases-ui:', error);
+      throw new Error('RevenueCat UI module not available. Make sure the app is rebuilt after installing react-native-purchases-ui.');
+    }
+
+    if (!RevenueCatUI) {
+      throw new Error('RevenueCat UI is not available');
+    }
+
+    // Present paywall
+    console.log('🎬 Calling RevenueCatUI.presentPaywall()...');
+    const paywallResult = offering 
+      ? await RevenueCatUI.presentPaywall({ offering })
+      : await RevenueCatUI.presentPaywall();
+    
+    console.log('✅ Paywall presented, result:', paywallResult);
+    
+    // Return the result as a string for easier comparison
+    return paywallResult;
+  } catch (error: any) {
+    console.error('❌ Error presenting paywall:', error);
+    throw error;
+  }
+}
+
+/**
+ * Present RevenueCat Paywall if user doesn't have required entitlement
+ * Uses the official RevenueCatUI.presentPaywallIfNeeded() method
+ */
+export async function presentPaywallIfNeeded(requiredEntitlementIdentifier: string, offering?: any): Promise<string> {
+  try {
+    // Check if we're on web (native modules don't work on web)
+    if (Platform.OS === 'web') {
+      throw new Error('RevenueCat Paywalls are not available on web platform');
+    }
+
+    // Lazy load RevenueCatUI
+    let RevenueCatUI: any = null;
+    try {
+      const purchasesUI = require('react-native-purchases-ui');
+      RevenueCatUI = purchasesUI.default;
+    } catch (error: any) {
+      console.error('Could not load react-native-purchases-ui:', error);
+      throw new Error('RevenueCat UI module not available. Make sure the app is rebuilt after installing react-native-purchases-ui.');
+    }
+
+    if (!RevenueCatUI) {
+      throw new Error('RevenueCat UI is not available');
+    }
+
+    // Present paywall if needed
+    const paywallResult = offering
+      ? await RevenueCatUI.presentPaywallIfNeeded({ offering, requiredEntitlementIdentifier })
+      : await RevenueCatUI.presentPaywallIfNeeded({ requiredEntitlementIdentifier });
+    
+    return paywallResult;
+  } catch (error: any) {
+    console.error('Error presenting paywall if needed:', error);
     throw error;
   }
 }

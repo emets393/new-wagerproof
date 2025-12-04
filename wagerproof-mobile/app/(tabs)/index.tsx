@@ -180,132 +180,127 @@ export default function FeedScreen() {
     };
   }, []);
 
-  // Fetch NFL data
+  // Fetch NFL data - matches web app approach using v_input_values_with_epa view
   const fetchNFLData = async () => {
     try {
-      // Get yesterday's date to catch games that started recently
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      console.log('🏈 Fetching NFL games from v_input_values_with_epa...');
+      
+      // Step 1: Fetch ALL games from v_input_values_with_epa (simple query like CFB)
+      const { data: nflGames, error: gamesError } = await collegeFootballSupabase
+        .from('v_input_values_with_epa')
+        .select('*');
 
-      // Get betting lines
-      const { data: bettingData, error: bettingError } = await collegeFootballSupabase
-        .from('nfl_betting_lines')
-        .select('*')
-        .gte('game_date', yesterdayStr)
-        .order('as_of_ts', { ascending: false });
+      console.log('🏈 NFL query result:', nflGames?.length || 0, 'error:', gamesError?.message || 'none');
 
-      if (bettingError) throw bettingError;
-
-      // Get most recent betting line per training_key
-      const bettingMap = new Map();
-      bettingData?.forEach(bet => {
-        const key = bet.training_key;
-        if (!bettingMap.has(key) || new Date(bet.as_of_ts) > new Date(bettingMap.get(key).as_of_ts)) {
-          bettingMap.set(key, bet);
-        }
-      });
-
-      // Get latest run_id (without date filter)
-      const { data: latestRunData, error: runError } = await collegeFootballSupabase
-        .from('nfl_predictions_epa')
-        .select('run_id')
-        .order('run_id', { ascending: false })
-        .limit(1);
-
-      if (runError) throw runError;
-
-      const latestRunId = latestRunData?.[0]?.run_id;
-      if (!latestRunId) {
+      if (gamesError) {
+        console.error('Error fetching NFL games from v_input_values_with_epa:', gamesError);
+        throw gamesError;
+      }
+      
+      console.log(`🏈 Found ${nflGames?.length || 0} NFL games from view`);
+      
+      if (!nflGames || nflGames.length === 0) {
         setNflGames([]);
         return;
       }
 
-      // Get predictions from yesterday onwards
-      const { data: preds, error: predsError } = await collegeFootballSupabase
+      // Step 2: Fetch all predictions (no order clause to avoid issues)
+      const { data: allPredictions, error: predsError } = await collegeFootballSupabase
         .from('nfl_predictions_epa')
-        .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id, game_date, game_time')
-        .gte('game_date', yesterdayStr)
-        .eq('run_id', latestRunId)
-        .order('game_date', { ascending: true });
+        .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id');
 
-      if (predsError) throw predsError;
+      console.log('🏈 NFL predictions query:', allPredictions?.length || 0, 'error:', predsError?.message || 'none');
 
-      // Get weather data from production_weather table
+      let predictionsMap = new Map();
+      
+      if (allPredictions && allPredictions.length > 0) {
+        // Find the latest run_id and use those predictions
+        const runIds = [...new Set(allPredictions.map((p: any) => p.run_id))].sort().reverse();
+        const latestRunId = runIds[0];
+        console.log('Latest NFL run_id:', latestRunId);
+        
+        allPredictions.forEach((pred: any) => {
+          if (pred.run_id === latestRunId) {
+            predictionsMap.set(pred.training_key, pred);
+          }
+        });
+        console.log(`✅ NFL predictions matched: ${predictionsMap.size}`);
+      }
+      
+      // Step 3: Fetch betting lines for moneylines, public splits (no order clause)
+      const { data: bettingLines, error: bettingError } = await collegeFootballSupabase
+        .from('nfl_betting_lines')
+        .select('training_key, home_ml, away_ml, over_line, home_spread, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time');
+
+      console.log('🏈 NFL betting lines query:', bettingLines?.length || 0, 'error:', bettingError?.message || 'none');
+
+      let bettingLinesMap = new Map();
+      
+      if (!bettingError && bettingLines) {
+        // Get most recent line per training_key (compare as_of_ts client-side)
+        bettingLines.forEach((line: any) => {
+          const existing = bettingLinesMap.get(line.training_key);
+          if (!existing || (line.as_of_ts && (!existing.as_of_ts || line.as_of_ts > existing.as_of_ts))) {
+            bettingLinesMap.set(line.training_key, line);
+          }
+        });
+        console.log(`✅ NFL betting lines matched: ${bettingLinesMap.size}`);
+      }
+
+      // Step 4: Fetch weather data from production_weather table
       const { data: weatherData, error: weatherError } = await collegeFootballSupabase
         .from('production_weather')
         .select('*');
-
-      if (weatherError) {
-        console.warn('Weather data unavailable:', weatherError);
-      }
-
-      // Combine data
-      const predictionsWithData: NFLPrediction[] = (preds || [])
-        .map((pred: any) => {
-          const bettingLine = bettingMap.get(pred.training_key);
-          if (!bettingLine) return null;
-
-          const weather = weatherData?.find(w => w.training_key === pred.training_key);
-
-          return {
-            id: bettingLine.id,
-            away_team: bettingLine.away_team,
-            home_team: bettingLine.home_team,
-            home_ml: bettingLine.home_ml,
-            away_ml: bettingLine.away_ml,
-            home_spread: bettingLine.home_spread,
-            away_spread: bettingLine.away_spread,
-            over_line: bettingLine.over_line,
-            game_date: bettingLine.game_date,
-            game_time: bettingLine.game_time,
-            training_key: pred.training_key,
-            unique_id: bettingLine.unique_id,
-            home_away_ml_prob: pred.home_away_ml_prob,
-            home_away_spread_cover_prob: pred.home_away_spread_cover_prob,
-            ou_result_prob: pred.ou_result_prob,
-            run_id: pred.run_id,
-            // Weather data from production_weather table
-            temperature: weather?.temperature || null,
-            precipitation: weather?.precipitation_pct || null,
-            wind_speed: weather?.wind_speed || null,
-            icon: weather?.icon || null,
-            // Public betting splits - FROM bettingLine (nfl_betting_lines table)
-            spread_splits_label: bettingLine.spread_splits_label || null,
-            total_splits_label: bettingLine.total_splits_label || null,
-            ml_splits_label: bettingLine.ml_splits_label || null,
-          };
-        })
-        .filter(pred => pred !== null);
-
-      // Filter out games more than 6 hours past their start time
-      const currentTime = new Date();
-      const filteredGames = predictionsWithData.filter(pred => {
-        if (!pred || !pred.game_date || !pred.game_time) {
-          return true; // Keep games without time info
-        }
-        
-        try {
-          const gameDateTime = new Date(`${pred.game_date}T${pred.game_time}Z`);
-          const sixHoursAfterGame = new Date(gameDateTime.getTime() + (6 * 60 * 60 * 1000));
-          return currentTime < sixHoursAfterGame;
-        } catch (error) {
-          console.error('Error parsing game time:', error);
-          return true;
-        }
-      });
-
-      // Debug: Log first game's betting splits
-      if (filteredGames.length > 0) {
-        console.log('NFL Game 1 betting splits:', {
-          ml: filteredGames[0]?.ml_splits_label,
-          spread: filteredGames[0]?.spread_splits_label,
-          total: filteredGames[0]?.total_splits_label
+      
+      let weatherMap = new Map();
+      
+      if (!weatherError && weatherData) {
+        weatherData.forEach((weather: any) => {
+          if (weather.training_key) {
+            weatherMap.set(weather.training_key, weather);
+          }
         });
       }
 
-      console.log(`📊 NFL: ${predictionsWithData.length} total, ${filteredGames.length} within 6hr window`);
-      setNflGames(filteredGames);
+      // Step 5: Merge games with predictions, betting lines, and weather
+      // home_away_unique in v_input_values_with_epa = training_key in nfl_predictions_epa and nfl_betting_lines
+      const predictionsWithData: NFLPrediction[] = (nflGames || []).map((game: any) => {
+        const matchKey = game.home_away_unique;
+        const prediction = predictionsMap.get(matchKey);
+        const bettingLine = bettingLinesMap.get(matchKey);
+        const weather = weatherMap.get(matchKey);
+
+        return {
+          id: game.id || matchKey,
+          away_team: game.away_team,
+          home_team: game.home_team,
+          home_ml: bettingLine?.home_ml || null,
+          away_ml: bettingLine?.away_ml || null,
+          home_spread: game.home_spread || bettingLine?.home_spread || null,
+          away_spread: game.home_spread ? -game.home_spread : (bettingLine?.home_spread ? -bettingLine.home_spread : null),
+          over_line: game.over_under || bettingLine?.over_line || null,
+          game_date: game.game_date,
+          game_time: bettingLine?.game_time || game.game_time || '',
+          training_key: matchKey,
+          unique_id: game.unique_id || matchKey,
+          home_away_ml_prob: prediction?.home_away_ml_prob || null,
+          home_away_spread_cover_prob: prediction?.home_away_spread_cover_prob || null,
+          ou_result_prob: prediction?.ou_result_prob || null,
+          run_id: prediction?.run_id || null,
+          // Weather data
+          temperature: weather?.temperature || null,
+          precipitation: weather?.precipitation_pct || null,
+          wind_speed: weather?.wind_speed || null,
+          icon: weather?.icon || null,
+          // Public betting splits
+          spread_splits_label: bettingLine?.spread_splits_label || null,
+          total_splits_label: bettingLine?.total_splits_label || null,
+          ml_splits_label: bettingLine?.ml_splits_label || null,
+        };
+      });
+
+      console.log(`📊 NFL: ${predictionsWithData.length} games, ${predictionsMap.size} have predictions`);
+      setNflGames(predictionsWithData);
     } catch (err) {
       console.error('Error fetching NFL data:', err);
       setError('Failed to fetch NFL games');
@@ -385,49 +380,51 @@ export default function FeedScreen() {
     return homeML > 0 ? -(homeML + 100) : 100 - homeML;
   };
 
-  // Fetch NBA data
+  // Fetch NBA data - matches web app approach (no date filter)
   const fetchNBAData = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      console.log('🏀 Fetching NBA games for date:', today);
+      console.log('🏀 Fetching NBA games from nba_input_values_view...');
       
-      // Fetch from nba_input_values_view
+      // Fetch ALL games from nba_input_values_view (simple query like CFB)
       const { data: inputValues, error: inputError } = await collegeFootballSupabase
         .from('nba_input_values_view')
-        .select('*')
-        .gte('game_date', today)
-        .order('game_date', { ascending: true })
-        .order('tipoff_time_et', { ascending: true });
+        .select('*');
 
-      if (inputError) throw inputError;
+      console.log('🏀 NBA query result:', inputValues?.length || 0, 'error:', inputError?.message || 'none');
+
+      if (inputError) {
+        console.error('❌ NBA query error:', inputError);
+        throw inputError;
+      }
       
-      console.log(`🏀 Found ${inputValues?.length || 0} NBA games`);
+      console.log(`🏀 Found ${inputValues?.length || 0} NBA games from view`);
       if (!inputValues || inputValues.length === 0) {
+        console.log('⚠️ NBA: No games returned from query');
         setNbaGames([]);
         return;
       }
 
-      // Fetch latest run_id for predictions
-      const { data: latestRun } = await collegeFootballSupabase
+      // Fetch latest predictions (get all and find latest run_id client-side)
+      const { data: allPredictions, error: predError } = await collegeFootballSupabase
         .from('nba_predictions')
-        .select('run_id, as_of_ts_utc')
-        .order('as_of_ts_utc', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .select('game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc');
+      
+      console.log('🏀 NBA predictions query:', allPredictions?.length || 0, 'error:', predError?.message || 'none');
 
-      // Fetch predictions with latest run_id
+      // Find latest predictions for each game
       let predictionMap = new Map();
-      if (latestRun) {
+      if (allPredictions && allPredictions.length > 0) {
+        // Group by game_id and keep the one with latest as_of_ts_utc
         const gameIds = inputValues.map((g: any) => g.game_id);
-        const { data: predictions } = await collegeFootballSupabase
-          .from('nba_predictions')
-          .select('game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id')
-          .eq('run_id', latestRun.run_id)
-          .in('game_id', gameIds);
-
-        predictions?.forEach((pred: any) => {
-          predictionMap.set(pred.game_id, pred);
+        allPredictions.forEach((pred: any) => {
+          if (gameIds.includes(pred.game_id)) {
+            const existing = predictionMap.get(pred.game_id);
+            if (!existing || (pred.as_of_ts_utc && (!existing.as_of_ts_utc || pred.as_of_ts_utc > existing.as_of_ts_utc))) {
+              predictionMap.set(pred.game_id, pred);
+            }
+          }
         });
+        console.log(`✅ NBA predictions matched: ${predictionMap.size} for ${gameIds.length} games`);
       }
 
       // Merge input values with predictions
@@ -494,6 +491,7 @@ export default function FeedScreen() {
         };
       });
 
+      console.log(`📊 NBA: ${games.length} games, ${predictionMap.size} have predictions`);
       setNbaGames(games);
     } catch (err) {
       console.error('Error fetching NBA data:', err);
@@ -501,49 +499,51 @@ export default function FeedScreen() {
     }
   };
 
-  // Fetch NCAAB data
+  // Fetch NCAAB data - matches web app approach (no date filter)
   const fetchNCAABData = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      console.log('🏀 Fetching NCAAB games for date:', today);
+      console.log('🏀 Fetching NCAAB games from v_cbb_input_values...');
       
-      // Fetch from v_cbb_input_values
+      // Fetch ALL games from v_cbb_input_values (simple query like CFB)
       const { data: inputValues, error: inputError } = await collegeFootballSupabase
         .from('v_cbb_input_values')
-        .select('*')
-        .gte('game_date_et', today)
-        .order('game_date_et', { ascending: true })
-        .order('tipoff_time_et', { ascending: true });
+        .select('*');
 
-      if (inputError) throw inputError;
+      console.log('🏀 NCAAB query result:', inputValues?.length || 0, 'error:', inputError?.message || 'none');
+
+      if (inputError) {
+        console.error('❌ NCAAB query error:', inputError);
+        throw inputError;
+      }
       
-      console.log(`🏀 Found ${inputValues?.length || 0} NCAAB games`);
+      console.log(`🏀 Found ${inputValues?.length || 0} NCAAB games from view`);
       if (!inputValues || inputValues.length === 0) {
+        console.log('⚠️ NCAAB: No games returned from query');
         setNcaabGames([]);
         return;
       }
 
-      // Get latest run_id for predictions
-      const { data: latestRun } = await collegeFootballSupabase
+      // Fetch all predictions (no order clause to avoid column issues)
+      const { data: allPredictions, error: predError } = await collegeFootballSupabase
         .from('ncaab_predictions')
-        .select('run_id, as_of_ts_utc')
-        .order('as_of_ts_utc', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .select('*');
+      
+      console.log('🏀 NCAAB predictions query:', allPredictions?.length || 0, 'error:', predError?.message || 'none');
 
       let predictionMap = new Map();
       
-      if (latestRun) {
+      if (allPredictions && allPredictions.length > 0) {
+        // Group by game_id and keep the one with latest as_of_ts_utc
         const gameIds = inputValues.map((g: any) => g.game_id);
-        const { data: predictions } = await collegeFootballSupabase
-          .from('ncaab_predictions')
-          .select('*')
-          .eq('run_id', latestRun.run_id)
-          .in('game_id', gameIds);
-
-        predictions?.forEach((pred: any) => {
-          predictionMap.set(pred.game_id, pred);
+        allPredictions.forEach((pred: any) => {
+          if (gameIds.includes(pred.game_id)) {
+            const existing = predictionMap.get(pred.game_id);
+            if (!existing || (pred.as_of_ts_utc && (!existing.as_of_ts_utc || pred.as_of_ts_utc > existing.as_of_ts_utc))) {
+              predictionMap.set(pred.game_id, pred);
+            }
+          }
         });
+        console.log(`✅ NCAAB predictions matched: ${predictionMap.size} for ${gameIds.length} games`);
       }
 
       // Merge input values with predictions
@@ -589,6 +589,7 @@ export default function FeedScreen() {
         };
       });
 
+      console.log(`📊 NCAAB: ${games.length} games, ${predictionMap.size} have predictions`);
       setNcaabGames(games);
     } catch (err) {
       console.error('Error fetching NCAAB data:', err);
