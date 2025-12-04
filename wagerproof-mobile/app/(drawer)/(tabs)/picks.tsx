@@ -7,6 +7,7 @@ import { BlurView } from 'expo-blur';
 import PagerView from 'react-native-pager-view';
 import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWagerBotChatSheet } from '@/contexts/WagerBotChatSheetContext';
 import { supabase } from '@/services/supabase';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
@@ -198,6 +199,7 @@ export default function PicksScreen() {
   const router = useRouter();
   const { open: openDrawer } = useDrawer();
   const { user } = useAuth();
+  const { openChatSheet } = useWagerBotChatSheet();
   const { isDark } = useThemeContext();
   const { scrollY, scrollYClamped } = useScroll();
   const insets = useSafeAreaInsets();
@@ -1022,10 +1024,10 @@ export default function PicksScreen() {
           
           {user && (
             <TouchableOpacity 
-              onPress={() => router.push('/chat' as any)}
+              onPress={openChatSheet}
               style={styles.chatButton}
             >
-              <MaterialCommunityIcons name="message-text" size={24} color={theme.colors.onSurface} />
+              <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />
             </TouchableOpacity>
           )}
         </View>

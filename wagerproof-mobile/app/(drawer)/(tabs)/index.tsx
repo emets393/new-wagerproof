@@ -15,6 +15,7 @@ import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
+import { useWagerBotChatSheet } from '@/contexts/WagerBotChatSheetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
@@ -51,6 +52,7 @@ export default function FeedScreen() {
   const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
   const { openGameSheet: openNBAGameSheet } = useNBAGameSheet();
   const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
+  const { openChatSheet } = useWagerBotChatSheet();
   const { user } = useAuth();
   const { isDark } = useThemeContext();
   const pagerRef = useRef<PagerView>(null);
@@ -1003,10 +1005,10 @@ export default function FeedScreen() {
             
             {user && (
               <TouchableOpacity 
-                onPress={() => router.push('/chat' as any)}
+                onPress={openChatSheet}
                 style={styles.chatButton}
               >
-                <MaterialCommunityIcons name="message-text" size={24} color={theme.colors.onSurface} />
+                <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
             )}
           </View>

@@ -4,6 +4,7 @@ import { useTheme } from 'react-native-paper';
 import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { useWagerBotChatSheet } from '@/contexts/WagerBotChatSheetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
@@ -16,30 +17,32 @@ export function WagerBotChatBottomSheet() {
   const insets = useSafeAreaInsets();
   const { closeChatSheet, bottomSheetRef } = useWagerBotChatSheet();
   const { user } = useAuth();
-  const snapPoints = useMemo(() => ['92%'], []);
+  const snapPoints = useMemo(() => ['95%'], []);
   
   const [gameContext, setGameContext] = useState<string>('');
   const [isLoadingContext, setIsLoadingContext] = useState(false);
   const [contextError, setContextError] = useState<string | null>(null);
   const chatRef = useRef<any>(null);
   const hasLoadedContext = useRef(false);
-
-  // Log when mounted
-  useEffect(() => {
-    console.log('🟢 WagerBotChatBottomSheet MOUNTED');
-    console.log('🟢 bottomSheetRef from context:', bottomSheetRef);
-    console.log('🟢 bottomSheetRef.current:', bottomSheetRef.current);
-    return () => {
-      console.log('🔴 WagerBotChatBottomSheet UNMOUNTED');
-    };
-  }, []);
+  const hasEnsuredFullHeight = useRef(false);
 
   // Load game context when sheet opens
   const handleSheetChange = (index: number) => {
-    console.log('🟡 handleSheetChange called, index:', index);
     if (index >= 0 && !hasLoadedContext.current && user) {
       hasLoadedContext.current = true;
       loadGameContext();
+    }
+    // Ensure sheet opens to full height on first open
+    if (index >= 0 && !hasEnsuredFullHeight.current && bottomSheetRef.current) {
+      hasEnsuredFullHeight.current = true;
+      // Small delay to ensure layout is complete
+      setTimeout(() => {
+        bottomSheetRef.current?.snapToIndex(0);
+      }, 100);
+    }
+    // Reset flag when sheet closes
+    if (index < 0) {
+      hasEnsuredFullHeight.current = false;
     }
   };
 
@@ -47,15 +50,11 @@ export function WagerBotChatBottomSheet() {
     try {
       setIsLoadingContext(true);
       setContextError(null);
-      console.log('🔄 Loading game context for WagerBot...');
       
       const context = await fetchAndFormatGameContext();
       setGameContext(context);
       
-      console.log('✅ Game context loaded successfully');
-      
       if (!context || context.length === 0) {
-        console.warn('⚠️ WARNING: Game context is empty! AI will not have game data.');
         setContextError('No game data available at this time.');
       }
     } catch (error) {
@@ -91,102 +90,116 @@ export function WagerBotChatBottomSheet() {
       onClose={closeChatSheet}
       onChange={handleSheetChange}
       backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: theme.colors.background }}
+      backgroundStyle={{ backgroundColor: 'transparent' }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.onSurfaceVariant }}
+      keyboardBehavior="extend"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
+      enableDynamicSizing={false}
     >
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <BlurView
+        intensity={100}
+        tint={isDark ? 'dark' : 'light'}
+        style={styles.blurContainer}
+      >
         {!user ? (
-          <View style={[styles.loginPrompt, { backgroundColor: theme.colors.background }]}>
+          <View style={styles.loginPrompt}>
             <MaterialCommunityIcons name="account-lock" size={60} color={theme.colors.onSurfaceVariant} />
             <Text style={[styles.loginText, { color: theme.colors.onSurface }]}>
               Please sign in to use WagerBot
             </Text>
           </View>
         ) : (
-          <>
-            {/* Header */}
-            <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
-              <View style={styles.headerLeft}>
-                <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-                  WagerBot
-                </Text>
-                {/* Game Data Indicator */}
-                {!isLoadingContext && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      const hasData = gameContext && gameContext.length > 0;
-                      const title = hasData ? 'Game Data Active' : 'No Game Data';
-                      const message = hasData 
-                        ? 'I have access to today\'s betting lines, predictions, and game data!'
-                        : 'No games available for today. I can still help with general betting questions.';
-                      Alert.alert(title, message);
-                    }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <View style={[
-                      styles.dataIndicator,
-                      { backgroundColor: gameContext && gameContext.length > 0 ? '#22c55e' : '#94a3b8' }
-                    ]} />
-                  </TouchableOpacity>
-                )}
-                {isLoadingContext && (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                )}
-              </View>
-              
-              <View style={styles.headerRight}>
-                <TouchableOpacity 
-                  onPress={() => chatRef.current?.toggleHistoryDrawer?.()}
-                  style={styles.headerIcon}
+          <View style={styles.contentWrapper}>
+          {/* Fixed Header */}
+          <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+            <View style={styles.headerLeft}>
+              <Text style={[styles.title, { color: theme.colors.onSurface }]}>
+                WagerBot
+              </Text>
+              {/* Game Data Indicator */}
+              {!isLoadingContext && (
+                <TouchableOpacity
+                  onPress={() => {
+                    const hasData = gameContext && gameContext.length > 0;
+                    const title = hasData ? 'Game Data Active' : 'No Game Data';
+                    const message = hasData 
+                      ? 'I have access to today\'s betting lines, predictions, and game data!'
+                      : 'No games available for today. I can still help with general betting questions.';
+                    Alert.alert(title, message);
+                  }}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <MaterialCommunityIcons name="history" size={24} color={theme.colors.onSurface} />
+                  <View style={[
+                    styles.dataIndicator,
+                    { backgroundColor: gameContext && gameContext.length > 0 ? '#22c55e' : '#94a3b8' }
+                  ]} />
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => chatRef.current?.clearChat?.()}
-                  style={styles.headerIcon}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <MaterialCommunityIcons name="message-plus-outline" size={24} color={theme.colors.onSurface} />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={closeChatSheet}
-                  style={styles.headerIcon}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
-                </TouchableOpacity>
-              </View>
+              )}
+              {isLoadingContext && (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              )}
             </View>
             
-            {contextError && (
-              <Text style={[styles.contextWarning, { color: theme.colors.error }]}>
-                {contextError}
-              </Text>
-            )}
-
-            {/* Chat Component */}
-            <View style={[styles.chatContainer, { marginBottom: insets.bottom }]}>
-              <WagerBotChat
-                ref={chatRef}
-                userId={user.id}
-                userEmail={user.email || ''}
-                gameContext={gameContext}
-                onRefresh={loadGameContext}
-                onBack={closeChatSheet}
-                isInBottomSheet={true}
-                headerHeight={0}
-              />
+            <View style={styles.headerRight}>
+              <TouchableOpacity 
+                onPress={() => chatRef.current?.toggleHistoryDrawer?.()}
+                style={styles.headerIcon}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="history" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => chatRef.current?.clearChat?.()}
+                style={styles.headerIcon}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="message-plus-outline" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={closeChatSheet}
+                style={styles.headerIcon}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
             </View>
-          </>
+          </View>
+          
+          {contextError && (
+            <Text style={[styles.contextWarning, { color: theme.colors.error }]}>
+              {contextError}
+            </Text>
+          )}
+
+          {/* Scrollable Chat Content */}
+          <View style={styles.chatContainer}>
+            <WagerBotChat
+              ref={chatRef}
+              userId={user.id}
+              userEmail={user.email || ''}
+              gameContext={gameContext}
+              onRefresh={loadGameContext}
+              onBack={closeChatSheet}
+              isInBottomSheet={true}
+              headerHeight={0}
+            />
+          </View>
+        </View>
         )}
-      </View>
+      </BlurView>
     </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  blurContainer: {
+    flex: 1,
+    overflow: 'hidden',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+  },
+  contentWrapper: {
     flex: 1,
   },
   header: {
@@ -232,12 +245,15 @@ const styles = StyleSheet.create({
   },
   chatContainer: {
     flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
   },
   loginPrompt: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: 'transparent',
   },
   loginText: {
     marginTop: 16,

@@ -12,23 +12,11 @@ const WagerBotChatSheetContext = createContext<WagerBotChatSheetContextType | un
 export function WagerBotChatSheetProvider({ children }: { children: ReactNode }) {
   const bottomSheetRef = useRef<BottomSheet>(null);
 
-  console.log('⭐ WagerBotChatSheetProvider RENDERING');
-  console.log('⭐ bottomSheetRef created:', bottomSheetRef);
-
   const openChatSheet = () => {
-    console.log('🔵 openChatSheet called');
-    console.log('🔵 bottomSheetRef.current:', bottomSheetRef.current);
-    if (bottomSheetRef.current) {
-      console.log('🔵 Calling snapToIndex(0)');
-      bottomSheetRef.current.snapToIndex(0);
-      console.log('🔵 snapToIndex called');
-    } else {
-      console.error('🔴 bottomSheetRef.current is NULL!');
-    }
+    bottomSheetRef.current?.snapToIndex(0);
   };
 
   const closeChatSheet = () => {
-    console.log('🔵 closeChatSheet called');
     bottomSheetRef.current?.close();
   };
 

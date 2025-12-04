@@ -1,6 +1,8 @@
 import { collegeFootballSupabase } from './supabase';
 import { NFLPrediction } from '../types/nfl';
 import { CFBPrediction } from '../types/cfb';
+import { NBAGame } from '../types/nba';
+import { NCAABGame } from '../types/ncaab';
 
 /**
  * Fetch NFL predictions from nfl_predictions_epa table and betting lines
@@ -330,31 +332,437 @@ ${contextParts}`;
 }
 
 /**
+ * Fetch NBA predictions
+ */
+export async function fetchNBAPredictions(): Promise<NBAGame[]> {
+  try {
+    // Fetch ALL games from nba_input_values_view
+    const { data: inputValues, error: inputError } = await collegeFootballSupabase
+      .from('nba_input_values_view')
+      .select('*');
+
+    if (inputError) {
+      console.error('Error fetching NBA input values:', inputError);
+      return [];
+    }
+
+    if (!inputValues || inputValues.length === 0) {
+      console.log('No NBA games found');
+      return [];
+    }
+
+    // Fetch latest predictions
+    const { data: allPredictions, error: predError } = await collegeFootballSupabase
+      .from('nba_predictions')
+      .select('game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc');
+
+    if (predError) {
+      console.error('Error fetching NBA predictions:', predError);
+    }
+
+    // Find latest predictions for each game
+    let predictionMap = new Map();
+    if (allPredictions && allPredictions.length > 0) {
+      const gameIds = inputValues.map((g: any) => g.game_id);
+      allPredictions.forEach((pred: any) => {
+        if (gameIds.includes(pred.game_id)) {
+          const existing = predictionMap.get(pred.game_id);
+          if (!existing || (pred.as_of_ts_utc && (!existing.as_of_ts_utc || pred.as_of_ts_utc > existing.as_of_ts_utc))) {
+            predictionMap.set(pred.game_id, pred);
+          }
+        }
+      });
+    }
+
+    // Merge input values with predictions
+    const games: NBAGame[] = inputValues.map((input: any) => {
+      const prediction = predictionMap.get(input.game_id);
+      const gameIdStr = String(input.game_id);
+      
+      // Calculate spread cover probability
+      let spreadCoverProb = null;
+      if (prediction && prediction.model_fair_home_spread !== null && input.home_spread !== null) {
+        const spreadDiff = Math.abs(prediction.model_fair_home_spread - input.home_spread);
+        if (prediction.model_fair_home_spread < input.home_spread) {
+          spreadCoverProb = 0.5 + Math.min(spreadDiff * 0.05, 0.35);
+        } else {
+          spreadCoverProb = 0.5 - Math.min(spreadDiff * 0.05, 0.35);
+        }
+      } else if (prediction?.home_win_prob) {
+        spreadCoverProb = prediction.home_win_prob;
+      }
+      
+      // Calculate over/under probability
+      let ouProb = null;
+      if (prediction && prediction.model_fair_total !== null && input.total_line !== null) {
+        const totalDiff = prediction.model_fair_total - input.total_line;
+        if (totalDiff > 0) {
+          ouProb = 0.5 + Math.min(Math.abs(totalDiff) * 0.02, 0.35);
+        } else {
+          ouProb = 0.5 - Math.min(Math.abs(totalDiff) * 0.02, 0.35);
+        }
+      }
+
+      return {
+        id: gameIdStr,
+        game_id: input.game_id,
+        away_team: input.away_team,
+        home_team: input.home_team,
+        home_ml: input.home_moneyline,
+        away_ml: input.home_moneyline !== null ? (input.home_moneyline > 0 ? -(input.home_moneyline + 100) : 100 - input.home_moneyline) : null,
+        home_spread: input.home_spread,
+        away_spread: input.home_spread ? -input.home_spread : null,
+        over_line: input.total_line,
+        game_date: input.game_date,
+        game_time: input.tipoff_time_et,
+        training_key: gameIdStr,
+        unique_id: gameIdStr,
+        home_adj_offense: input.home_adj_offense,
+        away_adj_offense: input.away_adj_offense,
+        home_adj_defense: input.home_adj_defense,
+        away_adj_defense: input.away_adj_defense,
+        home_adj_pace: input.home_adj_pace,
+        away_adj_pace: input.away_adj_pace,
+        home_ats_pct: input.home_ats_pct,
+        away_ats_pct: input.away_ats_pct,
+        home_over_pct: input.home_over_pct,
+        away_over_pct: input.away_over_pct,
+        home_away_ml_prob: prediction?.home_win_prob || null,
+        home_away_spread_cover_prob: spreadCoverProb,
+        ou_result_prob: ouProb,
+        run_id: prediction?.run_id || null,
+        home_score_pred: prediction?.home_score_pred || null,
+        away_score_pred: prediction?.away_score_pred || null,
+        model_fair_home_spread: prediction?.model_fair_home_spread || null,
+        model_fair_total: prediction?.model_fair_total || null,
+      };
+    });
+
+    console.log(`📊 Fetched ${games.length} NBA predictions`);
+    return games;
+  } catch (error) {
+    console.error('Error in fetchNBAPredictions:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch NCAAB predictions
+ */
+export async function fetchNCAABPredictions(): Promise<NCAABGame[]> {
+  try {
+    // Fetch ALL games from v_cbb_input_values
+    const { data: inputValues, error: inputError } = await collegeFootballSupabase
+      .from('v_cbb_input_values')
+      .select('*');
+
+    if (inputError) {
+      console.error('Error fetching NCAAB input values:', inputError);
+      return [];
+    }
+
+    if (!inputValues || inputValues.length === 0) {
+      console.log('No NCAAB games found');
+      return [];
+    }
+
+    // Fetch all predictions
+    const { data: allPredictions, error: predError } = await collegeFootballSupabase
+      .from('ncaab_predictions')
+      .select('*');
+
+    if (predError) {
+      console.error('Error fetching NCAAB predictions:', predError);
+    }
+
+    // Find latest predictions for each game
+    let predictionMap = new Map();
+    if (allPredictions && allPredictions.length > 0) {
+      const gameIds = inputValues.map((g: any) => g.game_id);
+      allPredictions.forEach((pred: any) => {
+        if (gameIds.includes(pred.game_id)) {
+          const existing = predictionMap.get(pred.game_id);
+          if (!existing || (pred.as_of_ts_utc && (!existing.as_of_ts_utc || pred.as_of_ts_utc > existing.as_of_ts_utc))) {
+            predictionMap.set(pred.game_id, pred);
+          }
+        }
+      });
+    }
+
+    // Merge input values with predictions
+    const games: NCAABGame[] = inputValues.map((input: any) => {
+      const prediction = predictionMap.get(input.game_id);
+      const gameIdStr = String(input.game_id);
+
+      return {
+        id: gameIdStr,
+        game_id: input.game_id,
+        away_team: input.away_team,
+        home_team: input.home_team,
+        home_ml: prediction?.vegas_home_moneyline || input.homeMoneyline,
+        away_ml: prediction?.vegas_away_moneyline || input.awayMoneyline,
+        home_spread: prediction?.vegas_home_spread || input.spread,
+        away_spread: prediction?.vegas_home_spread ? -prediction.vegas_home_spread : (input.spread ? -input.spread : null),
+        over_line: prediction?.vegas_total || input.over_under,
+        game_date: input.game_date_et,
+        game_time: input.start_utc || input.tipoff_time_et,
+        training_key: gameIdStr,
+        unique_id: gameIdStr,
+        home_adj_offense: input.home_adj_offense,
+        away_adj_offense: input.away_adj_offense,
+        home_adj_defense: input.home_adj_defense,
+        away_adj_defense: input.away_adj_defense,
+        home_adj_pace: input.home_adj_pace,
+        away_adj_pace: input.away_adj_pace,
+        home_ranking: input.home_ranking,
+        away_ranking: input.away_ranking,
+        conference_game: input.conference_game,
+        neutral_site: input.neutral_site,
+        home_away_ml_prob: prediction?.home_win_prob || null,
+        home_away_spread_cover_prob: prediction?.home_win_prob || null,
+        ou_result_prob: prediction && prediction.pred_total_points && prediction.vegas_total
+          ? (prediction.pred_total_points > prediction.vegas_total ? 0.6 : 0.4)
+          : null,
+        pred_home_margin: prediction?.pred_home_margin || null,
+        pred_total_points: prediction?.pred_total_points || null,
+        run_id: prediction?.run_id || null,
+        home_score_pred: prediction?.home_score_pred || null,
+        away_score_pred: prediction?.away_score_pred || null,
+        model_fair_home_spread: prediction?.model_fair_home_spread || null,
+      };
+    });
+
+    console.log(`📊 Fetched ${games.length} NCAAB predictions`);
+    return games;
+  } catch (error) {
+    console.error('Error in fetchNCAABPredictions:', error);
+    return [];
+  }
+}
+
+/**
+ * Format NBA predictions as markdown context for AI
+ */
+function formatNBAContext(predictions: NBAGame[]): string {
+  if (!predictions || predictions.length === 0) return '';
+
+  const contextParts = predictions.slice(0, 20).map((pred, idx) => {
+    try {
+      const awayTeam = pred.away_team || 'Unknown';
+      const homeTeam = pred.home_team || 'Unknown';
+      const gameDate = pred.game_date ? new Date(pred.game_date).toLocaleDateString() : 'TBD';
+      const gameTime = pred.game_time || 'TBD';
+
+      // Calculate predictions
+      const mlWinner = pred.home_away_ml_prob 
+        ? pred.home_away_ml_prob > 0.5 
+          ? `${homeTeam} (${(pred.home_away_ml_prob * 100).toFixed(1)}% confidence)`
+          : `${awayTeam} (${((1 - pred.home_away_ml_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      const spreadPick = pred.home_away_spread_cover_prob
+        ? pred.home_away_spread_cover_prob > 0.5
+          ? `${homeTeam} to cover ${pred.home_spread} (${(pred.home_away_spread_cover_prob * 100).toFixed(1)}% confidence)`
+          : `${awayTeam} to cover ${pred.away_spread} (${((1 - pred.home_away_spread_cover_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      const ouPick = pred.ou_result_prob
+        ? pred.ou_result_prob > 0.5
+          ? `OVER ${pred.over_line} (${(pred.ou_result_prob * 100).toFixed(1)}% confidence)`
+          : `UNDER ${pred.over_line} (${((1 - pred.ou_result_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      // Value analysis
+      const spreadValue = pred.model_fair_home_spread !== null && pred.home_spread !== null
+        ? `${(pred.model_fair_home_spread - pred.home_spread).toFixed(1)} points (${pred.model_fair_home_spread < pred.home_spread ? 'FAVORABLE to Home' : 'FAVORABLE to Away'})`
+        : 'N/A';
+
+      const totalValue = pred.model_fair_total !== null && pred.over_line !== null
+        ? `${(pred.model_fair_total - pred.over_line).toFixed(1)} points (${pred.model_fair_total > pred.over_line ? 'OVER has VALUE' : 'UNDER has VALUE'})`
+        : 'N/A';
+
+      return `
+### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
+
+**Date/Time:** ${gameDate} ${gameTime}
+
+**Betting Lines:**
+- Spread: ${homeTeam} ${pred.home_spread || 'N/A'}
+- Moneyline: Away ${pred.away_ml || 'N/A'} / Home ${pred.home_ml || 'N/A'}
+- Over/Under: ${pred.over_line || 'N/A'}
+
+**Model Predictions:**
+- **Predicted Score:** ${awayTeam} ${pred.away_score_pred !== null ? Math.round(pred.away_score_pred) : 'N/A'} - ${homeTeam} ${pred.home_score_pred !== null ? Math.round(pred.home_score_pred) : 'N/A'}
+- **Model Fair Spread:** ${pred.model_fair_home_spread !== null ? pred.model_fair_home_spread.toFixed(1) : 'N/A'}
+- **Model Fair Total:** ${pred.model_fair_total !== null ? pred.model_fair_total.toFixed(1) : 'N/A'}
+
+**Model Picks:**
+- **Moneyline:** ${mlWinner}
+- **Spread:** ${spreadPick}
+- **Over/Under:** ${ouPick}
+
+**VALUE ANALYSIS (Model vs. Market):**
+- **Spread Difference:** ${spreadValue}
+- **Total Difference:** ${totalValue}
+
+**Confidence Levels:**
+- ML: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
+- Spread: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}
+- Total: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
+
+**Team Stats:**
+- ${homeTeam}: Offense ${pred.home_adj_offense?.toFixed(1) || 'N/A'}, Defense ${pred.home_adj_defense?.toFixed(1) || 'N/A'}, Pace ${pred.home_adj_pace?.toFixed(1) || 'N/A'}
+- ${awayTeam}: Offense ${pred.away_adj_offense?.toFixed(1) || 'N/A'}, Defense ${pred.away_adj_defense?.toFixed(1) || 'N/A'}, Pace ${pred.away_adj_pace?.toFixed(1) || 'N/A'}
+
+**Trends:**
+- ${homeTeam} ATS: ${pred.home_ats_pct ? (pred.home_ats_pct * 100).toFixed(1) + '%' : 'N/A'}, Over: ${pred.home_over_pct ? (pred.home_over_pct * 100).toFixed(1) + '%' : 'N/A'}
+- ${awayTeam} ATS: ${pred.away_ats_pct ? (pred.away_ats_pct * 100).toFixed(1) + '%' : 'N/A'}, Over: ${pred.away_over_pct ? (pred.away_over_pct * 100).toFixed(1) + '%' : 'N/A'}
+
+---`;
+    } catch (err) {
+      console.error('Error building context for NBA game:', pred, err);
+      return '';
+    }
+  }).filter(Boolean).join('\n');
+
+  return `# 🏀 NBA Games Data
+
+I have access to **${predictions.length} NBA games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), and betting trends (ATS%, Over%).
+
+**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER.
+
+${contextParts}`;
+}
+
+/**
+ * Format NCAAB predictions as markdown context for AI
+ */
+function formatNCAABContext(predictions: NCAABGame[]): string {
+  if (!predictions || predictions.length === 0) return '';
+
+  const contextParts = predictions.slice(0, 20).map((pred, idx) => {
+    try {
+      const awayTeam = pred.away_team || 'Unknown';
+      const homeTeam = pred.home_team || 'Unknown';
+      const gameDate = pred.game_date ? new Date(pred.game_date).toLocaleDateString() : 'TBD';
+      const gameTime = pred.game_time || 'TBD';
+
+      // Calculate predictions
+      const mlWinner = pred.home_away_ml_prob 
+        ? pred.home_away_ml_prob > 0.5 
+          ? `${homeTeam} (${(pred.home_away_ml_prob * 100).toFixed(1)}% confidence)`
+          : `${awayTeam} (${((1 - pred.home_away_ml_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      const spreadPick = pred.home_away_spread_cover_prob
+        ? pred.home_away_spread_cover_prob > 0.5
+          ? `${homeTeam} to cover ${pred.home_spread} (${(pred.home_away_spread_cover_prob * 100).toFixed(1)}% confidence)`
+          : `${awayTeam} to cover ${pred.away_spread} (${((1 - pred.home_away_spread_cover_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      const ouPick = pred.ou_result_prob
+        ? pred.ou_result_prob > 0.5
+          ? `OVER ${pred.over_line} (${(pred.ou_result_prob * 100).toFixed(1)}% confidence)`
+          : `UNDER ${pred.over_line} (${((1 - pred.ou_result_prob) * 100).toFixed(1)}% confidence)`
+        : 'N/A';
+
+      // Value analysis
+      const spreadValue = pred.model_fair_home_spread !== null && pred.home_spread !== null
+        ? `${(pred.model_fair_home_spread - pred.home_spread).toFixed(1)} points (${pred.model_fair_home_spread < pred.home_spread ? 'FAVORABLE to Home' : 'FAVORABLE to Away'})`
+        : 'N/A';
+
+      const totalValue = pred.pred_total_points !== null && pred.over_line !== null
+        ? `${(pred.pred_total_points - pred.over_line).toFixed(1)} points (${pred.pred_total_points > pred.over_line ? 'OVER has VALUE' : 'UNDER has VALUE'})`
+        : 'N/A';
+
+      return `
+### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
+${pred.conference_game ? '**Conference Game:** Yes' : ''}
+${pred.neutral_site ? '**Neutral Site:** Yes' : ''}
+${pred.home_ranking ? `**${homeTeam} Ranking:** #${pred.home_ranking}` : ''}
+${pred.away_ranking ? `**${awayTeam} Ranking:** #${pred.away_ranking}` : ''}
+
+**Date/Time:** ${gameDate} ${gameTime}
+
+**Betting Lines:**
+- Spread: ${homeTeam} ${pred.home_spread || 'N/A'}
+- Moneyline: Away ${pred.away_ml || 'N/A'} / Home ${pred.home_ml || 'N/A'}
+- Over/Under: ${pred.over_line || 'N/A'}
+
+**Model Predictions:**
+- **Predicted Score:** ${awayTeam} ${pred.away_score_pred !== null ? Math.round(pred.away_score_pred) : 'N/A'} - ${homeTeam} ${pred.home_score_pred !== null ? Math.round(pred.home_score_pred) : 'N/A'}
+- **Predicted Margin:** ${pred.pred_home_margin !== null ? pred.pred_home_margin.toFixed(1) : 'N/A'} (${pred.pred_home_margin !== null && pred.pred_home_margin > 0 ? homeTeam : awayTeam} by ${Math.abs(pred.pred_home_margin || 0).toFixed(1)})
+- **Predicted Total:** ${pred.pred_total_points !== null ? pred.pred_total_points.toFixed(1) : 'N/A'}
+- **Model Fair Spread:** ${pred.model_fair_home_spread !== null ? pred.model_fair_home_spread.toFixed(1) : 'N/A'}
+
+**Model Picks:**
+- **Moneyline:** ${mlWinner}
+- **Spread:** ${spreadPick}
+- **Over/Under:** ${ouPick}
+
+**VALUE ANALYSIS (Model vs. Market):**
+- **Spread Difference:** ${spreadValue}
+- **Total Difference:** ${totalValue}
+
+**Confidence Levels:**
+- ML: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
+- Spread: ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'}
+- Total: ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
+
+**Team Stats:**
+- ${homeTeam}: Offense ${pred.home_adj_offense?.toFixed(1) || 'N/A'}, Defense ${pred.home_adj_defense?.toFixed(1) || 'N/A'}, Pace ${pred.home_adj_pace?.toFixed(1) || 'N/A'}
+- ${awayTeam}: Offense ${pred.away_adj_offense?.toFixed(1) || 'N/A'}, Defense ${pred.away_adj_defense?.toFixed(1) || 'N/A'}, Pace ${pred.away_adj_pace?.toFixed(1) || 'N/A'}
+
+---`;
+    } catch (err) {
+      console.error('Error building context for NCAAB game:', pred, err);
+      return '';
+    }
+  }).filter(Boolean).join('\n');
+
+  return `# 🏀 College Basketball Games Data
+
+I have access to **${predictions.length} College Basketball games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), rankings, and game context (conference games, neutral site).
+
+**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER.
+
+${contextParts}`;
+}
+
+/**
  * Fetch all game data and format as context for AI
  */
 export async function fetchAndFormatGameContext(): Promise<string> {
   console.log('🔄 Fetching game data for AI context...');
 
-  const [nflPredictions, cfbPredictions] = await Promise.all([
+  const [nflPredictions, cfbPredictions, nbaPredictions, ncaabPredictions] = await Promise.all([
     fetchNFLPredictions(),
     fetchCFBPredictions(),
+    fetchNBAPredictions(),
+    fetchNCAABPredictions(),
   ]);
 
   console.log(`📊 Fetched predictions:`);
   console.log(`   - NFL: ${nflPredictions.length} games`);
   console.log(`   - CFB: ${cfbPredictions.length} games`);
+  console.log(`   - NBA: ${nbaPredictions.length} games`);
+  console.log(`   - NCAAB: ${ncaabPredictions.length} games`);
 
   const nflContext = formatNFLContext(nflPredictions);
   const cfbContext = formatCFBContext(cfbPredictions);
+  const nbaContext = formatNBAContext(nbaPredictions);
+  const ncaabContext = formatNCAABContext(ncaabPredictions);
 
   console.log(`📝 Formatted contexts:`);
   console.log(`   - NFL context: ${nflContext.length} chars`);
   console.log(`   - CFB context: ${cfbContext.length} chars`);
+  console.log(`   - NBA context: ${nbaContext.length} chars`);
+  console.log(`   - NCAAB context: ${ncaabContext.length} chars`);
 
-  const fullContext = [nflContext, cfbContext].filter(Boolean).join('\n\n');
+  const fullContext = [nflContext, cfbContext, nbaContext, ncaabContext].filter(Boolean).join('\n\n');
 
   console.log(`✅ Game context generated: ${fullContext.length} characters`);
-  console.log(`📊 Total games: ${nflPredictions.length} NFL + ${cfbPredictions.length} CFB`);
+  console.log(`📊 Total games: ${nflPredictions.length} NFL + ${cfbPredictions.length} CFB + ${nbaPredictions.length} NBA + ${ncaabPredictions.length} NCAAB`);
 
   if (fullContext.length === 0) {
     console.warn('⚠️ WARNING: Generated context is EMPTY!');

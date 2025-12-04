@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -27,6 +28,7 @@ import ReanimatedAnimated, {
   useFrameCallback
 } from 'react-native-reanimated';
 import Markdown from 'react-native-markdown-display';
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { chatSessionManager, ChatMessage } from '../utils/chatSessionManager';
 import { chatThreadService } from '../services/chatThreadService';
 
@@ -54,6 +56,13 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
+  const flatListRef = useRef<FlatList>(null);
+  const prevMessageCountRef = useRef(0);
+  const lastScrollTimeRef = useRef(0);
+  const scrollThrottleMs = 16; // ~60fps throttle for smooth real-time scrolling during streaming
+  const contentHeightRef = useRef(0);
+  const shouldAutoScrollRef = useRef(true); // Track if we should auto-scroll
+  const streamingMessageIdRef = useRef<string | null>(null); // Track which message is streaming
 
   // Handle scroll event for header animation
   const handleScroll = scrollY 
@@ -173,6 +182,67 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   useEffect(() => {
     loadChatHistories();
   }, []);
+
+  // Scroll to bottom helper function (no throttling during streaming for real-time updates)
+  const scrollToBottom = useCallback((force = false, isStreaming = false) => {
+    if (!isInBottomSheet || !shouldAutoScrollRef.current) return;
+    
+    // During streaming, don't throttle at all - scroll immediately on every update
+    if (!isStreaming) {
+      const now = Date.now();
+      if (!force && now - lastScrollTimeRef.current < 100) {
+        return; // Throttle scroll calls only when not streaming
+      }
+      lastScrollTimeRef.current = now;
+    }
+    
+    // For streaming, scroll immediately without animation for smooth real-time updates
+    // For non-streaming, use animation
+    if (flatListRef.current) {
+      try {
+        // During streaming, scroll without animation for immediate updates
+        flatListRef.current.scrollToEnd({ animated: !isStreaming });
+      } catch (e) {
+        // If scrollToEnd fails, use scrollToOffset with a large offset
+        try {
+          flatListRef.current.scrollToOffset({ offset: contentHeightRef.current || 999999, animated: !isStreaming });
+        } catch (err) {
+          // Fallback: try again on next frame
+          requestAnimationFrame(() => {
+            if (flatListRef.current) {
+              try {
+                flatListRef.current.scrollToEnd({ animated: false });
+              } catch (e) {
+                // Last resort: scroll to offset
+                flatListRef.current.scrollToOffset({ offset: 999999, animated: false });
+              }
+            }
+          });
+        }
+      }
+    }
+  }, [isInBottomSheet]);
+
+  // Scroll to bottom when new messages are added (for bottom sheet)
+  useEffect(() => {
+    if (isInBottomSheet && messages.length > prevMessageCountRef.current) {
+      setTimeout(() => {
+        scrollToBottom(true, false); // Force scroll when new message added
+      }, 150);
+    }
+    prevMessageCountRef.current = messages.length;
+  }, [messages.length, isInBottomSheet, scrollToBottom]);
+
+  // Watch for content changes in streaming message and scroll in real-time
+  useEffect(() => {
+    if (isInBottomSheet && isStreaming && streamingMessageIdRef.current && shouldAutoScrollRef.current) {
+      const streamingMessage = messages.find(msg => msg.id === streamingMessageIdRef.current);
+      if (streamingMessage && streamingMessage.content) {
+        // Content is updating, scroll to bottom immediately
+        scrollToBottom(false, true);
+      }
+    }
+  }, [messages, isStreaming, isInBottomSheet, scrollToBottom]);
 
   // Animate drawer open/close (right side)
   useEffect(() => {
@@ -440,6 +510,11 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     const imagesToSend = selectedImages;
     setSelectedImages([]); // Clear selected images after sending
     setIsSending(true);
+    
+    // Scroll to bottom when user sends a message
+    setTimeout(() => {
+      scrollToBottom(true);
+    }, 100);
 
     // Animate user message appearance
     const userAnimation = getMessageAnimation(userMessage.id);
@@ -454,6 +529,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     await new Promise(resolve => setTimeout(resolve, 300));
     
     const assistantMessageId = `msg_${Date.now()}_assistant`;
+    streamingMessageIdRef.current = assistantMessageId;
     const emptyAssistantMessage: ChatMessage = {
       id: assistantMessageId,
       role: 'assistant',
@@ -461,6 +537,12 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, emptyAssistantMessage]);
+    
+    // Scroll to bottom immediately when assistant message is added (start of streaming)
+    // Use setTimeout to ensure the message is rendered first
+    setTimeout(() => {
+      scrollToBottom(true, true);
+    }, 50); // Reduced delay for faster response
     
     // Animate assistant thinking bubble appearance
     const assistantAnimation = getMessageAnimation(assistantMessageId);
@@ -586,6 +668,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             )
           );
           
+          // Scroll to bottom immediately as content streams in (no delay, no throttling)
+          scrollToBottom(false, true); // Pass isStreaming=true for immediate scrolling
+          
           // Haptic feedback every 100ms max (smooth but not overwhelming)
           if (currentTime - lastUpdateTime > 100) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -613,6 +698,12 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           }
           console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           setIsStreaming(false);
+          streamingMessageIdRef.current = null;
+          
+          // Final scroll to bottom when streaming completes
+          setTimeout(() => {
+            scrollToBottom(true, false);
+          }, 100);
           
           if (xhr.status !== 200) {
             console.error('❌ BuildShip error response:', xhr.responseText);
@@ -691,12 +782,14 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         xhr.onerror = () => {
           console.error('❌ XHR error');
           setIsStreaming(false);
+          streamingMessageIdRef.current = null;
           reject(new Error('Network request failed'));
         };
         
         xhr.ontimeout = () => {
           console.error('❌ XHR timeout');
           setIsStreaming(false);
+          streamingMessageIdRef.current = null;
           reject(new Error('Request timeout'));
         };
         
@@ -733,7 +826,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
   if (isLoading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.centerContainer, { backgroundColor: isInBottomSheet ? 'transparent' : theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
           Initializing WagerBot...
@@ -744,7 +837,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
   if (error) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.centerContainer, { backgroundColor: isInBottomSheet ? 'transparent' : theme.colors.background }]}>
         <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
         <TouchableOpacity
@@ -758,7 +851,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: isInBottomSheet ? 'transparent' : theme.colors.background }]}>
       {/* History Drawer */}
       <Animated.View 
         style={[
@@ -846,216 +939,284 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       >
         {/* Welcome Screen (shows when no messages) */}
         {showWelcome && (
-          <Animated.ScrollView
-            contentContainerStyle={[styles.welcomeContainer, { paddingTop: headerHeight }]}
-            {...scrollProps}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                tintColor={theme.colors.primary}
-              />
-            }
-          >
-            <View style={styles.welcomeContent}>
-              <View style={[styles.iconContainer, { backgroundColor: theme.colors.primaryContainer }]}>
-                <MaterialCommunityIcons
-                  name="robot"
-                  size={64}
-                  color={theme.colors.primary}
-                />
-              </View>
-              <Text style={[styles.welcomeTitle, { color: theme.colors.onSurface }]}>
-                {gameContext ? 'How can I help you analyze today\'s games?' : 'How can I help you with sports betting today?'}
-              </Text>
-              {gameContext && (
-                <Text style={[styles.welcomeSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                  I have access to all game data, predictions, betting lines, and more.
+          isInBottomSheet ? (
+            <View style={styles.welcomeContainerBottomSheet}>
+              <View style={styles.welcomeContent}>
+                <View style={[styles.iconContainer, { backgroundColor: theme.colors.primaryContainer }]}>
+                  <MaterialCommunityIcons
+                    name="robot"
+                    size={64}
+                    color={theme.colors.primary}
+                  />
+                </View>
+                <Text style={[styles.welcomeTitle, { color: theme.colors.onSurface }]}>
+                  {gameContext ? 'How can I help you analyze today\'s games?' : 'How can I help you with sports betting today?'}
                 </Text>
-              )}
+                {gameContext && (
+                  <Text style={[styles.welcomeSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                    I have access to all game data, predictions, betting lines, and more.
+                  </Text>
+                )}
+              </View>
             </View>
-          </Animated.ScrollView>
+          ) : (
+            <Animated.ScrollView
+              contentContainerStyle={[styles.welcomeContainer, { paddingTop: headerHeight }]}
+              {...scrollProps}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={theme.colors.primary}
+                />
+              }
+            >
+              <View style={styles.welcomeContent}>
+                <View style={[styles.iconContainer, { backgroundColor: theme.colors.primaryContainer }]}>
+                  <MaterialCommunityIcons
+                    name="robot"
+                    size={64}
+                    color={theme.colors.primary}
+                  />
+                </View>
+                <Text style={[styles.welcomeTitle, { color: theme.colors.onSurface }]}>
+                  {gameContext ? 'How can I help you analyze today\'s games?' : 'How can I help you with sports betting today?'}
+                </Text>
+                {gameContext && (
+                  <Text style={[styles.welcomeSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                    I have access to all game data, predictions, betting lines, and more.
+                  </Text>
+                )}
+              </View>
+            </Animated.ScrollView>
+          )
         )}
 
         {/* Messages View (shows when there are messages) */}
         {!showWelcome && (
-          <Animated.ScrollView
-            ref={scrollViewRef}
-            style={styles.messagesContainer}
-            contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight }]}
-            showsVerticalScrollIndicator={true}
-            keyboardShouldPersistTaps="handled"
-            {...scrollProps}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                tintColor={theme.colors.primary}
-              />
-            }
-            onContentSizeChange={() => {
-              // Auto-scroll when content changes
-              scrollViewRef.current?.scrollToEnd({ animated: true });
-            }}
-          >
-            {messages.map((message, index) => {
-              const isLastMessage = index === messages.length - 1;
-              const isEmptyAndStreaming = !message.content && isSending && isLastMessage;
-              const isStreamingThis = isStreaming && isLastMessage && message.role === 'assistant';
-              
-              const animation = getMessageAnimation(message.id || `msg_${index}`);
-              const animatedStyle = {
-                opacity: animation,
-                transform: [
-                  {
-                    translateY: animation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                  {
-                    scale: animation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.95, 1],
-                    }),
-                  },
-                ],
-              };
+          isInBottomSheet ? (
+            // Use BottomSheetFlatList for proper scrolling in bottom sheet
+            <BottomSheetFlatList<ChatMessage>
+              ref={flatListRef as any}
+              data={messages}
+              keyExtractor={(item: ChatMessage, index: number) => item.id || `msg_${index}`}
+              style={styles.messagesContainer}
+              contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight }]}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+              inverted={false}
+              onContentSizeChange={(width: number, height: number) => {
+                contentHeightRef.current = height;
+                // Auto-scroll immediately when content size changes (during streaming)
+                // This ensures we catch every layout update
+                if (isStreaming && streamingMessageIdRef.current && shouldAutoScrollRef.current) {
+                  scrollToBottom(false, true);
+                }
+              }}
+              onLayout={() => {
+                // Also scroll on layout changes during streaming
+                if (isStreaming && streamingMessageIdRef.current && shouldAutoScrollRef.current) {
+                  scrollToBottom(false, true);
+                }
+              }}
+              onScrollBeginDrag={() => {
+                // User is manually scrolling, pause auto-scroll
+                shouldAutoScrollRef.current = false;
+              }}
+              onScrollEndDrag={() => {
+                // Check if user scrolled to bottom, if so resume auto-scroll
+                setTimeout(() => {
+                  shouldAutoScrollRef.current = true;
+                }, 500);
+              }}
+              renderItem={({ item: message, index }: { item: ChatMessage; index: number }) => {
+                const isLastMessage = index === messages.length - 1;
+                const isEmptyAndStreaming = !message.content && isSending && isLastMessage;
+                const isStreamingThis = isStreaming && isLastMessage && message.role === 'assistant';
 
-              return (
-                <Animated.View
-                  key={message.id || index}
-                  style={[
-                    styles.messageRow,
-                    message.role === 'user' ? styles.userRow : styles.assistantRow,
-                    animatedStyle,
-                  ]}
-                >
-                  {/* Robot icon OUTSIDE bubble for assistant messages */}
-                  {message.role === 'assistant' && (
-                    <View style={styles.botIconContainer}>
-                      <MaterialCommunityIcons
-                        name="robot"
-                        size={24}
-                        color={theme.colors.primary}
-                      />
-                    </View>
-                  )}
-                  
+                return (
                   <View
                     style={[
-                      styles.messageBubble,
-                      message.role === 'user'
-                        ? [styles.userMessage, { backgroundColor: theme.colors.primary }]
-                        : [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }],
+                      styles.messageRow,
+                      message.role === 'user' ? styles.userRow : styles.assistantRow,
                     ]}
                   >
-                    {/* Show content or thinking indicator for empty streaming message */}
-                    {isEmptyAndStreaming ? (
-                      <View style={styles.thinkingContainer}>
-                        <ActivityIndicator size="small" color={theme.colors.primary} />
-                        <Text style={[styles.messageText, { color: theme.colors.onSurfaceVariant, marginLeft: 8 }]}>
-                          Thinking...
-                        </Text>
+                    {message.role === 'assistant' && (
+                      <View style={styles.botIconContainer}>
+                        <MaterialCommunityIcons
+                          name="robot"
+                          size={24}
+                          color={theme.colors.primary}
+                        />
                       </View>
-                    ) : message.role === 'assistant' ? (
-                    <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
-                      <Markdown
-                        style={{
-                          body: {
-                            color: theme.colors.onSurface,
-                            fontSize: 15,
-                            lineHeight: 20,
-                            flexShrink: 1,
-                            flexWrap: 'wrap',
-                          },
-                          paragraph: {
-                            marginTop: 0,
-                            marginBottom: 8,
-                            flexWrap: 'wrap',
-                          },
-                          text: {
-                            flexWrap: 'wrap',
-                          },
-                        heading1: { fontSize: 22, fontWeight: 'bold', marginBottom: 8, color: theme.colors.onSurface },
-                        heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 6, color: theme.colors.onSurface },
-                        heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 4, color: theme.colors.onSurface },
-                        strong: { fontWeight: 'bold', color: theme.colors.onSurface },
-                        em: { fontStyle: 'italic' },
-                        code_inline: {
-                          backgroundColor: theme.colors.surfaceVariant,
-                          color: theme.colors.primary,
-                          paddingHorizontal: 4,
-                          paddingVertical: 2,
-                          borderRadius: 4,
-                          fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-                          fontSize: 14,
-                        },
-                        code_block: {
-                          backgroundColor: '#1e1e1e',
-                          padding: 8,
-                          borderRadius: 6,
-                          marginVertical: 6,
-                          fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-                          fontSize: 13,
-                        },
-                        fence: {
-                          backgroundColor: '#1e1e1e',
-                          padding: 8,
-                          borderRadius: 6,
-                          marginVertical: 6,
-                          color: '#d4d4d4',
-                          fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-                          fontSize: 13,
-                        },
-                        link: { color: theme.colors.primary, textDecorationLine: 'underline' },
-                        blockquote: {
-                          backgroundColor: theme.colors.surfaceVariant,
-                          borderLeftWidth: 3,
-                          borderLeftColor: theme.colors.primary,
-                          paddingLeft: 10,
-                          paddingVertical: 6,
-                          marginVertical: 6,
-                        },
-                        bullet_list: { marginBottom: 4, marginTop: 0 },
-                        ordered_list: { marginBottom: 4, marginTop: 0 },
-                        list_item: { marginBottom: 2, lineHeight: 18 },
-                        table: {
-                          borderWidth: 1,
-                          borderColor: theme.colors.outline,
-                          borderRadius: 8,
-                          marginVertical: 8,
-                        },
-                        th: {
-                          backgroundColor: theme.colors.surfaceVariant,
-                          padding: 8,
-                          fontWeight: 'bold',
-                        },
-                        td: {
-                          padding: 8,
-                          borderWidth: 1,
-                          borderColor: theme.colors.outline,
-                        },
-                      }}
-                    >
-                      {message.content + (isStreamingThis ? ' ▊' : '')}
-                    </Markdown>
-                    </View>
-                  ) : (
-                    <Text
+                    )}
+                    
+                    <View
                       style={[
-                        styles.messageText,
-                        { color: '#ffffff' },
+                        styles.messageBubble,
+                        message.role === 'user'
+                          ? [styles.userMessage, { backgroundColor: theme.colors.primary }]
+                          : [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }],
                       ]}
                     >
-                      {message.content}
-                    </Text>
-                  )}
+                      {isEmptyAndStreaming ? (
+                        <View style={styles.thinkingContainer}>
+                          <ActivityIndicator size="small" color={theme.colors.primary} />
+                          <Text style={[styles.messageText, { color: theme.colors.onSurfaceVariant, marginLeft: 8 }]}>
+                            Thinking...
+                          </Text>
+                        </View>
+                      ) : message.role === 'assistant' ? (
+                        <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
+                          <Markdown
+                            style={{
+                              body: { color: theme.colors.onSurface, fontSize: 15, lineHeight: 20 },
+                              paragraph: { marginTop: 0, marginBottom: 8 },
+                              heading1: { fontSize: 22, fontWeight: 'bold', marginBottom: 8, color: theme.colors.onSurface },
+                              heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 6, color: theme.colors.onSurface },
+                              heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 4, color: theme.colors.onSurface },
+                              strong: { fontWeight: 'bold', color: theme.colors.onSurface },
+                              em: { fontStyle: 'italic' },
+                              code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 4, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
+                              code_block: { backgroundColor: '#1e1e1e', padding: 8, borderRadius: 6, marginVertical: 6, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                              fence: { backgroundColor: '#1e1e1e', padding: 8, borderRadius: 6, marginVertical: 6, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                              link: { color: theme.colors.primary, textDecorationLine: 'underline' },
+                              blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 3, borderLeftColor: theme.colors.primary, paddingLeft: 10, paddingVertical: 6, marginVertical: 6 },
+                              bullet_list: { marginBottom: 4, marginTop: 0 },
+                              ordered_list: { marginBottom: 4, marginTop: 0 },
+                              list_item: { marginBottom: 2, lineHeight: 18 },
+                            }}
+                          >
+                            {message.content + (isStreamingThis ? ' ▊' : '')}
+                          </Markdown>
+                        </View>
+                      ) : (
+                        <Text style={[styles.messageText, { color: '#ffffff' }]}>
+                          {message.content}
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                </Animated.View>
-              );
-            })}
-          </Animated.ScrollView>
+                );
+              }}
+            />
+          ) : (
+            // Use regular ScrollView for non-bottom-sheet contexts
+            <Animated.ScrollView
+              ref={scrollViewRef}
+              style={styles.messagesContainer}
+              contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight }]}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+              {...scrollProps}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={theme.colors.primary}
+                />
+              }
+              onContentSizeChange={() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }}
+            >
+              {messages.map((message, index) => {
+                const isLastMessage = index === messages.length - 1;
+                const isEmptyAndStreaming = !message.content && isSending && isLastMessage;
+                const isStreamingThis = isStreaming && isLastMessage && message.role === 'assistant';
+                
+                const animation = getMessageAnimation(message.id || `msg_${index}`);
+                const animatedStyle = {
+                  opacity: animation,
+                  transform: [
+                    {
+                      translateY: animation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      }),
+                    },
+                    {
+                      scale: animation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.95, 1],
+                      }),
+                    },
+                  ],
+                };
+
+                return (
+                  <Animated.View
+                    key={message.id || index}
+                    style={[
+                      styles.messageRow,
+                      message.role === 'user' ? styles.userRow : styles.assistantRow,
+                      animatedStyle,
+                    ]}
+                  >
+                    {message.role === 'assistant' && (
+                      <View style={styles.botIconContainer}>
+                        <MaterialCommunityIcons
+                          name="robot"
+                          size={24}
+                          color={theme.colors.primary}
+                        />
+                      </View>
+                    )}
+                    
+                    <View
+                      style={[
+                        styles.messageBubble,
+                        message.role === 'user'
+                          ? [styles.userMessage, { backgroundColor: theme.colors.primary }]
+                          : [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }],
+                      ]}
+                    >
+                      {isEmptyAndStreaming ? (
+                        <View style={styles.thinkingContainer}>
+                          <ActivityIndicator size="small" color={theme.colors.primary} />
+                          <Text style={[styles.messageText, { color: theme.colors.onSurfaceVariant, marginLeft: 8 }]}>
+                            Thinking...
+                          </Text>
+                        </View>
+                      ) : message.role === 'assistant' ? (
+                      <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
+                        <Markdown
+                          style={{
+                            body: { color: theme.colors.onSurface, fontSize: 15, lineHeight: 20, flexShrink: 1, flexWrap: 'wrap' },
+                            paragraph: { marginTop: 0, marginBottom: 8, flexWrap: 'wrap' },
+                            text: { flexWrap: 'wrap' },
+                            heading1: { fontSize: 22, fontWeight: 'bold', marginBottom: 8, color: theme.colors.onSurface },
+                            heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 6, color: theme.colors.onSurface },
+                            heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 4, color: theme.colors.onSurface },
+                            strong: { fontWeight: 'bold', color: theme.colors.onSurface },
+                            em: { fontStyle: 'italic' },
+                            code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
+                            code_block: { backgroundColor: '#1e1e1e', padding: 8, borderRadius: 6, marginVertical: 6, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                            fence: { backgroundColor: '#1e1e1e', padding: 8, borderRadius: 6, marginVertical: 6, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                            link: { color: theme.colors.primary, textDecorationLine: 'underline' },
+                            blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 3, borderLeftColor: theme.colors.primary, paddingLeft: 10, paddingVertical: 6, marginVertical: 6 },
+                            bullet_list: { marginBottom: 4, marginTop: 0 },
+                            ordered_list: { marginBottom: 4, marginTop: 0 },
+                            list_item: { marginBottom: 2, lineHeight: 18 },
+                            table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 8 },
+                            th: { backgroundColor: theme.colors.surfaceVariant, padding: 8, fontWeight: 'bold' },
+                            td: { padding: 8, borderWidth: 1, borderColor: theme.colors.outline },
+                          }}
+                        >
+                          {message.content + (isStreamingThis ? ' ▊' : '')}
+                        </Markdown>
+                      </View>
+                    ) : (
+                      <Text style={[styles.messageText, { color: '#ffffff' }]}>
+                        {message.content}
+                      </Text>
+                    )}
+                    </View>
+                  </Animated.View>
+                );
+              })}
+            </Animated.ScrollView>
+          )
         )}
 
         {/* Suggested Messages - Show when welcome or no messages */}
@@ -1164,8 +1325,8 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         {/* Input Area - Always visible at bottom */}
         <View style={[
           styles.inputWrapper, 
-          { backgroundColor: theme.colors.background },
-          isInBottomSheet && { paddingBottom: 60 }
+          { backgroundColor: isInBottomSheet ? 'transparent' : theme.colors.background },
+          isInBottomSheet && { paddingBottom: insets.bottom + 8 }
         ]}>
           {/* Selected Images Preview */}
           {selectedImages.length > 0 && (
@@ -1251,9 +1412,11 @@ export default WagerBotChat;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
   },
   keyboardView: {
     flex: 1,
+    minHeight: 0,
   },
   historyDrawer: {
     position: 'absolute',
@@ -1361,6 +1524,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 48,
   },
+  welcomeContainerBottomSheet: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
   welcomeContent: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1388,10 +1557,11 @@ const styles = StyleSheet.create({
   // Messages Styles
   messagesContainer: {
     flex: 1,
+    minHeight: 0, // Important for ScrollView to work properly in nested views
   },
   messagesContent: {
     padding: 16,
-    paddingBottom: 16,
+    paddingBottom: 120, // Extra padding at bottom to account for input area when in bottom sheet
     flexGrow: 1,
   },
   messageRow: {
@@ -1447,6 +1617,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    backgroundColor: 'transparent',
   },
   inputContainer: {
     borderRadius: 24,
@@ -1519,7 +1690,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
-    borderWidth: 1.5,
+    borderWidth: 0.5,
     marginRight: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
