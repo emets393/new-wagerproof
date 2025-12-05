@@ -248,6 +248,10 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 24,
     paddingHorizontal: 24,
+    // Ensure proper rendering on Android
+    ...(Platform.OS === 'android' && {
+      flexDirection: 'column',
+    }),
   },
   emailButton: {
     marginTop: 0,

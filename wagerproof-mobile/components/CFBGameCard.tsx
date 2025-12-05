@@ -279,7 +279,7 @@ export function CFBGameCard({ game, onPress }: CFBGameCardProps) {
           )}
 
           {/* Public Lean Pills */}
-          {(mlSplit || spreadSplit || totalSplit) && (
+          {(mlSplit || (spreadSplit && spreadSplit.team) || totalSplit) && (
             <View style={styles.pillsSection}>
               <View style={styles.pillsHeader}>
                 <MaterialCommunityIcons name="account-group" size={14} color="#3b82f6" />
@@ -299,7 +299,7 @@ export function CFBGameCard({ game, onPress }: CFBGameCardProps) {
                     </Text>
                   </View>
                 )}
-                {spreadSplit && (
+                {spreadSplit && spreadSplit.team && (
                   <View style={[styles.bettingPill, { 
                     backgroundColor: getPublicBettingColors(spreadSplit.team, true).bg,
                     borderColor: getPublicBettingColors(spreadSplit.team, true).border

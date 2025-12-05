@@ -7,6 +7,7 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { getTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { calculateUnits } from '@/utils/unitsCalculation';
 import { BlurView } from 'expo-blur';
+import { SportsbookButtons } from '@/components/SportsbookButtons';
 
 interface EditorPickCardProps {
   pick: EditorPick;
@@ -342,6 +343,13 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
           </Text>
         </View>
       )}
+
+      {/* Sportsbook Buttons */}
+      {pick.is_published && pick.betslip_links && Object.keys(pick.betslip_links).length > 0 && (
+        <View style={styles.sportsbookSection}>
+           <SportsbookButtons betslipLinks={pick.betslip_links} />
+        </View>
+      )}
     </View>
   );
 }
@@ -549,5 +557,11 @@ const styles = StyleSheet.create({
   notesText: {
     fontSize: 13,
     lineHeight: 20,
+  },
+  sportsbookSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
 });

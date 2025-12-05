@@ -1,7 +1,8 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 type ButtonVariant = 'primary' | 'outline' | 'ghost' | 'social' | 'glass';
 
@@ -29,6 +30,7 @@ export function Button({
   style,
 }: ButtonProps) {
   const theme = useTheme();
+  const { isDark } = useThemeContext();
 
   const getButtonStyle = () => {
     const baseStyle = [styles.button, fullWidth && styles.fullWidth];
@@ -39,7 +41,53 @@ export function Button({
         variantStyle = { backgroundColor: theme.colors.primary };
         break;
       case 'glass':
-        variantStyle = selected ? styles.glassSelected : styles.glass;
+        // Theme-aware glass styling
+        if (isDark) {
+          variantStyle = selected 
+            ? {
+                backgroundColor: 'rgba(255, 255, 255, 0.4)',
+                borderWidth: 1.5,
+                borderColor: 'rgba(255, 255, 255, 0.7)',
+                shadowColor: '#fff',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 16,
+                elevation: 6,
+              }
+            : {
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.3)',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 12,
+                elevation: 3,
+              };
+        } else {
+          // Light mode: use dark colors for contrast
+          variantStyle = selected
+            ? {
+                backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                borderWidth: 1.5,
+                borderColor: 'rgba(0, 0, 0, 0.25)',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 16,
+                elevation: 6,
+              }
+            : {
+                backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                borderWidth: 1,
+                borderColor: 'rgba(0, 0, 0, 0.15)',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 12,
+                elevation: 3,
+              };
+        }
         break;
       case 'outline':
         variantStyle = {
@@ -70,7 +118,8 @@ export function Button({
       case 'primary':
         return [styles.text, { color: theme.colors.onPrimary }];
       case 'glass':
-        return [styles.text, { color: '#ffffff' }];
+        // Theme-aware text color for glass buttons
+        return [styles.text, { color: isDark ? '#ffffff' : '#1f2937' }];
       case 'outline':
       case 'ghost':
         return [styles.text, { color: theme.colors.primary }];
@@ -86,7 +135,8 @@ export function Button({
       case 'primary':
         return theme.colors.onPrimary;
       case 'glass':
-        return '#ffffff';
+        // Theme-aware icon color for glass buttons
+        return isDark ? '#ffffff' : '#1f2937';
       case 'outline':
       case 'ghost':
         return theme.colors.primary;
@@ -111,7 +161,13 @@ export function Button({
         {loading ? (
           <ActivityIndicator
             size="small"
-            color={variant === 'primary' || variant === 'glass' ? '#ffffff' : theme.colors.primary}
+            color={
+              variant === 'primary' 
+                ? '#ffffff' 
+                : variant === 'glass' 
+                ? (isDark ? '#ffffff' : '#1f2937')
+                : theme.colors.primary
+            }
             style={styles.loader}
           />
         ) : (
@@ -140,26 +196,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
-  },
-  glass: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  glassSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.7)',
-    shadowColor: '#fff',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 6,
+    // Ensure proper rendering on Android
+    overflow: Platform.OS === 'android' ? 'hidden' : 'visible',
   },
   fullWidth: {
     width: '100%',

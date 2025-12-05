@@ -318,7 +318,7 @@ export function NFLGameCard({ game, onPress }: NFLGameCardProps) {
           )}
 
           {/* Public Lean Pills */}
-          {(mlSplit || spreadSplit || totalSplit) && (
+          {(mlSplit || (spreadSplit && spreadSplit.team) || totalSplit) && (
             <View style={styles.pillsSection}>
               <View style={styles.pillsHeader}>
                 <MaterialCommunityIcons name="account-group" size={14} color="#3b82f6" />
@@ -342,7 +342,7 @@ export function NFLGameCard({ game, onPress }: NFLGameCardProps) {
                   </View>
                 )}
 
-                {spreadSplit && (
+                {spreadSplit && spreadSplit.team && (
                   <View style={[
                     styles.bettingPill,
                     { 

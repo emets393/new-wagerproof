@@ -344,6 +344,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    paddingTop: 24,
     marginBottom: 20,
   },
   pageTitle: {

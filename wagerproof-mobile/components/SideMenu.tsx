@@ -156,7 +156,10 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView 
-        contentContainerStyle={{ paddingTop: insets.top }}
+        contentContainerStyle={{ 
+          paddingTop: insets.top,
+          flexGrow: 1,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
@@ -321,7 +324,18 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
           />
         </List.Section>
 
-        {/* Logout Button */}
+        {/* App Version */}
+        <List.Section>
+          <List.Item
+            title="App Version"
+            description="1.0.0"
+            left={props => <List.Icon {...props} icon="information" color={theme.colors.primary} />}
+            onPress={handleVersionTap}
+            style={{ backgroundColor: 'transparent' }}
+          />
+        </List.Section>
+
+        {/* Logout Button - at bottom */}
         {user && (
           <View style={styles.logoutContainer}>
             <Button
@@ -337,17 +351,6 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
             </Button>
           </View>
         )}
-
-        {/* App Version at bottom */}
-        <List.Section>
-          <List.Item
-            title="App Version"
-            description="1.0.0"
-            left={props => <List.Icon {...props} icon="information" color={theme.colors.primary} />}
-            onPress={handleVersionTap}
-            style={{ backgroundColor: 'transparent' }}
-          />
-        </List.Section>
         
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -388,6 +391,7 @@ const styles = StyleSheet.create({
   logoutContainer: {
     padding: 16,
     marginTop: 24,
+    marginBottom: 0,
   },
   logoutButton: {
     borderRadius: 8,
