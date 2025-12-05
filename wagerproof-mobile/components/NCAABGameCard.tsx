@@ -115,22 +115,24 @@ export function NCAABGameCard({ game, onPress }: NCAABGameCardProps) {
           <View style={styles.teamsRow}>
             {/* Away Team */}
             <View style={styles.teamColumn}>
-              <LinearGradient
-                colors={[awayColors.primary, awayColors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.teamCircle, { borderColor: awayColors.primary }]}
-              >
-                <Text style={[styles.teamInitials, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
-                  {getNCAABTeamInitials(game.away_team)}
-                </Text>
-              </LinearGradient>
-              {/* Ranking Badge */}
-              {game.away_ranking && game.away_ranking <= 25 && (
-                <View style={[styles.rankingBadge, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={styles.rankingText}>#{game.away_ranking}</Text>
-                </View>
-              )}
+              <View style={styles.teamCircleContainer}>
+                <LinearGradient
+                  colors={[awayColors.primary, awayColors.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.teamCircle, { borderColor: awayColors.primary }]}
+                >
+                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
+                    {getNCAABTeamInitials(game.away_team)}
+                  </Text>
+                </LinearGradient>
+                {/* Ranking Badge */}
+                {game.away_ranking && game.away_ranking <= 25 && (
+                  <View style={[styles.rankingBadge, { backgroundColor: theme.colors.primary }]}>
+                    <Text style={styles.rankingText}>#{game.away_ranking}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
                 {game.away_team}
               </Text>
@@ -163,22 +165,24 @@ export function NCAABGameCard({ game, onPress }: NCAABGameCardProps) {
 
             {/* Home Team */}
             <View style={styles.teamColumn}>
-              <LinearGradient
-                colors={[homeColors.primary, homeColors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.teamCircle, { borderColor: homeColors.primary }]}
-              >
-                <Text style={[styles.teamInitials, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
-                  {getNCAABTeamInitials(game.home_team)}
-                </Text>
-              </LinearGradient>
-              {/* Ranking Badge */}
-              {game.home_ranking && game.home_ranking <= 25 && (
-                <View style={[styles.rankingBadge, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={styles.rankingText}>#{game.home_ranking}</Text>
-                </View>
-              )}
+              <View style={styles.teamCircleContainer}>
+                <LinearGradient
+                  colors={[homeColors.primary, homeColors.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.teamCircle, { borderColor: homeColors.primary }]}
+                >
+                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
+                    {getNCAABTeamInitials(game.home_team)}
+                  </Text>
+                </LinearGradient>
+                {/* Ranking Badge */}
+                {game.home_ranking && game.home_ranking <= 25 && (
+                  <View style={[styles.rankingBadge, { backgroundColor: theme.colors.primary }]}>
+                    <Text style={styles.rankingText}>#{game.home_ranking}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
                 {game.home_team}
               </Text>
@@ -432,15 +436,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 56,
   },
+  teamCircleContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   rankingBadge: {
     position: 'absolute',
-    top: -4,
-    right: 4,
+    top: -6,
+    right: -6,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
-    minWidth: 28,
+    minWidth: 24,
     alignItems: 'center',
+    zIndex: 10,
   },
   rankingText: {
     color: '#FFFFFF',

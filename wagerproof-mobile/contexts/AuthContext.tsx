@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
+
+// Configure Google Sign-In
+GoogleSignin.configure({
+  webClientId: '142325632215-5c9nahlmruos96rsiu60ac4uk2p2s1ua.apps.googleusercontent.com',
+  offlineAccess: false,
+});
 
 interface AuthContextType {
   user: User | null;
@@ -67,15 +74,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithProvider = async (provider: 'google' | 'apple') => {
-    const redirectUrl = 'wagerproof://';
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: { prompt: 'consent' }
+    try {
+      if (provider === 'google') {
+        // Native Google Sign-In flow
+        console.log('Starting native Google Sign-In...');
+        
+        // Check if Google Play Services are available
+        await GoogleSignin.hasPlayServices();
+        
+        // Sign in with Google and get user info including ID token
+        const userInfo = await GoogleSignin.signIn();
+        console.log('Google Sign-In response:', JSON.stringify(userInfo, null, 2));
+        
+        // Get the ID token from Google Sign-In
+        // Note: The response structure can vary, check both possible locations
+        const idToken = userInfo?.data?.idToken || userInfo?.idToken;
+        
+        if (!idToken) {
+          console.error('No ID token received from Google. Response:', userInfo);
+          return { error: new Error('No ID token received from Google') };
+        }
+        
+        console.log('ID token received, signing in to Supabase...');
+        
+        // Sign in to Supabase using the Google ID token
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: idToken,
+        });
+        
+        if (error) {
+          console.error('Supabase sign-in error:', error);
+          return { error };
+        }
+        
+        console.log('Supabase session created successfully:', data.user?.email);
+        return { error: null };
+        
+      } else if (provider === 'apple') {
+        // Apple Sign-In not yet implemented for mobile
+        // TODO: Implement native Apple Sign-In
+        console.log('Apple Sign-In not yet implemented for mobile');
+        return { error: new Error('Apple Sign-In not yet implemented for mobile') };
       }
-    });
-    return { error };
+      
+      return { error: new Error(`Unknown provider: ${provider}`) };
+      
+    } catch (error: any) {
+      console.error('Sign-in error:', error);
+      
+      // Handle specific Google Sign-In errors
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        return { error: new Error('User cancelled sign-in') };
+      } else if (error.code === 'IN_PROGRESS') {
+        return { error: new Error('Sign-in already in progress') };
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        return { error: new Error('Google Play Services not available') };
+      }
+      
+      return { error: error as Error };
+    }
   };
 
   const sendPasswordReset = async (email: string) => {

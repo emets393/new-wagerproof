@@ -16,7 +16,7 @@ export const supabase = createClient(MAIN_SUPABASE_URL, MAIN_SUPABASE_ANON_KEY, 
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true, // Enable URL detection for OAuth callbacks
   },
 });
 

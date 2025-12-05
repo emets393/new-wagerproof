@@ -84,6 +84,44 @@ interface AnimatedStreamingTextProps {
   isStreaming: boolean;
 }
 
+const Shimmer = ({ width, height, style, theme }: { width: number | string, height: number, style?: any, theme: any }) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.6,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          opacity,
+          backgroundColor: theme.colors.onSurface,
+          borderRadius: 8,
+        },
+        style,
+      ]}
+    />
+  );
+};
+
 const AnimatedStreamingText: React.FC<AnimatedStreamingTextProps> = React.memo(({ 
   text, 
   color,
@@ -533,7 +571,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   }));
 
   const handleSuggestedMessage = (message: string) => {
-    if (isSending) return;
+    if (isLoading || isSending) return;
     setInputText(message);
     // Small delay to show the text before sending
     setTimeout(() => {
@@ -590,12 +628,12 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   };
 
   const sendMessage = async () => {
-    if ((!inputText.trim() && selectedImages.length === 0) || isSending) return;
+    if ((!inputText.trim() && selectedImages.length === 0) || isLoading || isSending) return;
     await sendMessageWithText(inputText.trim());
   };
 
   const sendMessageWithText = async (messageText: string) => {
-    if (!messageText && selectedImages.length === 0 || isSending) return;
+    if (!messageText && selectedImages.length === 0 || isLoading || isSending) return;
     
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
@@ -945,17 +983,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   };
 
   // Removed auto-scroll useEffect - now handled by onContentSizeChange in ScrollView
-
-  if (isLoading) {
-    return (
-      <View style={[styles.centerContainer, { backgroundColor: isInBottomSheet ? 'transparent' : theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
-          Initializing WagerBot...
-        </Text>
-      </View>
-    );
-  }
 
   if (error) {
     return (
@@ -1437,6 +1464,20 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               setMarqueeParentWidth(event.nativeEvent.layout.width);
             }}
           >
+            {isLoading ? (
+              <View style={styles.suggestedMessagesContent}>
+                {[1, 2, 3].map((_, index) => (
+                  <Shimmer
+                    key={index}
+                    width={140}
+                    height={36}
+                    style={{ marginRight: 8, borderRadius: 18, opacity: 0.1 }}
+                    theme={theme}
+                  />
+                ))}
+              </View>
+            ) : (
+              <>
             {/* Hidden measure element to get children width */}
             <View 
               style={styles.marqueeMeasureContainer}
@@ -1456,7 +1497,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                       }
                     ]}
                     onPress={() => handleSuggestedMessage(item.message)}
-                    disabled={isSending}
+                    disabled={isLoading || isSending}
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.suggestedMessageText, { color: theme.colors.onSurface }]}>
@@ -1505,6 +1546,8 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 ))}
               </View>
             )}
+            </>
+            )}
 
           </View>
         )}
@@ -1542,6 +1585,16 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           )}
 
           <View style={[styles.inputContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+            {isLoading ? (
+              <View style={{ paddingHorizontal: 4 }}>
+                <Shimmer width="100%" height={20} style={{ marginBottom: 12, opacity: 0.1 }} theme={theme} />
+                <View style={styles.inputBottomRow}>
+                  <Shimmer width={32} height={32} style={{ borderRadius: 16, opacity: 0.1 }} theme={theme} />
+                  <Shimmer width={32} height={32} style={{ borderRadius: 16, opacity: 0.1 }} theme={theme} />
+                </View>
+              </View>
+            ) : (
+              <>
             <TextInput
               style={[styles.input, { color: theme.colors.onSurface }]}
               value={inputText}
@@ -1550,7 +1603,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               placeholderTextColor={theme.colors.onSurfaceVariant}
               multiline={true}
               maxLength={500}
-              editable={!isSending}
+              editable={!isLoading && !isSending}
               textAlignVertical="top"
             />
             
@@ -1559,7 +1612,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               <TouchableOpacity
                 style={[styles.attachButton, isPickingImage && styles.attachButtonDisabled]}
                 onPress={handlePickImage}
-                disabled={isPickingImage || isSending}
+                disabled={isLoading || isPickingImage || isSending}
               >
                 {isPickingImage ? (
                   <ActivityIndicator size="small" color={theme.colors.onSurfaceVariant} />
@@ -1574,7 +1627,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                   (inputText.trim() || selectedImages.length > 0) && styles.sendButtonActive,
                 ]}
                 onPress={sendMessage}
-                disabled={(!inputText.trim() && selectedImages.length === 0) || isSending}
+                disabled={isLoading || (!inputText.trim() && selectedImages.length === 0) || isSending}
               >
                 {isSending ? (
                   <ActivityIndicator size="small" color="#ffffff" />
@@ -1587,6 +1640,8 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 )}
               </TouchableOpacity>
             </View>
+            </>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>

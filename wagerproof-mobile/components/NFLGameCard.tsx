@@ -13,7 +13,7 @@ import {
   formatCompactDate,
   roundToNearestHalf 
 } from '@/utils/formatting';
-import { getNFLTeamColors, getTeamParts, getTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { getNFLTeamColors, getTeamParts, getTeamInitials, getContrastingTextColor, getColorLuminance } from '@/utils/teamColors';
 import { parseBettingSplit } from '@/utils/nflDataFetchers';
 import { getAllMarketsData } from '@/services/polymarketService';
 import { detectValueAlerts } from '@/utils/polymarketValueAlerts';
@@ -71,18 +71,34 @@ export function NFLGameCard({ game, onPress }: NFLGameCardProps) {
     const awayTeamLower = game.away_team.toLowerCase();
     const homeTeamLower = game.home_team.toLowerCase();
     
+    let teamColors = null;
+    
     if (teamLower.includes(awayTeamLower) || awayTeamLower.includes(teamLower)) {
-      return { 
-        bg: `${awayColors.primary}26`, // 15% opacity
-        border: `${awayColors.primary}4D`, // 30% opacity
-        accent: awayColors.primary 
-      };
+      teamColors = awayColors;
+    } else if (teamLower.includes(homeTeamLower) || homeTeamLower.includes(teamLower)) {
+      teamColors = homeColors;
     }
-    if (teamLower.includes(homeTeamLower) || homeTeamLower.includes(teamLower)) {
+
+    if (teamColors) {
+      // Ensure text visibility against dark background
+      const primaryLum = getColorLuminance(teamColors.primary);
+      let textColor = teamColors.primary;
+
+      // If primary is too dark (likely unreadable on dark mode), try secondary
+      if (primaryLum < 0.35) {
+        const secondaryLum = getColorLuminance(teamColors.secondary);
+        if (secondaryLum > 0.4) {
+          textColor = teamColors.secondary;
+        } else {
+          // If secondary is also dark, use white
+          textColor = '#FFFFFF';
+        }
+      }
+
       return { 
-        bg: `${homeColors.primary}26`,
-        border: `${homeColors.primary}4D`,
-        accent: homeColors.primary 
+        bg: `${teamColors.primary}26`, // 15% opacity
+        border: `${teamColors.primary}4D`, // 30% opacity
+        accent: textColor 
       };
     }
     
@@ -605,12 +621,14 @@ const styles = StyleSheet.create({
   bettingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     borderRadius: 6,
     borderWidth: 1,
-    minWidth: 110,
+    minWidth: 90,
     minHeight: 40,
+    flex: 1,
+    justifyContent: 'center',
   },
   pillCircle: {
     width: 24,

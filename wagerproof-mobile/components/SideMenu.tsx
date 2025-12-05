@@ -154,7 +154,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.5)' }]}>
       <ScrollView 
         contentContainerStyle={{ 
           paddingTop: insets.top,

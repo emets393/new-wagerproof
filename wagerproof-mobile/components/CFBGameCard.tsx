@@ -13,7 +13,7 @@ import {
   formatCompactDate,
   roundToNearestHalf 
 } from '@/utils/formatting';
-import { getCFBTeamColors, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { getCFBTeamColors, getCFBTeamInitials, getContrastingTextColor, getColorLuminance } from '@/utils/teamColors';
 import { getAllMarketsData } from '@/services/polymarketService';
 import { detectValueAlerts } from '@/utils/polymarketValueAlerts';
 
@@ -87,10 +87,22 @@ export function CFBGameCard({ game, onPress }: CFBGameCardProps) {
 
   // Get pill colors for public betting
   const getPublicBettingColors = (team: string, isSpread: boolean = false) => {
+    let colors = null;
     if (team === game.home_team) {
-      return { bg: `${homeColors.primary}25`, border: `${homeColors.primary}50`, text: homeColors.primary };
+      colors = homeColors;
     } else if (team === game.away_team) {
-      return { bg: `${awayColors.primary}25`, border: `${awayColors.primary}50`, text: awayColors.primary };
+      colors = awayColors;
+    }
+
+    if (colors) {
+      const primaryLum = getColorLuminance(colors.primary);
+      let textColor = colors.primary;
+      if (primaryLum < 0.35) {
+        const secondaryLum = getColorLuminance(colors.secondary);
+        if (secondaryLum > 0.4) textColor = colors.secondary;
+        else textColor = '#FFFFFF';
+      }
+      return { bg: `${colors.primary}25`, border: `${colors.primary}50`, text: textColor };
     } else if (team.toLowerCase().includes('over')) {
       return { bg: 'rgba(249, 115, 22, 0.15)', border: 'rgba(249, 115, 22, 0.3)', text: '#f97316' };
     } else if (team.toLowerCase().includes('under')) {
@@ -531,10 +543,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     borderRadius: 6,
     borderWidth: 1,
     minWidth: 80,
+    flex: 1,
+    justifyContent: 'center',
   },
   fadeAlertBadge: {
     flexDirection: 'row',
