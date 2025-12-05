@@ -782,11 +782,10 @@ export default function FeedScreen() {
     <View style={[styles.listHeader, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.searchContainer, { 
         backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-        borderColor: theme.colors.outlineVariant,
       }]}>
         <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
         <TextInput
-          style={[styles.searchInput, { color: theme.colors.onSurface }]}
+          style={[styles.searchInput, { color: theme.colors.onSurface, opacity: 0.8 }]}
           placeholder="Search teams or cities..."
           placeholderTextColor={theme.colors.onSurfaceVariant}
           value={searchTexts[sport]}
@@ -934,13 +933,6 @@ export default function FeedScreen() {
             <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
             <Text style={[styles.errorText, { color: theme.colors.error }]}>{errorMsg}</Text>
           </View>
-        ) : sorted.length === 0 ? (
-          <View style={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT }]}>
-            <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
-            <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-              {searchTerm ? 'No games match your search' : 'No games available'}
-            </Text>
-          </View>
         ) : (
           <Animated.FlatList
             data={sorted}
@@ -959,6 +951,14 @@ export default function FeedScreen() {
             overScrollMode="never"
             showsVerticalScrollIndicator={true}
             ListHeaderComponent={renderListHeader(sport)}
+            ListEmptyComponent={
+              <View style={styles.centerContainer}>
+                <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
+                <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
+                  {searchTerm ? 'No games match your search' : 'No games available'}
+                </Text>
+              </View>
+            }
             refreshControl={
               <RefreshControl 
                 refreshing={isRefreshing} 
@@ -1182,7 +1182,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 40,
     borderRadius: 20,
-    borderWidth: 1,
     gap: 8,
   },
   searchInput: {

@@ -106,7 +106,16 @@ const AnimatedStreamingText: React.FC<AnimatedStreamingTextProps> = React.memo((
   }, [text.length, prevLength]);
   
   return (
-    <Text style={{ fontSize: 16, lineHeight: 24, flexWrap: 'wrap', color }}>
+    <Text 
+      style={{ 
+        fontSize: 16, 
+        lineHeight: 24, 
+        flexWrap: 'wrap',
+        flexShrink: 1,
+        width: '100%',
+        color 
+      }}
+    >
       {characters.map((char, index) => {
         // Only animate if this is a new character that hasn't been animated yet
         const isNewChar = index >= prevLength;
@@ -128,9 +137,6 @@ const AnimatedStreamingText: React.FC<AnimatedStreamingTextProps> = React.memo((
           />
         );
       })}
-      {isStreaming && (
-        <Text style={{ color, opacity: 0.5 }}> ▊</Text>
-      )}
     </Text>
   );
 });
@@ -162,6 +168,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const flatListRef = useRef<FlatList>(null);
   const prevMessageCountRef = useRef(0);
   const lastScrollTimeRef = useRef(0);
+  const lastLayoutScrollTimeRef = useRef(0); // Separate throttle for layout/content size scrolls
   const scrollThrottleMs = 16; // ~60fps throttle for smooth real-time scrolling during streaming
   const contentHeightRef = useRef(0);
   const shouldAutoScrollRef = useRef(true); // Track if we should auto-scroll
@@ -286,38 +293,35 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     loadChatHistories();
   }, []);
 
-  // Scroll to bottom helper function (no throttling during streaming for real-time updates)
+  // Scroll to bottom helper function with smooth scrolling during streaming
   const scrollToBottom = useCallback((force = false, isStreaming = false) => {
     if (!isInBottomSheet || !shouldAutoScrollRef.current) return;
     
-    // During streaming, don't throttle at all - scroll immediately on every update
-    if (!isStreaming) {
-      const now = Date.now();
-      if (!force && now - lastScrollTimeRef.current < 100) {
-        return; // Throttle scroll calls only when not streaming
-      }
-      lastScrollTimeRef.current = now;
+    // Throttle scroll calls to prevent excessive updates
+    const now = Date.now();
+    if (!force && now - lastScrollTimeRef.current < 50) {
+      return; // Throttle to ~20fps for smooth scrolling
     }
+    lastScrollTimeRef.current = now;
     
-    // For streaming, scroll immediately without animation for smooth real-time updates
-    // For non-streaming, use animation
+    // Use smooth animated scrolling for both streaming and non-streaming
     if (flatListRef.current) {
       try {
-        // During streaming, scroll without animation for immediate updates
-        flatListRef.current.scrollToEnd({ animated: !isStreaming });
+        // Use animated: true for smooth scrolling, even during streaming
+        flatListRef.current.scrollToEnd({ animated: true });
       } catch (e) {
         // If scrollToEnd fails, use scrollToOffset with a large offset
         try {
-          flatListRef.current.scrollToOffset({ offset: contentHeightRef.current || 999999, animated: !isStreaming });
+          flatListRef.current.scrollToOffset({ offset: contentHeightRef.current || 999999, animated: true });
         } catch (err) {
           // Fallback: try again on next frame
           requestAnimationFrame(() => {
             if (flatListRef.current) {
               try {
-                flatListRef.current.scrollToEnd({ animated: false });
+                flatListRef.current.scrollToEnd({ animated: true });
               } catch (e) {
                 // Last resort: scroll to offset
-                flatListRef.current.scrollToOffset({ offset: 999999, animated: false });
+                flatListRef.current.scrollToOffset({ offset: 999999, animated: true });
               }
             }
           });
@@ -1126,16 +1130,23 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               inverted={false}
               onContentSizeChange={(width: number, height: number) => {
                 contentHeightRef.current = height;
-                // Auto-scroll immediately when content size changes (during streaming)
-                // This ensures we catch every layout update
+                // Throttle layout-based scrolling to prevent excessive calls
+                const now = Date.now();
                 if (isStreaming && streamingMessageIdRef.current && shouldAutoScrollRef.current) {
-                  scrollToBottom(false, true);
+                  if (now - lastLayoutScrollTimeRef.current > 100) {
+                    lastLayoutScrollTimeRef.current = now;
+                    scrollToBottom(false, true);
+                  }
                 }
               }}
               onLayout={() => {
-                // Also scroll on layout changes during streaming
+                // Throttle layout-based scrolling to prevent excessive calls
+                const now = Date.now();
                 if (isStreaming && streamingMessageIdRef.current && shouldAutoScrollRef.current) {
-                  scrollToBottom(false, true);
+                  if (now - lastLayoutScrollTimeRef.current > 100) {
+                    lastLayoutScrollTimeRef.current = now;
+                    scrollToBottom(false, true);
+                  }
                 }
               }}
               onScrollBeginDrag={() => {
@@ -1201,7 +1212,13 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                                       ) : message.role === 'assistant' ? (
                                         isStreamingThis ? (
                                           // During streaming: use animated plain text for smooth character fade-in
-                                          <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
+                                          <View style={{ 
+                                            flexShrink: 1, 
+                                            flexWrap: 'wrap', 
+                                            width: '100%',
+                                            paddingHorizontal: 16,
+                                            maxWidth: '100%',
+                                          }}>
                                             <AnimatedStreamingText
                                               text={message.content}
                                               color={theme.colors.onSurface}
@@ -1246,7 +1263,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                                           </ReanimatedAnimated.View>
                                         )
                                       ) : (
-                        <Text style={[styles.messageText, { color: '#ffffff' }]}>
+                        <Text style={[styles.messageText, { color: theme.colors.onPrimary }]}>
                           {message.content}
                         </Text>
                       )}
@@ -1348,7 +1365,13 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                       ) : message.role === 'assistant' ? (
                         isStreamingThis ? (
                           // During streaming: use animated plain text for smooth character fade-in
-                          <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
+                          <View style={{ 
+                            flexShrink: 1, 
+                            flexWrap: 'wrap', 
+                            width: '100%',
+                            paddingHorizontal: 16,
+                            maxWidth: '100%',
+                          }}>
                             <AnimatedStreamingText
                               text={message.content}
                               color={theme.colors.onSurface}
@@ -1483,29 +1506,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               </View>
             )}
 
-            {/* Left gradient fade */}
-            <LinearGradient
-              colors={[
-                theme.dark ? '#1C1C1E' : '#FFFFFF',
-                theme.dark ? 'rgba(28, 28, 30, 0)' : 'rgba(255, 255, 255, 0)'
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.marqueeGradientLeft}
-              pointerEvents="none"
-            />
-            
-            {/* Right gradient fade */}
-            <LinearGradient
-              colors={[
-                theme.dark ? 'rgba(28, 28, 30, 0)' : 'rgba(255, 255, 255, 0)',
-                theme.dark ? '#1C1C1E' : '#FFFFFF'
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.marqueeGradientRight}
-              pointerEvents="none"
-            />
           </View>
         )}
 

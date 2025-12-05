@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useTheme, Chip } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -6,6 +6,14 @@ import { CartesianChart, Line } from 'victory-native';
 import { useQuery } from '@tanstack/react-query';
 import { getAllMarketsData } from '@/services/polymarketService';
 import { MarketType, TimeRange } from '@/types/polymarket';
+import Animated, { 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withRepeat, 
+  withTiming, 
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 
 interface PolymarketWidgetProps {
   awayTeam: string;
@@ -46,6 +54,12 @@ const adjustColorForDarkMode = (color: string | undefined, isDark: boolean): str
   
   return color;
 };
+
+// Honeydew green color for value alerts (matching website)
+const HONEYDEW_COLOR = '#73b69e';
+
+// Animated glow component for odds cards
+const AnimatedOddsCard = Animated.createAnimatedComponent(View);
 
 export function PolymarketWidget({
   awayTeam,
@@ -90,6 +104,137 @@ export function PolymarketWidget({
 
   const filteredData = filterDataByTimeRange();
 
+  // Check if game has started (disable alerts if game date/time has passed)
+  const isGameStarted = useMemo(() => {
+    if (!gameDate || typeof gameDate !== 'string') return false;
+    
+    try {
+      let gameStartTime: Date;
+      const now = new Date();
+      
+      // Handle both date-only format (YYYY-MM-DD) and datetime format (with time)
+      const isDateTimeString = gameDate.includes('T') || 
+                               gameDate.includes(' ') || 
+                               gameDate.includes('+') ||
+                               gameDate.length > 10;
+      
+      if (isDateTimeString) {
+        gameStartTime = new Date(gameDate);
+      } else {
+        // Date-only format - treat as end of day
+        gameStartTime = new Date(gameDate + 'T23:59:59Z');
+      }
+      
+      if (isNaN(gameStartTime.getTime())) {
+        return false;
+      }
+      
+      return now > gameStartTime;
+    } catch (error) {
+      console.error('Error parsing game date:', error);
+      return false;
+    }
+  }, [gameDate]);
+
+  // Check for value alerts - memoized
+  const valueAlerts = useMemo(() => {
+    if (!allMarketsData) return [];
+    
+    try {
+      const alerts: { market: MarketType; side: 'away' | 'home'; percentage: number; team: string }[] = [];
+      const spread = allMarketsData.spread;
+      const total = allMarketsData.total;
+      const moneyline = allMarketsData.moneyline;
+      
+      // Check Spread (>57% on either side indicates Vegas line mismatch)
+      if (spread && typeof spread.currentAwayOdds === 'number' && typeof spread.currentHomeOdds === 'number') {
+        if (spread.currentAwayOdds > 57) {
+          alerts.push({ 
+            market: 'spread', 
+            side: 'away', 
+            percentage: spread.currentAwayOdds,
+            team: awayTeam
+          });
+        }
+        if (spread.currentHomeOdds > 57) {
+          alerts.push({ 
+            market: 'spread', 
+            side: 'home', 
+            percentage: spread.currentHomeOdds,
+            team: homeTeam
+          });
+        }
+      }
+      
+      // Check Total (>57% on either side indicates Vegas line mismatch)
+      if (total && typeof total.currentAwayOdds === 'number' && typeof total.currentHomeOdds === 'number') {
+        if (total.currentAwayOdds > 57) { // Over
+          alerts.push({ 
+            market: 'total', 
+            side: 'away', 
+            percentage: total.currentAwayOdds,
+            team: 'Over'
+          });
+        }
+        if (total.currentHomeOdds > 57) { // Under
+          alerts.push({ 
+            market: 'total', 
+            side: 'home', 
+            percentage: total.currentHomeOdds,
+            team: 'Under'
+          });
+        }
+      }
+      
+      // Check Moneyline (only highlight specific team if 85%+)
+      if (moneyline && typeof moneyline.currentAwayOdds === 'number' && typeof moneyline.currentHomeOdds === 'number') {
+        if (moneyline.currentAwayOdds >= 85) {
+          alerts.push({ 
+            market: 'moneyline', 
+            side: 'away', 
+            percentage: moneyline.currentAwayOdds,
+            team: awayTeam
+          });
+        }
+        if (moneyline.currentHomeOdds >= 85) {
+          alerts.push({ 
+            market: 'moneyline', 
+            side: 'home', 
+            percentage: moneyline.currentHomeOdds,
+            team: homeTeam
+          });
+        }
+      }
+      
+      return alerts;
+    } catch (error) {
+      console.error('Error calculating value alerts:', error);
+      return [];
+    }
+  }, [allMarketsData, awayTeam, homeTeam]);
+
+  const hasValueAlert = valueAlerts.length > 0 && !isGameStarted;
+  
+  // Check which markets have value (only if game hasn't started)
+  const hasSpreadValue = useMemo(() => !isGameStarted && valueAlerts.some(alert => alert.market === 'spread'), [isGameStarted, valueAlerts]);
+  const hasTotalValue = useMemo(() => !isGameStarted && valueAlerts.some(alert => alert.market === 'total'), [isGameStarted, valueAlerts]);
+  const hasMoneylineValue = useMemo(() => !isGameStarted && valueAlerts.some(alert => alert.market === 'moneyline'), [isGameStarted, valueAlerts]);
+  
+  // For Spread/O/U: Don't highlight specific teams (line mismatch affects both sides)
+  // For ML: Only highlight if current market is ML and team is 85%+
+  const hasAwayValue = useMemo(() => 
+    !isGameStarted && selectedMarket === 'moneyline' && valueAlerts.some(alert => 
+      alert.market === 'moneyline' && alert.side === 'away'
+    ), 
+    [isGameStarted, selectedMarket, valueAlerts]
+  );
+  const hasHomeValue = useMemo(() => 
+    !isGameStarted && selectedMarket === 'moneyline' && valueAlerts.some(alert => 
+      alert.market === 'moneyline' && alert.side === 'home'
+    ), 
+    [isGameStarted, selectedMarket, valueAlerts]
+  );
+
   // Check which markets are available
   const availableMarkets: MarketType[] = [];
   if (allMarketsData?.moneyline) availableMarkets.push('moneyline');
@@ -110,11 +255,97 @@ export function PolymarketWidget({
     y2: point.homeTeamOdds,
   }));
 
+  // Animation values for glow effects on odds cards - MUST be before any early returns
+  const awayGlowAnimation = useSharedValue(0);
+  const homeGlowAnimation = useSharedValue(0);
+  const badgeAnimation = useSharedValue(0);
+
+  // Start animations when value is detected
+  useEffect(() => {
+    if (hasAwayValue) {
+      awayGlowAnimation.value = withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true
+      );
+    } else {
+      awayGlowAnimation.value = withTiming(0, { duration: 200 });
+    }
+  }, [hasAwayValue]);
+
+  useEffect(() => {
+    if (hasHomeValue) {
+      homeGlowAnimation.value = withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true
+      );
+    } else {
+      homeGlowAnimation.value = withTiming(0, { duration: 200 });
+    }
+  }, [hasHomeValue]);
+
+  useEffect(() => {
+    if (hasValueAlert) {
+      badgeAnimation.value = withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true
+      );
+    } else {
+      badgeAnimation.value = withTiming(0, { duration: 200 });
+    }
+  }, [hasValueAlert]);
+
+  // Animated styles for glow effects on odds cards
+  const awayGlowStyle = useAnimatedStyle(() => {
+    if (!hasAwayValue) return {};
+    
+    const opacity = interpolate(awayGlowAnimation.value, [0, 1], [0.4, 0.8]);
+    const shadowRadius = interpolate(awayGlowAnimation.value, [0, 1], [10, 20]);
+    
+    return {
+      shadowColor: HONEYDEW_COLOR,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: opacity,
+      shadowRadius: shadowRadius,
+      elevation: shadowRadius, // Android shadow
+    };
+  });
+
+  const homeGlowStyle = useAnimatedStyle(() => {
+    if (!hasHomeValue) return {};
+    
+    const opacity = interpolate(homeGlowAnimation.value, [0, 1], [0.4, 0.8]);
+    const shadowRadius = interpolate(homeGlowAnimation.value, [0, 1], [10, 20]);
+    
+    return {
+      shadowColor: HONEYDEW_COLOR,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: opacity,
+      shadowRadius: shadowRadius,
+      elevation: shadowRadius, // Android shadow
+    };
+  });
+
+  const badgePulseStyle = useAnimatedStyle(() => {
+    if (!hasValueAlert) return {};
+    
+    const opacity = interpolate(badgeAnimation.value, [0, 1], [0.7, 1]);
+    
+    return {
+      opacity,
+    };
+  });
+
   // Calculate percentage changes
   const firstPoint = filteredData[0];
   const lastPoint = filteredData[filteredData.length - 1];
   const awayChange = lastPoint ? lastPoint.awayTeamOdds - firstPoint.awayTeamOdds : 0;
   const homeChange = lastPoint ? lastPoint.homeTeamOdds - firstPoint.homeTeamOdds : 0;
+
+  const awayColor = adjustColorForDarkMode(awayTeamColors?.primary, isDark);
+  const homeColor = adjustColorForDarkMode(homeTeamColors?.primary, isDark);
 
   // Loading state
   if (isLoading) {
@@ -157,9 +388,6 @@ export function PolymarketWidget({
     );
   }
 
-  const awayColor = adjustColorForDarkMode(awayTeamColors?.primary, isDark);
-  const homeColor = adjustColorForDarkMode(homeTeamColors?.primary, isDark);
-
   return (
     <View style={[styles.container, { backgroundColor: hexToRgba(theme.colors.surface, 0.5), borderColor: theme.colors.outline }]}>
       {/* Header */}
@@ -168,57 +396,145 @@ export function PolymarketWidget({
         <Text style={[styles.title, { color: theme.colors.onSurface }]}>
           Public Betting Lines
         </Text>
-        <View style={[styles.badge, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <Text style={[styles.badgeText, { color: theme.colors.onSurfaceVariant }]}>
-            {filteredData.length} pts
-          </Text>
+        <View style={styles.headerBadges}>
+          <View style={[styles.badge, { backgroundColor: theme.colors.surfaceVariant }]}>
+            <Text style={[styles.badgeText, { color: theme.colors.onSurfaceVariant }]}>
+              {filteredData.length} pts
+            </Text>
+          </View>
+          {hasValueAlert && (
+            <Animated.View style={badgePulseStyle}>
+              <View style={[styles.valueAlertBadge, { backgroundColor: HONEYDEW_COLOR }]}>
+                <Text style={styles.valueAlertText}>Value Alert!</Text>
+              </View>
+            </Animated.View>
+          )}
         </View>
       </View>
 
       {/* Market Type Selector */}
       <View style={styles.marketSelector}>
-        <Chip
-          selected={selectedMarket === 'moneyline'}
-          onPress={() => setSelectedMarket('moneyline')}
+        <Pressable
+          onPress={() => !allMarketsData.moneyline || setSelectedMarket('moneyline')}
           disabled={!allMarketsData.moneyline}
-          style={styles.chip}
-          selectedColor={theme.colors.primary}
         >
-          ML
-        </Chip>
-        <Chip
-          selected={selectedMarket === 'spread'}
-          onPress={() => setSelectedMarket('spread')}
+          <View
+            style={[
+              styles.customChip,
+              {
+                backgroundColor: selectedMarket === 'moneyline'
+                  ? theme.colors.primary
+                  : 'transparent',
+                borderColor: selectedMarket === 'moneyline'
+                  ? theme.colors.primary
+                  : theme.colors.outline,
+              },
+            ]}
+          >
+            {hasMoneylineValue && (
+              <MaterialCommunityIcons name="alert-circle" size={14} color="#f97316" />
+            )}
+            <Text
+              style={[
+                styles.chipText,
+                {
+                  color: selectedMarket === 'moneyline'
+                    ? '#fff'
+                    : theme.colors.onSurfaceVariant,
+                },
+              ]}
+            >
+              ML
+            </Text>
+          </View>
+        </Pressable>
+        <Pressable
+          onPress={() => !allMarketsData.spread || setSelectedMarket('spread')}
           disabled={!allMarketsData.spread}
-          style={styles.chip}
-          selectedColor={theme.colors.primary}
         >
-          Spread
-        </Chip>
-        <Chip
-          selected={selectedMarket === 'total'}
-          onPress={() => setSelectedMarket('total')}
+          <View
+            style={[
+              styles.customChip,
+              {
+                backgroundColor: selectedMarket === 'spread'
+                  ? theme.colors.primary
+                  : 'transparent',
+                borderColor: selectedMarket === 'spread'
+                  ? theme.colors.primary
+                  : theme.colors.outline,
+              },
+            ]}
+          >
+            {hasSpreadValue && (
+              <MaterialCommunityIcons name="alert-circle" size={14} color="#f97316" />
+            )}
+            <Text
+              style={[
+                styles.chipText,
+                {
+                  color: selectedMarket === 'spread'
+                    ? '#fff'
+                    : theme.colors.onSurfaceVariant,
+                },
+              ]}
+            >
+              Spread
+            </Text>
+          </View>
+        </Pressable>
+        <Pressable
+          onPress={() => !allMarketsData.total || setSelectedMarket('total')}
           disabled={!allMarketsData.total}
-          style={styles.chip}
-          selectedColor={theme.colors.primary}
         >
-          O/U
-        </Chip>
+          <View
+            style={[
+              styles.customChip,
+              {
+                backgroundColor: selectedMarket === 'total'
+                  ? theme.colors.primary
+                  : 'transparent',
+                borderColor: selectedMarket === 'total'
+                  ? theme.colors.primary
+                  : theme.colors.outline,
+              },
+            ]}
+          >
+            {hasTotalValue && (
+              <MaterialCommunityIcons name="alert-circle" size={14} color="#f97316" />
+            )}
+            <Text
+              style={[
+                styles.chipText,
+                {
+                  color: selectedMarket === 'total'
+                    ? '#fff'
+                    : theme.colors.onSurfaceVariant,
+                },
+              ]}
+            >
+              O/U
+            </Text>
+          </View>
+        </Pressable>
       </View>
 
       {/* Current Odds */}
       <View style={styles.oddsRow}>
-        <View
+        <AnimatedOddsCard
           style={[
             styles.oddsCard,
             {
               backgroundColor: selectedMarket === 'total'
                 ? hexToRgba(theme.colors.surfaceVariant, 0.3)
                 : hexToRgba(awayColor, 0.15),
-              borderColor: selectedMarket === 'total'
+              borderColor: hasAwayValue
+                ? HONEYDEW_COLOR
+                : selectedMarket === 'total'
                 ? theme.colors.outline
                 : awayColor,
-            }
+              borderWidth: hasAwayValue ? 2 : 1,
+            },
+            awayGlowStyle,
           ]}
         >
           <Text style={[styles.oddsLabel, { color: theme.colors.onSurfaceVariant }]}>
@@ -241,19 +557,23 @@ export function PolymarketWidget({
               </View>
             )}
           </View>
-        </View>
+        </AnimatedOddsCard>
 
-        <View
+        <AnimatedOddsCard
           style={[
             styles.oddsCard,
             {
               backgroundColor: selectedMarket === 'total'
                 ? hexToRgba(theme.colors.surfaceVariant, 0.3)
                 : hexToRgba(homeColor, 0.15),
-              borderColor: selectedMarket === 'total'
+              borderColor: hasHomeValue
+                ? HONEYDEW_COLOR
+                : selectedMarket === 'total'
                 ? theme.colors.outline
                 : homeColor,
-            }
+              borderWidth: hasHomeValue ? 2 : 1,
+            },
+            homeGlowStyle,
           ]}
         >
           <Text style={[styles.oddsLabel, { color: theme.colors.onSurfaceVariant }]}>
@@ -276,7 +596,7 @@ export function PolymarketWidget({
               </View>
             )}
           </View>
-        </View>
+        </AnimatedOddsCard>
       </View>
 
       {/* Chart */}
@@ -383,6 +703,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
+  headerBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -392,6 +717,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
+  valueAlertBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  valueAlertText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+  },
   marketSelector: {
     flexDirection: 'row',
     gap: 8,
@@ -400,6 +735,20 @@ const styles = StyleSheet.create({
   },
   chip: {
     marginHorizontal: 0,
+  },
+  customChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    minHeight: 32,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   oddsRow: {
     flexDirection: 'row',

@@ -498,10 +498,10 @@ export default function OutliersScreen() {
             <View style={styles.sectionHeader}>
                 <View style={styles.titleRow}>
                     <MaterialCommunityIcons name="trending-up" size={20} color={theme.colors.onSurface} />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Polymarket Alerts</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Prediction Market Alerts</Text>
                 </View>
                 <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-                    Markets where Polymarket odds show disagreement with lines or strong consensus.
+                    Markets where prediction markets odds show disagreement with lines or strong consensus.
                 </Text>
             </View>
 
@@ -585,7 +585,7 @@ export default function OutliersScreen() {
       {renderFullListModal(
           showAllValueAlerts, 
           () => setShowAllValueAlerts(false), 
-          "All Polymarket Alerts", 
+          "All Prediction Market Alerts", 
           filteredValueAlerts, 
           renderValueAlertCard
       )}

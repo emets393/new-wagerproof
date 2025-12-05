@@ -66,6 +66,7 @@ export function NBAGameBottomSheet() {
         teamColors: isHomeEdge ? homeColors : awayColors,
         isHome: isHomeEdge,
         vegasSpread: isHomeEdge ? game.home_spread : game.away_spread,
+        isFadeAlert: edge >= 3,
       };
     }
     
@@ -81,6 +82,7 @@ export function NBAGameBottomSheet() {
         isHome,
         vegasSpread: isHome ? game.home_spread : game.away_spread,
         probability: prob,
+        isFadeAlert: prob >= 0.8 || (prob - 0.5) * 20 >= 3,
       };
     }
     
@@ -100,6 +102,7 @@ export function NBAGameBottomSheet() {
         predictedOutcome: isOver ? 'over' as const : 'under' as const,
         modelTotal: game.model_fair_total,
         line: game.over_line,
+        isFadeAlert: edge >= 3,
       };
     }
     
@@ -113,6 +116,7 @@ export function NBAGameBottomSheet() {
         modelTotal: null,
         line: game.over_line,
         probability: prob,
+        isFadeAlert: prob >= 0.8 || (prob - 0.5) * 20 >= 3,
       };
     }
     
@@ -352,6 +356,15 @@ export function NBAGameBottomSheet() {
                         </View>
                       </View>
                     </View>
+                    {/* Fade Alert Pill */}
+                    {spreadPrediction?.isFadeAlert && (
+                      <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: 'rgba(59, 130, 246, 0.4)' }]}>
+                        <MaterialCommunityIcons name="lightning-bolt" size={12} color="#3b82f6" />
+                        <Text style={[styles.fadeAlertPillText, { color: '#3b82f6', marginLeft: 4 }]}>
+                          FADE ALERT
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </Pressable>
@@ -442,6 +455,31 @@ export function NBAGameBottomSheet() {
                         </View>
                       </View>
                     </View>
+                    {/* Fade Alert Pill */}
+                    {ouPrediction?.isFadeAlert && (
+                      <View style={[
+                        styles.fadeAlertPill, 
+                        { 
+                          backgroundColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                          borderColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'
+                        }
+                      ]}>
+                        <MaterialCommunityIcons 
+                          name="lightning-bolt" 
+                          size={12} 
+                          color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
+                        />
+                        <Text style={[
+                          styles.fadeAlertPillText, 
+                          { 
+                            color: ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444',
+                            marginLeft: 4
+                          }
+                        ]}>
+                          FADE ALERT
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </Pressable>
@@ -674,4 +712,20 @@ const styles = StyleSheet.create({
   predictedScore: { fontSize: 32, fontWeight: 'bold' },
   vsSeparator: { paddingHorizontal: 16 },
   vsTextSmall: { fontSize: 16, fontWeight: 'bold' },
+  fadeAlertPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  fadeAlertPillText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
 });

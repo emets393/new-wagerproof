@@ -48,6 +48,7 @@ export function NFLGameBottomSheet() {
     predictedSpread: game.home_away_spread_cover_prob >= 0.5 ? game.home_spread : game.away_spread,
     teamColors: game.home_away_spread_cover_prob >= 0.5 ? homeColors : awayColors,
     confidence: game.home_away_spread_cover_prob >= 0.5 ? 'high' as const : game.home_away_spread_cover_prob >= 0.4 ? 'medium' as const : 'low' as const,
+    isFadeAlert: (game.home_away_spread_cover_prob >= 0.5 ? game.home_away_spread_cover_prob : 1 - game.home_away_spread_cover_prob) >= 0.8,
   } : null;
 
   const ouPrediction = game && game.ou_result_prob !== null && game.ou_result_prob !== undefined ? {
@@ -55,6 +56,7 @@ export function NFLGameBottomSheet() {
     predictedOutcome: game.ou_result_prob >= 0.5 ? 'over' as const : 'under' as const,
     line: game.over_line,
     confidence: game.ou_result_prob >= 0.5 ? 'high' as const : game.ou_result_prob >= 0.4 ? 'medium' as const : 'low' as const,
+    isFadeAlert: (game.ou_result_prob >= 0.5 ? game.ou_result_prob : 1 - game.ou_result_prob) >= 0.8,
   } : null;
 
   // Explanation generators
@@ -336,6 +338,15 @@ export function NFLGameBottomSheet() {
                         {(spreadPrediction.probability * 100).toFixed(1)}% confidence
                       </Text>
                     </View>
+                    {/* Fade Alert Pill */}
+                    {spreadPrediction?.isFadeAlert && (
+                      <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(34, 197, 94, 0.2)', borderColor: 'rgba(34, 197, 94, 0.4)' }]}>
+                        <MaterialCommunityIcons name="lightning-bolt" size={12} color="#22c55e" />
+                        <Text style={[styles.fadeAlertPillText, { color: '#22c55e', marginLeft: 4 }]}>
+                          FADE ALERT
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </Pressable>
@@ -436,6 +447,31 @@ export function NFLGameBottomSheet() {
                         {(ouPrediction.probability * 100).toFixed(1)}% confidence
                       </Text>
                     </View>
+                    {/* Fade Alert Pill */}
+                    {ouPrediction?.isFadeAlert && (
+                      <View style={[
+                        styles.fadeAlertPill, 
+                        { 
+                          backgroundColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                          borderColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'
+                        }
+                      ]}>
+                        <MaterialCommunityIcons 
+                          name="lightning-bolt" 
+                          size={12} 
+                          color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
+                        />
+                        <Text style={[
+                          styles.fadeAlertPillText, 
+                          { 
+                            color: ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444',
+                            marginLeft: 4
+                          }
+                        ]}>
+                          FADE ALERT
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </Pressable>
@@ -743,6 +779,22 @@ const styles = StyleSheet.create({
   },
   confidenceContainer: {
     width: '100%',
+  },
+  fadeAlertPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  fadeAlertPillText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });
 

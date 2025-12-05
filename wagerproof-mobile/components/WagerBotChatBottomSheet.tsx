@@ -100,7 +100,10 @@ export function WagerBotChatBottomSheet() {
       <BlurView
         intensity={100}
         tint={isDark ? 'dark' : 'light'}
-        style={styles.blurContainer}
+        style={[
+          styles.blurContainer,
+          !isDark && { backgroundColor: 'rgba(255, 255, 255, 0.7)' }
+        ]}
       >
         {!user ? (
           <View style={styles.loginPrompt}>

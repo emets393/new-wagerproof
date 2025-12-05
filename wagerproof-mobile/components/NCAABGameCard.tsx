@@ -4,6 +4,7 @@ import { Card, useTheme, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useQuery } from '@tanstack/react-query';
 import { NCAABGame } from '@/types/ncaab';
 import { 
   formatMoneyline, 
@@ -13,6 +14,8 @@ import {
   roundToNearestHalf 
 } from '@/utils/formatting';
 import { getCFBTeamColors, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { getAllMarketsData } from '@/services/polymarketService';
+import { detectValueAlerts } from '@/utils/polymarketValueAlerts';
 
 interface NCAABGameCardProps {
   game: NCAABGame;
@@ -29,6 +32,26 @@ export function NCAABGameCard({ game, onPress }: NCAABGameCardProps) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onPress();
   };
+
+  // Fetch Polymarket data for value alerts
+  const { data: polymarketData } = useQuery({
+    queryKey: ['polymarket-all', 'ncaab', game.away_team, game.home_team],
+    queryFn: () => getAllMarketsData(game.away_team, game.home_team, 'ncaab'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+  });
+
+  // Detect value alerts
+  const valueAlerts = detectValueAlerts(
+    polymarketData,
+    game.away_team,
+    game.home_team,
+    game.game_date
+  );
+
+  const hasSpreadValue = valueAlerts.some(alert => alert.market === 'spread');
+  const hasTotalValue = valueAlerts.some(alert => alert.market === 'total');
+  const hasMoneylineValue = valueAlerts.some(alert => alert.market === 'moneyline');
 
   // Determine model predictions for pills based on probabilities
   const mlPrediction = game.home_away_ml_prob !== null && game.home_away_ml_prob !== undefined ? {
@@ -192,34 +215,139 @@ export function NCAABGameCard({ game, onPress }: NCAABGameCardProps) {
                   }]}>
                     <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>ML</Text>
                     <Text style={[styles.pillValue, { 
-                      color: mlPrediction.isHome ? '#3b82f6' : '#22c55e'
+                      color: mlPrediction.isHome ? '#3b82f6' : '#22c55e',
+                      marginLeft: 6
                     }]} numberOfLines={1}>
                       {getNCAABTeamInitials(mlPrediction.team)} {Math.round(mlPrediction.prob * 100)}%
                     </Text>
                   </View>
                 )}
-                {spreadPrediction && (
-                  <View style={[styles.bettingPill, { 
-                    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-                    borderColor: 'rgba(34, 197, 94, 0.3)'
-                  }]}>
-                    <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>Spread</Text>
-                    <Text style={[styles.pillValue, { color: '#22c55e' }]} numberOfLines={1}>
-                      {getNCAABTeamInitials(spreadPrediction.team)} {Math.round(spreadPrediction.prob * 100)}%
-                    </Text>
-                  </View>
-                )}
-                {ouPrediction && (
-                  <View style={[styles.bettingPill, { 
-                    backgroundColor: 'rgba(249, 115, 22, 0.15)',
-                    borderColor: 'rgba(249, 115, 22, 0.3)'
-                  }]}>
-                    <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>O/U</Text>
-                    <Text style={[styles.pillValue, { color: '#f97316' }]}>
-                      {ouPrediction.direction} {ouPrediction.direction === 'Over' ? '↑' : '↓'}
-                    </Text>
-                  </View>
-                )}
+                {spreadPrediction && (() => {
+                  const edge = game.model_fair_home_spread !== null && game.home_spread !== null 
+                    ? Math.abs(game.model_fair_home_spread - game.home_spread)
+                    : (spreadPrediction.prob - 0.5) * 20;
+                  const isFadeAlert = spreadPrediction.prob >= 0.8 || edge >= 5;
+                  return (
+                    <View style={styles.pillContainer}>
+                      <View style={[styles.bettingPill, { 
+                        backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                        borderColor: 'rgba(34, 197, 94, 0.3)'
+                      }]}>
+                        <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>Spread</Text>
+                        <Text style={[styles.pillValue, { color: '#22c55e', marginLeft: 6 }]} numberOfLines={1}>
+                          {getNCAABTeamInitials(spreadPrediction.team)} {Math.round(spreadPrediction.prob * 100)}%
+                        </Text>
+                      </View>
+                      {isFadeAlert && (
+                        <View style={styles.fadeAlertBadge}>
+                          <MaterialCommunityIcons name="lightning-bolt" size={10} color="#3b82f6" />
+                          <Text style={[styles.fadeAlertText, { color: '#3b82f6', marginLeft: 3 }]}>FADE</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+                {ouPrediction && (() => {
+                  const edge = game.pred_total_points !== null && game.over_line !== null 
+                    ? Math.abs(game.pred_total_points - game.over_line)
+                    : (ouPrediction.prob - 0.5) * 20;
+                  const isFadeAlert = ouPrediction.prob >= 0.8 || edge >= 5;
+                  return (
+                    <View style={styles.pillContainer}>
+                      <View style={[styles.bettingPill, { 
+                        backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                        borderColor: 'rgba(249, 115, 22, 0.3)'
+                      }]}>
+                        <Text style={[styles.pillLabel, { color: theme.colors.onSurfaceVariant }]}>O/U</Text>
+                        <Text style={[styles.pillValue, { color: '#f97316', marginLeft: 6 }]}>
+                          {ouPrediction.direction} {ouPrediction.direction === 'Over' ? '↑' : '↓'}
+                        </Text>
+                      </View>
+                      {isFadeAlert && (
+                        <View style={styles.fadeAlertBadge}>
+                          <MaterialCommunityIcons name="lightning-bolt" size={10} color="#f97316" />
+                          <Text style={[styles.fadeAlertText, { color: '#f97316', marginLeft: 3 }]}>FADE</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+              </View>
+            </View>
+          )}
+
+          {/* Prediction Markets Alerts */}
+          {(hasSpreadValue || hasTotalValue || hasMoneylineValue) && (
+            <View style={styles.pillsSection}>
+              <View style={styles.pillsHeader}>
+                <MaterialCommunityIcons name="alert-circle" size={14} color="#f97316" />
+                <Text style={[styles.pillsHeaderText, { color: theme.colors.onSurfaceVariant }]}>
+                  Prediction Markets Alerts
+                </Text>
+              </View>
+              <View style={styles.pillsRow}>
+                {hasSpreadValue && (() => {
+                  const spreadAlerts = valueAlerts.filter(alert => alert.market === 'spread');
+                  const maxSpreadAlert = spreadAlerts.reduce((max, alert) => 
+                    alert.percentage > max.percentage ? alert : max, spreadAlerts[0]
+                  );
+                  return maxSpreadAlert ? (
+                    <View style={[
+                      styles.bettingPill,
+                      { 
+                        backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                        borderColor: 'rgba(249, 115, 22, 0.3)'
+                      }
+                    ]}>
+                      <MaterialCommunityIcons name="alert-circle" size={12} color="#f97316" />
+                      <Text style={[styles.pillValue, { color: '#f97316', marginLeft: 6 }]}>
+                        Spread {maxSpreadAlert.percentage}%
+                      </Text>
+                    </View>
+                  ) : null;
+                })()}
+
+                {hasTotalValue && (() => {
+                  const totalAlerts = valueAlerts.filter(alert => alert.market === 'total');
+                  const maxTotalAlert = totalAlerts.reduce((max, alert) => 
+                    alert.percentage > max.percentage ? alert : max, totalAlerts[0]
+                  );
+                  return maxTotalAlert ? (
+                    <View style={[
+                      styles.bettingPill,
+                      { 
+                        backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                        borderColor: 'rgba(249, 115, 22, 0.3)'
+                      }
+                    ]}>
+                      <MaterialCommunityIcons name="alert-circle" size={12} color="#f97316" />
+                      <Text style={[styles.pillValue, { color: '#f97316', marginLeft: 6 }]}>
+                        O/U {maxTotalAlert.percentage}%
+                      </Text>
+                    </View>
+                  ) : null;
+                })()}
+
+                {hasMoneylineValue && (() => {
+                  const mlAlerts = valueAlerts.filter(alert => alert.market === 'moneyline');
+                  const maxMLAlert = mlAlerts.reduce((max, alert) => 
+                    alert.percentage > max.percentage ? alert : max, mlAlerts[0]
+                  );
+                  return maxMLAlert ? (
+                    <View style={[
+                      styles.bettingPill,
+                      { 
+                        backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                        borderColor: 'rgba(249, 115, 22, 0.3)'
+                      }
+                    ]}>
+                      <MaterialCommunityIcons name="alert-circle" size={12} color="#f97316" />
+                      <Text style={[styles.pillValue, { color: '#f97316', marginLeft: 6 }]}>
+                        ML {maxMLAlert.percentage}%
+                      </Text>
+                    </View>
+                  ) : null;
+                })()}
               </View>
             </View>
           )}
@@ -373,15 +501,29 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  pillContainer: {
+    alignItems: 'center',
+  },
   bettingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     minWidth: 80,
+    height: 32,
+  },
+  fadeAlertBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  fadeAlertText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   pillLabel: {
     fontSize: 10,
