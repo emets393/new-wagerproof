@@ -201,53 +201,18 @@ export default function SettingsScreen() {
                 color={isPro ? "#FFD700" : theme.colors.primary}
               />
             )}
-            right={props => (
-              isOpeningCustomerCenter ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              ) : (
-                <List.Icon {...props} icon="chevron-right" />
-              )
-            )}
-            onPress={() => {
-              if (isPro) {
-                // Use native Customer Center if available, otherwise fallback to custom component
-                if (isInitialized) {
-                  handleOpenCustomerCenter();
-                } else {
-                  setCustomerCenterVisible(true);
-                }
-              } else {
-                setPaywallVisible(true);
-              }
-            }}
-            disabled={isOpeningCustomerCenter}
             style={{ backgroundColor: theme.colors.surface }}
+            disabled={true}
           />
           
-          {/* Always show Manage Subscription button */}
           <List.Item
-            title="Manage Subscription"
-            description={
-              isInitialized 
-                ? "View and manage your subscription" 
-                : "Loading subscription services..."
-            }
-            left={props => (
-              <List.Icon
-                {...props}
-                icon="credit-card"
-                color={theme.colors.primary}
-              />
-            )}
-            right={props => (
-              isOpeningCustomerCenter ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              ) : (
-                <List.Icon {...props} icon="chevron-right" />
-              )
-            )}
-            onPress={handleOpenCustomerCenter}
-            disabled={isOpeningCustomerCenter || !isInitialized}
+            title="Discord Channel"
+            description="Join our community"
+            left={props => <List.Icon {...props} icon="chat" color={theme.colors.primary} />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => {
+              router.push('/(modals)/discord');
+            }}
             style={{ backgroundColor: theme.colors.surface }}
           />
         </List.Section>
@@ -304,22 +269,37 @@ export default function SettingsScreen() {
             onPress={handleFeatureRequest}
             style={{ backgroundColor: theme.colors.surface }}
           />
-          
-          <List.Item
-            title="Discord Channel"
-            description="Join our community"
-            left={props => <List.Icon {...props} icon="chat" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              router.push('/(modals)/discord');
-            }}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
         </List.Section>
         <Divider />
 
         {/* About Section */}
         <List.Section>
+          <List.Item
+            title="Manage Subscription"
+            description={
+              isInitialized 
+                ? "View and manage your subscription" 
+                : "Loading subscription services..."
+            }
+            left={props => (
+              <List.Icon
+                {...props}
+                icon="credit-card"
+                color={theme.colors.primary}
+              />
+            )}
+            right={props => (
+              isOpeningCustomerCenter ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <List.Icon {...props} icon="chevron-right" />
+              )
+            )}
+            onPress={handleOpenCustomerCenter}
+            disabled={isOpeningCustomerCenter || !isInitialized}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+          
           <List.Item
             title="App Version"
             description="1.0.0"

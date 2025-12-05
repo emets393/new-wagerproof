@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { useLiveScores } from '@/hooks/useLiveScores';
+import { useSettings } from '@/contexts/SettingsContext';
 import { BlurView } from 'expo-blur';
 
 function LiveIndicator() {
@@ -67,6 +68,7 @@ function FloatingTabBar() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { hasLiveGames } = useLiveScores();
+  const { scoreboardEnabled } = useSettings();
   
   const tabs = [
     { name: 'index', path: '/(drawer)/(tabs)/', title: 'Feed', icon: 'home' },
@@ -79,7 +81,7 @@ function FloatingTabBar() {
   const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
   const PILLS_HEIGHT = 72;
   const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT;
-  const LIVE_TICKER_HEIGHT = hasLiveGames ? 64 : 0; // 40px ticker + 12px top + 12px bottom padding
+  const LIVE_TICKER_HEIGHT = (hasLiveGames && scoreboardEnabled) ? 64 : 0; // 40px ticker + 12px top + 12px bottom padding
   const TAB_BAR_BASE_HEIGHT = 65;
   const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom + LIVE_TICKER_HEIGHT;
 
@@ -119,7 +121,7 @@ function FloatingTabBar() {
         ]}
       >
         {/* Live Ticker at top of tab bar */}
-        {hasLiveGames && (
+        {hasLiveGames && scoreboardEnabled && (
           <View style={styles.liveTickerContainer}>
             <LiveScoreTicker onNavigateToScoreboard={() => router.push('/(drawer)/(tabs)/scoreboard')} />
           </View>

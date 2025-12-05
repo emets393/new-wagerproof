@@ -15,12 +15,11 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
   const theme = useTheme();
   const { isDark, toggleTheme } = useThemeContext();
   const { user, signOut, signingOut } = useAuth();
-  const { useDummyData, setUseDummyData } = useSettings();
+  const { useDummyData, setUseDummyData, scoreboardEnabled, setScoreboardEnabled } = useSettings();
   const { isPro, subscriptionType } = useProAccess();
   const { openCustomerCenter, isInitialized } = useRevenueCat();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [scoreboardEnabled, setScoreboardEnabled] = useState(true);
   const [tapCount, setTapCount] = useState(0);
   const tapTimer = useRef<NodeJS.Timeout | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
@@ -156,7 +155,10 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top }}>
+      <ScrollView 
+        contentContainerStyle={{ paddingTop: insets.top }}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <MaterialCommunityIcons name="cog" size={32} color={theme.colors.primary} />
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
@@ -197,52 +199,27 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
                 color={isPro ? "#FFD700" : theme.colors.primary}
               />
             )}
-            right={props => (
-              isOpeningCustomerCenter ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              ) : (
-                <List.Icon {...props} icon="chevron-right" />
-              )
-            )}
+            style={{ backgroundColor: 'transparent' }}
+            disabled={true}
+          />
+          
+          <List.Item
+            title="Discord Channel"
+            description="Join our community"
+            left={props => <List.Icon {...props} icon="chat" color={theme.colors.primary} />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => {
-              if (isPro) {
-                if (isInitialized) {
-                  handleOpenCustomerCenter();
-                } else {
-                  setCustomerCenterVisible(true);
-                }
-              } else {
-                setPaywallVisible(true);
-              }
+              router.push('/(modals)/discord');
             }}
-            disabled={isOpeningCustomerCenter}
             style={{ backgroundColor: 'transparent' }}
           />
           
-          {/* Always show Manage Subscription button */}
           <List.Item
-            title="Manage Subscription"
-            description={
-              isInitialized 
-                ? "View and manage your subscription" 
-                : "Loading subscription services..."
-            }
-            left={props => (
-              <List.Icon
-                {...props}
-                icon="credit-card"
-                color={theme.colors.primary}
-              />
-            )}
-            right={props => (
-              isOpeningCustomerCenter ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              ) : (
-                <List.Icon {...props} icon="chevron-right" />
-              )
-            )}
-            onPress={handleOpenCustomerCenter}
-            disabled={isOpeningCustomerCenter || !isInitialized}
+            title="Feature Requests"
+            description="Suggest new features"
+            left={props => <List.Icon {...props} icon="lightbulb-on" color={theme.colors.primary} />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={handleFeatureRequest}
             style={{ backgroundColor: 'transparent' }}
           />
         </List.Section>
@@ -266,7 +243,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
           
           <List.Item
             title="ScoreBoard"
-            description={scoreboardEnabled ? "Enabled" : "Disabled"}
+            description={scoreboardEnabled ? "Ticker enabled" : "Ticker disabled"}
             left={props => <List.Icon {...props} icon="scoreboard" color={theme.colors.primary} />}
             right={() => (
               <Switch
@@ -290,36 +267,34 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
             onPress={handleContactUs}
             style={{ backgroundColor: 'transparent' }}
           />
-          
-          <List.Item
-            title="Feature Requests"
-            description="Suggest new features"
-            left={props => <List.Icon {...props} icon="lightbulb-on" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleFeatureRequest}
-            style={{ backgroundColor: 'transparent' }}
-          />
-          
-          <List.Item
-            title="Discord Channel"
-            description="Join our community"
-            left={props => <List.Icon {...props} icon="chat" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              router.push('/(modals)/discord');
-            }}
-            style={{ backgroundColor: 'transparent' }}
-          />
         </List.Section>
         <Divider />
 
         {/* About Section */}
         <List.Section>
           <List.Item
-            title="App Version"
-            description="1.0.0"
-            left={props => <List.Icon {...props} icon="information" color={theme.colors.primary} />}
-            onPress={handleVersionTap}
+            title="Manage Subscription"
+            description={
+              isInitialized 
+                ? "View and manage your subscription" 
+                : "Loading subscription services..."
+            }
+            left={props => (
+              <List.Icon
+                {...props}
+                icon="credit-card"
+                color={theme.colors.primary}
+              />
+            )}
+            right={props => (
+              isOpeningCustomerCenter ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <List.Icon {...props} icon="chevron-right" />
+              )
+            )}
+            onPress={handleOpenCustomerCenter}
+            disabled={isOpeningCustomerCenter || !isInitialized}
             style={{ backgroundColor: 'transparent' }}
           />
           
@@ -362,6 +337,17 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
             </Button>
           </View>
         )}
+
+        {/* App Version at bottom */}
+        <List.Section>
+          <List.Item
+            title="App Version"
+            description="1.0.0"
+            left={props => <List.Icon {...props} icon="information" color={theme.colors.primary} />}
+            onPress={handleVersionTap}
+            style={{ backgroundColor: 'transparent' }}
+          />
+        </List.Section>
         
         <View style={{ height: 40 }} />
       </ScrollView>

@@ -25,7 +25,9 @@ import * as FileSystem from 'expo-file-system';
 import ReanimatedAnimated, { 
   useSharedValue, 
   useAnimatedStyle,
-  useFrameCallback
+  useFrameCallback,
+  FadeIn,
+  LinearTransition
 } from 'react-native-reanimated';
 import Markdown from 'react-native-markdown-display';
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
@@ -967,6 +969,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={handleRefresh}
+                  colors={[theme.colors.primary]}
                   tintColor={theme.colors.primary}
                 />
               }
@@ -1033,15 +1036,20 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 const isLastMessage = index === messages.length - 1;
                 const isEmptyAndStreaming = !message.content && isSending && isLastMessage;
                 const isStreamingThis = isStreaming && isLastMessage && message.role === 'assistant';
+                
+                // Determine if we should show the full-width chatGPT style
+                const isAssistantContent = message.role === 'assistant' && !isEmptyAndStreaming;
 
                 return (
                   <View
                     style={[
                       styles.messageRow,
                       message.role === 'user' ? styles.userRow : styles.assistantRow,
+                      isAssistantContent && { marginBottom: 24, width: '100%', paddingHorizontal: 0 }
                     ]}
                   >
-                    {message.role === 'assistant' && (
+                    {/* Show icon ONLY if it's NOT the main content view (i.e. show for Thinking state) */}
+                    {message.role === 'assistant' && !isAssistantContent && (
                       <View style={styles.botIconContainer}>
                         <MaterialCommunityIcons
                           name="robot"
@@ -1053,10 +1061,18 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                     
                     <View
                       style={[
-                        styles.messageBubble,
-                        message.role === 'user'
-                          ? [styles.userMessage, { backgroundColor: theme.colors.primary }]
-                          : [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }],
+                        // Base bubble style - remove if assistant content
+                        !isAssistantContent && styles.messageBubble,
+                        // User style
+                        message.role === 'user' && [styles.userMessage, { backgroundColor: theme.colors.primary }],
+                        // Assistant thinking style
+                        (message.role === 'assistant' && !isAssistantContent) && [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }],
+                        // Assistant content style (ChatGPT like)
+                        isAssistantContent && {
+                          width: '100%',
+                          marginHorizontal: -8,
+                          backgroundColor: 'transparent',
+                        }
                       ]}
                     >
                       {isEmptyAndStreaming ? (
@@ -1067,29 +1083,40 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                           </Text>
                         </View>
                       ) : message.role === 'assistant' ? (
-                        <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
+                        <ReanimatedAnimated.View 
+                          entering={FadeIn.duration(400)}
+                          style={{ 
+                            flexShrink: 1, 
+                            flexWrap: 'wrap', 
+                            width: '100%',
+                          }}
+                        >
                           <Markdown
                             style={{
-                              body: { color: theme.colors.onSurface, fontSize: 15, lineHeight: 20 },
-                              paragraph: { marginTop: 0, marginBottom: 8 },
-                              heading1: { fontSize: 22, fontWeight: 'bold', marginBottom: 8, color: theme.colors.onSurface },
-                              heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 6, color: theme.colors.onSurface },
-                              heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 4, color: theme.colors.onSurface },
+                              body: { color: theme.colors.onSurface, fontSize: 16, lineHeight: 24 },
+                              paragraph: { marginTop: 0, marginBottom: 12 },
+                              heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 12, marginTop: 8, color: theme.colors.onSurface },
+                              heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, marginTop: 6, color: theme.colors.onSurface },
+                              heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, marginTop: 4, color: theme.colors.onSurface },
                               strong: { fontWeight: 'bold', color: theme.colors.onSurface },
                               em: { fontStyle: 'italic' },
-                              code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 4, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
-                              code_block: { backgroundColor: '#1e1e1e', padding: 8, borderRadius: 6, marginVertical: 6, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                              fence: { backgroundColor: '#1e1e1e', padding: 8, borderRadius: 6, marginVertical: 6, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                              code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
+                              code_block: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                              fence: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
                               link: { color: theme.colors.primary, textDecorationLine: 'underline' },
-                              blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 3, borderLeftColor: theme.colors.primary, paddingLeft: 10, paddingVertical: 6, marginVertical: 6 },
-                              bullet_list: { marginBottom: 4, marginTop: 0 },
-                              ordered_list: { marginBottom: 4, marginTop: 0 },
-                              list_item: { marginBottom: 2, lineHeight: 18 },
+                              blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, paddingLeft: 12, paddingVertical: 8, marginVertical: 8, fontStyle: 'italic' },
+                              bullet_list: { marginBottom: 8, marginTop: 0 },
+                              ordered_list: { marginBottom: 8, marginTop: 0 },
+                              list_item: { marginBottom: 4, lineHeight: 24 },
+                              table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 12 },
+                              th: { backgroundColor: theme.colors.surfaceVariant, padding: 10, fontWeight: 'bold' },
+                              td: { padding: 10, borderWidth: 1, borderColor: theme.colors.outline },
+                              hr: { backgroundColor: theme.colors.outline, height: 1, marginVertical: 16 },
                             }}
                           >
                             {message.content + (isStreamingThis ? ' ▊' : '')}
                           </Markdown>
-                        </View>
+                        </ReanimatedAnimated.View>
                       ) : (
                         <Text style={[styles.messageText, { color: '#ffffff' }]}>
                           {message.content}
@@ -1113,6 +1140,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={handleRefresh}
+                  colors={[theme.colors.primary]}
                   tintColor={theme.colors.primary}
                 />
               }
@@ -1124,6 +1152,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 const isLastMessage = index === messages.length - 1;
                 const isEmptyAndStreaming = !message.content && isSending && isLastMessage;
                 const isStreamingThis = isStreaming && isLastMessage && message.role === 'assistant';
+                
+                // Determine if we should show the full-width chatGPT style
+                const isAssistantContent = message.role === 'assistant' && !isEmptyAndStreaming;
                 
                 const animation = getMessageAnimation(message.id || `msg_${index}`);
                 const animatedStyle = {
@@ -1150,10 +1181,11 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                     style={[
                       styles.messageRow,
                       message.role === 'user' ? styles.userRow : styles.assistantRow,
+                      isAssistantContent && { marginBottom: 24, width: '100%', paddingHorizontal: 0 },
                       animatedStyle,
                     ]}
                   >
-                    {message.role === 'assistant' && (
+                    {message.role === 'assistant' && !isAssistantContent && (
                       <View style={styles.botIconContainer}>
                         <MaterialCommunityIcons
                           name="robot"
@@ -1165,10 +1197,17 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                     
                     <View
                       style={[
-                        styles.messageBubble,
+                        !isAssistantContent && styles.messageBubble,
                         message.role === 'user'
                           ? [styles.userMessage, { backgroundColor: theme.colors.primary }]
-                          : [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }],
+                          : (message.role === 'assistant' && !isAssistantContent)
+                            ? [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }]
+                            : [],
+                        isAssistantContent && {
+                          width: '100%',
+                          marginHorizontal: -8,
+                          backgroundColor: 'transparent',
+                        }
                       ]}
                     >
                       {isEmptyAndStreaming ? (
@@ -1179,33 +1218,42 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                           </Text>
                         </View>
                       ) : message.role === 'assistant' ? (
-                      <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
+                      <ReanimatedAnimated.View 
+                        entering={FadeIn.duration(600)}
+                        layout={LinearTransition.springify().damping(20)}
+                        style={{ 
+                            flexShrink: 1, 
+                            flexWrap: 'wrap', 
+                            width: '100%' 
+                        }}
+                      >
                         <Markdown
                           style={{
-                            body: { color: theme.colors.onSurface, fontSize: 15, lineHeight: 20, flexShrink: 1, flexWrap: 'wrap' },
-                            paragraph: { marginTop: 0, marginBottom: 8, flexWrap: 'wrap' },
+                            body: { color: theme.colors.onSurface, fontSize: 16, lineHeight: 24, flexShrink: 1, flexWrap: 'wrap' },
+                            paragraph: { marginTop: 0, marginBottom: 12, flexWrap: 'wrap' },
                             text: { flexWrap: 'wrap' },
-                            heading1: { fontSize: 22, fontWeight: 'bold', marginBottom: 8, color: theme.colors.onSurface },
-                            heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 6, color: theme.colors.onSurface },
-                            heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 4, color: theme.colors.onSurface },
+                            heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 12, marginTop: 8, color: theme.colors.onSurface },
+                            heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, marginTop: 6, color: theme.colors.onSurface },
+                            heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, marginTop: 4, color: theme.colors.onSurface },
                             strong: { fontWeight: 'bold', color: theme.colors.onSurface },
                             em: { fontStyle: 'italic' },
-                            code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
-                            code_block: { backgroundColor: '#1e1e1e', padding: 8, borderRadius: 6, marginVertical: 6, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                            fence: { backgroundColor: '#1e1e1e', padding: 8, borderRadius: 6, marginVertical: 6, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                            code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
+                            code_block: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                            fence: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
                             link: { color: theme.colors.primary, textDecorationLine: 'underline' },
-                            blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 3, borderLeftColor: theme.colors.primary, paddingLeft: 10, paddingVertical: 6, marginVertical: 6 },
-                            bullet_list: { marginBottom: 4, marginTop: 0 },
-                            ordered_list: { marginBottom: 4, marginTop: 0 },
-                            list_item: { marginBottom: 2, lineHeight: 18 },
-                            table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 8 },
-                            th: { backgroundColor: theme.colors.surfaceVariant, padding: 8, fontWeight: 'bold' },
-                            td: { padding: 8, borderWidth: 1, borderColor: theme.colors.outline },
+                            blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, paddingLeft: 12, paddingVertical: 8, marginVertical: 8, fontStyle: 'italic' },
+                            bullet_list: { marginBottom: 8, marginTop: 0 },
+                            ordered_list: { marginBottom: 8, marginTop: 0 },
+                            list_item: { marginBottom: 4, lineHeight: 24 },
+                            table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 12 },
+                            th: { backgroundColor: theme.colors.surfaceVariant, padding: 10, fontWeight: 'bold' },
+                            td: { padding: 10, borderWidth: 1, borderColor: theme.colors.outline },
+                            hr: { backgroundColor: theme.colors.outline, height: 1, marginVertical: 16 },
                           }}
                         >
                           {message.content + (isStreamingThis ? ' ▊' : '')}
                         </Markdown>
-                      </View>
+                      </ReanimatedAnimated.View>
                     ) : (
                       <Text style={[styles.messageText, { color: '#ffffff' }]}>
                         {message.content}

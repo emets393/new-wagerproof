@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWagerBotChatSheet } from '@/contexts/WagerBotChatSheetContext';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useLiveScores } from '@/hooks/useLiveScores';
+import { useSettings } from '@/contexts/SettingsContext';
 
 // Game Sheets
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
@@ -63,6 +64,7 @@ export default function OutliersScreen() {
   const { openChatSheet } = useWagerBotChatSheet();
   const { scrollY, scrollYClamped } = useScroll();
   const { hasLiveGames } = useLiveScores();
+  const { scoreboardEnabled } = useSettings();
 
   const [refreshing, setRefreshing] = useState(false);
   
@@ -393,7 +395,7 @@ export default function OutliersScreen() {
   const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
   
   // Calculate bottom padding (tab bar + ticker + safe area)
-  const LIVE_TICKER_HEIGHT = hasLiveGames ? 64 : 0; // 40px ticker + 12px top + 12px bottom padding
+  const LIVE_TICKER_HEIGHT = (hasLiveGames && scoreboardEnabled) ? 64 : 0; // 40px ticker + 12px top + 12px bottom padding
   const TAB_BAR_BASE_HEIGHT = 65;
   const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom + LIVE_TICKER_HEIGHT;
   

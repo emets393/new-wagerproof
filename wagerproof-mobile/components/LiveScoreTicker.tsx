@@ -23,7 +23,7 @@ export function LiveScoreTicker({ onNavigateToScoreboard }: LiveScoreTickerProps
   const [modalVisible, setModalVisible] = useState(false);
   const [parentWidth, setParentWidth] = useState(0);
   const [childrenWidth, setChildrenWidth] = useState(0);
-  const { useDummyData } = useSettings();
+  const { useDummyData, scoreboardEnabled } = useSettings();
   
   const { games: liveGames, hasLiveGames: hasRealLiveGames } = useLiveScores();
   
@@ -182,8 +182,8 @@ export function LiveScoreTicker({ onNavigateToScoreboard }: LiveScoreTickerProps
     };
   });
 
-  // Don't render if no live games
-  if (!hasLiveGames) {
+  // Don't render if scoreboard is disabled or no live games
+  if (!scoreboardEnabled || !hasLiveGames) {
     return null;
   }
 

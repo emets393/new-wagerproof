@@ -12,6 +12,7 @@ import { supabase } from '@/services/supabase';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
 import { EditorPickCard } from '@/components/EditorPickCard';
+import { GameCardShimmer } from '@/components/GameCardShimmer';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColors } from '@/constants/teamColors';
@@ -22,7 +23,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
-type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
+type Sport = 'all' | 'nfl' | 'cfb' | 'nba' | 'ncaab';
 
 interface SportOption {
   id: Sport;
@@ -210,18 +211,20 @@ export default function PicksScreen() {
   const scrollOffset = useRef(new Animated.Value(0)).current;
   const scrollPosition = useRef(new Animated.Value(0)).current;
   const absolutePosition = useMemo(() => Animated.add(scrollPosition, scrollOffset), [scrollPosition, scrollOffset]);
-  const [tabMeasures, setTabMeasures] = useState<Array<{x: number, width: number}>>(new Array(4).fill({ x: 0, width: 0 }));
+  const [tabMeasures, setTabMeasures] = useState<Array<{x: number, width: number}>>(new Array(5).fill({ x: 0, width: 0 }));
 
   // State
-  const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
+  const [selectedSport, setSelectedSport] = useState<Sport>('all');
   const [currentPage, setCurrentPage] = useState(0);
-  const [picks, setPicks] = useState<EditorPick[]>([]);
+  const [picks, setPicks] = useState<EditorPick[]>([]); // Filtered picks for display (last 7 days + future)
+  const [allPicks, setAllPicks] = useState<EditorPick[]>([]); // All picks for stats calculation (no date filter)
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sports: SportOption[] = [
+    { id: 'all', label: 'All', available: true, icon: 'view-grid' },
     { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
     { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
     { id: 'nba', label: 'NBA', available: true, icon: 'basketball' },
@@ -678,7 +681,10 @@ export default function PicksScreen() {
 
         setGamesData(gameDataMap);
 
-        // Filter picks to only show games from last 7 days + future games
+        // Store all picks for stats calculation (no date filtering)
+        setAllPicks((picksData || []) as EditorPick[]);
+
+        // Filter picks to only show games from last 7 days + future games (for display only)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -710,6 +716,7 @@ export default function PicksScreen() {
         setPicks(validPicks);
       } else {
         setPicks([]);
+        setAllPicks([]);
       }
     } catch (err) {
       console.error('Error fetching picks:', err);
@@ -870,22 +877,35 @@ export default function PicksScreen() {
   };
 
   const renderSportPage = (sport: Sport) => {
-    // Filter picks for this sport
+    // Filter picks for this sport (or show all if 'all') - for display
     const sportPicks = useMemo(() => {
+      if (sport === 'all') {
+        return picks;
+      }
       return picks.filter(pick => pick.game_type === sport);
     }, [picks, sport]);
+
+    // Filter all picks for this sport (or show all if 'all') - for stats (includes historical)
+    const allSportPicks = useMemo(() => {
+      if (sport === 'all') {
+        return allPicks;
+      }
+      return allPicks.filter(pick => pick.game_type === sport);
+    }, [allPicks, sport]);
 
     const groupedPicks = useMemo(() => groupPicksByDate(sportPicks), [sportPicks, groupPicksByDate]);
     
     if (loading && !refreshing) {
       return (
         <View key={sport} style={styles.pageContainer}>
-          <View style={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT }]}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
-              Loading picks...
-            </Text>
-          </View>
+          <ScrollView 
+            contentContainerStyle={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT, justifyContent: 'flex-start' }]}
+            scrollEnabled={true}
+          >
+            {[1, 2, 3, 4].map((i) => (
+              <GameCardShimmer key={i} />
+            ))}
+          </ScrollView>
         </View>
       );
     }
@@ -925,10 +945,12 @@ export default function PicksScreen() {
                     style={styles.sparkleIcon}
                   />
                   <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
-                    No {sport.toUpperCase()} Picks
+                    {sport === 'all' ? 'No Picks Available' : `No ${sport.toUpperCase()} Picks`}
                   </Text>
                   <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                    Check back later for expert picks for this sport.
+                    {sport === 'all' 
+                      ? 'Check back later for expert picks.' 
+                      : 'Check back later for expert picks for this sport.'}
                   </Text>
                   <Button 
                     mode="contained" 
@@ -969,7 +991,7 @@ export default function PicksScreen() {
           overScrollMode="never"
           ListHeaderComponent={
             <View>
-              <StatsSummary picks={sportPicks} />
+              <StatsSummary picks={allSportPicks} />
             </View>
           }
           refreshControl={

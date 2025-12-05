@@ -18,7 +18,8 @@ import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
 import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
 import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
+import * as NavigationBar from 'expo-navigation-bar';
 
 // Create a query client
 const queryClient = new QueryClient();
@@ -91,6 +92,14 @@ function RootNavigator() {
 
 function RootLayoutContent() {
   const { theme } = useThemeContext();
+
+  // Hide Android navigation bar
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync('hidden');
+      NavigationBar.setBehaviorAsync('overlay-swipe');
+    }
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
