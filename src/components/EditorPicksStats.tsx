@@ -48,23 +48,46 @@ export function EditorPicksStats({ picks, selectedSport, onSportChange }: Editor
       .filter(p => p.result && p.result !== 'pending')
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-    let cumulativeUnits = 0;
-    const data: Array<{ date: string; units: number; pick: string }> = [];
-
+    // Group picks by day
+    const picksByDay = new Map<string, typeof sortedPicks>();
+    
     sortedPicks.forEach(pick => {
       if (pick.result && pick.result !== 'pending') {
-        const calc = calculateUnits(pick.result, pick.best_price, pick.units);
-        cumulativeUnits += calc.netUnits;
-
         const date = new Date(pick.created_at);
-        const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+        // Normalize to start of day (ignore time)
+        const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         
-        data.push({
-          date: dateStr,
-          units: cumulativeUnits,
-          pick: pick.id,
-        });
+        if (!picksByDay.has(dayKey)) {
+          picksByDay.set(dayKey, []);
+        }
+        picksByDay.get(dayKey)!.push(pick);
       }
+    });
+
+    // Calculate cumulative units per day
+    let cumulativeUnits = 0;
+    const data: Array<{ date: string; units: number }> = [];
+    
+    // Sort days chronologically
+    const sortedDays = Array.from(picksByDay.keys()).sort();
+
+    sortedDays.forEach(dayKey => {
+      const dayPicks = picksByDay.get(dayKey)!;
+      
+      // Calculate total units for this day
+      dayPicks.forEach(pick => {
+        const calc = calculateUnits(pick.result!, pick.best_price, pick.units);
+        cumulativeUnits += calc.netUnits;
+      });
+
+      // Format date for display (e.g., "12/15")
+      const [year, month, day] = dayKey.split('-');
+      const dateStr = `${parseInt(month)}/${parseInt(day)}`;
+      
+      data.push({
+        date: dateStr,
+        units: cumulativeUnits,
+      });
     });
 
     return data;
@@ -128,13 +151,6 @@ export function EditorPicksStats({ picks, selectedSport, onSportChange }: Editor
                 : 'text-red-900 dark:text-red-100'
             }`}>
               {totalUnits.netUnits >= 0 ? '+' : ''}{totalUnits.netUnits.toFixed(2)}
-            </div>
-            <div className={`text-sm mt-1 ${
-              totalUnits.netUnits >= 0
-                ? 'text-green-700 dark:text-green-300'
-                : 'text-red-700 dark:text-red-300'
-            }`}>
-              {totalUnits.unitsWon.toFixed(2)} won / {totalUnits.unitsLost.toFixed(2)} lost
             </div>
           </div>
         </div>

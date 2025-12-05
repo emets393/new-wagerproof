@@ -181,7 +181,46 @@ export function EditorPickListItem({ pick, gameData, onUpdate, onEdit }: EditorP
           <div className="flex flex-col items-center justify-center min-w-[70px] px-1 py-1 bg-gray-100 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700/50 gap-0.5">
             {(() => {
               try {
-                // Use game_date if available (pre-formatted), otherwise parse raw_game_date
+                // Prioritize raw_game_date (YYYY-MM-DD format) over pre-formatted game_date
+                // This ensures correct dates even for older picks with incorrectly formatted game_date
+                if (gameData.raw_game_date && gameData.raw_game_date !== 'TBD' && !gameData.raw_game_date.includes('INVALID')) {
+                  let dateObj: Date;
+                  
+                  if (gameData.raw_game_date.includes('T')) {
+                    // ISO format with time
+                    dateObj = new Date(gameData.raw_game_date);
+                  } else if (gameData.raw_game_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    // YYYY-MM-DD format - parse as local date to avoid timezone issues
+                    const [year, month, day] = gameData.raw_game_date.split('-').map(Number);
+                    dateObj = new Date(year, month - 1, day);
+                  } else {
+                    // Try generic parse as last resort
+                    dateObj = new Date(gameData.raw_game_date);
+                  }
+                  
+                  // Check if date is valid
+                  if (!isNaN(dateObj.getTime())) {
+                    const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
+                    const dayNum = dateObj.getDate();
+                    const fullDayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                    
+                    return (
+                      <>
+                        <span className="text-[10px] uppercase font-semibold text-gray-500 dark:text-gray-400 leading-tight">
+                          {month} {dayNum}
+                        </span>
+                        <span className="text-sm font-extrabold text-gray-900 dark:text-gray-100 leading-tight py-0.5">
+                          {fullDayName}
+                        </span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
+                          {gameData.game_time?.split(' ')[0] || 'TBD'} {gameData.game_time?.split(' ').slice(1).join(' ') || ''}
+                        </span>
+                      </>
+                    );
+                  }
+                }
+                
+                // Fallback to game_date if raw_game_date is not available
                 if (gameData.game_date && gameData.game_date !== 'TBD' && !gameData.game_date.includes('INVALID')) {
                   const dateParts = gameData.game_date.split(', ');
                   if (dateParts.length >= 2) {
@@ -209,44 +248,6 @@ export function EditorPickListItem({ pick, gameData, onUpdate, onEdit }: EditorP
                       </>
                     );
                   }
-                }
-                
-                // Fallback to parsing raw_game_date
-                if (gameData.raw_game_date && gameData.raw_game_date !== 'TBD' && !gameData.raw_game_date.includes('INVALID')) {
-                  let dateObj: Date;
-                  
-                  if (gameData.raw_game_date.includes('T')) {
-                    dateObj = new Date(gameData.raw_game_date);
-                  } else if (gameData.raw_game_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    // YYYY-MM-DD format
-                    const [year, month, day] = gameData.raw_game_date.split('-').map(Number);
-                    dateObj = new Date(year, month - 1, day);
-                  } else {
-                    dateObj = new Date(gameData.raw_game_date);
-                  }
-                  
-                  // Check if date is valid
-                  if (isNaN(dateObj.getTime())) {
-                    return <span className="text-xs text-gray-500">TBD</span>;
-                  }
-                  
-                  const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
-                  const dayNum = dateObj.getDate();
-                  const fullDayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-                  
-                  return (
-                    <>
-                      <span className="text-[10px] uppercase font-semibold text-gray-500 dark:text-gray-400 leading-tight">
-                        {month} {dayNum}
-                      </span>
-                      <span className="text-sm font-extrabold text-gray-900 dark:text-gray-100 leading-tight py-0.5">
-                        {fullDayName}
-                      </span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
-                        {gameData.game_time?.split(' ')[0] || 'TBD'} {gameData.game_time?.split(' ').slice(1).join(' ') || ''}
-                      </span>
-                    </>
-                  );
                 }
                 
                 return <span className="text-xs text-gray-500">TBD</span>;

@@ -279,7 +279,22 @@ export function EditorPickCreatorModal({
       // Format game date and time properly (e.g., "Mon, Dec 1" and "7:30 PM EST")
       const formatGameDateTime = (dateString: string) => {
         try {
-          const date = new Date(dateString);
+          let date: Date;
+          
+          // Check if dateString is in YYYY-MM-DD format
+          const yyyyMmDdPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+          const match = dateString.match(yyyyMmDdPattern);
+          
+          if (match) {
+            // Parse as local date to avoid timezone conversion issues
+            const year = parseInt(match[1], 10);
+            const month = parseInt(match[2], 10) - 1; // Month is 0-indexed
+            const day = parseInt(match[3], 10);
+            date = new Date(year, month, day);
+          } else {
+            // For other formats, use standard Date parsing
+            date = new Date(dateString);
+          }
           
           // Format date as "Mon, Dec 1"
           const formattedDate = date.toLocaleDateString('en-US', {
