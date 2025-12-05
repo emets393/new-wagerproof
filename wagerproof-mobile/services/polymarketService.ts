@@ -114,9 +114,84 @@ const CFB_TEAM_MAPPINGS: Record<string, string> = {
   'Louisville': 'Louisville',
 };
 
-function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' = 'nfl'): string {
+// NBA team mascots
+const NBA_TEAM_MASCOTS: Record<string, string> = {
+  'Atlanta': 'Hawks',
+  'Boston': 'Celtics',
+  'Brooklyn': 'Nets',
+  'Charlotte': 'Hornets',
+  'Chicago': 'Bulls',
+  'Cleveland': 'Cavaliers',
+  'Dallas': 'Mavericks',
+  'Denver': 'Nuggets',
+  'Detroit': 'Pistons',
+  'Golden State': 'Warriors',
+  'Houston': 'Rockets',
+  'Indiana': 'Pacers',
+  'LA Clippers': 'Clippers',
+  'Los Angeles Clippers': 'Clippers',
+  'LA Lakers': 'Lakers',
+  'Los Angeles Lakers': 'Lakers',
+  'Memphis': 'Grizzlies',
+  'Miami': 'Heat',
+  'Milwaukee': 'Bucks',
+  'Minnesota': 'Timberwolves',
+  'New Orleans': 'Pelicans',
+  'New York': 'Knicks',
+  'Oklahoma City': 'Thunder',
+  'Orlando': 'Magic',
+  'Philadelphia': 'Sixers',
+  '76ers': 'Sixers',
+  'Phoenix': 'Suns',
+  'Portland': 'Trail Blazers',
+  'Sacramento': 'Kings',
+  'San Antonio': 'Spurs',
+  'Toronto': 'Raptors',
+  'Utah': 'Jazz',
+  'Washington': 'Wizards',
+};
+
+// NCAAB teams - map common variations to Polymarket names
+const NCAAB_TEAM_MAPPINGS: Record<string, string> = {
+  ...CFB_TEAM_MAPPINGS, // Most CFB schools have basketball too
+  'Duke': 'Duke',
+  'Kansas': 'Kansas',
+  'Gonzaga': 'Gonzaga',
+  'UConn': 'Connecticut',
+  'Connecticut': 'Connecticut',
+  'Villanova': 'Villanova',
+  'UCLA': 'UCLA',
+  'Arizona': 'Arizona',
+  'Purdue': 'Purdue',
+  'Virginia': 'Virginia',
+  'Marquette': 'Marquette',
+  'Creighton': 'Creighton',
+  'Indiana': 'Indiana',
+  'Illinois': 'Illinois',
+  'Houston': 'Houston',
+  'Baylor': 'Baylor',
+  'Syracuse': 'Syracuse',
+  'St. Johns': 'St. Johns',
+  "St. John's": "St. John's",
+  'Xavier': 'Xavier',
+  'Michigan State': 'Michigan State',
+  'Maryland': 'Maryland',
+  'Iowa State': 'Iowa State',
+  'Cincinnati': 'Cincinnati',
+  'Memphis': 'Memphis',
+  'San Diego State': 'San Diego State',
+  'Dayton': 'Dayton',
+};
+
+function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'): string {
   if (league === 'cfb') {
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
+  }
+  if (league === 'nba') {
+    return NBA_TEAM_MASCOTS[teamName] || teamName;
+  }
+  if (league === 'ncaab') {
+    return NCAAB_TEAM_MAPPINGS[teamName] || teamName;
   }
   return NFL_TEAM_MASCOTS[teamName] || teamName;
 }
@@ -139,9 +214,9 @@ async function getSportsMetadata(): Promise<PolymarketSport[]> {
   }
 }
 
-async function getLeagueTagId(league: 'nfl' | 'cfb'): Promise<string | null> {
+async function getLeagueTagId(league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): Promise<string | null> {
   const sports = await getSportsMetadata();
-  const sportName = league === 'nfl' ? 'nfl' : 'cfb';
+  const sportName = league; // nfl, cfb, nba, ncaab maps directly
   const sport = sports.find((s) => s.sport?.toLowerCase() === sportName);
   
   if (!sport) {
@@ -155,7 +230,7 @@ async function getLeagueTagId(league: 'nfl' | 'cfb'): Promise<string | null> {
   return primaryTagId;
 }
 
-async function getLeagueEvents(league: 'nfl' | 'cfb' = 'nfl'): Promise<PolymarketEvent[]> {
+async function getLeagueEvents(league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'): Promise<PolymarketEvent[]> {
   try {
     const tagId = await getLeagueTagId(league);
     
@@ -400,7 +475,7 @@ function transformPriceHistory(
 async function getAllMarketsDataFromCache(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' = 'nfl'
+  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   try {
     const gameKey = `${league}_${awayTeam}_${homeTeam}`;
@@ -455,7 +530,7 @@ async function getAllMarketsDataFromCache(
 async function getAllMarketsDataLive(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' = 'nfl'
+  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   try {
     const awayMascot = getTeamMascot(awayTeam, league);
@@ -514,7 +589,7 @@ async function getAllMarketsDataLive(
 export async function getAllMarketsData(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' = 'nfl'
+  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   const cachedData = await getAllMarketsDataFromCache(awayTeam, homeTeam, league);
   

@@ -3,6 +3,68 @@ import { NFLPrediction } from '../types/nfl';
 import { CFBPrediction } from '../types/cfb';
 import { NBAGame } from '../types/nba';
 import { NCAABGame } from '../types/ncaab';
+import { getAllMarketsData } from './polymarketService';
+import { PolymarketAllMarketsData } from '../types/polymarket';
+
+// Interface for game with Polymarket data
+interface GameWithPolymarket<T> {
+  game: T;
+  polymarket: PolymarketAllMarketsData | null;
+}
+
+// Batch fetch Polymarket data for multiple games (with rate limiting)
+async function fetchPolymarketDataForGames<T extends { away_team: string; home_team: string }>(
+  games: T[],
+  league: 'nfl' | 'cfb' | 'nba' | 'ncaab'
+): Promise<Map<string, PolymarketAllMarketsData | null>> {
+  const polymarketMap = new Map<string, PolymarketAllMarketsData | null>();
+  
+  // Limit to first 10 games to avoid too many API calls
+  const gamesToFetch = games.slice(0, 10);
+  
+  // Fetch in parallel but with some throttling
+  const results = await Promise.allSettled(
+    gamesToFetch.map(async (game, index) => {
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, index * 100));
+      const key = `${game.away_team}_${game.home_team}`;
+      try {
+        const data = await getAllMarketsData(game.away_team, game.home_team, league);
+        return { key, data };
+      } catch (error) {
+        console.error(`Error fetching Polymarket for ${key}:`, error);
+        return { key, data: null };
+      }
+    })
+  );
+  
+  results.forEach(result => {
+    if (result.status === 'fulfilled') {
+      polymarketMap.set(result.value.key, result.value.data);
+    }
+  });
+  
+  return polymarketMap;
+}
+
+// Format Polymarket data as context string
+function formatPolymarketContext(polymarket: PolymarketAllMarketsData | null): string {
+  if (!polymarket) return 'N/A';
+  
+  const parts: string[] = [];
+  
+  if (polymarket.moneyline) {
+    parts.push(`ML: ${polymarket.moneyline.currentAwayOdds}% - ${polymarket.moneyline.currentHomeOdds}%`);
+  }
+  if (polymarket.spread) {
+    parts.push(`Spread: ${polymarket.spread.currentAwayOdds}% - ${polymarket.spread.currentHomeOdds}%`);
+  }
+  if (polymarket.total) {
+    parts.push(`Total: Over ${polymarket.total.currentAwayOdds}% / Under ${polymarket.total.currentHomeOdds}%`);
+  }
+  
+  return parts.length > 0 ? parts.join(' | ') : 'N/A';
+}
 
 /**
  * Fetch NFL predictions from nfl_predictions_epa table and betting lines
@@ -170,7 +232,7 @@ export async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
 /**
  * Format NFL predictions as markdown context for AI
  */
-function formatNFLContext(predictions: NFLPrediction[]): string {
+function formatNFLContext(predictions: NFLPrediction[], polymarketMap?: Map<string, PolymarketAllMarketsData | null>): string {
   if (!predictions || predictions.length === 0) return '';
 
   const contextParts = predictions.slice(0, 20).map((pred, idx) => {
@@ -179,6 +241,10 @@ function formatNFLContext(predictions: NFLPrediction[]): string {
       const homeTeam = pred.home_team || 'Unknown';
       const gameDate = pred.game_date ? new Date(pred.game_date).toLocaleDateString() : 'TBD';
       const gameTime = pred.game_time || 'TBD';
+
+      // Get Polymarket data for this game
+      const gameKey = `${awayTeam}_${homeTeam}`;
+      const polymarket = polymarketMap?.get(gameKey) || null;
 
       // Calculate predictions
       const mlWinner = pred.home_away_ml_prob 
@@ -199,6 +265,25 @@ function formatNFLContext(predictions: NFLPrediction[]): string {
           : `UNDER ${pred.over_line} (${((1 - pred.ou_result_prob) * 100).toFixed(1)}% confidence)`
         : 'N/A';
 
+      // Format Polymarket data
+      let polymarketSection = '';
+      if (polymarket) {
+        polymarketSection = `
+**Polymarket Prediction Markets:**`;
+        if (polymarket.moneyline) {
+          polymarketSection += `
+- Moneyline: ${awayTeam} ${polymarket.moneyline.currentAwayOdds}% / ${homeTeam} ${polymarket.moneyline.currentHomeOdds}%`;
+        }
+        if (polymarket.spread) {
+          polymarketSection += `
+- Spread: Away cover ${polymarket.spread.currentAwayOdds}% / Home cover ${polymarket.spread.currentHomeOdds}%`;
+        }
+        if (polymarket.total) {
+          polymarketSection += `
+- Total: Over ${polymarket.total.currentAwayOdds}% / Under ${polymarket.total.currentHomeOdds}%`;
+        }
+      }
+
       return `
 ### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
 
@@ -214,6 +299,7 @@ function formatNFLContext(predictions: NFLPrediction[]): string {
 - **Spread Pick:** ${spreadPick}
 - **Over/Under Pick:** ${ouPick}
 - Raw Probabilities: ML ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'} | Spread ${pred.home_away_spread_cover_prob ? (pred.home_away_spread_cover_prob * 100).toFixed(1) + '%' : 'N/A'} | O/U ${pred.ou_result_prob ? (pred.ou_result_prob * 100).toFixed(1) + '%' : 'N/A'}
+${polymarketSection}
 
 **Weather:** ${pred.temperature ? pred.temperature + '°F' : 'N/A'}, Wind: ${pred.wind_speed ? pred.wind_speed + ' mph' : 'N/A'}
 
@@ -231,7 +317,9 @@ function formatNFLContext(predictions: NFLPrediction[]): string {
 
   return `# 🏈 NFL Games Data
 
-I have access to **${predictions.length} NFL games** with complete betting lines, model predictions (EPA Model), weather data, and public betting splits.
+I have access to **${predictions.length} NFL games** with complete betting lines, model predictions (EPA Model), weather data, public betting splits, and Polymarket prediction market data.
+
+**POLYMARKET DATA:** Real money prediction market probabilities from Polymarket showing what bettors are wagering on moneyline, spread, and totals.
 
 ${contextParts}`;
 }
@@ -239,7 +327,7 @@ ${contextParts}`;
 /**
  * Format CFB predictions as markdown context for AI
  */
-function formatCFBContext(predictions: CFBPrediction[]): string {
+function formatCFBContext(predictions: CFBPrediction[], polymarketMap?: Map<string, PolymarketAllMarketsData | null>): string {
   if (!predictions || predictions.length === 0) return '';
 
   const contextParts = predictions.slice(0, 20).map((pred, idx) => {
@@ -248,6 +336,10 @@ function formatCFBContext(predictions: CFBPrediction[]): string {
       const homeTeam = pred.home_team || 'Unknown';
       const gameTime = pred.game_time || pred.game_date || 'TBD';
       const gameDate = gameTime !== 'TBD' ? new Date(gameTime).toLocaleDateString() : 'TBD';
+
+      // Get Polymarket data for this game
+      const gameKey = `${awayTeam}_${homeTeam}`;
+      const polymarket = polymarketMap?.get(gameKey) || null;
 
       // Calculate predictions
       const mlWinner = pred.home_away_ml_prob 
@@ -277,6 +369,25 @@ function formatCFBContext(predictions: CFBPrediction[]): string {
         ? `${pred.total_diff > 0 ? '+' : ''}${pred.total_diff.toFixed(1)} points (${pred.total_diff > 0 ? 'OVER has VALUE' : 'UNDER has VALUE'})`
         : 'N/A';
 
+      // Format Polymarket data
+      let polymarketSection = '';
+      if (polymarket) {
+        polymarketSection = `
+**Polymarket Prediction Markets:**`;
+        if (polymarket.moneyline) {
+          polymarketSection += `
+- Moneyline: ${awayTeam} ${polymarket.moneyline.currentAwayOdds}% / ${homeTeam} ${polymarket.moneyline.currentHomeOdds}%`;
+        }
+        if (polymarket.spread) {
+          polymarketSection += `
+- Spread: Away cover ${polymarket.spread.currentAwayOdds}% / Home cover ${polymarket.spread.currentHomeOdds}%`;
+        }
+        if (polymarket.total) {
+          polymarketSection += `
+- Total: Over ${polymarket.total.currentAwayOdds}% / Under ${polymarket.total.currentHomeOdds}%`;
+        }
+      }
+
       return `
 ### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
 ${pred.conference ? `**Conference:** ${pred.conference}` : ''}
@@ -297,6 +408,7 @@ ${pred.conference ? `**Conference:** ${pred.conference}` : ''}
 - **Moneyline:** ${mlWinner}
 - **Spread:** ${spreadPick}
 - **Over/Under:** ${ouPick}
+${polymarketSection}
 
 **VALUE ANALYSIS (Model vs. Market):**
 - **Spread Difference:** ${spreadValue}
@@ -324,9 +436,11 @@ ${pred.over_line_diff !== null && pred.over_line_diff !== undefined ? `- **O/U L
 
   return `# 🏈 College Football Games Data
 
-I have access to **${predictions.length} College Football games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), weather data, and public betting splits.
+I have access to **${predictions.length} College Football games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), weather data, public betting splits, and Polymarket prediction market data.
 
 **KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER.
+
+**POLYMARKET DATA:** Real money prediction market probabilities from Polymarket showing what bettors are wagering on moneyline, spread, and totals.
 
 ${contextParts}`;
 }
@@ -543,7 +657,7 @@ export async function fetchNCAABPredictions(): Promise<NCAABGame[]> {
 /**
  * Format NBA predictions as markdown context for AI
  */
-function formatNBAContext(predictions: NBAGame[]): string {
+function formatNBAContext(predictions: NBAGame[], polymarketMap?: Map<string, PolymarketAllMarketsData | null>): string {
   if (!predictions || predictions.length === 0) return '';
 
   const contextParts = predictions.slice(0, 20).map((pred, idx) => {
@@ -552,6 +666,10 @@ function formatNBAContext(predictions: NBAGame[]): string {
       const homeTeam = pred.home_team || 'Unknown';
       const gameDate = pred.game_date ? new Date(pred.game_date).toLocaleDateString() : 'TBD';
       const gameTime = pred.game_time || 'TBD';
+
+      // Get Polymarket data for this game
+      const gameKey = `${awayTeam}_${homeTeam}`;
+      const polymarket = polymarketMap?.get(gameKey) || null;
 
       // Calculate predictions
       const mlWinner = pred.home_away_ml_prob 
@@ -581,6 +699,25 @@ function formatNBAContext(predictions: NBAGame[]): string {
         ? `${(pred.model_fair_total - pred.over_line).toFixed(1)} points (${pred.model_fair_total > pred.over_line ? 'OVER has VALUE' : 'UNDER has VALUE'})`
         : 'N/A';
 
+      // Format Polymarket data
+      let polymarketSection = '';
+      if (polymarket) {
+        polymarketSection = `
+**Polymarket Prediction Markets:**`;
+        if (polymarket.moneyline) {
+          polymarketSection += `
+- Moneyline: ${awayTeam} ${polymarket.moneyline.currentAwayOdds}% / ${homeTeam} ${polymarket.moneyline.currentHomeOdds}%`;
+        }
+        if (polymarket.spread) {
+          polymarketSection += `
+- Spread: Away cover ${polymarket.spread.currentAwayOdds}% / Home cover ${polymarket.spread.currentHomeOdds}%`;
+        }
+        if (polymarket.total) {
+          polymarketSection += `
+- Total: Over ${polymarket.total.currentAwayOdds}% / Under ${polymarket.total.currentHomeOdds}%`;
+        }
+      }
+
       return `
 ### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
 
@@ -600,6 +737,7 @@ function formatNBAContext(predictions: NBAGame[]): string {
 - **Moneyline:** ${mlWinner}
 - **Spread:** ${spreadPick}
 - **Over/Under:** ${ouPick}
+${polymarketSection}
 
 **VALUE ANALYSIS (Model vs. Market):**
 - **Spread Difference:** ${spreadValue}
@@ -627,9 +765,11 @@ function formatNBAContext(predictions: NBAGame[]): string {
 
   return `# 🏀 NBA Games Data
 
-I have access to **${predictions.length} NBA games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), and betting trends (ATS%, Over%).
+I have access to **${predictions.length} NBA games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), betting trends (ATS%, Over%), and Polymarket prediction market data.
 
 **KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER.
+
+**POLYMARKET DATA:** Real money prediction market probabilities from Polymarket showing what bettors are wagering on moneyline, spread, and totals.
 
 ${contextParts}`;
 }
@@ -637,7 +777,7 @@ ${contextParts}`;
 /**
  * Format NCAAB predictions as markdown context for AI
  */
-function formatNCAABContext(predictions: NCAABGame[]): string {
+function formatNCAABContext(predictions: NCAABGame[], polymarketMap?: Map<string, PolymarketAllMarketsData | null>): string {
   if (!predictions || predictions.length === 0) return '';
 
   const contextParts = predictions.slice(0, 20).map((pred, idx) => {
@@ -646,6 +786,10 @@ function formatNCAABContext(predictions: NCAABGame[]): string {
       const homeTeam = pred.home_team || 'Unknown';
       const gameDate = pred.game_date ? new Date(pred.game_date).toLocaleDateString() : 'TBD';
       const gameTime = pred.game_time || 'TBD';
+
+      // Get Polymarket data for this game
+      const gameKey = `${awayTeam}_${homeTeam}`;
+      const polymarket = polymarketMap?.get(gameKey) || null;
 
       // Calculate predictions
       const mlWinner = pred.home_away_ml_prob 
@@ -675,6 +819,25 @@ function formatNCAABContext(predictions: NCAABGame[]): string {
         ? `${(pred.pred_total_points - pred.over_line).toFixed(1)} points (${pred.pred_total_points > pred.over_line ? 'OVER has VALUE' : 'UNDER has VALUE'})`
         : 'N/A';
 
+      // Format Polymarket data
+      let polymarketSection = '';
+      if (polymarket) {
+        polymarketSection = `
+**Polymarket Prediction Markets:**`;
+        if (polymarket.moneyline) {
+          polymarketSection += `
+- Moneyline: ${awayTeam} ${polymarket.moneyline.currentAwayOdds}% / ${homeTeam} ${polymarket.moneyline.currentHomeOdds}%`;
+        }
+        if (polymarket.spread) {
+          polymarketSection += `
+- Spread: Away cover ${polymarket.spread.currentAwayOdds}% / Home cover ${polymarket.spread.currentHomeOdds}%`;
+        }
+        if (polymarket.total) {
+          polymarketSection += `
+- Total: Over ${polymarket.total.currentAwayOdds}% / Under ${polymarket.total.currentHomeOdds}%`;
+        }
+      }
+
       return `
 ### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
 ${pred.conference_game ? '**Conference Game:** Yes' : ''}
@@ -699,6 +862,7 @@ ${pred.away_ranking ? `**${awayTeam} Ranking:** #${pred.away_ranking}` : ''}
 - **Moneyline:** ${mlWinner}
 - **Spread:** ${spreadPick}
 - **Over/Under:** ${ouPick}
+${polymarketSection}
 
 **VALUE ANALYSIS (Model vs. Market):**
 - **Spread Difference:** ${spreadValue}
@@ -722,9 +886,11 @@ ${pred.away_ranking ? `**${awayTeam} Ranking:** #${pred.away_ranking}` : ''}
 
   return `# 🏀 College Basketball Games Data
 
-I have access to **${predictions.length} College Basketball games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), rankings, and game context (conference games, neutral site).
+I have access to **${predictions.length} College Basketball games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), rankings, game context (conference games, neutral site), and Polymarket prediction market data.
 
 **KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER.
+
+**POLYMARKET DATA:** Real money prediction market probabilities from Polymarket showing what bettors are wagering on moneyline, spread, and totals.
 
 ${contextParts}`;
 }
@@ -735,6 +901,7 @@ ${contextParts}`;
 export async function fetchAndFormatGameContext(): Promise<string> {
   console.log('🔄 Fetching game data for AI context...');
 
+  // First, fetch all predictions
   const [nflPredictions, cfbPredictions, nbaPredictions, ncaabPredictions] = await Promise.all([
     fetchNFLPredictions(),
     fetchCFBPredictions(),
@@ -748,10 +915,25 @@ export async function fetchAndFormatGameContext(): Promise<string> {
   console.log(`   - NBA: ${nbaPredictions.length} games`);
   console.log(`   - NCAAB: ${ncaabPredictions.length} games`);
 
-  const nflContext = formatNFLContext(nflPredictions);
-  const cfbContext = formatCFBContext(cfbPredictions);
-  const nbaContext = formatNBAContext(nbaPredictions);
-  const ncaabContext = formatNCAABContext(ncaabPredictions);
+  // Fetch Polymarket data for all leagues in parallel
+  console.log('📈 Fetching Polymarket data...');
+  const [nflPolymarket, cfbPolymarket, nbaPolymarket, ncaabPolymarket] = await Promise.all([
+    fetchPolymarketDataForGames(nflPredictions, 'nfl'),
+    fetchPolymarketDataForGames(cfbPredictions, 'cfb'),
+    fetchPolymarketDataForGames(nbaPredictions, 'nba'),
+    fetchPolymarketDataForGames(ncaabPredictions, 'ncaab'),
+  ]);
+
+  console.log(`📈 Fetched Polymarket data:`);
+  console.log(`   - NFL: ${nflPolymarket.size} games`);
+  console.log(`   - CFB: ${cfbPolymarket.size} games`);
+  console.log(`   - NBA: ${nbaPolymarket.size} games`);
+  console.log(`   - NCAAB: ${ncaabPolymarket.size} games`);
+
+  const nflContext = formatNFLContext(nflPredictions, nflPolymarket);
+  const cfbContext = formatCFBContext(cfbPredictions, cfbPolymarket);
+  const nbaContext = formatNBAContext(nbaPredictions, nbaPolymarket);
+  const ncaabContext = formatNCAABContext(ncaabPredictions, ncaabPolymarket);
 
   console.log(`📝 Formatted contexts:`);
   console.log(`   - NFL context: ${nflContext.length} chars`);

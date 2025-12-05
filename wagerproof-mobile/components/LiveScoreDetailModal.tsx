@@ -2,7 +2,18 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import { useTheme, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LiveGame } from '@/types/liveScores';
+import { LinearGradient } from 'expo-linear-gradient';
+import { LiveGame, PredictionStatus } from '@/types/liveScores';
+import { 
+  getNFLTeamColors, 
+  getCFBTeamColors, 
+  getNBATeamColors,
+  getTeamInitials, 
+  getCFBTeamInitials, 
+  getNBATeamInitials,
+  getNCAABTeamInitials,
+  getContrastingTextColor 
+} from '@/utils/teamColors';
 
 interface LiveScoreDetailModalProps {
   game: LiveGame | null;
@@ -21,180 +32,112 @@ export function LiveScoreDetailModal({
 
   if (!game) return null;
 
-  const renderMoneylinePrediction = (prediction?: {
-    predicted: string;
-    isHitting: boolean;
-    probability: number;
-    currentDifferential: number;
-  }) => {
+  const { predictions } = game;
+
+  // Helper to get team colors based on league
+  const getTeamColors = (teamName: string) => {
+    switch (game.league) {
+      case 'NFL': return getNFLTeamColors(teamName);
+      case 'CFB': return getCFBTeamColors(teamName);
+      case 'NCAAF': return getCFBTeamColors(teamName);
+      case 'NBA': return getNBATeamColors(teamName);
+      case 'NCAAB': return getCFBTeamColors(teamName);
+      default: return { primary: '#6B7280', secondary: '#9CA3AF' };
+    }
+  };
+
+  // Helper to get initials based on league
+  const getInitials = (teamName: string, abbr?: string) => {
+    if (abbr) return abbr;
+    switch (game.league) {
+      case 'NFL': return getTeamInitials(teamName);
+      case 'CFB': return getCFBTeamInitials(teamName);
+      case 'NCAAF': return getCFBTeamInitials(teamName);
+      case 'NBA': return getNBATeamInitials(teamName);
+      case 'NCAAB': return getNCAABTeamInitials(teamName);
+      default: return teamName.substring(0, 3).toUpperCase();
+    }
+  };
+
+  const renderTeamCircle = (isHome: boolean) => {
+    const teamName = isHome ? game.home_team : game.away_team;
+    const abbr = isHome ? game.home_abbr : game.away_abbr;
+    const colors = getTeamColors(teamName);
+    const initials = getInitials(teamName, abbr);
+    const textColor = getContrastingTextColor(colors.primary, colors.secondary);
+
+    return (
+      <View style={styles.teamCircleContainer}>
+        <LinearGradient
+          colors={[colors.primary, colors.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.teamCircle}
+        >
+          <Text style={[styles.teamInitials, { color: textColor }]}>
+            {initials}
+          </Text>
+        </LinearGradient>
+        <Text style={[styles.teamName, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+          {teamName}
+        </Text>
+      </View>
+    );
+  };
+
+  const formatLine = (line?: number) => {
+    if (line === undefined || line === null) return '';
+    return line > 0 ? `+${line}` : `${line}`;
+  };
+
+  const renderPredictionRow = (
+    label: string, 
+    prediction?: PredictionStatus, 
+    detail?: string
+  ) => {
     if (!prediction) return null;
 
-    const predictedTeam = prediction.predicted === 'Home' ? game.home_team : game.away_team;
-    const currentLeader = game.home_score > game.away_score ? game.home_team : 
-                         game.away_score > game.home_score ? game.away_team : 'Tied';
-    const scoreDiff = Math.abs(prediction.currentDifferential);
+    const isHitting = prediction.isHitting;
+    const hitColor = '#22D35F';
+    const missColor = '#EF4444';
+    const statusColor = isHitting ? hitColor : missColor;
+    const bgColor = isHitting ? 'rgba(34, 211, 95, 0.1)' : 'rgba(239, 68, 68, 0.1)';
 
     return (
-      <View style={[styles.predictionCard, { backgroundColor: prediction.isHitting ? 'rgba(34, 211, 95, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+      <View style={[styles.predictionRow, { backgroundColor: bgColor, borderColor: isHitting ? 'rgba(34, 211, 95, 0.3)' : 'rgba(239, 68, 68, 0.3)' }]}>
         <View style={styles.predictionHeader}>
-          <Text style={[styles.predictionType, { color: theme.colors.onSurface }]}>Moneyline</Text>
-          <View style={[
-            styles.statusBadge,
-            { backgroundColor: prediction.isHitting ? '#22D35F' : '#EF4444' }
-          ]}>
-            <MaterialCommunityIcons 
-              name={prediction.isHitting ? 'check' : 'close'} 
-              size={14} 
-              color="#FFFFFF" 
-            />
-            <Text style={styles.statusText}>
-              {prediction.isHitting ? 'Hitting' : 'Missing'}
+          <MaterialCommunityIcons 
+            name={isHitting ? "check-circle" : "close-circle"} 
+            size={18} 
+            color={statusColor} 
+          />
+          <View style={styles.predictionInfo}>
+            <Text style={[styles.predictionType, { color: theme.colors.onSurface }]}>{label}</Text>
+            <Text style={[styles.predictionValue, { color: theme.colors.onSurfaceVariant }]}>
+              {detail}
             </Text>
           </View>
         </View>
-        
-        <View style={styles.comparisonRow}>
-          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Predicted:</Text>
-          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>{predictedTeam} wins</Text>
-        </View>
-        
-        <View style={styles.comparisonRow}>
-          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Current:</Text>
-          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
-            {currentLeader === 'Tied' ? 'Game is tied' : `${currentLeader} leading by ${scoreDiff}`}
+        <View style={styles.predictionStatus}>
+          <View style={styles.statusBadge}>
+            <MaterialCommunityIcons 
+              name={isHitting ? "trending-up" : "trending-down"} 
+              size={14} 
+              color={statusColor} 
+            />
+            <Text style={[styles.statusText, { color: statusColor }]}>
+              {isHitting ? "Hitting" : "Not Hitting"}
+            </Text>
+          </View>
+          <Text style={[styles.probabilityText, { color: theme.colors.onSurfaceVariant }]}>
+            {(prediction.probability * 100).toFixed(0)}% Conf.
           </Text>
         </View>
-        
-        <Text style={[styles.confidence, { color: theme.colors.onSurfaceVariant }]}>
-          {(prediction.probability * 100).toFixed(0)}% confidence
-        </Text>
       </View>
     );
   };
 
-  const renderSpreadPrediction = (prediction?: {
-    predicted: string;
-    isHitting: boolean;
-    probability: number;
-    line?: number;
-    currentDifferential: number;
-  }) => {
-    if (!prediction || prediction.line === undefined) return null;
-
-    const predictedTeam = prediction.predicted === 'Home' ? game.home_team : game.away_team;
-    const spreadLine = prediction.predicted === 'Home' ? prediction.line : -prediction.line;
-    const currentDiff = prediction.currentDifferential;
-    const pointsNeeded = prediction.isHitting ? 0 : Math.abs(currentDiff) + 0.5;
-
-    return (
-      <View style={[styles.predictionCard, { backgroundColor: prediction.isHitting ? 'rgba(34, 211, 95, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
-        <View style={styles.predictionHeader}>
-          <Text style={[styles.predictionType, { color: theme.colors.onSurface }]}>Spread</Text>
-          <View style={[
-            styles.statusBadge,
-            { backgroundColor: prediction.isHitting ? '#22D35F' : '#EF4444' }
-          ]}>
-            <MaterialCommunityIcons 
-              name={prediction.isHitting ? 'check' : 'close'} 
-              size={14} 
-              color="#FFFFFF" 
-            />
-            <Text style={styles.statusText}>
-              {prediction.isHitting ? 'Hitting' : 'Missing'}
-            </Text>
-          </View>
-        </View>
-        
-        <View style={styles.comparisonRow}>
-          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Predicted:</Text>
-          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
-            {predictedTeam} covers {spreadLine > 0 ? '+' : ''}{spreadLine.toFixed(1)}
-          </Text>
-        </View>
-        
-        <View style={styles.comparisonRow}>
-          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Current diff:</Text>
-          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
-            {currentDiff > 0 ? '+' : ''}{currentDiff.toFixed(1)}
-          </Text>
-        </View>
-        
-        {!prediction.isHitting && (
-          <View style={styles.comparisonRow}>
-            <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Needs:</Text>
-            <Text style={[styles.comparisonValue, { color: '#EF4444' }]}>
-              {pointsNeeded.toFixed(1)} more points
-            </Text>
-          </View>
-        )}
-        
-        <Text style={[styles.confidence, { color: theme.colors.onSurfaceVariant }]}>
-          {(prediction.probability * 100).toFixed(0)}% confidence
-        </Text>
-      </View>
-    );
-  };
-
-  const renderOverUnderPrediction = (prediction?: {
-    predicted: string;
-    isHitting: boolean;
-    probability: number;
-    line?: number;
-    currentDifferential: number;
-  }) => {
-    if (!prediction || prediction.line === undefined) return null;
-
-    const totalScore = game.home_score + game.away_score;
-    const pointsNeeded = prediction.isHitting ? 0 : Math.abs(prediction.currentDifferential) + 0.5;
-
-    return (
-      <View style={[styles.predictionCard, { backgroundColor: prediction.isHitting ? 'rgba(34, 211, 95, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
-        <View style={styles.predictionHeader}>
-          <Text style={[styles.predictionType, { color: theme.colors.onSurface }]}>Over/Under</Text>
-          <View style={[
-            styles.statusBadge,
-            { backgroundColor: prediction.isHitting ? '#22D35F' : '#EF4444' }
-          ]}>
-            <MaterialCommunityIcons 
-              name={prediction.isHitting ? 'check' : 'close'} 
-              size={14} 
-              color="#FFFFFF" 
-            />
-            <Text style={styles.statusText}>
-              {prediction.isHitting ? 'Hitting' : 'Missing'}
-            </Text>
-          </View>
-        </View>
-        
-        <View style={styles.comparisonRow}>
-          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Predicted:</Text>
-          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
-            {prediction.predicted} {prediction.line.toFixed(1)}
-          </Text>
-        </View>
-        
-        <View style={styles.comparisonRow}>
-          <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Current total:</Text>
-          <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
-            {totalScore}
-          </Text>
-        </View>
-        
-        {!prediction.isHitting && (
-          <View style={styles.comparisonRow}>
-            <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Needs:</Text>
-            <Text style={[styles.comparisonValue, { color: '#EF4444' }]}>
-              {pointsNeeded.toFixed(1)} more points
-            </Text>
-          </View>
-        )}
-        
-        <Text style={[styles.confidence, { color: theme.colors.onSurfaceVariant }]}>
-          {(prediction.probability * 100).toFixed(0)}% confidence
-        </Text>
-      </View>
-    );
-  };
+  const hasPredictions = predictions && (predictions.moneyline || predictions.spread || predictions.overUnder);
 
   return (
     <Modal
@@ -212,7 +155,7 @@ export function LiveScoreDetailModal({
         
         <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
           {/* Header */}
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outline }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outlineVariant }]}>
             <View style={styles.modalTitleContainer}>
               <View style={[styles.leagueBadge, { backgroundColor: theme.colors.primaryContainer }]}>
                 <Text style={[styles.leagueBadgeText, { color: theme.colors.onPrimaryContainer }]}>
@@ -220,7 +163,7 @@ export function LiveScoreDetailModal({
                 </Text>
               </View>
               <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
-                Live Game Details
+                Live Game
               </Text>
             </View>
             <IconButton
@@ -230,50 +173,77 @@ export function LiveScoreDetailModal({
             />
           </View>
 
-          <ScrollView style={styles.scrollContent}>
-            {/* Game Score */}
-            <View style={styles.scoreSection}>
-              <View style={styles.teamScoreRow}>
-                <Text style={[styles.teamName, { color: theme.colors.onSurface }]}>
-                  {game.away_team}
-                </Text>
-                <Text style={[styles.bigScore, { color: theme.colors.onSurface }]}>
-                  {game.away_score}
-                </Text>
-              </View>
-              
-              <View style={styles.teamScoreRow}>
-                <Text style={[styles.teamName, { color: theme.colors.onSurface }]}>
-                  {game.home_team}
-                </Text>
-                <Text style={[styles.bigScore, { color: theme.colors.onSurface }]}>
-                  {game.home_score}
-                </Text>
-              </View>
+          <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {/* Score Header - Matches expanded card */}
+            <View style={[styles.scoreHeader, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }]}>
+              <View style={styles.teamsRow}>
+                {renderTeamCircle(false)}
+                
+                <View style={styles.scoreContainer}>
+                  <View style={styles.scoreRow}>
+                    <Text style={[styles.score, { color: theme.colors.onSurface }]}>{game.away_score}</Text>
+                    <Text style={[styles.scoreDivider, { color: theme.colors.onSurfaceVariant }]}>-</Text>
+                    <Text style={[styles.score, { color: theme.colors.onSurface }]}>{game.home_score}</Text>
+                  </View>
+                  <View style={styles.gameStatus}>
+                    <Text style={[styles.quarter, { color: theme.colors.onSurfaceVariant }]}>
+                      {game.quarter || game.period}
+                    </Text>
+                    {game.time_remaining && (
+                      <Text style={[styles.time, { color: theme.colors.onSurfaceVariant }]}>
+                        {game.time_remaining}
+                      </Text>
+                    )}
+                  </View>
+                </View>
 
-              <View style={styles.gameStatus}>
-                <Text style={[styles.statusText, { color: theme.colors.onSurfaceVariant }]}>
-                  {game.quarter} {game.time_remaining && `• ${game.time_remaining}`}
-                </Text>
+                {renderTeamCircle(true)}
               </View>
             </View>
 
-            {/* Predictions */}
-            {game.predictions && (
+            {/* Predictions Section */}
+            {hasPredictions ? (
               <View style={styles.predictionsSection}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                  Model Predictions vs. Actual
+                <Text style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant }]}>
+                  AI MODEL PREDICTIONS
                 </Text>
                 
-                {renderMoneylinePrediction(game.predictions.moneyline)}
-                {renderSpreadPrediction(game.predictions.spread)}
-                {renderOverUnderPrediction(game.predictions.overUnder)}
+                <View style={styles.predictionsList}>
+                  {predictions?.moneyline && renderPredictionRow(
+                    "Moneyline",
+                    predictions.moneyline,
+                    `${predictions.moneyline.predicted} to win`
+                  )}
+                  
+                  {predictions?.spread && renderPredictionRow(
+                    "Spread",
+                    predictions.spread,
+                    `${predictions.spread.predicted} ${formatLine(predictions.spread.line)}`
+                  )}
+                  
+                  {predictions?.overUnder && renderPredictionRow(
+                    "Over/Under",
+                    predictions.overUnder,
+                    `${predictions.overUnder.predicted} ${predictions.overUnder.line}`
+                  )}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.noPredictionsContainer}>
+                <MaterialCommunityIcons 
+                  name="chart-line-variant" 
+                  size={48} 
+                  color={theme.colors.onSurfaceVariant} 
+                />
+                <Text style={[styles.noPredictionsText, { color: theme.colors.onSurfaceVariant }]}>
+                  No predictions available for this game
+                </Text>
               </View>
             )}
           </ScrollView>
 
           {/* Footer Button */}
-          <View style={[styles.footer, { borderTopColor: theme.colors.outline }]}>
+          <View style={[styles.footer, { borderTopColor: theme.colors.outlineVariant }]}>
             <TouchableOpacity 
               style={[styles.fullScoreboardButton, { backgroundColor: theme.colors.primary }]}
               onPress={onViewFullScoreboard}
@@ -304,7 +274,7 @@ const styles = StyleSheet.create({
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '75%',
+    maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
@@ -325,8 +295,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   leagueBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 6,
   },
   leagueBadgeText: {
@@ -338,89 +308,134 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
-  scoreSection: {
-    paddingVertical: 20,
+  scoreHeader: {
+    padding: 20,
   },
-  teamScoreRow: {
+  teamsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+  },
+  teamCircleContainer: {
+    alignItems: 'center',
+    width: 90,
+  },
+  teamCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  teamInitials: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   teamName: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 12,
+    textAlign: 'center',
   },
-  bigScore: {
-    fontSize: 32,
+  scoreContainer: {
+    alignItems: 'center',
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 6,
+  },
+  score: {
+    fontSize: 36,
+    fontWeight: 'bold',
+  },
+  scoreDivider: {
+    fontSize: 24,
     fontWeight: 'bold',
   },
   gameStatus: {
-    marginTop: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  quarter: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  time: {
+    fontSize: 14,
   },
   predictionsSection: {
-    paddingVertical: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
   },
-  predictionCard: {
-    borderRadius: 12,
-    padding: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
+  predictionsList: {
+    gap: 10,
   },
-  predictionHeader: {
+  predictionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  predictionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  predictionInfo: {
+    gap: 2,
   },
   predictionType: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
+  },
+  predictionValue: {
+    fontSize: 12,
+  },
+  predictionStatus: {
+    alignItems: 'flex-end',
+    gap: 3,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
     gap: 4,
   },
   statusText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
-  comparisonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  probabilityText: {
+    fontSize: 11,
+  },
+  noPredictionsContainer: {
     alignItems: 'center',
-    paddingVertical: 4,
+    justifyContent: 'center',
+    padding: 40,
+    gap: 12,
   },
-  comparisonLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  comparisonValue: {
+  noPredictionsText: {
     fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'right',
-    flex: 1,
-    marginLeft: 12,
-  },
-  confidence: {
-    fontSize: 11,
-    marginTop: 4,
-    fontStyle: 'italic',
+    textAlign: 'center',
   },
   footer: {
     padding: 16,

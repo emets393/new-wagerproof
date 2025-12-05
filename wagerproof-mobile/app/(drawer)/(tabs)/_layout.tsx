@@ -1,7 +1,7 @@
 import { Tabs, usePathname, useRouter, useSegments } from 'expo-router';
 import { useTheme } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ScrollProvider, useScroll } from '@/contexts/ScrollContext';
 import { Animated, TouchableOpacity, Text, StyleSheet, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,54 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { BlurView } from 'expo-blur';
+
+function LiveIndicator() {
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [pulseAnim]);
+
+  const animatedOpacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.4, 1],
+  });
+
+  const animatedScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.2],
+  });
+
+  return (
+    <View style={styles.liveIndicatorContainer}>
+      <Animated.View
+        style={[
+          styles.liveIndicatorPulse,
+          {
+            opacity: animatedOpacity,
+            transform: [{ scale: animatedScale }],
+          },
+        ]}
+      />
+      <View style={styles.liveIndicatorDot} />
+    </View>
+  );
+}
 
 function FloatingTabBar() {
   const theme = useTheme();
@@ -23,6 +71,8 @@ function FloatingTabBar() {
   const tabs = [
     { name: 'index', path: '/(drawer)/(tabs)/', title: 'Feed', icon: 'home' },
     { name: 'picks', path: '/(drawer)/(tabs)/picks', title: 'Picks', icon: 'star' },
+    { name: 'outliers', path: '/(drawer)/(tabs)/outliers', title: 'Outliers', icon: 'trending-up' },
+    { name: 'scoreboard', path: '/(drawer)/(tabs)/scoreboard', title: 'Scores', icon: 'scoreboard' },
   ];
 
   // Calculate collapsible height (must match the feed screen)
@@ -71,7 +121,7 @@ function FloatingTabBar() {
         {/* Live Ticker at top of tab bar */}
         {hasLiveGames && (
           <View style={styles.liveTickerContainer}>
-            <LiveScoreTicker onNavigateToScoreboard={() => router.push('/(modals)/scoreboard')} />
+            <LiveScoreTicker onNavigateToScoreboard={() => router.push('/(drawer)/(tabs)/scoreboard')} />
           </View>
         )}
         
@@ -100,7 +150,9 @@ function FloatingTabBar() {
               const isNotOtherTab = !normalizedPathname.includes('/picks')
                 && !normalizedPathname.includes('/chat')
                 && !normalizedPathname.includes('/feature-requests')
-                && !normalizedPathname.includes('/settings');
+                && !normalizedPathname.includes('/settings')
+                && !normalizedPathname.includes('/outliers')
+                && !normalizedPathname.includes('/scoreboard');
               isActive = (isRootTabsRoute || segmentsMatch) && isNotOtherTab;
             } else {
               // For other tabs: check if pathname matches or segments include the tab name
@@ -119,7 +171,10 @@ function FloatingTabBar() {
                 style={styles.tabButton}
                 onPress={() => router.push(tab.path as any)}
               >
-                <MaterialCommunityIcons name={tab.icon as any} size={24} color={color} />
+                <View style={styles.tabIconContainer}>
+                  <MaterialCommunityIcons name={tab.icon as any} size={24} color={color} />
+                  {tab.name === 'scoreboard' && hasLiveGames && <LiveIndicator />}
+                </View>
                 <Text style={[styles.tabLabel, { color }]}>{tab.title}</Text>
               </TouchableOpacity>
             );
@@ -164,9 +219,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
+  tabIconContainer: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   tabLabel: {
     fontSize: 12,
     marginTop: 4,
+  },
+  liveIndicatorContainer: {
+    position: 'absolute',
+    top: -2,
+    right: -6,
+    width: 10,
+    height: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  liveIndicatorPulse: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#00E676',
+  },
+  liveIndicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00E676',
+    shadowColor: '#00E676',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
   },
 });
 
@@ -195,6 +282,33 @@ function TabsContent() {
         }}
       />
       <Tabs.Screen
+        name="picks"
+        options={{
+          title: 'Picks',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="star" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="outliers"
+        options={{
+          title: 'Outliers',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="trending-up" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="scoreboard"
+        options={{
+          title: 'Scores',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="scoreboard" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="chat"
         options={{
           title: 'Chat',
@@ -202,15 +316,6 @@ function TabsContent() {
             <MaterialCommunityIcons name="message-text" size={size} color={color} />
           ),
           href: null, // Chat is now accessed via bottom sheet from header
-        }}
-      />
-      <Tabs.Screen
-        name="picks"
-        options={{
-          title: 'Picks',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="star" size={size} color={color} />
-          ),
         }}
       />
       <Tabs.Screen

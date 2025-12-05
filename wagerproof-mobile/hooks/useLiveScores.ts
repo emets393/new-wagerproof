@@ -49,6 +49,7 @@ export function useLiveScores() {
   return {
     games,
     isLoading,
+    loading: isLoading, // Alias for compatibility
     error,
     hasLiveGames,
     refetch: fetchGames

@@ -17,6 +17,7 @@ export interface GamePredictions {
 
 export interface LiveGame {
   id: string;
+  game_id?: string;
   league: string;
   home_team: string;
   away_team: string;
@@ -25,6 +26,7 @@ export interface LiveGame {
   home_score: number;
   away_score: number;
   quarter: string;
+  period?: string;
   time_remaining: string;
   is_live: boolean;
   game_status: string;
