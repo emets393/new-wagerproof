@@ -814,6 +814,21 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             return;
           }
           
+          // FALLBACK: If onprogress didn't fire (common in React Native), use responseText directly
+          if (!currentContent && xhr.responseText) {
+            console.log('⚠️ onprogress did not fire - using responseText fallback');
+            currentContent = xhr.responseText;
+            
+            // Update UI with the complete response
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: currentContent }
+                  : msg
+              )
+            );
+          }
+          
           if (!currentContent) {
             reject(new Error('No content received from BuildShip'));
             return;
