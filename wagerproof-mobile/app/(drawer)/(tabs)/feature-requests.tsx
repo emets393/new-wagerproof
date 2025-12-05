@@ -19,6 +19,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { AlertCardShimmer } from '@/components/AlertCardShimmer';
 
 interface FeatureRequest {
   id: string;
@@ -375,12 +376,29 @@ export default function FeatureRequestsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
-            Loading feature requests...
-          </Text>
-        </View>
+        <ScrollView 
+            contentContainerStyle={{ 
+                paddingTop: insets.top + 80, 
+                paddingHorizontal: 20,
+                paddingBottom: 20 
+            }}
+        >
+            <View style={{ marginBottom: 16 }}>
+                <View style={{ height: 24, width: 150, backgroundColor: theme.colors.surfaceVariant, borderRadius: 8, marginBottom: 16 }} />
+                {[1, 2, 3].map((i) => (
+                    <AlertCardShimmer key={`shim-1-${i}`} />
+                ))}
+            </View>
+            
+            <Divider style={styles.divider} />
+
+            <View style={{ marginTop: 16 }}>
+                <View style={{ height: 24, width: 150, backgroundColor: theme.colors.surfaceVariant, borderRadius: 8, marginBottom: 16 }} />
+                {[1, 2, 3].map((i) => (
+                    <AlertCardShimmer key={`shim-2-${i}`} />
+                ))}
+            </View>
+        </ScrollView>
 
         {/* Frosted Glass Header */}
         <BlurView

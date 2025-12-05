@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { LiveScoreCard } from '@/components/LiveScoreCard';
+import { LiveScoreCardShimmer } from '@/components/LiveScoreCardShimmer';
 import { LiveScorePredictionCard } from '@/components/LiveScorePredictionCard';
 import { LiveScoreDetailModal } from '@/components/LiveScoreDetailModal';
 import { useScroll } from '@/contexts/ScrollContext';
@@ -201,8 +202,20 @@ export default function ScoreboardScreen() {
         </View>
 
         {isLoading && !hasLiveGames ? (
-          <View style={styles.loadingContainer}>
-            <Text style={{ color: theme.colors.onSurfaceVariant }}>Loading live scores...</Text>
+          <View style={styles.leagueSection}>
+             {/* Simulate League Header */}
+             <View style={styles.leagueHeader}>
+                <View style={{ height: 24, width: 120, backgroundColor: theme.colors.surfaceVariant, borderRadius: 6, opacity: 0.5 }} />
+             </View>
+             
+             {/* Shimmer Grid */}
+             <View style={styles.gamesGrid}>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <View key={i} style={styles.gameItemCompact}>
+                        <LiveScoreCardShimmer />
+                    </View>
+                ))}
+             </View>
           </View>
         ) : !hasLiveGames ? (
           <View style={styles.emptyState}>

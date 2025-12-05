@@ -8,6 +8,7 @@ import { BlurView } from 'expo-blur';
 
 import { fetchWeekGames, fetchValueAlerts, fetchFadeAlerts, ValueAlert, FadeAlert, GameSummary } from '@/services/outliersService';
 import { Card } from '@/components/ui/Card';
+import { AlertCardShimmer } from '@/components/AlertCardShimmer';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -507,7 +508,11 @@ export default function OutliersScreen() {
             {renderSportFilter(valueAlerts || [], valueAlertsFilter, setValueAlertsFilter)}
 
             {valueAlertsLoading || gamesLoading ? (
-                <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>Loading alerts...</Text>
+                <View>
+                    {[1, 2, 3].map((i) => (
+                        <AlertCardShimmer key={i} />
+                    ))}
+                </View>
             ) : filteredValueAlerts.length > 0 ? (
                 <View style={styles.cardsGrid}>
                     {topValueAlerts.map(renderValueAlertCard)}
@@ -546,7 +551,11 @@ export default function OutliersScreen() {
             {renderSportFilter(fadeAlerts || [], fadeAlertsFilter, setFadeAlertsFilter)}
 
             {fadeAlertsLoading || gamesLoading ? (
-                <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>Loading alerts...</Text>
+                <View>
+                    {[1, 2, 3].map((i) => (
+                        <AlertCardShimmer key={i} />
+                    ))}
+                </View>
             ) : filteredFadeAlerts.length > 0 ? (
                 <View style={styles.cardsGrid}>
                     {topFadeAlerts.map(renderFadeAlertCard)}

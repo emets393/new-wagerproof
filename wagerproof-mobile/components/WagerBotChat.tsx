@@ -27,12 +27,113 @@ import ReanimatedAnimated, {
   useAnimatedStyle,
   useFrameCallback,
   FadeIn,
-  LinearTransition
+  withDelay,
+  withTiming,
+  Easing,
 } from 'react-native-reanimated';
 import Markdown from 'react-native-markdown-display';
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { chatSessionManager, ChatMessage } from '../utils/chatSessionManager';
 import { chatThreadService } from '../services/chatThreadService';
+
+// Animated character component for streaming text fade-in effect
+const AnimatedChar = React.memo(({ 
+  char, 
+  shouldAnimate,
+  animationDelay,
+  color 
+}: { 
+  char: string; 
+  shouldAnimate: boolean;
+  animationDelay: number;
+  color: string;
+}) => {
+  const opacity = useSharedValue(shouldAnimate ? 0 : 1);
+  
+  useEffect(() => {
+    if (shouldAnimate) {
+      opacity.value = withDelay(
+        animationDelay, 
+        withTiming(1, { 
+          duration: 120,
+          easing: Easing.out(Easing.ease),
+        })
+      );
+    }
+  }, [shouldAnimate, animationDelay]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({ 
+    opacity: opacity.value 
+  }));
+  
+  return (
+    <ReanimatedAnimated.Text style={[{ color }, animatedStyle]}>
+      {char}
+    </ReanimatedAnimated.Text>
+  );
+}, (prev, next) => 
+  prev.char === next.char && 
+  prev.shouldAnimate === next.shouldAnimate && 
+  prev.color === next.color
+);
+
+// Streaming text component with per-character fade-in animation
+interface AnimatedStreamingTextProps {
+  text: string;
+  color: string;
+  isStreaming: boolean;
+}
+
+const AnimatedStreamingText: React.FC<AnimatedStreamingTextProps> = React.memo(({ 
+  text, 
+  color,
+  isStreaming 
+}) => {
+  // Track how many characters were rendered in previous renders
+  const prevLengthRef = useRef(0);
+  // Track which indices have started animating (to prevent re-animation on re-render)
+  const animatingIndicesRef = useRef<Set<number>>(new Set());
+  
+  const characters = text.split('');
+  const prevLength = prevLengthRef.current;
+  
+  // After render, update tracking refs
+  useEffect(() => {
+    for (let i = prevLength; i < text.length; i++) {
+      animatingIndicesRef.current.add(i);
+    }
+    prevLengthRef.current = text.length;
+  }, [text.length, prevLength]);
+  
+  return (
+    <Text style={{ fontSize: 16, lineHeight: 24, flexWrap: 'wrap', color }}>
+      {characters.map((char, index) => {
+        // Only animate if this is a new character that hasn't been animated yet
+        const isNewChar = index >= prevLength;
+        const alreadyAnimated = animatingIndicesRef.current.has(index);
+        const shouldAnimate = isNewChar && !alreadyAnimated;
+        
+        // Stagger delay: 8ms per character, capped at 150ms total for smooth feel
+        const delay = shouldAnimate 
+          ? Math.min((index - prevLength) * 8, 150) 
+          : 0;
+        
+        return (
+          <AnimatedChar
+            key={index}
+            char={char}
+            shouldAnimate={shouldAnimate}
+            animationDelay={delay}
+            color={color}
+          />
+        );
+      })}
+      {isStreaming && (
+        <Text style={{ color, opacity: 0.5 }}> ▊</Text>
+      )}
+    </Text>
+  );
+});
 
 interface WagerBotChatProps {
   userId: string;
@@ -1075,49 +1176,61 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                         }
                       ]}
                     >
-                      {isEmptyAndStreaming ? (
-                        <View style={styles.thinkingContainer}>
-                          <ActivityIndicator size="small" color={theme.colors.primary} />
-                          <Text style={[styles.messageText, { color: theme.colors.onSurfaceVariant, marginLeft: 8 }]}>
-                            Thinking...
-                          </Text>
-                        </View>
-                      ) : message.role === 'assistant' ? (
-                        <ReanimatedAnimated.View 
-                          entering={FadeIn.duration(400)}
-                          style={{ 
-                            flexShrink: 1, 
-                            flexWrap: 'wrap', 
-                            width: '100%',
-                          }}
-                        >
-                          <Markdown
-                            style={{
-                              body: { color: theme.colors.onSurface, fontSize: 16, lineHeight: 24 },
-                              paragraph: { marginTop: 0, marginBottom: 12 },
-                              heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 12, marginTop: 8, color: theme.colors.onSurface },
-                              heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, marginTop: 6, color: theme.colors.onSurface },
-                              heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, marginTop: 4, color: theme.colors.onSurface },
-                              strong: { fontWeight: 'bold', color: theme.colors.onSurface },
-                              em: { fontStyle: 'italic' },
-                              code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
-                              code_block: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                              fence: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                              link: { color: theme.colors.primary, textDecorationLine: 'underline' },
-                              blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, paddingLeft: 12, paddingVertical: 8, marginVertical: 8, fontStyle: 'italic' },
-                              bullet_list: { marginBottom: 8, marginTop: 0 },
-                              ordered_list: { marginBottom: 8, marginTop: 0 },
-                              list_item: { marginBottom: 4, lineHeight: 24 },
-                              table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 12 },
-                              th: { backgroundColor: theme.colors.surfaceVariant, padding: 10, fontWeight: 'bold' },
-                              td: { padding: 10, borderWidth: 1, borderColor: theme.colors.outline },
-                              hr: { backgroundColor: theme.colors.outline, height: 1, marginVertical: 16 },
-                            }}
-                          >
-                            {message.content + (isStreamingThis ? ' ▊' : '')}
-                          </Markdown>
-                        </ReanimatedAnimated.View>
-                      ) : (
+{isEmptyAndStreaming ? (
+                                        <View style={styles.thinkingContainer}>
+                                          <ActivityIndicator size="small" color={theme.colors.primary} />
+                                          <Text style={[styles.messageText, { color: theme.colors.onSurfaceVariant, marginLeft: 8 }]}>
+                                            Thinking...
+                                          </Text>
+                                        </View>
+                                      ) : message.role === 'assistant' ? (
+                                        isStreamingThis ? (
+                                          // During streaming: use animated plain text for smooth character fade-in
+                                          <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
+                                            <AnimatedStreamingText
+                                              text={message.content}
+                                              color={theme.colors.onSurface}
+                                              isStreaming={true}
+                                            />
+                                          </View>
+                                        ) : (
+                                          // After streaming: render full Markdown
+                                          <ReanimatedAnimated.View 
+                                            entering={FadeIn.duration(400)}
+                                            style={{ 
+                                              flexShrink: 1, 
+                                              flexWrap: 'wrap', 
+                                              width: '100%',
+                                            }}
+                                          >
+                                            <Markdown
+                                              style={{
+                                                body: { color: theme.colors.onSurface, fontSize: 16, lineHeight: 24 },
+                                                paragraph: { marginTop: 0, marginBottom: 12 },
+                                                heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 12, marginTop: 8, color: theme.colors.onSurface },
+                                                heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, marginTop: 6, color: theme.colors.onSurface },
+                                                heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, marginTop: 4, color: theme.colors.onSurface },
+                                                strong: { fontWeight: 'bold', color: theme.colors.onSurface },
+                                                em: { fontStyle: 'italic' },
+                                                code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
+                                                code_block: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                                                fence: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                                                link: { color: theme.colors.primary, textDecorationLine: 'underline' },
+                                                blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, paddingLeft: 12, paddingVertical: 8, marginVertical: 8, fontStyle: 'italic' },
+                                                bullet_list: { marginBottom: 8, marginTop: 0 },
+                                                ordered_list: { marginBottom: 8, marginTop: 0 },
+                                                list_item: { marginBottom: 4, lineHeight: 24 },
+                                                table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 12 },
+                                                th: { backgroundColor: theme.colors.surfaceVariant, padding: 10, fontWeight: 'bold' },
+                                                td: { padding: 10, borderWidth: 1, borderColor: theme.colors.outline },
+                                                hr: { backgroundColor: theme.colors.outline, height: 1, marginVertical: 16 },
+                                              }}
+                                            >
+                                              {message.content}
+                                            </Markdown>
+                                          </ReanimatedAnimated.View>
+                                        )
+                                      ) : (
                         <Text style={[styles.messageText, { color: '#ffffff' }]}>
                           {message.content}
                         </Text>
@@ -1218,42 +1331,53 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                           </Text>
                         </View>
                       ) : message.role === 'assistant' ? (
-                      <ReanimatedAnimated.View 
-                        entering={FadeIn.duration(600)}
-                        layout={LinearTransition.springify().damping(20)}
-                        style={{ 
-                            flexShrink: 1, 
-                            flexWrap: 'wrap', 
-                            width: '100%' 
-                        }}
-                      >
-                        <Markdown
-                          style={{
-                            body: { color: theme.colors.onSurface, fontSize: 16, lineHeight: 24, flexShrink: 1, flexWrap: 'wrap' },
-                            paragraph: { marginTop: 0, marginBottom: 12, flexWrap: 'wrap' },
-                            text: { flexWrap: 'wrap' },
-                            heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 12, marginTop: 8, color: theme.colors.onSurface },
-                            heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, marginTop: 6, color: theme.colors.onSurface },
-                            heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, marginTop: 4, color: theme.colors.onSurface },
-                            strong: { fontWeight: 'bold', color: theme.colors.onSurface },
-                            em: { fontStyle: 'italic' },
-                            code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
-                            code_block: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                            fence: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                            link: { color: theme.colors.primary, textDecorationLine: 'underline' },
-                            blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, paddingLeft: 12, paddingVertical: 8, marginVertical: 8, fontStyle: 'italic' },
-                            bullet_list: { marginBottom: 8, marginTop: 0 },
-                            ordered_list: { marginBottom: 8, marginTop: 0 },
-                            list_item: { marginBottom: 4, lineHeight: 24 },
-                            table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 12 },
-                            th: { backgroundColor: theme.colors.surfaceVariant, padding: 10, fontWeight: 'bold' },
-                            td: { padding: 10, borderWidth: 1, borderColor: theme.colors.outline },
-                            hr: { backgroundColor: theme.colors.outline, height: 1, marginVertical: 16 },
-                          }}
-                        >
-                          {message.content + (isStreamingThis ? ' ▊' : '')}
-                        </Markdown>
-                      </ReanimatedAnimated.View>
+                        isStreamingThis ? (
+                          // During streaming: use animated plain text for smooth character fade-in
+                          <View style={{ flexShrink: 1, flexWrap: 'wrap', width: '100%' }}>
+                            <AnimatedStreamingText
+                              text={message.content}
+                              color={theme.colors.onSurface}
+                              isStreaming={true}
+                            />
+                          </View>
+                        ) : (
+                          // After streaming: render full Markdown
+                          <ReanimatedAnimated.View 
+                            entering={FadeIn.duration(400)}
+                            style={{ 
+                                flexShrink: 1, 
+                                flexWrap: 'wrap', 
+                                width: '100%' 
+                            }}
+                          >
+                            <Markdown
+                              style={{
+                                body: { color: theme.colors.onSurface, fontSize: 16, lineHeight: 24, flexShrink: 1, flexWrap: 'wrap' },
+                                paragraph: { marginTop: 0, marginBottom: 12, flexWrap: 'wrap' },
+                                text: { flexWrap: 'wrap' },
+                                heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 12, marginTop: 8, color: theme.colors.onSurface },
+                                heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, marginTop: 6, color: theme.colors.onSurface },
+                                heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, marginTop: 4, color: theme.colors.onSurface },
+                                strong: { fontWeight: 'bold', color: theme.colors.onSurface },
+                                em: { fontStyle: 'italic' },
+                                code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
+                                code_block: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                                fence: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+                                link: { color: theme.colors.primary, textDecorationLine: 'underline' },
+                                blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, paddingLeft: 12, paddingVertical: 8, marginVertical: 8, fontStyle: 'italic' },
+                                bullet_list: { marginBottom: 8, marginTop: 0 },
+                                ordered_list: { marginBottom: 8, marginTop: 0 },
+                                list_item: { marginBottom: 4, lineHeight: 24 },
+                                table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 12 },
+                                th: { backgroundColor: theme.colors.surfaceVariant, padding: 10, fontWeight: 'bold' },
+                                td: { padding: 10, borderWidth: 1, borderColor: theme.colors.outline },
+                                hr: { backgroundColor: theme.colors.outline, height: 1, marginVertical: 16 },
+                              }}
+                            >
+                              {message.content}
+                            </Markdown>
+                          </ReanimatedAnimated.View>
+                        )
                     ) : (
                       <Text style={[styles.messageText, { color: '#ffffff' }]}>
                         {message.content}

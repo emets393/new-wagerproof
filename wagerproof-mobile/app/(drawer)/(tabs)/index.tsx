@@ -920,7 +920,14 @@ export default function FeedScreen() {
       <View key={sport} style={styles.pageContainer}>
         {isLoading && !isRefreshing ? (
           <View style={{ paddingTop: TOTAL_HEADER_HEIGHT }}>
-            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.colors.primary} />
+            <ScrollView 
+                contentContainerStyle={{ paddingVertical: 20 }}
+                scrollEnabled={false}
+            >
+                {[1, 2, 3, 4].map((i) => (
+                    <GameCardShimmer key={i} />
+                ))}
+            </ScrollView>
           </View>
         ) : errorMsg ? (
           <View style={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT }]}>
