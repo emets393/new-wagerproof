@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useTheme, Button, Divider, Badge } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -401,7 +401,7 @@ export default function FeatureRequestsScreen() {
         </ScrollView>
 
         {/* Frosted Glass Header */}
-        <BlurView
+        <AndroidBlurView
           intensity={80}
           tint={theme.dark ? 'dark' : 'light'}
           style={[styles.headerBlur, { paddingTop: insets.top + 16 }]}
@@ -410,7 +410,7 @@ export default function FeatureRequestsScreen() {
             <MaterialCommunityIcons name="lightbulb-on" size={32} color={theme.colors.primary} />
             <Text style={[styles.title, { color: theme.colors.onSurface }]}>Feature Requests</Text>
           </View>
-        </BlurView>
+        </AndroidBlurView>
       </View>
     );
   }
@@ -538,7 +538,7 @@ export default function FeatureRequestsScreen() {
       </ScrollView>
 
       {/* Frosted Glass Header */}
-      <BlurView
+      <AndroidBlurView
         intensity={80}
         tint={theme.dark ? 'dark' : 'light'}
         style={[styles.headerBlur, { paddingTop: insets.top + 16 }]}
@@ -553,7 +553,7 @@ export default function FeatureRequestsScreen() {
         >
           <MaterialCommunityIcons name="plus" size={24} color="#fff" />
         </TouchableOpacity>
-      </BlurView>
+      </AndroidBlurView>
 
       {/* Submit Modal */}
       <Modal

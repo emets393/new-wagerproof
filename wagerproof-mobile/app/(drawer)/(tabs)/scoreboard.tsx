@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Animated, TouchableOpacity, RefreshControl } fr
 import { useTheme, Button } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { LiveScoreCard } from '@/components/LiveScoreCard';
 import { LiveScoreCardShimmer } from '@/components/LiveScoreCardShimmer';
@@ -13,7 +13,6 @@ import { useScroll } from '@/contexts/ScrollContext';
 import { LiveGame } from '@/types/liveScores';
 import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWagerBotChatSheet } from '@/contexts/WagerBotChatSheetContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 
@@ -36,7 +35,6 @@ export default function ScoreboardScreen() {
   const router = useRouter();
   const { open: openDrawer } = useDrawer();
   const { user } = useAuth();
-  const { openChatSheet } = useWagerBotChatSheet();
   const { isDark } = useThemeContext();
   const { scrollY, scrollYClamped } = useScroll();
   
@@ -115,7 +113,7 @@ export default function ScoreboardScreen() {
           },
         ]}
       >
-        <BlurView
+        <AndroidBlurView
           intensity={80}
           tint={isDark ? 'dark' : 'light'}
           style={[styles.fixedHeader, { paddingTop: insets.top }]}
@@ -141,14 +139,14 @@ export default function ScoreboardScreen() {
             
             {user && (
               <TouchableOpacity 
-                onPress={openChatSheet}
+                onPress={() => router.push('/chat' as any)}
                 style={styles.chatButton}
               >
                 <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
             )}
           </View>
-        </BlurView>
+        </AndroidBlurView>
       </Animated.View>
 
       {/* Scrollable Content */}

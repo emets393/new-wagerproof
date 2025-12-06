@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, Image, TouchableOpacity, FlatList, Dimensions } from 'react-native';
-import { useTheme, Chip, ActivityIndicator, Menu } from 'react-native-paper';
+import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, TouchableOpacity, FlatList } from 'react-native';
+import { useTheme, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import PagerView from 'react-native-pager-view';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { NFLGameCard } from '@/components/NFLGameCard';
 import { CFBGameCard } from '@/components/CFBGameCard';
 import { NBAGameCard } from '@/components/NBAGameCard';
@@ -15,7 +13,6 @@ import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
-import { useWagerBotChatSheet } from '@/contexts/WagerBotChatSheetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
@@ -27,9 +24,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { useDrawer } from '../_layout';
 import { useThemeContext } from '@/contexts/ThemeContext';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
 type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
 type SortMode = 'time' | 'spread' | 'ou';
@@ -52,21 +46,12 @@ export default function FeedScreen() {
   const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
   const { openGameSheet: openNBAGameSheet } = useNBAGameSheet();
   const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
-  const { openChatSheet } = useWagerBotChatSheet();
   const { user } = useAuth();
   const { isDark } = useThemeContext();
-  const pagerRef = useRef<PagerView>(null);
   const tabsScrollViewRef = useRef<ScrollView>(null);
-
-  // Animation values
-  const scrollOffset = useRef(new Animated.Value(0)).current;
-  const scrollPosition = useRef(new Animated.Value(0)).current;
-  const absolutePosition = useMemo(() => Animated.add(scrollPosition, scrollOffset), [scrollPosition, scrollOffset]);
-  const [tabMeasures, setTabMeasures] = useState<Array<{x: number, width: number}>>(new Array(4).fill({ x: 0, width: 0 }));
   
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
-  const [currentPage, setCurrentPage] = useState(0);
   
   // Cached data state - keeps data for each sport separately
   const [cachedData, setCachedData] = useState<{
@@ -139,11 +124,6 @@ export default function FeedScreen() {
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
     { useNativeDriver: true }
   );
-
-  const onPageScroll = useMemo(() => Animated.event(
-    [{ nativeEvent: { position: scrollPosition, offset: scrollOffset } }],
-    { useNativeDriver: false }
-  ), []);
 
   const sports: SportOption[] = [
     { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
@@ -613,14 +593,25 @@ export default function FeedScreen() {
     }
   }, [cachedData]);
 
-  // Load data when component mounts
+  // Pre-load all sports data on mount
   useEffect(() => {
-    fetchDataForSport(selectedSport);
+    // Load all sports in parallel
+    sports.forEach(sport => {
+      if (sport.available) {
+        fetchDataForSport(sport.id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Handle sport change - load data if not cached
+  // Handle sport change - ensure data is loaded (but don't block UI)
   useEffect(() => {
-    fetchDataForSport(selectedSport);
+    // Fetch in background if not cached, but don't block UI
+    const cached = cachedData[selectedSport];
+    if (!cached.lastFetch || Date.now() - cached.lastFetch > 5 * 60 * 1000) {
+      fetchDataForSport(selectedSport);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSport]);
 
   // Refresh handler for pull-to-refresh
@@ -732,50 +723,16 @@ export default function FeedScreen() {
     return null;
   };
 
-  // Handle page change from swipe
-  const handlePageSelected = useCallback((e: any) => {
-    const page = e.nativeEvent.position;
-    setCurrentPage(page);
-    const sport = sports[page].id;
+  // Handle tab press - switch immediately, show shimmer if data not ready
+  const handleTabPress = useCallback((sport: Sport) => {
+    // Switch immediately for instant feel
     setSelectedSport(sport);
-    
-    // Scroll tab bar to keep active tab in view
-    if (tabMeasures[page] && tabsScrollViewRef.current) {
-      const { x, width } = tabMeasures[page];
-      const scrollX = x - (SCREEN_WIDTH / 2) + (width / 2);
-      tabsScrollViewRef.current.scrollTo({ x: scrollX, animated: true });
+    // Fetch in background if needed (won't block UI)
+    const cached = cachedData[sport];
+    if (!cached.lastFetch || Date.now() - cached.lastFetch > 5 * 60 * 1000) {
+      fetchDataForSport(sport);
     }
-  }, [tabMeasures]);
-
-  // Measure tabs
-  const onTabMeasure = (index: number, event: any) => {
-    const { x, width } = event.nativeEvent.layout;
-    setTabMeasures(prev => {
-      const newMeasures = [...prev];
-      newMeasures[index] = { x, width };
-      return newMeasures;
-    });
-  };
-
-  // Interpolate indicator position and width
-  const indicatorLeft = absolutePosition.interpolate({
-    inputRange: sports.map((_, i) => i),
-    outputRange: tabMeasures.map(m => m.x),
-    extrapolate: 'clamp'
-  });
-
-  const indicatorWidth = absolutePosition.interpolate({
-    inputRange: sports.map((_, i) => i),
-    outputRange: tabMeasures.map(m => m.width),
-    extrapolate: 'clamp'
-  });
-
-  // Handle tab press
-  const handleTabPress = useCallback((index: number) => {
-    pagerRef.current?.setPage(index);
-    setCurrentPage(index);
-    setSelectedSport(sports[index].id);
-  }, []);
+  }, [cachedData, fetchDataForSport]);
 
   // Render list header with search and filters for a specific sport
   const renderListHeader = (sport: Sport) => (
@@ -915,9 +872,14 @@ export default function FeedScreen() {
       return gamesCopy;
     }, [filtered, currentSortMode, sport]);
     
+    // Show shimmer if loading or if no data yet (for instant feel when switching tabs)
+    const hasData = games.length > 0;
+    const isCurrentlyLoading = isLoading && !isRefreshing;
+    const showShimmer = isCurrentlyLoading || (!hasData && !errorMsg && !isRefreshing);
+    
     return (
       <View key={sport} style={styles.pageContainer}>
-        {isLoading && !isRefreshing ? (
+        {showShimmer ? (
           <View style={{ paddingTop: TOTAL_HEADER_HEIGHT }}>
             <ScrollView 
                 contentContainerStyle={{ paddingVertical: 20 }}
@@ -985,7 +947,7 @@ export default function FeedScreen() {
             },
           ]}
         >
-          <BlurView
+          <AndroidBlurView
             intensity={80}
             tint={isDark ? 'dark' : 'light'}
             style={[styles.fixedHeader, { paddingTop: insets.top }]}
@@ -1012,7 +974,7 @@ export default function FeedScreen() {
             
             {user && (
               <TouchableOpacity 
-                onPress={openChatSheet}
+                onPress={() => router.push('/chat' as any)}
                 style={styles.chatButton}
               >
                 <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />
@@ -1028,15 +990,14 @@ export default function FeedScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.sportsTabsContent}
             >
-              {sports.map((sport, index) => {
-                const isSelected = currentPage === index;
+              {sports.map((sport) => {
+                const isSelected = selectedSport === sport.id;
                 return (
                   <TouchableOpacity
                     key={sport.id}
                     style={styles.sportTab}
-                    onPress={() => sport.available && handleTabPress(index)}
+                    onPress={() => sport.available && handleTabPress(sport.id)}
                     disabled={!sport.available}
-                    onLayout={(e) => onTabMeasure(index, e)}
                   >
                     <Text style={[
                       styles.sportTabText, 
@@ -1048,39 +1009,19 @@ export default function FeedScreen() {
                     ]}>
                       {sport.label}
                     </Text>
+                    {isSelected && (
+                      <View style={[styles.sportIndicator, { backgroundColor: '#00E676' }]} />
+                    )}
                   </TouchableOpacity>
                 );
               })}
-              
-              {/* Animated Indicator */}
-              {tabMeasures.some(m => m.width > 0) && (
-                <Animated.View 
-                  style={[
-                    styles.sportIndicator, 
-                    { 
-                      backgroundColor: '#00E676',
-                      left: 0, // Animated via transform
-                      width: indicatorWidth,
-                      transform: [{ translateX: indicatorLeft }]
-                    }
-                  ]} 
-                />
-              )}
             </ScrollView>
           </View>
-          </BlurView>
+          </AndroidBlurView>
         </Animated.View>
 
-        {/* Swipeable Sport Pages */}
-        <AnimatedPagerView
-          ref={pagerRef}
-          style={styles.pagerView}
-          initialPage={0}
-          onPageSelected={handlePageSelected}
-          onPageScroll={onPageScroll}
-        >
-          {sports.map(sport => renderSportPage(sport.id))}
-        </AnimatedPagerView>
+        {/* Sport Content */}
+        {renderSportPage(selectedSport)}
     </View>
   );
 }
@@ -1089,12 +1030,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  pagerView: {
-    flex: 1,
-  },
   pageContainer: {
     flex: 1,
-    width: SCREEN_WIDTH,
   },
   fixedHeaderContainer: {
     position: 'absolute',

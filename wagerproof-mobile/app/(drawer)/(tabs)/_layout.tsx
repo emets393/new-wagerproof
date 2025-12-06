@@ -9,7 +9,7 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { useSettings } from '@/contexts/SettingsContext';
-import { BlurView } from 'expo-blur';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 
 function LiveIndicator() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -70,6 +70,12 @@ function FloatingTabBar() {
   const { hasLiveGames } = useLiveScores();
   const { scoreboardEnabled } = useSettings();
   
+  // Hide tab bar on chat screen
+  const isOnChatScreen = pathname.includes('/chat') || segments.includes('chat');
+  if (isOnChatScreen) {
+    return null;
+  }
+  
   const tabs = [
     { name: 'index', path: '/(drawer)/(tabs)/', title: 'Feed', icon: 'home' },
     { name: 'picks', path: '/(drawer)/(tabs)/picks', title: 'Picks', icon: 'star' },
@@ -109,7 +115,7 @@ function FloatingTabBar() {
         },
       ]}
     >
-      <BlurView
+      <AndroidBlurView
         intensity={80}
         tint={isDark ? 'dark' : 'light'}
         style={[
@@ -182,7 +188,7 @@ function FloatingTabBar() {
             );
           })}
         </View>
-      </BlurView>
+      </AndroidBlurView>
     </Animated.View>
   );
 }
@@ -317,7 +323,8 @@ function TabsContent() {
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="message-text" size={size} color={color} />
           ),
-          href: null, // Chat is now accessed via bottom sheet from header
+          href: null, // Chat is now accessed via navigation from header
+          presentation: 'modal', // Present as modal for bottom-to-top animation
         }}
       />
       <Tabs.Screen

@@ -3,7 +3,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'react-native-drawer-layout';
 import { useState, createContext, useContext } from 'react';
 import { useTheme } from 'react-native-paper';
-import { BlurView } from 'expo-blur';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import SideMenu from '@/components/SideMenu';
 
@@ -37,17 +37,25 @@ export default function DrawerLayout() {
       <DrawerContext.Provider value={{ open: handleOpen, close: handleClose }}>
         <Drawer
           open={open}
-          onOpen={handleOpen}
-          onClose={handleClose}
+          onOpen={() => {
+            // Sync state when drawer opens via swipe
+            if (!open) {
+              setOpen(true);
+            }
+          }}
+          onClose={() => {
+            // Sync state when drawer closes
+            setOpen(false);
+          }}
           drawerType="front"
           renderDrawerContent={() => (
-            <BlurView
+            <AndroidBlurView
               intensity={80}
               tint={isDark ? 'dark' : 'light'}
               style={{ flex: 1, width: '100%' }}
             >
               <SideMenu onClose={handleClose} />
-            </BlurView>
+            </AndroidBlurView>
           )}
           drawerStyle={{
             backgroundColor: 'transparent',

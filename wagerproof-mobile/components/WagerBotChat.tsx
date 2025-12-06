@@ -6,33 +6,28 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  FlatList,
-  KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   RefreshControl,
   Animated,
   Alert,
   Image,
+  Keyboard,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import ReanimatedAnimated, { 
   useSharedValue, 
   useAnimatedStyle,
-  useFrameCallback,
   FadeIn,
   withDelay,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
 import Markdown from 'react-native-markdown-display';
-import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { chatSessionManager, ChatMessage } from '../utils/chatSessionManager';
 import { chatThreadService } from '../services/chatThreadService';
 
@@ -83,44 +78,6 @@ interface AnimatedStreamingTextProps {
   color: string;
   isStreaming: boolean;
 }
-
-const Shimmer = ({ width, height, style, theme }: { width: number | string, height: number, style?: any, theme: any }) => {
-  const opacity = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.6,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, []);
-
-  return (
-    <Animated.View
-      style={[
-        {
-          width,
-          height,
-          opacity,
-          backgroundColor: theme.colors.onSurface,
-          borderRadius: 8,
-        },
-        style,
-      ]}
-    />
-  );
-};
 
 const AnimatedStreamingText: React.FC<AnimatedStreamingTextProps> = React.memo(({ 
   text, 
@@ -187,7 +144,6 @@ interface WagerBotChatProps {
   onBack?: () => void;
   scrollY?: Animated.Value;
   headerHeight?: number;
-  isInBottomSheet?: boolean; // Disable KeyboardAvoidingView when in bottom sheet
 }
 
 const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
@@ -197,20 +153,13 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   onRefresh,
   onBack,
   scrollY,
-  isInBottomSheet = false,
   headerHeight = 0,
 }, ref) => {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
-  const flatListRef = useRef<FlatList>(null);
-  const prevMessageCountRef = useRef(0);
-  const lastScrollTimeRef = useRef(0);
-  const lastLayoutScrollTimeRef = useRef(0); // Separate throttle for layout/content size scrolls
-  const scrollThrottleMs = 16; // ~60fps throttle for smooth real-time scrolling during streaming
-  const contentHeightRef = useRef(0);
-  const shouldAutoScrollRef = useRef(true); // Track if we should auto-scroll
-  const streamingMessageIdRef = useRef<string | null>(null); // Track which message is streaming
+  const welcomeScrollViewRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
 
   // Handle scroll event for header animation
   const handleScroll = scrollY 
@@ -246,16 +195,12 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   // Image attachment state
   const [selectedImages, setSelectedImages] = useState<Array<{ uri: string; base64: string; name: string }>>([]);
   const [isPickingImage, setIsPickingImage] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   
   // Animation values for message appearance
   const messageAnimations = useRef<{ [key: string]: Animated.Value }>({});
   const drawerAnimation = useRef(new Animated.Value(300)).current; // Positive for right side
   
-  // Marquee animation state for suggested messages
-  const [marqueeParentWidth, setMarqueeParentWidth] = useState(0);
-  const [marqueeChildrenWidth, setMarqueeChildrenWidth] = useState(0);
-  const marqueeOffset = useSharedValue(0);
-  const marqueeDuration = 40000; // 40 seconds for one full scroll (slower)
   
   // Suggested messages
   const suggestedMessages = [
@@ -326,68 +271,26 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     });
   }, [messages.length]);
 
+  const loadChatHistories = async () => {
+    try {
+      const threads = await chatThreadService.getThreads(userId);
+      const histories = threads.map(thread => ({
+        id: thread.id,
+        title: thread.title || thread.openai_thread_id || 'New Chat',
+        timestamp: thread.updated_at,
+        threadId: thread.openai_thread_id,
+      }));
+      setChatHistories(histories);
+      console.log('✅ Loaded', histories.length, 'chat histories');
+    } catch (err) {
+      console.error('Error loading chat histories:', err);
+    }
+  };
+
   // Load chat histories on mount
   useEffect(() => {
     loadChatHistories();
   }, []);
-
-  // Scroll to bottom helper function with smooth scrolling during streaming
-  const scrollToBottom = useCallback((force = false, isStreaming = false) => {
-    if (!isInBottomSheet || !shouldAutoScrollRef.current) return;
-    
-    // Throttle scroll calls to prevent excessive updates
-    const now = Date.now();
-    if (!force && now - lastScrollTimeRef.current < 50) {
-      return; // Throttle to ~20fps for smooth scrolling
-    }
-    lastScrollTimeRef.current = now;
-    
-    // Use smooth animated scrolling for both streaming and non-streaming
-    if (flatListRef.current) {
-      try {
-        // Use animated: true for smooth scrolling, even during streaming
-        flatListRef.current.scrollToEnd({ animated: true });
-      } catch (e) {
-        // If scrollToEnd fails, use scrollToOffset with a large offset
-        try {
-          flatListRef.current.scrollToOffset({ offset: contentHeightRef.current || 999999, animated: true });
-        } catch (err) {
-          // Fallback: try again on next frame
-          requestAnimationFrame(() => {
-            if (flatListRef.current) {
-              try {
-                flatListRef.current.scrollToEnd({ animated: true });
-              } catch (e) {
-                // Last resort: scroll to offset
-                flatListRef.current.scrollToOffset({ offset: 999999, animated: true });
-              }
-            }
-          });
-        }
-      }
-    }
-  }, [isInBottomSheet]);
-
-  // Scroll to bottom when new messages are added (for bottom sheet)
-  useEffect(() => {
-    if (isInBottomSheet && messages.length > prevMessageCountRef.current) {
-      setTimeout(() => {
-        scrollToBottom(true, false); // Force scroll when new message added
-      }, 150);
-    }
-    prevMessageCountRef.current = messages.length;
-  }, [messages.length, isInBottomSheet, scrollToBottom]);
-
-  // Watch for content changes in streaming message and scroll in real-time
-  useEffect(() => {
-    if (isInBottomSheet && isStreaming && streamingMessageIdRef.current && shouldAutoScrollRef.current) {
-      const streamingMessage = messages.find(msg => msg.id === streamingMessageIdRef.current);
-      if (streamingMessage && streamingMessage.content) {
-        // Content is updating, scroll to bottom immediately
-        scrollToBottom(false, true);
-      }
-    }
-  }, [messages, isStreaming, isInBottomSheet, scrollToBottom]);
 
   // Animate drawer open/close (right side)
   useEffect(() => {
@@ -399,23 +302,41 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     }).start();
   }, [showHistoryDrawer]);
 
-  // Marquee animation for suggested messages
-  useFrameCallback((frameInfo) => {
-    if (marqueeChildrenWidth > 0) {
-      const timeDelta = frameInfo.timeSincePreviousFrame ?? 0;
-      marqueeOffset.value -= (timeDelta * marqueeChildrenWidth) / marqueeDuration;
-      marqueeOffset.value = marqueeOffset.value % -marqueeChildrenWidth;
-    }
-  }, true);
+  // Sync showWelcome with messages - show welcome only when there are no messages
+  // This ensures showWelcome stays false once messages are sent, even if initializeChat is called again
+  useEffect(() => {
+    setShowWelcome(messages.length === 0);
+  }, [messages.length]);
 
-  // Calculate clones needed for seamless looping
-  const marqueeCloneCount = marqueeChildrenWidth > 0 ? Math.round(marqueeParentWidth / marqueeChildrenWidth) + 2 : 0;
+  // Handle keyboard show/hide - track height and scroll to input
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        // Small delay to ensure layout is updated
+        setTimeout(() => {
+          if (showWelcome) {
+            welcomeScrollViewRef.current?.scrollToEnd({ animated: true });
+          } else {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }
+        }, 100);
+      }
+    );
 
-  const marqueeAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: marqueeOffset.value }],
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
     };
-  });
+  }, [showWelcome]);
 
   // Initialize chat session and get client secret
   useEffect(() => {
@@ -440,8 +361,8 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       setClientSecret(secret);
       console.log('✅ Chat initialized successfully (no thread created yet)');
       
-      // Show welcome screen - no messages yet
-      setShowWelcome(true);
+      // Don't set showWelcome here - let it be controlled by messages.length via useEffect
+      // This prevents resetting to welcome screen when gameContext updates after first message
     } catch (err) {
       console.error('❌ Error initializing chat:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize chat');
@@ -457,22 +378,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     }
     await initializeChat();
     setRefreshing(false);
-  };
-
-  const loadChatHistories = async () => {
-    try {
-      const threads = await chatThreadService.getThreads(userId);
-      const histories = threads.map(thread => ({
-        id: thread.id,
-        title: thread.title || thread.openai_thread_id || 'New Chat',
-        timestamp: thread.updated_at,
-        threadId: thread.openai_thread_id,
-      }));
-      setChatHistories(histories);
-      console.log('✅ Loaded', histories.length, 'chat histories');
-    } catch (err) {
-      console.error('Error loading chat histories:', err);
-    }
   };
 
   const clearChat = async () => {
@@ -655,11 +560,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     const imagesToSend = selectedImages;
     setSelectedImages([]); // Clear selected images after sending
     setIsSending(true);
-    
-    // Scroll to bottom when user sends a message
-    setTimeout(() => {
-      scrollToBottom(true);
-    }, 100);
 
     // Animate user message appearance
     const userAnimation = getMessageAnimation(userMessage.id);
@@ -674,7 +574,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     await new Promise(resolve => setTimeout(resolve, 300));
     
     const assistantMessageId = `msg_${Date.now()}_assistant`;
-    streamingMessageIdRef.current = assistantMessageId;
     const emptyAssistantMessage: ChatMessage = {
       id: assistantMessageId,
       role: 'assistant',
@@ -682,12 +581,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, emptyAssistantMessage]);
-    
-    // Scroll to bottom immediately when assistant message is added (start of streaming)
-    // Use setTimeout to ensure the message is rendered first
-    setTimeout(() => {
-      scrollToBottom(true, true);
-    }, 50); // Reduced delay for faster response
     
     // Animate assistant thinking bubble appearance
     const assistantAnimation = getMessageAnimation(assistantMessageId);
@@ -778,22 +671,18 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         let lastUpdateTime = 0;
         let progressEventCount = 0;
         const startTime = Date.now();
+        let pollingInterval: ReturnType<typeof setInterval> | null = null;
         
-        // Real-time streaming as chunks arrive!
-        // Responses API streams plain text directly (no thread IDs needed)
-        xhr.onprogress = () => {
+        // Helper function to process new text chunks
+        const processNewText = (newText: string, source: string) => {
+          if (!newText || newText.length === 0) {
+            return;
+          }
+          
           progressEventCount++;
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
           
-          const newText = xhr.responseText.substring(parsedLength);
-          parsedLength = xhr.responseText.length;
-          
-          console.log(`🔄 Progress event #${progressEventCount} at ${elapsed}s - Total bytes: ${parsedLength}, New bytes: ${newText.length}`);
-          
-          if (!newText) {
-            console.log('⚠️ No new text in this progress event');
-            return;
-          }
+          console.log(`🔄 ${source} #${progressEventCount} at ${elapsed}s - New bytes: ${newText.length}, Total: ${parsedLength + newText.length}`);
           
           // With Responses API, we get plain text chunks directly
           // No need to parse SSE format or extract thread IDs
@@ -813,9 +702,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             )
           );
           
-          // Scroll to bottom immediately as content streams in (no delay, no throttling)
-          scrollToBottom(false, true); // Pass isStreaming=true for immediate scrolling
-          
           // Haptic feedback every 100ms max (smooth but not overwhelming)
           if (currentTime - lastUpdateTime > 100) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -826,29 +712,77 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           console.log('✅ UI updated in real-time, total length:', currentContent.length);
         };
         
+        // iOS: onprogress fires reliably
+        // Android: onprogress often doesn't fire, so we also use polling as fallback
+        xhr.onprogress = () => {
+          const newText = xhr.responseText.substring(parsedLength);
+          parsedLength = xhr.responseText.length;
+          
+          if (newText) {
+            processNewText(newText, Platform.OS === 'ios' ? 'iOS Progress' : 'Android Progress');
+          }
+        };
+        
+        // Android fallback: Poll responseText since onprogress doesn't fire reliably
+        if (Platform.OS === 'android') {
+          console.log('🤖 Android detected - enabling polling fallback for streaming');
+          
+          // Start polling after headers are received
+          pollingInterval = setInterval(() => {
+            try {
+              // Check if request is still in progress
+              if (xhr.readyState >= 2 && xhr.readyState < 4 && xhr.responseText) {
+                const currentResponseLength = xhr.responseText.length;
+                if (currentResponseLength > parsedLength) {
+                  const newText = xhr.responseText.substring(parsedLength);
+                  parsedLength = currentResponseLength;
+                  processNewText(newText, 'Android Polling');
+                }
+              }
+              
+              // Stop polling when complete
+              if (xhr.readyState === 4) {
+                if (pollingInterval) {
+                  clearInterval(pollingInterval);
+                  pollingInterval = null;
+                }
+              }
+            } catch (e) {
+              // Ignore errors during polling
+            }
+          }, 50); // Poll every 50ms for smooth streaming
+        }
+        
         xhr.onload = async () => {
+          // Clear Android polling interval
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+          }
+          
+          // Process any remaining text that wasn't caught by streaming
+          const remainingText = xhr.responseText.substring(parsedLength);
+          if (remainingText && remainingText.length > 0) {
+            console.log('📝 Processing final chunk:', remainingText.length, 'bytes');
+            processNewText(remainingText, 'Final');
+          }
+          
           const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
           console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           console.log('✅ Stream complete!');
           console.log(`📊 STREAMING STATS:`);
+          console.log(`   - Platform: ${Platform.OS}`);
           console.log(`   - Total time: ${totalTime}s`);
           console.log(`   - Progress events: ${progressEventCount}`);
           console.log(`   - Final content length: ${currentContent.length} chars`);
           console.log(`   - Average chars per event: ${(currentContent.length / Math.max(1, progressEventCount)).toFixed(0)}`);
-          if (progressEventCount === 1) {
-            console.log('⚠️ WARNING: Only 1 progress event! Streaming may not be working.');
-            console.log('   This means the entire response arrived at once.');
+          if (progressEventCount === 0) {
+            console.log('⚠️ WARNING: No streaming events! Full response arrived at once.');
           } else {
-            console.log(`✅ Multiple progress events detected - streaming is working!`);
+            console.log(`✅ ${progressEventCount} streaming events detected - streaming worked!`);
           }
-          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           setIsStreaming(false);
-          streamingMessageIdRef.current = null;
-          
-          // Final scroll to bottom when streaming completes
-          setTimeout(() => {
-            scrollToBottom(true, false);
-          }, 100);
           
           if (xhr.status !== 200) {
             console.error('❌ BuildShip error response:', xhr.responseText);
@@ -856,9 +790,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             return;
           }
           
-          // FALLBACK: If onprogress didn't fire (common in React Native), use responseText directly
+          // FALLBACK: If streaming didn't fire at all (rare), use responseText directly
           if (!currentContent && xhr.responseText) {
-            console.log('⚠️ onprogress did not fire - using responseText fallback');
+            console.log('⚠️ Streaming did not work - using responseText fallback');
             currentContent = xhr.responseText;
             
             // Update UI with the complete response
@@ -902,6 +836,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               await chatThreadService.saveMessage(thread.id, 'user', messageText);
               console.log('✅ User message saved');
               
+              // Save assistant message
               console.log('💾 Saving assistant message...');
               await chatThreadService.saveMessage(thread.id, 'assistant', currentContent);
               console.log('✅ Assistant message saved');
@@ -940,16 +875,24 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         };
         
         xhr.onerror = () => {
+          // Clear Android polling interval
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+          }
           console.error('❌ XHR error');
           setIsStreaming(false);
-          streamingMessageIdRef.current = null;
           reject(new Error('Network request failed'));
         };
         
         xhr.ontimeout = () => {
+          // Clear Android polling interval
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+          }
           console.error('❌ XHR timeout');
           setIsStreaming(false);
-          streamingMessageIdRef.current = null;
           reject(new Error('Request timeout'));
         };
         
@@ -986,7 +929,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
   if (error) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: isInBottomSheet ? 'transparent' : theme.colors.background }]}>
+      <View style={[styles.centerContainer, { backgroundColor: theme.colors.background }]}>
         <MaterialCommunityIcons name="alert-circle" size={60} color={theme.colors.error} />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
         <TouchableOpacity
@@ -1000,7 +943,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: isInBottomSheet ? 'transparent' : theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* History Drawer */}
       <Animated.View 
         style={[
@@ -1080,248 +1023,79 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         />
       )}
 
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-        enabled={!isInBottomSheet}
-      >
-        {/* Welcome Screen (shows when no messages) */}
-        {showWelcome && (
-          isInBottomSheet ? (
-            <View style={styles.welcomeContainerBottomSheet}>
-              <View style={styles.welcomeContent}>
-                <View style={[styles.iconContainer, { backgroundColor: theme.colors.primaryContainer }]}>
-                  <MaterialCommunityIcons
-                    name="robot"
-                    size={64}
-                    color={theme.colors.primary}
+      {/* Main Content */}
+      <View style={styles.mainContent}>
+          <View style={styles.scrollableContent}>
+            {/* Welcome Screen (shows when no messages) */}
+            {showWelcome && (
+              <Animated.ScrollView
+                ref={welcomeScrollViewRef}
+                style={styles.scrollView}
+                contentContainerStyle={[styles.welcomeContainer, { paddingTop: headerHeight }]}
+                {...scrollProps}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    colors={[theme.colors.primary]}
+                    tintColor={theme.colors.primary}
                   />
-                </View>
-                <Text style={[styles.welcomeTitle, { color: theme.colors.onSurface }]}>
-                  {gameContext ? 'How can I help you analyze today\'s games?' : 'How can I help you with sports betting today?'}
-                </Text>
-                {gameContext && (
-                  <Text style={[styles.welcomeSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                    I have access to all game data, predictions, betting lines, and more.
-                  </Text>
-                )}
-              </View>
-            </View>
-          ) : (
-            <Animated.ScrollView
-              contentContainerStyle={[styles.welcomeContainer, { paddingTop: headerHeight }]}
-              {...scrollProps}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={handleRefresh}
-                  colors={[theme.colors.primary]}
-                  tintColor={theme.colors.primary}
-                />
-              }
-            >
-              <View style={styles.welcomeContent}>
-                <View style={[styles.iconContainer, { backgroundColor: theme.colors.primaryContainer }]}>
-                  <MaterialCommunityIcons
-                    name="robot"
-                    size={64}
-                    color={theme.colors.primary}
-                  />
-                </View>
-                <Text style={[styles.welcomeTitle, { color: theme.colors.onSurface }]}>
-                  {gameContext ? 'How can I help you analyze today\'s games?' : 'How can I help you with sports betting today?'}
-                </Text>
-                {gameContext && (
-                  <Text style={[styles.welcomeSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                    I have access to all game data, predictions, betting lines, and more.
-                  </Text>
-                )}
-              </View>
-            </Animated.ScrollView>
-          )
-        )}
-
-        {/* Messages View (shows when there are messages) */}
-        {!showWelcome && (
-          isInBottomSheet ? (
-            // Use BottomSheetFlatList for proper scrolling in bottom sheet
-            <BottomSheetFlatList<ChatMessage>
-              ref={flatListRef as any}
-              data={messages}
-              keyExtractor={(item: ChatMessage, index: number) => item.id || `msg_${index}`}
-              style={styles.messagesContainer}
-              contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight }]}
-              showsVerticalScrollIndicator={true}
-              keyboardShouldPersistTaps="handled"
-              inverted={false}
-              onContentSizeChange={(width: number, height: number) => {
-                contentHeightRef.current = height;
-                // Throttle layout-based scrolling to prevent excessive calls
-                const now = Date.now();
-                if (isStreaming && streamingMessageIdRef.current && shouldAutoScrollRef.current) {
-                  if (now - lastLayoutScrollTimeRef.current > 100) {
-                    lastLayoutScrollTimeRef.current = now;
-                    scrollToBottom(false, true);
-                  }
                 }
-              }}
-              onLayout={() => {
-                // Throttle layout-based scrolling to prevent excessive calls
-                const now = Date.now();
-                if (isStreaming && streamingMessageIdRef.current && shouldAutoScrollRef.current) {
-                  if (now - lastLayoutScrollTimeRef.current > 100) {
-                    lastLayoutScrollTimeRef.current = now;
-                    scrollToBottom(false, true);
-                  }
-                }
-              }}
-              onScrollBeginDrag={() => {
-                // User is manually scrolling, pause auto-scroll
-                shouldAutoScrollRef.current = false;
-              }}
-              onScrollEndDrag={() => {
-                // Check if user scrolled to bottom, if so resume auto-scroll
-                setTimeout(() => {
-                  shouldAutoScrollRef.current = true;
-                }, 500);
-              }}
-              renderItem={({ item: message, index }: { item: ChatMessage; index: number }) => {
-                const isLastMessage = index === messages.length - 1;
-                const isEmptyAndStreaming = !message.content && isSending && isLastMessage;
-                const isStreamingThis = isStreaming && isLastMessage && message.role === 'assistant';
-                
-                // Determine if we should show the full-width chatGPT style
-                const isAssistantContent = message.role === 'assistant' && !isEmptyAndStreaming;
-
-                return (
-                  <View
-                    style={[
-                      styles.messageRow,
-                      message.role === 'user' ? styles.userRow : styles.assistantRow,
-                      isAssistantContent && { marginBottom: 24, width: '100%', paddingHorizontal: 0 }
-                    ]}
-                  >
-                    {/* Show icon ONLY if it's NOT the main content view (i.e. show for Thinking state) */}
-                    {message.role === 'assistant' && !isAssistantContent && (
-                      <View style={styles.botIconContainer}>
-                        <MaterialCommunityIcons
-                          name="robot"
-                          size={24}
-                          color={theme.colors.primary}
-                        />
-                      </View>
-                    )}
-                    
-                    <View
-                      style={[
-                        // Base bubble style - remove if assistant content
-                        !isAssistantContent && styles.messageBubble,
-                        // User style
-                        message.role === 'user' && [styles.userMessage, { backgroundColor: theme.colors.primary }],
-                        // Assistant thinking style
-                        (message.role === 'assistant' && !isAssistantContent) && [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }],
-                        // Assistant content style (ChatGPT like)
-                        isAssistantContent && {
-                          width: '100%',
-                          marginHorizontal: -8,
-                          backgroundColor: 'transparent',
-                        }
-                      ]}
-                    >
-{isEmptyAndStreaming ? (
-                                        <View style={styles.thinkingContainer}>
-                                          <ActivityIndicator size="small" color={theme.colors.primary} />
-                                          <Text style={[styles.messageText, { color: theme.colors.onSurfaceVariant, marginLeft: 8 }]}>
-                                            Thinking...
-                                          </Text>
-                                        </View>
-                                      ) : message.role === 'assistant' ? (
-                                        isStreamingThis ? (
-                                          // During streaming: use animated plain text for smooth character fade-in
-                                          <View style={{ 
-                                            flexShrink: 1, 
-                                            flexWrap: 'wrap', 
-                                            width: '100%',
-                                            paddingHorizontal: 16,
-                                            maxWidth: '100%',
-                                          }}>
-                                            <AnimatedStreamingText
-                                              text={message.content}
-                                              color={theme.colors.onSurface}
-                                              isStreaming={true}
-                                            />
-                                          </View>
-                                        ) : (
-                                          // After streaming: render full Markdown
-                                          <ReanimatedAnimated.View 
-                                            entering={FadeIn.duration(400)}
-                                            style={{ 
-                                              flexShrink: 1, 
-                                              flexWrap: 'wrap', 
-                                              width: '100%',
-                                            }}
-                                          >
-                                            <Markdown
-                                              style={{
-                                                body: { color: theme.colors.onSurface, fontSize: 16, lineHeight: 24 },
-                                                paragraph: { marginTop: 0, marginBottom: 12 },
-                                                heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 12, marginTop: 8, color: theme.colors.onSurface },
-                                                heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, marginTop: 6, color: theme.colors.onSurface },
-                                                heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, marginTop: 4, color: theme.colors.onSurface },
-                                                strong: { fontWeight: 'bold', color: theme.colors.onSurface },
-                                                em: { fontStyle: 'italic' },
-                                                code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
-                                                code_block: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                                                fence: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                                                link: { color: theme.colors.primary, textDecorationLine: 'underline' },
-                                                blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, paddingLeft: 12, paddingVertical: 8, marginVertical: 8, fontStyle: 'italic' },
-                                                bullet_list: { marginBottom: 8, marginTop: 0 },
-                                                ordered_list: { marginBottom: 8, marginTop: 0 },
-                                                list_item: { marginBottom: 4, lineHeight: 24 },
-                                                table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 12 },
-                                                th: { backgroundColor: theme.colors.surfaceVariant, padding: 10, fontWeight: 'bold' },
-                                                td: { padding: 10, borderWidth: 1, borderColor: theme.colors.outline },
-                                                hr: { backgroundColor: theme.colors.outline, height: 1, marginVertical: 16 },
-                                              }}
-                                            >
-                                              {message.content}
-                                            </Markdown>
-                                          </ReanimatedAnimated.View>
-                                        )
-                                      ) : (
-                        <Text style={[styles.messageText, { color: theme.colors.onPrimary }]}>
-                          {message.content}
+              >
+                <View style={styles.welcomeContent}>
+                  <View style={[styles.iconContainer, { backgroundColor: theme.colors.primaryContainer }]}>
+                    <MaterialCommunityIcons
+                      name="robot"
+                      size={64}
+                      color={theme.colors.primary}
+                    />
+                  </View>
+                  {isLoading ? (
+                    <>
+                      <Text style={[styles.welcomeTitle, { color: theme.colors.onSurface }]}>
+                        Loading fresh data into AI....
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={[styles.welcomeTitle, { color: theme.colors.onSurface }]}>
+                        {gameContext ? 'How can I help you analyze today\'s games?' : 'How can I help you with sports betting today?'}
+                      </Text>
+                      {gameContext && (
+                        <Text style={[styles.welcomeSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                          I have access to all game data, predictions, betting lines, and more.
                         </Text>
                       )}
-                    </View>
-                  </View>
-                );
-              }}
-            />
-          ) : (
-            // Use regular ScrollView for non-bottom-sheet contexts
-            <Animated.ScrollView
-              ref={scrollViewRef}
-              style={styles.messagesContainer}
-              contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight }]}
-              showsVerticalScrollIndicator={true}
-              keyboardShouldPersistTaps="handled"
-              {...scrollProps}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={handleRefresh}
-                  colors={[theme.colors.primary]}
-                  tintColor={theme.colors.primary}
-                />
-              }
-              onContentSizeChange={() => {
-                scrollViewRef.current?.scrollToEnd({ animated: true });
-              }}
-            >
+                    </>
+                  )}
+                </View>
+              </Animated.ScrollView>
+            )}
+
+            {/* Messages View (shows when there are messages) */}
+            {!showWelcome && (
+              <Animated.ScrollView
+                ref={scrollViewRef}
+                style={[styles.messagesContainer, styles.scrollView]}
+                contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight }]}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+                {...scrollProps}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    colors={[theme.colors.primary]}
+                    tintColor={theme.colors.primary}
+                  />
+                }
+                onContentSizeChange={() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }}
+              >
               {messages.map((message, index) => {
                 const isLastMessage = index === messages.length - 1;
+                const isFirstMessage = index === 0;
                 const isEmptyAndStreaming = !message.content && isSending && isLastMessage;
                 const isStreamingThis = isStreaming && isLastMessage && message.role === 'assistant';
                 
@@ -1354,6 +1128,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                       styles.messageRow,
                       message.role === 'user' ? styles.userRow : styles.assistantRow,
                       isAssistantContent && { marginBottom: 24, width: '100%', paddingHorizontal: 0 },
+                      isFirstMessage && { marginTop: 16 },
                       animatedStyle,
                     ]}
                   >
@@ -1452,48 +1227,35 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                   </Animated.View>
                 );
               })}
-            </Animated.ScrollView>
-          )
-        )}
+              </Animated.ScrollView>
+            )}
+          </View>
 
-        {/* Suggested Messages - Show when welcome or no messages */}
-        {(showWelcome || messages.length === 0) && (
-          <View 
-            style={styles.suggestedMessagesWrapper}
-            onLayout={(event) => {
-              setMarqueeParentWidth(event.nativeEvent.layout.width);
-            }}
-          >
-            {isLoading ? (
-              <View style={styles.suggestedMessagesContent}>
-                {[1, 2, 3].map((_, index) => (
-                  <Shimmer
-                    key={index}
-                    width={140}
-                    height={36}
-                    style={{ marginRight: 8, borderRadius: 18, opacity: 0.1 }}
-                    theme={theme}
-                  />
-                ))}
-              </View>
-            ) : (
-              <>
-            {/* Hidden measure element to get children width */}
-            <View 
-              style={styles.marqueeMeasureContainer}
-              onLayout={(event) => {
-                setMarqueeChildrenWidth(event.nativeEvent.layout.width);
-              }}
-            >
-              <View style={styles.suggestedMessagesContent}>
+          {/* Input Area - Hide when loading during initialization - Fixed at bottom */}
+          {!isLoading && (
+            <View style={[
+              styles.inputWrapper, 
+              { 
+                backgroundColor: theme.colors.background,
+                paddingBottom: keyboardHeight > 0 ? keyboardHeight : (Platform.OS === 'ios' ? insets.bottom : 16),
+              }
+            ]}>
+            {/* Suggested Messages - Show when welcome or no messages - Part of input component */}
+            {(showWelcome || messages.length === 0) && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.suggestedMessagesScrollView}
+                contentContainerStyle={styles.suggestedMessagesContent}
+              >
                 {suggestedMessages.map((item, index) => (
                   <TouchableOpacity
                     key={index}
                     style={[
                       styles.suggestedMessageBubble,
                       { 
-                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                        borderColor: 'rgba(255, 255, 255, 0.25)',
+                        backgroundColor: theme.colors.surfaceVariant,
+                        borderColor: theme.colors.outline,
                       }
                     ]}
                     onPress={() => handleSuggestedMessage(item.message)}
@@ -1505,146 +1267,96 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                     </Text>
                   </TouchableOpacity>
                 ))}
+              </ScrollView>
+            )}
+
+            {/* Selected Images Preview */}
+            {selectedImages.length > 0 && (
+              <View style={styles.imagePreviewContainer}>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.imagePreviewScroll}
+                >
+                  {selectedImages.map((image, index) => (
+                    <View key={`image_${index}`} style={styles.imagePreviewItem}>
+                      <Image
+                        source={{ uri: image.uri }}
+                        style={styles.imagePreview}
+                      />
+                      <TouchableOpacity
+                        style={styles.imageRemoveButton}
+                        onPress={() => handleRemoveImage(index)}
+                      >
+                        <MaterialCommunityIcons name="close" size={14} color="#ffffff" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+              <TextInput
+                ref={inputRef}
+                style={[styles.input, { color: theme.colors.onSurface }]}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder={selectedImages.length > 0 ? 'Add a message with your image...' : 'Chat with WagerBot'}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                multiline={true}
+                maxLength={500}
+                editable={!isSending}
+                textAlignVertical="top"
+                onFocus={() => {
+                  // Scroll to bottom when input is focused
+                  setTimeout(() => {
+                    if (showWelcome) {
+                      welcomeScrollViewRef.current?.scrollToEnd({ animated: true });
+                    } else {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }
+                  }, 100);
+                }}
+              />
+              
+              {/* Bottom row with icons */}
+              <View style={styles.inputBottomRow}>
+                <TouchableOpacity
+                  style={[styles.attachButton, isPickingImage && styles.attachButtonDisabled]}
+                  onPress={handlePickImage}
+                  disabled={isPickingImage || isSending}
+                >
+                  {isPickingImage ? (
+                    <ActivityIndicator size="small" color={theme.colors.onSurfaceVariant} />
+                  ) : (
+                    <MaterialCommunityIcons name="image-plus" size={20} color={theme.colors.onSurfaceVariant} />
+                  )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    (inputText.trim() || selectedImages.length > 0) && styles.sendButtonActive,
+                  ]}
+                  onPress={sendMessage}
+                  disabled={(!inputText.trim() && selectedImages.length === 0) || isSending}
+                >
+                  {isSending ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <MaterialCommunityIcons 
+                      name="arrow-up" 
+                      size={18} 
+                      color="#ffffff"
+                    />
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
-
-            {/* Visible scrolling content - render clones */}
-            {marqueeChildrenWidth > 0 && marqueeParentWidth > 0 && (
-              <View style={styles.marqueeScrollContainer}>
-                {Array.from({ length: marqueeCloneCount }).map((_, index) => (
-                  <ReanimatedAnimated.View
-                    key={`clone-${index}`}
-                    style={[
-                      styles.suggestedMessagesContent,
-                      marqueeAnimatedStyle,
-                      {
-                        position: 'absolute',
-                        left: index * marqueeChildrenWidth,
-                      }
-                    ]}
-                  >
-                    {suggestedMessages.map((item, msgIndex) => (
-                      <TouchableOpacity
-                        key={msgIndex}
-                        style={[
-                          styles.suggestedMessageBubble,
-                          { 
-                            backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                            borderColor: 'rgba(255, 255, 255, 0.25)',
-                          }
-                        ]}
-                        onPress={() => handleSuggestedMessage(item.message)}
-                        disabled={isSending}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.suggestedMessageText, { color: theme.colors.onSurface }]}>
-                          {item.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ReanimatedAnimated.View>
-                ))}
-              </View>
-            )}
-            </>
-            )}
-
           </View>
         )}
-
-        {/* Input Area - Always visible at bottom */}
-        <View style={[
-          styles.inputWrapper, 
-          { backgroundColor: isInBottomSheet ? 'transparent' : theme.colors.background },
-          isInBottomSheet && { paddingBottom: insets.bottom + 8 }
-        ]}>
-          {/* Selected Images Preview */}
-          {selectedImages.length > 0 && (
-            <View style={styles.imagePreviewContainer}>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={styles.imagePreviewScroll}
-              >
-                {selectedImages.map((image, index) => (
-                  <View key={`image_${index}`} style={styles.imagePreviewItem}>
-                    <Image
-                      source={{ uri: image.uri }}
-                      style={styles.imagePreview}
-                    />
-                    <TouchableOpacity
-                      style={styles.imageRemoveButton}
-                      onPress={() => handleRemoveImage(index)}
-                    >
-                      <MaterialCommunityIcons name="close" size={14} color="#ffffff" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          <View style={[styles.inputContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
-            {isLoading ? (
-              <View style={{ paddingHorizontal: 4 }}>
-                <Shimmer width="100%" height={20} style={{ marginBottom: 12, opacity: 0.1 }} theme={theme} />
-                <View style={styles.inputBottomRow}>
-                  <Shimmer width={32} height={32} style={{ borderRadius: 16, opacity: 0.1 }} theme={theme} />
-                  <Shimmer width={32} height={32} style={{ borderRadius: 16, opacity: 0.1 }} theme={theme} />
-                </View>
-              </View>
-            ) : (
-              <>
-            <TextInput
-              style={[styles.input, { color: theme.colors.onSurface }]}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder={selectedImages.length > 0 ? 'Add a message with your image...' : 'Chat with WagerBot'}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              multiline={true}
-              maxLength={500}
-              editable={!isLoading && !isSending}
-              textAlignVertical="top"
-            />
-            
-            {/* Bottom row with icons */}
-            <View style={styles.inputBottomRow}>
-              <TouchableOpacity
-                style={[styles.attachButton, isPickingImage && styles.attachButtonDisabled]}
-                onPress={handlePickImage}
-                disabled={isLoading || isPickingImage || isSending}
-              >
-                {isPickingImage ? (
-                  <ActivityIndicator size="small" color={theme.colors.onSurfaceVariant} />
-                ) : (
-                  <MaterialCommunityIcons name="image-plus" size={20} color={theme.colors.onSurfaceVariant} />
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  (inputText.trim() || selectedImages.length > 0) && styles.sendButtonActive,
-                ]}
-                onPress={sendMessage}
-                disabled={isLoading || (!inputText.trim() && selectedImages.length === 0) || isSending}
-              >
-                {isSending ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <MaterialCommunityIcons 
-                    name="arrow-up" 
-                    size={18} 
-                    color="#ffffff"
-                  />
-                )}
-              </TouchableOpacity>
-            </View>
-            </>
-            )}
-          </View>
-        </View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 });
@@ -1654,11 +1366,17 @@ export default WagerBotChat;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    minHeight: 0,
   },
-  keyboardView: {
+  mainContent: {
     flex: 1,
-    minHeight: 0,
+    position: 'relative',
+  },
+  scrollableContent: {
+    flex: 1,
+    minHeight: 0, // Important for flex children
+  },
+  scrollView: {
+    flex: 1,
   },
   historyDrawer: {
     position: 'absolute',
@@ -1766,12 +1484,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 48,
   },
-  welcomeContainerBottomSheet: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
   welcomeContent: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1799,11 +1511,10 @@ const styles = StyleSheet.create({
   // Messages Styles
   messagesContainer: {
     flex: 1,
-    minHeight: 0, // Important for ScrollView to work properly in nested views
   },
   messagesContent: {
     padding: 16,
-    paddingBottom: 120, // Extra padding at bottom to account for input area when in bottom sheet
+    paddingBottom: 200, // Extra padding to account for input area, suggested messages, and keyboard
     flexGrow: 1,
   },
   messageRow: {
@@ -1856,10 +1567,13 @@ const styles = StyleSheet.create({
   },
   // Input Area Styles (Claude-like)
   inputWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
-    backgroundColor: 'transparent',
+    backgroundColor: 'transparent', // Will be set by inline style
   },
   inputContainer: {
     borderRadius: 24,
@@ -1906,27 +1620,16 @@ const styles = StyleSheet.create({
   sendButtonActive: {
     backgroundColor: '#2e7d32',
   },
-  // Suggested Messages Styles (with Marquee)
-  suggestedMessagesWrapper: {
-    paddingVertical: 8,
-    overflow: 'hidden',
-    height: 52,
-    position: 'relative',
-  },
-  marqueeMeasureContainer: {
-    position: 'absolute',
-    opacity: 0,
-    zIndex: -1,
-  },
-  marqueeScrollContainer: {
-    flexDirection: 'row',
-    height: 52,
+  // Suggested Messages Styles (User Scrollable)
+  suggestedMessagesScrollView: {
+    maxHeight: 52,
+    marginBottom: 8,
   },
   suggestedMessagesContent: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
   suggestedMessageBubble: {
     paddingHorizontal: 16,
@@ -1996,4 +1699,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-

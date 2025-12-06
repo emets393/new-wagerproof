@@ -6,7 +6,6 @@ import { EditorPick, GameData } from '@/types/editorsPicks';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { getTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { calculateUnits } from '@/utils/unitsCalculation';
-import { BlurView } from 'expo-blur';
 import { SportsbookButtons } from '@/components/SportsbookButtons';
 
 interface EditorPickCardProps {
@@ -17,6 +16,15 @@ interface EditorPickCardProps {
 export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  
+  // Validate image URI - Android requires valid non-empty URLs
+  const isValidImageUri = (uri: string | null | undefined): boolean => {
+    if (!uri || typeof uri !== 'string') return false;
+    const trimmed = uri.trim();
+    if (trimmed === '') return false;
+    // Basic URL validation - must start with http:// or https://
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+  };
   
   // Get team initials based on game type
   const getInitials = (teamName: string) => {
@@ -75,32 +83,58 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
     const alpha = isDark ? 0.15 : 0.1;
 
     const hexToRgba = (hex: string, a: number) => {
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      return `rgba(${r}, ${g}, ${b}, ${a})`;
+      // Validate hex color format
+      if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+        return `rgba(128, 128, 128, ${a})`; // Fallback gray
+      }
+      
+      try {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        
+        // Check if parsing was successful
+        if (isNaN(r) || isNaN(g) || isNaN(b)) {
+          return `rgba(128, 128, 128, ${a})`; // Fallback gray
+        }
+        
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+      } catch (error) {
+        return `rgba(128, 128, 128, ${a})`; // Fallback gray
+      }
     };
 
-    if (firstBet?.includes('home')) {
+    try {
+      if (firstBet?.includes('home') && gameData.home_team_colors) {
+        return [
+          hexToRgba(gameData.home_team_colors.primary, alpha),
+          hexToRgba(gameData.home_team_colors.secondary, alpha * 0.5),
+          hexToRgba(gameData.home_team_colors.primary, 0)
+        ];
+      }
+      if (firstBet?.includes('away') && gameData.away_team_colors) {
+        return [
+          hexToRgba(gameData.away_team_colors.primary, alpha),
+          hexToRgba(gameData.away_team_colors.secondary, alpha * 0.5),
+          hexToRgba(gameData.away_team_colors.primary, 0)
+        ];
+      }
+      
+      // Default fallback
       return [
-        hexToRgba(gameData.home_team_colors.primary, alpha),
-        hexToRgba(gameData.home_team_colors.secondary, alpha * 0.5),
-        hexToRgba(gameData.home_team_colors.primary, 0)
+        hexToRgba(theme.colors.primary, alpha),
+        hexToRgba(theme.colors.primary, alpha * 0.5),
+        'transparent'
+      ];
+    } catch (error) {
+      console.error('Error calculating gradient colors:', error);
+      // Safe fallback colors for Android
+      return [
+        `rgba(128, 128, 128, ${alpha})`,
+        `rgba(128, 128, 128, ${alpha * 0.5})`,
+        'transparent'
       ];
     }
-    if (firstBet?.includes('away')) {
-      return [
-        hexToRgba(gameData.away_team_colors.primary, alpha),
-        hexToRgba(gameData.away_team_colors.secondary, alpha * 0.5),
-        hexToRgba(gameData.away_team_colors.primary, 0)
-      ];
-    }
-    
-    return [
-      hexToRgba(theme.colors.primary, alpha),
-      hexToRgba(theme.colors.primary, alpha * 0.5),
-      'transparent'
-    ];
   };
 
   const gradientColors = getGradientColors();
@@ -164,8 +198,17 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
         {/* Away Team */}
         <View style={styles.teamColumn}>
           <View style={[styles.logoContainer, { borderColor: gameData.away_team_colors.primary }]}>
-            {gameData.away_logo ? (
-              <Image source={{ uri: gameData.away_logo }} style={styles.teamLogo} resizeMode="contain" />
+            {isValidImageUri(gameData.away_logo) ? (
+              <Image 
+                source={{ uri: gameData.away_logo! }} 
+                style={styles.teamLogo} 
+                resizeMode="contain"
+                onError={(e) => {
+                  if (__DEV__) {
+                    console.log('Failed to load away team logo:', gameData.away_logo, e.nativeEvent.error);
+                  }
+                }}
+              />
             ) : (
               <View style={[styles.initialsFallback, { backgroundColor: gameData.away_team_colors.primary }]}>
                 <Text style={[styles.initialsText, { color: getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary) }]}>
@@ -236,8 +279,17 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
         {/* Home Team */}
         <View style={styles.teamColumn}>
           <View style={[styles.logoContainer, { borderColor: gameData.home_team_colors.primary }]}>
-            {gameData.home_logo ? (
-              <Image source={{ uri: gameData.home_logo }} style={styles.teamLogo} resizeMode="contain" />
+            {isValidImageUri(gameData.home_logo) ? (
+              <Image 
+                source={{ uri: gameData.home_logo! }} 
+                style={styles.teamLogo} 
+                resizeMode="contain"
+                onError={(e) => {
+                  if (__DEV__) {
+                    console.log('Failed to load home team logo:', gameData.home_logo, e.nativeEvent.error);
+                  }
+                }}
+              />
             ) : (
               <View style={[styles.initialsFallback, { backgroundColor: gameData.home_team_colors.primary }]}>
                 <Text style={[styles.initialsText, { color: getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary) }]}>

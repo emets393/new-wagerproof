@@ -4,7 +4,8 @@ import { useTheme, Button as PaperButton } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
+import { useRouter } from 'expo-router';
 
 import { fetchWeekGames, fetchValueAlerts, fetchFadeAlerts, ValueAlert, FadeAlert, GameSummary } from '@/services/outliersService';
 import { Card } from '@/components/ui/Card';
@@ -12,7 +13,6 @@ import { AlertCardShimmer } from '@/components/AlertCardShimmer';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWagerBotChatSheet } from '@/contexts/WagerBotChatSheetContext';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -59,10 +59,10 @@ export default function OutliersScreen() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { open: openDrawer } = useDrawer();
   const { user } = useAuth();
-  const { openChatSheet } = useWagerBotChatSheet();
   const { scrollY, scrollYClamped } = useScroll();
   const { hasLiveGames } = useLiveScores();
   const { scoreboardEnabled } = useSettings();
@@ -433,7 +433,7 @@ export default function OutliersScreen() {
            }
          ]}
        >
-          <BlurView
+          <AndroidBlurView
              intensity={80}
              tint={isDark ? 'dark' : 'light'}
              style={[styles.fixedHeader, { paddingTop: insets.top }]}
@@ -459,14 +459,14 @@ export default function OutliersScreen() {
             
             {user && (
               <TouchableOpacity 
-                onPress={openChatSheet}
+                onPress={() => router.push('/chat' as any)}
                 style={styles.chatButton}
               >
                 <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
             )}
           </View>
-        </BlurView>
+        </AndroidBlurView>
        </Animated.View>
 
        <Animated.ScrollView

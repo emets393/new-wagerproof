@@ -1,10 +1,10 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Keyboard, Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useWagerBotChatSheet } from '@/contexts/WagerBotChatSheetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
@@ -92,12 +92,12 @@ export function WagerBotChatBottomSheet() {
       backdropComponent={renderBackdrop}
       backgroundStyle={{ backgroundColor: 'transparent' }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.onSurfaceVariant }}
-      keyboardBehavior="extend"
+      keyboardBehavior="fillParent"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
       enableDynamicSizing={false}
     >
-      <BlurView
+      <AndroidBlurView
         intensity={100}
         tint={isDark ? 'dark' : 'light'}
         style={[
@@ -184,13 +184,12 @@ export function WagerBotChatBottomSheet() {
               gameContext={gameContext}
               onRefresh={loadGameContext}
               onBack={closeChatSheet}
-              isInBottomSheet={true}
               headerHeight={0}
             />
           </View>
         </View>
         )}
-      </BlurView>
+      </AndroidBlurView>
     </BottomSheet>
   );
 }

@@ -1,26 +1,23 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList, ScrollView, Dimensions, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { useTheme, Card, ActivityIndicator, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { BlurView } from 'expo-blur';
-import PagerView from 'react-native-pager-view';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWagerBotChatSheet } from '@/contexts/WagerBotChatSheetContext';
 import { supabase } from '@/services/supabase';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
 import { EditorPickCard } from '@/components/EditorPickCard';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
+import { PickCardErrorBoundary } from '@/components/PickCardErrorBoundary';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColors } from '@/constants/teamColors';
 import { StatsSummary } from '@/components/StatsSummary';
 import { useScroll } from '@/contexts/ScrollContext';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
 type Sport = 'all' | 'nfl' | 'cfb' | 'nba' | 'ncaab';
@@ -200,22 +197,13 @@ export default function PicksScreen() {
   const router = useRouter();
   const { open: openDrawer } = useDrawer();
   const { user } = useAuth();
-  const { openChatSheet } = useWagerBotChatSheet();
   const { isDark } = useThemeContext();
   const { scrollY, scrollYClamped } = useScroll();
   const insets = useSafeAreaInsets();
-  const pagerRef = useRef<PagerView>(null);
   const tabsScrollViewRef = useRef<ScrollView>(null);
-
-  // Animation values
-  const scrollOffset = useRef(new Animated.Value(0)).current;
-  const scrollPosition = useRef(new Animated.Value(0)).current;
-  const absolutePosition = useMemo(() => Animated.add(scrollPosition, scrollOffset), [scrollPosition, scrollOffset]);
-  const [tabMeasures, setTabMeasures] = useState<Array<{x: number, width: number}>>(new Array(5).fill({ x: 0, width: 0 }));
 
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('all');
-  const [currentPage, setCurrentPage] = useState(0);
   const [picks, setPicks] = useState<EditorPick[]>([]); // Filtered picks for display (last 7 days + future)
   const [allPicks, setAllPicks] = useState<EditorPick[]>([]); // All picks for stats calculation (no date filter)
   const [gamesData, setGamesData] = useState<Map<string, GameData>>(new Map());
@@ -740,54 +728,10 @@ export default function PicksScreen() {
     Linking.openURL('https://www.tiktok.com/@wagerproof');
   };
 
-  const onPageScroll = useMemo(() => Animated.event(
-    [{ nativeEvent: { position: scrollPosition, offset: scrollOffset } }],
-    { useNativeDriver: false }
-  ), []);
-
-  // Handle page change from swipe
-  const handlePageSelected = useCallback((e: any) => {
-    const page = e.nativeEvent.position;
-    setCurrentPage(page);
-    const sport = sports[page].id;
+  // Handle tab press - switch immediately for instant feel
+  const handleTabPress = useCallback((sport: Sport) => {
+    // Switch immediately - filtering is instant since data is already loaded
     setSelectedSport(sport);
-    
-    // Scroll tab bar to keep active tab in view
-    if (tabMeasures[page] && tabsScrollViewRef.current) {
-      const { x, width } = tabMeasures[page];
-      const scrollX = x - (SCREEN_WIDTH / 2) + (width / 2);
-      tabsScrollViewRef.current.scrollTo({ x: scrollX, animated: true });
-    }
-  }, [tabMeasures]);
-
-  // Measure tabs
-  const onTabMeasure = (index: number, event: any) => {
-    const { x, width } = event.nativeEvent.layout;
-    setTabMeasures(prev => {
-      const newMeasures = [...prev];
-      newMeasures[index] = { x, width };
-      return newMeasures;
-    });
-  };
-
-  // Interpolate indicator position and width
-  const indicatorLeft = absolutePosition.interpolate({
-    inputRange: sports.map((_, i) => i),
-    outputRange: tabMeasures.map(m => m.x),
-    extrapolate: 'clamp'
-  });
-
-  const indicatorWidth = absolutePosition.interpolate({
-    inputRange: sports.map((_, i) => i),
-    outputRange: tabMeasures.map(m => m.width),
-    extrapolate: 'clamp'
-  });
-
-  // Handle tab press
-  const handleTabPress = useCallback((index: number) => {
-    pagerRef.current?.setPage(index);
-    setCurrentPage(index);
-    setSelectedSport(sports[index].id);
   }, []);
 
   // Group picks by date
@@ -868,11 +812,20 @@ export default function PicksScreen() {
     const gameData = gamesData.get(item.game_id);
     if (!gameData) return null;
 
+    // Ensure team colors are valid to prevent Android crashes
+    const safeGameData = {
+      ...gameData,
+      away_team_colors: gameData.away_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
+      home_team_colors: gameData.home_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
+    };
+
     return (
-      <EditorPickCard
-        pick={item}
-        gameData={gameData}
-      />
+      <PickCardErrorBoundary pickId={item.id}>
+        <EditorPickCard
+          pick={item}
+          gameData={safeGameData}
+        />
+      </PickCardErrorBoundary>
     );
   };
 
@@ -895,17 +848,22 @@ export default function PicksScreen() {
 
     const groupedPicks = useMemo(() => groupPicksByDate(sportPicks), [sportPicks, groupPicksByDate]);
     
-    if (loading && !refreshing) {
+    // Show shimmer if initial loading or if no picks yet (for instant feel)
+    const showShimmer = (loading && !refreshing) || (sportPicks.length === 0 && !error && !refreshing);
+    
+    if (showShimmer) {
       return (
         <View key={sport} style={styles.pageContainer}>
-          <ScrollView 
-            contentContainerStyle={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT, justifyContent: 'flex-start' }]}
-            scrollEnabled={true}
-          >
-            {[1, 2, 3, 4].map((i) => (
-              <GameCardShimmer key={i} />
-            ))}
-          </ScrollView>
+          <View style={{ paddingTop: TOTAL_HEADER_HEIGHT }}>
+            <ScrollView 
+              contentContainerStyle={{ paddingVertical: 20 }}
+              scrollEnabled={false}
+            >
+              {[1, 2, 3, 4].map((i) => (
+                <GameCardShimmer key={i} />
+              ))}
+            </ScrollView>
+          </View>
         </View>
       );
     }
@@ -1020,7 +978,7 @@ export default function PicksScreen() {
           },
         ]}
       >
-        <BlurView
+        <AndroidBlurView
           intensity={80}
           tint={isDark ? 'dark' : 'light'}
           style={[styles.fixedHeader, { paddingTop: insets.top }]}
@@ -1046,7 +1004,7 @@ export default function PicksScreen() {
           
           {user && (
             <TouchableOpacity 
-              onPress={openChatSheet}
+              onPress={() => router.push('/chat' as any)}
               style={styles.chatButton}
             >
               <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />
@@ -1062,15 +1020,14 @@ export default function PicksScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.sportsTabsContent}
           >
-            {sports.map((sport, index) => {
-              const isSelected = currentPage === index;
+            {sports.map((sport) => {
+              const isSelected = selectedSport === sport.id;
               return (
                 <TouchableOpacity
                   key={sport.id}
                   style={styles.sportTab}
-                  onPress={() => sport.available && handleTabPress(index)}
+                  onPress={() => sport.available && handleTabPress(sport.id)}
                   disabled={!sport.available}
-                  onLayout={(e) => onTabMeasure(index, e)}
                 >
                   <Text style={[
                     styles.sportTabText, 
@@ -1082,39 +1039,19 @@ export default function PicksScreen() {
                   ]}>
                     {sport.label}
                   </Text>
+                  {isSelected && (
+                    <View style={[styles.sportIndicator, { backgroundColor: '#00E676' }]} />
+                  )}
                 </TouchableOpacity>
               );
             })}
-            
-            {/* Animated Indicator */}
-            {tabMeasures.some(m => m.width > 0) && (
-              <Animated.View 
-                style={[
-                  styles.sportIndicator, 
-                  { 
-                    backgroundColor: '#00E676',
-                    left: 0, // Animated via transform
-                    width: indicatorWidth,
-                    transform: [{ translateX: indicatorLeft }]
-                  }
-                ]} 
-              />
-            )}
           </ScrollView>
         </View>
-        </BlurView>
+        </AndroidBlurView>
       </Animated.View>
 
-      {/* Swipeable Sport Pages */}
-      <AnimatedPagerView
-        ref={pagerRef}
-        style={styles.pagerView}
-        initialPage={0}
-        onPageSelected={handlePageSelected}
-        onPageScroll={onPageScroll}
-      >
-        {sports.map(sport => renderSportPage(sport.id))}
-      </AnimatedPagerView>
+      {/* Sport Content */}
+      {renderSportPage(selectedSport)}
     </View>
   );
 }
@@ -1123,12 +1060,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  pagerView: {
-    flex: 1,
-  },
   pageContainer: {
     flex: 1,
-    width: SCREEN_WIDTH,
   },
   fixedHeaderContainer: {
     position: 'absolute',

@@ -4,7 +4,6 @@ import { Button, Modal, Portal, useTheme, Divider } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { TOP_SPORTSBOOKS, ADDITIONAL_SPORTSBOOKS, getSportsbookByKey } from '@/utils/sportsbookConfig';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { BlurView } from 'expo-blur';
 
 interface SportsbookButtonsProps {
   betslipLinks?: Record<string, string> | null;

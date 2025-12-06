@@ -16,6 +16,7 @@
     "@react-native-google-signin/google-signin": "^16.0.0",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-navigation/drawer": "^7.7.8",
+    "@sbaiahmed1/react-native-blur": "^4.2.1",
     "@shopify/react-native-skia": "2.2.12",
     "@supabase/supabase-js": "^2.75.1",
     "@tanstack/react-query": "^5.90.5",
