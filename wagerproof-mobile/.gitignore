@@ -6,10 +6,12 @@ web-build/
 # Native
 *.orig.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+android/keystore.properties
 
 # Metro
 .metro-health-check*

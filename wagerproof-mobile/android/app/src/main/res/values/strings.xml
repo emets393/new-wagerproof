@@ -2,10 +2,4 @@
   <string name="app_name">WagerProof</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
-  
-  <!-- Google Sign-In Client IDs -->
-  <!-- Android OAuth Client ID (for app verification) -->
-  <string name="server_client_id">142325632215-gr9pao3j8dfi5tq0aksl46b06uhglm6e.apps.googleusercontent.com</string>
-  <!-- Web OAuth Client ID (needed for ID tokens) -->
-  <string name="web_client_id">142325632215-5c9nahlmruos96rsiu60ac4uk2p2s1ua.apps.googleusercontent.com</string>
 </resources>
