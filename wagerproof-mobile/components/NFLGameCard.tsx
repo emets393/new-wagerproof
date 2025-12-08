@@ -13,6 +13,7 @@ import {
   roundToNearestHalf 
 } from '@/utils/formatting';
 import { getNFLTeamColors, getTeamParts, getTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 interface NFLGameCardProps {
   game: NFLPrediction;
@@ -22,6 +23,7 @@ interface NFLGameCardProps {
 
 export function NFLGameCard({ game, onPress, cardWidth }: NFLGameCardProps) {
   const theme = useTheme();
+  const { isDark } = useThemeContext();
   const awayColors = getNFLTeamColors(game.away_team);
   const homeColors = getNFLTeamColors(game.home_team);
   const awayTeamParts = getTeamParts(game.away_team);
@@ -30,6 +32,14 @@ export function NFLGameCard({ game, onPress, cardWidth }: NFLGameCardProps) {
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onPress();
+  };
+
+  // Helper function to get color based on confidence percentage (50-100%)
+  const getConfidenceColor = (confidence: number): string => {
+    if (confidence >= 80) return '#22c55e'; // Strong green
+    if (confidence >= 70) return '#84cc16'; // Light green
+    if (confidence >= 60) return '#eab308'; // Yellow
+    return '#f97316'; // Orange
   };
 
   // Determine favored team for ML
@@ -56,7 +66,7 @@ export function NFLGameCard({ game, onPress, cardWidth }: NFLGameCardProps) {
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={cardWidth ? { width: cardWidth } : undefined}>
-      <Card style={[styles.card, { backgroundColor: '#1a1a1a' }]}>
+      <Card style={[styles.card, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
         {/* Background gradient of favorite team */}
         <LinearGradient
           colors={[
@@ -186,59 +196,93 @@ export function NFLGameCard({ game, onPress, cardWidth }: NFLGameCardProps) {
               </View>
               <View style={styles.pillsColumn}>
                 {/* ML Pill */}
-                {mlFavorite && (
-                  <View style={[styles.bettingPillVertical, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outlineVariant }]}>
-                    <LinearGradient
-                      colors={[mlFavoriteColors.primary, mlFavoriteColors.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.pillCircle}
-                    >
-                      <Text style={[styles.pillInitials, { color: getContrastingTextColor(mlFavoriteColors.primary, mlFavoriteColors.secondary) }]}>
-                        {getTeamInitials(mlFavorite)}
+                {mlFavorite && game.home_away_ml_prob !== null && (() => {
+                  const confidence = Math.round((mlFavorite === game.home_team ? game.home_away_ml_prob : (1 - game.home_away_ml_prob)) * 100);
+                  return (
+                    <View style={[styles.bettingPillVertical, { backgroundColor: isDark ? '#2a2a2a' : '#f0f0f0', borderColor: theme.colors.outlineVariant }]}>
+                      <LinearGradient
+                        colors={[mlFavoriteColors.primary, mlFavoriteColors.secondary]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.pillCircle}
+                      >
+                        <Text style={[styles.pillInitials, { color: getContrastingTextColor(mlFavoriteColors.primary, mlFavoriteColors.secondary) }]}>
+                          {getTeamInitials(mlFavorite)}
+                        </Text>
+                      </LinearGradient>
+                      <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
+                        ML: {formatMoneyline(mlFavorite === game.home_team ? game.home_ml : game.away_ml)}
                       </Text>
-                    </LinearGradient>
-                    <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
-                      ML: {formatMoneyline(mlFavorite === game.home_team ? game.home_ml : game.away_ml)}
-                    </Text>
-                  </View>
-                )}
+                      <Text style={[styles.pillValueRight, { color: getConfidenceColor(confidence) }]}>
+                        {confidence}%
+                      </Text>
+                    </View>
+                  );
+                })()}
 
                 {/* Spread Pill */}
-                {spreadFavorite && spreadValue !== null && game.home_away_spread_cover_prob !== null && (
-                  <View style={[styles.bettingPillVertical, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outlineVariant }]}>
-                    <LinearGradient
-                      colors={[spreadFavoriteColors.primary, spreadFavoriteColors.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.pillCircle}
-                    >
-                      <Text style={[styles.pillInitials, { color: getContrastingTextColor(spreadFavoriteColors.primary, spreadFavoriteColors.secondary) }]}>
-                        {getTeamInitials(spreadFavorite)}
-                      </Text>
-                    </LinearGradient>
-                    <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
-                      Spread: {formatSpread(spreadValue)}
-                    </Text>
-                  </View>
-                )}
+                {spreadFavorite && spreadValue !== null && game.home_away_spread_cover_prob !== null && (() => {
+                  const confidence = game.home_away_spread_cover_prob >= 0.5 ? game.home_away_spread_cover_prob : 1 - game.home_away_spread_cover_prob;
+                  const isFadeAlert = confidence >= 0.8;
+                  const confidencePercent = Math.round(confidence * 100);
+                  return (
+                    <View style={styles.pillContainerWithBadge}>
+                      <View style={[styles.bettingPillVertical, { backgroundColor: isDark ? '#2a2a2a' : '#f0f0f0', borderColor: theme.colors.outlineVariant }]}>
+                        <LinearGradient
+                          colors={[spreadFavoriteColors.primary, spreadFavoriteColors.secondary]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.pillCircle}
+                        >
+                          <Text style={[styles.pillInitials, { color: getContrastingTextColor(spreadFavoriteColors.primary, spreadFavoriteColors.secondary) }]}>
+                            {getTeamInitials(spreadFavorite)}
+                          </Text>
+                        </LinearGradient>
+                        <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
+                          Spread: {formatSpread(spreadValue)}
+                        </Text>
+                        <Text style={[styles.pillValueRight, { color: getConfidenceColor(confidencePercent) }]}>
+                          {confidencePercent}%
+                        </Text>
+                        {isFadeAlert && (
+                          <View style={styles.fadeAlertBadge}>
+                            <MaterialCommunityIcons name="lightning-bolt" size={10} color={getConfidenceColor(confidencePercent)} />
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })()}
 
                 {/* O/U Model Prediction Pill */}
                 {game.ou_result_prob !== null && (() => {
                   const isOver = game.ou_result_prob > 0.5;
                   const circleColor = isOver ? '#22c55e' : '#ef4444';
+                  const confidence = game.ou_result_prob >= 0.5 ? game.ou_result_prob : 1 - game.ou_result_prob;
+                  const isFadeAlert = confidence >= 0.8;
+                  const confidencePercent = Math.round(confidence * 100);
                   return (
-                    <View style={[styles.bettingPillVertical, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outlineVariant }]}>
-                      <View style={[styles.pillCircle, { backgroundColor: circleColor }]}>
-                        <MaterialCommunityIcons 
-                          name={isOver ? "arrow-up" : "arrow-down"} 
-                          size={12} 
-                          color="#fff" 
-                        />
+                    <View style={styles.pillContainerWithBadge}>
+                      <View style={[styles.bettingPillVertical, { backgroundColor: isDark ? '#2a2a2a' : '#f0f0f0', borderColor: theme.colors.outlineVariant }]}>
+                        <View style={[styles.pillCircle, { backgroundColor: circleColor }]}>
+                          <MaterialCommunityIcons 
+                            name={isOver ? "arrow-up" : "arrow-down"} 
+                            size={12} 
+                            color="#fff" 
+                          />
+                        </View>
+                        <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
+                          O/U: {isOver ? 'Over' : 'Under'}
+                        </Text>
+                        <Text style={[styles.pillValueRight, { color: getConfidenceColor(confidencePercent) }]}>
+                          {confidencePercent}%
+                        </Text>
+                        {isFadeAlert && (
+                          <View style={styles.fadeAlertBadge}>
+                            <MaterialCommunityIcons name="lightning-bolt" size={10} color={getConfidenceColor(confidencePercent)} />
+                          </View>
+                        )}
                       </View>
-                      <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
-                        O/U: {isOver ? 'Over' : 'Under'}
-                      </Text>
                     </View>
                   );
                 })()}
@@ -419,6 +463,17 @@ const styles = StyleSheet.create({
   pillTextVertical: {
     fontSize: 11,
     fontWeight: '600',
-    flex: 1,
+  },
+  pillValueRight: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 'auto',
+    paddingLeft: 8,
+  },
+  pillContainerWithBadge: {
+    width: '100%',
+  },
+  fadeAlertBadge: {
+    paddingLeft: 4,
   },
 });

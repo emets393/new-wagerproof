@@ -417,7 +417,7 @@ export default function OutliersScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
        {/* Fixed Header (No Tabs) - Animated */}
        <Animated.View 
          style={[

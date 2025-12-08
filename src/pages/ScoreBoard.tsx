@@ -57,11 +57,12 @@ export default function ScoreBoard() {
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-6">
-        <h1 className="text-3xl font-bold mb-6">Live Score Board</h1>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {[...Array(10)].map((_, i) => (
-            <Skeleton key={i} className="h-[36px] w-full" />
-          ))}
+          <h1 className="text-3xl font-bold mb-6">Live Score Board</h1>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {[...Array(10)].map((_, i) => (
+              <Skeleton key={i} className="h-[36px] w-full" />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -69,14 +70,15 @@ export default function ScoreBoard() {
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <h1 className="text-3xl font-bold mb-6">Live Score Board</h1>
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Error loading live scores: {error}
-          </AlertDescription>
-        </Alert>
+      <div className="bg-black -mx-4 md:-mx-8 px-4 md:px-8 py-6 md:py-8 min-h-screen">
+        <div className="container mx-auto">
+          <h1 className="text-3xl font-bold mb-6">Live Score Board</h1>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Error loading live scores: {error}
+            </AlertDescription>
+          </Alert>
       </div>
     );
   }

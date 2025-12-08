@@ -1,13 +1,33 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
+import { Platform } from 'react-native';
 
-// Configure Google Sign-In
-GoogleSignin.configure({
-  webClientId: '142325632215-5c9nahlmruos96rsiu60ac4uk2p2s1ua.apps.googleusercontent.com',
-  offlineAccess: false,
-});
+// Lazy import Google Sign-In to avoid errors when native module isn't available
+let GoogleSignin: any = null;
+let googleSigninConfigured = false;
+
+const configureGoogleSignIn = async () => {
+  if (googleSigninConfigured) return;
+  
+  try {
+    // Only import on native platforms
+    if (Platform.OS !== 'web') {
+      const googleSignInModule = await import('@react-native-google-signin/google-signin');
+      GoogleSignin = googleSignInModule.GoogleSignin;
+      
+      GoogleSignin.configure({
+        webClientId: '142325632215-5c9nahlmruos96rsiu60ac4uk2p2s1ua.apps.googleusercontent.com',
+        offlineAccess: false,
+      });
+      
+      googleSigninConfigured = true;
+    }
+  } catch (error) {
+    console.warn('Google Sign-In module not available:', error);
+    // Module not available, continue without it
+  }
+};
 
 interface AuthContextType {
   user: User | null;
@@ -31,6 +51,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
+    // Configure Google Sign-In if available
+    configureGoogleSignIn();
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -76,11 +99,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithProvider = async (provider: 'google' | 'apple') => {
     try {
       if (provider === 'google') {
+        // Ensure Google Sign-In is configured
+        await configureGoogleSignIn();
+        
+        // Check if Google Sign-In is available
+        if (!GoogleSignin) {
+          return { error: new Error('Google Sign-In is not available. Please rebuild the app with native modules.') };
+        }
+        
         // Native Google Sign-In flow
         console.log('Starting native Google Sign-In...');
         
-        // Check if Google Play Services are available
-        await GoogleSignin.hasPlayServices();
+        // Check if Google Play Services are available (Android only)
+        if (Platform.OS === 'android') {
+          await GoogleSignin.hasPlayServices();
+        }
         
         // Sign in with Google and get user info including ID token
         const userInfo = await GoogleSignin.signIn();

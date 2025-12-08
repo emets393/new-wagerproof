@@ -38,11 +38,11 @@ export function AlertCardShimmer() {
     };
   });
 
-  const baseColor = theme.dark ? '#2a2a2a' : '#f0f0f0';
-  const highlightColor = theme.dark ? '#3d3d3d' : '#ffffff';
+  const baseColor = theme.dark ? '#0d0d0d' : '#f0f0f0';
+  const highlightColor = theme.dark ? '#1a1a1a' : '#ffffff';
 
   return (
-    <View style={[styles.card, { borderColor: theme.colors.outlineVariant }]}>
+    <View style={[styles.card, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.dark ? '#000000' : '#ffffff' }]}>
       <View style={styles.content}>
         {/* Header Pills Skeleton */}
         <View style={styles.headerRow}>

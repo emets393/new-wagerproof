@@ -799,7 +799,7 @@ export default function PicksScreen() {
   }, [gamesData]);
 
   const renderSectionHeader = ({ section }: { section: DateGroup }) => (
-    <View style={[styles.sectionHeader, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.sectionHeader, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
       <View style={styles.sectionHeaderLine} />
       <Text style={[styles.sectionHeaderText, { color: theme.colors.onSurfaceVariant }]}>
         {section.title}
@@ -967,7 +967,7 @@ export default function PicksScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
       {/* Fixed Header with Frosted Glass Effect - Slides away on scroll */}
       <Animated.View
         style={[

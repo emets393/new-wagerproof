@@ -707,20 +707,19 @@ export default function FeedScreen() {
   };
 
   const renderGameCard = ({ item }: { item: NFLPrediction | CFBPrediction | NBAGame | NCAABGame }) => {
-    const isGrid = selectedSport === 'nfl';
-    const cardWidth = isGrid ? (Dimensions.get('window').width - 24) / 2 : undefined;
+    const cardWidth = (Dimensions.get('window').width - 24) / 2;
     
     if (selectedSport === 'nfl') {
       return <NFLGameCard game={item as NFLPrediction} onPress={() => handleGamePress(item as NFLPrediction)} cardWidth={cardWidth} />;
     }
     if (selectedSport === 'cfb') {
-      return <CFBGameCard game={item as CFBPrediction} onPress={() => handleCFBGamePress(item as CFBPrediction)} />;
+      return <CFBGameCard game={item as CFBPrediction} onPress={() => handleCFBGamePress(item as CFBPrediction)} cardWidth={cardWidth} />;
     }
     if (selectedSport === 'nba') {
-      return <NBAGameCard game={item as NBAGame} onPress={() => handleNBAGamePress(item as NBAGame)} />;
+      return <NBAGameCard game={item as NBAGame} onPress={() => handleNBAGamePress(item as NBAGame)} cardWidth={cardWidth} />;
     }
     if (selectedSport === 'ncaab') {
-      return <NCAABGameCard game={item as NCAABGame} onPress={() => handleNCAABGamePress(item as NCAABGame)} />;
+      return <NCAABGameCard game={item as NCAABGame} onPress={() => handleNCAABGamePress(item as NCAABGame)} cardWidth={cardWidth} />;
     }
     return null;
   };
@@ -740,7 +739,7 @@ export default function FeedScreen() {
   const renderListHeader = (sport: Sport) => (
     <View style={[
       styles.listHeader, 
-      { backgroundColor: '#000000' }
+      { backgroundColor: isDark ? '#000000' : '#ffffff' }
     ]}>
       <View style={[styles.searchContainer, { 
         backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
@@ -769,7 +768,7 @@ export default function FeedScreen() {
         onDismiss={() => setSortMenuVisible(false)}
         anchor={
           <TouchableOpacity 
-            style={[styles.filterButton, { backgroundColor: '#000000' }]}
+            style={[styles.filterButton, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}
             onPress={() => setSortMenuVisible(true)}
           >
             <MaterialCommunityIcons 
@@ -812,6 +811,7 @@ export default function FeedScreen() {
 
   // Render a sport page
   const renderSportPage = (sport: Sport) => {
+    const cardWidth = (Dimensions.get('window').width - 24) / 2;
     const games = cachedData[sport].games;
     const searchTerm = searchTexts[sport];
     const currentSortMode = sortModes[sport];
@@ -886,14 +886,16 @@ export default function FeedScreen() {
       <View key={sport} style={styles.pageContainer}>
         {showShimmer ? (
           <View style={{ paddingTop: TOTAL_HEADER_HEIGHT }}>
-            <ScrollView 
-                contentContainerStyle={{ paddingVertical: 20 }}
-                scrollEnabled={false}
-            >
-                {[1, 2, 3, 4].map((i) => (
-                    <GameCardShimmer key={i} />
-                ))}
-            </ScrollView>
+            <View style={[styles.shimmerContainer, { paddingBottom: 65 + insets.bottom + 20 }]}>
+                <View style={styles.shimmerRow}>
+                  <GameCardShimmer cardWidth={cardWidth} />
+                  <GameCardShimmer cardWidth={cardWidth} />
+                </View>
+                <View style={styles.shimmerRow}>
+                  <GameCardShimmer cardWidth={cardWidth} />
+                  <GameCardShimmer cardWidth={cardWidth} />
+                </View>
+            </View>
           </View>
         ) : errorMsg ? (
           <View style={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT }]}>
@@ -905,8 +907,8 @@ export default function FeedScreen() {
             data={sorted}
             renderItem={renderGameCard}
             keyExtractor={(item) => item.id}
-            numColumns={sport === 'nfl' ? 2 : 1}
-            columnWrapperStyle={sport === 'nfl' ? styles.columnWrapper : undefined}
+            numColumns={2}
+            columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={[
               styles.listContent,
               { 
@@ -943,7 +945,7 @@ export default function FeedScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: '#000000' }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
         {/* Fixed Header with Frosted Glass Effect - Slides away on scroll */}
         <Animated.View
           style={[
@@ -1146,6 +1148,15 @@ const styles = StyleSheet.create({
   },
   columnWrapper: {
     paddingHorizontal: 8,
+    gap: 8,
+  },
+  shimmerContainer: {
+    paddingHorizontal: 8,
+    paddingTop: 20,
+    gap: 0,
+  },
+  shimmerRow: {
+    flexDirection: 'row',
     gap: 8,
   },
   centerContainer: {

@@ -10,11 +10,17 @@ import Animated, {
   interpolate,
   Extrapolate 
 } from 'react-native-reanimated';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
-export function GameCardShimmer() {
+interface GameCardShimmerProps {
+  cardWidth?: number;
+}
+
+export function GameCardShimmer({ cardWidth }: GameCardShimmerProps = {}) {
   const theme = useTheme();
+  const { isDark } = useThemeContext();
   const shimmerAnim = useSharedValue(0);
 
   useEffect(() => {
@@ -38,16 +44,16 @@ export function GameCardShimmer() {
     };
   });
 
-  const baseColor = theme.dark ? '#2a2a2a' : '#f0f0f0';
-  const highlightColor = theme.dark ? '#3d3d3d' : '#ffffff';
+  const baseColor = isDark ? '#0d0d0d' : '#e0e0e0';
+  const highlightColor = isDark ? '#1a1a1a' : '#f0f0f0';
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+    <View style={[styles.card, { backgroundColor: isDark ? '#000000' : '#ffffff' }, cardWidth ? { width: cardWidth } : { flex: 1 }]}>
       {/* Gradient border */}
       <View 
         style={[
           styles.gradientBorder, 
-          { backgroundColor: theme.dark ? '#444' : '#ddd' }
+          { backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5' }
         ]} 
       />
 
@@ -113,7 +119,24 @@ export function GameCardShimmer() {
             </Animated.View>
             <Animated.View
               style={[
-                styles.teamNameSkeleton,
+                styles.teamCitySkeleton,
+                { backgroundColor: baseColor },
+              ]}
+            >
+              <AnimatedLinearGradient
+                colors={[
+                  baseColor,
+                  highlightColor,
+                  baseColor,
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.shimmer, animatedStyle]}
+              />
+            </Animated.View>
+            <Animated.View
+              style={[
+                styles.teamNicknameSkeleton,
                 { backgroundColor: baseColor },
               ]}
             >
@@ -191,7 +214,24 @@ export function GameCardShimmer() {
             </Animated.View>
             <Animated.View
               style={[
-                styles.teamNameSkeleton,
+                styles.teamCitySkeleton,
+                { backgroundColor: baseColor },
+              ]}
+            >
+              <AnimatedLinearGradient
+                colors={[
+                  baseColor,
+                  highlightColor,
+                  baseColor,
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.shimmer, animatedStyle]}
+              />
+            </Animated.View>
+            <Animated.View
+              style={[
+                styles.teamNicknameSkeleton,
                 { backgroundColor: baseColor },
               ]}
             >
@@ -249,7 +289,7 @@ export function GameCardShimmer() {
               />
             </Animated.View>
           </View>
-          <View style={styles.pillsRow}>
+          <View style={styles.pillsColumn}>
             {[0, 1, 2].map((index) => (
               <Animated.View
                 key={index}
@@ -279,23 +319,22 @@ export function GameCardShimmer() {
 
 const styles = StyleSheet.create({
   card: {
-    marginVertical: 8,
-    marginHorizontal: 16,
-    borderRadius: 16,
+    marginVertical: 6,
+    borderRadius: 20,
     overflow: 'hidden',
-    elevation: 2,
+    elevation: 0,
   },
   gradientBorder: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 4,
+    height: 3,
   },
   content: {
-    paddingTop: 16,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingTop: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   shimmer: {
     ...StyleSheet.absoluteFillObject,
@@ -304,52 +343,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 8,
+    marginBottom: 12,
+    gap: 6,
   },
   dateSkeletonBase: {
-    height: 16,
-    width: 100,
-    borderRadius: 8,
+    height: 12,
+    width: 70,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   timeBadgeSkeleton: {
-    height: 24,
-    width: 80,
-    borderRadius: 8,
+    height: 18,
+    width: 60,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   teamsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   teamColumn: {
     alignItems: 'center',
     flex: 1,
-    gap: 6,
+    gap: 4,
   },
   teamCircleSkeleton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  teamCitySkeleton: {
+    height: 11,
+    width: 50,
+    borderRadius: 4,
     overflow: 'hidden',
   },
-  teamNameSkeleton: {
-    height: 14,
-    width: 70,
-    borderRadius: 6,
+  teamNicknameSkeleton: {
+    height: 9,
+    width: 40,
+    borderRadius: 4,
     overflow: 'hidden',
   },
   teamLinesRow: {
     flexDirection: 'row',
     gap: 6,
-    marginTop: 2,
+    marginTop: 3,
   },
   lineTextSkeleton: {
-    height: 12,
-    width: 50,
+    height: 9,
+    width: 35,
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -360,13 +406,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   ouLineSkeleton: {
-    height: 24,
-    width: 80,
+    height: 20,
+    width: 60,
     borderRadius: 10,
     overflow: 'hidden',
   },
   pillsSection: {
-    marginBottom: 12,
+    marginBottom: 0,
   },
   pillsHeaderSkeleton: {
     flexDirection: 'row',
@@ -375,20 +421,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pillsHeaderTextSkeleton: {
-    height: 12,
-    width: 120,
-    borderRadius: 6,
+    height: 10,
+    width: 80,
+    borderRadius: 5,
     overflow: 'hidden',
   },
-  pillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  pillsColumn: {
+    flexDirection: 'column',
     gap: 8,
   },
   pillSkeleton: {
-    height: 28,
-    minWidth: 80,
-    borderRadius: 10,
+    height: 40,
+    width: '100%',
+    borderRadius: 12,
     overflow: 'hidden',
   },
 });

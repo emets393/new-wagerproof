@@ -102,7 +102,7 @@ export default function ScoreboardScreen() {
   });
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
       {/* Standard Fixed Header with Frosted Glass Effect */}
       <Animated.View
         style={[

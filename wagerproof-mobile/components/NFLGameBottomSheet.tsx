@@ -15,9 +15,11 @@ import { PublicBettingBars } from './nfl/PublicBettingBars';
 import { H2HSection } from './nfl/H2HSection';
 import { LineMovementSection } from './nfl/LineMovementSection';
 import { PolymarketWidget } from './PolymarketWidget';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 export function NFLGameBottomSheet() {
   const theme = useTheme();
+  const { isDark } = useThemeContext();
   const { selectedGame: game, closeGameSheet, bottomSheetRef } = useNFLGameSheet();
   const snapPoints = useMemo(() => ['85%', '95%'], []);
   const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
@@ -107,25 +109,25 @@ export function NFLGameBottomSheet() {
       enablePanDownToClose
       onClose={closeGameSheet}
       backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: theme.colors.surface }}
+      backgroundStyle={{ backgroundColor: isDark ? '#000000' : '#ffffff' }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.onSurfaceVariant }}
     >
       <BottomSheetScrollView 
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}
         showsVerticalScrollIndicator={false}
       >
         {game ? (
           <>
           {/* Header with Teams */}
-          <View style={styles.header}>
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
             <LinearGradient
               colors={[awayColors.primary, awayColors.secondary, homeColors.primary, homeColors.secondary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.headerGradient}
             />
-
-            <View style={styles.dateTimeRow}>
+            <View style={styles.headerContent}>
+              <View style={styles.dateTimeRow}>
               <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>
                 {formatCompactDate(game.game_date)}
               </Text>
@@ -226,11 +228,13 @@ export function NFLGameBottomSheet() {
                 </View>
               </View>
             </View>
+            </View>
           </View>
 
           {/* Weather Widget */}
           {(game.temperature !== null || game.wind_speed !== null) && (
-            <View style={[styles.weatherWidget, { backgroundColor: 'rgba(147, 197, 253, 0.15)', borderColor: 'rgba(147, 197, 253, 0.3)' }]}>
+            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+              <View style={styles.weatherWidget}>
               <View style={styles.sectionHeader}>
                 <MaterialCommunityIcons name="weather-partly-cloudy" size={20} color="#3b82f6" />
                 <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
@@ -264,17 +268,22 @@ export function NFLGameBottomSheet() {
                 )}
               </View>
             </View>
+            </View>
           )}
 
           {/* Polymarket Widget */}
-          <PolymarketWidget
-            awayTeam={game.away_team}
-            homeTeam={game.home_team}
-            gameDate={game.game_date}
-            awayTeamColors={awayColors}
-            homeTeamColors={homeColors}
-            league="nfl"
-          />
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+            <View style={styles.sectionContent}>
+              <PolymarketWidget
+                awayTeam={game.away_team}
+                homeTeam={game.home_team}
+                gameDate={game.game_date}
+                awayTeamColors={awayColors}
+                homeTeamColors={homeColors}
+                league="nfl"
+              />
+            </View>
+          </View>
 
           {/* Spread Prediction */}
           {spreadPrediction && (
@@ -285,24 +294,25 @@ export function NFLGameBottomSheet() {
                   { opacity: pressed ? 0.7 : 1 }
                 ]}
               >
-                <View style={[styles.predictionCard, { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderColor: 'rgba(34, 197, 94, 0.3)' }]}>
-                  <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons name="target" size={20} color="#22c55e" />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                      Spread Prediction
-                    </Text>
-                    <View style={styles.tapHintContainer}>
-                      <MaterialCommunityIcons 
-                        name="information-outline" 
-                        size={16} 
-                        color={theme.colors.onSurfaceVariant}
-                      />
-                      <Text style={[styles.tapHintText, { color: theme.colors.onSurfaceVariant }]}>
-                        Tap for Explanation
+                <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+                  <View style={styles.predictionCard}>
+                    <View style={styles.sectionHeader}>
+                      <MaterialCommunityIcons name="target" size={20} color="#22c55e" />
+                      <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+                        Spread Prediction
                       </Text>
+                      <View style={styles.tapHintContainer}>
+                        <MaterialCommunityIcons 
+                          name="information-outline" 
+                          size={16} 
+                          color={theme.colors.onSurfaceVariant}
+                        />
+                        <Text style={[styles.tapHintText, { color: theme.colors.onSurfaceVariant }]}>
+                          Tap for Explanation
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <View style={[styles.predictionContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
+                    <View style={[styles.predictionContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
                     <View style={styles.predictionRow}>
                       <LinearGradient
                         colors={[spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary]}
@@ -348,6 +358,7 @@ export function NFLGameBottomSheet() {
                       </View>
                     )}
                   </View>
+                  </View>
                 </View>
               </Pressable>
 
@@ -389,34 +400,29 @@ export function NFLGameBottomSheet() {
                   { opacity: pressed ? 0.7 : 1 }
                 ]}
               >
-                <View style={[
-                  styles.predictionCard,
-                  { 
-                    backgroundColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                    borderColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'
-                  }
-                ]}>
-                  <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons 
-                      name={ouPrediction.predictedOutcome === 'over' ? 'arrow-up-bold' : 'arrow-down-bold'} 
-                      size={20} 
-                      color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
-                    />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                      Over/Under Prediction
-                    </Text>
-                    <View style={styles.tapHintContainer}>
+                <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+                  <View style={styles.predictionCard}>
+                    <View style={styles.sectionHeader}>
                       <MaterialCommunityIcons 
-                        name="information-outline" 
-                        size={16} 
-                        color={theme.colors.onSurfaceVariant}
+                        name={ouPrediction.predictedOutcome === 'over' ? 'arrow-up-bold' : 'arrow-down-bold'} 
+                        size={20} 
+                        color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
                       />
-                      <Text style={[styles.tapHintText, { color: theme.colors.onSurfaceVariant }]}>
-                        Tap for Explanation
+                      <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+                        Over/Under Prediction
                       </Text>
+                      <View style={styles.tapHintContainer}>
+                        <MaterialCommunityIcons 
+                          name="information-outline" 
+                          size={16} 
+                          color={theme.colors.onSurfaceVariant}
+                        />
+                        <Text style={[styles.tapHintText, { color: theme.colors.onSurfaceVariant }]}>
+                          Tap for Explanation
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <View style={[styles.predictionContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
+                    <View style={[styles.predictionContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
                     <View style={styles.ouPredictionRow}>
                       <MaterialCommunityIcons 
                         name={ouPrediction.predictedOutcome === 'over' ? 'chevron-up' : 'chevron-down'} 
@@ -473,6 +479,7 @@ export function NFLGameBottomSheet() {
                       </View>
                     )}
                   </View>
+                  </View>
                 </View>
               </Pressable>
 
@@ -517,24 +524,36 @@ export function NFLGameBottomSheet() {
 
           {/* Public Betting Bars */}
           {(game.ml_splits_label || game.spread_splits_label || game.total_splits_label) && (
-            <PublicBettingBars
-              mlSplitsLabel={game.ml_splits_label}
-              spreadSplitsLabel={game.spread_splits_label}
-              totalSplitsLabel={game.total_splits_label}
-              homeTeam={game.home_team}
-              awayTeam={game.away_team}
-            />
+            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+              <View style={styles.sectionContent}>
+                <PublicBettingBars
+                  mlSplitsLabel={game.ml_splits_label}
+                  spreadSplitsLabel={game.spread_splits_label}
+                  totalSplitsLabel={game.total_splits_label}
+                  homeTeam={game.home_team}
+                  awayTeam={game.away_team}
+                />
+              </View>
+            </View>
           )}
 
           {/* H2H History */}
-          <H2HSection homeTeam={game.home_team} awayTeam={game.away_team} />
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+            <View style={styles.sectionContent}>
+              <H2HSection homeTeam={game.home_team} awayTeam={game.away_team} />
+            </View>
+          </View>
 
           {/* Line Movement */}
-          <LineMovementSection 
-            trainingKey={game.training_key} 
-            homeTeam={game.home_team}
-            awayTeam={game.away_team}
-          />
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+            <View style={styles.sectionContent}>
+              <LineMovementSection 
+                trainingKey={game.training_key} 
+                homeTeam={game.home_team}
+                awayTeam={game.away_team}
+              />
+            </View>
+          </View>
 
           {/* Bottom Padding */}
           <View style={{ height: 40 }} />
@@ -551,10 +570,10 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 16,
   },
-  header: {
-    borderRadius: 16,
+  sectionCard: {
+    borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   headerGradient: {
     position: 'absolute',
@@ -563,12 +582,17 @@ const styles = StyleSheet.create({
     right: 0,
     height: 4,
   },
+  headerContent: {
+    padding: 12,
+  },
+  sectionContent: {
+    padding: 12,
+  },
   dateTimeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   dateText: {
     fontSize: 16,
@@ -648,10 +672,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   weatherWidget: {
-    borderRadius: 12,
-    borderWidth: 1,
     padding: 12,
-    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -693,10 +714,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   predictionCard: {
-    borderRadius: 12,
-    borderWidth: 1,
     padding: 12,
-    marginBottom: 12,
   },
   predictionContent: {
     padding: 12,

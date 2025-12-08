@@ -11,9 +11,11 @@ import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 import { getCFBTeamColors, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, roundToNearestHalf } from '@/utils/formatting';
 import { PolymarketWidget } from './PolymarketWidget';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 export function NCAABGameBottomSheet() {
   const theme = useTheme();
+  const { isDark } = useThemeContext();
   const { selectedGame: game, closeGameSheet, bottomSheetRef } = useNCAABGameSheet();
   const snapPoints = useMemo(() => ['85%', '95%'], []);
   const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
@@ -188,25 +190,25 @@ export function NCAABGameBottomSheet() {
       enablePanDownToClose
       onClose={closeGameSheet}
       backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: theme.colors.surface }}
+      backgroundStyle={{ backgroundColor: isDark ? '#000000' : '#ffffff' }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.onSurfaceVariant }}
     >
       <BottomSheetScrollView 
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}
         showsVerticalScrollIndicator={false}
       >
         {game ? (
           <>
           {/* Header with Teams */}
-          <View style={styles.header}>
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
             <LinearGradient
               colors={[awayColors.primary, awayColors.secondary, homeColors.primary, homeColors.secondary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.headerGradient}
             />
-
-            <View style={styles.dateTimeRow}>
+            <View style={styles.headerContent}>
+              <View style={styles.dateTimeRow}>
               <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>
                 {formatCompactDate(game.game_date)}
               </Text>
@@ -307,24 +309,30 @@ export function NCAABGameBottomSheet() {
                 </View>
               </View>
             </View>
+            </View>
           </View>
 
           {/* Polymarket Widget */}
-          <PolymarketWidget
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+            <View style={styles.sectionContent}>
+              <PolymarketWidget
             awayTeam={game.away_team}
             homeTeam={game.home_team}
             gameDate={game.game_date}
             awayTeamColors={awayColors}
             homeTeamColors={homeColors}
             league="ncaab"
-          />
+              />
+            </View>
+          </View>
 
           {/* Spread Prediction - Edge-based like CFB */}
           {spreadPrediction && (
             <View>
               <Pressable onPress={handleSpreadTap} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
-                <View style={[styles.predictionCard, { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderColor: 'rgba(34, 197, 94, 0.3)' }]}>
-                  <View style={styles.sectionHeader}>
+                <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+                  <View style={styles.predictionCard}>
+                    <View style={styles.sectionHeader}>
                     <MaterialCommunityIcons name="target" size={20} color="#22c55e" />
                     <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Spread Prediction</Text>
                     <View style={styles.tapHintContainer}>
@@ -384,6 +392,7 @@ export function NCAABGameBottomSheet() {
                       </View>
                     )}
                   </View>
+                  </View>
                 </View>
               </Pressable>
 
@@ -410,11 +419,9 @@ export function NCAABGameBottomSheet() {
           {ouPrediction && (
             <View>
               <Pressable onPress={handleOuTap} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
-                <View style={[styles.predictionCard, { 
-                  backgroundColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                  borderColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'
-                }]}>
-                  <View style={styles.sectionHeader}>
+                <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+                  <View style={styles.predictionCard}>
+                    <View style={styles.sectionHeader}>
                     <MaterialCommunityIcons 
                       name={ouPrediction.predictedOutcome === 'over' ? 'arrow-up-bold' : 'arrow-down-bold'} 
                       size={20} 
@@ -489,6 +496,7 @@ export function NCAABGameBottomSheet() {
                       </View>
                     )}
                   </View>
+                  </View>
                 </View>
               </Pressable>
 
@@ -516,8 +524,9 @@ export function NCAABGameBottomSheet() {
 
           {/* Team Stats Section */}
           {(game.home_adj_offense !== null || game.away_adj_offense !== null) && (
-            <View style={[styles.statsCard, { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.3)' }]}>
-              <View style={styles.sectionHeader}>
+            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+              <View style={styles.sectionContent}>
+                <View style={styles.sectionHeader}>
                 <MaterialCommunityIcons name="chart-bar" size={20} color="#3b82f6" />
                 <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Team Stats</Text>
               </View>
@@ -543,101 +552,105 @@ export function NCAABGameBottomSheet() {
                   <Text style={[styles.statsValue, { color: theme.colors.onSurface }]}>{game.home_adj_pace?.toFixed(1) ?? '-'}</Text>
                 </View>
               </View>
+              </View>
             </View>
           )}
 
           {/* Match Simulator Section */}
           {game.home_score_pred !== null && game.away_score_pred !== null && (
-            <View style={[styles.simulatorContainer, { backgroundColor: 'rgba(251, 191, 36, 0.1)', borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
-              <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="creation" size={20} color="#fbbf24" />
-                <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                  Match Simulator
-                </Text>
-              </View>
+            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+              <View style={styles.sectionContent}>
+                <View style={styles.sectionHeader}>
+                  <MaterialCommunityIcons name="creation" size={20} color="#fbbf24" />
+                  <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+                    Match Simulator
+                  </Text>
+                </View>
 
-              {!simulationRevealed ? (
-                <View style={styles.simulateButtonContainer}>
-                  <TouchableOpacity
-                    style={[
-                      styles.simulateButton,
-                      { 
-                        backgroundColor: simulating ? theme.colors.surfaceVariant : theme.colors.primary,
-                        borderColor: theme.colors.primary 
-                      }
-                    ]}
-                    onPress={handleSimulate}
-                    disabled={simulating}
-                  >
-                    {simulating ? (
-                      <View style={styles.simulatingRow}>
-                        <ActivityIndicator size="small" color={theme.colors.onSurface} />
-                        <Text style={[styles.simulateButtonText, { color: theme.colors.onSurface }]}>
-                          Simulating...
+                {!simulationRevealed ? (
+                  <View style={styles.simulateButtonContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.simulateButton,
+                        { 
+                          backgroundColor: simulating ? theme.colors.surfaceVariant : theme.colors.primary,
+                          borderColor: theme.colors.primary 
+                        }
+                      ]}
+                      onPress={handleSimulate}
+                      disabled={simulating}
+                    >
+                      {simulating ? (
+                        <View style={styles.simulatingRow}>
+                          <ActivityIndicator size="small" color={theme.colors.onSurface} />
+                          <Text style={[styles.simulateButtonText, { color: theme.colors.onSurface }]}>
+                            Simulating...
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={[styles.simulateButtonText, { color: '#fff' }]}>
+                          Simulate Match
                         </Text>
-                      </View>
-                    ) : (
-                      <Text style={[styles.simulateButtonText, { color: '#fff' }]}>
-                        Simulate Match
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={[styles.simulationResult, { backgroundColor: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
-                  {/* Away Team Score */}
-                  <View style={styles.teamScoreSection}>
-                    <LinearGradient
-                      colors={[awayColors.primary, awayColors.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[styles.scoreTeamCircle, { borderColor: awayColors.primary }]}
-                    >
-                      <Text style={[
-                        styles.scoreTeamInitials,
-                        { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }
-                      ]}>
-                        {getNCAABTeamInitials(game.away_team)}
-                      </Text>
-                    </LinearGradient>
-                    <Text style={[styles.predictedScore, { color: theme.colors.onSurface }]}>
-                      {Math.round(game.away_score_pred)}
-                    </Text>
+                      )}
+                    </TouchableOpacity>
                   </View>
+                ) : (
+                  <View style={[styles.simulationResult, { backgroundColor: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
+                    {/* Away Team Score */}
+                    <View style={styles.teamScoreSection}>
+                      <LinearGradient
+                        colors={[awayColors.primary, awayColors.secondary]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.scoreTeamCircle, { borderColor: awayColors.primary }]}
+                      >
+                        <Text style={[
+                          styles.scoreTeamInitials,
+                          { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }
+                        ]}>
+                          {getNCAABTeamInitials(game.away_team)}
+                        </Text>
+                      </LinearGradient>
+                      <Text style={[styles.predictedScore, { color: theme.colors.onSurface }]}>
+                        {Math.round(game.away_score_pred)}
+                      </Text>
+                    </View>
 
-                  {/* VS Separator */}
-                  <View style={styles.vsSeparator}>
-                    <Text style={[styles.vsTextSmall, { color: theme.colors.onSurfaceVariant }]}>VS</Text>
-                  </View>
+                    {/* VS Separator */}
+                    <View style={styles.vsSeparator}>
+                      <Text style={[styles.vsTextSmall, { color: theme.colors.onSurfaceVariant }]}>VS</Text>
+                    </View>
 
-                  {/* Home Team Score */}
-                  <View style={styles.teamScoreSection}>
-                    <LinearGradient
-                      colors={[homeColors.primary, homeColors.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[styles.scoreTeamCircle, { borderColor: homeColors.primary }]}
-                    >
-                      <Text style={[
-                        styles.scoreTeamInitials,
-                        { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }
-                      ]}>
-                        {getNCAABTeamInitials(game.home_team)}
+                    {/* Home Team Score */}
+                    <View style={styles.teamScoreSection}>
+                      <LinearGradient
+                        colors={[homeColors.primary, homeColors.secondary]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.scoreTeamCircle, { borderColor: homeColors.primary }]}
+                      >
+                        <Text style={[
+                          styles.scoreTeamInitials,
+                          { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }
+                        ]}>
+                          {getNCAABTeamInitials(game.home_team)}
+                        </Text>
+                      </LinearGradient>
+                      <Text style={[styles.predictedScore, { color: theme.colors.onSurface }]}>
+                        {Math.round(game.home_score_pred)}
                       </Text>
-                    </LinearGradient>
-                    <Text style={[styles.predictedScore, { color: theme.colors.onSurface }]}>
-                      {Math.round(game.home_score_pred)}
-                    </Text>
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
+              </View>
             </View>
           )}
 
           {/* Model Projections Summary (if no simulator but has margin/total) */}
           {game.home_score_pred === null && game.pred_home_margin !== null && game.pred_total_points !== null && (
-            <View style={[styles.projectionsCard, { backgroundColor: 'rgba(168, 85, 247, 0.15)', borderColor: 'rgba(168, 85, 247, 0.3)' }]}>
-              <View style={styles.sectionHeader}>
+            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+              <View style={styles.sectionContent}>
+                <View style={styles.sectionHeader}>
                 <MaterialCommunityIcons name="scoreboard" size={20} color="#a855f7" />
                 <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Model Projections</Text>
               </View>
@@ -655,6 +668,7 @@ export function NCAABGameBottomSheet() {
                   </Text>
                 </View>
               </View>
+              </View>
             </View>
           )}
 
@@ -670,9 +684,11 @@ export function NCAABGameBottomSheet() {
 
 const styles = StyleSheet.create({
   contentContainer: { padding: 16 },
-  header: { borderRadius: 16, overflow: 'hidden', marginBottom: 16 },
+  sectionCard: { borderRadius: 20, overflow: 'hidden', marginBottom: 12 },
   headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 4 },
-  dateTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, paddingHorizontal: 16, flexWrap: 'wrap', gap: 8 },
+  headerContent: { padding: 12 },
+  sectionContent: { padding: 12 },
+  dateTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 },
   dateText: { fontSize: 16, fontWeight: '600' },
   timeBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   timeText: { fontSize: 13, fontWeight: '600' },
@@ -695,7 +711,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '600' },
   tapHintContainer: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(255, 255, 255, 0.05)' },
   tapHintText: { fontSize: 11, fontWeight: '500' },
-  predictionCard: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 12 },
+  predictionCard: { padding: 12 },
   predictionContent: { padding: 12, borderRadius: 8, gap: 12 },
   edgeRow: { flexDirection: 'row', justifyContent: 'space-around', gap: 16 },
   edgeSection: { flex: 1, alignItems: 'center', gap: 8 },
@@ -711,8 +727,6 @@ const styles = StyleSheet.create({
   explanationHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   explanationTitle: { fontSize: 14, fontWeight: '600' },
   explanationText: { fontSize: 13, lineHeight: 20, fontWeight: '400' },
-  statsCard: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 12 },
-  projectionsCard: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 12 },
   statsContent: { padding: 12, borderRadius: 8, gap: 8 },
   statsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
   statsHeaderLabel: { flex: 2, fontSize: 11, fontWeight: '600' },
@@ -720,7 +734,6 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statsLabel: { flex: 2, fontSize: 13, fontWeight: '500' },
   statsValue: { flex: 1, fontSize: 13, fontWeight: '600', textAlign: 'center' },
-  simulatorContainer: { borderRadius: 12, borderWidth: 1, padding: 16, marginBottom: 12 },
   simulateButtonContainer: { marginTop: 12, alignItems: 'center' },
   simulateButton: { paddingVertical: 16, paddingHorizontal: 32, borderRadius: 12, borderWidth: 2, minWidth: 200, alignItems: 'center' },
   simulateButtonText: { fontSize: 18, fontWeight: 'bold' },
