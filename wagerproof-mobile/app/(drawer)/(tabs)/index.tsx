@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, TouchableOpacity, FlatList, Dimensions } from 'react-native';
 import { useTheme, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -21,7 +21,6 @@ import { NBAGame } from '@/types/nba';
 import { NCAABGame } from '@/types/ncaab';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLiveScores } from '@/hooks/useLiveScores';
 import { useDrawer } from '../_layout';
 import { useThemeContext } from '@/contexts/ThemeContext';
 
@@ -708,8 +707,11 @@ export default function FeedScreen() {
   };
 
   const renderGameCard = ({ item }: { item: NFLPrediction | CFBPrediction | NBAGame | NCAABGame }) => {
+    const isGrid = selectedSport === 'nfl';
+    const cardWidth = isGrid ? (Dimensions.get('window').width - 24) / 2 : undefined;
+    
     if (selectedSport === 'nfl') {
-      return <NFLGameCard game={item as NFLPrediction} onPress={() => handleGamePress(item as NFLPrediction)} />;
+      return <NFLGameCard game={item as NFLPrediction} onPress={() => handleGamePress(item as NFLPrediction)} cardWidth={cardWidth} />;
     }
     if (selectedSport === 'cfb') {
       return <CFBGameCard game={item as CFBPrediction} onPress={() => handleCFBGamePress(item as CFBPrediction)} />;
@@ -736,7 +738,10 @@ export default function FeedScreen() {
 
   // Render list header with search and filters for a specific sport
   const renderListHeader = (sport: Sport) => (
-    <View style={[styles.listHeader, { backgroundColor: theme.colors.background }]}>
+    <View style={[
+      styles.listHeader, 
+      { backgroundColor: '#000000' }
+    ]}>
       <View style={[styles.searchContainer, { 
         backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
       }]}>
@@ -764,7 +769,7 @@ export default function FeedScreen() {
         onDismiss={() => setSortMenuVisible(false)}
         anchor={
           <TouchableOpacity 
-            style={[styles.filterButton, { backgroundColor: theme.colors.surfaceVariant }]}
+            style={[styles.filterButton, { backgroundColor: '#000000' }]}
             onPress={() => setSortMenuVisible(true)}
           >
             <MaterialCommunityIcons 
@@ -900,6 +905,8 @@ export default function FeedScreen() {
             data={sorted}
             renderItem={renderGameCard}
             keyExtractor={(item) => item.id}
+            numColumns={sport === 'nfl' ? 2 : 1}
+            columnWrapperStyle={sport === 'nfl' ? styles.columnWrapper : undefined}
             contentContainerStyle={[
               styles.listContent,
               { 
@@ -936,7 +943,7 @@ export default function FeedScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: '#000000' }]}>
         {/* Fixed Header with Frosted Glass Effect - Slides away on scroll */}
         <Animated.View
           style={[
@@ -1136,6 +1143,10 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 0,
+  },
+  columnWrapper: {
+    paddingHorizontal: 8,
+    gap: 8,
   },
   centerContainer: {
     flex: 1,

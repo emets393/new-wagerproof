@@ -16,12 +16,10 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const { isDark, toggleTheme } = useThemeContext();
   const { user, signOut, signingOut } = useAuth();
-  const { useDummyData, setUseDummyData } = useSettings();
   const { isPro, subscriptionType } = useProAccess();
   const { openCustomerCenter, isInitialized } = useRevenueCat();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [scoreboardEnabled, setScoreboardEnabled] = React.useState(true);
   const [tapCount, setTapCount] = React.useState(0);
   const tapTimer = React.useRef<NodeJS.Timeout | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
@@ -228,20 +226,6 @@ export default function SettingsScreen() {
               <Switch
                 value={isDark}
                 onValueChange={toggleTheme}
-                color={theme.colors.primary}
-              />
-            )}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="ScoreBoard"
-            description={scoreboardEnabled ? "Enabled" : "Disabled"}
-            left={props => <List.Icon {...props} icon="scoreboard" color={theme.colors.primary} />}
-            right={() => (
-              <Switch
-                value={scoreboardEnabled}
-                onValueChange={setScoreboardEnabled}
                 color={theme.colors.primary}
               />
             )}

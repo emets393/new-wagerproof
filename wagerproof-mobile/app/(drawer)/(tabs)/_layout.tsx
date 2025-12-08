@@ -6,8 +6,6 @@ import { ScrollProvider, useScroll } from '@/contexts/ScrollContext';
 import { Animated, TouchableOpacity, Text, StyleSheet, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { LiveScoreTicker } from '@/components/LiveScoreTicker';
-import { useLiveScores } from '@/hooks/useLiveScores';
 import { useSettings } from '@/contexts/SettingsContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 
@@ -67,8 +65,6 @@ function FloatingTabBar() {
   const segments = useSegments();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { hasLiveGames } = useLiveScores();
-  const { scoreboardEnabled } = useSettings();
   
   // Hide tab bar on chat screen
   const isOnChatScreen = pathname.includes('/chat') || segments.includes('chat');
@@ -87,9 +83,8 @@ function FloatingTabBar() {
   const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
   const PILLS_HEIGHT = 72;
   const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT;
-  const LIVE_TICKER_HEIGHT = (hasLiveGames && scoreboardEnabled) ? 64 : 0; // 40px ticker + 12px top + 12px bottom padding
   const TAB_BAR_BASE_HEIGHT = 65;
-  const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom + LIVE_TICKER_HEIGHT;
+  const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
 
   // Simple scroll-based animations for feed screen only
   const tabBarTranslate = scrollYClamped.interpolate({
@@ -126,13 +121,6 @@ function FloatingTabBar() {
           },
         ]}
       >
-        {/* Live Ticker at top of tab bar */}
-        {hasLiveGames && scoreboardEnabled && (
-          <View style={styles.liveTickerContainer}>
-            <LiveScoreTicker onNavigateToScoreboard={() => router.push('/(drawer)/(tabs)/scoreboard')} />
-          </View>
-        )}
-        
         {/* Tab buttons */}
         <View style={styles.tabsContainer}>
           {tabs.map((tab) => {
@@ -179,10 +167,9 @@ function FloatingTabBar() {
                 style={styles.tabButton}
                 onPress={() => router.push(tab.path as any)}
               >
-                <View style={styles.tabIconContainer}>
-                  <MaterialCommunityIcons name={tab.icon as any} size={24} color={color} />
-                  {tab.name === 'scoreboard' && hasLiveGames && <LiveIndicator />}
-                </View>
+            <View style={styles.tabIconContainer}>
+              <MaterialCommunityIcons name={tab.icon as any} size={24} color={color} />
+            </View>
                 <Text style={[styles.tabLabel, { color }]}>{tab.title}</Text>
               </TouchableOpacity>
             );
@@ -209,13 +196,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     width: '100%',
     height: '100%',
-  },
-  liveTickerContainer: {
-    width: '100%',
-    height: 64,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
   },
   tabsContainer: {
     flexDirection: 'row',

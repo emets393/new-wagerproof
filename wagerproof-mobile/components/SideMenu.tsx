@@ -15,13 +15,13 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
   const theme = useTheme();
   const { isDark, toggleTheme } = useThemeContext();
   const { user, signOut, signingOut } = useAuth();
-  const { useDummyData, setUseDummyData, scoreboardEnabled, setScoreboardEnabled } = useSettings();
-  const { isPro, subscriptionType } = useProAccess();
+  const { isPro, getSubscriptionType } = useProAccess();
+  const subscriptionType = getSubscriptionType();
   const { openCustomerCenter, isInitialized } = useRevenueCat();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [tapCount, setTapCount] = useState(0);
-  const tapTimer = useRef<NodeJS.Timeout | null>(null);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [customerCenterVisible, setCustomerCenterVisible] = useState(false);
   const [isOpeningCustomerCenter, setIsOpeningCustomerCenter] = useState(false);
@@ -238,20 +238,6 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
               <Switch
                 value={isDark}
                 onValueChange={toggleTheme}
-                color={theme.colors.primary}
-              />
-            )}
-            style={{ backgroundColor: 'transparent' }}
-          />
-          
-          <List.Item
-            title="ScoreBoard"
-            description={scoreboardEnabled ? "Ticker enabled" : "Ticker disabled"}
-            left={props => <List.Icon {...props} icon="scoreboard" color={theme.colors.primary} />}
-            right={() => (
-              <Switch
-                value={scoreboardEnabled}
-                onValueChange={setScoreboardEnabled}
                 color={theme.colors.primary}
               />
             )}

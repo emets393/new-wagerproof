@@ -14,7 +14,6 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScroll } from '@/contexts/ScrollContext';
-import { useLiveScores } from '@/hooks/useLiveScores';
 import { useSettings } from '@/contexts/SettingsContext';
 
 // Game Sheets
@@ -64,8 +63,6 @@ export default function OutliersScreen() {
   const { open: openDrawer } = useDrawer();
   const { user } = useAuth();
   const { scrollY, scrollYClamped } = useScroll();
-  const { hasLiveGames } = useLiveScores();
-  const { scoreboardEnabled } = useSettings();
 
   const [refreshing, setRefreshing] = useState(false);
   
@@ -395,10 +392,9 @@ export default function OutliersScreen() {
   const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT;
   const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
   
-  // Calculate bottom padding (tab bar + ticker + safe area)
-  const LIVE_TICKER_HEIGHT = (hasLiveGames && scoreboardEnabled) ? 64 : 0; // 40px ticker + 12px top + 12px bottom padding
+  // Calculate bottom padding (tab bar + safe area)
   const TAB_BAR_BASE_HEIGHT = 65;
-  const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom + LIVE_TICKER_HEIGHT;
+  const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
   
   // Header slides up completely as user scrolls up
   const headerTranslate = scrollYClamped.interpolate({

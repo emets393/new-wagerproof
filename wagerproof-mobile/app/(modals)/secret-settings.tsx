@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { useTheme, List, Switch, Divider, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/services/supabase';
@@ -24,7 +23,6 @@ try {
 
 export default function SecretSettingsScreen() {
   const theme = useTheme();
-  const { useDummyData, setUseDummyData } = useSettings();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -286,19 +284,6 @@ export default function SecretSettingsScreen() {
             Developer Options
           </List.Subheader>
           
-          <List.Item
-            title="Use Dummy Data"
-            description={useDummyData ? "Showing dummy data for testing" : "Using live data from API"}
-            left={props => <List.Icon {...props} icon="test-tube" color={theme.colors.primary} />}
-            right={() => (
-              <Switch
-                value={useDummyData}
-                onValueChange={setUseDummyData}
-                color={theme.colors.primary}
-              />
-            )}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
         </List.Section>
         <Divider />
 
