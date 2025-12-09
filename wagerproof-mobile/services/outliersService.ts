@@ -88,13 +88,35 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
       .order('game_date', { ascending: true })
       .order('game_time', { ascending: true });
 
+    // Fetch betting lines for moneylines
+    const { data: bettingLines } = await collegeFootballSupabase
+      .from('nfl_betting_lines')
+      .select('training_key, home_ml, away_ml, home_spread, over_line, game_time_et')
+      .order('as_of_ts', { ascending: false });
+
+    // Create a map of most recent betting lines per training_key
+    const bettingLinesMap = new Map<string, any>();
+    if (bettingLines) {
+      for (const line of bettingLines) {
+        if (!bettingLinesMap.has(line.training_key)) {
+          bettingLinesMap.set(line.training_key, line);
+        }
+      }
+    }
+
     if (nflGames) {
       for (const game of nflGames) {
         const gameDate = game.game_date;
         if (gameDate >= today && gameDate <= weekFromNow) {
-          const gameTimeValue = (game.game_date && game.game_time)
-            ? `${game.game_date}T${game.game_time}`
-            : undefined;
+          const bettingLine = bettingLinesMap.get(game.home_away_unique);
+
+          // Use game_time_et from betting lines if available, otherwise construct from game data
+          let gameTimeValue: string | undefined;
+          if (bettingLine?.game_time_et) {
+            gameTimeValue = bettingLine.game_time_et;
+          } else if (game.game_date && game.game_time) {
+            gameTimeValue = `${game.game_date}T${game.game_time}`;
+          }
 
           gameSummaries.push({
             gameId: game.home_away_unique,
@@ -102,20 +124,21 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
             awayTeam: game.away_team,
             homeTeam: game.home_team,
             gameTime: gameTimeValue,
-            awaySpread: game.home_spread ? -game.home_spread : null,
-            homeSpread: game.home_spread,
-            totalLine: game.ou_vegas_line,
-            // Note: v_input_values_with_epa might not have MLs, but we can try
-            homeMl: null, 
-            awayMl: null,
+            awaySpread: bettingLine?.home_spread ? -bettingLine.home_spread : (game.home_spread ? -game.home_spread : null),
+            homeSpread: bettingLine?.home_spread || game.home_spread,
+            totalLine: bettingLine?.over_line || game.ou_vegas_line,
+            homeMl: bettingLine?.home_ml || null,
+            awayMl: bettingLine?.away_ml || null,
             originalData: {
                 ...game,
                 id: game.id || game.home_away_unique,
                 training_key: game.home_away_unique,
                 unique_id: game.unique_id || game.home_away_unique,
-                // Map other fields needed for NFLPrediction type if possible
-                home_spread: game.home_spread,
-                over_line: game.ou_vegas_line,
+                home_spread: bettingLine?.home_spread || game.home_spread,
+                over_line: bettingLine?.over_line || game.ou_vegas_line,
+                home_ml: bettingLine?.home_ml || null,
+                away_ml: bettingLine?.away_ml || null,
+                game_time_et: gameTimeValue,
             }
           });
         }
@@ -387,8 +410,11 @@ export const fetchValueAlerts = async (weekGames: GameSummary[]): Promise<ValueA
           }
 
           // Moneyline
+          // Skip if sportsbook odds are -200 or worse (heavy favorite = no value)
           if (market.market_type === 'moneyline') {
-            if (market.current_away_odds >= 85) {
+            // Away team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
+            const awayOddsHaveValue = !game.awayMl || game.awayMl > -200;
+            if (market.current_away_odds >= 85 && awayOddsHaveValue) {
               alerts.push({
                 gameId: game.gameId,
                 sport: game.sport,
@@ -400,7 +426,9 @@ export const fetchValueAlerts = async (weekGames: GameSummary[]): Promise<ValueA
                 game
               });
             }
-            if (market.current_home_odds >= 85) {
+            // Home team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
+            const homeOddsHaveValue = !game.homeMl || game.homeMl > -200;
+            if (market.current_home_odds >= 85 && homeOddsHaveValue) {
               alerts.push({
                 gameId: game.gameId,
                 sport: game.sport,

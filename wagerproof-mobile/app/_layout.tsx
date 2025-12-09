@@ -42,6 +42,7 @@ function FloatingAssistantWrapper() {
     currentSuggestion,
     floatingPosition,
     currentOpenGame,
+    currentPageContext,
     updateFloatingPosition,
     dismissFloating,
     requestMoreDetails,
@@ -73,6 +74,9 @@ function FloatingAssistantWrapper() {
     return null;
   }
 
+  // Show action buttons when viewing a game OR on outliers page
+  const showActionButtons = !!currentOpenGame || currentPageContext === 'outliers';
+
   return (
     <FloatingAssistantBubble
       visible={isVisible && isDetached}
@@ -83,7 +87,7 @@ function FloatingAssistantWrapper() {
       onDismiss={dismissFloating}
       onTellMeMore={requestMoreDetails}
       onAnotherInsight={requestAnotherInsight}
-      hasGameContext={!!currentOpenGame}
+      hasGameContext={showActionButtons}
       initialDimensions={initialBubbleDimensions}
     />
   );

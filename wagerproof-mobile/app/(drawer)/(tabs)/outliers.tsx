@@ -55,6 +55,39 @@ const getSportColor = (sport: string) => {
     }
 }
 
+// Helper to format game time
+const formatGameTime = (gameTime: string | undefined): string | null => {
+    if (!gameTime) return null;
+    try {
+        const date = new Date(gameTime);
+        if (isNaN(date.getTime())) return null;
+
+        // Format: "Sun 1:00 PM"
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const day = dayNames[date.getDay()];
+        let hours = date.getHours();
+        const minutes = date.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        const minuteStr = minutes < 10 ? `0${minutes}` : minutes;
+        return `${day} ${hours}:${minuteStr} ${ampm}`;
+    } catch {
+        return null;
+    }
+};
+
+// Helper to format spread
+const formatSpread = (spread: number | null | undefined): string | null => {
+    if (spread === null || spread === undefined) return null;
+    return spread > 0 ? `+${spread}` : `${spread}`;
+};
+
+// Helper to format moneyline
+const formatMoneyline = (ml: number | null | undefined): string | null => {
+    if (ml === null || ml === undefined) return null;
+    return ml > 0 ? `+${ml}` : `${ml}`;
+};
+
 export default function OutliersScreen() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
@@ -200,101 +233,175 @@ export default function OutliersScreen() {
   }, [openNFLSheet, openCFBSheet, openNBASheet, openNCAABSheet]);
 
 
-  const renderValueAlertCard = (alert: ValueAlert, index: number) => (
-    <Card
-      key={`${alert.gameId}-${alert.marketType}-${alert.side}-${index}`}
-      style={{
-        ...styles.alertCard,
-        backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.1)',
-        borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.3)',
-      }}
-      onPress={() => handleGamePress(alert.game)}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.pillsContainer}>
-          {/* Sport Pill */}
-          <View style={[styles.pill, { backgroundColor: getSportColor(alert.sport) + '20' }]}>
-             <MaterialCommunityIcons name={getSportIconName(alert.sport) as any} size={12} color={getSportColor(alert.sport)} />
-             <Text style={[styles.pillText, { color: getSportColor(alert.sport) }]}>{alert.sport.toUpperCase()}</Text>
-          </View>
-          
-          {/* Market Type Pill */}
-          <View style={[styles.pill, { backgroundColor: '#22c55e20' }]}>
-             <Text style={[styles.pillText, { color: '#15803d' }]}>{alert.marketType}</Text>
+  const renderValueAlertCard = (alert: ValueAlert, index: number) => {
+    const gameTime = formatGameTime(alert.game.gameTime);
+    const spreadLine = formatSpread(alert.game.homeSpread);
+    const totalLine = alert.game.totalLine;
+    const homeMl = formatMoneyline(alert.game.homeMl);
+    const awayMl = formatMoneyline(alert.game.awayMl);
+
+    return (
+      <Card
+        key={`${alert.gameId}-${alert.marketType}-${alert.side}-${index}`}
+        style={{
+          ...styles.alertCard,
+          backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+          borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.3)',
+        }}
+        onPress={() => handleGamePress(alert.game)}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.pillsContainer}>
+            {/* Sport Pill */}
+            <View style={[styles.pill, { backgroundColor: getSportColor(alert.sport) + '20' }]}>
+               <MaterialCommunityIcons name={getSportIconName(alert.sport) as any} size={12} color={getSportColor(alert.sport)} />
+               <Text style={[styles.pillText, { color: getSportColor(alert.sport) }]}>{alert.sport.toUpperCase()}</Text>
+            </View>
+
+            {/* Game Time Pill */}
+            {gameTime && (
+              <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                <MaterialCommunityIcons name="clock-outline" size={10} color={theme.colors.onSurfaceVariant} />
+                <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>{gameTime}</Text>
+              </View>
+            )}
+
+            {/* Market Type Pill */}
+            <View style={[styles.pill, { backgroundColor: '#22c55e20' }]}>
+               <Text style={[styles.pillText, { color: '#15803d' }]}>{alert.marketType}</Text>
+            </View>
+
+            {/* Percentage Pill */}
+            <View style={[styles.pill, { backgroundColor: '#22c55e' }]}>
+               <MaterialCommunityIcons name="percent" size={10} color="#fff" />
+               <Text style={[styles.pillText, { color: '#fff' }]}>{alert.percentage.toFixed(0)}%</Text>
+            </View>
           </View>
 
-          {/* Percentage Pill */}
-          <View style={[styles.pill, { backgroundColor: '#22c55e' }]}>
-             <MaterialCommunityIcons name="percent" size={10} color="#fff" />
-             <Text style={[styles.pillText, { color: '#fff' }]}>{alert.percentage.toFixed(0)}%</Text>
-          </View>
+          {/* Lines Row */}
+          {(spreadLine || totalLine || homeMl) && (
+            <View style={[styles.pillsContainer, { marginTop: 6 }]}>
+              {spreadLine && (
+                <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>Spread: {spreadLine}</Text>
+                </View>
+              )}
+              {totalLine && (
+                <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>O/U: {totalLine}</Text>
+                </View>
+              )}
+              {(homeMl || awayMl) && (
+                <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>ML: {awayMl}/{homeMl}</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
-      </View>
 
-      <View style={styles.cardContent}>
-        <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
-            {alert.awayTeam} @ {alert.homeTeam}
-        </Text>
-        <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
-            <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{alert.side}</Text>
-            {alert.marketType === 'Moneyline' 
-              ? ` - Strong ${alert.percentage.toFixed(0)}% consensus`
-              : ` - ${alert.percentage.toFixed(0)}% suggests line hasn't adjusted`
-            }
-        </Text>
-      </View>
-    </Card>
-  );
-
-  const renderFadeAlertCard = (alert: FadeAlert, index: number) => (
-    <Card
-      key={`${alert.gameId}-${alert.pickType}-${alert.predictedTeam}-${index}`}
-      style={{
-        ...styles.alertCard,
-        backgroundColor: isDark ? 'rgba(168, 85, 247, 0.1)' : 'rgba(168, 85, 247, 0.1)',
-        borderColor: isDark ? 'rgba(168, 85, 247, 0.3)' : 'rgba(168, 85, 247, 0.3)',
-      }}
-      onPress={() => handleGamePress(alert.game)}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.pillsContainer}>
-          {/* Sport Pill */}
-          <View style={[styles.pill, { backgroundColor: getSportColor(alert.sport) + '20' }]}>
-             <MaterialCommunityIcons name={getSportIconName(alert.sport) as any} size={12} color={getSportColor(alert.sport)} />
-             <Text style={[styles.pillText, { color: getSportColor(alert.sport) }]}>{alert.sport.toUpperCase()}</Text>
-          </View>
-          
-          {/* Pick Type Pill */}
-          <View style={[styles.pill, { backgroundColor: '#a855f720' }]}>
-             <Text style={[styles.pillText, { color: '#7e22ce' }]}>{alert.pickType}</Text>
-          </View>
-
-          {/* Confidence Pill */}
-          <View style={[styles.pill, { backgroundColor: '#a855f7' }]}>
-             {alert.sport === 'nfl' ? (
-                 <MaterialCommunityIcons name="percent" size={10} color="#fff" />
-             ) : null}
-             <Text style={[styles.pillText, { color: '#fff' }]}>
-                 {alert.sport === 'nfl' ? `${alert.confidence}%` : `${alert.confidence}pt`}
-             </Text>
-          </View>
+        <View style={styles.cardContent}>
+          <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
+              {alert.awayTeam} @ {alert.homeTeam}
+          </Text>
+          <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
+              <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{alert.side}</Text>
+              {alert.marketType === 'Moneyline'
+                ? ` - Strong ${alert.percentage.toFixed(0)}% consensus`
+                : ` - ${alert.percentage.toFixed(0)}% suggests line hasn't adjusted`
+              }
+          </Text>
         </View>
-      </View>
+      </Card>
+    );
+  };
 
-      <View style={styles.cardContent}>
-        <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
-            {alert.awayTeam} @ {alert.homeTeam}
-        </Text>
-        <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
-            Model likes <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{alert.predictedTeam}</Text>
-            {alert.sport === 'nfl'
-              ? ` with ${alert.confidence}% confidence`
-              : ` with ${alert.confidence}pt edge against the line`
-            }
-        </Text>
-      </View>
-    </Card>
-  );
+  const renderFadeAlertCard = (alert: FadeAlert, index: number) => {
+    const gameTime = formatGameTime(alert.game.gameTime);
+    const spreadLine = formatSpread(alert.game.homeSpread);
+    const totalLine = alert.game.totalLine;
+    const homeMl = formatMoneyline(alert.game.homeMl);
+    const awayMl = formatMoneyline(alert.game.awayMl);
+
+    return (
+      <Card
+        key={`${alert.gameId}-${alert.pickType}-${alert.predictedTeam}-${index}`}
+        style={{
+          ...styles.alertCard,
+          backgroundColor: isDark ? 'rgba(168, 85, 247, 0.1)' : 'rgba(168, 85, 247, 0.1)',
+          borderColor: isDark ? 'rgba(168, 85, 247, 0.3)' : 'rgba(168, 85, 247, 0.3)',
+        }}
+        onPress={() => handleGamePress(alert.game)}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.pillsContainer}>
+            {/* Sport Pill */}
+            <View style={[styles.pill, { backgroundColor: getSportColor(alert.sport) + '20' }]}>
+               <MaterialCommunityIcons name={getSportIconName(alert.sport) as any} size={12} color={getSportColor(alert.sport)} />
+               <Text style={[styles.pillText, { color: getSportColor(alert.sport) }]}>{alert.sport.toUpperCase()}</Text>
+            </View>
+
+            {/* Game Time Pill */}
+            {gameTime && (
+              <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                <MaterialCommunityIcons name="clock-outline" size={10} color={theme.colors.onSurfaceVariant} />
+                <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>{gameTime}</Text>
+              </View>
+            )}
+
+            {/* Pick Type Pill */}
+            <View style={[styles.pill, { backgroundColor: '#a855f720' }]}>
+               <Text style={[styles.pillText, { color: '#7e22ce' }]}>{alert.pickType}</Text>
+            </View>
+
+            {/* Confidence Pill */}
+            <View style={[styles.pill, { backgroundColor: '#a855f7' }]}>
+               {alert.sport === 'nfl' ? (
+                   <MaterialCommunityIcons name="percent" size={10} color="#fff" />
+               ) : null}
+               <Text style={[styles.pillText, { color: '#fff' }]}>
+                   {alert.sport === 'nfl' ? `${alert.confidence}%` : `${alert.confidence}pt`}
+               </Text>
+            </View>
+          </View>
+
+          {/* Lines Row */}
+          {(spreadLine || totalLine || homeMl) && (
+            <View style={[styles.pillsContainer, { marginTop: 6 }]}>
+              {spreadLine && (
+                <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>Spread: {spreadLine}</Text>
+                </View>
+              )}
+              {totalLine && (
+                <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>O/U: {totalLine}</Text>
+                </View>
+              )}
+              {(homeMl || awayMl) && (
+                <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>ML: {awayMl}/{homeMl}</Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.cardContent}>
+          <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
+              {alert.awayTeam} @ {alert.homeTeam}
+          </Text>
+          <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
+              Model likes <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{alert.predictedTeam}</Text>
+              {alert.sport === 'nfl'
+                ? ` with ${alert.confidence}% confidence`
+                : ` with ${alert.confidence}pt edge against the line`
+              }
+          </Text>
+        </View>
+      </Card>
+    );
+  };
 
   // Custom Sport Filter with Counts
   const renderSportFilter = (

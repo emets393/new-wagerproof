@@ -51,9 +51,15 @@ export function WagerBotInsightPill({ game, sport, style }: WagerBotInsightPillP
 
     // Measure pill position on screen
     pillRef.current?.measureInWindow((x, y) => {
+      console.log('🤖 Pill measured at:', x, y);
+
+      // Safety check - if measureInWindow fails, use default position
+      const safeX = typeof x === 'number' && !isNaN(x) ? x : 200;
+      const safeY = typeof y === 'number' && !isNaN(y) ? y : 100;
+
       // Trigger floating bubble at pill position with pill dimensions
       // Pass game and sport so it immediately fetches insights for this game
-      detachBubbleFromPill(x, y, PILL_WIDTH, PILL_HEIGHT, game, sport);
+      detachBubbleFromPill(safeX, safeY, PILL_WIDTH, PILL_HEIGHT, game, sport);
     });
   }, [game, sport, detachBubbleFromPill]);
 

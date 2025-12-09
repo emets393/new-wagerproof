@@ -711,7 +711,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     if (game && sport) {
       // Get game ID to look up polymarket data
       const gameId = (game as any).training_key || (game as any).id || (game as any).unique_id;
-      let gamePolymarket = polymarketDataRef.current.get(gameId);
+      const gamePolymarket = polymarketDataRef.current.get(gameId);
 
       console.log(`🤖 Fetching insight for ${game.away_team} @ ${game.home_team}`);
 
@@ -719,6 +719,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
       setCurrentSport(sport);
       setCurrentPageContext('game-details');
       setPreviousInsights([]);
+      currentGamePolymarketRef.current = gamePolymarket;
 
       // Show scanning state while fetching
       setBubbleMode('scanning');
@@ -730,15 +731,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         setInitialBubbleDimensions(null);
       }, 400);
 
-      // Fetch Polymarket data on-demand if not in cache
-      if (!gamePolymarket) {
-        console.log(`🤖 Polymarket not in cache, fetching on-demand...`);
-        gamePolymarket = await fetchPolymarketForGame(game, sport);
-      }
-
-      currentGamePolymarketRef.current = gamePolymarket;
-
-      // Fetch the insight
+      // Fetch the insight (polymarket may be undefined, that's ok)
       try {
         const response = await wagerBotSuggestionService.getGameInsight(game, sport, gamePolymarket);
 
@@ -796,104 +789,155 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
 
   // Request more details on current insight ("Tell me more")
   const requestMoreDetails = useCallback(async () => {
-    if (!currentOpenGame || !currentSport || !currentSuggestion) {
-      console.log('🤖 No game context for more details');
+    // Handle game context
+    if (currentOpenGame && currentSport && currentSuggestion) {
+      console.log('🤖 Requesting more details for game...');
+      setBubbleMode('scanning');
+      setIsLoading(true);
+
+      try {
+        const response = await wagerBotSuggestionService.getMoreDetails(
+          currentOpenGame,
+          currentSport,
+          currentSuggestion,
+          currentGamePolymarketRef.current
+        );
+
+        if (response.success && response.suggestion) {
+          console.log(`🤖 More details: "${response.suggestion.substring(0, 50)}..."`);
+          setPreviousInsights(prev => [...prev, currentSuggestion]);
+          setCurrentSuggestion(response.suggestion);
+          setBubbleMode('suggestion');
+        } else {
+          console.log('🤖 No additional details received');
+          setCurrentSuggestion("That's all I've got on this one! Try another game.");
+          setBubbleMode('suggestion');
+        }
+      } catch (error) {
+        console.error('🤖 Error getting more details:', error);
+        setCurrentSuggestion('Something went wrong. Please try again.');
+        setBubbleMode('suggestion');
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
 
-    console.log('🤖 Requesting more details...');
-    setBubbleMode('scanning');
-    setIsLoading(true);
+    // Handle outliers page context
+    if (currentPageContext === 'outliers' && currentSuggestion) {
+      console.log('🤖 Requesting more details for outliers...');
+      setBubbleMode('scanning');
+      setIsLoading(true);
 
-    // Fetch Polymarket data on-demand if not cached
-    let polymarket = currentGamePolymarketRef.current;
-    if (!polymarket) {
-      console.log(`🤖 Polymarket not cached, fetching on-demand...`);
-      polymarket = await fetchPolymarketForGame(currentOpenGame, currentSport);
-      currentGamePolymarketRef.current = polymarket;
-    }
+      try {
+        const response = await wagerBotSuggestionService.scanPage('outliers', {
+          valueAlerts: outliersDataRef.current.valueAlerts || [],
+          fadeAlerts: outliersDataRef.current.fadeAlerts || [],
+        });
 
-    try {
-      const response = await wagerBotSuggestionService.getMoreDetails(
-        currentOpenGame,
-        currentSport,
-        currentSuggestion,
-        polymarket
-      );
-
-      if (response.success && response.suggestion) {
-        console.log(`🤖 More details: "${response.suggestion.substring(0, 50)}..."`);
-        // Store current insight before replacing
-        setPreviousInsights(prev => [...prev, currentSuggestion]);
-        setCurrentSuggestion(response.suggestion);
+        if (response.success && response.suggestion) {
+          console.log(`🤖 More outliers details: "${response.suggestion.substring(0, 50)}..."`);
+          setPreviousInsights(prev => [...prev, currentSuggestion]);
+          setCurrentSuggestion(response.suggestion);
+          setCurrentGameId(response.gameId);
+          setBubbleMode('suggestion');
+        } else {
+          setCurrentSuggestion("That's all the outliers I see right now!");
+          setBubbleMode('suggestion');
+        }
+      } catch (error) {
+        console.error('🤖 Error getting outliers details:', error);
+        setCurrentSuggestion('Something went wrong. Please try again.');
         setBubbleMode('suggestion');
-      } else {
-        console.log('🤖 No additional details received');
-        setCurrentSuggestion("That's all I've got on this one! Try another game.");
-        setBubbleMode('suggestion');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('🤖 Error getting more details:', error);
-      setCurrentSuggestion('Something went wrong. Please try again.');
-      setBubbleMode('suggestion');
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  }, [currentOpenGame, currentSport, currentSuggestion]);
+
+    console.log('🤖 No context for more details');
+  }, [currentOpenGame, currentSport, currentSuggestion, currentPageContext]);
 
   // Request alternative insight ("Another insight")
   const requestAnotherInsight = useCallback(async () => {
-    if (!currentOpenGame || !currentSport) {
-      console.log('🤖 No game context for alternative insight');
+    // Handle game context
+    if (currentOpenGame && currentSport) {
+      console.log('🤖 Requesting alternative insight for game...');
+      setBubbleMode('scanning');
+      setIsLoading(true);
+
+      try {
+        // Include current suggestion in previous insights for the API
+        const allPreviousInsights = currentSuggestion
+          ? [...previousInsights, currentSuggestion]
+          : previousInsights;
+
+        const response = await wagerBotSuggestionService.getAlternativeInsight(
+          currentOpenGame,
+          currentSport,
+          allPreviousInsights,
+          currentGamePolymarketRef.current
+        );
+
+        if (response.success && response.suggestion) {
+          console.log(`🤖 Alternative insight: "${response.suggestion.substring(0, 50)}..."`);
+          if (currentSuggestion) {
+            setPreviousInsights(prev => [...prev, currentSuggestion]);
+          }
+          setCurrentSuggestion(response.suggestion);
+          setBubbleMode('suggestion');
+        } else {
+          console.log('🤖 No alternative insight received');
+          setCurrentSuggestion("I've covered all the angles on this one! Check out another game.");
+          setBubbleMode('suggestion');
+        }
+      } catch (error) {
+        console.error('🤖 Error getting alternative insight:', error);
+        setCurrentSuggestion('Something went wrong. Please try again.');
+        setBubbleMode('suggestion');
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
 
-    console.log('🤖 Requesting alternative insight...');
-    setBubbleMode('scanning');
-    setIsLoading(true);
+    // Handle outliers page context
+    if (currentPageContext === 'outliers') {
+      console.log('🤖 Requesting another outlier insight...');
+      setBubbleMode('scanning');
+      setIsLoading(true);
 
-    // Fetch Polymarket data on-demand if not cached
-    let polymarket = currentGamePolymarketRef.current;
-    if (!polymarket) {
-      console.log(`🤖 Polymarket not cached, fetching on-demand...`);
-      polymarket = await fetchPolymarketForGame(currentOpenGame, currentSport);
-      currentGamePolymarketRef.current = polymarket;
-    }
+      try {
+        // Re-scan outliers to get a different insight
+        const response = await wagerBotSuggestionService.scanPage('outliers', {
+          valueAlerts: outliersDataRef.current.valueAlerts || [],
+          fadeAlerts: outliersDataRef.current.fadeAlerts || [],
+        });
 
-    try {
-      // Include current suggestion in previous insights for the API
-      const allPreviousInsights = currentSuggestion
-        ? [...previousInsights, currentSuggestion]
-        : previousInsights;
-
-      const response = await wagerBotSuggestionService.getAlternativeInsight(
-        currentOpenGame,
-        currentSport,
-        allPreviousInsights,
-        polymarket
-      );
-
-      if (response.success && response.suggestion) {
-        console.log(`🤖 Alternative insight: "${response.suggestion.substring(0, 50)}..."`);
-        // Store current insight before replacing
-        if (currentSuggestion) {
-          setPreviousInsights(prev => [...prev, currentSuggestion]);
+        if (response.success && response.suggestion) {
+          console.log(`🤖 Another outlier insight: "${response.suggestion.substring(0, 50)}..."`);
+          if (currentSuggestion) {
+            setPreviousInsights(prev => [...prev, currentSuggestion]);
+          }
+          setCurrentSuggestion(response.suggestion);
+          setCurrentGameId(response.gameId);
+          setBubbleMode('suggestion');
+        } else {
+          setCurrentSuggestion("That's all the outliers I see right now!");
+          setBubbleMode('suggestion');
         }
-        setCurrentSuggestion(response.suggestion);
+      } catch (error) {
+        console.error('🤖 Error getting outlier insight:', error);
+        setCurrentSuggestion('Something went wrong. Please try again.');
         setBubbleMode('suggestion');
-      } else {
-        console.log('🤖 No alternative insight received');
-        setCurrentSuggestion("I've covered all the angles on this one! Check out another game.");
-        setBubbleMode('suggestion');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('🤖 Error getting alternative insight:', error);
-      setCurrentSuggestion('Something went wrong. Please try again.');
-      setBubbleMode('suggestion');
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  }, [currentOpenGame, currentSport, currentSuggestion, previousInsights]);
+
+    console.log('🤖 No context for alternative insight');
+  }, [currentOpenGame, currentSport, currentSuggestion, previousInsights, currentPageContext]);
 
   // Handle game sheet opening (navigation tracking for floating mode)
   const onGameSheetOpen = useCallback(async (game: GameData, sport: Sport, polymarket?: GamePolymarketData) => {
