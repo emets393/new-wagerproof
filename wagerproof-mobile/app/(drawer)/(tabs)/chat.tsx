@@ -4,6 +4,8 @@ import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeContext } from '@/contexts/ThemeContext';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useRouter } from 'expo-router';
 import WagerBotChat from '@/components/WagerBotChat';
 import { fetchAndFormatGameContext } from '@/services/gameDataService';
@@ -12,22 +14,26 @@ export default function ChatScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { isDark } = useThemeContext();
+  const { dismissSuggestion, dismissFloating, isDetached } = useWagerBotSuggestion();
   const router = useRouter();
 
   const [gameContext, setGameContext] = useState<string>('');
   const [isLoadingContext, setIsLoadingContext] = useState(true);
   const [contextError, setContextError] = useState<string | null>(null);
-  const [isActive, setIsActive] = useState(false);
   const chatRef = useRef<any>(null);
 
   // Scroll animation setup - disabled header collapsing for better UX
   const scrollY = useRef(new Animated.Value(0)).current;
   const HEADER_HEIGHT = insets.top + 8 + 44 + 12; // paddingTop + header content height + paddingBottom
 
-  // Keep header always visible - no collapsing animation
-  // This prevents the finicky behavior where header becomes unreachable
-  const headerTranslate = new Animated.Value(0);
-  const headerOpacity = new Animated.Value(1);
+  // Hide suggestion bubble when chat screen is open
+  useEffect(() => {
+    dismissSuggestion();
+    if (isDetached) {
+      dismissFloating();
+    }
+  }, []);
 
   // Fetch game data on mount
   useEffect(() => {

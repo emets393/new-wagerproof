@@ -20,7 +20,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
-  LayoutChangeEvent,
+  ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, {
@@ -28,9 +28,9 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSpring,
+  withSequence,
   runOnJS,
   Easing,
-  interpolate,
 } from 'react-native-reanimated';
 import {
   Gesture,
@@ -44,9 +44,9 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const WAGERPROOF_GREEN = '#00E676';
 
 // Bubble dimensions
-const BUBBLE_WIDTH = 200;
-const BUBBLE_MIN_HEIGHT = 120;
-const BUBBLE_MAX_HEIGHT = 200;
+const BUBBLE_WIDTH = 220;
+const BUBBLE_MIN_HEIGHT = 140;
+const BUBBLE_MAX_HEIGHT = 280;
 const BORDER_RADIUS = 24;
 
 // Typewriter animation speed (ms per character)
@@ -92,6 +92,7 @@ interface FloatingAssistantBubbleProps {
   onTellMeMore: () => void;
   onAnotherInsight: () => void;
   hasGameContext: boolean;
+  initialDimensions?: { width: number; height: number; pillRightEdge?: number } | null; // For pill-to-bubble animation
 }
 
 export function FloatingAssistantBubble({
@@ -104,8 +105,10 @@ export function FloatingAssistantBubble({
   onTellMeMore,
   onAnotherInsight,
   hasGameContext,
+  initialDimensions,
 }: FloatingAssistantBubbleProps) {
   const typewriterTimer = useRef<NodeJS.Timeout | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Typewriter animation state
   const [displayedText, setDisplayedText] = useState('');
@@ -118,6 +121,11 @@ export function FloatingAssistantBubble({
   const opacity = useSharedValue(0);
   const contentOpacity = useSharedValue(0);
   const animatedHeight = useSharedValue(BUBBLE_MIN_HEIGHT);
+
+  // For pill-to-bubble morph animation
+  const animatedWidth = useSharedValue(BUBBLE_WIDTH);
+  const animatedBorderRadius = useSharedValue(BORDER_RADIUS);
+  const pillRightEdgeRef = useSharedValue(0); // Stores pill's right edge for anchoring during expansion
 
   // Track drag start position
   const startX = useSharedValue(0);
@@ -147,9 +155,19 @@ export function FloatingAssistantBubble({
         if (currentIndex < suggestion.length) {
           setDisplayedText(suggestion.substring(0, currentIndex + 1));
           currentIndex++;
+
+          // Auto-scroll to bottom as text types
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollToEnd({ animated: false });
+          }
+
           typewriterTimer.current = setTimeout(animateNextChar, TYPEWRITER_SPEED);
         } else {
           setIsTyping(false);
+          // Final scroll to ensure we're at the bottom
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollToEnd({ animated: true });
+          }
         }
       };
 
@@ -179,31 +197,101 @@ export function FloatingAssistantBubble({
     };
   }, [visible]);
 
+  // Track if this is the initial position set
+  const isInitialPosition = useRef(true);
+
   // Update position when props change
   useEffect(() => {
-    translateX.value = withSpring(position.x, DRAG_SPRING_CONFIG);
-    translateY.value = withSpring(position.y, DRAG_SPRING_CONFIG);
+    if (isInitialPosition.current) {
+      // First position - set immediately without animation
+      translateX.value = position.x;
+      translateY.value = position.y;
+      isInitialPosition.current = false;
+    } else {
+      // Subsequent positions - animate with spring
+      translateX.value = withSpring(position.x, DRAG_SPRING_CONFIG);
+      translateY.value = withSpring(position.y, DRAG_SPRING_CONFIG);
+    }
   }, [position.x, position.y]);
 
   const animateIn = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // No haptic here - the detach already triggered one
 
-    scale.value = withSpring(1, {
-      damping: 15,
-      stiffness: 150,
-    });
-    opacity.value = withTiming(1, { duration: 200 });
-    contentOpacity.value = withTiming(1, { duration: 300 });
+    if (initialDimensions) {
+      // Animating from pill - start at pill size and morph to bubble size
+      animatedWidth.value = initialDimensions.width;
+      animatedHeight.value = initialDimensions.height;
+      animatedBorderRadius.value = initialDimensions.height / 2; // Pill is fully rounded
+
+      // Show immediately at pill size - NO fade, NO scale, instant replacement
+      scale.value = 1;
+      opacity.value = 1;
+
+      // Set the pill's right edge so containerStyle can anchor to it
+      // The X position will be calculated dynamically in useAnimatedStyle as:
+      // X = pillRightEdge - currentAnimatedWidth
+      // This keeps the right edge anchored as width expands
+      const pillRightEdge = position.x + initialDimensions.width;
+      pillRightEdgeRef.value = pillRightEdge;
+
+      // Animate width expanding leftward (right edge stays anchored via containerStyle)
+      animatedWidth.value = withSpring(BUBBLE_WIDTH, DRAG_SPRING_CONFIG);
+      animatedHeight.value = withSpring(BUBBLE_MAX_HEIGHT, DRAG_SPRING_CONFIG);
+      animatedBorderRadius.value = withSpring(BORDER_RADIUS, DRAG_SPRING_CONFIG);
+
+      // Fade in content after morph starts
+      contentOpacity.value = withTiming(1, { duration: 200 });
+
+      // Clear the pillRightEdgeRef after animation so normal dragging works
+      // and update the actual translateX to the final position
+      setTimeout(() => {
+        const finalX = pillRightEdge - BUBBLE_WIDTH;
+        const clampedFinalX = Math.max(SNAP_MARGIN, Math.min(finalX, SCREEN_WIDTH - BUBBLE_WIDTH - SNAP_MARGIN));
+        translateX.value = clampedFinalX;
+        pillRightEdgeRef.value = 0;
+      }, 400);
+    } else {
+      // Normal appear - instant
+      animatedWidth.value = BUBBLE_WIDTH;
+      animatedBorderRadius.value = BORDER_RADIUS;
+      scale.value = 1;
+      opacity.value = 1;
+      contentOpacity.value = withTiming(1, { duration: 150 });
+    }
   };
 
   const animateOut = useCallback(() => {
     contentOpacity.value = withTiming(0, { duration: 100 });
     scale.value = withTiming(0.8, { duration: 150 });
     opacity.value = withTiming(0, { duration: 150 });
+    // Reset so next detach appears immediately
+    isInitialPosition.current = true;
+    hasInitialHeight.current = false;
+    // Reset dimensions for next appearance
+    animatedWidth.value = BUBBLE_WIDTH;
+    animatedBorderRadius.value = BORDER_RADIUS;
   }, []);
 
   const handleDismissComplete = useCallback(() => {
     onDismiss();
+  }, [onDismiss]);
+
+  // Handle dismiss when tapping the robot icon - with pop animation
+  const handleIconDismiss = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Pop animation - expand slightly then shrink away
+    scale.value = withSequence(
+      withTiming(1.15, { duration: 100, easing: Easing.out(Easing.cubic) }),
+      withTiming(0, { duration: 200, easing: Easing.in(Easing.back(2)) })
+    );
+    opacity.value = withTiming(0, { duration: 250 });
+    contentOpacity.value = withTiming(0, { duration: 100 });
+
+    // Call dismiss after animation
+    setTimeout(() => {
+      onDismiss();
+    }, 280);
   }, [onDismiss]);
 
   const handleTellMeMore = useCallback(() => {
@@ -217,17 +305,17 @@ export function FloatingAssistantBubble({
   }, [onAnotherInsight]);
 
   // Handle content layout changes for smooth height animation
-  const handleContentLayout = useCallback((event: LayoutChangeEvent) => {
+  const handleContentLayout = useCallback((event: { nativeEvent: { layout: { height: number } } }) => {
     const { height } = event.nativeEvent.layout;
-    // Add padding for container (paddingTop: 20, padding: 12 top/bottom = 32 + some margin)
-    const targetHeight = Math.min(Math.max(height + 44, BUBBLE_MIN_HEIGHT), BUBBLE_MAX_HEIGHT);
+    // Add padding for container (paddingTop: 20, padding: 12 = ~32) plus margin
+    const targetHeight = Math.min(Math.max(height + 40, BUBBLE_MIN_HEIGHT), BUBBLE_MAX_HEIGHT);
 
     if (!hasInitialHeight.current) {
       // Set initial height without animation
       animatedHeight.value = targetHeight;
       hasInitialHeight.current = true;
     } else {
-      // Smooth linear timing animation - no bounce
+      // Smooth animation for height changes
       animatedHeight.value = withTiming(targetHeight, {
         duration: 150,
         easing: Easing.out(Easing.ease),
@@ -296,15 +384,29 @@ export function FloatingAssistantBubble({
     });
 
   // Animated styles
-  const containerStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    opacity: opacity.value,
-    height: animatedHeight.value,
-  }));
+  const containerStyle = useAnimatedStyle(() => {
+    // If we have a pillRightEdge set (during pill-to-bubble animation),
+    // calculate X position to keep right edge anchored as width changes
+    let xPosition = translateX.value;
+    if (pillRightEdgeRef.value > 0) {
+      // X = pillRightEdge - currentWidth (keeps right edge anchored)
+      xPosition = pillRightEdgeRef.value - animatedWidth.value;
+      // Clamp to screen bounds
+      xPosition = Math.max(SNAP_MARGIN, Math.min(xPosition, SCREEN_WIDTH - animatedWidth.value - SNAP_MARGIN));
+    }
+
+    return {
+      transform: [
+        { translateX: xPosition },
+        { translateY: translateY.value },
+        { scale: scale.value },
+      ],
+      opacity: opacity.value,
+      width: animatedWidth.value,
+      height: animatedHeight.value,
+      borderRadius: animatedBorderRadius.value,
+    };
+  });
 
   const contentStyle = useAnimatedStyle(() => ({
     opacity: contentOpacity.value,
@@ -317,18 +419,22 @@ export function FloatingAssistantBubble({
   return (
     <GestureDetector gesture={panGesture}>
       <Animated.View style={[styles.container, containerStyle]}>
-        {/* Robot icon in corner */}
-        <View style={styles.robotIconContainer}>
+        {/* Robot icon in corner - tap to dismiss */}
+        <TouchableOpacity
+          style={styles.robotIconContainer}
+          onPress={handleIconDismiss}
+          activeOpacity={0.7}
+        >
           <MaterialCommunityIcons
             name="robot"
             size={14}
             color={WAGERPROOF_GREEN}
           />
-        </View>
+        </TouchableOpacity>
 
-        {/* Inner content wrapper for measuring height */}
-        <View onLayout={handleContentLayout} style={styles.innerContent}>
-          {/* Content area */}
+        {/* Main content layout - measures for dynamic height */}
+        <View style={styles.innerContent} onLayout={handleContentLayout}>
+          {/* Scrollable text area - takes remaining space */}
           <Animated.View style={[styles.contentArea, contentStyle]}>
             {isScanning ? (
               <View style={styles.scanningContent}>
@@ -336,30 +442,44 @@ export function FloatingAssistantBubble({
                 <Text style={styles.scanningText}>Analyzing...</Text>
               </View>
             ) : (
-              <Text style={styles.suggestionText} numberOfLines={6}>
-                {displayedText}
-                {isTyping && <Text style={styles.cursor}>|</Text>}
-              </Text>
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.textScrollView}
+                contentContainerStyle={styles.textScrollContent}
+                showsVerticalScrollIndicator={true}
+                bounces={false}
+              >
+                <Text style={styles.suggestionText}>
+                  {displayedText}
+                  {isTyping && <Text style={styles.cursor}>|</Text>}
+                </Text>
+              </ScrollView>
             )}
           </Animated.View>
 
-          {/* Action buttons - only show when we have game context and not scanning */}
-          {hasGameContext && !isScanning && !isTyping && (
+          {/* Action buttons - always visible at bottom when we have game context */}
+          {hasGameContext && !isScanning && (
             <View style={styles.actionButtons}>
               <TouchableOpacity
-                style={styles.actionButton}
+                style={[styles.actionButton, isTyping && styles.actionButtonDisabled]}
                 onPress={handleTellMeMore}
                 activeOpacity={0.7}
+                disabled={isTyping}
               >
-                <Text style={styles.actionButtonText}>Tell me more</Text>
+                <Text style={[styles.actionButtonText, isTyping && styles.actionButtonTextDisabled]}>
+                  Tell me more
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.actionButton}
+                style={[styles.actionButton, isTyping && styles.actionButtonDisabled]}
                 onPress={handleAnotherInsight}
                 activeOpacity={0.7}
+                disabled={isTyping}
               >
-                <Text style={styles.actionButtonText}>Another insight</Text>
+                <Text style={[styles.actionButtonText, isTyping && styles.actionButtonTextDisabled]}>
+                  Another insight
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -372,9 +492,8 @@ export function FloatingAssistantBubble({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    width: BUBBLE_WIDTH,
+    // width and borderRadius are animated via containerStyle
     backgroundColor: '#000000',
-    borderRadius: BORDER_RADIUS,
     padding: 12,
     paddingTop: 20,
     overflow: 'hidden',
@@ -387,7 +506,7 @@ const styles = StyleSheet.create({
     zIndex: 99999,
   },
   innerContent: {
-    // This wrapper measures the actual content height
+    // Content sizes naturally, measured for dynamic bubble height
   },
   robotIconContainer: {
     position: 'absolute',
@@ -399,16 +518,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 230, 118, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   contentArea: {
     marginTop: 16,
-    marginBottom: 8,
     paddingHorizontal: 4,
+  },
+  textScrollView: {
+    maxHeight: 160, // Allow scrolling for long messages
+  },
+  textScrollContent: {
+    paddingBottom: 8,
   },
   scanningContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    paddingVertical: 20,
   },
   scanningText: {
     color: '#FFFFFF',
@@ -428,19 +554,28 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     marginTop: 8,
   },
   actionButton: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
   actionButtonText: {
     color: WAGERPROOF_GREEN,
     fontSize: 11,
     fontWeight: '600',
+  },
+  actionButtonTextDisabled: {
+    color: 'rgba(0, 230, 118, 0.5)',
   },
 });

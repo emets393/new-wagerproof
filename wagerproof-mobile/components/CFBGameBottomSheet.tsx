@@ -12,12 +12,15 @@ import { getCFBTeamColors, getCFBTeamInitials, getContrastingTextColor } from '@
 import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, roundToNearestHalf } from '@/utils/formatting';
 import { PublicBettingBars } from './cfb/PublicBettingBars';
 import { PolymarketWidget } from './PolymarketWidget';
+import { WagerBotInsightPill } from './WagerBotInsightPill';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
 export function CFBGameBottomSheet() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { selectedGame: game, closeGameSheet, bottomSheetRef } = useCFBGameSheet();
+  const { onModelDetailsTap, isDetached } = useWagerBotSuggestion();
   const snapPoints = useMemo(() => ['85%', '95%'], []);
   const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
   const [ouExplanationExpanded, setOuExplanationExpanded] = useState(false);
@@ -36,11 +39,19 @@ export function CFBGameBottomSheet() {
   const handleSpreadTap = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSpreadExplanationExpanded(!spreadExplanationExpanded);
+    // Notify floating assistant if in detached mode
+    if (isDetached && !spreadExplanationExpanded) {
+      onModelDetailsTap();
+    }
   };
 
   const handleOuTap = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setOuExplanationExpanded(!ouExplanationExpanded);
+    // Notify floating assistant if in detached mode
+    if (isDetached && !ouExplanationExpanded) {
+      onModelDetailsTap();
+    }
   };
 
   const handleLineMovementTap = () => {
@@ -203,6 +214,8 @@ export function CFBGameBottomSheet() {
               end={{ x: 1, y: 0 }}
               style={styles.headerGradient}
             />
+            {/* WagerBot Insight Pill */}
+            <WagerBotInsightPill game={game} sport="cfb" />
             <View style={styles.headerContent}>
               <View style={styles.dateTimeRow}>
               <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>

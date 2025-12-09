@@ -1300,6 +1300,8 @@ export function GameDetailsModal({
                   homeTeamColors={homeTeamColors}
                   league={league}
                   compact={false}
+                  awayMoneyline={prediction.away_ml}
+                  homeMoneyline={prediction.home_ml}
                 />
               </div>
 
@@ -1594,6 +1596,8 @@ export function GameDetailsModal({
                   homeTeamColors={homeTeamColors}
                   league={league}
                   compact={false}
+                  awayMoneyline={prediction.away_ml}
+                  homeMoneyline={prediction.home_ml}
                 />
               </div>
             </>
@@ -2111,6 +2115,8 @@ export function GameDetailsModal({
                 homeTeamColors={homeTeamColors}
                 league={league}
                 compact={false}
+                awayMoneyline={prediction.away_moneyline || prediction.away_ml}
+                homeMoneyline={prediction.home_moneyline || prediction.home_ml}
               />
             </div>
           )}

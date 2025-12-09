@@ -15,6 +15,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import { useThemeContext } from '../contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -156,6 +157,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   headerHeight = 0,
 }, ref) => {
   const theme = useTheme();
+  const { isDark } = useThemeContext();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
   const welcomeScrollViewRef = useRef<ScrollView>(null);
@@ -943,7 +945,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
       {/* History Drawer */}
       <Animated.View 
         style={[
@@ -1043,7 +1045,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 }
               >
                 <View style={styles.welcomeContent}>
-                  <View style={[styles.iconContainer, { backgroundColor: theme.colors.primaryContainer }]}>
+                  <View style={styles.iconContainer}>
                     <MaterialCommunityIcons
                       name="robot"
                       size={64}
@@ -1234,10 +1236,11 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           {/* Input Area - Hide when loading during initialization - Fixed at bottom */}
           {!isLoading && (
             <View style={[
-              styles.inputWrapper, 
-              { 
+              styles.inputWrapper,
+              {
                 backgroundColor: theme.colors.background,
-                paddingBottom: keyboardHeight > 0 ? keyboardHeight : (Platform.OS === 'ios' ? insets.bottom : 16),
+                bottom: keyboardHeight > 0 ? keyboardHeight : 0,
+                paddingBottom: Platform.OS === 'ios' ? insets.bottom : 16,
               }
             ]}>
             {/* Suggested Messages - Show when welcome or no messages - Part of input component */}
@@ -1253,9 +1256,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                     key={index}
                     style={[
                       styles.suggestedMessageBubble,
-                      { 
-                        backgroundColor: theme.colors.surfaceVariant,
-                        borderColor: theme.colors.outline,
+                      {
+                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+                        borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)',
                       }
                     ]}
                     onPress={() => handleSuggestedMessage(item.message)}
@@ -1489,9 +1492,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 32,
@@ -1568,12 +1568,12 @@ const styles = StyleSheet.create({
   // Input Area Styles (Claude-like)
   inputWrapper: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 16,
     paddingTop: 8,
     backgroundColor: 'transparent', // Will be set by inline style
+    // bottom is set dynamically based on keyboard height
   },
   inputContainer: {
     borderRadius: 24,
@@ -1637,11 +1637,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 0.5,
     marginRight: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
   },
   suggestedMessageText: {
     fontSize: 14,

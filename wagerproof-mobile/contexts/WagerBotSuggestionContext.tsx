@@ -19,16 +19,44 @@ import React, {
 } from 'react';
 import { Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { wagerBotSuggestionService, Sport, SuggestionResponse } from '../services/wagerBotSuggestionService';
+import { wagerBotSuggestionService, Sport, SuggestionResponse, PageType } from '../services/wagerBotSuggestionService';
 import { NFLPrediction } from '../types/nfl';
 import { CFBPrediction } from '../types/cfb';
 import { NBAGame } from '../types/nba';
 import { NCAABGame } from '../types/ncaab';
+import { GamePolymarketData } from '../config/wagerBotPrompts';
 
 type GameData = NFLPrediction | CFBPrediction | NBAGame | NCAABGame;
 
+// Page-specific data types for scanning
+interface PageDataRefs {
+  feed: {
+    games: GameData[];
+    sport: Sport;
+    polymarketData?: Map<string, GamePolymarketData>;
+  };
+  picks: {
+    picks: any[];
+  };
+  outliers: {
+    valueAlerts: any[];
+    fadeAlerts: any[];
+  };
+  scoreboard: {
+    liveGames: any[];
+  };
+}
+
 // Page context for floating assistant
-type PageContext = 'feed' | 'game-details';
+type PageContext = 'feed' | 'game-details' | 'picks' | 'outliers' | 'scoreboard' | 'model-details';
+
+// Page explanation messages for floating assistant
+const PAGE_EXPLANATIONS: Record<string, string> = {
+  picks: "This is Editor's Picks - curated betting recommendations from our expert analysts. Each pick includes detailed reasoning and historical performance tracking. Tap any pick to see the full analysis!",
+  outliers: "Welcome to Outliers - these are games where our model's probability differs significantly from the betting lines. These represent potential value opportunities where the market may have mispriced the odds.",
+  scoreboard: "This is the Live Scoreboard - track all games in real-time with live scores, game status, and see how your picks are performing. Games update automatically as they progress.",
+  'model-details': "Our prediction model analyzes historical data, team performance, injuries, weather, and dozens of other factors to generate win probabilities. The percentage shown represents the model's confidence in each outcome.",
+};
 
 // Position for floating bubble
 interface FloatingPosition {
@@ -37,6 +65,12 @@ interface FloatingPosition {
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Floating bubble dimensions (must match FloatingAssistantBubble)
+const BUBBLE_WIDTH = 220;
+const BUBBLE_MIN_HEIGHT = 140;
+const SNAP_MARGIN = 16;
+const SNAP_MARGIN_TOP = 60;
 
 // Default floating position (bottom-right corner)
 const DEFAULT_FLOATING_POSITION: FloatingPosition = {
@@ -81,15 +115,28 @@ interface WagerBotSuggestionContextType {
   openChat: () => void;
 
   // Floating assistant actions
-  detachBubble: () => void;
+  detachBubble: (x?: number, y?: number) => void;
+  detachBubbleFromPill: (x: number, y: number, pillWidth: number, pillHeight: number) => void;
   dismissFloating: () => void;
   updateFloatingPosition: (x: number, y: number) => void;
   requestMoreDetails: () => Promise<void>;
   requestAnotherInsight: () => Promise<void>;
 
+  // Animation state for pill-to-bubble transition
+  initialBubbleDimensions: { width: number; height: number; pillRightEdge?: number } | null;
+
   // Navigation tracking for floating mode
-  onGameSheetOpen: (game: GameData, sport: Sport) => void;
+  onGameSheetOpen: (game: GameData, sport: Sport, polymarket?: GamePolymarketData) => void;
   onGameSheetClose: () => void;
+  onPageChange: (page: PageContext) => void;
+  onModelDetailsTap: () => void;
+  onOutliersPageWithData: (outlierGames: GameData[], sport: Sport) => void;
+
+  // Page data setters for scanning
+  setPicksData: (picks: any[]) => void;
+  setOutliersData: (valueAlerts: any[], fadeAlerts: any[]) => void;
+  setScoreboardData: (liveGames: any[]) => void;
+  setPolymarketData: (data: Map<string, GamePolymarketData>) => void;
 
   // Lifecycle management
   onSportChange: (sport: Sport, gameData: GameData[]) => void;
@@ -130,6 +177,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   const [currentPageContext, setCurrentPageContext] = useState<PageContext>('feed');
   const [currentOpenGame, setCurrentOpenGame] = useState<GameData | null>(null);
   const [previousInsights, setPreviousInsights] = useState<string[]>([]);
+  const [initialBubbleDimensions, setInitialBubbleDimensions] = useState<{ width: number; height: number } | null>(null);
 
   // Tracking refs
   const visitedSports = useRef<Set<Sport>>(new Set());
@@ -141,6 +189,13 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   const isMounted = useRef(false);
   const currentGameDataRef = useRef<GameData[]>([]);
   const currentSportRef = useRef<Sport>('nfl');
+
+  // Page-specific data refs for scanning
+  const picksDataRef = useRef<any[]>([]);
+  const outliersDataRef = useRef<{ valueAlerts: any[]; fadeAlerts: any[] }>({ valueAlerts: [], fadeAlerts: [] });
+  const scoreboardDataRef = useRef<any[]>([]);
+  const polymarketDataRef = useRef<Map<string, GamePolymarketData>>(new Map());
+  const currentGamePolymarketRef = useRef<GamePolymarketData | undefined>(undefined);
 
   // Load preferences on mount
   useEffect(() => {
@@ -242,9 +297,18 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   }, [clearAutoDismissTimer]);
 
   // Open manual menu (when user taps the icon)
+  // Shows the anchored menu bubble at the top with "Scan this page" and "Open chat" options
   const openManualMenu = useCallback(() => {
-    console.log('🤖 Opening manual menu');
+    console.log('🤖 Opening manual menu, isDetached:', isDetached, 'isVisible:', isVisible);
 
+    // If floating bubble is active, dismiss it
+    if (isDetached) {
+      console.log('🤖 Dismissing floating bubble');
+      dismissFloating();
+      return;
+    }
+
+    // Show the anchored menu bubble
     if (isVisible) {
       dismissSuggestion();
       setTimeout(() => {
@@ -258,39 +322,117 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
 
     // No auto-dismiss for menu mode
     clearAutoDismissTimer();
-  }, [isVisible, dismissSuggestion, clearAutoDismissTimer]);
+  }, [isVisible, isDetached, dismissSuggestion, dismissFloating, clearAutoDismissTimer]);
 
-  // Scan current page - fetch AI suggestion for current sport
+  // Scan current page - fetch AI suggestion based on current page context
   const scanCurrentPage = useCallback(async () => {
-    console.log('🤖 Scanning current page...');
-
-    const sport = currentSportRef.current;
-    const gameData = currentGameDataRef.current;
-
-    if (gameData.length === 0) {
-      console.log('🤖 No game data to scan');
-      setCurrentSuggestion('No games available to analyze right now.');
-      setBubbleMode('suggestion');
-
-      autoDismissTimer.current = setTimeout(() => {
-        dismissSuggestion();
-      }, 5000);
-      return;
-    }
+    console.log(`🤖 Scanning current page: ${currentPageContext}`);
 
     // Switch to scanning mode
     setBubbleMode('scanning');
     setIsLoading(true);
 
     try {
-      const response = await wagerBotSuggestionService.getSuggestion(sport, gameData);
+      let response: SuggestionResponse;
+
+      // Use page-specific scanning based on current context
+      switch (currentPageContext) {
+        case 'feed':
+        case 'game-details': {
+          const sport = currentSportRef.current;
+          const gameData = currentGameDataRef.current;
+
+          if (gameData.length === 0) {
+            console.log('🤖 No game data to scan');
+            setCurrentSuggestion('No games available to analyze right now.');
+            setBubbleMode('suggestion');
+            setIsLoading(false);
+            autoDismissTimer.current = setTimeout(() => {
+              dismissSuggestion();
+            }, 5000);
+            return;
+          }
+
+          response = await wagerBotSuggestionService.scanPage('feed', {
+            games: gameData,
+            sport,
+            polymarketData: polymarketDataRef.current,
+          });
+          break;
+        }
+
+        case 'picks': {
+          const picks = picksDataRef.current;
+
+          if (picks.length === 0) {
+            console.log('🤖 No picks data to scan');
+            setCurrentSuggestion('No editor picks available to analyze right now.');
+            setBubbleMode('suggestion');
+            setIsLoading(false);
+            autoDismissTimer.current = setTimeout(() => {
+              dismissSuggestion();
+            }, 5000);
+            return;
+          }
+
+          response = await wagerBotSuggestionService.scanPage('picks', { picks });
+          break;
+        }
+
+        case 'outliers': {
+          const { valueAlerts, fadeAlerts } = outliersDataRef.current;
+
+          if (valueAlerts.length === 0 && fadeAlerts.length === 0) {
+            console.log('🤖 No outliers data to scan');
+            setCurrentSuggestion('No value alerts or outliers available right now.');
+            setBubbleMode('suggestion');
+            setIsLoading(false);
+            autoDismissTimer.current = setTimeout(() => {
+              dismissSuggestion();
+            }, 5000);
+            return;
+          }
+
+          response = await wagerBotSuggestionService.scanPage('outliers', { valueAlerts, fadeAlerts });
+          break;
+        }
+
+        case 'scoreboard': {
+          const liveGames = scoreboardDataRef.current;
+
+          if (liveGames.length === 0) {
+            console.log('🤖 No live games to scan');
+            setCurrentSuggestion('No live games available right now.');
+            setBubbleMode('suggestion');
+            setIsLoading(false);
+            autoDismissTimer.current = setTimeout(() => {
+              dismissSuggestion();
+            }, 5000);
+            return;
+          }
+
+          response = await wagerBotSuggestionService.scanPage('scoreboard', { liveGames });
+          break;
+        }
+
+        default: {
+          // Fallback to feed scanning
+          const sport = currentSportRef.current;
+          const gameData = currentGameDataRef.current;
+          response = await wagerBotSuggestionService.scanPage('feed', {
+            games: gameData,
+            sport,
+            polymarketData: polymarketDataRef.current,
+          });
+        }
+      }
 
       if (response.success && response.suggestion) {
         console.log(`🤖 Scan complete: "${response.suggestion.substring(0, 50)}..."`);
 
         setCurrentSuggestion(response.suggestion);
         setCurrentGameId(response.gameId);
-        setCurrentSport(sport);
+        setCurrentSport(currentSportRef.current);
         setBubbleMode('suggestion');
 
         // Start auto-dismiss timer for the result
@@ -319,7 +461,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     } finally {
       setIsLoading(false);
     }
-  }, [dismissSuggestion, clearAutoDismissTimer]);
+  }, [currentPageContext, dismissSuggestion, clearAutoDismissTimer]);
 
   // Open chat - handled by the bubble component via onOpenChat callback
   const openChat = useCallback(() => {
@@ -419,10 +561,23 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   // ==================== FLOATING ASSISTANT ACTIONS ====================
 
   // Detach the bubble and switch to floating mode
-  const detachBubble = useCallback(() => {
-    console.log('🤖 Detaching bubble to floating mode');
+  const detachBubble = useCallback((x?: number, y?: number) => {
+    console.log('🤖 Detaching bubble to floating mode at:', x, y);
     setIsDetached(true);
-    setFloatingPosition(DEFAULT_FLOATING_POSITION);
+
+    // Use provided coordinates or fall back to default
+    if (x !== undefined && y !== undefined) {
+      // Center bubble at finger position and clamp to screen bounds
+      const adjustedX = Math.max(
+        SNAP_MARGIN,
+        Math.min(x - BUBBLE_WIDTH / 2, SCREEN_WIDTH - BUBBLE_WIDTH - SNAP_MARGIN)
+      );
+      const adjustedY = Math.max(SNAP_MARGIN_TOP, y);
+      setFloatingPosition({ x: adjustedX, y: adjustedY });
+    } else {
+      setFloatingPosition(DEFAULT_FLOATING_POSITION);
+    }
+
     setCurrentSuggestion(WELCOME_MESSAGE);
     setBubbleMode('suggestion');
     setIsVisible(true);
@@ -432,15 +587,46 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     clearAutoDismissTimer();
   }, [clearAutoDismissTimer]);
 
+  // Detach the bubble from the insight pill with smooth animation
+  const detachBubbleFromPill = useCallback((x: number, y: number, pillWidth: number, pillHeight: number) => {
+    console.log('🤖 Detaching bubble from pill at:', x, y, 'size:', pillWidth, pillHeight);
+
+    // Set initial dimensions so FloatingAssistantBubble can animate from pill size
+    // Also pass the pill's right edge X position so bubble can anchor there during expansion
+    const pillRightEdge = x + pillWidth;
+    setInitialBubbleDimensions({ width: pillWidth, height: pillHeight, pillRightEdge });
+
+    setIsDetached(true);
+
+    // Start bubble at exact pill position (will expand leftward from right edge)
+    setFloatingPosition({ x, y });
+
+    setCurrentSuggestion(WELCOME_MESSAGE);
+    setBubbleMode('suggestion');
+    setIsVisible(true);
+    setPreviousInsights([]);
+
+    // Clear initial dimensions after animation completes
+    setTimeout(() => {
+      setInitialBubbleDimensions(null);
+    }, 400);
+
+    // Clear auto-dismiss timer - floating mode stays until dismissed
+    clearAutoDismissTimer();
+  }, [clearAutoDismissTimer]);
+
   // Dismiss the floating assistant
   const dismissFloating = useCallback(() => {
     console.log('🤖 Dismissing floating assistant');
+    // Set isDetached first to prevent any auto-triggers
     setIsDetached(false);
     setIsVisible(false);
+    setCurrentSuggestion('');
     setCurrentOpenGame(null);
     setCurrentPageContext('feed');
     setPreviousInsights([]);
     setFloatingPosition(DEFAULT_FLOATING_POSITION);
+    setBubbleMode('suggestion');
   }, []);
 
   // Update floating bubble position (from drag)
@@ -532,13 +718,14 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   }, [currentOpenGame, currentSport, currentSuggestion, previousInsights]);
 
   // Handle game sheet opening (navigation tracking for floating mode)
-  const onGameSheetOpen = useCallback(async (game: GameData, sport: Sport) => {
+  const onGameSheetOpen = useCallback(async (game: GameData, sport: Sport, polymarket?: GamePolymarketData) => {
     console.log(`🤖 Game sheet opened: ${game.away_team} @ ${game.home_team}`);
 
     setCurrentOpenGame(game);
     setCurrentSport(sport);
     setCurrentPageContext('game-details');
     setPreviousInsights([]); // Reset insights for new game
+    currentGamePolymarketRef.current = polymarket; // Store Polymarket data for this game
 
     // Only auto-fetch insight if in floating mode
     if (!isDetached) {
@@ -550,7 +737,8 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     setIsLoading(true);
 
     try {
-      const response = await wagerBotSuggestionService.getGameInsight(game, sport);
+      // Pass Polymarket data to get richer insights
+      const response = await wagerBotSuggestionService.getGameInsight(game, sport, polymarket);
 
       if (response.success && response.suggestion) {
         console.log(`🤖 Game insight: "${response.suggestion.substring(0, 50)}..."`);
@@ -574,13 +762,90 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   const onGameSheetClose = useCallback(() => {
     console.log('🤖 Game sheet closed');
     setCurrentOpenGame(null);
-    setCurrentPageContext('feed');
     setPreviousInsights([]);
 
-    // If floating, show feed context message
+    // If floating, show message based on current page context
     if (isDetached) {
+      if (currentPageContext === 'feed') {
+        setCurrentSuggestion('Tap on a game to get my insights!');
+      }
+      // Other pages keep their context
+      setBubbleMode('suggestion');
+    }
+  }, [isDetached, currentPageContext]);
+
+  // Handle page navigation changes
+  // Always track current page so openManualMenu knows which page user is on
+  // Only show floating suggestions when in detached mode
+  const onPageChange = useCallback((page: PageContext) => {
+    console.log(`🤖 Page changed to: ${page}, isDetached: ${isDetached}`);
+    setCurrentPageContext(page);
+
+    // Only show floating suggestions when detached
+    if (!isDetached) return;
+
+    setCurrentOpenGame(null);
+    setPreviousInsights([]);
+
+    // Show page explanation if available
+    const explanation = PAGE_EXPLANATIONS[page];
+    if (explanation) {
+      setCurrentSuggestion(explanation);
+      setBubbleMode('suggestion');
+    } else if (page === 'feed') {
       setCurrentSuggestion('Tap on a game to get my insights!');
       setBubbleMode('suggestion');
+    }
+  }, [isDetached]);
+
+  // Handle model details tap (explain what the model percentages mean)
+  const onModelDetailsTap = useCallback(() => {
+    if (!isDetached) return;
+
+    console.log('🤖 Model details tapped');
+    setCurrentPageContext('model-details');
+    setCurrentSuggestion(PAGE_EXPLANATIONS['model-details']);
+    setBubbleMode('suggestion');
+  }, [isDetached]);
+
+  // Handle outliers page with data - show explanation then follow up with suggestion
+  const onOutliersPageWithData = useCallback(async (outlierGames: GameData[], sport: Sport) => {
+    if (!isDetached) return;
+
+    console.log(`🤖 Outliers page with ${outlierGames.length} games`);
+    setCurrentPageContext('outliers');
+    setCurrentSport(sport);
+
+    // First show the explanation
+    setCurrentSuggestion(PAGE_EXPLANATIONS['outliers']);
+    setBubbleMode('suggestion');
+
+    // After a delay, fetch an outlier suggestion if we have games
+    if (outlierGames.length > 0) {
+      setTimeout(async () => {
+        if (!isDetached) return; // Check again in case dismissed
+
+        setBubbleMode('scanning');
+        setIsLoading(true);
+
+        try {
+          const response = await wagerBotSuggestionService.getSuggestion(sport, outlierGames);
+          if (response.success && response.suggestion) {
+            console.log(`🤖 Outlier suggestion: "${response.suggestion.substring(0, 50)}..."`);
+            setCurrentSuggestion(response.suggestion);
+            setCurrentGameId(response.gameId);
+          } else {
+            setCurrentSuggestion("These outliers look interesting - tap one to dive deeper!");
+          }
+          setBubbleMode('suggestion');
+        } catch (error) {
+          console.error('🤖 Error getting outlier suggestion:', error);
+          setCurrentSuggestion("Check out these value opportunities!");
+          setBubbleMode('suggestion');
+        } finally {
+          setIsLoading(false);
+        }
+      }, 4000); // Wait 4 seconds for user to read explanation
     }
   }, [isDetached]);
 
@@ -597,6 +862,34 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     clearAllTimers();
     visitedSports.current.clear();
   }, [clearAllTimers]);
+
+  // ==================== PAGE DATA SETTERS ====================
+
+  // Set picks page data for scanning
+  const setPicksData = useCallback((picks: any[]) => {
+    console.log(`🤖 Picks data updated: ${picks.length} picks`);
+    picksDataRef.current = picks;
+  }, []);
+
+  // Set outliers page data for scanning
+  const setOutliersData = useCallback((valueAlerts: any[], fadeAlerts: any[]) => {
+    console.log(`🤖 Outliers data updated: ${valueAlerts.length} value alerts, ${fadeAlerts.length} fade alerts`);
+    outliersDataRef.current = { valueAlerts, fadeAlerts };
+  }, []);
+
+  // Set scoreboard page data for scanning
+  const setScoreboardData = useCallback((liveGames: any[]) => {
+    console.log(`🤖 Scoreboard data updated: ${liveGames.length} live games`);
+    scoreboardDataRef.current = liveGames;
+  }, []);
+
+  // Set Polymarket data for feed games
+  const setPolymarketData = useCallback((data: Map<string, GamePolymarketData>) => {
+    console.log(`🤖 Polymarket data updated: ${data.size} games`);
+    polymarketDataRef.current = data;
+  }, []);
+
+  // ==================== END PAGE DATA SETTERS ====================
 
   return (
     <WagerBotSuggestionContext.Provider
@@ -630,14 +923,25 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
 
         // Floating assistant actions
         detachBubble,
+        detachBubbleFromPill,
         dismissFloating,
         updateFloatingPosition,
         requestMoreDetails,
         requestAnotherInsight,
+        initialBubbleDimensions,
 
         // Navigation tracking
         onGameSheetOpen,
         onGameSheetClose,
+        onPageChange,
+        onModelDetailsTap,
+        onOutliersPageWithData,
+
+        // Page data setters for scanning
+        setPicksData,
+        setOutliersData,
+        setScoreboardData,
+        setPolymarketData,
 
         // Lifecycle
         onSportChange,

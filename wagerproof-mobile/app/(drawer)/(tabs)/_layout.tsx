@@ -1,13 +1,15 @@
 import { Tabs, usePathname, useRouter, useSegments } from 'expo-router';
 import { useTheme } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { ScrollProvider, useScroll } from '@/contexts/ScrollContext';
 import { Animated, TouchableOpacity, Text, StyleSheet, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
+import { WagerBotSuggestionBubble } from '@/components/WagerBotSuggestionBubble';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
 function LiveIndicator() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -247,9 +249,61 @@ const styles = StyleSheet.create({
 
 function TabsContent() {
   const theme = useTheme();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // WagerBot suggestion bubble state
+  const {
+    isVisible: suggestionVisible,
+    bubbleMode,
+    currentSuggestion,
+    currentGameId,
+    currentSport: suggestionSport,
+    isDetached,
+    dismissSuggestion,
+    scanCurrentPage,
+    openChat,
+    detachBubble,
+  } = useWagerBotSuggestion();
+
+  // Handle suggestion tap - navigate to game details
+  const handleSuggestionTap = useCallback(() => {
+    if (currentGameId && suggestionSport) {
+      // Could navigate to game details if needed
+      console.log('Suggestion tapped:', currentGameId, suggestionSport);
+    }
+  }, [currentGameId, suggestionSport]);
+
+  // Determine current sport based on pathname (for bubble display)
+  const getCurrentSport = () => {
+    if (pathname.includes('/nfl')) return 'nfl';
+    if (pathname.includes('/cfb')) return 'cfb';
+    if (pathname.includes('/nba')) return 'nba';
+    if (pathname.includes('/ncaab')) return 'ncaab';
+    return 'nfl'; // default
+  };
 
   return (
     <>
+      {/* WagerBot Suggestion Bubble - Available on all tab pages */}
+      {/* Hide attached bubble when in detached/floating mode */}
+      {!isDetached && (
+        <WagerBotSuggestionBubble
+          visible={suggestionVisible}
+          mode={bubbleMode}
+          suggestion={currentSuggestion}
+          gameId={currentGameId}
+          sport={suggestionSport || getCurrentSport()}
+          onDismiss={dismissSuggestion}
+          onTap={handleSuggestionTap}
+          onScanPage={scanCurrentPage}
+          onOpenChat={() => {
+            openChat();
+            router.push('/chat' as any);
+          }}
+          onDetach={(x, y) => detachBubble(x, y)}
+        />
+      )}
       <Tabs
         screenOptions={{
           headerShown: false,

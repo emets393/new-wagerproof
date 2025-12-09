@@ -90,7 +90,7 @@ interface WagerBotSuggestionBubbleProps {
   onTap: (gameId: string, sport: string) => void;
   onScanPage: () => void;
   onOpenChat: () => void;
-  onDetach?: () => void; // New: callback when user pulls down to detach
+  onDetach?: (x: number, y: number) => void; // Callback when user pulls down to detach (passes finger release coordinates)
 }
 
 export function WagerBotSuggestionBubble({
@@ -131,7 +131,7 @@ export function WagerBotSuggestionBubble({
   // Stretch animation for detach
   const stretchScaleY = useSharedValue(1);
   const stretchScaleX = useSharedValue(1);
-  const hasTriggeredDetachHaptic = useRef(false);
+  const hasDetached = useRef(false); // Track if detach already happened during this gesture
 
   // Clear auto-dismiss timer
   const clearAutoDismissTimer = useCallback(() => {
@@ -298,47 +298,35 @@ export function WagerBotSuggestionBubble({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  // Haptic feedback when reaching detach threshold
-  const triggerDetachReadyHaptic = useCallback(() => {
-    if (!hasTriggeredDetachHaptic.current) {
-      hasTriggeredDetachHaptic.current = true;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
+  // Reset detach flag for new gesture
+  const resetDetachFlags = useCallback(() => {
+    hasDetached.current = false;
   }, []);
 
-  // Reset detach haptic flag
-  const resetDetachHaptic = useCallback(() => {
-    hasTriggeredDetachHaptic.current = false;
-  }, []);
+  // Handle detach action - pass finger release coordinates for smooth transition
+  const handleDetach = useCallback((absoluteX: number, absoluteY: number) => {
+    if (onDetach && !hasDetached.current) {
+      // Mark as detached to prevent multiple triggers
+      hasDetached.current = true;
 
-  // Handle detach action with pop animation
-  const handleDetach = useCallback(() => {
-    if (onDetach) {
       // Heavy haptic for the "pop"
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       clearAutoDismissTimer();
 
-      // Animate the pop - quick squeeze then release
-      stretchScaleY.value = withSequence(
-        withTiming(0.6, { duration: 80, easing: Easing.out(Easing.cubic) }),
-        withTiming(1, { duration: 150, easing: Easing.out(Easing.back(2)) })
-      );
-      stretchScaleX.value = withSequence(
-        withTiming(1.3, { duration: 80, easing: Easing.out(Easing.cubic) }),
-        withTiming(1, { duration: 150, easing: Easing.out(Easing.back(2)) })
-      );
+      // Reset stretch immediately
+      stretchScaleY.value = 1;
+      stretchScaleX.value = 1;
+      panTranslateY.value = 0;
 
-      // Call detach after a brief delay for the pop animation
-      setTimeout(() => {
-        onDetach();
-      }, 100);
+      // Call detach with finger release coordinates - floating bubble appears at this position
+      onDetach(absoluteX, absoluteY);
     }
   }, [onDetach, clearAutoDismissTimer]);
 
   // Pan gesture for swipe-to-dismiss (up) or detach (down) with stretch effect
   const panGesture = Gesture.Pan()
     .onStart(() => {
-      runOnJS(resetDetachHaptic)();
+      runOnJS(resetDetachFlags)();
     })
     .onUpdate((event) => {
       const translationY = event.translationY;
@@ -375,9 +363,12 @@ export function WagerBotSuggestionBubble({
           }
         }
 
-        // Trigger "ready to detach" haptic when threshold reached
+        // Auto-detach when threshold reached (no need to lift finger)
         if (translationY > DETACH_THRESHOLD) {
-          runOnJS(triggerDetachReadyHaptic)();
+          // Detach immediately at current finger position
+          const detachX = event.absoluteX;
+          const detachY = event.absoluteY;
+          runOnJS(handleDetach)(detachX, detachY);
         }
       }
     })
@@ -386,11 +377,7 @@ export function WagerBotSuggestionBubble({
       if (event.velocityY < -500 || event.translationY < -40) {
         runOnJS(handleDismiss)();
       }
-      // Pull down to detach - threshold reached
-      else if (event.translationY > DETACH_THRESHOLD && onDetach) {
-        runOnJS(handleDetach)();
-      }
-      // Snap back with spring animation
+      // Snap back with spring animation (if not already detached)
       else {
         panTranslateY.value = withSpring(0, DAMPENED_SPRING_CONFIG);
         stretchScaleY.value = withSpring(1, {
@@ -403,7 +390,7 @@ export function WagerBotSuggestionBubble({
           stiffness: 180,
           mass: 0.5,
         });
-        runOnJS(resetDetachHaptic)();
+        runOnJS(resetDetachFlags)();
       }
     });
 

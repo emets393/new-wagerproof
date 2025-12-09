@@ -5,6 +5,7 @@ import { useState, createContext, useContext } from 'react';
 import { useTheme } from 'react-native-paper';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import SideMenu from '@/components/SideMenu';
 
 const DrawerContext = createContext<{ open: () => void; close: () => void } | null>(null);
@@ -20,10 +21,15 @@ export const useDrawer = () => {
 export default function DrawerLayout() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const { isDetached, dismissFloating } = useWagerBotSuggestion();
   const [open, setOpen] = useState(false);
-  
+
   const handleOpen = () => {
     console.log('Opening drawer');
+    // Dismiss floating assistant bubble when drawer opens
+    if (isDetached) {
+      dismissFloating();
+    }
     setOpen(true);
   };
   
@@ -40,6 +46,10 @@ export default function DrawerLayout() {
           onOpen={() => {
             // Sync state when drawer opens via swipe
             if (!open) {
+              // Dismiss floating assistant bubble when drawer opens via swipe
+              if (isDetached) {
+                dismissFloating();
+              }
               setOpen(true);
             }
           }}

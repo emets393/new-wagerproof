@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Linking, Platform, ActivityIndicator } from 'react-native';
 import { useTheme, List, Switch, Divider, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,7 +19,14 @@ export default function SettingsScreen() {
   const { user, signOut, signingOut } = useAuth();
   const { isPro, subscriptionType } = useProAccess();
   const { openCustomerCenter, isInitialized } = useRevenueCat();
-  const { suggestionsEnabled, setSuggestionsEnabled } = useWagerBotSuggestion();
+  const { suggestionsEnabled, setSuggestionsEnabled, isDetached, dismissFloating } = useWagerBotSuggestion();
+
+  // Dismiss floating assistant bubble when settings screen opens
+  useEffect(() => {
+    if (isDetached) {
+      dismissFloating();
+    }
+  }, []);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [tapCount, setTapCount] = React.useState(0);

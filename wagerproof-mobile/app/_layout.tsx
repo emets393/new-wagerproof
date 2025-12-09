@@ -48,6 +48,7 @@ function FloatingAssistantWrapper() {
     requestAnotherInsight,
     onGameSheetOpen,
     onGameSheetClose,
+    initialBubbleDimensions,
   } = useWagerBotSuggestion();
 
   const { isGameSheetOpen } = useGameSheetDetection();
@@ -83,6 +84,7 @@ function FloatingAssistantWrapper() {
       onTellMeMore={requestMoreDetails}
       onAnotherInsight={requestAnotherInsight}
       hasGameContext={!!currentOpenGame}
+      initialDimensions={initialBubbleDimensions}
     />
   );
 }

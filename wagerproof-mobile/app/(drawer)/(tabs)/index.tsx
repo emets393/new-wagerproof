@@ -24,7 +24,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrawer } from '../_layout';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
-import { WagerBotSuggestionBubble } from '@/components/WagerBotSuggestionBubble';
 
 type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
 type SortMode = 'time' | 'spread' | 'ou';
@@ -53,22 +52,16 @@ export default function FeedScreen() {
 
   // WagerBot suggestion system
   const {
-    isVisible: suggestionVisible,
-    bubbleMode,
-    currentSuggestion,
-    currentGameId,
-    currentSport: suggestionSport,
     testModeEnabled,
     isDetached,
     onSportChange,
     dismissSuggestion,
     triggerTestSuggestion,
     openManualMenu,
-    scanCurrentPage,
-    openChat,
-    detachBubble,
     onFeedMount,
     onFeedUnmount,
+    onPageChange,
+    setPolymarketData,
   } = useWagerBotSuggestion();
   
   // State
@@ -643,13 +636,14 @@ export default function FeedScreen() {
     }
   }, [selectedSport, cachedData[selectedSport].games.length, onSportChange]);
 
-  // Cleanup WagerBot suggestion timers on unmount
+  // Setup WagerBot when feed mounts
   useEffect(() => {
+    onPageChange('feed');
     onFeedMount();
     return () => {
       onFeedUnmount();
     };
-  }, [onFeedMount, onFeedUnmount]);
+  }, [onPageChange, onFeedMount, onFeedUnmount]);
 
   // Refresh handler for pull-to-refresh
   const onRefresh = useCallback((sport: Sport) => {
@@ -1014,25 +1008,7 @@ export default function FeedScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
-        {/* WagerBot Suggestion Bubble - Dynamic Island style */}
-        {/* Hide attached bubble when in detached/floating mode */}
-        {!isDetached && (
-          <WagerBotSuggestionBubble
-            visible={suggestionVisible}
-            mode={bubbleMode}
-            suggestion={currentSuggestion}
-            gameId={currentGameId}
-            sport={suggestionSport || selectedSport}
-            onDismiss={dismissSuggestion}
-            onTap={handleSuggestionTap}
-            onScanPage={scanCurrentPage}
-            onOpenChat={() => {
-              openChat();
-              router.push('/chat' as any);
-            }}
-            onDetach={detachBubble}
-          />
-        )}
+        {/* WagerBot Suggestion Bubble is now rendered in tabs _layout.tsx for all pages */}
 
         {/* Fixed Header with Frosted Glass Effect - Slides away on scroll */}
         <Animated.View

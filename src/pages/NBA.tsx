@@ -1464,6 +1464,8 @@ ${contextParts}
                       homeTeamColors={homeTeamColors}
                       league="nba"
                       compact={true}
+                      awayMoneyline={prediction.away_ml}
+                      homeMoneyline={prediction.home_ml}
                     />
                   </div>
 

@@ -47,6 +47,8 @@ interface PolymarketWidgetProps {
   homeTeamColors?: { primary: string; secondary: string };
   league?: 'nfl' | 'cfb' | 'nba' | 'ncaab';
   compact?: boolean;
+  awayMoneyline?: number | null;
+  homeMoneyline?: number | null;
 }
 
 type TimeRange = '1H' | '6H' | '1D' | '1W' | '1M' | 'ALL';
@@ -111,6 +113,8 @@ export default function PolymarketWidget({
   homeTeamColors,
   league = 'nfl',
   compact = false,
+  awayMoneyline,
+  homeMoneyline,
 }: PolymarketWidgetProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
   const [selectedMarket, setSelectedMarket] = useState<MarketType>('moneyline');
@@ -253,19 +257,24 @@ export default function PolymarketWidget({
       }
       
       // Check Moneyline (only highlight specific team if 85%+)
+      // Skip if sportsbook odds are -200 or worse (heavy favorite = no value)
       if (moneyline && typeof moneyline.currentAwayOdds === 'number' && typeof moneyline.currentHomeOdds === 'number') {
-        if (moneyline.currentAwayOdds >= 85) {
-          alerts.push({ 
-            market: 'moneyline', 
-            side: 'away', 
+        // Away team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
+        const awayOddsHaveValue = !awayMoneyline || awayMoneyline > -200;
+        if (moneyline.currentAwayOdds >= 85 && awayOddsHaveValue) {
+          alerts.push({
+            market: 'moneyline',
+            side: 'away',
             percentage: moneyline.currentAwayOdds,
             team: awayTeam
           });
         }
-        if (moneyline.currentHomeOdds >= 85) {
-          alerts.push({ 
-            market: 'moneyline', 
-            side: 'home', 
+        // Home team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
+        const homeOddsHaveValue = !homeMoneyline || homeMoneyline > -200;
+        if (moneyline.currentHomeOdds >= 85 && homeOddsHaveValue) {
+          alerts.push({
+            market: 'moneyline',
+            side: 'home',
             percentage: moneyline.currentHomeOdds,
             team: homeTeam
           });
@@ -277,7 +286,7 @@ export default function PolymarketWidget({
       console.error('Error calculating value alerts:', error);
       return [];
     }
-  }, [allMarketsData, awayTeam, homeTeam]);
+  }, [allMarketsData, awayTeam, homeTeam, awayMoneyline, homeMoneyline]);
 
   const hasValueAlert = valueAlerts.length > 0 && !isGameStarted; // Disable alerts if game started
   

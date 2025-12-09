@@ -15,12 +15,15 @@ import { PublicBettingBars } from './nfl/PublicBettingBars';
 import { H2HSection } from './nfl/H2HSection';
 import { LineMovementSection } from './nfl/LineMovementSection';
 import { PolymarketWidget } from './PolymarketWidget';
+import { WagerBotInsightPill } from './WagerBotInsightPill';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
 export function NFLGameBottomSheet() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { selectedGame: game, closeGameSheet, bottomSheetRef } = useNFLGameSheet();
+  const { onModelDetailsTap, isDetached } = useWagerBotSuggestion();
   const snapPoints = useMemo(() => ['85%', '95%'], []);
   const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
   const [ouExplanationExpanded, setOuExplanationExpanded] = useState(false);
@@ -29,12 +32,20 @@ export function NFLGameBottomSheet() {
     console.log('Spread tap triggered, current state:', spreadExplanationExpanded);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSpreadExplanationExpanded(!spreadExplanationExpanded);
+    // Notify floating assistant if in detached mode
+    if (isDetached && !spreadExplanationExpanded) {
+      onModelDetailsTap();
+    }
   };
 
   const handleOuTap = () => {
     console.log('O/U tap triggered, current state:', ouExplanationExpanded);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setOuExplanationExpanded(!ouExplanationExpanded);
+    // Notify floating assistant if in detached mode
+    if (isDetached && !ouExplanationExpanded) {
+      onModelDetailsTap();
+    }
   };
 
   // Always render the bottom sheet, just return empty content if no game
@@ -126,6 +137,8 @@ export function NFLGameBottomSheet() {
               end={{ x: 1, y: 0 }}
               style={styles.headerGradient}
             />
+            {/* WagerBot Insight Pill */}
+            <WagerBotInsightPill game={game} sport="nfl" />
             <View style={styles.headerContent}>
               <View style={styles.dateTimeRow}>
               <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>

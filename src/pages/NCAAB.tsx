@@ -1548,6 +1548,8 @@ ${contextParts}
                       homeTeamColors={homeTeamColors}
                       league="ncaab"
                       compact={true}
+                      awayMoneyline={prediction.away_ml}
+                      homeMoneyline={prediction.home_ml}
                     />
                   </div>
 

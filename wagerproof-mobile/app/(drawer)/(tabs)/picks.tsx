@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColors } from '@/constants/teamColors';
 import { StatsSummary } from '@/components/StatsSummary';
 import { useScroll } from '@/contexts/ScrollContext';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
@@ -201,6 +202,12 @@ export default function PicksScreen() {
   const { scrollY, scrollYClamped } = useScroll();
   const insets = useSafeAreaInsets();
   const tabsScrollViewRef = useRef<ScrollView>(null);
+  const { onPageChange, openManualMenu, setPicksData } = useWagerBotSuggestion();
+
+  // Always notify context which page we're on (needed for openManualMenu)
+  useEffect(() => {
+    onPageChange('picks');
+  }, [onPageChange]);
 
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('all');
@@ -719,6 +726,13 @@ export default function PicksScreen() {
     fetchPicks();
   }, []);
 
+  // Update picks data in WagerBot context for scanning
+  useEffect(() => {
+    if (picks.length > 0) {
+      setPicksData(picks);
+    }
+  }, [picks, setPicksData]);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchPicks();
@@ -1003,8 +1017,8 @@ export default function PicksScreen() {
           </View>
           
           {user && (
-            <TouchableOpacity 
-              onPress={() => router.push('/chat' as any)}
+            <TouchableOpacity
+              onPress={openManualMenu}
               style={styles.chatButton}
             >
               <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />

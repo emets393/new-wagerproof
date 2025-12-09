@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, RefreshControl } from 'react-native';
 import { useTheme, Button } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
 // League configuration with icons and display names
 const LEAGUE_CONFIG: Record<string, { name: string; icon: any; order: number }> = {
@@ -43,6 +44,21 @@ export default function ScoreboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedGame, setSelectedGame] = useState<LiveGame | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+
+  // WagerBot floating assistant
+  const { onPageChange, openManualMenu, setScoreboardData } = useWagerBotSuggestion();
+
+  // Always notify context which page we're on (needed for openManualMenu)
+  useEffect(() => {
+    onPageChange('scoreboard');
+  }, [onPageChange]);
+
+  // Update scoreboard data in WagerBot context for scanning
+  useEffect(() => {
+    if (games.length > 0) {
+      setScoreboardData(games);
+    }
+  }, [games, setScoreboardData]);
 
   const handleGamePress = (game: LiveGame) => {
     setSelectedGame(game);
@@ -139,7 +155,7 @@ export default function ScoreboardScreen() {
             
             {user && (
               <TouchableOpacity 
-                onPress={() => router.push('/chat' as any)}
+                onPress={openManualMenu}
                 style={styles.chatButton}
               >
                 <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />

@@ -1909,6 +1909,8 @@ ${contextParts}
                       homeTeamColors={homeTeamColors}
                       league="cfb"
                       compact={true}
+                      awayMoneyline={prediction.away_moneyline}
+                      homeMoneyline={prediction.home_moneyline}
                     />
                   </div>
 

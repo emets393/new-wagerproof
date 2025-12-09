@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Modal, TextInput, Animated, Platform } from 'react-native';
 import { useTheme, Button as PaperButton } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
 // Utils for mapping data to game sheet expectations
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors } from '@/utils/teamColors';
@@ -81,6 +82,9 @@ export default function OutliersScreen() {
   const [valueAlertsFilter, setValueAlertsFilter] = useState<string | null>(null);
   const [fadeAlertsFilter, setFadeAlertsFilter] = useState<string | null>(null);
 
+  // WagerBot floating assistant
+  const { onPageChange, onOutliersPageWithData, isDetached, openManualMenu, setOutliersData } = useWagerBotSuggestion();
+
   // 1. Fetch Week Games
   const { data: weekGames, isLoading: gamesLoading } = useQuery({
     queryKey: ['week-games'],
@@ -100,6 +104,34 @@ export default function OutliersScreen() {
     queryFn: () => fetchFadeAlerts(weekGames || []),
     enabled: !!weekGames && weekGames.length > 0,
   });
+
+  // Always notify context which page we're on (needed for openManualMenu)
+  useEffect(() => {
+    onPageChange('outliers');
+  }, [onPageChange]);
+
+  // Update outliers data in WagerBot context for scanning
+  useEffect(() => {
+    if (valueAlerts || fadeAlerts) {
+      setOutliersData(valueAlerts || [], fadeAlerts || []);
+    }
+  }, [valueAlerts, fadeAlerts, setOutliersData]);
+
+  // When floating and data is available, provide enhanced suggestions
+  useEffect(() => {
+    if (isDetached && valueAlerts && valueAlerts.length > 0) {
+      // Convert alerts to game data for the suggestion service
+      const outlierGames = valueAlerts
+        .filter(alert => alert.game?.originalData)
+        .map(alert => alert.game.originalData);
+
+      if (outlierGames.length > 0) {
+        // Determine the primary sport from alerts
+        const primarySport = valueAlerts[0]?.sport || 'nfl';
+        onOutliersPageWithData(outlierGames, primarySport as any);
+      }
+    }
+  }, [isDetached, valueAlerts, onOutliersPageWithData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -455,7 +487,7 @@ export default function OutliersScreen() {
             
             {user && (
               <TouchableOpacity 
-                onPress={() => router.push('/chat' as any)}
+                onPress={openManualMenu}
                 style={styles.chatButton}
               >
                 <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />

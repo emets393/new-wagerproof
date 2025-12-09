@@ -1718,6 +1718,8 @@ ${contextParts}
                       homeTeamColors={homeTeamColors}
                       league="nfl"
                       compact={true}
+                      awayMoneyline={prediction.away_ml}
+                      homeMoneyline={prediction.home_ml}
                     />
                   </div>
 
