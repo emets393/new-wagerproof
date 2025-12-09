@@ -15,7 +15,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { isDark } = useThemeContext();
-  const { dismissSuggestion, dismissFloating, isDetached } = useWagerBotSuggestion();
+  const { setChatPageOpen } = useWagerBotSuggestion();
   const router = useRouter();
 
   const [gameContext, setGameContext] = useState<string>('');
@@ -27,13 +27,13 @@ export default function ChatScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const HEADER_HEIGHT = insets.top + 8 + 44 + 12; // paddingTop + header content height + paddingBottom
 
-  // Hide suggestion bubble when chat screen is open
+  // Hide suggestion bubble when chat screen is open and prevent new ones
   useEffect(() => {
-    dismissSuggestion();
-    if (isDetached) {
-      dismissFloating();
-    }
-  }, []);
+    setChatPageOpen(true);
+    return () => {
+      setChatPageOpen(false);
+    };
+  }, [setChatPageOpen]);
 
   // Fetch game data on mount
   useEffect(() => {
@@ -84,13 +84,13 @@ export default function ChatScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : theme.colors.background }]}>
       {/* Fixed Header with Back Button - Always visible for better accessibility */}
-      <View 
+      <View
         style={[
-          styles.header, 
-          { 
-            backgroundColor: theme.colors.background, 
+          styles.header,
+          {
+            backgroundColor: isDark ? '#000000' : theme.colors.background,
             paddingTop: insets.top + 8,
           }
         ]}

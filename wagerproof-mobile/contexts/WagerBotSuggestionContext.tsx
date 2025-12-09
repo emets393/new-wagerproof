@@ -19,12 +19,12 @@ import React, {
 } from 'react';
 import { Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { wagerBotSuggestionService, Sport, SuggestionResponse, PageType } from '../services/wagerBotSuggestionService';
+import { wagerBotSuggestionService, Sport, SuggestionResponse, PageType, GamePolymarketData } from '../services/wagerBotSuggestionService';
+import { getAllMarketsData } from '../services/polymarketService';
 import { NFLPrediction } from '../types/nfl';
 import { CFBPrediction } from '../types/cfb';
 import { NBAGame } from '../types/nba';
 import { NCAABGame } from '../types/ncaab';
-import { GamePolymarketData } from '../config/wagerBotPrompts';
 
 type GameData = NFLPrediction | CFBPrediction | NBAGame | NCAABGame;
 
@@ -116,7 +116,7 @@ interface WagerBotSuggestionContextType {
 
   // Floating assistant actions
   detachBubble: (x?: number, y?: number) => void;
-  detachBubbleFromPill: (x: number, y: number, pillWidth: number, pillHeight: number) => void;
+  detachBubbleFromPill: (x: number, y: number, pillWidth: number, pillHeight: number, game?: GameData, sport?: Sport) => void;
   dismissFloating: () => void;
   updateFloatingPosition: (x: number, y: number) => void;
   requestMoreDetails: () => Promise<void>;
@@ -142,6 +142,10 @@ interface WagerBotSuggestionContextType {
   onSportChange: (sport: Sport, gameData: GameData[]) => void;
   onFeedMount: () => void;
   onFeedUnmount: () => void;
+
+  // Chat page state - suppress suggestions while chat is open
+  isChatPageOpen: boolean;
+  setChatPageOpen: (isOpen: boolean) => void;
 }
 
 const STORAGE_KEY = '@wagerproof_suggestions_enabled';
@@ -157,6 +161,42 @@ const TEST_SUGGESTIONS = [
   "Alabama -7 feels safe. Their defense has been dominant all year.",
   "Celtics -4.5 is the play. They're 8-2 ATS at home this month.",
 ];
+
+/**
+ * Fetch Polymarket data for a single game on-demand
+ */
+async function fetchPolymarketForGame(
+  game: GameData,
+  sport: Sport
+): Promise<GamePolymarketData | undefined> {
+  try {
+    // Map sport to league format expected by polymarket service
+    const league = sport as 'nfl' | 'cfb' | 'nba' | 'ncaab';
+
+    console.log(`🤖 Fetching Polymarket data for ${game.away_team} @ ${game.home_team}...`);
+
+    const polymarketData = await getAllMarketsData(
+      game.away_team,
+      game.home_team,
+      league
+    );
+
+    if (polymarketData) {
+      console.log(`🤖 Polymarket data found:`, {
+        hasMoneyline: !!polymarketData.moneyline,
+        hasSpread: !!polymarketData.spread,
+        hasTotal: !!polymarketData.total,
+      });
+      return polymarketData as GamePolymarketData;
+    }
+
+    console.log(`🤖 No Polymarket data available for this game`);
+    return undefined;
+  } catch (error) {
+    console.error('🤖 Error fetching Polymarket data:', error);
+    return undefined;
+  }
+}
 
 const WagerBotSuggestionContext = createContext<WagerBotSuggestionContextType | undefined>(undefined);
 
@@ -178,6 +218,9 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   const [currentOpenGame, setCurrentOpenGame] = useState<GameData | null>(null);
   const [previousInsights, setPreviousInsights] = useState<string[]>([]);
   const [initialBubbleDimensions, setInitialBubbleDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Chat page state - suppress suggestions while chat is open
+  const [isChatPageOpen, setIsChatPageOpen] = useState(false);
 
   // Tracking refs
   const visitedSports = useRef<Set<Sport>>(new Set());
@@ -474,6 +517,10 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
       console.log('🤖 Suggestions disabled, skipping');
       return;
     }
+    if (isChatPageOpen) {
+      console.log('🤖 Chat page is open, skipping suggestion');
+      return;
+    }
     if (isLoadingRef.current) {
       console.log('🤖 Already loading a suggestion, skipping');
       return;
@@ -516,12 +563,60 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
       isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, [suggestionsEnabled, isVisible, dismissSuggestion]);
+  }, [suggestionsEnabled, isChatPageOpen, isVisible, dismissSuggestion]);
 
-  const onSportChange = useCallback((sport: Sport, gameData: GameData[]) => {
+  // Set chat page open state - dismisses suggestions and prevents new ones while open
+  const setChatPageOpen = useCallback((isOpen: boolean) => {
+    console.log(`🤖 Chat page ${isOpen ? 'opened' : 'closed'}`);
+    setIsChatPageOpen(isOpen);
+    if (isOpen) {
+      // Dismiss any active suggestions when chat opens
+      dismissSuggestion();
+      if (isDetached) {
+        dismissFloating();
+      }
+    }
+  }, [dismissSuggestion, dismissFloating, isDetached]);
+
+  const onSportChange = useCallback(async (sport: Sport, gameData: GameData[]) => {
     // Always store current game data and sport for manual triggers
     currentGameDataRef.current = gameData;
     currentSportRef.current = sport;
+
+    // If in detached/floating mode, proactively fetch insights for the new sport
+    if (isDetached && gameData.length > 0) {
+      console.log(`🤖 Sport changed to ${sport.toUpperCase()} while floating - fetching insights`);
+
+      setCurrentOpenGame(null);
+      setPreviousInsights([]);
+      setCurrentPageContext('feed');
+      setBubbleMode('scanning');
+      setIsLoading(true);
+
+      try {
+        const response = await wagerBotSuggestionService.scanPage('feed', {
+          games: gameData,
+          sport,
+          polymarketData: polymarketDataRef.current,
+        });
+
+        if (response.success && response.suggestion) {
+          console.log(`🤖 Feed insight for ${sport.toUpperCase()}: "${response.suggestion.substring(0, 50)}..."`);
+          setCurrentSuggestion(response.suggestion);
+          setCurrentGameId(response.gameId);
+        } else {
+          setCurrentSuggestion(`Check out today's ${sport.toUpperCase()} games - tap any for my analysis!`);
+        }
+        setBubbleMode('suggestion');
+      } catch (error) {
+        console.error('🤖 Error getting feed insight:', error);
+        setCurrentSuggestion(`Browse today's ${sport.toUpperCase()} matchups!`);
+        setBubbleMode('suggestion');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     if (!suggestionsEnabled) return;
 
@@ -556,7 +651,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         triggerSuggestion(sport, currentGameDataRef.current);
       }
     }, RE_TRIGGER_INTERVAL);
-  }, [suggestionsEnabled, triggerSuggestion]);
+  }, [suggestionsEnabled, triggerSuggestion, isDetached]);
 
   // ==================== FLOATING ASSISTANT ACTIONS ====================
 
@@ -588,7 +683,15 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   }, [clearAutoDismissTimer]);
 
   // Detach the bubble from the insight pill with smooth animation
-  const detachBubbleFromPill = useCallback((x: number, y: number, pillWidth: number, pillHeight: number) => {
+  // If game and sport are provided, immediately fetch insights for that game
+  const detachBubbleFromPill = useCallback(async (
+    x: number,
+    y: number,
+    pillWidth: number,
+    pillHeight: number,
+    game?: GameData,
+    sport?: Sport
+  ) => {
     console.log('🤖 Detaching bubble from pill at:', x, y, 'size:', pillWidth, pillHeight);
 
     // Set initial dimensions so FloatingAssistantBubble can animate from pill size
@@ -601,15 +704,69 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     // Start bubble at exact pill position (will expand leftward from right edge)
     setFloatingPosition({ x, y });
 
-    setCurrentSuggestion(WELCOME_MESSAGE);
-    setBubbleMode('suggestion');
-    setIsVisible(true);
-    setPreviousInsights([]);
+    // If game context provided, fetch insights immediately
+    if (game && sport) {
+      // Get game ID to look up polymarket data
+      const gameId = (game as any).training_key || (game as any).id || (game as any).unique_id;
+      let gamePolymarket = polymarketDataRef.current.get(gameId);
 
-    // Clear initial dimensions after animation completes
-    setTimeout(() => {
-      setInitialBubbleDimensions(null);
-    }, 400);
+      console.log(`🤖 Fetching insight for ${game.away_team} @ ${game.home_team}`);
+
+      setCurrentOpenGame(game);
+      setCurrentSport(sport);
+      setCurrentPageContext('game-details');
+      setPreviousInsights([]);
+
+      // Show scanning state while fetching
+      setBubbleMode('scanning');
+      setIsVisible(true);
+      setIsLoading(true);
+
+      // Clear initial dimensions after animation completes
+      setTimeout(() => {
+        setInitialBubbleDimensions(null);
+      }, 400);
+
+      // Fetch Polymarket data on-demand if not in cache
+      if (!gamePolymarket) {
+        console.log(`🤖 Polymarket not in cache, fetching on-demand...`);
+        gamePolymarket = await fetchPolymarketForGame(game, sport);
+      }
+
+      currentGamePolymarketRef.current = gamePolymarket;
+
+      // Fetch the insight
+      try {
+        const response = await wagerBotSuggestionService.getGameInsight(game, sport, gamePolymarket);
+
+        if (response.success && response.suggestion) {
+          console.log(`🤖 Game insight: "${response.suggestion.substring(0, 50)}..."`);
+          setCurrentSuggestion(response.suggestion);
+          setBubbleMode('suggestion');
+        } else {
+          console.log('🤖 No game insight received');
+          setCurrentSuggestion('Looking at this matchup... check back in a moment!');
+          setBubbleMode('suggestion');
+        }
+      } catch (error) {
+        console.error('🤖 Error getting game insight:', error);
+        setCurrentSuggestion('Something went wrong. Please try again.');
+        setBubbleMode('suggestion');
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // No game context - show welcome message
+      setCurrentSuggestion(WELCOME_MESSAGE);
+      setBubbleMode('suggestion');
+      setIsVisible(true);
+      setPreviousInsights([]);
+
+      // Clear initial dimensions after animation completes
+      setTimeout(() => {
+        setInitialBubbleDimensions(null);
+      }, 400);
+    }
 
     // Clear auto-dismiss timer - floating mode stays until dismissed
     clearAutoDismissTimer();
@@ -645,11 +802,20 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     setBubbleMode('scanning');
     setIsLoading(true);
 
+    // Fetch Polymarket data on-demand if not cached
+    let polymarket = currentGamePolymarketRef.current;
+    if (!polymarket) {
+      console.log(`🤖 Polymarket not cached, fetching on-demand...`);
+      polymarket = await fetchPolymarketForGame(currentOpenGame, currentSport);
+      currentGamePolymarketRef.current = polymarket;
+    }
+
     try {
       const response = await wagerBotSuggestionService.getMoreDetails(
         currentOpenGame,
         currentSport,
-        currentSuggestion
+        currentSuggestion,
+        polymarket
       );
 
       if (response.success && response.suggestion) {
@@ -683,6 +849,14 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     setBubbleMode('scanning');
     setIsLoading(true);
 
+    // Fetch Polymarket data on-demand if not cached
+    let polymarket = currentGamePolymarketRef.current;
+    if (!polymarket) {
+      console.log(`🤖 Polymarket not cached, fetching on-demand...`);
+      polymarket = await fetchPolymarketForGame(currentOpenGame, currentSport);
+      currentGamePolymarketRef.current = polymarket;
+    }
+
     try {
       // Include current suggestion in previous insights for the API
       const allPreviousInsights = currentSuggestion
@@ -692,7 +866,8 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
       const response = await wagerBotSuggestionService.getAlternativeInsight(
         currentOpenGame,
         currentSport,
-        allPreviousInsights
+        allPreviousInsights,
+        polymarket
       );
 
       if (response.success && response.suggestion) {
@@ -721,14 +896,20 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   const onGameSheetOpen = useCallback(async (game: GameData, sport: Sport, polymarket?: GamePolymarketData) => {
     console.log(`🤖 Game sheet opened: ${game.away_team} @ ${game.home_team}`);
 
+    // Get game ID to look up polymarket data
+    const gameId = (game as any).training_key || (game as any).id || (game as any).unique_id;
+
+    // Use provided polymarket data, or look it up from the stored ref
+    let gamePolymarket = polymarket || polymarketDataRef.current.get(gameId);
+
     setCurrentOpenGame(game);
     setCurrentSport(sport);
     setCurrentPageContext('game-details');
     setPreviousInsights([]); // Reset insights for new game
-    currentGamePolymarketRef.current = polymarket; // Store Polymarket data for this game
 
     // Only auto-fetch insight if in floating mode
     if (!isDetached) {
+      currentGamePolymarketRef.current = gamePolymarket;
       return;
     }
 
@@ -736,9 +917,17 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     setBubbleMode('scanning');
     setIsLoading(true);
 
+    // Fetch Polymarket data on-demand if not available
+    if (!gamePolymarket) {
+      console.log(`🤖 Polymarket not in cache, fetching on-demand...`);
+      gamePolymarket = await fetchPolymarketForGame(game, sport);
+    }
+
+    currentGamePolymarketRef.current = gamePolymarket; // Store Polymarket data for this game
+
     try {
       // Pass Polymarket data to get richer insights
-      const response = await wagerBotSuggestionService.getGameInsight(game, sport, polymarket);
+      const response = await wagerBotSuggestionService.getGameInsight(game, sport, gamePolymarket);
 
       if (response.success && response.suggestion) {
         console.log(`🤖 Game insight: "${response.suggestion.substring(0, 50)}..."`);
@@ -777,7 +966,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   // Handle page navigation changes
   // Always track current page so openManualMenu knows which page user is on
   // Only show floating suggestions when in detached mode
-  const onPageChange = useCallback((page: PageContext) => {
+  const onPageChange = useCallback(async (page: PageContext) => {
     console.log(`🤖 Page changed to: ${page}, isDetached: ${isDetached}`);
     setCurrentPageContext(page);
 
@@ -787,12 +976,46 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     setCurrentOpenGame(null);
     setPreviousInsights([]);
 
+    // For feed page, proactively fetch insights if we have game data
+    if (page === 'feed' && currentGameDataRef.current.length > 0) {
+      const sport = currentSportRef.current;
+      console.log(`🤖 Navigated to feed while floating - fetching ${sport.toUpperCase()} insights`);
+
+      setBubbleMode('scanning');
+      setIsLoading(true);
+
+      try {
+        const response = await wagerBotSuggestionService.scanPage('feed', {
+          games: currentGameDataRef.current,
+          sport,
+          polymarketData: polymarketDataRef.current,
+        });
+
+        if (response.success && response.suggestion) {
+          console.log(`🤖 Feed insight: "${response.suggestion.substring(0, 50)}..."`);
+          setCurrentSuggestion(response.suggestion);
+          setCurrentGameId(response.gameId);
+        } else {
+          setCurrentSuggestion(`Check out today's ${sport.toUpperCase()} games - tap any for my analysis!`);
+        }
+        setBubbleMode('suggestion');
+      } catch (error) {
+        console.error('🤖 Error getting feed insight:', error);
+        setCurrentSuggestion('Tap on a game to get my insights!');
+        setBubbleMode('suggestion');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     // Show page explanation if available
     const explanation = PAGE_EXPLANATIONS[page];
     if (explanation) {
       setCurrentSuggestion(explanation);
       setBubbleMode('suggestion');
     } else if (page === 'feed') {
+      // Fallback if no game data
       setCurrentSuggestion('Tap on a game to get my insights!');
       setBubbleMode('suggestion');
     }
@@ -947,6 +1170,10 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         onSportChange,
         onFeedMount,
         onFeedUnmount,
+
+        // Chat page state
+        isChatPageOpen,
+        setChatPageOpen,
       }}
     >
       {children}

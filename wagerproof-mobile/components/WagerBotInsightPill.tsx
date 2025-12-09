@@ -40,7 +40,6 @@ interface WagerBotInsightPillProps {
 export function WagerBotInsightPill({ game, sport, style }: WagerBotInsightPillProps) {
   const {
     isDetached,
-    onGameSheetOpen,
     detachBubbleFromPill,
   } = useWagerBotSuggestion();
 
@@ -52,14 +51,11 @@ export function WagerBotInsightPill({ game, sport, style }: WagerBotInsightPillP
 
     // Measure pill position on screen
     pillRef.current?.measureInWindow((x, y) => {
-      // Set game context first
-      onGameSheetOpen(game, sport);
-
       // Trigger floating bubble at pill position with pill dimensions
-      // The bubble appears instantly at pill size (no fade needed - bubble replaces pill visually)
-      detachBubbleFromPill(x, y, PILL_WIDTH, PILL_HEIGHT);
+      // Pass game and sport so it immediately fetches insights for this game
+      detachBubbleFromPill(x, y, PILL_WIDTH, PILL_HEIGHT, game, sport);
     });
-  }, [game, sport, onGameSheetOpen, detachBubbleFromPill]);
+  }, [game, sport, detachBubbleFromPill]);
 
   // Don't show if already in detached/floating mode
   if (isDetached) {

@@ -1238,7 +1238,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             <View style={[
               styles.inputWrapper,
               {
-                backgroundColor: theme.colors.background,
+                backgroundColor: isDark ? '#000000' : theme.colors.background,
                 bottom: keyboardHeight > 0 ? keyboardHeight : 0,
                 paddingBottom: Platform.OS === 'ios' ? insets.bottom : 16,
               }
@@ -1624,10 +1624,11 @@ const styles = StyleSheet.create({
   suggestedMessagesScrollView: {
     maxHeight: 52,
     marginBottom: 8,
+    marginHorizontal: -16, // Extend to screen edges (counter inputWrapper padding)
   },
   suggestedMessagesContent: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: 16, // Add padding back so first/last items have margin from edge
     alignItems: 'center',
     gap: 8,
   },
