@@ -7,6 +7,7 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useProAccess } from '@/hooks/useProAccess';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { RevenueCatPaywall } from '@/components/RevenueCatPaywall';
 import { CustomerCenter } from '@/components/CustomerCenter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ export default function SettingsScreen() {
   const { user, signOut, signingOut } = useAuth();
   const { isPro, subscriptionType } = useProAccess();
   const { openCustomerCenter, isInitialized } = useRevenueCat();
+  const { suggestionsEnabled, setSuggestionsEnabled } = useWagerBotSuggestion();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [tapCount, setTapCount] = React.useState(0);
@@ -226,6 +228,20 @@ export default function SettingsScreen() {
               <Switch
                 value={isDark}
                 onValueChange={toggleTheme}
+                color={theme.colors.primary}
+              />
+            )}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+
+          <List.Item
+            title="WagerBot Suggestions"
+            description={suggestionsEnabled ? "Proactive suggestions enabled" : "Suggestions disabled"}
+            left={props => <List.Icon {...props} icon="robot" color={theme.colors.primary} />}
+            right={() => (
+              <Switch
+                value={suggestionsEnabled}
+                onValueChange={setSuggestionsEnabled}
                 color={theme.colors.primary}
               />
             )}

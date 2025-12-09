@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { getOfferingById, getAllOfferings, syncPurchases } from '@/services/revenuecat';
 
 // Import RevenueCatUI for presenting paywalls
@@ -24,6 +25,7 @@ try {
 export default function SecretSettingsScreen() {
   const theme = useTheme();
   const { user } = useAuth();
+  const { testModeEnabled, setTestModeEnabled, triggerTestSuggestion } = useWagerBotSuggestion();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -278,12 +280,46 @@ export default function SecretSettingsScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
+        {/* WagerBot Testing Section */}
+        <List.Section>
+          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
+            WagerBot Suggestions Testing
+          </List.Subheader>
+
+          <List.Item
+            title="Test Mode"
+            description={testModeEnabled ? "Test mode enabled - trigger button visible in header" : "Enable to show trigger button in Feed header"}
+            left={props => <List.Icon {...props} icon="bug" color={testModeEnabled ? '#00E676' : theme.colors.primary} />}
+            right={() => (
+              <Switch
+                value={testModeEnabled}
+                onValueChange={setTestModeEnabled}
+                color="#00E676"
+              />
+            )}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+
+          <List.Item
+            title="Trigger Test Bubble"
+            description="Show a test suggestion bubble now"
+            left={props => <List.Icon {...props} icon="robot" color="#00E676" />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => {
+              triggerTestSuggestion();
+              Alert.alert('Test Bubble', 'A test suggestion bubble should appear on the Feed screen. Go back to see it!');
+            }}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+        </List.Section>
+        <Divider />
+
         {/* Developer Section */}
         <List.Section>
           <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
             Developer Options
           </List.Subheader>
-          
+
         </List.Section>
         <Divider />
 

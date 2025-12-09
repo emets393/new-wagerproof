@@ -23,6 +23,8 @@ import { useScroll } from '@/contexts/ScrollContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrawer } from '../_layout';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { WagerBotSuggestionBubble } from '@/components/WagerBotSuggestionBubble';
 
 type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
 type SortMode = 'time' | 'spread' | 'ou';
@@ -48,6 +50,26 @@ export default function FeedScreen() {
   const { user } = useAuth();
   const { isDark } = useThemeContext();
   const tabsScrollViewRef = useRef<ScrollView>(null);
+
+  // WagerBot suggestion system
+  const {
+    isVisible: suggestionVisible,
+    bubbleMode,
+    currentSuggestion,
+    currentGameId,
+    currentSport: suggestionSport,
+    testModeEnabled,
+    isDetached,
+    onSportChange,
+    dismissSuggestion,
+    triggerTestSuggestion,
+    openManualMenu,
+    scanCurrentPage,
+    openChat,
+    detachBubble,
+    onFeedMount,
+    onFeedUnmount,
+  } = useWagerBotSuggestion();
   
   // State
   const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
@@ -613,6 +635,22 @@ export default function FeedScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSport]);
 
+  // WagerBot suggestion trigger - when sport changes or data loads
+  useEffect(() => {
+    const games = cachedData[selectedSport].games;
+    if (games.length > 0) {
+      onSportChange(selectedSport, games);
+    }
+  }, [selectedSport, cachedData[selectedSport].games.length, onSportChange]);
+
+  // Cleanup WagerBot suggestion timers on unmount
+  useEffect(() => {
+    onFeedMount();
+    return () => {
+      onFeedUnmount();
+    };
+  }, [onFeedMount, onFeedUnmount]);
+
   // Refresh handler for pull-to-refresh
   const onRefresh = useCallback((sport: Sport) => {
     setRefreshing(prev => ({ ...prev, [sport]: true }));
@@ -734,6 +772,36 @@ export default function FeedScreen() {
       fetchDataForSport(sport);
     }
   }, [cachedData, fetchDataForSport]);
+
+  // Handle suggestion tap - navigate to the specific game
+  const handleSuggestionTap = useCallback((gameId: string, sport: string) => {
+    console.log(`🤖 Suggestion tapped for game: ${gameId}, sport: ${sport}`);
+    dismissSuggestion();
+
+    // Find the game in the cached data
+    const sportKey = sport as Sport;
+    const games = cachedData[sportKey].games;
+    const game = games.find((g: any) => {
+      const id = String(g.id || g.unique_id || g.training_key || `${g.away_team}_${g.home_team}` || '');
+      return id === gameId || id.includes(gameId) || gameId.includes(id);
+    });
+
+    if (game) {
+      console.log(`🤖 Found game: ${game.away_team} @ ${game.home_team}`);
+      // Open the appropriate bottom sheet
+      if (sportKey === 'nfl') {
+        openGameSheet(game as NFLPrediction);
+      } else if (sportKey === 'cfb') {
+        openCFBGameSheet(game as CFBPrediction);
+      } else if (sportKey === 'nba') {
+        openNBAGameSheet(game as NBAGame);
+      } else if (sportKey === 'ncaab') {
+        openNCAABGameSheet(game as NCAABGame);
+      }
+    } else {
+      console.log(`🤖 Game not found for ID: ${gameId}`);
+    }
+  }, [cachedData, dismissSuggestion, openGameSheet, openCFBGameSheet, openNBAGameSheet, openNCAABGameSheet]);
 
   // Render list header with search and filters for a specific sport
   const renderListHeader = (sport: Sport) => (
@@ -946,6 +1014,26 @@ export default function FeedScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
+        {/* WagerBot Suggestion Bubble - Dynamic Island style */}
+        {/* Hide attached bubble when in detached/floating mode */}
+        {!isDetached && (
+          <WagerBotSuggestionBubble
+            visible={suggestionVisible}
+            mode={bubbleMode}
+            suggestion={currentSuggestion}
+            gameId={currentGameId}
+            sport={suggestionSport || selectedSport}
+            onDismiss={dismissSuggestion}
+            onTap={handleSuggestionTap}
+            onScanPage={scanCurrentPage}
+            onOpenChat={() => {
+              openChat();
+              router.push('/chat' as any);
+            }}
+            onDetach={detachBubble}
+          />
+        )}
+
         {/* Fixed Header with Frosted Glass Effect - Slides away on scroll */}
         <Animated.View
           style={[
@@ -982,12 +1070,25 @@ export default function FeedScreen() {
             </View>
             
             {user && (
-              <TouchableOpacity 
-                onPress={() => router.push('/chat' as any)}
-                style={styles.chatButton}
-              >
-                <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />
-              </TouchableOpacity>
+              <View style={styles.headerRightButtons}>
+                {/* Test Mode Trigger Button - only visible when test mode is enabled */}
+                {testModeEnabled && (
+                  <TouchableOpacity
+                    onPress={triggerTestSuggestion}
+                    style={[styles.chatButton, styles.testTriggerButton]}
+                  >
+                    <MaterialCommunityIcons name="lightning-bolt" size={20} color="#00E676" />
+                  </TouchableOpacity>
+                )}
+
+                {/* WagerBot Icon - Opens manual menu on tap */}
+                <TouchableOpacity
+                  onPress={openManualMenu}
+                  style={styles.chatButton}
+                >
+                  <MaterialCommunityIcons name="robot" size={24} color={theme.colors.onSurface} />
+                </TouchableOpacity>
+              </View>
             )}
           </View>
 
@@ -1082,6 +1183,17 @@ const styles = StyleSheet.create({
   },
   chatButton: {
     padding: 8,
+  },
+  headerRightButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  testTriggerButton: {
+    backgroundColor: 'rgba(0, 230, 118, 0.15)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 230, 118, 0.3)',
   },
   headerRight: {
     width: 32, // Balances the menu button
