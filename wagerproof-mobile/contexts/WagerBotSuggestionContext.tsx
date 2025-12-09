@@ -146,6 +146,9 @@ interface WagerBotSuggestionContextType {
   // Chat page state - suppress suggestions while chat is open
   isChatPageOpen: boolean;
   setChatPageOpen: (isOpen: boolean) => void;
+
+  // Game navigation - find game by ID from stored data
+  findGameById: (gameId: string) => GameData | undefined;
 }
 
 const STORAGE_KEY = '@wagerproof_suggestions_enabled';
@@ -1114,6 +1117,17 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
 
   // ==================== END PAGE DATA SETTERS ====================
 
+  // Find a game by ID from the stored game data
+  const findGameById = useCallback((gameId: string): GameData | undefined => {
+    return currentGameDataRef.current.find((game: any) =>
+      game.training_key === gameId ||
+      game.id === gameId ||
+      game.unique_id === gameId ||
+      game.game_id === gameId ||
+      String(game.id) === gameId
+    );
+  }, []);
+
   return (
     <WagerBotSuggestionContext.Provider
       value={{
@@ -1174,6 +1188,9 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         // Chat page state
         isChatPageOpen,
         setChatPageOpen,
+
+        // Game navigation
+        findGameById,
       }}
     >
       {children}

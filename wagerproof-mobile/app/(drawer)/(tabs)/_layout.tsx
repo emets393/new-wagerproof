@@ -10,6 +10,10 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { WagerBotSuggestionBubble } from '@/components/WagerBotSuggestionBubble';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
+import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
+import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
+import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 
 function LiveIndicator() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -252,6 +256,12 @@ function TabsContent() {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Game sheet contexts for opening game details
+  const { openGameSheet: openNFLGameSheet } = useNFLGameSheet();
+  const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
+  const { openGameSheet: openNBAGameSheet } = useNBAGameSheet();
+  const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
+
   // WagerBot suggestion bubble state
   const {
     isVisible: suggestionVisible,
@@ -264,15 +274,39 @@ function TabsContent() {
     scanCurrentPage,
     openChat,
     detachBubble,
+    findGameById,
   } = useWagerBotSuggestion();
 
-  // Handle suggestion tap - navigate to game details
-  const handleSuggestionTap = useCallback(() => {
-    if (currentGameId && suggestionSport) {
-      // Could navigate to game details if needed
-      console.log('Suggestion tapped:', currentGameId, suggestionSport);
+  // Handle suggestion tap - open game details sheet
+  const handleSuggestionTap = useCallback((gameId: string, sport: string) => {
+    console.log('🤖 Suggestion tapped, opening game:', gameId, sport);
+
+    // Find the game from WagerBot's stored game data
+    const game = findGameById(gameId);
+
+    if (!game) {
+      console.log('🤖 Game not found:', gameId);
+      return;
     }
-  }, [currentGameId, suggestionSport]);
+
+    // Open the appropriate game sheet based on sport
+    switch (sport) {
+      case 'nfl':
+        openNFLGameSheet(game as any);
+        break;
+      case 'cfb':
+        openCFBGameSheet(game as any);
+        break;
+      case 'nba':
+        openNBAGameSheet(game as any);
+        break;
+      case 'ncaab':
+        openNCAABGameSheet(game as any);
+        break;
+      default:
+        console.log('🤖 Unknown sport:', sport);
+    }
+  }, [findGameById, openNFLGameSheet, openCFBGameSheet, openNBAGameSheet, openNCAABGameSheet]);
 
   // Determine current sport based on pathname (for bubble display)
   const getCurrentSport = () => {
