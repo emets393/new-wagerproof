@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TodayInSportsCompletionHeader } from '@/components/TodayInSportsCompletionHeader';
@@ -7,7 +8,7 @@ import { GamesMarquee } from '@/components/GamesMarquee';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, Target, Flame, Lock, ChevronDown, ChevronUp, Shield, Trophy, ArrowRightLeft, BarChart, DollarSign, Percent, Users, Dribbble, RefreshCw } from 'lucide-react';
+import { TrendingUp, Target, Flame, Lock, ChevronDown, ChevronUp, Shield, Trophy, ArrowRightLeft, BarChart, DollarSign, Percent, Users, Dribbble, RefreshCw, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
@@ -46,6 +47,12 @@ interface ValueAlert {
   marketType: string;
   side: string;
   percentage: number;
+  // Game info for enhanced display
+  gameTime?: string;
+  homeSpread?: number;
+  totalLine?: number;
+  homeMl?: number;
+  awayMl?: number;
 }
 
 interface FadeAlert {
@@ -56,6 +63,12 @@ interface FadeAlert {
   pickType: string;
   predictedTeam: string;
   confidence: number;
+  // Game info for enhanced display
+  gameTime?: string;
+  homeSpread?: number;
+  totalLine?: number;
+  homeMl?: number;
+  awayMl?: number;
 }
 
 interface TopTailedGame extends GameSummary {
@@ -69,12 +82,54 @@ interface TopTailedGame extends GameSummary {
 
 type SportFilter = 'all' | 'nfl' | 'cfb' | 'nba' | 'ncaab';
 
+// Helper to format game time for display
+const formatGameTime = (gameTime: string | undefined): string | null => {
+  if (!gameTime) return null;
+  try {
+    const date = new Date(gameTime);
+    if (isNaN(date.getTime())) return null;
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const day = dayNames[date.getDay()];
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const minuteStr = minutes < 10 ? `0${minutes}` : minutes;
+    return `${day} ${hours}:${minuteStr} ${ampm}`;
+  } catch {
+    return null;
+  }
+};
+
+// Helper to format spread for display
+const formatSpread = (spread: number | null | undefined): string | null => {
+  if (spread === null || spread === undefined) return null;
+  return spread > 0 ? `+${spread}` : `${spread}`;
+};
+
+// Helper to format moneyline for display
+const formatMoneyline = (ml: number | null | undefined): string => {
+  if (ml === null || ml === undefined) return '-';
+  return ml > 0 ? `+${ml}` : `${ml}`;
+};
+
 export default function TodayInSports() {
   const { isFreemiumUser } = useFreemiumAccess();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
-  
+  const navigate = useNavigate();
+
+  // Helper to navigate to sport page
+  const navigateToSport = (sport: 'nfl' | 'cfb' | 'nba' | 'ncaab') => {
+    switch (sport) {
+      case 'nfl': navigate('/nfl'); break;
+      case 'cfb': navigate('/college-football'); break;
+      case 'nba': navigate('/nba'); break;
+      case 'ncaab': navigate('/ncaab'); break;
+    }
+  };
+
   // Initialize cache hook
   const { getCachedUIState, setCachedUIState, restoreScrollPosition } = useTodayInSportsCache();
   
@@ -363,9 +418,33 @@ export default function TodayInSports() {
           .order('game_time', { ascending: true });
 
         debug.log('NFL games query result:', { count: nflGames?.length || 0, error: nflError });
-        
+
         if (nflError) {
           debug.error('NFL games error details:', nflError);
+        }
+
+        // Fetch betting lines to get moneyline data (same as NFL page)
+        let nflBettingLinesMap = new Map<string, { home_ml: number | null; away_ml: number | null }>();
+        try {
+          const { data: bettingLines, error: bettingError } = await collegeFootballSupabase
+            .from('nfl_betting_lines')
+            .select('training_key, home_ml, away_ml, as_of_ts')
+            .order('as_of_ts', { ascending: false });
+
+          if (!bettingError && bettingLines) {
+            // Keep only the latest entry per training_key
+            for (const line of bettingLines) {
+              if (!nflBettingLinesMap.has(line.training_key)) {
+                nflBettingLinesMap.set(line.training_key, {
+                  home_ml: line.home_ml,
+                  away_ml: line.away_ml,
+                });
+              }
+            }
+            debug.log('✅ NFL betting lines fetched:', nflBettingLinesMap.size);
+          }
+        } catch (err) {
+          debug.error('Error fetching NFL betting lines:', err);
         }
 
         if (!nflError && nflGames) {
@@ -375,31 +454,34 @@ export default function TodayInSports() {
           console.log('========================================');
           console.log('Total NFL games fetched:', nflGames.length);
           console.log('First NFL game sample:', nflGames[0]);
-          
+
           // Log all unique dates we have
           const uniqueDates = [...new Set(nflGames.map(g => g.game_date).filter(Boolean))];
           console.log('NFL UNIQUE DATES IN DATABASE:', uniqueDates);
           console.log('DATE RANGE:', today, 'to', weekFromNow);
           console.log('========================================');
-          
+
           let nflMatchCount = 0;
           for (const game of nflGames) {
             // game_date is in format "YYYY-MM-DD" - check if it's within this week
             const gameDate = game.game_date;
             const isThisWeek = gameDate >= today && gameDate <= weekFromNow;
-            
+
             console.log(`${isThisWeek ? '✅ THIS WEEK' : '❌ NOT THIS WEEK'} - ${game.away_team} @ ${game.home_team}`);
             console.log(`   game_date: "${gameDate}" | range: "${today}" to "${weekFromNow}"`);
-            
+
             // Only add games within the next 7 days
             if (isThisWeek) {
               nflMatchCount++;
               // Combine game_date and game_time to create a full datetime string
               // game_date is "YYYY-MM-DD", game_time is "HH:MM:SS"
-              const gameTimeValue = (game.game_date && game.game_time) 
-                ? `${game.game_date}T${game.game_time}` 
+              const gameTimeValue = (game.game_date && game.game_time)
+                ? `${game.game_date}T${game.game_time}`
                 : undefined;
-              
+
+              // Get moneylines from betting lines
+              const bettingLine = nflBettingLinesMap.get(game.home_away_unique);
+
               gameSummaries.push({
                 gameId: game.home_away_unique, // Must match training_key used in GameTailSection
                 sport: 'nfl',
@@ -409,12 +491,12 @@ export default function TodayInSports() {
                 awaySpread: game.away_spread,
                 homeSpread: game.home_spread,
                 totalLine: game.ou_vegas_line,
-                awayMl: null,
-                homeMl: null,
+                awayMl: bettingLine?.away_ml || null,
+                homeMl: bettingLine?.home_ml || null,
               });
             }
           }
-          
+
           console.log('========================================');
           console.log(`🏈 NFL GAMES MATCHED FOR THIS WEEK: ${nflMatchCount} / ${nflGames.length}`);
           console.log('========================================');
@@ -991,6 +1073,15 @@ export default function TodayInSports() {
 
           if (markets) {
             for (const market of markets) {
+              // Common game info to include in alerts
+              const gameInfo = {
+                gameTime: game.gameTime,
+                homeSpread: game.homeSpread,
+                totalLine: game.totalLine,
+                homeMl: game.homeMl,
+                awayMl: game.awayMl,
+              };
+
               // Check spread
               if (market.market_type === 'spread') {
                 if (market.current_away_odds > 57) {
@@ -1002,6 +1093,7 @@ export default function TodayInSports() {
                     marketType: 'Spread',
                     side: game.awayTeam,
                     percentage: market.current_away_odds,
+                    ...gameInfo,
                   });
                 }
                 if (market.current_home_odds > 57) {
@@ -1013,6 +1105,7 @@ export default function TodayInSports() {
                     marketType: 'Spread',
                     side: game.homeTeam,
                     percentage: market.current_home_odds,
+                    ...gameInfo,
                   });
                 }
               }
@@ -1028,6 +1121,7 @@ export default function TodayInSports() {
                     marketType: 'Total',
                     side: 'Over',
                     percentage: market.current_away_odds,
+                    ...gameInfo,
                   });
                 }
                 if (market.current_home_odds > 57) {
@@ -1039,13 +1133,17 @@ export default function TodayInSports() {
                     marketType: 'Total',
                     side: 'Under',
                     percentage: market.current_home_odds,
+                    ...gameInfo,
                   });
                 }
               }
 
               // Check moneyline
+              // Skip if sportsbook odds are -200 or worse (heavy favorite = no value)
               if (market.market_type === 'moneyline') {
-                if (market.current_away_odds >= 85) {
+                // Away team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
+                const awayOddsHaveValue = !game.awayMl || game.awayMl > -200;
+                if (market.current_away_odds >= 85 && awayOddsHaveValue) {
                   alerts.push({
                     gameId: game.gameId,
                     sport: game.sport,
@@ -1054,9 +1152,12 @@ export default function TodayInSports() {
                     marketType: 'Moneyline',
                     side: game.awayTeam,
                     percentage: market.current_away_odds,
+                    ...gameInfo,
                   });
                 }
-                if (market.current_home_odds >= 85) {
+                // Home team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
+                const homeOddsHaveValue = !game.homeMl || game.homeMl > -200;
+                if (market.current_home_odds >= 85 && homeOddsHaveValue) {
                   alerts.push({
                     gameId: game.gameId,
                     sport: game.sport,
@@ -1065,6 +1166,7 @@ export default function TodayInSports() {
                     marketType: 'Moneyline',
                     side: game.homeTeam,
                     percentage: market.current_home_odds,
+                    ...gameInfo,
                   });
                 }
               }
@@ -1122,11 +1224,20 @@ export default function TodayInSports() {
             for (const game of nflGames) {
               const prediction = predictionMap.get(game.gameId);
               if (prediction) {
+                // Common game info to include in alerts
+                const gameInfo = {
+                  gameTime: game.gameTime,
+                  homeSpread: game.homeSpread,
+                  totalLine: game.totalLine,
+                  homeMl: game.homeMl,
+                  awayMl: game.awayMl,
+                };
+
                 // Check spread
                 if (prediction.home_away_spread_cover_prob !== null) {
                   const isHome = prediction.home_away_spread_cover_prob > 0.5;
                   const confidence = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
-                  
+
                   if (confidence >= 80) {
                     alerts.push({
                       gameId: game.gameId,
@@ -1136,6 +1247,7 @@ export default function TodayInSports() {
                       pickType: 'Spread',
                       predictedTeam: isHome ? game.homeTeam : game.awayTeam,
                       confidence,
+                      ...gameInfo,
                     });
                   }
                 }
@@ -1144,7 +1256,7 @@ export default function TodayInSports() {
                 if (prediction.ou_result_prob !== null) {
                   const isOver = prediction.ou_result_prob > 0.5;
                   const confidence = Math.round((isOver ? prediction.ou_result_prob : 1 - prediction.ou_result_prob) * 100);
-                  
+
                   if (confidence >= 80) {
                     alerts.push({
                       gameId: game.gameId,
@@ -1154,6 +1266,7 @@ export default function TodayInSports() {
                       pickType: 'Total',
                       predictedTeam: isOver ? 'Over' : 'Under',
                       confidence,
+                      ...gameInfo,
                     });
                   }
                 }
@@ -1194,16 +1307,25 @@ export default function TodayInSports() {
                 continue;
               }
 
+              // Common game info to include in alerts
+              const gameInfo = {
+                gameTime: game.gameTime,
+                homeSpread: game.homeSpread,
+                totalLine: game.totalLine,
+                homeMl: game.homeMl,
+                awayMl: game.awayMl,
+              };
+
               // Check spread edge - use home_spread_diff (primary field)
               const spreadEdge = prediction.home_spread_diff;
-              
+
               if (spreadEdge !== null && spreadEdge !== undefined && Math.abs(spreadEdge) > 10) {
                 // Positive edge = home team, negative edge = away team
                 const isHome = spreadEdge > 0;
                 const edgeValue = Math.abs(spreadEdge);
-                
+
                 debug.log(`CFB Spread Alert: ${game.awayTeam} @ ${game.homeTeam} - Edge: ${edgeValue} to ${isHome ? game.homeTeam : game.awayTeam}`);
-                
+
                 alerts.push({
                   gameId: game.gameId,
                   sport: 'cfb',
@@ -1212,19 +1334,20 @@ export default function TodayInSports() {
                   pickType: 'Spread',
                   predictedTeam: isHome ? game.homeTeam : game.awayTeam,
                   confidence: Math.round(edgeValue), // Store edge value as "confidence" for display
+                  ...gameInfo,
                 });
               }
 
               // Check total edge - use over_line_diff (primary field)
               const totalEdge = prediction.over_line_diff;
-              
+
               if (totalEdge !== null && totalEdge !== undefined && Math.abs(totalEdge) > 10) {
                 // Positive edge = over, negative edge = under
                 const isOver = totalEdge > 0;
                 const edgeValue = Math.abs(totalEdge);
-                
+
                 debug.log(`CFB Total Alert: ${game.awayTeam} @ ${game.homeTeam} - Edge: ${edgeValue} to ${isOver ? 'Over' : 'Under'}`);
-                
+
                 alerts.push({
                   gameId: game.gameId,
                   sport: 'cfb',
@@ -1233,6 +1356,7 @@ export default function TodayInSports() {
                   pickType: 'Total',
                   predictedTeam: isOver ? 'Over' : 'Under',
                   confidence: Math.round(edgeValue), // Store edge value as "confidence" for display
+                  ...gameInfo,
                 });
               }
             }
@@ -1269,6 +1393,15 @@ export default function TodayInSports() {
               const gameId = String(game.nbaId || game.gameId);
               const prediction = predictionMap.get(gameId);
               if (prediction) {
+                // Common game info to include in alerts
+                const gameInfo = {
+                  gameTime: game.gameTime,
+                  homeSpread: game.homeSpread,
+                  totalLine: game.totalLine,
+                  homeMl: game.homeMl,
+                  awayMl: game.awayMl,
+                };
+
                 // Calculate spread edge - use game data for vegas spread
                 const vegasSpread = game.homeSpread;
                 const modelFairSpread = prediction.model_fair_home_spread;
@@ -1280,7 +1413,7 @@ export default function TodayInSports() {
                   // NBA uses 3+ point edge threshold (smaller than CFB's 10)
                   const isHome = spreadEdge > 0;
                   const edgeValue = Math.abs(spreadEdge);
-                  
+
                   alerts.push({
                     gameId: game.gameId,
                     sport: 'nba',
@@ -1289,6 +1422,7 @@ export default function TodayInSports() {
                     pickType: 'Spread',
                     predictedTeam: isHome ? game.homeTeam : game.awayTeam,
                     confidence: Math.round(edgeValue * 10) / 10, // Store edge value as "confidence"
+                    ...gameInfo,
                   });
                 }
 
@@ -1302,7 +1436,7 @@ export default function TodayInSports() {
                 if (totalEdge !== null && Math.abs(totalEdge) > 3) {
                   const isOver = totalEdge > 0;
                   const edgeValue = Math.abs(totalEdge);
-                  
+
                   alerts.push({
                     gameId: game.gameId,
                     sport: 'nba',
@@ -1311,6 +1445,7 @@ export default function TodayInSports() {
                     pickType: 'Total',
                     predictedTeam: isOver ? 'Over' : 'Under',
                     confidence: Math.round(edgeValue * 10) / 10,
+                    ...gameInfo,
                   });
                 }
               }
@@ -1346,6 +1481,15 @@ export default function TodayInSports() {
               const gameId = String(game.ncaabId || game.gameId);
               const prediction = predictionMap.get(gameId);
               if (prediction) {
+                // Common game info to include in alerts
+                const gameInfo = {
+                  gameTime: game.gameTime,
+                  homeSpread: game.homeSpread,
+                  totalLine: game.totalLine,
+                  homeMl: game.homeMl,
+                  awayMl: game.awayMl,
+                };
+
                 // Calculate spread edge
                 const vegasSpread = prediction.vegas_home_spread || game.homeSpread;
                 const predMargin = prediction.pred_home_margin;
@@ -1357,7 +1501,7 @@ export default function TodayInSports() {
                   // NCAAB uses 5+ point edge threshold
                   const isHome = spreadEdge > 0;
                   const edgeValue = Math.abs(spreadEdge);
-                  
+
                   alerts.push({
                     gameId: game.gameId,
                     sport: 'ncaab',
@@ -1366,6 +1510,7 @@ export default function TodayInSports() {
                     pickType: 'Spread',
                     predictedTeam: isHome ? game.homeTeam : game.awayTeam,
                     confidence: Math.round(edgeValue * 10) / 10,
+                    ...gameInfo,
                   });
                 }
 
@@ -1379,7 +1524,7 @@ export default function TodayInSports() {
                 if (totalEdge !== null && Math.abs(totalEdge) > 5) {
                   const isOver = totalEdge > 0;
                   const edgeValue = Math.abs(totalEdge);
-                  
+
                   alerts.push({
                     gameId: game.gameId,
                     sport: 'ncaab',
@@ -1388,6 +1533,7 @@ export default function TodayInSports() {
                     pickType: 'Total',
                     predictedTeam: isOver ? 'Over' : 'Under',
                     confidence: Math.round(edgeValue * 10) / 10,
+                    ...gameInfo,
                   });
                 }
               }
@@ -2125,12 +2271,13 @@ export default function TodayInSports() {
                           .sort((a, b) => b.percentage - a.percentage)
                           .slice(0, showAllValueAlerts ? filteredAlerts.length : 6)
                           .map((alert, idx) => (
-                        <div 
+                        <div
                           key={`${alert.gameId}-${alert.marketType}-${alert.side}-${idx}`}
-                          className="p-4 rounded-lg bg-green-500/10 dark:bg-green-500/10 border border-green-500/30 dark:border-green-500/20 hover:border-green-500/50 dark:hover:border-green-500/40 transition-all"
+                          className="p-4 rounded-lg bg-green-500/10 dark:bg-green-500/10 border border-green-500/30 dark:border-green-500/20 hover:border-green-500/50 dark:hover:border-green-500/40 transition-all cursor-pointer"
+                          onClick={() => navigateToSport(alert.sport)}
                         >
                           {/* Pills Row */}
-                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
                             {/* Sport Pill */}
                             <Badge className={`${getSportColorClasses(alert.sport)} flex items-center gap-1.5`}>
                               {(() => {
@@ -2139,7 +2286,15 @@ export default function TodayInSports() {
                               })()}
                               <span className="text-xs font-medium">{alert.sport.toUpperCase()}</span>
                             </Badge>
-                            
+
+                            {/* Game Time Pill */}
+                            {alert.gameTime && formatGameTime(alert.gameTime) && (
+                              <Badge variant="secondary" className="bg-gray-200/50 dark:bg-white/10 text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                                <Clock className="h-3 w-3" />
+                                <span className="text-xs font-medium">{formatGameTime(alert.gameTime)}</span>
+                              </Badge>
+                            )}
+
                             {/* Pick Type Pill */}
                             {(() => {
                               const PickTypeIcon = getPickTypeIcon(alert.marketType);
@@ -2150,13 +2305,34 @@ export default function TodayInSports() {
                                 </Badge>
                               );
                             })()}
-                            
+
                             {/* Value Pill */}
                             <Badge className="bg-green-500 text-white flex items-center gap-1.5">
                               <Percent className="h-3 w-3" />
                               <span className="text-xs font-semibold">{alert.percentage.toFixed(0)}%</span>
                             </Badge>
                           </div>
+
+                          {/* Lines Row */}
+                          {(alert.homeSpread !== undefined || alert.totalLine !== undefined || alert.homeMl !== undefined) && (
+                            <div className="flex items-center gap-2 mb-3 flex-wrap">
+                              {alert.homeSpread !== undefined && (
+                                <Badge variant="secondary" className="bg-gray-200/30 dark:bg-white/5 text-gray-600 dark:text-gray-400 text-xs">
+                                  Spread: {formatSpread(alert.homeSpread)}
+                                </Badge>
+                              )}
+                              {alert.totalLine !== undefined && (
+                                <Badge variant="secondary" className="bg-gray-200/30 dark:bg-white/5 text-gray-600 dark:text-gray-400 text-xs">
+                                  O/U: {alert.totalLine}
+                                </Badge>
+                              )}
+                              {(alert.awayMl !== undefined || alert.homeMl !== undefined) && (
+                                <Badge variant="secondary" className="bg-gray-200/30 dark:bg-white/5 text-gray-600 dark:text-gray-400 text-xs">
+                                  ML: {formatMoneyline(alert.awayMl)}/{formatMoneyline(alert.homeMl)}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
 
                           {/* Game Info */}
                           <div className="mb-2">
@@ -2165,7 +2341,7 @@ export default function TodayInSports() {
                             </p>
                             <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
                               <span className="font-medium">{alert.side}</span>
-                              {alert.marketType === 'Moneyline' 
+                              {alert.marketType === 'Moneyline'
                                 ? ` - Strong ${alert.percentage.toFixed(0)}% consensus`
                                 : ` - ${alert.percentage.toFixed(0)}% suggests line hasn't adjusted to market`
                               }
@@ -2235,12 +2411,13 @@ export default function TodayInSports() {
                           .sort((a, b) => b.confidence - a.confidence)
                           .slice(0, showAllFadeAlerts ? filteredFadeAlerts.length : 6)
                           .map((alert, idx) => (
-                        <div 
+                        <div
                           key={`${alert.gameId}-${alert.pickType}-${alert.predictedTeam}-${idx}`}
-                          className="p-4 rounded-lg bg-purple-500/10 dark:bg-purple-500/10 border border-purple-500/30 dark:border-purple-500/20 hover:border-purple-500/50 dark:hover:border-purple-500/40 transition-all"
+                          className="p-4 rounded-lg bg-purple-500/10 dark:bg-purple-500/10 border border-purple-500/30 dark:border-purple-500/20 hover:border-purple-500/50 dark:hover:border-purple-500/40 transition-all cursor-pointer"
+                          onClick={() => navigateToSport(alert.sport)}
                         >
                           {/* Pills Row */}
-                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
                             {/* Sport Pill */}
                             <Badge className={`${getSportColorClasses(alert.sport)} flex items-center gap-1.5`}>
                               {(() => {
@@ -2249,7 +2426,15 @@ export default function TodayInSports() {
                               })()}
                               <span className="text-xs font-medium">{alert.sport.toUpperCase()}</span>
                             </Badge>
-                            
+
+                            {/* Game Time Pill */}
+                            {alert.gameTime && formatGameTime(alert.gameTime) && (
+                              <Badge variant="secondary" className="bg-gray-200/50 dark:bg-white/10 text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                                <Clock className="h-3 w-3" />
+                                <span className="text-xs font-medium">{formatGameTime(alert.gameTime)}</span>
+                              </Badge>
+                            )}
+
                             {/* Pick Type Pill */}
                             {(() => {
                               const PickTypeIcon = getPickTypeIcon(alert.pickType);
@@ -2260,7 +2445,7 @@ export default function TodayInSports() {
                                 </Badge>
                               );
                             })()}
-                            
+
                             {/* Confidence/Edge Pill */}
                             <Badge className="bg-purple-500 text-white flex items-center gap-1.5">
                               <Percent className="h-3 w-3" />
@@ -2270,6 +2455,27 @@ export default function TodayInSports() {
                             </Badge>
                           </div>
 
+                          {/* Lines Row */}
+                          {(alert.homeSpread !== undefined || alert.totalLine !== undefined || alert.homeMl !== undefined) && (
+                            <div className="flex items-center gap-2 mb-3 flex-wrap">
+                              {alert.homeSpread !== undefined && (
+                                <Badge variant="secondary" className="bg-gray-200/30 dark:bg-white/5 text-gray-600 dark:text-gray-400 text-xs">
+                                  Spread: {formatSpread(alert.homeSpread)}
+                                </Badge>
+                              )}
+                              {alert.totalLine !== undefined && (
+                                <Badge variant="secondary" className="bg-gray-200/30 dark:bg-white/5 text-gray-600 dark:text-gray-400 text-xs">
+                                  O/U: {alert.totalLine}
+                                </Badge>
+                              )}
+                              {(alert.awayMl !== undefined || alert.homeMl !== undefined) && (
+                                <Badge variant="secondary" className="bg-gray-200/30 dark:bg-white/5 text-gray-600 dark:text-gray-400 text-xs">
+                                  ML: {formatMoneyline(alert.awayMl)}/{formatMoneyline(alert.homeMl)}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+
                           {/* Game Info */}
                           <div className="mb-2">
                             <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1 break-words">
@@ -2277,7 +2483,7 @@ export default function TodayInSports() {
                             </p>
                             <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
                               <span className="font-medium">{alert.predictedTeam}</span>
-                              {alert.sport === 'nfl' 
+                              {alert.sport === 'nfl'
                                 ? ` - Model has ${alert.confidence}% confidence (strong edge indicator)`
                                 : ` - Model shows ${alert.confidence} point edge (strong edge indicator)`
                               }
