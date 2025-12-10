@@ -153,9 +153,13 @@ interface WagerBotSuggestionContextType {
 
 const STORAGE_KEY = '@wagerproof_suggestions_enabled';
 const TEST_MODE_STORAGE_KEY = '@wagerproof_suggestions_test_mode';
+const SUGGESTION_HISTORY_KEY = '@wagerproof_suggestion_history';
+const HISTORY_CLEAR_TIMESTAMP_KEY = '@wagerproof_suggestion_history_cleared';
 const FIRST_VISIT_TRIGGER_DELAY = 2000; // 2 seconds after first visit
 const RE_TRIGGER_INTERVAL = 2 * 60 * 1000; // 2 minutes
 const AUTO_DISMISS_DURATION = 20000; // 20 seconds
+const MAX_SUGGESTION_HISTORY = 10;
+const HISTORY_CLEAR_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 const TEST_SUGGESTIONS = [
   "Chiefs -3 looks strong tonight! Their red zone efficiency is elite this season.",
@@ -225,6 +229,9 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
   // Chat page state - suppress suggestions while chat is open
   const [isChatPageOpen, setIsChatPageOpen] = useState(false);
 
+  // Suggestion history for deduplication
+  const suggestionHistoryRef = useRef<string[]>([]);
+
   // Tracking refs
   const visitedSports = useRef<Set<Sport>>(new Set());
   const sportTimestamps = useRef<Record<Sport, number>>({} as Record<Sport, number>);
@@ -250,15 +257,44 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
 
   const loadPreferences = async () => {
     try {
-      const [enabledValue, testModeValue] = await Promise.all([
+      const [enabledValue, testModeValue, historyTimestamp, historyValue] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEY),
         AsyncStorage.getItem(TEST_MODE_STORAGE_KEY),
+        AsyncStorage.getItem(HISTORY_CLEAR_TIMESTAMP_KEY),
+        AsyncStorage.getItem(SUGGESTION_HISTORY_KEY),
       ]);
       if (enabledValue !== null) {
         setSuggestionsEnabledState(enabledValue === 'true');
       }
       if (testModeValue !== null) {
         setTestModeEnabledState(testModeValue === 'true');
+      }
+
+      // Load suggestion history with 12-hour auto-clear
+      const now = Date.now();
+      const lastClear = historyTimestamp ? parseInt(historyTimestamp, 10) : 0;
+      const shouldClearHistory = !lastClear || (now - lastClear) > HISTORY_CLEAR_INTERVAL_MS;
+
+      if (shouldClearHistory) {
+        // Clear history and set new timestamp
+        console.log('🤖 Clearing suggestion history (12h elapsed or first run)');
+        suggestionHistoryRef.current = [];
+        await Promise.all([
+          AsyncStorage.setItem(HISTORY_CLEAR_TIMESTAMP_KEY, String(now)),
+          AsyncStorage.removeItem(SUGGESTION_HISTORY_KEY),
+        ]);
+      } else if (historyValue) {
+        // Load existing history
+        try {
+          const parsed = JSON.parse(historyValue);
+          if (Array.isArray(parsed)) {
+            suggestionHistoryRef.current = parsed;
+            console.log(`🤖 Loaded ${parsed.length} suggestions from history`);
+          }
+        } catch (parseError) {
+          console.error('🤖 Error parsing suggestion history:', parseError);
+          suggestionHistoryRef.current = [];
+        }
       }
     } catch (error) {
       console.error('🤖 Error loading suggestion preferences:', error);
@@ -288,6 +324,37 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
       console.error('🤖 Error saving test mode preference:', error);
     }
   };
+
+  // Record a suggestion to history for deduplication (FIFO queue, max 10)
+  const recordSuggestion = useCallback(async (suggestion: string) => {
+    // Skip empty, error messages, welcome messages, or fallback messages
+    if (
+      !suggestion ||
+      suggestion === WELCOME_MESSAGE ||
+      suggestion.includes('went wrong') ||
+      suggestion.includes('check back') ||
+      suggestion.includes('No games available') ||
+      suggestion.includes('No editor picks') ||
+      suggestion.includes('No value alerts') ||
+      suggestion.includes('No live games') ||
+      suggestion.includes('Tap on a game') ||
+      suggestion.includes('Tap any pick')
+    ) {
+      return;
+    }
+
+    // Add to front, limit to MAX_SUGGESTION_HISTORY
+    const newHistory = [suggestion, ...suggestionHistoryRef.current].slice(0, MAX_SUGGESTION_HISTORY);
+    suggestionHistoryRef.current = newHistory;
+
+    console.log(`🤖 Recorded suggestion to history (${newHistory.length} total)`);
+
+    try {
+      await AsyncStorage.setItem(SUGGESTION_HISTORY_KEY, JSON.stringify(newHistory));
+    } catch (error) {
+      console.error('🤖 Error saving suggestion history:', error);
+    }
+  }, []);
 
   const clearAutoDismissTimer = useCallback(() => {
     if (autoDismissTimer.current) {
@@ -403,7 +470,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
             games: gameData,
             sport,
             polymarketData: polymarketDataRef.current,
-          });
+          }, suggestionHistoryRef.current);
           break;
         }
 
@@ -421,7 +488,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
             return;
           }
 
-          response = await wagerBotSuggestionService.scanPage('picks', { picks });
+          response = await wagerBotSuggestionService.scanPage('picks', { picks }, suggestionHistoryRef.current);
           break;
         }
 
@@ -439,7 +506,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
             return;
           }
 
-          response = await wagerBotSuggestionService.scanPage('outliers', { valueAlerts, fadeAlerts });
+          response = await wagerBotSuggestionService.scanPage('outliers', { valueAlerts, fadeAlerts }, suggestionHistoryRef.current);
           break;
         }
 
@@ -457,7 +524,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
             return;
           }
 
-          response = await wagerBotSuggestionService.scanPage('scoreboard', { liveGames });
+          response = await wagerBotSuggestionService.scanPage('scoreboard', { liveGames }, suggestionHistoryRef.current);
           break;
         }
 
@@ -469,7 +536,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
             games: gameData,
             sport,
             polymarketData: polymarketDataRef.current,
-          });
+          }, suggestionHistoryRef.current);
         }
       }
 
@@ -480,6 +547,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         setCurrentGameId(response.gameId);
         setCurrentSport(currentSportRef.current);
         setBubbleMode('suggestion');
+        recordSuggestion(response.suggestion);
 
         // Start auto-dismiss timer for the result
         clearAutoDismissTimer();
@@ -507,7 +575,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     } finally {
       setIsLoading(false);
     }
-  }, [currentPageContext, dismissSuggestion, clearAutoDismissTimer]);
+  }, [currentPageContext, dismissSuggestion, clearAutoDismissTimer, recordSuggestion]);
 
   // Open chat - handled by the bubble component via onOpenChat callback
   const openChat = useCallback(() => {
@@ -542,7 +610,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     console.log(`🤖 Triggering suggestion for ${sport.toUpperCase()}...`);
 
     try {
-      const response = await wagerBotSuggestionService.getSuggestion(sport, gameData);
+      const response = await wagerBotSuggestionService.getSuggestion(sport, gameData, undefined, suggestionHistoryRef.current);
 
       if (response.success && response.suggestion) {
         console.log(`🤖 Got suggestion: "${response.suggestion.substring(0, 50)}..."`);
@@ -552,6 +620,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         setCurrentSport(sport);
         setBubbleMode('suggestion');
         setIsVisible(true);
+        recordSuggestion(response.suggestion);
 
         autoDismissTimer.current = setTimeout(() => {
           console.log('🤖 Auto-dismissing suggestion');
@@ -566,7 +635,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
       isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, [suggestionsEnabled, isChatPageOpen, isVisible, dismissSuggestion]);
+  }, [suggestionsEnabled, isChatPageOpen, isVisible, dismissSuggestion, recordSuggestion]);
 
   // Set chat page open state - dismisses suggestions and prevents new ones while open
   const setChatPageOpen = useCallback((isOpen: boolean) => {
@@ -601,12 +670,13 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
           games: gameData,
           sport,
           polymarketData: polymarketDataRef.current,
-        });
+        }, suggestionHistoryRef.current);
 
         if (response.success && response.suggestion) {
           console.log(`🤖 Feed insight for ${sport.toUpperCase()}: "${response.suggestion.substring(0, 50)}..."`);
           setCurrentSuggestion(response.suggestion);
           setCurrentGameId(response.gameId);
+          recordSuggestion(response.suggestion);
         } else {
           setCurrentSuggestion(`Check out today's ${sport.toUpperCase()} games - tap any for my analysis!`);
         }
@@ -654,7 +724,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         triggerSuggestion(sport, currentGameDataRef.current);
       }
     }, RE_TRIGGER_INTERVAL);
-  }, [suggestionsEnabled, triggerSuggestion, isDetached]);
+  }, [suggestionsEnabled, triggerSuggestion, isDetached, recordSuggestion]);
 
   // ==================== FLOATING ASSISTANT ACTIONS ====================
 
@@ -732,6 +802,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
       }, 400);
 
       // Fetch the insight (polymarket may be undefined, that's ok)
+      // Note: Don't pass previouslySentSuggestions for game details - user intentionally opened this game
       try {
         const response = await wagerBotSuggestionService.getGameInsight(game, sport, gamePolymarket);
 
@@ -739,6 +810,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
           console.log(`🤖 Game insight: "${response.suggestion.substring(0, 50)}..."`);
           setCurrentSuggestion(response.suggestion);
           setBubbleMode('suggestion');
+          recordSuggestion(response.suggestion);
         } else {
           console.log('🤖 No game insight received');
           setCurrentSuggestion('Looking at this matchup... check back in a moment!');
@@ -766,7 +838,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
 
     // Clear auto-dismiss timer - floating mode stays until dismissed
     clearAutoDismissTimer();
-  }, [clearAutoDismissTimer]);
+  }, [clearAutoDismissTimer, recordSuggestion]);
 
   // Dismiss the floating assistant
   const dismissFloating = useCallback(() => {
@@ -795,6 +867,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
       setBubbleMode('scanning');
       setIsLoading(true);
 
+      // Note: Don't pass previouslySentSuggestions for game details - user intentionally opened this game
       try {
         const response = await wagerBotSuggestionService.getMoreDetails(
           currentOpenGame,
@@ -808,6 +881,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
           setPreviousInsights(prev => [...prev, currentSuggestion]);
           setCurrentSuggestion(response.suggestion);
           setBubbleMode('suggestion');
+          recordSuggestion(response.suggestion);
         } else {
           console.log('🤖 No additional details received');
           setCurrentSuggestion("That's all I've got on this one! Try another game.");
@@ -833,7 +907,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         const response = await wagerBotSuggestionService.scanPage('outliers', {
           valueAlerts: outliersDataRef.current.valueAlerts || [],
           fadeAlerts: outliersDataRef.current.fadeAlerts || [],
-        });
+        }, suggestionHistoryRef.current);
 
         if (response.success && response.suggestion) {
           console.log(`🤖 More outliers details: "${response.suggestion.substring(0, 50)}..."`);
@@ -841,6 +915,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
           setCurrentSuggestion(response.suggestion);
           setCurrentGameId(response.gameId);
           setBubbleMode('suggestion');
+          recordSuggestion(response.suggestion);
         } else {
           setCurrentSuggestion("That's all the outliers I see right now!");
           setBubbleMode('suggestion');
@@ -856,7 +931,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     }
 
     console.log('🤖 No context for more details');
-  }, [currentOpenGame, currentSport, currentSuggestion, currentPageContext]);
+  }, [currentOpenGame, currentSport, currentSuggestion, currentPageContext, recordSuggestion]);
 
   // Request alternative insight ("Another insight")
   const requestAnotherInsight = useCallback(async () => {
@@ -872,6 +947,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
           ? [...previousInsights, currentSuggestion]
           : previousInsights;
 
+        // Note: Don't pass previouslySentSuggestions for game details - user intentionally opened this game
         const response = await wagerBotSuggestionService.getAlternativeInsight(
           currentOpenGame,
           currentSport,
@@ -886,6 +962,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
           }
           setCurrentSuggestion(response.suggestion);
           setBubbleMode('suggestion');
+          recordSuggestion(response.suggestion);
         } else {
           console.log('🤖 No alternative insight received');
           setCurrentSuggestion("I've covered all the angles on this one! Check out another game.");
@@ -912,7 +989,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         const response = await wagerBotSuggestionService.scanPage('outliers', {
           valueAlerts: outliersDataRef.current.valueAlerts || [],
           fadeAlerts: outliersDataRef.current.fadeAlerts || [],
-        });
+        }, suggestionHistoryRef.current);
 
         if (response.success && response.suggestion) {
           console.log(`🤖 Another outlier insight: "${response.suggestion.substring(0, 50)}..."`);
@@ -922,6 +999,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
           setCurrentSuggestion(response.suggestion);
           setCurrentGameId(response.gameId);
           setBubbleMode('suggestion');
+          recordSuggestion(response.suggestion);
         } else {
           setCurrentSuggestion("That's all the outliers I see right now!");
           setBubbleMode('suggestion');
@@ -937,7 +1015,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     }
 
     console.log('🤖 No context for alternative insight');
-  }, [currentOpenGame, currentSport, currentSuggestion, previousInsights, currentPageContext]);
+  }, [currentOpenGame, currentSport, currentSuggestion, previousInsights, currentPageContext, recordSuggestion]);
 
   // Handle game sheet opening (navigation tracking for floating mode)
   const onGameSheetOpen = useCallback(async (game: GameData, sport: Sport, polymarket?: GamePolymarketData) => {
@@ -974,12 +1052,14 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
 
     try {
       // Pass Polymarket data to get richer insights
+      // Note: Don't pass previouslySentSuggestions for game details - user intentionally opened this game
       const response = await wagerBotSuggestionService.getGameInsight(game, sport, gamePolymarket);
 
       if (response.success && response.suggestion) {
         console.log(`🤖 Game insight: "${response.suggestion.substring(0, 50)}..."`);
         setCurrentSuggestion(response.suggestion);
         setBubbleMode('suggestion');
+        recordSuggestion(response.suggestion);
       } else {
         console.log('🤖 No game insight received');
         setCurrentSuggestion('Looking at this matchup... check back in a moment!');
@@ -992,7 +1072,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
     } finally {
       setIsLoading(false);
     }
-  }, [isDetached]);
+  }, [isDetached, recordSuggestion]);
 
   // Handle game sheet closing
   const onGameSheetClose = useCallback(() => {
@@ -1036,12 +1116,13 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
           games: currentGameDataRef.current,
           sport,
           polymarketData: polymarketDataRef.current,
-        });
+        }, suggestionHistoryRef.current);
 
         if (response.success && response.suggestion) {
           console.log(`🤖 Feed insight: "${response.suggestion.substring(0, 50)}..."`);
           setCurrentSuggestion(response.suggestion);
           setCurrentGameId(response.gameId);
+          recordSuggestion(response.suggestion);
         } else {
           setCurrentSuggestion(`Check out today's ${sport.toUpperCase()} games - tap any for my analysis!`);
         }
@@ -1066,7 +1147,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
       setCurrentSuggestion('Tap on a game to get my insights!');
       setBubbleMode('suggestion');
     }
-  }, [isDetached]);
+  }, [isDetached, recordSuggestion]);
 
   // Handle model details tap (explain what the model percentages mean)
   const onModelDetailsTap = useCallback(() => {
@@ -1099,11 +1180,12 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         setIsLoading(true);
 
         try {
-          const response = await wagerBotSuggestionService.getSuggestion(sport, outlierGames);
+          const response = await wagerBotSuggestionService.getSuggestion(sport, outlierGames, undefined, suggestionHistoryRef.current);
           if (response.success && response.suggestion) {
             console.log(`🤖 Outlier suggestion: "${response.suggestion.substring(0, 50)}..."`);
             setCurrentSuggestion(response.suggestion);
             setCurrentGameId(response.gameId);
+            recordSuggestion(response.suggestion);
           } else {
             setCurrentSuggestion("These outliers look interesting - tap one to dive deeper!");
           }
@@ -1117,7 +1199,7 @@ export function WagerBotSuggestionProvider({ children }: { children: ReactNode }
         }
       }, 4000); // Wait 4 seconds for user to read explanation
     }
-  }, [isDetached]);
+  }, [isDetached, recordSuggestion]);
 
   // ==================== END FLOATING ASSISTANT ACTIONS ====================
 

@@ -141,7 +141,8 @@ async function makeApiRequest(
   sport: Sport | undefined,
   data: any,
   previousInsight?: string,
-  previousInsights?: string[]
+  previousInsights?: string[],
+  previouslySentSuggestions?: string[]
 ): Promise<string | null> {
   try {
     const controller = new AbortController();
@@ -153,6 +154,7 @@ async function makeApiRequest(
       data,
       previousInsight,
       previousInsights,
+      previouslySentSuggestions,
     };
 
     console.log(`🤖 API Request: pageType=${pageType}, sport=${sport || 'none'}, dataKeys=${Object.keys(data).join(',')}`);
@@ -191,7 +193,11 @@ export const wagerBotSuggestionService = {
    * Scan the current page - sends raw data to API for server-side formatting
    * This is the main entry point for the "Scan this page" feature
    */
-  async scanPage(pageType: PageType, data: PageScanData): Promise<SuggestionResponse> {
+  async scanPage(
+    pageType: PageType,
+    data: PageScanData,
+    previouslySentSuggestions?: string[]
+  ): Promise<SuggestionResponse> {
     console.log(`🤖 Scanning ${pageType} page...`);
 
     let apiData: any;
@@ -252,7 +258,7 @@ export const wagerBotSuggestionService = {
 
     console.log(`🤖 Sending ${pageType} scan request...`);
 
-    const text = await makeApiRequest(pageType, sport, apiData);
+    const text = await makeApiRequest(pageType, sport, apiData, undefined, undefined, previouslySentSuggestions);
 
     if (!text) {
       return { suggestion: '', gameId: null, success: false };
@@ -276,9 +282,10 @@ export const wagerBotSuggestionService = {
   async getSuggestion(
     sport: Sport,
     games: GameData[],
-    polymarketData?: Map<string, GamePolymarketData>
+    polymarketData?: Map<string, GamePolymarketData>,
+    previouslySentSuggestions?: string[]
   ): Promise<SuggestionResponse> {
-    return this.scanPage('feed', { games, sport, polymarketData });
+    return this.scanPage('feed', { games, sport, polymarketData }, previouslySentSuggestions);
   },
 
   /**
@@ -288,7 +295,8 @@ export const wagerBotSuggestionService = {
   async getGameInsight(
     game: GameData,
     sport: Sport,
-    polymarket?: GamePolymarketData
+    polymarket?: GamePolymarketData,
+    previouslySentSuggestions?: string[]
   ): Promise<SuggestionResponse> {
     console.log(`🤖 Fetching insight for ${game.away_team} @ ${game.home_team}...`);
 
@@ -299,7 +307,7 @@ export const wagerBotSuggestionService = {
       },
     };
 
-    const text = await makeApiRequest('game_insight', sport, apiData);
+    const text = await makeApiRequest('game_insight', sport, apiData, undefined, undefined, previouslySentSuggestions);
 
     if (!text) {
       return { suggestion: '', gameId: null, success: false };
@@ -322,7 +330,8 @@ export const wagerBotSuggestionService = {
     game: GameData,
     sport: Sport,
     previousInsight: string,
-    polymarket?: GamePolymarketData
+    polymarket?: GamePolymarketData,
+    previouslySentSuggestions?: string[]
   ): Promise<SuggestionResponse> {
     console.log(`🤖 Fetching more details on: "${previousInsight.substring(0, 50)}..."`);
 
@@ -333,7 +342,7 @@ export const wagerBotSuggestionService = {
       },
     };
 
-    const text = await makeApiRequest('more_details', sport, apiData, previousInsight);
+    const text = await makeApiRequest('more_details', sport, apiData, previousInsight, undefined, previouslySentSuggestions);
 
     if (!text) {
       return { suggestion: '', gameId: null, success: false };
@@ -356,7 +365,8 @@ export const wagerBotSuggestionService = {
     game: GameData,
     sport: Sport,
     previousInsights: string[],
-    polymarket?: GamePolymarketData
+    polymarket?: GamePolymarketData,
+    previouslySentSuggestions?: string[]
   ): Promise<SuggestionResponse> {
     console.log(`🤖 Fetching alternative insight (${previousInsights.length} previous)...`);
 
@@ -367,7 +377,7 @@ export const wagerBotSuggestionService = {
       },
     };
 
-    const text = await makeApiRequest('alternative', sport, apiData, undefined, previousInsights);
+    const text = await makeApiRequest('alternative', sport, apiData, undefined, previousInsights, previouslySentSuggestions);
 
     if (!text) {
       return { suggestion: '', gameId: null, success: false };
