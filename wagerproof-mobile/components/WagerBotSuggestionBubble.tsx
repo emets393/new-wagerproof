@@ -18,6 +18,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -111,14 +112,21 @@ export function WagerBotSuggestionBubble({
   const insets = useSafeAreaInsets();
   const autoDismissTimer = useRef<NodeJS.Timeout | null>(null);
   const typewriterTimer = useRef<NodeJS.Timeout | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Typewriter animation state
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [needsScroll, setNeedsScroll] = useState(false);
 
-  // Calculate the total height of the bubble (expanded to show full message)
-  const BUBBLE_CONTENT_HEIGHT = mode === 'menu' ? 70 : 80;
-  const TOTAL_BUBBLE_HEIGHT = insets.top + BUBBLE_CONTENT_HEIGHT;
+  // Base heights for different modes
+  const MENU_CONTENT_HEIGHT = 70;
+  const SCANNING_CONTENT_HEIGHT = 80;
+  const MIN_SUGGESTION_CONTENT_HEIGHT = 60;
+  const MAX_SUGGESTION_CONTENT_HEIGHT = 140;
+
+  // Track measured text height
+  const [measuredTextHeight, setMeasuredTextHeight] = useState(MIN_SUGGESTION_CONTENT_HEIGHT);
 
   // Animation shared values
   const fillProgress = useSharedValue(0);
@@ -128,12 +136,26 @@ export function WagerBotSuggestionBubble({
   const panTranslateY = useSharedValue(0);
   const countdownProgress = useSharedValue(0);
 
+  // Dynamic height for suggestion mode - animated for smooth transitions
+  const animatedContentHeight = useSharedValue(MIN_SUGGESTION_CONTENT_HEIGHT);
+
+  // Calculate current content height based on mode
+  const currentContentHeight = mode === 'menu'
+    ? MENU_CONTENT_HEIGHT
+    : mode === 'scanning'
+      ? SCANNING_CONTENT_HEIGHT
+      : Math.min(Math.max(measuredTextHeight, MIN_SUGGESTION_CONTENT_HEIGHT), MAX_SUGGESTION_CONTENT_HEIGHT);
+
+  // Total bubble height includes safe area
+  const totalBubbleHeight = insets.top + currentContentHeight;
+
   // Scanning wave animation (fluid expansion from top center like sound wave)
   const scanningWaveProgress = useSharedValue(0);
 
   // Stretch animation for detach
   const stretchScaleY = useSharedValue(1);
   const stretchScaleX = useSharedValue(1);
+  const pullToDetachOpacity = useSharedValue(0); // Opacity for "Pull to Detach" message
   const hasDetached = useRef(false); // Track if detach already happened during this gesture
 
   // Clear auto-dismiss timer
@@ -158,6 +180,8 @@ export function WagerBotSuggestionBubble({
       // Reset and start typewriter animation
       setDisplayedText('');
       setIsTyping(true);
+      setMeasuredTextHeight(MIN_SUGGESTION_CONTENT_HEIGHT); // Reset height for new suggestion
+      setNeedsScroll(false);
       clearTypewriterTimer();
 
       let currentIndex = 0;
@@ -165,9 +189,19 @@ export function WagerBotSuggestionBubble({
         if (currentIndex < suggestion.length) {
           setDisplayedText(suggestion.substring(0, currentIndex + 1));
           currentIndex++;
+
+          // Auto-scroll to bottom as text types (when content exceeds max height)
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollToEnd({ animated: false });
+          }
+
           typewriterTimer.current = setTimeout(animateNextChar, TYPEWRITER_SPEED);
         } else {
           setIsTyping(false);
+          // Final scroll to ensure we're at the bottom
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollToEnd({ animated: true });
+          }
         }
       };
 
@@ -180,6 +214,8 @@ export function WagerBotSuggestionBubble({
     } else if (!visible) {
       setDisplayedText('');
       setIsTyping(false);
+      setMeasuredTextHeight(MIN_SUGGESTION_CONTENT_HEIGHT); // Reset height when hidden
+      setNeedsScroll(false);
       clearTypewriterTimer();
     }
   }, [mode, visible, suggestion, clearTypewriterTimer]);
@@ -357,6 +393,9 @@ export function WagerBotSuggestionBubble({
           stretchScaleY.value = scaleY;
           stretchScaleX.value = scaleX;
 
+          // Fade out content, fade in "Pull to Detach" message
+          pullToDetachOpacity.value = stretchProgress;
+
           // Light haptic feedback as user stretches
           if (stretchProgress > 0.3 && stretchProgress < 0.35) {
             runOnJS(triggerStretchHaptic)();
@@ -364,6 +403,9 @@ export function WagerBotSuggestionBubble({
           if (stretchProgress > 0.6 && stretchProgress < 0.65) {
             runOnJS(triggerStretchHaptic)();
           }
+        } else {
+          // Reset opacity when not stretching enough
+          pullToDetachOpacity.value = 0;
         }
 
         // Auto-detach when threshold reached (no need to lift finger)
@@ -393,18 +435,26 @@ export function WagerBotSuggestionBubble({
           stiffness: 180,
           mass: 0.5,
         });
+        // Fade content back in
+        pullToDetachOpacity.value = withTiming(0, { duration: 150 });
         runOnJS(resetDetachFlags)();
       }
     });
 
-  // Animated styles
+  // Animated styles - outer container moves but doesn't scale
   const containerStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: panTranslateY.value },
+    ],
+    opacity: opacity.value,
+  }));
+
+  // Background stretch animation (only affects SVG/background, not content)
+  const backgroundStretchStyle = useAnimatedStyle(() => ({
+    transform: [
       { scaleY: stretchScaleY.value },
       { scaleX: stretchScaleX.value },
     ],
-    opacity: opacity.value,
   }));
 
   // Android fallback background style (SVG clip paths don't work well on Android)
@@ -412,18 +462,26 @@ export function WagerBotSuggestionBubble({
     opacity: fillProgress.value,
   }));
 
+  // Max possible bubble height for clip ellipse animation
+  const maxPossibleBubbleHeight = insets.top + MAX_SUGGESTION_CONTENT_HEIGHT;
+
   const clipEllipseProps = useAnimatedProps(() => {
     const rx = interpolate(fillProgress.value, [0, 1], [0, SCREEN_WIDTH]);
-    const ry = interpolate(fillProgress.value, [0, 1], [0, TOTAL_BUBBLE_HEIGHT + 40]);
+    const ry = interpolate(fillProgress.value, [0, 1], [0, maxPossibleBubbleHeight + 40]);
     return { rx, ry };
   });
 
   const contentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
+    opacity: contentOpacity.value * (1 - pullToDetachOpacity.value),
   }));
 
   const iconStyle = useAnimatedStyle(() => ({
-    opacity: iconColorProgress.value,
+    opacity: iconColorProgress.value * (1 - pullToDetachOpacity.value),
+  }));
+
+  // Style for "Pull to Detach" message
+  const pullToDetachStyle = useAnimatedStyle(() => ({
+    opacity: pullToDetachOpacity.value,
   }));
 
   const countdownCircleProps = useAnimatedProps(() => ({
@@ -504,14 +562,36 @@ export function WagerBotSuggestionBubble({
       );
     }
 
-    // Suggestion mode - compact two-row layout with typewriter effect
+    // Suggestion mode - dynamic height layout with typewriter effect and auto-scroll
     return (
       <View style={styles.suggestionContent}>
         <Animated.View style={[styles.textContainer, contentStyle]}>
-          <Text style={styles.suggestionText} numberOfLines={3}>
-            {displayedText}
-            {isTyping && <Text style={styles.cursor}>|</Text>}
-          </Text>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.textScrollView}
+            contentContainerStyle={styles.textScrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            scrollEnabled={needsScroll}
+          >
+            <View
+              onLayout={(event) => {
+                const { height } = event.nativeEvent.layout;
+                // Add padding for container
+                const newHeight = height + 30;
+                if (newHeight !== measuredTextHeight) {
+                  setMeasuredTextHeight(newHeight);
+                  // Enable scrolling if content exceeds max height
+                  setNeedsScroll(newHeight > MAX_SUGGESTION_CONTENT_HEIGHT);
+                }
+              }}
+            >
+              <Text style={styles.suggestionText}>
+                {displayedText}
+                {isTyping && <Text style={styles.cursor}>|</Text>}
+              </Text>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         <View style={styles.iconContainer}>
@@ -566,18 +646,14 @@ export function WagerBotSuggestionBubble({
     <View style={styles.wrapper} pointerEvents="box-none">
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[styles.container, containerStyle]}>
-          <TouchableOpacity
-            activeOpacity={mode === 'suggestion' ? 0.95 : 1}
-            onPress={mode === 'suggestion' ? handleTap : undefined}
-            style={[styles.touchable, { height: TOTAL_BUBBLE_HEIGHT }]}
-            disabled={mode !== 'suggestion'}
-          >
+          {/* Background layer - stretches during pull */}
+          <Animated.View style={[styles.backgroundLayer, { height: totalBubbleHeight }, backgroundStretchStyle]}>
             {/* Android fallback: Simple animated background (SVG clip paths unreliable on Android) */}
             {Platform.OS === 'android' && (
               <Animated.View
                 style={[
                   styles.androidBackground,
-                  { height: TOTAL_BUBBLE_HEIGHT },
+                  { height: totalBubbleHeight },
                   androidBackgroundStyle,
                 ]}
               />
@@ -587,7 +663,7 @@ export function WagerBotSuggestionBubble({
             {Platform.OS === 'ios' && (
               <Svg
                 width={SCREEN_WIDTH}
-                height={TOTAL_BUBBLE_HEIGHT}
+                height={totalBubbleHeight}
                 style={styles.svgContainer}
               >
                 <Defs>
@@ -604,7 +680,7 @@ export function WagerBotSuggestionBubble({
                   x={0}
                   y={0}
                   width={SCREEN_WIDTH}
-                  height={TOTAL_BUBBLE_HEIGHT}
+                  height={totalBubbleHeight}
                   rx={20}
                   ry={20}
                   fill="#000000"
@@ -612,62 +688,75 @@ export function WagerBotSuggestionBubble({
                 />
               </Svg>
             )}
+          </Animated.View>
 
-            {/* Content overlay */}
-            <View style={[styles.contentOverlay, { paddingTop: insets.top }]}>
-              <View style={[styles.contentArea, { height: BUBBLE_CONTENT_HEIGHT }]}>
-                {renderContent()}
-              </View>
+          {/* Content layer - does NOT stretch, stays fixed */}
+          <TouchableOpacity
+            activeOpacity={mode === 'suggestion' ? 0.95 : 1}
+            onPress={mode === 'suggestion' ? handleTap : undefined}
+            style={[styles.contentTouchable, { height: totalBubbleHeight, paddingTop: insets.top }]}
+            disabled={mode !== 'suggestion'}
+          >
+            <View style={[styles.contentArea, { height: currentContentHeight }]}>
+              {renderContent()}
             </View>
 
-            {/* Scanning mode - Fluid wave animation from top center */}
-            {mode === 'scanning' && (
-              <View style={styles.waveOverlay} pointerEvents="none">
-                <Svg width={SCREEN_WIDTH} height={SCREEN_HEIGHT}>
-                  {/* Trailing shadow waves (thicker, more opaque tail) */}
-                  <AnimatedEllipse
-                    cx={SCREEN_WIDTH / 2}
-                    cy={0}
-                    animatedProps={scanningWaveTrail3Props}
-                    fill="none"
-                    stroke={WAGERPROOF_GREEN}
-                    strokeWidth={25}
-                    opacity={0.15}
-                  />
-                  <AnimatedEllipse
-                    cx={SCREEN_WIDTH / 2}
-                    cy={0}
-                    animatedProps={scanningWaveTrail2Props}
-                    fill="none"
-                    stroke={WAGERPROOF_GREEN}
-                    strokeWidth={18}
-                    opacity={0.25}
-                  />
-                  <AnimatedEllipse
-                    cx={SCREEN_WIDTH / 2}
-                    cy={0}
-                    animatedProps={scanningWaveTrail1Props}
-                    fill="none"
-                    stroke={WAGERPROOF_GREEN}
-                    strokeWidth={10}
-                    opacity={0.4}
-                  />
-                  {/* Main wave (bright leading edge) */}
-                  <AnimatedEllipse
-                    cx={SCREEN_WIDTH / 2}
-                    cy={0}
-                    animatedProps={scanningWaveProps}
-                    fill="none"
-                    stroke={WAGERPROOF_GREEN}
-                    strokeWidth={4}
-                    opacity={1}
-                  />
-                </Svg>
-              </View>
+            {/* "Pull to Detach" message - fades in as user pulls down */}
+            {onDetach && (
+              <Animated.View style={[styles.pullToDetachContainer, { height: currentContentHeight }, pullToDetachStyle]} pointerEvents="none">
+                <MaterialCommunityIcons name="arrow-down" size={20} color={WAGERPROOF_GREEN} />
+                <Text style={styles.pullToDetachText}>Pull to Detach</Text>
+              </Animated.View>
             )}
           </TouchableOpacity>
         </Animated.View>
       </GestureDetector>
+
+      {/* Scanning mode - Fluid wave animation from top center (outside clipped container) */}
+      {mode === 'scanning' && (
+        <View style={styles.waveOverlay} pointerEvents="none">
+          <Svg width={SCREEN_WIDTH} height={SCREEN_HEIGHT}>
+            {/* Trailing shadow waves (thicker, more opaque tail) */}
+            <AnimatedEllipse
+              cx={SCREEN_WIDTH / 2}
+              cy={0}
+              animatedProps={scanningWaveTrail3Props}
+              fill="none"
+              stroke={WAGERPROOF_GREEN}
+              strokeWidth={25}
+              opacity={0.15}
+            />
+            <AnimatedEllipse
+              cx={SCREEN_WIDTH / 2}
+              cy={0}
+              animatedProps={scanningWaveTrail2Props}
+              fill="none"
+              stroke={WAGERPROOF_GREEN}
+              strokeWidth={18}
+              opacity={0.25}
+            />
+            <AnimatedEllipse
+              cx={SCREEN_WIDTH / 2}
+              cy={0}
+              animatedProps={scanningWaveTrail1Props}
+              fill="none"
+              stroke={WAGERPROOF_GREEN}
+              strokeWidth={10}
+              opacity={0.4}
+            />
+            {/* Main wave (bright leading edge) */}
+            <AnimatedEllipse
+              cx={SCREEN_WIDTH / 2}
+              cy={0}
+              animatedProps={scanningWaveProps}
+              fill="none"
+              stroke={WAGERPROOF_GREEN}
+              strokeWidth={4}
+              opacity={1}
+            />
+          </Svg>
+        </View>
+      )}
     </View>
   );
 }
@@ -683,6 +772,21 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
+  },
+  // Background layer - receives stretch transform
+  backgroundLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    transformOrigin: 'top center',
+  },
+  // Content layer - overlays background, does NOT stretch
+  contentTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
   touchable: {
     width: '100%',
@@ -782,6 +886,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  textScrollView: {
+    flex: 1,
+  },
+  textScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   suggestionText: {
     color: '#FFFFFF',
     fontSize: 14,
@@ -791,6 +902,22 @@ const styles = StyleSheet.create({
   cursor: {
     color: WAGERPROOF_GREEN,
     fontWeight: '300',
+  },
+  // Pull to detach message overlay
+  pullToDetachContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pullToDetachText: {
+    color: WAGERPROOF_GREEN,
+    fontSize: 14,
+    fontWeight: '600',
   },
   // Drawer handle at bottom of bubble
   drawerHandleContainer: {
