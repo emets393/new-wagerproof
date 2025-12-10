@@ -228,34 +228,34 @@ const EditorPickCard = () => (
 
 // --- New Widgets for Screen 4: Discord Community ---
 const DiscordCard = () => (
-  <View style={[styles.widgetCardContainer, { width: 280, height: 240, padding: 0, overflow: 'hidden' }]}>
-    <View style={{ padding: 16, backgroundColor: '#5865F2', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <MaterialCommunityIcons name="gamepad-variant" size={20} color="#fff" />
-      <Text style={{ color: '#fff', fontWeight: 'bold' }}># sharp-plays</Text>
+  <View style={styles.discordCard}>
+    <View style={styles.discordHeader}>
+      <MaterialCommunityIcons name="pound" size={20} color="#fff" />
+      <Text style={styles.discordChannelName}>sharp-plays</Text>
     </View>
-    
-    <View style={{ padding: 16, gap: 16 }}>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#FF4081' }} />
-        <View>
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>SharpShooter</Text>
-          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Hitting the over on LeBron props tonight 🔥</Text>
-        </View>
-      </View>
-      
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#00E5FF' }} />
-        <View>
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>DataDave</Text>
-          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Model agrees. 5 star value.</Text>
+
+    <View style={styles.discordMessagesContainer}>
+      <View style={styles.discordMessageRow}>
+        <View style={[styles.discordAvatar, { backgroundColor: '#FF4081' }]} />
+        <View style={styles.discordMessageContent}>
+          <Text style={styles.discordUsername}>SharpShooter</Text>
+          <Text style={styles.discordMessageText}>Hitting the over on LeBron props tonight</Text>
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 10, opacity: 0.5 }}>
-        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#00BFA5' }} />
-        <View>
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>WinBot</Text>
-          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>New alert: Line movement detected...</Text>
+      <View style={styles.discordMessageRow}>
+        <View style={[styles.discordAvatar, { backgroundColor: '#00E5FF' }]} />
+        <View style={styles.discordMessageContent}>
+          <Text style={styles.discordUsername}>DataDave</Text>
+          <Text style={styles.discordMessageText}>Model agrees. 5 star value.</Text>
+        </View>
+      </View>
+
+      <View style={[styles.discordMessageRow, { opacity: 0.5 }]}>
+        <View style={[styles.discordAvatar, { backgroundColor: '#00BFA5' }]} />
+        <View style={styles.discordMessageContent}>
+          <Text style={styles.discordUsername}>WinBot</Text>
+          <Text style={styles.discordMessageText}>New alert: Line movement detected...</Text>
         </View>
       </View>
     </View>
@@ -264,6 +264,8 @@ const DiscordCard = () => (
 
 
 // --- Visual Containers ---
+
+const isAndroid = Platform.OS === 'android';
 
 const ScreenVisuals = ({ isActive, type }: { isActive: boolean, type: string }) => {
   const animValue = useRef(new Animated.Value(0)).current;
@@ -316,13 +318,16 @@ const ScreenVisuals = ({ isActive, type }: { isActive: boolean, type: string }) 
   }
 
   if (type === 'screen-2') {
-    const mainCardTransform = {
+    const mainCardTransform: any = {
       transform: [
         { translateY: animValue.interpolate({ inputRange: [0, 1], outputRange: [0, -15] }) },
         { scale: animValue.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }
       ],
-      opacity: animValue.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 1, 1] })
     };
+    // Only add opacity animation on iOS
+    if (!isAndroid) {
+      mainCardTransform.opacity = animValue.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 1, 1] });
+    }
     return (
       <View style={styles.visualsWrapper}>
         <Animated.View style={[styles.floatingWidgetWrapper, mainCardTransform]}>
@@ -333,13 +338,16 @@ const ScreenVisuals = ({ isActive, type }: { isActive: boolean, type: string }) 
   }
 
   if (type === 'screen-3') {
-    const cardTransform = {
+    const cardTransform: any = {
       transform: [
         { rotate: animValue.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['-2deg', '2deg', '-1deg'] }) },
         { translateY: animValue.interpolate({ inputRange: [0, 1], outputRange: [0, -15] }) }
       ],
-      opacity: animValue.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 1, 1] })
     };
+    // Only add opacity animation on iOS
+    if (!isAndroid) {
+      cardTransform.opacity = animValue.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 1, 1] });
+    }
     return (
       <View style={styles.visualsWrapper}>
         <Animated.View style={[styles.floatingWidgetWrapper, cardTransform]}>
@@ -350,13 +358,16 @@ const ScreenVisuals = ({ isActive, type }: { isActive: boolean, type: string }) 
   }
 
   if (type === 'screen-4') {
-    const cardTransform = {
+    const cardTransform: any = {
       transform: [
         { translateY: animValue.interpolate({ inputRange: [0, 1], outputRange: [30, -10] }) },
         { scale: animValue.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }
       ],
-      opacity: animValue.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] })
     };
+    // Only add opacity animation on iOS
+    if (!isAndroid) {
+      cardTransform.opacity = animValue.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] });
+    }
     return (
       <View style={styles.visualsWrapper}>
         <Animated.View style={[styles.floatingWidgetWrapper, cardTransform]}>
@@ -445,12 +456,50 @@ const ProgressBarFill = ({ isActive, isPast, duration, paused }: ProgressBarFill
   });
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
-        styles.progressSegmentFill, 
+        styles.progressSegmentFill,
         { width: widthInterpolated }
-      ]} 
+      ]}
     />
+  );
+};
+
+// Animated slide content wrapper for smooth page transitions
+const AnimatedSlideContent = ({
+  children,
+  currentIndex,
+}: {
+  children: React.ReactNode;
+  currentIndex: number;
+}) => {
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const prevIndexRef = useRef(currentIndex);
+
+  useEffect(() => {
+    if (prevIndexRef.current !== currentIndex) {
+      const goingForward = currentIndex > prevIndexRef.current ||
+        (prevIndexRef.current === ONBOARDING_SCREENS.length - 1 && currentIndex === 0);
+
+      // Start from off-screen in the direction we're coming from
+      slideAnim.setValue(goingForward ? screenWidth * 0.3 : -screenWidth * 0.3);
+
+      // Spring animate to center
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 12,
+      }).start();
+
+      prevIndexRef.current = currentIndex;
+    }
+  }, [currentIndex]);
+
+  return (
+    <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
+      {children}
+    </Animated.View>
   );
 };
 
@@ -572,31 +621,35 @@ export default function LoginScreen() {
 
       {/* Content Layer */}
       <View style={[styles.contentContainer, { paddingBottom: insets.bottom + 20 }]} pointerEvents="box-none">
-        
+
         {/* Visuals Container */}
         <View style={styles.floatingVisualsContainer} pointerEvents="none">
-          {/* Render custom visual if defined for the screen */}
-          {currentScreen.visual ? (
-             <ScreenVisuals key={`visual-${currentIndex}`} isActive={true} type={currentScreen.visual} />
-          ) : (
-             // Fallback for non-video screens without specific visual
-             !isVideo && (
-              <Animated.View style={styles.floatingCard}>
-                 <View style={styles.cardHeader}>
-                   <View style={styles.cardBadge}><Text style={styles.cardBadgeText}>+1.5 CIN</Text></View>
-                   <Text style={styles.cardText}>69% CIN</Text>
-                 </View>
-                 <View style={styles.cardGraph} />
-              </Animated.View>
-             )
-          )}
+          <AnimatedSlideContent currentIndex={currentIndex}>
+            {/* Render custom visual if defined for the screen */}
+            {currentScreen.visual ? (
+               <ScreenVisuals key={`visual-${currentIndex}`} isActive={true} type={currentScreen.visual} />
+            ) : (
+               // Fallback for non-video screens without specific visual
+               !isVideo && (
+                <Animated.View style={styles.floatingCard}>
+                   <View style={styles.cardHeader}>
+                     <View style={styles.cardBadge}><Text style={styles.cardBadgeText}>+1.5 CIN</Text></View>
+                     <Text style={styles.cardText}>69% CIN</Text>
+                   </View>
+                   <View style={styles.cardGraph} />
+                </Animated.View>
+               )
+            )}
+          </AnimatedSlideContent>
         </View>
 
         {/* Text Content */}
-        <View style={styles.textContainer} pointerEvents="none">
-          <Text style={styles.title}>{currentScreen.title}</Text>
-          <Text style={styles.subtitle}>{currentScreen.subtitle}</Text>
-        </View>
+        <AnimatedSlideContent currentIndex={currentIndex}>
+          <View style={styles.textContainer} pointerEvents="none">
+            <Text style={styles.title}>{currentScreen.title}</Text>
+            <Text style={styles.subtitle}>{currentScreen.subtitle}</Text>
+          </View>
+        </AnimatedSlideContent>
 
         {/* Auth Buttons */}
         <View 
@@ -1004,5 +1057,66 @@ const styles = StyleSheet.create({
   termsLink: {
     color: '#fff',
     fontWeight: '600',
+  },
+
+  // Discord Card Styles - Cross-platform compatible
+  discordCard: {
+    width: 280,
+    height: 240,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  discordHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#5865F2',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  discordChannelName: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  discordMessagesContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  discordMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  discordAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 10,
+  },
+  discordMessageContent: {
+    flex: 1,
+  },
+  discordUsername: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  discordMessageText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

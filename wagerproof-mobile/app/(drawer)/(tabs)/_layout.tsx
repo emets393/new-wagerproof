@@ -14,6 +14,7 @@ import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
+import { useLiveScores } from '@/hooks/useLiveScores';
 
 function LiveIndicator() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -71,6 +72,7 @@ function FloatingTabBar() {
   const segments = useSegments();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { hasLiveGames } = useLiveScores();
   
   // Hide tab bar on chat screen
   const isOnChatScreen = pathname.includes('/chat') || segments.includes('chat');
@@ -173,9 +175,10 @@ function FloatingTabBar() {
                 style={styles.tabButton}
                 onPress={() => router.push(tab.path as any)}
               >
-            <View style={styles.tabIconContainer}>
-              <MaterialCommunityIcons name={tab.icon as any} size={24} color={color} />
-            </View>
+                <View style={styles.tabIconContainer}>
+                  <MaterialCommunityIcons name={tab.icon as any} size={24} color={color} />
+                  {tab.name === 'scoreboard' && hasLiveGames && <LiveIndicator />}
+                </View>
                 <Text style={[styles.tabLabel, { color }]}>{tab.title}</Text>
               </TouchableOpacity>
             );
@@ -317,6 +320,9 @@ function TabsContent() {
     return 'nfl'; // default
   };
 
+  // Check if on scoreboard page to hide scan feature
+  const isOnScoreboard = pathname.includes('/scoreboard');
+
   return (
     <>
       {/* WagerBot Suggestion Bubble - Available on all tab pages */}
@@ -336,6 +342,7 @@ function TabsContent() {
             router.push('/chat' as any);
           }}
           onDetach={(x, y) => detachBubble(x, y)}
+          hideScanPage={isOnScoreboard}
         />
       )}
       <Tabs

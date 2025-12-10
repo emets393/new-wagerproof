@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -91,6 +92,7 @@ interface WagerBotSuggestionBubbleProps {
   onScanPage: () => void;
   onOpenChat: () => void;
   onDetach?: (x: number, y: number) => void; // Callback when user pulls down to detach (passes finger release coordinates)
+  hideScanPage?: boolean; // Hide the "Scan this page" option (e.g., on scoreboard)
 }
 
 export function WagerBotSuggestionBubble({
@@ -104,6 +106,7 @@ export function WagerBotSuggestionBubble({
   onScanPage,
   onOpenChat,
   onDetach,
+  hideScanPage = false,
 }: WagerBotSuggestionBubbleProps) {
   const insets = useSafeAreaInsets();
   const autoDismissTimer = useRef<NodeJS.Timeout | null>(null);
@@ -404,6 +407,11 @@ export function WagerBotSuggestionBubble({
     opacity: opacity.value,
   }));
 
+  // Android fallback background style (SVG clip paths don't work well on Android)
+  const androidBackgroundStyle = useAnimatedStyle(() => ({
+    opacity: fillProgress.value,
+  }));
+
   const clipEllipseProps = useAnimatedProps(() => {
     const rx = interpolate(fillProgress.value, [0, 1], [0, SCREEN_WIDTH]);
     const ry = interpolate(fillProgress.value, [0, 1], [0, TOTAL_BUBBLE_HEIGHT + 40]);
@@ -464,14 +472,16 @@ export function WagerBotSuggestionBubble({
     if (mode === 'menu') {
       return (
         <Animated.View style={[styles.menuContent, contentStyle]}>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={handleScanPage}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons name="magnify-scan" size={18} color="#000000" />
-            <Text style={styles.menuButtonText}>Scan this page</Text>
-          </TouchableOpacity>
+          {!hideScanPage && (
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={handleScanPage}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="magnify-scan" size={18} color="#000000" />
+              <Text style={styles.menuButtonText}>Scan this page</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.menuButton}
@@ -559,36 +569,49 @@ export function WagerBotSuggestionBubble({
           <TouchableOpacity
             activeOpacity={mode === 'suggestion' ? 0.95 : 1}
             onPress={mode === 'suggestion' ? handleTap : undefined}
-            style={styles.touchable}
+            style={[styles.touchable, { height: TOTAL_BUBBLE_HEIGHT }]}
             disabled={mode !== 'suggestion'}
           >
-            {/* SVG with clip path for fluid fill effect */}
-            <Svg
-              width={SCREEN_WIDTH}
-              height={TOTAL_BUBBLE_HEIGHT}
-              style={styles.svgContainer}
-            >
-              <Defs>
-                <ClipPath id="fluidClip">
-                  <AnimatedEllipse
-                    cx={SCREEN_WIDTH / 2}
-                    cy={0}
-                    animatedProps={clipEllipseProps}
-                  />
-                </ClipPath>
-              </Defs>
+            {/* Android fallback: Simple animated background (SVG clip paths unreliable on Android) */}
+            {Platform.OS === 'android' && (
+              <Animated.View
+                style={[
+                  styles.androidBackground,
+                  { height: TOTAL_BUBBLE_HEIGHT },
+                  androidBackgroundStyle,
+                ]}
+              />
+            )}
 
-              <Rect
-                x={0}
-                y={0}
+            {/* iOS: SVG with clip path for fluid fill effect */}
+            {Platform.OS === 'ios' && (
+              <Svg
                 width={SCREEN_WIDTH}
                 height={TOTAL_BUBBLE_HEIGHT}
-                rx={20}
-                ry={20}
-                fill="#000000"
-                clipPath="url(#fluidClip)"
-              />
-            </Svg>
+                style={styles.svgContainer}
+              >
+                <Defs>
+                  <ClipPath id="fluidClip">
+                    <AnimatedEllipse
+                      cx={SCREEN_WIDTH / 2}
+                      cy={0}
+                      animatedProps={clipEllipseProps}
+                    />
+                  </ClipPath>
+                </Defs>
+
+                <Rect
+                  x={0}
+                  y={0}
+                  width={SCREEN_WIDTH}
+                  height={TOTAL_BUBBLE_HEIGHT}
+                  rx={20}
+                  ry={20}
+                  fill="#000000"
+                  clipPath="url(#fluidClip)"
+                />
+              </Svg>
+            )}
 
             {/* Content overlay */}
             <View style={[styles.contentOverlay, { paddingTop: insets.top }]}>
@@ -668,6 +691,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+  },
+  // Android fallback background (SVG clip paths don't work reliably)
+  androidBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#000000',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   contentOverlay: {
     position: 'absolute',
