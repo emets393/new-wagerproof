@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   Platform,
   ActivityIndicator,
   RefreshControl,
@@ -32,101 +33,103 @@ import Markdown from 'react-native-markdown-display';
 import { chatSessionManager, ChatMessage } from '../utils/chatSessionManager';
 import { chatThreadService } from '../services/chatThreadService';
 
-// Animated character component for streaming text fade-in effect
-const AnimatedChar = React.memo(({ 
-  char, 
+// Animated word component for streaming text fade-in effect (optimized from per-character)
+const AnimatedWord = React.memo(({
+  word,
   shouldAnimate,
   animationDelay,
-  color 
-}: { 
-  char: string; 
+  color
+}: {
+  word: string;
   shouldAnimate: boolean;
   animationDelay: number;
   color: string;
 }) => {
   const opacity = useSharedValue(shouldAnimate ? 0 : 1);
-  
+
   useEffect(() => {
     if (shouldAnimate) {
       opacity.value = withDelay(
-        animationDelay, 
-        withTiming(1, { 
-          duration: 120,
+        animationDelay,
+        withTiming(1, {
+          duration: 150,
           easing: Easing.out(Easing.ease),
         })
       );
     }
   }, [shouldAnimate, animationDelay]);
-  
-  const animatedStyle = useAnimatedStyle(() => ({ 
-    opacity: opacity.value 
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value
   }));
-  
+
   return (
     <ReanimatedAnimated.Text style={[{ color }, animatedStyle]}>
-      {char}
+      {word}
     </ReanimatedAnimated.Text>
   );
-}, (prev, next) => 
-  prev.char === next.char && 
-  prev.shouldAnimate === next.shouldAnimate && 
+}, (prev, next) =>
+  prev.word === next.word &&
+  prev.shouldAnimate === next.shouldAnimate &&
   prev.color === next.color
 );
 
-// Streaming text component with per-character fade-in animation
+// Streaming text component with word-by-word fade-in animation (optimized from per-character)
 interface AnimatedStreamingTextProps {
   text: string;
   color: string;
   isStreaming: boolean;
 }
 
-const AnimatedStreamingText: React.FC<AnimatedStreamingTextProps> = React.memo(({ 
-  text, 
+const AnimatedStreamingText: React.FC<AnimatedStreamingTextProps> = React.memo(({
+  text,
   color,
-  isStreaming 
+  isStreaming
 }) => {
-  // Track how many characters were rendered in previous renders
-  const prevLengthRef = useRef(0);
-  // Track which indices have started animating (to prevent re-animation on re-render)
+  // Track how many words were rendered in previous renders
+  const prevWordCountRef = useRef(0);
+  // Track which word indices have started animating (to prevent re-animation on re-render)
   const animatingIndicesRef = useRef<Set<number>>(new Set());
-  
-  const characters = text.split('');
-  const prevLength = prevLengthRef.current;
-  
+
+  // Split by whitespace but preserve the whitespace in tokens
+  // This creates tokens like ["Hello", " ", "world", " ", "!"]
+  const tokens = text.split(/(\s+)/);
+  const prevWordCount = prevWordCountRef.current;
+
   // After render, update tracking refs
   useEffect(() => {
-    for (let i = prevLength; i < text.length; i++) {
+    for (let i = prevWordCount; i < tokens.length; i++) {
       animatingIndicesRef.current.add(i);
     }
-    prevLengthRef.current = text.length;
-  }, [text.length, prevLength]);
-  
+    prevWordCountRef.current = tokens.length;
+  }, [tokens.length, prevWordCount]);
+
   return (
-    <Text 
-      style={{ 
-        fontSize: 16, 
-        lineHeight: 24, 
+    <Text
+      style={{
+        fontSize: 16,
+        lineHeight: 24,
         flexWrap: 'wrap',
         flexShrink: 1,
         width: '100%',
-        color 
+        color
       }}
     >
-      {characters.map((char, index) => {
-        // Only animate if this is a new character that hasn't been animated yet
-        const isNewChar = index >= prevLength;
+      {tokens.map((token, index) => {
+        // Only animate if this is a new token that hasn't been animated yet
+        const isNewToken = index >= prevWordCount;
         const alreadyAnimated = animatingIndicesRef.current.has(index);
-        const shouldAnimate = isNewChar && !alreadyAnimated;
-        
-        // Stagger delay: 8ms per character, capped at 150ms total for smooth feel
-        const delay = shouldAnimate 
-          ? Math.min((index - prevLength) * 8, 150) 
+        const shouldAnimate = isNewToken && !alreadyAnimated;
+
+        // Stagger delay: 20ms per word, capped at 200ms total for smooth feel
+        const delay = shouldAnimate
+          ? Math.min((index - prevWordCount) * 20, 200)
           : 0;
-        
+
         return (
-          <AnimatedChar
+          <AnimatedWord
             key={index}
-            char={char}
+            word={token}
             shouldAnimate={shouldAnimate}
             animationDelay={delay}
             color={color}
@@ -163,21 +166,38 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const welcomeScrollViewRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
+  // Track if user is at the bottom of the scroll view (for conditional auto-scroll)
+  const isAtBottomRef = useRef(true);
+  const contentHeightRef = useRef(0);
+  const scrollViewHeightRef = useRef(0);
+
+  // Handle scroll event - track position and optionally animate header
+  const handleScrollEvent = useCallback((event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    contentHeightRef.current = contentSize.height;
+    scrollViewHeightRef.current = layoutMeasurement.height;
+
+    // Consider "at bottom" if within 100px of the bottom
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    isAtBottomRef.current = distanceFromBottom < 100;
+  }, []);
+
   // Handle scroll event for header animation
-  const handleScroll = scrollY 
+  const handleScroll = scrollY
     ? Animated.event(
         [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-        { useNativeDriver: true }
+        {
+          useNativeDriver: true,
+          listener: handleScrollEvent, // Also track scroll position
+        }
       )
-    : null;
+    : handleScrollEvent;
 
   // Build scroll props conditionally
-  const scrollProps = handleScroll 
-    ? { 
-        onScroll: handleScroll,
-        scrollEventThrottle: 16 
-      }
-    : {};
+  const scrollProps = {
+    onScroll: handleScroll,
+    scrollEventThrottle: 16,
+  };
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -202,8 +222,31 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   // Animation values for message appearance
   const messageAnimations = useRef<{ [key: string]: Animated.Value }>({});
   const drawerAnimation = useRef(new Animated.Value(300)).current; // Positive for right side
-  
-  
+
+  // Memoized markdown styles to prevent recreation on every render
+  const markdownStyles = useMemo(() => ({
+    body: { color: theme.colors.onSurface, fontSize: 16, lineHeight: 24, flexShrink: 1, flexWrap: 'wrap' as const },
+    paragraph: { marginTop: 0, marginBottom: 12, flexWrap: 'wrap' as const },
+    text: { flexWrap: 'wrap' as const },
+    heading1: { fontSize: 24, fontWeight: 'bold' as const, marginBottom: 12, marginTop: 8, color: theme.colors.onSurface },
+    heading2: { fontSize: 20, fontWeight: 'bold' as const, marginBottom: 10, marginTop: 6, color: theme.colors.onSurface },
+    heading3: { fontSize: 18, fontWeight: 'bold' as const, marginBottom: 8, marginTop: 4, color: theme.colors.onSurface },
+    strong: { fontWeight: 'bold' as const, color: theme.colors.onSurface },
+    em: { fontStyle: 'italic' as const },
+    code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
+    code_block: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+    fence: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
+    link: { color: theme.colors.primary, textDecorationLine: 'underline' as const },
+    blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, paddingLeft: 12, paddingVertical: 8, marginVertical: 8, fontStyle: 'italic' as const },
+    bullet_list: { marginBottom: 8, marginTop: 0 },
+    ordered_list: { marginBottom: 8, marginTop: 0 },
+    list_item: { marginBottom: 4, lineHeight: 24 },
+    table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 12 },
+    th: { backgroundColor: theme.colors.surfaceVariant, padding: 10, fontWeight: 'bold' as const },
+    td: { padding: 10, borderWidth: 1, borderColor: theme.colors.outline },
+    hr: { backgroundColor: theme.colors.outline, height: 1, marginVertical: 16 },
+  }), [theme.colors]);
+
   // Suggested messages
   const suggestedMessages = [
     { label: '📰 Check News', message: 'What are the latest news and updates affecting today\'s games?' },
@@ -427,12 +470,14 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     }
   };
 
-  const toggleHistoryDrawer = () => {
-    setShowHistoryDrawer(!showHistoryDrawer);
-    if (!showHistoryDrawer) {
-      loadChatHistories();
-    }
-  };
+  const toggleHistoryDrawer = useCallback(() => {
+    setShowHistoryDrawer(prev => {
+      if (!prev) {
+        loadChatHistories();
+      }
+      return !prev;
+    });
+  }, []);
 
   const deleteThread = async (threadId: string, threadTitle: string) => {
     Alert.alert(
@@ -477,28 +522,28 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     clearChat,
   }));
 
-  const handleSuggestedMessage = (message: string) => {
+  const handleSuggestedMessage = useCallback((message: string) => {
     if (isLoading || isSending) return;
     setInputText(message);
     // Small delay to show the text before sending
     setTimeout(() => {
       sendMessageWithText(message);
     }, 100);
-  };
+  }, [isLoading, isSending]);
 
-  const handlePickImage = async () => {
+  const handlePickImage = useCallback(async () => {
     try {
       setIsPickingImage(true);
-      
+
       // Request permissions
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
+
       if (!permissionResult.granted) {
         Alert.alert('Permission required', 'Please allow access to your photo library to upload images.');
         setIsPickingImage(false);
         return;
       }
-      
+
       // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -506,18 +551,18 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         quality: 0.8,
         base64: true,
       });
-      
+
       if (!result.canceled && result.assets.length > 0) {
         const asset = result.assets[0];
         const fileName = asset.fileName || `image_${Date.now()}.jpg`;
-        
+
         if (asset.base64) {
-          setSelectedImages([...selectedImages, {
+          setSelectedImages(prev => [...prev, {
             uri: asset.uri,
-            base64: asset.base64,
+            base64: asset.base64!,
             name: fileName,
           }]);
-          
+
           // Give haptic feedback
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
@@ -528,11 +573,11 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     } finally {
       setIsPickingImage(false);
     }
-  };
+  }, []);
 
-  const handleRemoveImage = (index: number) => {
-    setSelectedImages(selectedImages.filter((_, i) => i !== index));
-  };
+  const handleRemoveImage = useCallback((index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
   const sendMessage = async () => {
     if ((!inputText.trim() && selectedImages.length === 0) || isLoading || isSending) return;
@@ -671,31 +716,19 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         let parsedLength = 0;
         let currentContent = '';
         let lastUpdateTime = 0;
+        let lastUIUpdateTime = 0;
         let progressEventCount = 0;
         const startTime = Date.now();
         let pollingInterval: ReturnType<typeof setInterval> | null = null;
-        
-        // Helper function to process new text chunks
-        const processNewText = (newText: string, source: string) => {
-          if (!newText || newText.length === 0) {
-            return;
+        let pendingUIUpdate: ReturnType<typeof setTimeout> | null = null;
+
+        // Batched UI update function - reduces re-renders during streaming
+        const flushUIUpdate = () => {
+          if (pendingUIUpdate) {
+            clearTimeout(pendingUIUpdate);
+            pendingUIUpdate = null;
           }
-          
-          progressEventCount++;
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-          
-          console.log(`🔄 ${source} #${progressEventCount} at ${elapsed}s - New bytes: ${newText.length}, Total: ${parsedLength + newText.length}`);
-          
-          // With Responses API, we get plain text chunks directly
-          // No need to parse SSE format or extract thread IDs
-          currentContent += newText;
-          
-          console.log('📝 Received chunk:', newText.substring(0, 50));
-          console.log(`   Content so far: ${currentContent.length} chars`);
-          
-          // Update UI immediately with new content!
-          const currentTime = Date.now();
-          
+
           setMessages(prev =>
             prev.map(msg =>
               msg.id === assistantMessageId
@@ -703,15 +736,53 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 : msg
             )
           );
-          
+          lastUIUpdateTime = Date.now();
+          setIsStreaming(true);
+        };
+
+        // Schedule a batched UI update (debounced)
+        const scheduleUIUpdate = () => {
+          const now = Date.now();
+          const timeSinceLastUpdate = now - lastUIUpdateTime;
+
+          // If it's been more than 100ms since last update, update immediately
+          if (timeSinceLastUpdate >= 100) {
+            flushUIUpdate();
+          } else if (!pendingUIUpdate) {
+            // Otherwise schedule an update for when 100ms has passed
+            pendingUIUpdate = setTimeout(flushUIUpdate, 100 - timeSinceLastUpdate);
+          }
+        };
+
+        // Helper function to process new text chunks
+        const processNewText = (newText: string, source: string) => {
+          if (!newText || newText.length === 0) {
+            return;
+          }
+
+          progressEventCount++;
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+          console.log(`🔄 ${source} #${progressEventCount} at ${elapsed}s - New bytes: ${newText.length}, Total: ${parsedLength + newText.length}`);
+
+          // With Responses API, we get plain text chunks directly
+          // No need to parse SSE format or extract thread IDs
+          currentContent += newText;
+
+          console.log('📝 Received chunk:', newText.substring(0, 50));
+          console.log(`   Content so far: ${currentContent.length} chars`);
+
+          // Schedule batched UI update (reduces re-renders from every chunk to max 10/sec)
+          scheduleUIUpdate();
+
           // Haptic feedback every 100ms max (smooth but not overwhelming)
+          const currentTime = Date.now();
           if (currentTime - lastUpdateTime > 100) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             lastUpdateTime = currentTime;
           }
-          
-          setIsStreaming(true);
-          console.log('✅ UI updated in real-time, total length:', currentContent.length);
+
+          console.log('✅ UI update scheduled, total length:', currentContent.length);
         };
         
         // iOS: onprogress fires reliably
@@ -752,7 +823,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             } catch (e) {
               // Ignore errors during polling
             }
-          }, 50); // Poll every 50ms for smooth streaming
+          }, 150); // Poll every 150ms (reduced from 50ms for better Android performance)
         }
         
         xhr.onload = async () => {
@@ -761,13 +832,22 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             clearInterval(pollingInterval);
             pollingInterval = null;
           }
-          
+
+          // Clear any pending UI update timeout
+          if (pendingUIUpdate) {
+            clearTimeout(pendingUIUpdate);
+            pendingUIUpdate = null;
+          }
+
           // Process any remaining text that wasn't caught by streaming
           const remainingText = xhr.responseText.substring(parsedLength);
           if (remainingText && remainingText.length > 0) {
             console.log('📝 Processing final chunk:', remainingText.length, 'bytes');
-            processNewText(remainingText, 'Final');
+            currentContent += remainingText; // Add directly instead of calling processNewText
           }
+
+          // Final UI flush to ensure all content is displayed
+          flushUIUpdate();
           
           const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
           console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -877,21 +957,29 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         };
         
         xhr.onerror = () => {
-          // Clear Android polling interval
+          // Clear Android polling interval and pending UI updates
           if (pollingInterval) {
             clearInterval(pollingInterval);
             pollingInterval = null;
+          }
+          if (pendingUIUpdate) {
+            clearTimeout(pendingUIUpdate);
+            pendingUIUpdate = null;
           }
           console.error('❌ XHR error');
           setIsStreaming(false);
           reject(new Error('Network request failed'));
         };
-        
+
         xhr.ontimeout = () => {
-          // Clear Android polling interval
+          // Clear Android polling interval and pending UI updates
           if (pollingInterval) {
             clearInterval(pollingInterval);
             pollingInterval = null;
+          }
+          if (pendingUIUpdate) {
+            clearTimeout(pendingUIUpdate);
+            pendingUIUpdate = null;
           }
           console.error('❌ XHR timeout');
           setIsStreaming(false);
@@ -1092,7 +1180,10 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                   />
                 }
                 onContentSizeChange={() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                  // Only auto-scroll if user is at or near the bottom
+                  if (isAtBottomRef.current) {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }
                 }}
               >
               {messages.map((message, index) => {
@@ -1192,30 +1283,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                                 width: '100%' 
                             }}
                           >
-                            <Markdown
-                              style={{
-                                body: { color: theme.colors.onSurface, fontSize: 16, lineHeight: 24, flexShrink: 1, flexWrap: 'wrap' },
-                                paragraph: { marginTop: 0, marginBottom: 12, flexWrap: 'wrap' },
-                                text: { flexWrap: 'wrap' },
-                                heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 12, marginTop: 8, color: theme.colors.onSurface },
-                                heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, marginTop: 6, color: theme.colors.onSurface },
-                                heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, marginTop: 4, color: theme.colors.onSurface },
-                                strong: { fontWeight: 'bold', color: theme.colors.onSurface },
-                                em: { fontStyle: 'italic' },
-                                code_inline: { backgroundColor: theme.colors.surfaceVariant, color: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 },
-                                code_block: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                                fence: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 8, marginVertical: 12, color: '#d4d4d4', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 13 },
-                                link: { color: theme.colors.primary, textDecorationLine: 'underline' },
-                                blockquote: { backgroundColor: theme.colors.surfaceVariant, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, paddingLeft: 12, paddingVertical: 8, marginVertical: 8, fontStyle: 'italic' },
-                                bullet_list: { marginBottom: 8, marginTop: 0 },
-                                ordered_list: { marginBottom: 8, marginTop: 0 },
-                                list_item: { marginBottom: 4, lineHeight: 24 },
-                                table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, marginVertical: 12 },
-                                th: { backgroundColor: theme.colors.surfaceVariant, padding: 10, fontWeight: 'bold' },
-                                td: { padding: 10, borderWidth: 1, borderColor: theme.colors.outline },
-                                hr: { backgroundColor: theme.colors.outline, height: 1, marginVertical: 16 },
-                              }}
-                            >
+                            <Markdown style={markdownStyles}>
                               {message.content}
                             </Markdown>
                           </ReanimatedAnimated.View>

@@ -17,6 +17,7 @@ import { fetchOdds, findMatchingEvent, getSportKey, getAllFreeUSBookmakers } fro
 import { generateBetslipLinks } from '@/utils/betslipLinkGenerator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAdminMode } from '@/contexts/AdminModeContext';
 
 interface SportsbookButtonsProps {
   pickId: string;
@@ -50,6 +51,7 @@ export function SportsbookButtons({
   compact = false,
 }: SportsbookButtonsProps) {
   const { toast } = useToast();
+  const { adminModeEnabled } = useAdminMode();
   const [loading, setLoading] = useState(false);
   const [betslipLinks, setBetslipLinks] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -159,22 +161,28 @@ export function SportsbookButtons({
       } catch (err: any) {
         console.error('Error loading odds:', err);
         hasAttemptedFetch.current = false; // Reset on error so it can retry
-        
+
         // Handle quota exceeded error specifically
         if (err?.isQuotaExceeded || err?.message?.includes('quota')) {
           setError('API quota exceeded');
-          toast({
-            title: 'API Limit Reached',
-            description: 'The Odds API quota has been exceeded. Please upgrade your plan or try again later.',
-            variant: 'destructive',
-          });
+          // Only show toast to admins
+          if (adminModeEnabled) {
+            toast({
+              title: 'API Limit Reached',
+              description: 'The Odds API quota has been exceeded. Please upgrade your plan or try again later.',
+              variant: 'destructive',
+            });
+          }
         } else {
           setError('Failed to load sportsbook links');
-          toast({
-            title: 'Error',
-            description: err?.message || 'Failed to load sportsbook links. Please try again.',
-            variant: 'destructive',
-          });
+          // Only show toast to admins
+          if (adminModeEnabled) {
+            toast({
+              title: 'Error',
+              description: err?.message || 'Failed to load sportsbook links. Please try again.',
+              variant: 'destructive',
+            });
+          }
         }
       } finally {
         setLoading(false);
@@ -209,23 +217,22 @@ export function SportsbookButtons({
   }
 
   if (error || Object.keys(betslipLinks).length === 0) {
-    // Don't show anything if no links are found, unless it's a quota error
+    // Don't show anything if no links are found
+    // Only show quota error UI to admins
     const isQuotaError = error?.includes('quota') || error?.includes('quota exceeded');
-    
-    if (!isQuotaError) {
+
+    if (!isQuotaError || !adminModeEnabled) {
       return null;
     }
-    
+
     return (
       <div className="text-sm py-2">
-        {isQuotaError ? (
-          <div className="space-y-2">
-            <div className="text-destructive font-medium">API Quota Exceeded</div>
-            <div className="text-muted-foreground text-xs">
-              The Odds API quota has been reached. Please upgrade your plan or try again later.
-            </div>
+        <div className="space-y-2">
+          <div className="text-destructive font-medium">API Quota Exceeded</div>
+          <div className="text-muted-foreground text-xs">
+            The Odds API quota has been reached. Please upgrade your plan or try again later.
           </div>
-        ) : null}
+        </div>
       </div>
     );
   }
