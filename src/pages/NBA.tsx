@@ -36,6 +36,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Input } from '@/components/ui/input';
 import { getNBATeamColors, getNBATeamInitials } from '@/utils/teamColors';
 import { useSportsPageCache } from '@/hooks/useSportsPageCache';
+import { MatchupOverviewModal } from '@/components/MatchupOverviewModal';
 
 interface NBAPrediction {
   id: string;
@@ -50,6 +51,9 @@ interface NBAPrediction {
   game_time: string;
   training_key: string;
   unique_id: string;
+  game_id?: number;
+  home_team_id?: number | null;
+  away_team_id?: number | null;
   // Model predictions
   home_away_ml_prob: number | null;
   home_away_spread_cover_prob: number | null;
@@ -110,6 +114,9 @@ export default function NBA() {
   
   // Modal state - tracks which game is selected for modal
   const [selectedGameForModal, setSelectedGameForModal] = useState<NBAPrediction | null>(null);
+  
+  // Matchup Overview Modal state
+  const [selectedGameForMatchup, setSelectedGameForMatchup] = useState<NBAPrediction | null>(null);
   
   // Match simulator UI states per game id
   const [simLoadingById, setSimLoadingById] = useState<Record<string, boolean>>({});
@@ -433,7 +440,7 @@ ${contextParts}
       debug.log('📊 Querying nba_input_values_view for all games...');
       const { data: nbaGames, error: gamesError } = await collegeFootballSupabase
         .from('nba_input_values_view')
-        .select('*')
+        .select('game_id, game_date, home_team, away_team, home_team_id, away_team_id, home_moneyline, home_spread, total_line, tipoff_time_et, season, game_type, home_abbr, away_abbr, *')
         .order('game_date', { ascending: true })
         .order('tipoff_time_et', { ascending: true });
 
@@ -498,12 +505,36 @@ ${contextParts}
       }));
       
       setTeamMappings(teamMappings);
+      
+      // Create a lookup map by team name for fallback team_id lookup
+      const teamIdByName = new Map<string, number>();
+      teamMappings.forEach(team => {
+        if (team.team_name && team.team_id) {
+          teamIdByName.set(team.team_name.toLowerCase(), team.team_id);
+        }
+      });
 
       // Step 4: Merge games with predictions
       // game_id in nba_input_values_view = game_id in nba_predictions
       const predictionsWithData = (nbaGames || []).map((game) => {
         const prediction = predictionsMap.get(game.game_id);
         const gameIdStr = String(game.game_id);
+        
+        // Debug: Log first game to check available fields
+        if ((nbaGames || []).indexOf(game) === 0) {
+          debug.log('🔍 First game object fields:', Object.keys(game));
+          debug.log('🔍 First game game_id:', game.game_id);
+          debug.log('🔍 First game home_team_id:', game.home_team_id);
+          debug.log('🔍 First game away_team_id:', game.away_team_id);
+          debug.log('🔍 First game - all team-related fields:', {
+            home_team: game.home_team,
+            away_team: game.away_team,
+            home_team_id: game.home_team_id,
+            away_team_id: game.away_team_id,
+            home_abbr: game.home_abbr,
+            away_abbr: game.away_abbr,
+          });
+        }
         
         // Calculate away moneyline from home moneyline
         const homeML = game.home_moneyline;
@@ -556,12 +587,15 @@ ${contextParts}
           }
         }
         
-        return {
+        const predictionObj = {
           id: gameIdStr,
           away_team: game.away_team,
           home_team: game.home_team,
           training_key: gameIdStr,
           unique_id: gameIdStr,
+          game_id: game.game_id,
+          home_team_id: (game as any).home_team_id ?? null,
+          away_team_id: (game as any).away_team_id ?? null,
           // Betting lines from input values
           home_ml: homeML,
           away_ml: awayML,
@@ -593,6 +627,16 @@ ${contextParts}
           ml_splits_label: null,
           total_splits_label: null,
         };
+        
+        // Debug: Log first prediction object to verify fields
+        if ((nbaGames || []).indexOf(game) === 0) {
+          debug.log('🔍 First prediction object keys:', Object.keys(predictionObj));
+          debug.log('🔍 First prediction game_id:', predictionObj.game_id);
+          debug.log('🔍 First prediction home_team_id:', predictionObj.home_team_id);
+          debug.log('🔍 First prediction away_team_id:', predictionObj.away_team_id);
+        }
+        
+        return predictionObj;
       });
 
       debug.log(`✅ Showing ALL ${predictionsWithData.length} games (${predictionsMap.size} have predictions)`);
@@ -1380,9 +1424,26 @@ ${contextParts}
                       {/* @ Symbol and Total */}
                       <div className="text-center px-2 sm:px-4 flex flex-col items-center justify-center">
                         <span className="text-4xl sm:text-5xl font-bold text-gray-300 dark:text-white/40 mb-2 sm:mb-3">@</span>
-                        <div className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-white bg-gray-100/80 dark:bg-white/5 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full border border-gray-300 dark:border-white/20">
+                        <div className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-white bg-gray-100/80 dark:bg-white/5 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full border border-gray-300 dark:border-white/20 mb-2">
                           Total: {prediction.over_line || '-'}
                         </div>
+                        {/* Matchup Overview Button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            console.log('🔍 Matchup Overview button clicked');
+                            console.log('🔍 Prediction data:', prediction);
+                            console.log('🔍 game_id:', prediction.game_id);
+                            console.log('🔍 game_date:', prediction.game_date);
+                            console.log('🔍 home_team_id:', prediction.home_team_id);
+                            console.log('🔍 away_team_id:', prediction.away_team_id);
+                            setSelectedGameForMatchup(prediction);
+                          }}
+                          className="text-xs mt-2"
+                        >
+                          Matchup Overview
+                        </Button>
                       </div>
 
                       {/* Home Team */}
@@ -1656,6 +1717,17 @@ ${contextParts}
         expandedBettingFacts={expandedBettingFacts}
         setExpandedBettingFacts={setExpandedBettingFacts}
         teamMappings={teamMappings as any}
+      />
+
+      {/* Matchup Overview Modal */}
+      <MatchupOverviewModal
+        isOpen={selectedGameForMatchup !== null}
+        onClose={() => setSelectedGameForMatchup(null)}
+        gameId={selectedGameForMatchup?.game_id || null}
+        gameDate={selectedGameForMatchup?.game_date || ''}
+        awayTeam={selectedGameForMatchup?.away_team || ''}
+        homeTeam={selectedGameForMatchup?.home_team || ''}
+        getTeamLogo={getTeamLogo}
       />
 
       {/* Mini WagerBot Chat */}
