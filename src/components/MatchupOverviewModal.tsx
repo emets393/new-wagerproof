@@ -13,7 +13,7 @@ import { getNBATeamColors } from '@/utils/teamColors';
 
 interface InjuryReport {
   player_name: string;
-  avg_pie_season: string | number;
+  avg_pie_season: string | number | null;
   status: string;
   team_id: number;
   team_name: string;
@@ -239,6 +239,7 @@ export function MatchupOverviewModal({
   const calculateInjuryImpact = (injuries: InjuryReport[]): number => {
     if (injuries.length === 0) return 0.0;
     return injuries.reduce((sum, injury) => {
+      if (injury.avg_pie_season === null || injury.avg_pie_season === undefined) return sum;
       const pie = typeof injury.avg_pie_season === 'string' 
         ? parseFloat(injury.avg_pie_season) 
         : injury.avg_pie_season;
@@ -292,7 +293,8 @@ export function MatchupOverviewModal({
   }, [injuryData, awayTeam, homeTeam, awayInjuries, homeInjuries]);
 
   // Format PIE as raw value
-  const formatPIE = (pie: string | number): string => {
+  const formatPIE = (pie: string | number | null): string => {
+    if (pie === null || pie === undefined) return 'N/A';
     const pieNum = typeof pie === 'string' ? parseFloat(pie) : pie;
     if (isNaN(pieNum)) return 'N/A';
     return pieNum.toFixed(4);
@@ -301,9 +303,19 @@ export function MatchupOverviewModal({
   // Sort by PIE (highest first)
   const sortByPIE = (injuries: InjuryReport[]): InjuryReport[] => {
     return [...injuries].sort((a, b) => {
-      const pieA = typeof a.avg_pie_season === 'string' ? parseFloat(a.avg_pie_season) : a.avg_pie_season;
-      const pieB = typeof b.avg_pie_season === 'string' ? parseFloat(b.avg_pie_season) : b.avg_pie_season;
-      return (pieB || 0) - (pieA || 0);
+      const pieA = a.avg_pie_season === null || a.avg_pie_season === undefined 
+        ? null 
+        : typeof a.avg_pie_season === 'string' 
+          ? parseFloat(a.avg_pie_season) 
+          : a.avg_pie_season;
+      const pieB = b.avg_pie_season === null || b.avg_pie_season === undefined 
+        ? null 
+        : typeof b.avg_pie_season === 'string' 
+          ? parseFloat(b.avg_pie_season) 
+          : b.avg_pie_season;
+      const valueA = pieA === null || isNaN(pieA) ? -Infinity : pieA;
+      const valueB = pieB === null || isNaN(pieB) ? -Infinity : pieB;
+      return valueB - valueA;
     });
   };
 
@@ -313,6 +325,9 @@ export function MatchupOverviewModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Matchup Overview</DialogTitle>
+        </DialogHeader>
 
         {error && (
           <Alert variant="destructive" className="mb-4">
