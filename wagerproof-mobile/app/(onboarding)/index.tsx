@@ -139,7 +139,8 @@ function OnboardingContent() {
           },
         ]}
       >
-        {displayStep === 16 ? (
+        {/* Steps that handle their own scrolling (for floating buttons) */}
+        {displayStep === 16 || displayStep === 7 || displayStep === 9 || displayStep === 12 ? (
           <CurrentStepComponent />
         ) : (
           <ScrollView

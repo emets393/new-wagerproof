@@ -1,12 +1,25 @@
 import { useRevenueCat } from '../contexts/RevenueCatContext';
 import { useCallback } from 'react';
+import { useIsAdmin } from './useIsAdmin';
 
 /**
  * Hook to check if user has Pro access
  * Provides convenient methods for gating Pro features
+ *
+ * Access priority:
+ * 1. If forceFreemiumMode is on, always show as non-pro (for testing)
+ * 2. If user is admin, always has Pro access
+ * 3. Otherwise, check RevenueCat subscription status
  */
 export function useProAccess() {
-  const { isPro, isLoading, checkEntitlement, customerInfo } = useRevenueCat();
+  const { isPro: isRevenueCatPro, isLoading: isRevenueCatLoading, checkEntitlement, customerInfo, forceFreemiumMode, setForceFreemiumMode } = useRevenueCat();
+  const { isAdmin, isLoading: isAdminLoading } = useIsAdmin();
+
+  // Combined loading state
+  const isLoading = isRevenueCatLoading || isAdminLoading;
+
+  // Effective isPro: forceFreemiumMode overrides everything, then admin check, then RevenueCat
+  const isPro = forceFreemiumMode ? false : (isAdmin || isRevenueCatPro);
 
   /**
    * Check if user has active Pro entitlement
@@ -75,12 +88,15 @@ export function useProAccess() {
 
   return {
     isPro,
+    isAdmin,
     isLoading,
     hasProAccess,
     refreshAccess,
     getSubscriptionType,
     isSubscriptionActive,
     customerInfo,
+    forceFreemiumMode,
+    setForceFreemiumMode,
   };
 }
 

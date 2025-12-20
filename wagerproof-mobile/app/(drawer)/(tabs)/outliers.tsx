@@ -22,6 +22,8 @@ import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { useProAccess } from '@/hooks/useProAccess';
+import { LockedOverlay } from '@/components/LockedOverlay';
 
 // Utils for mapping data to game sheet expectations
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors } from '@/utils/teamColors';
@@ -97,6 +99,7 @@ export default function OutliersScreen() {
   const { open: openDrawer } = useDrawer();
   const { user } = useAuth();
   const { scrollY, scrollYClamped } = useScroll();
+  const { isPro, isLoading: isProLoading } = useProAccess();
 
   const [refreshing, setRefreshing] = useState(false);
   
@@ -465,8 +468,15 @@ export default function OutliersScreen() {
   const filteredValueAlerts = filterBySport(valueAlerts || [], valueAlertsFilter);
   const filteredFadeAlerts = filterBySport(fadeAlerts || [], fadeAlertsFilter);
 
-  const topValueAlerts = filteredValueAlerts.slice(0, 5);
-  const topFadeAlerts = filteredFadeAlerts.slice(0, 5);
+  // For non-pro users (when loading is complete), only show 2 alerts; for pro users show 5
+  const shouldShowLocks = !isProLoading && !isPro;
+  const visibleAlertCount = shouldShowLocks ? 2 : 5;
+  const topValueAlerts = filteredValueAlerts.slice(0, visibleAlertCount);
+  const topFadeAlerts = filteredFadeAlerts.slice(0, visibleAlertCount);
+
+  // Number of locked placeholder cards to show for non-pro users (only when loading is complete)
+  const lockedValueAlertsCount = shouldShowLocks ? Math.min(3, Math.max(0, filteredValueAlerts.length - 2)) : 0;
+  const lockedFadeAlertsCount = shouldShowLocks ? Math.min(3, Math.max(0, filteredFadeAlerts.length - 2)) : 0;
 
   // Modal Content for "Show More"
   const renderFullListModal = (
@@ -651,10 +661,19 @@ export default function OutliersScreen() {
             ) : filteredValueAlerts.length > 0 ? (
                 <View style={styles.cardsGrid}>
                     {topValueAlerts.map(renderValueAlertCard)}
-                    
-                    {filteredValueAlerts.length > 5 && (
-                        <PaperButton 
-                            mode="outlined" 
+
+                    {/* Locked placeholder cards for non-pro users */}
+                    {lockedValueAlertsCount > 0 && Array.from({ length: lockedValueAlertsCount }).map((_, index) => (
+                      <LockedOverlay
+                        key={`locked-value-${index}`}
+                        message="Unlock all alerts with Pro"
+                        style={styles.lockedAlertCard}
+                      />
+                    ))}
+
+                    {!shouldShowLocks && filteredValueAlerts.length > 5 && (
+                        <PaperButton
+                            mode="outlined"
                             onPress={() => { setSearchText(''); setShowAllValueAlerts(true); }}
                             style={styles.showMoreButton}
                         >
@@ -695,9 +714,18 @@ export default function OutliersScreen() {
                 <View style={styles.cardsGrid}>
                     {topFadeAlerts.map(renderFadeAlertCard)}
 
-                    {filteredFadeAlerts.length > 5 && (
-                        <PaperButton 
-                            mode="outlined" 
+                    {/* Locked placeholder cards for non-pro users */}
+                    {lockedFadeAlertsCount > 0 && Array.from({ length: lockedFadeAlertsCount }).map((_, index) => (
+                      <LockedOverlay
+                        key={`locked-fade-${index}`}
+                        message="Unlock all alerts with Pro"
+                        style={styles.lockedAlertCard}
+                      />
+                    ))}
+
+                    {!shouldShowLocks && filteredFadeAlerts.length > 5 && (
+                        <PaperButton
+                            mode="outlined"
                             onPress={() => { setSearchText(''); setShowAllFadeAlerts(true); }}
                             style={styles.showMoreButton}
                         >
@@ -929,5 +957,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     height: '100%',
     padding: 0,
+  },
+  lockedAlertCard: {
+    minHeight: 120,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
 });

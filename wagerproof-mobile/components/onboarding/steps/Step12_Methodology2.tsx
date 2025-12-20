@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withDelay, 
-  withTiming, 
-  FadeInUp 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withTiming,
+  FadeInUp
 } from 'react-native-reanimated';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -60,7 +60,11 @@ export function MethodologyClaim2() {
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.container}>
           <Text style={[styles.title, { color: theme.colors.onBackground }]}>
             Only AI app with real statistics fed in live. 
@@ -150,7 +154,7 @@ export function MethodologyClaim2() {
       </ScrollView>
     
       <View style={styles.floatingButtonContainer}>
-        <Button onPress={handleContinue} fullWidth variant="glass">
+        <Button onPress={handleContinue} fullWidth variant="glass" style={{ backgroundColor: 'rgba(255, 255, 255, .8)' }} textStyle={{ color: '#000000' }}>
           Continue
         </Button>
       </View>
@@ -161,21 +165,26 @@ export function MethodologyClaim2() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    position: 'relative',
-    minHeight: SCREEN_HEIGHT,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   container: {
     paddingHorizontal: 24,
     paddingTop: 80,
-    paddingBottom: 120,
+    paddingBottom: 140,
   },
   floatingButtonContainer: {
     position: 'absolute',
-    bottom: 40,
-    left: 24,
-    right: 24,
-    zIndex: 10000,
-    elevation: 1000,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 28,

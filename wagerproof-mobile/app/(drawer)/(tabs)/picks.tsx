@@ -18,6 +18,8 @@ import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColor
 import { StatsSummary } from '@/components/StatsSummary';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { LockedPickCard } from '@/components/LockedPickCard';
+import { useProAccess } from '@/hooks/useProAccess';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
@@ -203,6 +205,7 @@ export default function PicksScreen() {
   const insets = useSafeAreaInsets();
   const tabsScrollViewRef = useRef<ScrollView>(null);
   const { onPageChange, openManualMenu, setPicksData } = useWagerBotSuggestion();
+  const { isPro, isLoading: isProLoading } = useProAccess();
 
   // Always notify context which page we're on (needed for openManualMenu)
   useEffect(() => {
@@ -825,6 +828,11 @@ export default function PicksScreen() {
   const renderPickCard = ({ item }: { item: EditorPick }) => {
     const gameData = gamesData.get(item.game_id);
     if (!gameData) return null;
+
+    // Show locked card for non-free picks when user is not pro (and loading is complete)
+    if (!isProLoading && !isPro && !item.is_free_pick) {
+      return <LockedPickCard sport={item.game_type?.toUpperCase()} />;
+    }
 
     // Ensure team colors are valid to prevent Android crashes
     const safeGameData = {

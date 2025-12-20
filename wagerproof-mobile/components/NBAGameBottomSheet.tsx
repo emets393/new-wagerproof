@@ -12,6 +12,7 @@ import { getNBATeamColors, getNBATeamInitials, getContrastingTextColor } from '@
 import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, roundToNearestHalf } from '@/utils/formatting';
 import { PolymarketWidget } from './PolymarketWidget';
 import { WagerBotInsightPill } from './WagerBotInsightPill';
+import { ProContentSection } from './ProContentSection';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 

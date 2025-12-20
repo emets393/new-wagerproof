@@ -36,6 +36,7 @@
     "expo-navigation-bar": "~5.0.10",
     "expo-router": "~6.0.16",
     "expo-status-bar": "~3.0.8",
+    "expo-store-review": "~9.0.9",
     "expo-web-browser": "^15.0.10",
     "lottie-react-native": "~7.3.1",
     "moti": "^0.30.0",

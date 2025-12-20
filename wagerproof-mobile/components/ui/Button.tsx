@@ -16,6 +16,7 @@ interface ButtonProps {
   fullWidth?: boolean;
   selected?: boolean;
   style?: any;
+  textStyle?: any;
 }
 
 export function Button({
@@ -28,6 +29,7 @@ export function Button({
   fullWidth = false,
   selected = false,
   style,
+  textStyle,
 }: ButtonProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
@@ -180,7 +182,7 @@ export function Button({
                 style={styles.icon}
               />
             )}
-            <Text style={getTextStyle()}>{children}</Text>
+            <Text style={[getTextStyle(), textStyle]}>{children}</Text>
           </>
         )}
       </View>

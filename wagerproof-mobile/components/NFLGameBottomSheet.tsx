@@ -16,6 +16,7 @@ import { H2HSection } from './nfl/H2HSection';
 import { LineMovementSection } from './nfl/LineMovementSection';
 import { PolymarketWidget } from './PolymarketWidget';
 import { WagerBotInsightPill } from './WagerBotInsightPill';
+import { ProContentSection } from './ProContentSection';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
@@ -246,63 +247,68 @@ export function NFLGameBottomSheet() {
 
           {/* Weather Widget */}
           {(game.temperature !== null || game.wind_speed !== null) && (
-            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
-              <View style={styles.weatherWidget}>
-              <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="weather-partly-cloudy" size={20} color="#3b82f6" />
-                <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                  Weather Conditions
-                </Text>
+            <ProContentSection title="Weather" minHeight={80}>
+              <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+                <View style={styles.weatherWidget}>
+                <View style={styles.sectionHeader}>
+                  <MaterialCommunityIcons name="weather-partly-cloudy" size={20} color="#3b82f6" />
+                  <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+                    Weather Conditions
+                  </Text>
+                </View>
+                <View style={[styles.weatherContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
+                  {game.temperature !== null && (
+                    <View style={styles.weatherItem}>
+                      <MaterialCommunityIcons name="thermometer" size={16} color="#3b82f6" />
+                      <Text style={[styles.weatherText, { color: theme.colors.onSurfaceVariant }]}>
+                        {Math.round(game.temperature)}°F
+                      </Text>
+                    </View>
+                  )}
+                  {game.wind_speed !== null && (
+                    <View style={styles.weatherItem}>
+                      <MaterialCommunityIcons name="weather-windy" size={16} color="#3b82f6" />
+                      <Text style={[styles.weatherText, { color: theme.colors.onSurfaceVariant }]}>
+                        {Math.round(game.wind_speed)} mph
+                      </Text>
+                    </View>
+                  )}
+                  {game.precipitation !== null && game.precipitation > 0 && (
+                    <View style={styles.weatherItem}>
+                      <MaterialCommunityIcons name="weather-rainy" size={16} color="#3b82f6" />
+                      <Text style={[styles.weatherText, { color: theme.colors.onSurfaceVariant }]}>
+                        {Math.round(game.precipitation)}%
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
-              <View style={[styles.weatherContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
-                {game.temperature !== null && (
-                  <View style={styles.weatherItem}>
-                    <MaterialCommunityIcons name="thermometer" size={16} color="#3b82f6" />
-                    <Text style={[styles.weatherText, { color: theme.colors.onSurfaceVariant }]}>
-                      {Math.round(game.temperature)}°F
-                    </Text>
-                  </View>
-                )}
-                {game.wind_speed !== null && (
-                  <View style={styles.weatherItem}>
-                    <MaterialCommunityIcons name="weather-windy" size={16} color="#3b82f6" />
-                    <Text style={[styles.weatherText, { color: theme.colors.onSurfaceVariant }]}>
-                      {Math.round(game.wind_speed)} mph
-                    </Text>
-                  </View>
-                )}
-                {game.precipitation !== null && game.precipitation > 0 && (
-                  <View style={styles.weatherItem}>
-                    <MaterialCommunityIcons name="weather-rainy" size={16} color="#3b82f6" />
-                    <Text style={[styles.weatherText, { color: theme.colors.onSurfaceVariant }]}>
-                      {Math.round(game.precipitation)}%
-                    </Text>
-                  </View>
-                )}
               </View>
-            </View>
-            </View>
+            </ProContentSection>
           )}
 
           {/* Polymarket Widget */}
-          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
-            <View style={styles.sectionContent}>
-              <PolymarketWidget
-                awayTeam={game.away_team}
-                homeTeam={game.home_team}
-                gameDate={game.game_date}
-                awayTeamColors={awayColors}
-                homeTeamColors={homeColors}
-                league="nfl"
-              />
+          <ProContentSection title="Market Odds" minHeight={120}>
+            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+              <View style={styles.sectionContent}>
+                <PolymarketWidget
+                  awayTeam={game.away_team}
+                  homeTeam={game.home_team}
+                  gameDate={game.game_date}
+                  awayTeamColors={awayColors}
+                  homeTeamColors={homeColors}
+                  league="nfl"
+                />
+              </View>
             </View>
-          </View>
+          </ProContentSection>
 
           {/* Spread Prediction */}
           {spreadPrediction && (
-            <View>
-              <Pressable 
-                onPress={handleSpreadTap}
+            <ProContentSection title="Spread Analysis" minHeight={150}>
+              <View>
+                <Pressable
+                  onPress={handleSpreadTap}
                 style={({ pressed }) => [
                   { opacity: pressed ? 0.7 : 1 }
                 ]}
@@ -401,14 +407,16 @@ export function NFLGameBottomSheet() {
                   </View>
                 </MotiView>
               )}
-            </View>
+              </View>
+            </ProContentSection>
           )}
 
           {/* Over/Under Prediction */}
           {ouPrediction && (
-            <View>
-              <Pressable 
-                onPress={handleOuTap}
+            <ProContentSection title="Total Analysis" minHeight={150}>
+              <View>
+                <Pressable
+                  onPress={handleOuTap}
                 style={({ pressed }) => [
                   { opacity: pressed ? 0.7 : 1 }
                 ]}
@@ -532,41 +540,48 @@ export function NFLGameBottomSheet() {
                   </View>
                 </MotiView>
               )}
-            </View>
+              </View>
+            </ProContentSection>
           )}
 
           {/* Public Betting Bars */}
           {(game.ml_splits_label || game.spread_splits_label || game.total_splits_label) && (
+            <ProContentSection title="Public Betting" minHeight={120}>
+              <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+                <View style={styles.sectionContent}>
+                  <PublicBettingBars
+                    mlSplitsLabel={game.ml_splits_label}
+                    spreadSplitsLabel={game.spread_splits_label}
+                    totalSplitsLabel={game.total_splits_label}
+                    homeTeam={game.home_team}
+                    awayTeam={game.away_team}
+                  />
+                </View>
+              </View>
+            </ProContentSection>
+          )}
+
+          {/* H2H History */}
+          <ProContentSection title="Head-to-Head" minHeight={100}>
             <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
               <View style={styles.sectionContent}>
-                <PublicBettingBars
-                  mlSplitsLabel={game.ml_splits_label}
-                  spreadSplitsLabel={game.spread_splits_label}
-                  totalSplitsLabel={game.total_splits_label}
+                <H2HSection homeTeam={game.home_team} awayTeam={game.away_team} />
+              </View>
+            </View>
+          </ProContentSection>
+
+          {/* Line Movement */}
+          <ProContentSection title="Line Movement" minHeight={100}>
+            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+              <View style={styles.sectionContent}>
+                <LineMovementSection
+                  trainingKey={game.training_key}
                   homeTeam={game.home_team}
                   awayTeam={game.away_team}
                 />
               </View>
             </View>
-          )}
-
-          {/* H2H History */}
-          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
-            <View style={styles.sectionContent}>
-              <H2HSection homeTeam={game.home_team} awayTeam={game.away_team} />
-            </View>
-          </View>
-
-          {/* Line Movement */}
-          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
-            <View style={styles.sectionContent}>
-              <LineMovementSection 
-                trainingKey={game.training_key} 
-                homeTeam={game.home_team}
-                awayTeam={game.away_team}
-              />
-            </View>
-          </View>
+          </ProContentSection>
 
           {/* Bottom Padding */}
           <View style={{ height: 40 }} />

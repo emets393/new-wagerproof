@@ -214,9 +214,13 @@ export default function SettingsScreen() {
           
           <List.Item
             title="Discord Channel"
-            description="Join our community"
+            description={isPro ? "Join our community" : "Pro members only"}
             left={props => <List.Icon {...props} icon="chat" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
+            right={props => (
+              isPro
+                ? <List.Icon {...props} icon="chevron-right" />
+                : <List.Icon {...props} icon="lock" color="#f59e0b" />
+            )}
             onPress={() => {
               router.push('/(modals)/discord');
             }}

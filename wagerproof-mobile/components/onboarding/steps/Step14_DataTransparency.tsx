@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
@@ -7,8 +7,15 @@ import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 export function DataTransparency() {
-  const { nextStep } = useOnboarding();
+  const { nextStep, submitOnboardingData } = useOnboarding();
   const theme = useTheme();
+
+  // Mark onboarding as completed when user reaches this page
+  useEffect(() => {
+    submitOnboardingData().catch((err) => {
+      console.error('Failed to mark onboarding as completed:', err);
+    });
+  }, []);
 
   const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

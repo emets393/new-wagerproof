@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { useProAccess } from '@/hooks/useProAccess';
 import { getOfferingById, getAllOfferings, syncPurchases } from '@/services/revenuecat';
 
 // Import RevenueCatUI for presenting paywalls
@@ -26,6 +27,7 @@ export default function SecretSettingsScreen() {
   const theme = useTheme();
   const { user } = useAuth();
   const { testModeEnabled, setTestModeEnabled, triggerTestSuggestion } = useWagerBotSuggestion();
+  const { forceFreemiumMode, setForceFreemiumMode, isPro } = useProAccess();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -309,6 +311,37 @@ export default function SecretSettingsScreen() {
               triggerTestSuggestion();
               Alert.alert('Test Bubble', 'A test suggestion bubble should appear on the Feed screen. Go back to see it!');
             }}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+        </List.Section>
+        <Divider />
+
+        {/* Freemium Testing Section */}
+        <List.Section>
+          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
+            Freemium Mode Testing
+          </List.Subheader>
+
+          <List.Item
+            title="Simulate Freemium Mode"
+            description={forceFreemiumMode
+              ? "Freemium mode active - viewing as non-subscriber"
+              : "Enable to test the app as a non-subscriber"}
+            left={props => <List.Icon {...props} icon="account-lock" color={forceFreemiumMode ? '#f59e0b' : theme.colors.primary} />}
+            right={() => (
+              <Switch
+                value={forceFreemiumMode}
+                onValueChange={setForceFreemiumMode}
+                color="#f59e0b"
+              />
+            )}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+
+          <List.Item
+            title="Current Status"
+            description={isPro ? "Pro access active" : "Free tier (limited access)"}
+            left={props => <List.Icon {...props} icon={isPro ? "crown" : "account"} color={isPro ? '#22c55e' : '#94a3b8'} />}
             style={{ backgroundColor: theme.colors.surface }}
           />
         </List.Section>

@@ -9,6 +9,7 @@ import { CFBGameCard } from '@/components/CFBGameCard';
 import { NBAGameCard } from '@/components/NBAGameCard';
 import { NCAABGameCard } from '@/components/NCAABGameCard';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
+import { LockedGameCard } from '@/components/LockedGameCard';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
@@ -24,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrawer } from '../_layout';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { useProAccess } from '@/hooks/useProAccess';
 
 type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
 type SortMode = 'time' | 'spread' | 'ou';
@@ -48,6 +50,7 @@ export default function FeedScreen() {
   const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
   const { user } = useAuth();
   const { isDark } = useThemeContext();
+  const { isPro, isLoading: isProLoading } = useProAccess();
   const tabsScrollViewRef = useRef<ScrollView>(null);
 
   // WagerBot suggestion system
@@ -738,22 +741,36 @@ export default function FeedScreen() {
     openNCAABGameSheet(game);
   };
 
-  const renderGameCard = ({ item }: { item: NFLPrediction | CFBPrediction | NBAGame | NCAABGame }) => {
+  const renderGameCard = ({ item, index }: { item: NFLPrediction | CFBPrediction | NBAGame | NCAABGame, index: number }) => {
     const cardWidth = (Dimensions.get('window').width - 24) / 2;
-    
+
+    // Non-pro users only see first 2 cards per sport, rest are locked
+    const isLocked = !isProLoading && !isPro && index >= 2;
+
+    let gameCard: React.ReactNode = null;
+
     if (selectedSport === 'nfl') {
-      return <NFLGameCard game={item as NFLPrediction} onPress={() => handleGamePress(item as NFLPrediction)} cardWidth={cardWidth} />;
+      gameCard = <NFLGameCard game={item as NFLPrediction} onPress={() => handleGamePress(item as NFLPrediction)} cardWidth={cardWidth} />;
+    } else if (selectedSport === 'cfb') {
+      gameCard = <CFBGameCard game={item as CFBPrediction} onPress={() => handleCFBGamePress(item as CFBPrediction)} cardWidth={cardWidth} />;
+    } else if (selectedSport === 'nba') {
+      gameCard = <NBAGameCard game={item as NBAGame} onPress={() => handleNBAGamePress(item as NBAGame)} cardWidth={cardWidth} />;
+    } else if (selectedSport === 'ncaab') {
+      gameCard = <NCAABGameCard game={item as NCAABGame} onPress={() => handleNCAABGamePress(item as NCAABGame)} cardWidth={cardWidth} />;
     }
-    if (selectedSport === 'cfb') {
-      return <CFBGameCard game={item as CFBPrediction} onPress={() => handleCFBGamePress(item as CFBPrediction)} cardWidth={cardWidth} />;
+
+    if (!gameCard) return null;
+
+    // Wrap in LockedGameCard for non-pro users after first 2 cards
+    if (isLocked) {
+      return (
+        <LockedGameCard cardWidth={cardWidth}>
+          {gameCard}
+        </LockedGameCard>
+      );
     }
-    if (selectedSport === 'nba') {
-      return <NBAGameCard game={item as NBAGame} onPress={() => handleNBAGamePress(item as NBAGame)} cardWidth={cardWidth} />;
-    }
-    if (selectedSport === 'ncaab') {
-      return <NCAABGameCard game={item as NCAABGame} onPress={() => handleNCAABGamePress(item as NCAABGame)} cardWidth={cardWidth} />;
-    }
-    return null;
+
+    return gameCard;
   };
 
   // Handle tab press - switch immediately, show shimmer if data not ready

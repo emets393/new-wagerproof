@@ -18,6 +18,9 @@ const configureGoogleSignIn = async () => {
       
       GoogleSignin.configure({
         webClientId: '142325632215-5c9nahlmruos96rsiu60ac4uk2p2s1ua.apps.googleusercontent.com',
+        // iOS requires its own client ID - get this from Google Cloud Console
+        // Create an iOS OAuth client with bundle ID: com.wagerproof.mobile
+        iosClientId: '142325632215-REPLACE_WITH_YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
         offlineAccess: false,
       });
       
@@ -114,7 +117,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (Platform.OS === 'android') {
           await GoogleSignin.hasPlayServices();
         }
-        
+
+        // Sign out from Google first to force account picker to appear
+        // This ensures users can always choose which account to use
+        try {
+          const isSignedIn = await GoogleSignin.isSignedIn();
+          if (isSignedIn) {
+            await GoogleSignin.signOut();
+            console.log('Cleared previous Google sign-in to show account picker');
+          }
+        } catch (signOutError) {
+          // Ignore errors - just proceed with sign in
+          console.log('Could not clear previous Google sign-in:', signOutError);
+        }
+
         // Sign in with Google and get user info including ID token
         const userInfo = await GoogleSignin.signIn();
         console.log('Google Sign-In response:', JSON.stringify(userInfo, null, 2));
@@ -186,6 +202,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Starting sign out process...');
       setSigningOut(true);
+
+      // Sign out from Google Sign-In first (if available and signed in)
+      // This clears the cached Google account so users can pick a different account next time
+      if (GoogleSignin) {
+        try {
+          const isGoogleSignedIn = await GoogleSignin.isSignedIn();
+          if (isGoogleSignedIn) {
+            await GoogleSignin.signOut();
+            console.log('Signed out from Google Sign-In');
+          }
+        } catch (googleError) {
+          // Don't block Supabase sign-out if Google sign-out fails
+          console.warn('Google sign-out error (continuing with Supabase sign-out):', googleError);
+        }
+      }
+
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Supabase sign out error:', error);

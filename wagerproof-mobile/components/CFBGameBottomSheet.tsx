@@ -13,6 +13,7 @@ import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, rou
 import { PublicBettingBars } from './cfb/PublicBettingBars';
 import { PolymarketWidget } from './PolymarketWidget';
 import { WagerBotInsightPill } from './WagerBotInsightPill';
+import { ProContentSection } from './ProContentSection';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 

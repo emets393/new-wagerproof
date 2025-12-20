@@ -31,6 +31,7 @@ interface RevenueCatContextType {
   isPro: boolean;
   subscriptionType: 'monthly' | 'yearly' | 'lifetime' | null;
   error: string | null;
+  forceFreemiumMode: boolean;
 
   // Actions
   refreshCustomerInfo: () => Promise<void>;
@@ -39,6 +40,7 @@ interface RevenueCatContextType {
   restore: () => Promise<CustomerInfo>;
   checkEntitlement: () => Promise<boolean>;
   openCustomerCenter: () => Promise<void>;
+  setForceFreemiumMode: (enabled: boolean) => void;
 }
 
 const RevenueCatContext = createContext<RevenueCatContextType | undefined>(undefined);
@@ -50,9 +52,13 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
-  const [isPro, setIsPro] = useState(false);
+  const [isProInternal, setIsProInternalInternal] = useState(false);
   const [subscriptionType, setSubscriptionType] = useState<'monthly' | 'yearly' | 'lifetime' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forceFreemiumMode, setForceFreemiumMode] = useState(false);
+
+  // Effective isPro - false if forceFreemiumMode is enabled (for admin testing)
+  const isPro = forceFreemiumMode ? false : isProInternal;
 
   // Initialize RevenueCat
   useEffect(() => {
@@ -106,7 +112,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           // Log out if no user
           await logOutRevenueCat();
           setCustomerInfo(null);
-          setIsPro(false);
+          setIsProInternal(false);
           setSubscriptionType(null);
         }
       } catch (err: any) {
@@ -131,7 +137,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
       // Check entitlement
       const hasEntitlement = info.entitlements.active[ENTITLEMENT_IDENTIFIER] !== undefined;
-      setIsPro(hasEntitlement && isSubscriptionActive(info));
+      setIsProInternal(hasEntitlement && isSubscriptionActive(info));
       
       // Get subscription type
       const type = getActiveSubscriptionType(info);
@@ -228,7 +234,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   const checkEntitlement = useCallback(async (): Promise<boolean> => {
     try {
       const hasEntitlement = await hasActiveEntitlement();
-      setIsPro(hasEntitlement);
+      setIsProInternal(hasEntitlement);
       return hasEntitlement;
     } catch (err: any) {
       console.error('Error checking entitlement:', err);
@@ -259,12 +265,14 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     isPro,
     subscriptionType,
     error,
+    forceFreemiumMode,
     refreshCustomerInfo,
     refreshOfferings,
     purchase,
     restore,
     checkEntitlement,
     openCustomerCenter,
+    setForceFreemiumMode,
   };
 
   return (

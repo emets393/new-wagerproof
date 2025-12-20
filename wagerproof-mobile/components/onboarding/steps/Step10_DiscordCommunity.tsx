@@ -16,89 +16,117 @@ export function DiscordCommunity() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.iconContainer}>
-        <MaterialCommunityIcons name="chat" size={80} color="#5865F2" />
+    <View style={styles.wrapper}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.container}>
+          <View style={styles.iconContainer}>
+            <MaterialCommunityIcons name="chat" size={80} color="#5865F2" />
+          </View>
+
+          <Text style={[styles.title, { color: theme.colors.onBackground }]}>
+            Join Our Private Community
+          </Text>
+
+          <Text style={[styles.description, { color: 'rgba(255, 255, 255, 0.8)' }]}>
+            WagerProof members get exclusive free access to our private Discord community.
+          </Text>
+
+          <View style={styles.benefitsContainer}>
+            <View style={styles.benefitItem}>
+              <View style={styles.benefitIconContainer}>
+                <MaterialCommunityIcons name="account-multiple" size={24} color="#22c55e" />
+              </View>
+              <View style={styles.benefitContent}>
+                <Text style={[styles.benefitTitle, { color: theme.colors.onBackground }]}>
+                  Connect with Data-Driven Bettors
+                </Text>
+                <Text style={styles.benefitText}>
+                  Network with professional bettors using WagerProof
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.benefitItem}>
+              <View style={styles.benefitIconContainer}>
+                <MaterialCommunityIcons name="code-tags" size={24} color="#3b82f6" />
+              </View>
+              <View style={styles.benefitContent}>
+                <Text style={[styles.benefitTitle, { color: theme.colors.onBackground }]}>
+                  Direct Access to Developers
+                </Text>
+                <Text style={styles.benefitText}>
+                  Ask questions and get support directly from our development team
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.benefitItem}>
+              <View style={styles.benefitIconContainer}>
+                <MaterialCommunityIcons name="lightbulb" size={24} color="#fbbf24" />
+              </View>
+              <View style={styles.benefitContent}>
+                <Text style={[styles.benefitTitle, { color: theme.colors.onBackground }]}>
+                  Exclusive Insights & Strategies
+                </Text>
+                <Text style={styles.benefitText}>
+                  Share winning strategies and learn from the community's best bettors
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.benefitItem}>
+              <View style={styles.benefitIconContainer}>
+                <MaterialCommunityIcons name="bell" size={24} color="#ef4444" />
+              </View>
+              <View style={styles.benefitContent}>
+                <Text style={[styles.benefitTitle, { color: theme.colors.onBackground }]}>
+                  Early Feature Access
+                </Text>
+                <Text style={styles.benefitText}>
+                  Be the first to test new tools and features before public release
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+
+      <View style={styles.floatingButtonContainer}>
+        <Button onPress={handleContinue} fullWidth variant="glass" style={{ backgroundColor: 'rgba(255, 255, 255, .8)' }} textStyle={{ color: '#000000' }}>
+          Continue
+        </Button>
       </View>
-
-      <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-        Join Our Private Community
-      </Text>
-      
-      <Text style={[styles.description, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-        WagerProof members get exclusive free access to our private Discord community.
-      </Text>
-
-      <View style={styles.benefitsContainer}>
-        <View style={styles.benefitItem}>
-          <View style={styles.benefitIconContainer}>
-            <MaterialCommunityIcons name="account-multiple" size={24} color="#22c55e" />
-          </View>
-          <View style={styles.benefitContent}>
-            <Text style={[styles.benefitTitle, { color: theme.colors.onBackground }]}>
-              Connect with Data-Driven Bettors
-            </Text>
-            <Text style={styles.benefitText}>
-              Network with professional bettors using WagerProof
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.benefitItem}>
-          <View style={styles.benefitIconContainer}>
-            <MaterialCommunityIcons name="code-tags" size={24} color="#3b82f6" />
-          </View>
-          <View style={styles.benefitContent}>
-            <Text style={[styles.benefitTitle, { color: theme.colors.onBackground }]}>
-              Direct Access to Developers
-            </Text>
-            <Text style={styles.benefitText}>
-              Ask questions and get support directly from our development team
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.benefitItem}>
-          <View style={styles.benefitIconContainer}>
-            <MaterialCommunityIcons name="lightbulb" size={24} color="#fbbf24" />
-          </View>
-          <View style={styles.benefitContent}>
-            <Text style={[styles.benefitTitle, { color: theme.colors.onBackground }]}>
-              Exclusive Insights & Strategies
-            </Text>
-            <Text style={styles.benefitText}>
-              Share winning strategies and learn from the community's best bettors
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.benefitItem}>
-          <View style={styles.benefitIconContainer}>
-            <MaterialCommunityIcons name="bell" size={24} color="#ef4444" />
-          </View>
-          <View style={styles.benefitContent}>
-            <Text style={[styles.benefitTitle, { color: theme.colors.onBackground }]}>
-              Early Feature Access
-            </Text>
-            <Text style={styles.benefitText}>
-              Be the first to test new tools and features before public release
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <Button onPress={handleContinue} fullWidth variant="glass">
-        Continue
-      </Button>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   container: {
     paddingHorizontal: 24,
     paddingTop: 80,
-    paddingBottom: 24,
+    paddingBottom: 140,
+  },
+  floatingButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   iconContainer: {
     alignItems: 'center',
