@@ -11,7 +11,7 @@ import { NBAGameSheetProvider } from '../contexts/NBAGameSheetContext';
 import { NCAABGameSheetProvider } from '../contexts/NCAABGameSheetContext';
 import { WagerBotChatSheetProvider } from '../contexts/WagerBotChatSheetContext';
 import { WagerBotSuggestionProvider, useWagerBotSuggestion } from '../contexts/WagerBotSuggestionContext';
-import { RevenueCatProvider } from '../contexts/RevenueCatContext';
+import { RevenueCatProvider, useRevenueCat } from '../contexts/RevenueCatContext';
 import { OnboardingGuard } from '../components/OnboardingGuard';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
@@ -20,8 +20,9 @@ import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
 import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
 import { useOnGameSheetOpen, useGameSheetDetection } from '../hooks/useGameSheetDetection';
-import { useEffect, useCallback } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { useEffect, useCallback, useRef } from 'react';
+import { View, StyleSheet, Platform, Linking, Alert } from 'react-native';
+import Purchases, { WebPurchaseRedemptionResultType } from 'react-native-purchases';
 import * as NavigationBar from 'expo-navigation-bar';
 
 // Create a query client
@@ -91,6 +92,116 @@ function FloatingAssistantWrapper() {
       initialDimensions={initialBubbleDimensions}
     />
   );
+}
+
+/**
+ * Web Purchase Redemption Handler
+ *
+ * Handles RevenueCat web purchase redemption links (rc-ff2fe0e0af://)
+ * When users complete a web purchase, they receive a redemption link that
+ * opens the app and grants them their entitlements.
+ */
+function WebPurchaseRedemptionHandler() {
+  const { refreshCustomerInfo } = useRevenueCat();
+  const isProcessingRef = useRef(false);
+
+  const handleRedemptionUrl = useCallback(async (url: string) => {
+    // Prevent duplicate processing
+    if (isProcessingRef.current) return;
+
+    // Only handle on native platforms
+    if (Platform.OS === 'web') return;
+
+    // Check if this is a web purchase redemption URL
+    if (!url.includes('redeem_web_purchase')) return;
+
+    isProcessingRef.current = true;
+
+    try {
+      const webPurchaseRedemption = await Purchases.parseAsWebPurchaseRedemption(url);
+
+      if (webPurchaseRedemption) {
+        const result = await Purchases.redeemWebPurchase(webPurchaseRedemption);
+
+        switch (result.result) {
+          case WebPurchaseRedemptionResultType.SUCCESS:
+            // Refresh customer info to update entitlements
+            await refreshCustomerInfo();
+            Alert.alert(
+              'Purchase Activated!',
+              'Your WagerProof Pro subscription has been activated. Enjoy full access to all features!',
+              [{ text: 'OK' }]
+            );
+            break;
+
+          case WebPurchaseRedemptionResultType.ERROR:
+            Alert.alert(
+              'Activation Failed',
+              'There was an error activating your purchase. Please try again or contact support.',
+              [{ text: 'OK' }]
+            );
+            break;
+
+          case WebPurchaseRedemptionResultType.INVALID_TOKEN:
+            Alert.alert(
+              'Invalid Link',
+              'This activation link is invalid. Please check your email for a valid link.',
+              [{ text: 'OK' }]
+            );
+            break;
+
+          case WebPurchaseRedemptionResultType.PURCHASE_BELONGS_TO_OTHER_USER:
+            Alert.alert(
+              'Already Claimed',
+              'This purchase has already been claimed by another account.',
+              [{ text: 'OK' }]
+            );
+            break;
+
+          case WebPurchaseRedemptionResultType.EXPIRED:
+            Alert.alert(
+              'Link Expired',
+              `This activation link has expired. A new link has been sent to ${result.obfuscatedEmail}. Please check your email.`,
+              [{ text: 'OK' }]
+            );
+            break;
+        }
+      }
+    } catch (error) {
+      console.error('Error processing web purchase redemption:', error);
+      Alert.alert(
+        'Activation Error',
+        'An unexpected error occurred. Please try again or contact support.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, [refreshCustomerInfo]);
+
+  useEffect(() => {
+    // Skip on web platform
+    if (Platform.OS === 'web') return;
+
+    // Handle cold start - app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleRedemptionUrl(url);
+      }
+    });
+
+    // Handle warm start - app receives deep link while running
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleRedemptionUrl(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [handleRedemptionUrl]);
+
+  // This component doesn't render anything
+  return null;
 }
 
 function RootNavigator() {
@@ -185,6 +296,7 @@ function RootLayoutContent() {
                       <NCAABGameSheetProvider>
                         <WagerBotChatSheetProvider>
                           <RootNavigator />
+                          <WebPurchaseRedemptionHandler />
                         </WagerBotChatSheetProvider>
                       </NCAABGameSheetProvider>
                     </NBAGameSheetProvider>

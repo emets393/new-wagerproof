@@ -30,6 +30,7 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="wagerproof"/>
         <data android:scheme="exp+wagerproof-mobile"/>
+        <data android:scheme="rc-ff2fe0e0af"/>
       </intent-filter>
     </activity>
   </application>
