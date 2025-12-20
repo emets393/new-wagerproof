@@ -24,7 +24,7 @@ export function EarlyAccess() {
         You're among the first users. Enjoy <Text style={styles.bold}>free full access</Text> during early access. Please share feedback anytime via the <Text style={styles.bold}>Feature Request</Text> page.
       </Text>
       
-      <Button onPress={handleContinue} fullWidth variant="glass">
+      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
         Continue
       </Button>
     </View>

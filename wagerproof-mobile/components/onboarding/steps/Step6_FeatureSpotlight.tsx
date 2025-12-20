@@ -95,11 +95,12 @@ export function FeatureSpotlight() {
             game={game}
             onPress={() => {}}
             cardWidth={cardWidth}
+            forceDarkMode
           />
         ))}
       </View>
 
-      <Button onPress={handleContinue} fullWidth variant="glass">
+      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
         Continue
       </Button>
     </ScrollView>

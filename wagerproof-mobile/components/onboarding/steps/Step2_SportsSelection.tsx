@@ -47,6 +47,7 @@ export function SportsSelection() {
             key={sport}
             onPress={() => handleToggleSport(sport)}
             variant="glass"
+            forceDarkMode
             selected={selectedSports.includes(sport)}
             style={styles.sportButton}
           >
@@ -59,7 +60,7 @@ export function SportsSelection() {
         You can change this later in Settings.
       </Text>
       
-      <Button onPress={handleNext} fullWidth variant="glass">
+      <Button onPress={handleNext} fullWidth variant="glass" forceDarkMode>
         Next
       </Button>
     </ScrollView>

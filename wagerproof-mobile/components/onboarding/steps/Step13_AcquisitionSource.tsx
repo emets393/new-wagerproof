@@ -44,6 +44,7 @@ export function AcquisitionSource() {
             key={source}
             onPress={() => handleSelect(source)}
             variant="glass"
+            forceDarkMode
             selected={selectedSource === source}
             style={styles.sourceButton}
           >
@@ -52,11 +53,12 @@ export function AcquisitionSource() {
         ))}
       </View>
       
-      <Button 
-        onPress={handleNext} 
-        disabled={!selectedSource} 
+      <Button
+        onPress={handleNext}
+        disabled={!selectedSource}
         fullWidth
         variant="glass"
+        forceDarkMode
       >
         Continue
       </Button>

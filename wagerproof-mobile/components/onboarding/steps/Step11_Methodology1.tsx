@@ -114,7 +114,7 @@ export function MethodologyClaim1() {
         </View>
       </View>
       
-      <Button onPress={handleContinue} fullWidth variant="glass">
+      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
         Continue
       </Button>
     </ScrollView>

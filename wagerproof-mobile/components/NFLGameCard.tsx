@@ -1,16 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Card, useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { NFLPrediction } from '@/types/nfl';
-import { 
-  formatMoneyline, 
-  formatSpread, 
-  convertTimeToEST, 
+import {
+  formatMoneyline,
+  formatSpread,
+  convertTimeToEST,
   formatCompactDate,
-  roundToNearestHalf 
+  roundToNearestHalf
 } from '@/utils/formatting';
 import { getNFLTeamColors, getTeamParts, getTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
@@ -19,11 +19,15 @@ interface NFLGameCardProps {
   game: NFLPrediction;
   onPress: () => void;
   cardWidth?: number;
+  /** Force dark mode styling regardless of system theme (useful for dark backgrounds like onboarding) */
+  forceDarkMode?: boolean;
 }
 
-export function NFLGameCard({ game, onPress, cardWidth }: NFLGameCardProps) {
+export function NFLGameCard({ game, onPress, cardWidth, forceDarkMode = false }: NFLGameCardProps) {
   const theme = useTheme();
-  const { isDark } = useThemeContext();
+  const { isDark: systemIsDark } = useThemeContext();
+  const isDark = forceDarkMode || systemIsDark;
+  const isAndroid = Platform.OS === 'android';
   const awayColors = getNFLTeamColors(game.away_team);
   const homeColors = getNFLTeamColors(game.home_team);
   const awayTeamParts = getTeamParts(game.away_team);
@@ -64,9 +68,18 @@ export function NFLGameCard({ game, onPress, cardWidth }: NFLGameCardProps) {
         : null);
   const favoriteColors = favorite === game.home_team ? homeColors : awayColors;
 
+  // Card shadow style - only apply on iOS to prevent square artifacts on Android
+  const cardShadowStyle = isAndroid ? {} : {
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  };
+
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={cardWidth ? { width: cardWidth } : undefined}>
-      <Card style={[styles.card, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+      <Card style={[styles.card, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }, cardShadowStyle]}>
         {/* Background gradient of favorite team */}
         <LinearGradient
           colors={[
@@ -299,11 +312,7 @@ const styles = StyleSheet.create({
   card: {
     marginVertical: 6,
     borderRadius: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+    // Note: shadow/elevation styles are applied dynamically to prevent Android artifacts
     overflow: 'hidden',
     width: '100%',
   },

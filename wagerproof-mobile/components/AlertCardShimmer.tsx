@@ -42,7 +42,7 @@ export function AlertCardShimmer() {
   const highlightColor = theme.dark ? '#1a1a1a' : '#ffffff';
 
   return (
-    <View style={[styles.card, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.dark ? '#000000' : '#ffffff' }]}>
+    <View style={[styles.card, { backgroundColor: theme.dark ? '#000000' : '#ffffff' }]}>
       <View style={styles.content}>
         {/* Header Pills Skeleton */}
         <View style={styles.headerRow}>
@@ -102,7 +102,6 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 12,
     borderRadius: 12,
-    borderWidth: 1,
     overflow: 'hidden',
     padding: 12,
   },

@@ -17,7 +17,19 @@ interface TextInputProps {
   multiline?: boolean;
   numberOfLines?: number;
   icon?: keyof typeof MaterialCommunityIcons.glyphMap;
+  /** Force dark mode styling regardless of system theme - useful for dark backgrounds like onboarding */
+  forceDarkMode?: boolean;
 }
+
+// Dark mode colors for forced dark mode (e.g., onboarding)
+const darkModeColors = {
+  surface: 'rgba(255, 255, 255, 0.1)',
+  onSurface: '#ffffff',
+  onSurfaceVariant: 'rgba(255, 255, 255, 0.6)',
+  outline: 'rgba(255, 255, 255, 0.2)',
+  primary: '#22c55e',
+  error: '#ef4444',
+};
 
 export function TextInput({
   label,
@@ -33,21 +45,32 @@ export function TextInput({
   multiline = false,
   numberOfLines,
   icon,
+  forceDarkMode = false,
 }: TextInputProps) {
-  const theme = useTheme();
+  const paperTheme = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
+  // Use dark mode colors if forceDarkMode is enabled, otherwise use theme colors
+  const colors = forceDarkMode ? darkModeColors : {
+    surface: paperTheme.colors.surface,
+    onSurface: paperTheme.colors.onSurface,
+    onSurfaceVariant: paperTheme.colors.onSurfaceVariant,
+    outline: paperTheme.colors.outline,
+    primary: paperTheme.colors.primary,
+    error: paperTheme.colors.error,
+  };
+
   const borderColor = error
-    ? theme.colors.error
+    ? colors.error
     : isFocused
-    ? theme.colors.primary
-    : theme.colors.outline;
+    ? colors.primary
+    : colors.outline;
 
   return (
     <View style={styles.container}>
       {label && (
-        <Text style={[styles.label, { color: theme.colors.onSurface }]}>
+        <Text style={[styles.label, { color: colors.onSurface }]}>
           {label}
         </Text>
       )}
@@ -56,7 +79,7 @@ export function TextInput({
           styles.inputContainer,
           {
             borderColor,
-            backgroundColor: theme.colors.surface,
+            backgroundColor: colors.surface,
           },
           !editable && styles.disabled,
         ]}
@@ -65,7 +88,7 @@ export function TextInput({
           <MaterialCommunityIcons
             name={icon}
             size={20}
-            color={theme.colors.onSurfaceVariant}
+            color={colors.onSurfaceVariant}
             style={styles.leftIcon}
           />
         )}
@@ -73,14 +96,14 @@ export function TextInput({
           style={[
             styles.input,
             {
-              color: theme.colors.onSurface,
+              color: colors.onSurface,
             },
             multiline && styles.multiline,
           ]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={theme.colors.onSurfaceVariant}
+          placeholderTextColor={colors.onSurfaceVariant}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCorrect}
@@ -99,13 +122,13 @@ export function TextInput({
             <MaterialCommunityIcons
               name={isPasswordVisible ? 'eye-off' : 'eye'}
               size={20}
-              color={theme.colors.onSurfaceVariant}
+              color={colors.onSurfaceVariant}
             />
           </TouchableOpacity>
         )}
       </View>
       {error && (
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>
           {error}
         </Text>
       )}

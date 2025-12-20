@@ -1,25 +1,18 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import { Button } from '../../ui/Button';
-import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { usePaywallSheet } from '../../../app/(onboarding)/index';
 
 export function DataTransparency() {
-  const { nextStep, submitOnboardingData } = useOnboarding();
+  const { openPaywallSheet } = usePaywallSheet();
   const theme = useTheme();
-
-  // Mark onboarding as completed when user reaches this page
-  useEffect(() => {
-    submitOnboardingData().catch((err) => {
-      console.error('Failed to mark onboarding as completed:', err);
-    });
-  }, []);
 
   const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    nextStep();
+    openPaywallSheet();
   };
 
   return (
@@ -41,7 +34,7 @@ export function DataTransparency() {
         />
       </View>
       
-      <Button onPress={handleContinue} fullWidth variant="glass">
+      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
         Continue
       </Button>
     </ScrollView>

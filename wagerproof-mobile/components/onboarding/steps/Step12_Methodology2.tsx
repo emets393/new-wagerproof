@@ -154,7 +154,7 @@ export function MethodologyClaim2() {
       </ScrollView>
     
       <View style={styles.floatingButtonContainer}>
-        <Button onPress={handleContinue} fullWidth variant="glass" style={{ backgroundColor: 'rgba(255, 255, 255, .8)' }} textStyle={{ color: '#000000' }}>
+        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={{ backgroundColor: 'rgba(255, 255, 255, .8)' }} textStyle={{ color: '#000000' }}>
           Continue
         </Button>
       </View>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ViewStyle, Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
 interface CardProps {
@@ -11,21 +11,25 @@ interface CardProps {
 
 export function Card({ children, onPress, selected = false, style }: CardProps) {
   const theme = useTheme();
+  const isAndroid = Platform.OS === 'android';
 
   const cardStyle = [
     styles.card,
     {
-      backgroundColor: selected 
+      backgroundColor: selected
         ? 'rgba(255, 255, 255, 0.25)' // Brighter glassmorphism when selected
         : 'rgba(255, 255, 255, 0.1)',
-      borderColor: selected 
+      borderColor: selected
         ? 'rgba(255, 255, 255, 0.5)' // Brighter border when selected
         : 'rgba(255, 255, 255, 0.2)',
-      shadowColor: selected ? '#fff' : 'transparent',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: selected ? 0.3 : 0,
-      shadowRadius: selected ? 8 : 0,
-      elevation: selected ? 4 : 0,
+      // Only apply shadows on iOS - Android renders square artifacts with transparent backgrounds
+      ...(isAndroid ? {} : {
+        shadowColor: selected ? '#fff' : 'transparent',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: selected ? 0.3 : 0,
+        shadowRadius: selected ? 8 : 0,
+        elevation: selected ? 4 : 0,
+      }),
     },
     style,
   ];

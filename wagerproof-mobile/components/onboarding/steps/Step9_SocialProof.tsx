@@ -106,7 +106,7 @@ export function SocialProof() {
       </View>
       
       <View style={{ paddingHorizontal: 24, paddingBottom: 24, paddingTop: 12 }}>
-        <Button onPress={handleContinue} fullWidth variant="glass">
+        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
           Continue
         </Button>
       </View>

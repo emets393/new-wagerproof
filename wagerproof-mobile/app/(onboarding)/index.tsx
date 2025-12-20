@@ -1,10 +1,12 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, createContext, useContext } from 'react';
 import { View, StyleSheet, Animated, Dimensions, ScrollView, StatusBar } from 'react-native';
 import { PaperProvider, MD3DarkTheme } from 'react-native-paper';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { OnboardingProvider, useOnboarding } from '../../contexts/OnboardingContext';
 import { ProgressIndicator } from '../../components/onboarding/ProgressIndicator';
 import { AnimatedGradientBackground } from '../../components/onboarding/AnimatedGradientBackground';
 import { stepGradients, StepNumber } from '../../components/onboarding/onboardingGradients';
+import { PaywallBottomSheet } from '../../components/onboarding/PaywallBottomSheet';
 import { PersonalizationIntro } from '../../components/onboarding/steps/Step1_PersonalizationIntro';
 import { TermsAcceptance } from '../../components/onboarding/steps/Step1b_TermsAcceptance';
 import { SportsSelection } from '../../components/onboarding/steps/Step2_SportsSelection';
@@ -20,11 +22,16 @@ import { ValueClaim } from '../../components/onboarding/steps/Step10_ValueClaim'
 import { MethodologyClaim2 } from '../../components/onboarding/steps/Step12_Methodology2';
 import { AcquisitionSource } from '../../components/onboarding/steps/Step13_AcquisitionSource';
 import { DataTransparency } from '../../components/onboarding/steps/Step14_DataTransparency';
-import { EarlyAccess } from '../../components/onboarding/steps/Step15_EarlyAccess';
-import { RevenueCatPaywallStep } from '../../components/onboarding/steps/Step16_RevenueCatPaywall';
 
 const { width } = Dimensions.get('window');
-const TOTAL_STEPS = 16;
+const TOTAL_STEPS = 15; // Reduced from 16 - paywall is now a bottom sheet
+
+// Context to control paywall bottom sheet from DataTransparency step
+interface PaywallSheetContextType {
+  openPaywallSheet: () => void;
+}
+const PaywallSheetContext = createContext<PaywallSheetContextType>({ openPaywallSheet: () => {} });
+export const usePaywallSheet = () => useContext(PaywallSheetContext);
 
 const stepComponents = {
   1: PersonalizationIntro,
@@ -41,9 +48,7 @@ const stepComponents = {
   12: DiscordCommunity,
   13: ValueClaim,
   14: AcquisitionSource,
-  15: DataTransparency,
-  // 16: EarlyAccess, // Disabled - not showing early access message
-  16: RevenueCatPaywallStep,
+  15: DataTransparency, // Last step - paywall shows as bottom sheet after this
 };
 
 function OnboardingContent() {
@@ -52,10 +57,15 @@ function OnboardingContent() {
   const translateX = useRef(new Animated.Value(0)).current;
   const [displayStep, setDisplayStep] = useState(currentStep);
   const [gradientStep, setGradientStep] = useState(currentStep);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const isFirstMount = useRef(true);
-  
+
   // Get gradient for current step - updates immediately for smooth transition
   const currentGradient = stepGradients[gradientStep as StepNumber] || stepGradients[1];
+
+  // Paywall sheet controls
+  const openPaywallSheet = () => setIsPaywallOpen(true);
+  const closePaywallSheet = () => setIsPaywallOpen(false);
 
   useEffect(() => {
     // Skip animation on first mount
@@ -65,10 +75,10 @@ function OnboardingContent() {
       setGradientStep(currentStep);
       return;
     }
-    
+
     // Start gradient transition immediately
     setGradientStep(currentStep);
-    
+
     // Fade out current content
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -82,77 +92,86 @@ function OnboardingContent() {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Update the display step (content)
-      setDisplayStep(currentStep);
-      
-      // Reset position for fade in
+      // IMPORTANT: Set initial position for new content BEFORE updating displayStep
+      // This prevents the flicker where new content briefly appears at wrong position
+      fadeAnim.setValue(0);
       translateX.setValue(direction > 0 ? 30 : -30);
-      
-      // Fade in new content
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateX, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+
+      // Now update the display step (content) - component will mount already hidden
+      setDisplayStep(currentStep);
+
+      // Use requestAnimationFrame to ensure the new component has mounted
+      // before starting the fade-in animation
+      requestAnimationFrame(() => {
+        // Fade in new content
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateX, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
     });
   }, [currentStep, direction, fadeAnim, translateX]);
 
   const CurrentStepComponent = stepComponents[displayStep] || PersonalizationIntro;
 
   return (
-    <View style={styles.container}>
-      {/* Animated Gradient Background */}
-      <AnimatedGradientBackground 
-        colorScheme={currentGradient}
-        duration={8000}
-      />
-      
-      {/* Dark overlay for better text readability */}
-      <View style={styles.darkOverlay} />
-      
-      {/* Force dark status bar */}
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-      {/* Progress Indicator with Back Button - Only show if not on Paywall */}
-      {displayStep !== 16 && (
-        <ProgressIndicator 
-          currentStep={gradientStep} 
+    <PaywallSheetContext.Provider value={{ openPaywallSheet }}>
+      <View style={styles.container}>
+        {/* Animated Gradient Background */}
+        <AnimatedGradientBackground
+          colorScheme={currentGradient}
+          duration={8000}
+        />
+
+        {/* Dark overlay for better text readability */}
+        <View style={styles.darkOverlay} />
+
+        {/* Force dark status bar */}
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+
+        {/* Progress Indicator with Back Button */}
+        <ProgressIndicator
+          currentStep={gradientStep}
           totalSteps={TOTAL_STEPS}
           onBack={prevStep}
         />
-      )}
-      
-      {/* Step Content */}
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateX }],
-          },
-        ]}
-      >
-        {/* Steps that handle their own scrolling (for floating buttons) */}
-        {displayStep === 16 || displayStep === 7 || displayStep === 9 || displayStep === 12 ? (
-          <CurrentStepComponent />
-        ) : (
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-          >
+
+        {/* Step Content */}
+        <Animated.View
+          style={[
+            styles.content,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateX }],
+            },
+          ]}
+        >
+          {/* Steps that handle their own scrolling (for floating buttons) */}
+          {displayStep === 7 || displayStep === 9 || displayStep === 12 ? (
             <CurrentStepComponent />
-          </ScrollView>
-        )}
-      </Animated.View>
-    </View>
+          ) : (
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <CurrentStepComponent />
+            </ScrollView>
+          )}
+        </Animated.View>
+
+        {/* Paywall Bottom Sheet */}
+        <PaywallBottomSheet isOpen={isPaywallOpen} onClose={closePaywallSheet} />
+      </View>
+    </PaywallSheetContext.Provider>
   );
 }
 

@@ -44,13 +44,15 @@ export function AgeConfirmation() {
         placeholder="Enter your age"
         keyboardType="numeric"
         error={error || undefined}
+        forceDarkMode
       />
       
-      <Button 
-        onPress={handleNext} 
-        disabled={!age} 
+      <Button
+        onPress={handleNext}
+        disabled={!age}
         fullWidth
         variant="glass"
+        forceDarkMode
       >
         Continue
       </Button>

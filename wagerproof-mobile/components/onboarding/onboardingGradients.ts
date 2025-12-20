@@ -14,9 +14,9 @@ export const stepGradients = {
   10: gradientColorSchemes.energetic,   // Value claim - Energetic
   11: gradientColorSchemes.calm,        // Methodology 1 - Calm
   12: gradientColorSchemes.cool,        // Methodology 2 - Cool
-  13: gradientColorSchemes.warm,        // Acquisition - Warm
-  14: gradientColorSchemes.calm,        // Data transparency - Calm
-  15: gradientColorSchemes.energetic,   // Early access - Energetic
+  13: gradientColorSchemes.warm,        // ValueClaim - Warm
+  14: gradientColorSchemes.calm,        // AcquisitionSource - Calm
+  15: gradientColorSchemes.cool,        // DataTransparency (How we keep it fair) - Cool blues
   16: gradientColorSchemes.primary,     // Paywall - Primary
 };
 

@@ -29,7 +29,7 @@ export function PersonalizationIntro() {
         Answer a few quick questions so we can tune your dashboard and picks.
       </Text>
       
-      <Button onPress={handleContinue} fullWidth variant="glass">
+      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
         Continue
       </Button>
     </View>

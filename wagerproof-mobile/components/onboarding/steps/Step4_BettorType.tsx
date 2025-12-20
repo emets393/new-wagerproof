@@ -56,11 +56,12 @@ export function BettorTypeSelection() {
         ))}
       </View>
       
-      <Button 
-        onPress={handleNext} 
-        disabled={!selectedType} 
+      <Button
+        onPress={handleNext}
+        disabled={!selectedType}
         fullWidth
         variant="glass"
+        forceDarkMode
       >
         Next
       </Button>

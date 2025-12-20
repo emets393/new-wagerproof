@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,14 +16,8 @@ try {
 export function ValueClaim() {
   const { nextStep } = useOnboarding();
   const theme = useTheme();
-  const [useLottie, setUseLottie] = useState(false);
-
-  useEffect(() => {
-    // Check if Lottie is available
-    if (LottieView) {
-      setUseLottie(true);
-    }
-  }, []);
+  // Initialize directly - LottieView is loaded synchronously at module level
+  const useLottie = !!LottieView;
 
   const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -73,7 +67,7 @@ export function ValueClaim() {
         )}
       </View>
       
-      <Button onPress={handleContinue} fullWidth variant="glass">
+      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
         Continue
       </Button>
     </View>

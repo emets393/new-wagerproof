@@ -17,6 +17,8 @@ interface ButtonProps {
   selected?: boolean;
   style?: any;
   textStyle?: any;
+  /** Force dark mode styling regardless of system theme (useful for dark backgrounds) */
+  forceDarkMode?: boolean;
 }
 
 export function Button({
@@ -30,9 +32,13 @@ export function Button({
   selected = false,
   style,
   textStyle,
+  forceDarkMode = false,
 }: ButtonProps) {
   const theme = useTheme();
-  const { isDark } = useThemeContext();
+  const { isDark: systemIsDark } = useThemeContext();
+
+  // Use forced dark mode or system theme
+  const isDark = forceDarkMode || systemIsDark;
 
   const getButtonStyle = () => {
     const baseStyle = [styles.button, fullWidth && styles.fullWidth];
@@ -44,27 +50,35 @@ export function Button({
         break;
       case 'glass':
         // Theme-aware glass styling
+        // Note: Shadows/elevation disabled on Android due to square artifact rendering issues
+        // with transparent backgrounds
+        const isAndroid = Platform.OS === 'android';
         if (isDark) {
-          variantStyle = selected 
+          variantStyle = selected
             ? {
                 backgroundColor: 'rgba(255, 255, 255, 0.4)',
                 borderWidth: 1.5,
                 borderColor: 'rgba(255, 255, 255, 0.7)',
-                shadowColor: '#fff',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 16,
-                elevation: 6,
+                // Only apply shadows on iOS - Android renders square artifacts with transparent bg
+                ...(isAndroid ? {} : {
+                  shadowColor: '#fff',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 16,
+                  elevation: 6,
+                }),
               }
             : {
                 backgroundColor: 'rgba(255, 255, 255, 0.2)',
                 borderWidth: 1,
                 borderColor: 'rgba(255, 255, 255, 0.3)',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
-                shadowRadius: 12,
-                elevation: 3,
+                ...(isAndroid ? {} : {
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 12,
+                  elevation: 3,
+                }),
               };
         } else {
           // Light mode: use dark colors for contrast
@@ -73,21 +87,25 @@ export function Button({
                 backgroundColor: 'rgba(0, 0, 0, 0.15)',
                 borderWidth: 1.5,
                 borderColor: 'rgba(0, 0, 0, 0.25)',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 16,
-                elevation: 6,
+                ...(isAndroid ? {} : {
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 16,
+                  elevation: 6,
+                }),
               }
             : {
                 backgroundColor: 'rgba(0, 0, 0, 0.08)',
                 borderWidth: 1,
                 borderColor: 'rgba(0, 0, 0, 0.15)',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
-                shadowRadius: 12,
-                elevation: 3,
+                ...(isAndroid ? {} : {
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 12,
+                  elevation: 3,
+                }),
               };
         }
         break;

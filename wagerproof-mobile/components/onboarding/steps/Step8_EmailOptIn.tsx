@@ -60,6 +60,7 @@ export function EmailOptIn() {
             value={user?.email || ''}
             onChangeText={() => {}}
             editable={false}
+            forceDarkMode
           />
           <TextInput
             label="Phone Number (optional)"
@@ -67,11 +68,12 @@ export function EmailOptIn() {
             onChangeText={setPhoneNumber}
             placeholder="Enter phone number"
             keyboardType="phone-pad"
+            forceDarkMode
           />
         </View>
       )}
       
-      <Button onPress={handleNext} fullWidth variant="glass">
+      <Button onPress={handleNext} fullWidth variant="glass" forceDarkMode>
         Next
       </Button>
     </View>

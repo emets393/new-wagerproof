@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, Animated, Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import Checkbox from 'expo-checkbox';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+
+const isAndroid = Platform.OS === 'android';
 
 export function TermsAcceptance() {
   const { nextStep, updateOnboardingData } = useOnboarding();
@@ -247,6 +249,7 @@ export function TermsAcceptance() {
             onPress={handleNext}
             fullWidth
             variant="glass"
+            forceDarkMode
             disabled={!isChecked}
             style={[
               styles.continueButton,
@@ -355,7 +358,8 @@ const styles = StyleSheet.create({
   continueButton: {
     marginTop: 8,
   },
-  buttonActive: {
+  // Note: buttonActive glow effect only on iOS - Android renders square artifacts
+  buttonActive: isAndroid ? {} : {
     shadowColor: '#22c55e',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,

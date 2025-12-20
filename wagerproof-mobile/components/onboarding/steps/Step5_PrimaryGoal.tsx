@@ -47,10 +47,10 @@ export function PrimaryGoalSelection() {
             style={styles.card}
           >
             <View style={styles.cardContent}>
-              <MaterialCommunityIcons 
-                name={goal.icon as any} 
-                size={24} 
-                color={selectedGoal === goal.text ? '#3b82f6' : theme.colors.onBackground}
+              <MaterialCommunityIcons
+                name={goal.icon as any}
+                size={24}
+                color={selectedGoal === goal.text ? '#22c55e' : theme.colors.onBackground}
                 style={styles.icon}
               />
               <Text style={[styles.cardText, { color: theme.colors.onBackground }]}>
@@ -61,11 +61,12 @@ export function PrimaryGoalSelection() {
         ))}
       </View>
       
-      <Button 
-        onPress={handleNext} 
-        disabled={!selectedGoal} 
+      <Button
+        onPress={handleNext}
+        disabled={!selectedGoal}
         fullWidth
         variant="glass"
+        forceDarkMode
       >
         Next
       </Button>
