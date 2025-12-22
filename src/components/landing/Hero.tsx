@@ -86,7 +86,8 @@ const Hero = () => {
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex items-center justify-center gap-4 mb-4 flex-wrap">
+          <div className="flex items-center justify-center gap-4 mb-4">
+            {/* Try on Web Button */}
             <Link
               to="https://wagerproof.bet/account"
               target="_blank"
@@ -103,34 +104,34 @@ const Hero = () => {
                 <span>Try on Web</span>
               </MovingBorderButton>
             </Link>
-            <a
-              href="https://play.google.com/store/apps/details?id=com.wagerproof.mobile"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center"
-            >
-              <img
-                src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
-                alt="Get it on Google Play"
-                style={{ width: '250px', height: '75px', objectFit: 'contain' }}
-                width="250"
-                height="75"
-              />
-            </a>
-            {/* Apple App Store Badge - Coming Soon */}
-            <button
-              onClick={() => setIsIOSModalOpen(true)}
-              className="relative flex items-center opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
-            >
-              <img
-                src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
-                alt="Download on the App Store"
-                style={{ width: '160px', height: '54px', objectFit: 'contain' }}
-                width="160"
-                height="54"
-              />
-              <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Coming Soon</span>
-            </button>
+
+            {/* App Store Badges - stacked on mobile, inline on desktop */}
+            <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
+              <a
+                href="https://play.google.com/store/apps/details?id=com.wagerproof.mobile"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center"
+              >
+                <img
+                  src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
+                  alt="Get it on Google Play"
+                  className="w-[180px] h-[54px] md:w-[250px] md:h-[75px] object-contain"
+                />
+              </a>
+              {/* Apple App Store Badge - Coming Soon */}
+              <button
+                onClick={() => setIsIOSModalOpen(true)}
+                className="relative flex items-center opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <img
+                  src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
+                  alt="Download on the App Store"
+                  className="w-[120px] h-[40px] md:w-[160px] md:h-[54px] object-contain"
+                />
+                <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[10px] md:text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Coming Soon</span>
+              </button>
+            </div>
           </div>
           
           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2 mt-4">
