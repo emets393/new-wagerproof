@@ -6,6 +6,7 @@ import { AuthContainer } from '@/components/ui/AuthContainer';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/TextInput';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/services/supabase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function SignUpScreen() {
@@ -47,7 +48,7 @@ export default function SignUpScreen() {
   const handleSignUp = async () => {
     setError('');
     setSuccess('');
-    
+
     if (!validateForm()) {
       return;
     }
@@ -55,7 +56,7 @@ export default function SignUpScreen() {
     try {
       setLoading(true);
       const { error: signUpError } = await signUp(email.trim(), password);
-      
+
       if (signUpError) {
         if (signUpError.message.includes('already registered')) {
           setError('An account with this email already exists');
@@ -65,8 +66,20 @@ export default function SignUpScreen() {
         return;
       }
 
+      // Check if user was auto-signed in (happens when email confirmation is disabled)
+      // If so, the OnboardingGuard will handle navigation - don't redirect to login
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        // User is already signed in - OnboardingGuard will redirect to onboarding
+        setSuccess('Account created! Setting up your profile...');
+        // Don't navigate - let OnboardingGuard handle it
+        return;
+      }
+
+      // Email confirmation required - show message and redirect to login
       setSuccess('Account created! Please check your email to verify your account.');
-      
+
       // Clear form
       setEmail('');
       setPassword('');

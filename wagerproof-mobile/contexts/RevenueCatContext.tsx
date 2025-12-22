@@ -17,6 +17,7 @@ import {
   presentCustomerCenter,
   ENTITLEMENT_IDENTIFIER,
   getActiveSubscriptionType,
+  isRevenueCatConfigured,
 } from '../services/revenuecat';
 import { useAuth } from './AuthContext';
 
@@ -66,19 +67,27 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     const init = async () => {
       try {
         setError(null);
+        console.log('📱 RevenueCat: Starting initialization...');
         await initializeRevenueCat();
-        // Even if initialization doesn't throw, check if it actually configured
-        // (it might silently fail on web or if native module isn't available)
+
+        // Verify that RevenueCat actually configured successfully
+        const actuallyConfigured = isRevenueCatConfigured();
+        console.log('📱 RevenueCat: Initialization complete, actually configured:', actuallyConfigured);
+
         if (isMounted) {
-          setIsInitialized(true);
+          setIsInitialized(actuallyConfigured);
           setIsLoading(false);
+
+          if (!actuallyConfigured) {
+            console.warn('📱 RevenueCat: SDK initialized but not properly configured (web or native module unavailable)');
+          }
         }
       } catch (err: any) {
-        console.error('Failed to initialize RevenueCat:', err);
+        console.error('📱 RevenueCat: Failed to initialize:', err);
         if (isMounted) {
           // Don't set error for native module issues - this is expected on web
           if (err?.message?.includes('native')) {
-            console.warn('RevenueCat native module not available. Continuing without RevenueCat.');
+            console.warn('📱 RevenueCat: Native module not available. Continuing without RevenueCat.');
             setIsInitialized(false);
           } else {
             setError(err.message || 'Failed to initialize RevenueCat');
@@ -98,16 +107,24 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
   // Set user ID when user logs in
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized) {
+      console.log('📱 RevenueCat: Skipping user ID set - not initialized yet');
+      return;
+    }
 
     const setUserId = async () => {
       try {
         if (user?.id) {
+          console.log('📱 RevenueCat: Setting user ID for:', user.id);
+          console.log('📱 RevenueCat: User email:', user.email);
           await setRevenueCatUserId(user.id);
+          console.log('📱 RevenueCat: User ID set successfully, refreshing customer info...');
           // Refresh customer info after setting user ID
           await refreshCustomerInfo();
           await refreshOfferings();
+          console.log('📱 RevenueCat: Customer info and offerings refreshed');
         } else {
+          console.log('📱 RevenueCat: No user, logging out from RevenueCat');
           // Log out if no user
           await logOutRevenueCat();
           setCustomerInfo(null);
@@ -115,7 +132,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           setSubscriptionType(null);
         }
       } catch (err: any) {
-        console.error('Error setting RevenueCat user ID:', err);
+        console.error('📱 RevenueCat: Error setting user ID:', err);
         setError(err.message || 'Failed to set user ID');
       }
     };

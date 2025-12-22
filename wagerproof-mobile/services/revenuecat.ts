@@ -95,7 +95,7 @@ function isRevenueCatAvailable(): boolean {
     if (Platform.OS === 'web') {
       return false;
     }
-    
+
     const module = getPurchasesModule();
     if (!module) {
       return false;
@@ -117,6 +117,14 @@ function isRevenueCatAvailable(): boolean {
   } catch (error) {
     return false;
   }
+}
+
+/**
+ * Check if RevenueCat SDK is properly configured
+ * Use this to verify initialization was successful
+ */
+export function isRevenueCatConfigured(): boolean {
+  return isConfigured && getPurchasesModule() !== null;
 }
 
 /**
@@ -216,15 +224,30 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
  */
 export async function setRevenueCatUserId(userId: string): Promise<void> {
   try {
+    console.log('🔑 setRevenueCatUserId called with:', userId);
+    console.log('🔑 isConfigured:', isConfigured);
+
     const PurchasesModule = getPurchasesModule();
+    console.log('🔑 PurchasesModule available:', !!PurchasesModule);
+
     if (!isConfigured || !PurchasesModule) {
-      console.warn('RevenueCat is not configured. Skipping user ID set.');
+      console.warn('🔑 RevenueCat is not configured. Skipping user ID set.');
+      console.warn('🔑 This means the user will NOT be identified in RevenueCat!');
       return;
     }
-    await PurchasesModule.logIn(userId);
-    console.log('RevenueCat user ID set:', userId);
-  } catch (error) {
-    console.error('Error setting RevenueCat user ID:', error);
+
+    console.log('🔑 Calling Purchases.logIn() with userId:', userId);
+    const { customerInfo, created } = await PurchasesModule.logIn(userId);
+
+    console.log('✅ RevenueCat user logged in successfully');
+    console.log('✅ User ID:', userId);
+    console.log('✅ New user created in RevenueCat:', created);
+    console.log('✅ Customer originalAppUserId:', customerInfo?.originalAppUserId);
+    console.log('✅ Active entitlements:', Object.keys(customerInfo?.entitlements?.active || {}));
+  } catch (error: any) {
+    console.error('❌ Error setting RevenueCat user ID:', error);
+    console.error('❌ Error message:', error?.message);
+    console.error('❌ Error code:', error?.code);
     throw error;
   }
 }
