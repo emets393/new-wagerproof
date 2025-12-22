@@ -70,7 +70,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
           },
         ],
         sameAs: [
-          'https://twitter.com/wagerproof',
+          'https://twitter.com/wagerproofai',
           'https://www.instagram.com/wagerproof.official/',
           'https://www.tiktok.com/@wagerproof',
         ],

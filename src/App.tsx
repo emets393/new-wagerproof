@@ -194,7 +194,7 @@ function AppRoutes() {
           <Route path="/community-voting" element={<ProtectedRoute><CommunityVoting /></ProtectedRoute>} />
           <Route path="/discord" element={<ProtectedRoute><Discord /></ProtectedRoute>} />
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
-          <Route path="/mobile-app" element={<ProtectedRoute><MobileApp /></ProtectedRoute>} />
+          <Route path="/mobile-app" element={<MobileApp />} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
