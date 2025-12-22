@@ -1,18 +1,60 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import { Button } from '../../ui/Button';
-import { usePaywallSheet } from '../../../app/(onboarding)/index';
+import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { presentPaywall } from '../../../services/revenuecat';
 
 export function DataTransparency() {
-  const { openPaywallSheet } = usePaywallSheet();
   const theme = useTheme();
+  const router = useRouter();
+  const { submitOnboardingData } = useOnboarding();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleContinue = () => {
+  const handleCompletion = async () => {
+    try {
+      console.log('Starting onboarding completion...');
+      await submitOnboardingData();
+      console.log('Onboarding data submitted successfully!');
+      router.replace('/(tabs)');
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+    }
+  };
+
+  const handleContinue = async () => {
+    if (isLoading) return;
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    openPaywallSheet();
+    setIsLoading(true);
+
+    try {
+      console.log('Presenting RevenueCat paywall...');
+      const result = await presentPaywall();
+      console.log('Paywall result:', result);
+
+      // Handle paywall result - complete onboarding regardless of purchase
+      // User can subscribe later from settings
+      await handleCompletion();
+    } catch (error: any) {
+      console.error('Error presenting paywall:', error);
+
+      // If paywall fails to present, still allow user to continue
+      Alert.alert(
+        'Continue to App',
+        'Would you like to continue to the app? You can subscribe anytime from Settings.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => setIsLoading(false) },
+          { text: 'Continue', onPress: handleCompletion },
+        ]
+      );
+      return;
+    }
+
+    setIsLoading(false);
   };
 
   return (
@@ -34,8 +76,8 @@ export function DataTransparency() {
         />
       </View>
       
-      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
-        Continue
+      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode disabled={isLoading}>
+        {isLoading ? 'Loading...' : 'Continue'}
       </Button>
     </ScrollView>
   );

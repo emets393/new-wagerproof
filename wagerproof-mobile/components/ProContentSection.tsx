@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useProAccess } from '@/hooks/useProAccess';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 
 // Import RevenueCatUI for presenting paywalls
 let RevenueCatUI: any = null;
@@ -66,8 +66,8 @@ export function ProContentSection({ children, title, minHeight = 100 }: ProConte
         {children}
       </View>
 
-      {/* Blur overlay */}
-      <BlurView
+      {/* Blur overlay - uses AndroidBlurView for reliable Android rendering */}
+      <AndroidBlurView
         intensity={25}
         tint={isDark ? 'dark' : 'light'}
         style={StyleSheet.absoluteFill}

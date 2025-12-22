@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 
 // Import RevenueCatUI for presenting paywalls
 let RevenueCatUI: any = null;
@@ -56,8 +56,8 @@ export function LockedGameCard({ children, cardWidth }: LockedGameCardProps) {
         {children}
       </View>
 
-      {/* Blur overlay */}
-      <BlurView
+      {/* Blur overlay - uses AndroidBlurView for reliable Android rendering */}
+      <AndroidBlurView
         intensity={20}
         tint={isDark ? 'dark' : 'light'}
         style={styles.blurOverlay}

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 
 // Import RevenueCatUI for presenting paywalls
 let RevenueCatUI: any = null;
@@ -65,8 +65,8 @@ export function LockedPickCard({ sport = 'NFL', minHeight = 180 }: LockedPickCar
         <View style={[styles.placeholderLine, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.03)', width: '80%' }]} />
       </View>
 
-      {/* Blur overlay */}
-      <BlurView
+      {/* Blur overlay - uses AndroidBlurView for reliable Android rendering */}
+      <AndroidBlurView
         intensity={15}
         tint={isDark ? 'dark' : 'light'}
         style={StyleSheet.absoluteFill}

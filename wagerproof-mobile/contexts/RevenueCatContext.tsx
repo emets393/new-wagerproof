@@ -16,7 +16,6 @@ import {
   getAvailablePackages,
   presentCustomerCenter,
   ENTITLEMENT_IDENTIFIER,
-  isSubscriptionActive,
   getActiveSubscriptionType,
 } from '../services/revenuecat';
 import { useAuth } from './AuthContext';
@@ -135,10 +134,21 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       const info = await getCustomerInfo();
       setCustomerInfo(info);
 
-      // Check entitlement
-      const hasEntitlement = info.entitlements.active[ENTITLEMENT_IDENTIFIER] !== undefined;
-      setIsProInternal(hasEntitlement && isSubscriptionActive(info));
-      
+      // Check entitlement - if it exists in .active, the user has access
+      // RevenueCat only puts entitlements in .active if they're currently valid
+      const activeEntitlement = info.entitlements.active[ENTITLEMENT_IDENTIFIER];
+      const hasEntitlement = activeEntitlement !== undefined;
+
+      // Log for debugging
+      console.log('📱 RevenueCat entitlement check:', {
+        entitlementId: ENTITLEMENT_IDENTIFIER,
+        hasEntitlement,
+        activeEntitlements: Object.keys(info.entitlements.active || {}),
+        allEntitlements: Object.keys(info.entitlements.all || {}),
+      });
+
+      setIsProInternal(hasEntitlement);
+
       // Get subscription type
       const type = getActiveSubscriptionType(info);
       setSubscriptionType(type);

@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 import LandingNavBar from "@/components/landing/LandingNavBar";
 import Hero from "@/components/landing/Hero";
 import RecipeImport from "@/components/landing/RecipeImport";
@@ -20,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const NewLanding = () => {
+  const { theme } = useTheme();
   useRandomNotifications();
   
   const { data: showUserWins, isLoading: isLoadingSettings } = useQuery({
@@ -116,6 +118,24 @@ const NewLanding = () => {
         {showUserWins === true && <UserWinsSection />}
         <UserJourney />
         <CompetitorComparison />
+
+        {/* Product Hunt Badge */}
+        <div className="flex items-center justify-center py-8">
+          <a
+            href="https://www.producthunt.com/products/wagerproof?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-wagerproof"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img
+              src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1036620&theme=${theme === 'dark' ? 'dark' : 'light'}&t=1762805140599`}
+              alt="WagerProof - Data-driven sports betting analytics | Product Hunt"
+              style={{ width: '250px', height: '54px' }}
+              width="250"
+              height="54"
+            />
+          </a>
+        </div>
+
         <Testimonials />
         <BetSlipGraderCTA />
         <FAQ questions={faqQuestions} />

@@ -1,12 +1,10 @@
-import React, { useRef, useEffect, useState, createContext, useContext } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { View, StyleSheet, Animated, Dimensions, ScrollView, StatusBar } from 'react-native';
 import { PaperProvider, MD3DarkTheme } from 'react-native-paper';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { OnboardingProvider, useOnboarding } from '../../contexts/OnboardingContext';
 import { ProgressIndicator } from '../../components/onboarding/ProgressIndicator';
 import { AnimatedGradientBackground } from '../../components/onboarding/AnimatedGradientBackground';
 import { stepGradients, StepNumber } from '../../components/onboarding/onboardingGradients';
-import { PaywallBottomSheet } from '../../components/onboarding/PaywallBottomSheet';
 import { PersonalizationIntro } from '../../components/onboarding/steps/Step1_PersonalizationIntro';
 import { TermsAcceptance } from '../../components/onboarding/steps/Step1b_TermsAcceptance';
 import { SportsSelection } from '../../components/onboarding/steps/Step2_SportsSelection';
@@ -24,14 +22,7 @@ import { AcquisitionSource } from '../../components/onboarding/steps/Step13_Acqu
 import { DataTransparency } from '../../components/onboarding/steps/Step14_DataTransparency';
 
 const { width } = Dimensions.get('window');
-const TOTAL_STEPS = 15; // Reduced from 16 - paywall is now a bottom sheet
-
-// Context to control paywall bottom sheet from DataTransparency step
-interface PaywallSheetContextType {
-  openPaywallSheet: () => void;
-}
-const PaywallSheetContext = createContext<PaywallSheetContextType>({ openPaywallSheet: () => {} });
-export const usePaywallSheet = () => useContext(PaywallSheetContext);
+const TOTAL_STEPS = 15; // Paywall is presented as a modal from DataTransparency step
 
 const stepComponents = {
   1: PersonalizationIntro,
@@ -48,7 +39,7 @@ const stepComponents = {
   12: DiscordCommunity,
   13: ValueClaim,
   14: AcquisitionSource,
-  15: DataTransparency, // Last step - paywall shows as bottom sheet after this
+  15: DataTransparency, // Last step - presents native paywall modal on continue
 };
 
 function OnboardingContent() {
@@ -57,15 +48,10 @@ function OnboardingContent() {
   const translateX = useRef(new Animated.Value(0)).current;
   const [displayStep, setDisplayStep] = useState(currentStep);
   const [gradientStep, setGradientStep] = useState(currentStep);
-  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const isFirstMount = useRef(true);
 
   // Get gradient for current step - updates immediately for smooth transition
   const currentGradient = stepGradients[gradientStep as StepNumber] || stepGradients[1];
-
-  // Paywall sheet controls
-  const openPaywallSheet = () => setIsPaywallOpen(true);
-  const closePaywallSheet = () => setIsPaywallOpen(false);
 
   useEffect(() => {
     // Skip animation on first mount
@@ -123,55 +109,50 @@ function OnboardingContent() {
   const CurrentStepComponent = stepComponents[displayStep] || PersonalizationIntro;
 
   return (
-    <PaywallSheetContext.Provider value={{ openPaywallSheet }}>
-      <View style={styles.container}>
-        {/* Animated Gradient Background */}
-        <AnimatedGradientBackground
-          colorScheme={currentGradient}
-          duration={8000}
-        />
+    <View style={styles.container}>
+      {/* Animated Gradient Background */}
+      <AnimatedGradientBackground
+        colorScheme={currentGradient}
+        duration={8000}
+      />
 
-        {/* Dark overlay for better text readability */}
-        <View style={styles.darkOverlay} />
+      {/* Dark overlay for better text readability */}
+      <View style={styles.darkOverlay} />
 
-        {/* Force dark status bar */}
-        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      {/* Force dark status bar */}
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-        {/* Progress Indicator with Back Button */}
-        <ProgressIndicator
-          currentStep={gradientStep}
-          totalSteps={TOTAL_STEPS}
-          onBack={prevStep}
-        />
+      {/* Progress Indicator with Back Button */}
+      <ProgressIndicator
+        currentStep={gradientStep}
+        totalSteps={TOTAL_STEPS}
+        onBack={prevStep}
+      />
 
-        {/* Step Content */}
-        <Animated.View
-          style={[
-            styles.content,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateX }],
-            },
-          ]}
-        >
-          {/* Steps that handle their own scrolling (for floating buttons) */}
-          {displayStep === 7 || displayStep === 9 || displayStep === 12 ? (
+      {/* Step Content */}
+      <Animated.View
+        style={[
+          styles.content,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateX }],
+          },
+        ]}
+      >
+        {/* Steps that handle their own scrolling (for floating buttons) */}
+        {displayStep === 7 || displayStep === 9 || displayStep === 12 ? (
+          <CurrentStepComponent />
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
             <CurrentStepComponent />
-          ) : (
-            <ScrollView
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-            >
-              <CurrentStepComponent />
-            </ScrollView>
-          )}
-        </Animated.View>
-
-        {/* Paywall Bottom Sheet */}
-        <PaywallBottomSheet isOpen={isPaywallOpen} onClose={closePaywallSheet} />
-      </View>
-    </PaywallSheetContext.Provider>
+          </ScrollView>
+        )}
+      </Animated.View>
+    </View>
   );
 }
 

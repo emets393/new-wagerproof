@@ -741,8 +741,18 @@ export default function PicksScreen() {
     fetchPicks();
   };
 
-  const handleOpenTikTok = () => {
-    Linking.openURL('https://www.tiktok.com/@wagerproof');
+  const handleOpenTikTok = async () => {
+    const url = 'https://www.tiktok.com/@wagerproof';
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        console.warn('Cannot open TikTok URL:', url);
+      }
+    } catch (error) {
+      console.error('Error opening TikTok link:', error);
+    }
   };
 
   // Handle tab press - switch immediately for instant feel

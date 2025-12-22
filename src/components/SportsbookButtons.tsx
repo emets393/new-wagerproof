@@ -50,6 +50,11 @@ export function SportsbookButtons({
   onLinksUpdated,
   compact = false,
 }: SportsbookButtonsProps) {
+  // DISABLED: The Odds API feature is currently hidden from users.
+  // The implementation is preserved for documentation purposes.
+  // To re-enable, remove this return statement.
+  return null;
+
   const { toast } = useToast();
   const { adminModeEnabled } = useAdminMode();
   const [loading, setLoading] = useState(false);
