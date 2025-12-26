@@ -1546,13 +1546,51 @@ ${contextParts}
                           
                           const edgeValue = edgeInfo.edgeValue;
                           const confidenceColor = edgeValue >= 7 ? 'bg-green-500' : edgeValue >= 3 ? 'bg-orange-500' : 'bg-gray-500';
+                          const isFadeAlert = edgeValue >= 10;
                           
-                          return (
-                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
+                          const pillContent = (
+                            <div className={`${isFadeAlert ? 'bg-green-500/80 backdrop-blur-md' : confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <Target className="h-3 w-3" />
                               <span>Edge to {getTeamInitials(edgeInfo.teamName)} +{edgeInfo.displayEdge}</span>
                             </div>
                           );
+                          
+                          return isFadeAlert ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex flex-col items-center gap-1.5 cursor-help">
+                                  <MovingBorderButton
+                                    borderRadius="1.5rem"
+                                    containerClassName="h-auto w-auto p-0"
+                                    className="bg-transparent p-0 border-0 m-0"
+                                    borderClassName="bg-[radial-gradient(#22c55e_40%,transparent_60%)]"
+                                    duration={2000}
+                                    as="div"
+                                  >
+                                    {pillContent}
+                                  </MovingBorderButton>
+                                  <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">
+                                    <Zap className="h-3 w-3 fill-green-600 dark:fill-green-400" />
+                                    <span>FADE ALERT</span>
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent 
+                                side="top" 
+                                className="max-w-xs p-3 pr-6 bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600"
+                                sideOffset={8}
+                                avoidCollisions={true}
+                                collisionPadding={8}
+                                style={{ 
+                                  zIndex: 99999
+                                }}
+                              >
+                                <p className="text-sm text-white dark:text-gray-100 leading-relaxed">
+                                  When a model shows extreme confidence (80%+), it may be overreacting to a single factor. Consider analyzing other factors and potentially fading (betting against) this prediction.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : pillContent;
                         })()}
                         {showNFLMoneylinePills && prediction.home_away_ml_prob !== null && (() => {
                           const isHome = prediction.home_away_ml_prob > 0.5;
