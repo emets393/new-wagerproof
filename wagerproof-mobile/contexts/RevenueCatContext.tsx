@@ -52,7 +52,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
-  const [isProInternal, setIsProInternalInternal] = useState(false);
+  const [isProInternal, setIsProInternal] = useState(false);
   const [subscriptionType, setSubscriptionType] = useState<'monthly' | 'yearly' | 'lifetime' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [forceFreemiumMode, setForceFreemiumMode] = useState(false);
@@ -117,12 +117,35 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         if (user?.id) {
           console.log('📱 RevenueCat: Setting user ID for:', user.id);
           console.log('📱 RevenueCat: User email:', user.email);
-          await setRevenueCatUserId(user.id);
-          console.log('📱 RevenueCat: User ID set successfully, refreshing customer info...');
-          // Refresh customer info after setting user ID
-          await refreshCustomerInfo();
+
+          // setRevenueCatUserId now returns the customer info directly from login
+          const loginCustomerInfo = await setRevenueCatUserId(user.id);
+
+          if (loginCustomerInfo) {
+            console.log('📱 RevenueCat: Using customer info from login response');
+            console.log('📱 RevenueCat: Active entitlements from login:', Object.keys(loginCustomerInfo.entitlements?.active || {}));
+
+            // Use the customer info directly from login - this is the most reliable
+            setCustomerInfo(loginCustomerInfo);
+
+            // Check entitlement from login response
+            const activeEntitlement = loginCustomerInfo.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
+            const hasEntitlement = activeEntitlement !== undefined;
+            console.log('📱 RevenueCat: Has Pro entitlement from login:', hasEntitlement);
+            setIsProInternal(hasEntitlement);
+
+            // Get subscription type
+            const type = getActiveSubscriptionType(loginCustomerInfo);
+            setSubscriptionType(type);
+            console.log('📱 RevenueCat: Subscription type:', type);
+          } else {
+            console.log('📱 RevenueCat: No customer info from login, refreshing...');
+            await refreshCustomerInfo();
+          }
+
+          // Refresh offerings
           await refreshOfferings();
-          console.log('📱 RevenueCat: Customer info and offerings refreshed');
+          console.log('📱 RevenueCat: Offerings refreshed');
         } else {
           console.log('📱 RevenueCat: No user, logging out from RevenueCat');
           // Log out if no user

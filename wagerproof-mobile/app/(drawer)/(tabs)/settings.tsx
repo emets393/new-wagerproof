@@ -18,7 +18,7 @@ export default function SettingsScreen() {
   const { isDark, toggleTheme } = useThemeContext();
   const { user, signOut, signingOut } = useAuth();
   const { isPro, subscriptionType } = useProAccess();
-  const { openCustomerCenter, isInitialized } = useRevenueCat();
+  const { openCustomerCenter, isInitialized, restore, customerInfo } = useRevenueCat();
   const { suggestionsEnabled, setSuggestionsEnabled, isDetached, dismissFloating } = useWagerBotSuggestion();
 
   // Dismiss floating assistant bubble when settings screen opens
@@ -34,6 +34,7 @@ export default function SettingsScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [customerCenterVisible, setCustomerCenterVisible] = useState(false);
   const [isOpeningCustomerCenter, setIsOpeningCustomerCenter] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -72,6 +73,46 @@ export default function SettingsScreen() {
 
   const handleFeatureRequest = () => {
     router.push('/feature-requests');
+  };
+
+  const handleRestorePurchases = async () => {
+    try {
+      setIsRestoring(true);
+      console.log('🔄 Starting purchase restoration...');
+      console.log('🔄 Current user ID:', user?.id);
+      console.log('🔄 Current RevenueCat customer:', customerInfo?.originalAppUserId);
+
+      const restoredInfo = await restore();
+
+      console.log('✅ Restore completed');
+      console.log('✅ Active entitlements:', Object.keys(restoredInfo?.entitlements?.active || {}));
+
+      // Check if any active entitlements were found
+      const hasActiveEntitlement = Object.keys(restoredInfo?.entitlements?.active || {}).length > 0;
+
+      if (hasActiveEntitlement) {
+        Alert.alert(
+          'Purchases Restored!',
+          'Your subscription has been restored successfully. You now have access to all Pro features.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'No Purchases Found',
+          'We couldn\'t find any active purchases for this account. If you believe this is an error, please contact support at admin@wagerproof.bet with your:\n\n• Email address\n• Purchase receipt or confirmation\n• Date of purchase',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error: any) {
+      console.error('❌ Restore failed:', error);
+      Alert.alert(
+        'Restore Failed',
+        `Unable to restore purchases: ${error?.message || 'Unknown error'}. Please try again or contact support at admin@wagerproof.bet`,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsRestoring(false);
+    }
   };
 
   const handleOpenCustomerCenter = async () => {
@@ -208,8 +249,21 @@ export default function SettingsScreen() {
                 color={isPro ? "#FFD700" : theme.colors.primary}
               />
             )}
+            right={props => <List.Icon {...props} icon="information-outline" />}
+            onPress={() => {
+              // Show subscription debug info for support purposes
+              const debugInfo = `Subscription Debug Info:\n\n` +
+                `Email: ${user?.email || 'Not logged in'}\n` +
+                `User ID: ${user?.id || 'N/A'}\n` +
+                `RevenueCat ID: ${customerInfo?.originalAppUserId || 'Not initialized'}\n` +
+                `Pro Status: ${isPro ? 'Active' : 'Inactive'}\n` +
+                `Subscription Type: ${subscriptionType || 'None'}\n` +
+                `Active Entitlements: ${Object.keys(customerInfo?.entitlements?.active || {}).join(', ') || 'None'}\n\n` +
+                `If you're having subscription issues, please screenshot this and send to admin@wagerproof.bet`;
+
+              Alert.alert('Subscription Info', debugInfo, [{ text: 'OK' }]);
+            }}
             style={{ backgroundColor: theme.colors.surface }}
-            disabled={true}
           />
           
           <List.Item
@@ -224,6 +278,28 @@ export default function SettingsScreen() {
             onPress={() => {
               router.push('/(modals)/discord');
             }}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+
+          <List.Item
+            title="Restore Purchases"
+            description={isRestoring ? "Restoring..." : "Already subscribed? Restore here"}
+            left={props => (
+              <List.Icon
+                {...props}
+                icon="restore"
+                color={theme.colors.primary}
+              />
+            )}
+            right={props => (
+              isRestoring ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <List.Icon {...props} icon="chevron-right" />
+              )
+            )}
+            onPress={handleRestorePurchases}
+            disabled={isRestoring || !isInitialized}
             style={{ backgroundColor: theme.colors.surface }}
           />
         </List.Section>

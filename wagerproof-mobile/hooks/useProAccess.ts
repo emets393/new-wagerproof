@@ -1,5 +1,5 @@
 import { useRevenueCat } from '../contexts/RevenueCatContext';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useIsAdmin } from './useIsAdmin';
 
 /**
@@ -12,7 +12,7 @@ import { useIsAdmin } from './useIsAdmin';
  * 3. Otherwise, check RevenueCat subscription status
  */
 export function useProAccess() {
-  const { isPro: isRevenueCatPro, isLoading: isRevenueCatLoading, checkEntitlement, customerInfo, forceFreemiumMode, setForceFreemiumMode } = useRevenueCat();
+  const { isPro: isRevenueCatPro, isLoading: isRevenueCatLoading, checkEntitlement, customerInfo, forceFreemiumMode, setForceFreemiumMode, subscriptionType: revenueCatSubscriptionType } = useRevenueCat();
   const { isAdmin, isLoading: isAdminLoading } = useIsAdmin();
 
   // Combined loading state
@@ -20,6 +20,14 @@ export function useProAccess() {
 
   // Effective isPro: forceFreemiumMode overrides everything, then admin check, then RevenueCat
   const isPro = forceFreemiumMode ? false : (isAdmin || isRevenueCatPro);
+
+  // Subscription type - show admin's type as null (they have free access)
+  const subscriptionType = useMemo(() => {
+    if (isAdmin && !isRevenueCatPro) {
+      return null; // Admin with free access
+    }
+    return revenueCatSubscriptionType;
+  }, [isAdmin, isRevenueCatPro, revenueCatSubscriptionType]);
 
   /**
    * Check if user has active Pro entitlement
@@ -90,6 +98,7 @@ export function useProAccess() {
     isPro,
     isAdmin,
     isLoading,
+    subscriptionType,
     hasProAccess,
     refreshAccess,
     getSubscriptionType,

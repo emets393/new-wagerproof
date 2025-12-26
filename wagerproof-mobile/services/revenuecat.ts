@@ -221,8 +221,9 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
 /**
  * Set the user ID for RevenueCat
  * Call this when user logs in or when user ID changes
+ * Returns the CustomerInfo from the login response
  */
-export async function setRevenueCatUserId(userId: string): Promise<void> {
+export async function setRevenueCatUserId(userId: string): Promise<CustomerInfo | null> {
   try {
     console.log('🔑 setRevenueCatUserId called with:', userId);
     console.log('🔑 isConfigured:', isConfigured);
@@ -233,7 +234,7 @@ export async function setRevenueCatUserId(userId: string): Promise<void> {
     if (!isConfigured || !PurchasesModule) {
       console.warn('🔑 RevenueCat is not configured. Skipping user ID set.');
       console.warn('🔑 This means the user will NOT be identified in RevenueCat!');
-      return;
+      return null;
     }
 
     console.log('🔑 Calling Purchases.logIn() with userId:', userId);
@@ -244,6 +245,10 @@ export async function setRevenueCatUserId(userId: string): Promise<void> {
     console.log('✅ New user created in RevenueCat:', created);
     console.log('✅ Customer originalAppUserId:', customerInfo?.originalAppUserId);
     console.log('✅ Active entitlements:', Object.keys(customerInfo?.entitlements?.active || {}));
+    console.log('✅ All entitlements:', Object.keys(customerInfo?.entitlements?.all || {}));
+
+    // Return the customer info from login - this is the most accurate source
+    return customerInfo;
   } catch (error: any) {
     console.error('❌ Error setting RevenueCat user ID:', error);
     console.error('❌ Error message:', error?.message);
