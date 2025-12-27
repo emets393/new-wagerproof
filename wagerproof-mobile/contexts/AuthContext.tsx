@@ -19,10 +19,8 @@ const configureGoogleSignIn = async () => {
       
       GoogleSignin.configure({
         webClientId: '142325632215-5c9nahlmruos96rsiu60ac4uk2p2s1ua.apps.googleusercontent.com',
-        // iOS requires its own client ID - get this from Google Cloud Console
-        // Create an iOS OAuth client with bundle ID: com.wagerproof.mobile
         iosClientId: '142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq.apps.googleusercontent.com',
-        offlineAccess: false,
+        offlineAccess: true, // Enable to get serverAuthCode
       });
       
       googleSigninConfigured = true;
@@ -61,7 +59,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email || 'no user');
+        console.log('=== AUTH STATE CHANGE ===');
+        console.log('Event:', event);
+        console.log('User:', session?.user?.email || 'no user');
+        console.log('Session exists:', !!session);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -103,62 +104,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithProvider = async (provider: 'google' | 'apple') => {
     try {
       if (provider === 'google') {
-        // Ensure Google Sign-In is configured
+        // Native Google Sign-In flow
+        console.log('=== GOOGLE SIGN-IN START ===');
+
         await configureGoogleSignIn();
-        
-        // Check if Google Sign-In is available
+
         if (!GoogleSignin) {
+          console.error('Google Sign-In module not available');
           return { error: new Error('Google Sign-In is not available. Please rebuild the app with native modules.') };
         }
-        
-        // Native Google Sign-In flow
-        console.log('Starting native Google Sign-In...');
-        
+
         // Check if Google Play Services are available (Android only)
         if (Platform.OS === 'android') {
           await GoogleSignin.hasPlayServices();
         }
 
-        // Sign out from Google first to force account picker to appear
-        // This ensures users can always choose which account to use
+        // Sign out first to show account picker
         try {
-          const isSignedIn = await GoogleSignin.isSignedIn();
-          if (isSignedIn) {
-            await GoogleSignin.signOut();
-            console.log('Cleared previous Google sign-in to show account picker');
-          }
+          await GoogleSignin.signOut();
         } catch (signOutError) {
-          // Ignore errors - just proceed with sign in
           console.log('Could not clear previous Google sign-in:', signOutError);
         }
 
-        // Sign in with Google and get user info including ID token
+        // Sign in with Google
         const userInfo = await GoogleSignin.signIn();
-        console.log('Google Sign-In response:', JSON.stringify(userInfo, null, 2));
-        
-        // Get the ID token from Google Sign-In
-        // Note: The response structure can vary, check both possible locations
+        console.log('Google Sign-In response type:', userInfo?.type);
+
+        // Get the ID token
         const idToken = userInfo?.data?.idToken || userInfo?.idToken;
-        
+        console.log('ID token received:', idToken ? 'yes' : 'no');
+
         if (!idToken) {
-          console.error('No ID token received from Google. Response:', userInfo);
           return { error: new Error('No ID token received from Google') };
         }
-        
-        console.log('ID token received, signing in to Supabase...');
-        
-        // Sign in to Supabase using the Google ID token
+
+        // Try using getTokens() to get a fresh token (might not have nonce)
+        let tokenToUse = idToken;
+        try {
+          const tokens = await GoogleSignin.getTokens();
+          if (tokens?.idToken) {
+            console.log('Got fresh token from getTokens()');
+            tokenToUse = tokens.idToken;
+          }
+        } catch (e) {
+          console.log('getTokens() not available, using original token');
+        }
+
+        // Check if token has a nonce
+        let hasNonce = false;
+        try {
+          const payload = JSON.parse(atob(tokenToUse.split('.')[1]));
+          hasNonce = !!payload.nonce;
+          console.log('Token has nonce:', hasNonce);
+        } catch (e) {
+          console.log('Could not decode token');
+        }
+
+        // Sign in to Supabase
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'google',
-          token: idToken,
+          token: tokenToUse,
         });
-        
+
         if (error) {
           console.error('Supabase sign-in error:', error);
           return { error };
         }
-        
-        console.log('Supabase session created successfully:', data.user?.email);
+
+        console.log('=== GOOGLE SIGN-IN SUCCESS ===');
+        console.log('User:', data.user?.email);
         return { error: null };
         
       } else if (provider === 'apple') {
