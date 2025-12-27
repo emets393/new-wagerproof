@@ -19,11 +19,16 @@ import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
 import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
 import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
+import { AnimatedSplash } from '../components/AnimatedSplash';
 import { useOnGameSheetOpen, useGameSheetDetection } from '../hooks/useGameSheetDetection';
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { View, StyleSheet, Platform, Linking, Alert } from 'react-native';
 import Purchases, { WebPurchaseRedemptionResultType } from 'react-native-purchases';
 import * as NavigationBar from 'expo-navigation-bar';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent auto-hide of splash screen
+SplashScreen.preventAutoHideAsync();
 
 // Create a query client
 const queryClient = new QueryClient();
@@ -274,6 +279,8 @@ function RootNavigator() {
 
 function RootLayoutContent() {
   const { theme } = useThemeContext();
+  const [showSplash, setShowSplash] = useState(true);
+  const [appIsReady, setAppIsReady] = useState(false);
 
   // Hide Android navigation bar
   useEffect(() => {
@@ -281,6 +288,18 @@ function RootLayoutContent() {
       NavigationBar.setVisibilityAsync('hidden');
       NavigationBar.setBehaviorAsync('overlay-swipe');
     }
+  }, []);
+
+  // Mark app as ready after a short delay to allow initial render
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppIsReady(true);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleSplashComplete = useCallback(() => {
+    setShowSplash(false);
   }, []);
 
   return (
@@ -307,6 +326,12 @@ function RootLayoutContent() {
           </WagerBotSuggestionProvider>
         </SettingsProvider>
       </PaperProvider>
+      {showSplash && (
+        <AnimatedSplash
+          isReady={appIsReady}
+          onAnimationComplete={handleSplashComplete}
+        />
+      )}
     </GestureHandlerRootView>
   );
 }

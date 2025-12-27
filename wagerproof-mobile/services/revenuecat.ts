@@ -1,7 +1,7 @@
 import { Platform, NativeModules } from 'react-native';
 
 // RevenueCat API Keys - Platform specific
-const REVENUECAT_API_KEY_IOS = 'test_WwRgjLydsPjgngueRMOVfVgWZzg';
+const REVENUECAT_API_KEY_IOS = 'appl_TFQYZRtHkCBrnaILkniTjsulyHK';
 const REVENUECAT_API_KEY_ANDROID = 'goog_cilRlGISDEjNmpNebMglZPXnPLb';
 
 // Get the appropriate API key based on platform

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import { Platform } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 // Lazy import Google Sign-In to avoid errors when native module isn't available
 let GoogleSignin: any = null;
@@ -20,7 +21,7 @@ const configureGoogleSignIn = async () => {
         webClientId: '142325632215-5c9nahlmruos96rsiu60ac4uk2p2s1ua.apps.googleusercontent.com',
         // iOS requires its own client ID - get this from Google Cloud Console
         // Create an iOS OAuth client with bundle ID: com.wagerproof.mobile
-        iosClientId: '142325632215-REPLACE_WITH_YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
+        iosClientId: '142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq.apps.googleusercontent.com',
         offlineAccess: false,
       });
       
@@ -161,17 +162,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: null };
         
       } else if (provider === 'apple') {
-        // Apple Sign-In not yet implemented for mobile
-        // TODO: Implement native Apple Sign-In
-        console.log('Apple Sign-In not yet implemented for mobile');
-        return { error: new Error('Apple Sign-In not yet implemented for mobile') };
+        // Native Apple Sign-In flow using expo-apple-authentication
+        console.log('Starting native Apple Sign-In...');
+
+        // Check if Apple Sign-In is available (iOS only)
+        if (Platform.OS !== 'ios') {
+          return { error: new Error('Apple Sign-In is only available on iOS') };
+        }
+
+        // Check availability
+        const isAvailable = await AppleAuthentication.isAvailableAsync();
+        if (!isAvailable) {
+          return { error: new Error('Apple Sign-In is not available on this device') };
+        }
+
+        // Perform Apple Sign-In
+        const credential = await AppleAuthentication.signInAsync({
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
+        });
+
+        console.log('Apple Sign-In credential received');
+
+        if (!credential.identityToken) {
+          console.error('No identity token received from Apple');
+          return { error: new Error('No identity token received from Apple') };
+        }
+
+        console.log('Identity token received, signing in to Supabase...');
+
+        // Sign in to Supabase using the Apple identity token
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+
+        if (error) {
+          console.error('Supabase Apple sign-in error:', error);
+          return { error };
+        }
+
+        console.log('Supabase session created successfully via Apple:', data.user?.email);
+        return { error: null };
       }
       
       return { error: new Error(`Unknown provider: ${provider}`) };
       
     } catch (error: any) {
       console.error('Sign-in error:', error);
-      
+
       // Handle specific Google Sign-In errors
       if (error.code === 'SIGN_IN_CANCELLED') {
         return { error: new Error('User cancelled sign-in') };
@@ -180,7 +221,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
         return { error: new Error('Google Play Services not available') };
       }
-      
+
+      // Handle Apple Sign-In specific errors
+      if (error.code === 'ERR_REQUEST_CANCELED' || error.code === 'ERR_CANCELED') {
+        return { error: new Error('User cancelled sign-in') };
+      }
+
       return { error: error as Error };
     }
   };

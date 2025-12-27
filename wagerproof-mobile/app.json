@@ -9,13 +9,16 @@
     "scheme": ["wagerproof", "rc-ff2fe0e0af"],
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#22c55e"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.wagerproof.mobile"
+      "bundleIdentifier": "com.wagerproof.mobile",
+      "buildNumber": "18",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +37,13 @@
     "plugins": [
       "expo-router",
       "expo-dev-client",
-      "@react-native-google-signin/google-signin"
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq"
+        }
+      ],
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

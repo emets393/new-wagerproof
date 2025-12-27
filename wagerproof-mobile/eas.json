@@ -14,13 +14,23 @@
       }
     },
     "production": {
+      "ios": {
+        "distribution": "store",
+        "credentialsSource": "remote"
+      },
       "android": {
         "buildType": "app-bundle"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "chris@habib.gg",
+        "ascAppId": "6757089957",
+        "appleTeamId": "88DXY6L653"
+      }
+    }
   }
 }
 

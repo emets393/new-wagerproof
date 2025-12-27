@@ -220,6 +220,8 @@ PODS:
     - ExpoModulesCore
     - GoogleSignIn (~> 9.0)
     - React-Core
+  - ExpoAppleAuthentication (8.0.8):
+    - ExpoModulesCore
   - ExpoAsset (12.0.10):
     - ExpoModulesCore
   - ExpoBlur (15.0.7):
@@ -265,6 +267,8 @@ PODS:
     - ReactNativeDependencies
     - Yoga
   - ExpoSecureStore (15.0.8):
+    - ExpoModulesCore
+  - ExpoSplashScreen (31.0.13):
     - ExpoModulesCore
   - ExpoStoreReview (9.0.9):
     - ExpoModulesCore
@@ -2483,6 +2487,7 @@ DEPENDENCIES:
   - expo-dev-menu (from `../node_modules/expo-dev-menu`)
   - expo-dev-menu-interface (from `../node_modules/expo-dev-menu-interface/ios`)
   - "ExpoAdapterGoogleSignIn (from `../node_modules/@react-native-google-signin/google-signin/expo/ios`)"
+  - ExpoAppleAuthentication (from `../node_modules/expo-apple-authentication/ios`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
   - ExpoBlur (from `../node_modules/expo-blur/ios`)
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
@@ -2495,6 +2500,7 @@ DEPENDENCIES:
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
+  - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - ExpoStoreReview (from `../node_modules/expo-store-review/ios`)
   - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
   - EXUpdatesInterface (from `../node_modules/expo-updates-interface/ios`)
@@ -2622,6 +2628,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-dev-menu-interface/ios"
   ExpoAdapterGoogleSignIn:
     :path: "../node_modules/@react-native-google-signin/google-signin/expo/ios"
+  ExpoAppleAuthentication:
+    :path: "../node_modules/expo-apple-authentication/ios"
   ExpoAsset:
     :path: "../node_modules/expo-asset/ios"
   ExpoBlur:
@@ -2646,6 +2654,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-modules-core"
   ExpoSecureStore:
     :path: "../node_modules/expo-secure-store/ios"
+  ExpoSplashScreen:
+    :path: "../node_modules/expo-splash-screen/ios"
   ExpoStoreReview:
     :path: "../node_modules/expo-store-review/ios"
   ExpoWebBrowser:
@@ -2836,6 +2846,7 @@ SPEC CHECKSUMS:
   expo-dev-menu: ea4fb803ace52e60d7cd8060c7cd379612a140b2
   expo-dev-menu-interface: 600df12ea01efecdd822daaf13cc0ac091775533
   ExpoAdapterGoogleSignIn: bf36536501f7d1472951f2e227492435c7add98b
+  ExpoAppleAuthentication: 31bb6cdc57d7169e5d994fff7ec4b97c62423534
   ExpoAsset: ee515c16290e521de1870dcdee66d78173fbc533
   ExpoBlur: b5b7a26572b3c33a11f0b2aa2f95c17c4c393b76
   ExpoFileSystem: 73a9f3f2e0affc61eba5b9326153f64870438af1
@@ -2848,6 +2859,7 @@ SPEC CHECKSUMS:
   ExpoLinking: 50a65cd7beb6051ffc82f84ffb33961dd5e55a5b
   ExpoModulesCore: bf3cd6f1f564c47031bcb1ee61b6aed1e0909eed
   ExpoSecureStore: decd2943fa19fa6f02c5ef3689f9ba5012ad6a6d
+  ExpoSplashScreen: 72fbc6dd9d6404dd9d0725a56c9ac1383bc0b14f
   ExpoStoreReview: 000240ba376090a9a1d14f58bc78daf300c3fae3
   ExpoWebBrowser: 88b116cd378d9609c776c0903fe4070fca461588
   EXUpdatesInterface: 1436757deb0d574b84bba063bd024c315e0ec08b
