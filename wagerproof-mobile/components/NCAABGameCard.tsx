@@ -42,18 +42,13 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
     return '#f97316'; // Orange
   };
 
-  // Determine favored team for ML
-  const mlFavorite = game.home_ml !== null && game.away_ml !== null 
-    ? (game.home_ml < game.away_ml ? game.home_team : game.away_team)
+  // Determine model's spread pick based on home_away_spread_cover_prob
+  // >= 0.5 means model picks home team to cover, < 0.5 means model picks away team
+  const spreadModelPick = game.home_away_spread_cover_prob !== null
+    ? (game.home_away_spread_cover_prob >= 0.5 ? game.home_team : game.away_team)
     : null;
-  const mlFavoriteColors = mlFavorite === game.home_team ? homeColors : awayColors;
-
-  // Determine favored team for Spread
-  const spreadFavorite = game.home_spread !== null && game.away_spread !== null
-    ? (game.home_spread < 0 ? game.home_team : game.away_team)
-    : null;
-  const spreadFavoriteColors = spreadFavorite === game.home_team ? homeColors : awayColors;
-  const spreadValue = spreadFavorite === game.home_team ? game.home_spread : game.away_spread;
+  const spreadModelPickColors = spreadModelPick === game.home_team ? homeColors : awayColors;
+  const spreadValue = spreadModelPick === game.home_team ? game.home_spread : game.away_spread;
 
   // Determine favorite team for background gradient
   const favorite = game.home_spread !== null && game.away_spread !== null
@@ -179,7 +174,7 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
           </View>
 
           {/* Model Predictions Pills - Vertical Stack */}
-          {(game.home_away_ml_prob !== null || game.home_away_spread_cover_prob !== null || game.ou_result_prob !== null) && (
+          {(game.home_away_spread_cover_prob !== null || game.ou_result_prob !== null) && (
             <View style={styles.pillsSection}>
               <View style={styles.pillsHeader}>
                 <MaterialCommunityIcons name="brain" size={12} color="#22c55e" />
@@ -188,43 +183,24 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
                 </Text>
               </View>
               <View style={styles.pillsColumn}>
-                {/* ML Pill */}
-                {mlFavorite && game.home_away_ml_prob !== null && (
-                  <View style={[styles.bettingPillVertical, { backgroundColor: isDark ? '#2a2a2a' : '#f0f0f0', borderColor: theme.colors.outlineVariant }]}>
-                    <LinearGradient
-                      colors={[mlFavoriteColors.primary, mlFavoriteColors.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.pillCircle}
-                    >
-                      <Text style={[styles.pillInitials, { color: getContrastingTextColor(mlFavoriteColors.primary, mlFavoriteColors.secondary) }]}>
-                        {getNCAABTeamInitials(mlFavorite)}
-                      </Text>
-                    </LinearGradient>
-                    <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
-                      ML: {formatMoneyline(mlFavorite === game.home_team ? game.home_ml : game.away_ml)}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Spread Pill */}
-                {spreadFavorite && spreadValue !== null && game.home_away_spread_cover_prob !== null && (() => {
+                {/* Spread Pill - Shows model's predicted team to cover */}
+                {spreadModelPick && spreadValue !== null && game.home_away_spread_cover_prob !== null && (() => {
                   const confidence = game.home_away_spread_cover_prob >= 0.5 ? game.home_away_spread_cover_prob : 1 - game.home_away_spread_cover_prob;
                   const isFadeAlert = confidence >= 0.8;
-                  const edge = game.model_fair_home_spread !== null && game.home_spread !== null 
+                  const edge = game.model_fair_home_spread !== null && game.home_spread !== null
                     ? Math.abs(game.model_fair_home_spread - game.home_spread)
                     : null;
                   return (
                     <View style={styles.pillContainerWithBadge}>
                       <View style={[styles.bettingPillVertical, { backgroundColor: isDark ? '#2a2a2a' : '#f0f0f0', borderColor: theme.colors.outlineVariant }]}>
                         <LinearGradient
-                          colors={[spreadFavoriteColors.primary, spreadFavoriteColors.secondary]}
+                          colors={[spreadModelPickColors.primary, spreadModelPickColors.secondary]}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
                           style={styles.pillCircle}
                         >
-                          <Text style={[styles.pillInitials, { color: getContrastingTextColor(spreadFavoriteColors.primary, spreadFavoriteColors.secondary) }]}>
-                            {getNCAABTeamInitials(spreadFavorite)}
+                          <Text style={[styles.pillInitials, { color: getContrastingTextColor(spreadModelPickColors.primary, spreadModelPickColors.secondary) }]}>
+                            {getNCAABTeamInitials(spreadModelPick)}
                           </Text>
                         </LinearGradient>
                         <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>

@@ -13,6 +13,7 @@ import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, rou
 import { PolymarketWidget } from './PolymarketWidget';
 import { WagerBotInsightPill } from './WagerBotInsightPill';
 import { ProContentSection } from './ProContentSection';
+import { FadeAlertTooltip } from './FadeAlertTooltip';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
@@ -398,12 +399,19 @@ export function NCAABGameBottomSheet() {
                     </View>
                     {/* Fade Alert Pill */}
                     {spreadPrediction?.isFadeAlert && (
-                      <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: 'rgba(59, 130, 246, 0.4)' }]}>
-                        <MaterialCommunityIcons name="lightning-bolt" size={12} color="#3b82f6" />
-                        <Text style={[styles.fadeAlertPillText, { color: '#3b82f6', marginLeft: 4 }]}>
+                      <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: 'rgba(245, 158, 11, 0.4)' }]}>
+                        <MaterialCommunityIcons name="lightning-bolt" size={12} color="#f59e0b" />
+                        <Text style={[styles.fadeAlertPillText, { color: '#f59e0b', marginLeft: 4 }]}>
                           FADE ALERT
                         </Text>
                       </View>
+                    )}
+                    {/* Fade Alert Tooltip - Spread */}
+                    {spreadPrediction?.isFadeAlert && game && (
+                      <FadeAlertTooltip
+                        betType="spread"
+                        suggestedBet={`${spreadPrediction.isHome ? game.away_team : game.home_team} ${formatSpread(spreadPrediction.isHome ? game.away_spread : game.home_spread)}`}
+                      />
                     )}
                   </View>
                   </View>
@@ -487,27 +495,34 @@ export function NCAABGameBottomSheet() {
                     {/* Fade Alert Pill */}
                     {ouPrediction?.isFadeAlert && (
                       <View style={[
-                        styles.fadeAlertPill, 
-                        { 
-                          backgroundColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                          borderColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'
+                        styles.fadeAlertPill,
+                        {
+                          backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                          borderColor: 'rgba(245, 158, 11, 0.4)'
                         }
                       ]}>
-                        <MaterialCommunityIcons 
-                          name="lightning-bolt" 
-                          size={12} 
-                          color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
+                        <MaterialCommunityIcons
+                          name="lightning-bolt"
+                          size={12}
+                          color="#f59e0b"
                         />
                         <Text style={[
-                          styles.fadeAlertPillText, 
-                          { 
-                            color: ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444',
+                          styles.fadeAlertPillText,
+                          {
+                            color: '#f59e0b',
                             marginLeft: 4
                           }
                         ]}>
                           FADE ALERT
                         </Text>
                       </View>
+                    )}
+                    {/* Fade Alert Tooltip - O/U */}
+                    {ouPrediction?.isFadeAlert && game && (
+                      <FadeAlertTooltip
+                        betType="total"
+                        suggestedBet={`${ouPrediction.predictedOutcome === 'over' ? 'Under' : 'Over'} ${ouPrediction.line ? roundToNearestHalf(ouPrediction.line) : ''}`}
+                      />
                     )}
                   </View>
                   </View>

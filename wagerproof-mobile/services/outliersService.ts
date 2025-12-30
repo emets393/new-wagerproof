@@ -88,10 +88,15 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
       .order('game_date', { ascending: true })
       .order('game_time', { ascending: true });
 
-    // Fetch betting lines for moneylines
+    // Fetch betting lines for moneylines and public betting data
     const { data: bettingLines } = await collegeFootballSupabase
       .from('nfl_betting_lines')
-      .select('training_key, home_ml, away_ml, home_spread, over_line, game_time_et')
+      .select(`
+        training_key, home_ml, away_ml, home_spread, over_line, game_time_et,
+        home_ml_handle, away_ml_handle, home_ml_bets, away_ml_bets, ml_splits_label,
+        home_spread_handle, away_spread_handle, home_spread_bets, away_spread_bets, spread_splits_label,
+        over_handle, under_handle, over_bets, under_bets, total_splits_label
+      `)
       .order('as_of_ts', { ascending: false });
 
     // Create a map of most recent betting lines per training_key
@@ -139,6 +144,22 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
                 home_ml: bettingLine?.home_ml || null,
                 away_ml: bettingLine?.away_ml || null,
                 game_time_et: gameTimeValue,
+                // Public betting data for PublicBettingBars
+                home_ml_handle: bettingLine?.home_ml_handle || null,
+                away_ml_handle: bettingLine?.away_ml_handle || null,
+                home_ml_bets: bettingLine?.home_ml_bets || null,
+                away_ml_bets: bettingLine?.away_ml_bets || null,
+                ml_splits_label: bettingLine?.ml_splits_label || null,
+                home_spread_handle: bettingLine?.home_spread_handle || null,
+                away_spread_handle: bettingLine?.away_spread_handle || null,
+                home_spread_bets: bettingLine?.home_spread_bets || null,
+                away_spread_bets: bettingLine?.away_spread_bets || null,
+                spread_splits_label: bettingLine?.spread_splits_label || null,
+                over_handle: bettingLine?.over_handle || null,
+                under_handle: bettingLine?.under_handle || null,
+                over_bets: bettingLine?.over_bets || null,
+                under_bets: bettingLine?.under_bets || null,
+                total_splits_label: bettingLine?.total_splits_label || null,
             }
           });
         }
@@ -583,7 +604,7 @@ export const fetchFadeAlerts = async (weekGames: GameSummary[]): Promise<FadeAle
     }
   }
 
-  // NBA
+  // NBA - Only spread fade alerts (no O/U), threshold 9.5
   if (nbaGames.length > 0) {
     try {
       const { data: allNbaPredictions } = await collegeFootballSupabase
@@ -603,8 +624,9 @@ export const fetchFadeAlerts = async (weekGames: GameSummary[]): Promise<FadeAle
               game.originalData.model_fair_home_spread = prediction.model_fair_home_spread;
           }
 
+          // Only spread fade alerts for NBA, threshold 9.5
           const spreadEdge = prediction.home_spread_diff;
-          if (spreadEdge !== null && Math.abs(spreadEdge) > 3) {
+          if (spreadEdge !== null && Math.abs(spreadEdge) >= 9.5) {
             alerts.push({
               gameId: game.gameId,
               sport: 'nba',
@@ -616,19 +638,7 @@ export const fetchFadeAlerts = async (weekGames: GameSummary[]): Promise<FadeAle
               game
             });
           }
-          const totalEdge = prediction.over_line_diff;
-          if (totalEdge !== null && Math.abs(totalEdge) > 3) {
-            alerts.push({
-              gameId: game.gameId,
-              sport: 'nba',
-              awayTeam: game.awayTeam,
-              homeTeam: game.homeTeam,
-              pickType: 'Total',
-              predictedTeam: totalEdge > 0 ? 'Over' : 'Under',
-              confidence: Math.round(Math.abs(totalEdge)),
-              game
-            });
-          }
+          // No O/U fade alerts for NBA
         }
       }
     } catch (e) {

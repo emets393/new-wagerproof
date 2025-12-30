@@ -13,6 +13,7 @@ import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, rou
 import { PolymarketWidget } from './PolymarketWidget';
 import { WagerBotInsightPill } from './WagerBotInsightPill';
 import { ProContentSection } from './ProContentSection';
+import { FadeAlertTooltip } from './FadeAlertTooltip';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
@@ -68,7 +69,7 @@ export function NBAGameBottomSheet() {
   // Calculate edge values for spread (like CFB)
   const spreadPrediction = useMemo(() => {
     if (!game) return null;
-    
+
     // Use model_fair_home_spread to calculate edge
     if (game.model_fair_home_spread !== null && game.home_spread !== null) {
       const edge = Math.abs(game.model_fair_home_spread - game.home_spread);
@@ -80,10 +81,10 @@ export function NBAGameBottomSheet() {
         teamColors: isHomeEdge ? homeColors : awayColors,
         isHome: isHomeEdge,
         vegasSpread: isHomeEdge ? game.home_spread : game.away_spread,
-        isFadeAlert: edge >= 3,
+        isFadeAlert: edge >= 9.5,
       };
     }
-    
+
     // Fallback to probability-based if no model spread
     if (game.home_away_spread_cover_prob !== null) {
       const prob = game.home_away_spread_cover_prob >= 0.5 ? game.home_away_spread_cover_prob : 1 - game.home_away_spread_cover_prob;
@@ -96,17 +97,17 @@ export function NBAGameBottomSheet() {
         isHome,
         vegasSpread: isHome ? game.home_spread : game.away_spread,
         probability: prob,
-        isFadeAlert: prob >= 0.8 || (prob - 0.5) * 20 >= 3,
+        isFadeAlert: prob >= 0.8 || (prob - 0.5) * 20 >= 9.5,
       };
     }
-    
+
     return null;
   }, [game, homeColors, awayColors]);
 
-  // Calculate edge values for O/U (like CFB)
+  // Calculate edge values for O/U (like CFB) - No fade alerts for NBA O/U
   const ouPrediction = useMemo(() => {
     if (!game) return null;
-    
+
     // Use model_fair_total to calculate edge
     if (game.model_fair_total !== null && game.over_line !== null) {
       const edge = Math.abs(game.model_fair_total - game.over_line);
@@ -116,10 +117,9 @@ export function NBAGameBottomSheet() {
         predictedOutcome: isOver ? 'over' as const : 'under' as const,
         modelTotal: game.model_fair_total,
         line: game.over_line,
-        isFadeAlert: edge >= 3,
       };
     }
-    
+
     // Fallback to probability-based
     if (game.ou_result_prob !== null) {
       const prob = game.ou_result_prob >= 0.5 ? game.ou_result_prob : 1 - game.ou_result_prob;
@@ -130,10 +130,9 @@ export function NBAGameBottomSheet() {
         modelTotal: null,
         line: game.over_line,
         probability: prob,
-        isFadeAlert: prob >= 0.8 || (prob - 0.5) * 20 >= 3,
       };
     }
-    
+
     return null;
   }, [game]);
 
@@ -380,12 +379,19 @@ export function NBAGameBottomSheet() {
                     </View>
                     {/* Fade Alert Pill */}
                     {spreadPrediction?.isFadeAlert && (
-                      <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: 'rgba(59, 130, 246, 0.4)' }]}>
-                        <MaterialCommunityIcons name="lightning-bolt" size={12} color="#3b82f6" />
-                        <Text style={[styles.fadeAlertPillText, { color: '#3b82f6', marginLeft: 4 }]}>
+                      <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: 'rgba(245, 158, 11, 0.4)' }]}>
+                        <MaterialCommunityIcons name="lightning-bolt" size={12} color="#f59e0b" />
+                        <Text style={[styles.fadeAlertPillText, { color: '#f59e0b', marginLeft: 4 }]}>
                           FADE ALERT
                         </Text>
                       </View>
+                    )}
+                    {/* Fade Alert Tooltip - Spread */}
+                    {spreadPrediction?.isFadeAlert && game && (
+                      <FadeAlertTooltip
+                        betType="spread"
+                        suggestedBet={`${spreadPrediction.isHome ? game.away_team : game.home_team} ${formatSpread(spreadPrediction.isHome ? game.away_spread : game.home_spread)}`}
+                      />
                     )}
                   </View>
                   </View>
@@ -473,31 +479,7 @@ export function NBAGameBottomSheet() {
                         </View>
                       </View>
                     </View>
-                    {/* Fade Alert Pill */}
-                    {ouPrediction?.isFadeAlert && (
-                      <View style={[
-                        styles.fadeAlertPill, 
-                        { 
-                          backgroundColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                          borderColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'
-                        }
-                      ]}>
-                        <MaterialCommunityIcons 
-                          name="lightning-bolt" 
-                          size={12} 
-                          color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
-                        />
-                        <Text style={[
-                          styles.fadeAlertPillText, 
-                          { 
-                            color: ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444',
-                            marginLeft: 4
-                          }
-                        ]}>
-                          FADE ALERT
-                        </Text>
-                      </View>
-                    )}
+                    {/* No fade alerts for NBA O/U - only spreads have fade alerts */}
                   </View>
                   </View>
                 </View>

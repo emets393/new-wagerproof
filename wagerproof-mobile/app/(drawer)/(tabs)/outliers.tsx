@@ -326,13 +326,27 @@ export default function OutliersScreen() {
     const homeMl = formatMoneyline(alert.game.homeMl);
     const awayMl = formatMoneyline(alert.game.awayMl);
 
+    // Calculate the fade pick (opposite of what the model predicts)
+    let fadePick = '';
+    let fadeSpread = '';
+    if (alert.pickType === 'Spread') {
+      const isModelOnHome = alert.predictedTeam === alert.homeTeam;
+      const fadeTeam = isModelOnHome ? alert.awayTeam : alert.homeTeam;
+      const fadeSpreadValue = isModelOnHome ? alert.game.awaySpread : alert.game.homeSpread;
+      fadePick = fadeTeam;
+      fadeSpread = fadeSpreadValue ? formatSpread(fadeSpreadValue) || '' : '';
+    } else if (alert.pickType === 'Total') {
+      fadePick = alert.predictedTeam === 'Over' ? 'Under' : 'Over';
+      fadeSpread = totalLine ? String(totalLine) : '';
+    }
+
     return (
       <Card
         key={`${alert.gameId}-${alert.pickType}-${alert.predictedTeam}-${index}`}
         style={{
           ...styles.alertCard,
-          backgroundColor: isDark ? 'rgba(168, 85, 247, 0.1)' : 'rgba(168, 85, 247, 0.1)',
-          borderColor: isDark ? 'rgba(168, 85, 247, 0.3)' : 'rgba(168, 85, 247, 0.3)',
+          backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.08)',
+          borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : 'rgba(245, 158, 11, 0.4)',
         }}
         onPress={() => handleGamePress(alert.game)}
       >
@@ -353,18 +367,14 @@ export default function OutliersScreen() {
             )}
 
             {/* Pick Type Pill */}
-            <View style={[styles.pill, { backgroundColor: '#a855f720' }]}>
-               <Text style={[styles.pillText, { color: '#7e22ce' }]}>{alert.pickType}</Text>
+            <View style={[styles.pill, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
+               <Text style={[styles.pillText, { color: '#f59e0b' }]}>{alert.pickType}</Text>
             </View>
 
-            {/* Confidence Pill */}
-            <View style={[styles.pill, { backgroundColor: '#a855f7' }]}>
-               {alert.sport === 'nfl' ? (
-                   <MaterialCommunityIcons name="percent" size={10} color="#fff" />
-               ) : null}
-               <Text style={[styles.pillText, { color: '#fff' }]}>
-                   {alert.sport === 'nfl' ? `${alert.confidence}%` : `${alert.confidence}pt`}
-               </Text>
+            {/* Fade Alert Pill */}
+            <View style={[styles.pill, { backgroundColor: '#f59e0b' }]}>
+               <MaterialCommunityIcons name="lightning-bolt" size={10} color="#fff" />
+               <Text style={[styles.pillText, { color: '#fff' }]}>FADE</Text>
             </View>
           </View>
 
@@ -394,12 +404,20 @@ export default function OutliersScreen() {
           <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
               {alert.awayTeam} @ {alert.homeTeam}
           </Text>
-          <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
-              Model likes <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{alert.predictedTeam}</Text>
-              {alert.sport === 'nfl'
-                ? ` with ${alert.confidence}% confidence`
-                : ` with ${alert.confidence}pt edge against the line`
-              }
+
+          {/* Fade suggestion box */}
+          <View style={[styles.fadeSuggestionBox, { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)' }]}>
+            <View style={styles.fadeSuggestionHeader}>
+              <MaterialCommunityIcons name="swap-horizontal" size={14} color="#22c55e" />
+              <Text style={[styles.fadeSuggestionLabel, { color: '#22c55e' }]}>Consider the Fade</Text>
+            </View>
+            <Text style={[styles.fadeSuggestionText, { color: theme.colors.onSurfaceVariant }]}>
+              Bet <Text style={{ fontWeight: 'bold', color: '#22c55e' }}>{fadePick} {fadeSpread}</Text>
+            </Text>
+          </View>
+
+          <Text style={[styles.fadeReasonText, { color: theme.colors.onSurfaceVariant }]}>
+            Model shows {alert.sport === 'nfl' ? `${alert.confidence}%` : `${alert.confidence}pt edge`} on {alert.predictedTeam} — historically profitable to fade
           </Text>
         </View>
       </Card>
@@ -694,11 +712,11 @@ export default function OutliersScreen() {
         <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
                 <View style={styles.titleRow}>
-                    <MaterialCommunityIcons name="robot-excited-outline" size={20} color={theme.colors.onSurface} />
+                    <MaterialCommunityIcons name="lightning-bolt" size={20} color="#f59e0b" />
                     <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Model Fade Alerts</Text>
                 </View>
                 <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-                    High-confidence model predictions suggesting strong edges.
+                    When our model shows extreme confidence, historical backtesting reveals that betting the opposite direction has been more profitable. Consider fading these overconfident picks.
                 </Text>
             </View>
 
@@ -962,5 +980,31 @@ const styles = StyleSheet.create({
     minHeight: 120,
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  fadeSuggestionBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  fadeSuggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  fadeSuggestionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  fadeSuggestionText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  fadeReasonText: {
+    fontSize: 11,
+    fontStyle: 'italic',
   },
 });

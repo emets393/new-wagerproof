@@ -11,21 +11,21 @@ export interface BettingSplitData {
 
 export const parseBettingSplit = (label: string | null): BettingSplitData | null => {
   if (!label) return null;
-  
+
   const lowerLabel = label.toLowerCase();
-  
+
   // Extract percentage
   const percentMatch = label.match(/(\d+)%/);
   const percentage = percentMatch ? parseInt(percentMatch[1]) : 50;
-  
+
   // Determine if sharp or public
   const isSharp = lowerLabel.includes('sharp');
   const isPublic = lowerLabel.includes('public');
-  
+
   // Extract team name or direction
   let team = '';
   let direction = undefined;
-  
+
   // Check for Over/Under (for totals)
   if (lowerLabel.includes('over')) {
     direction = 'over';
@@ -40,8 +40,46 @@ export const parseBettingSplit = (label: string | null): BettingSplitData | null
       team = teamMatch[1].trim();
     }
   }
-  
+
   return { team, percentage, isSharp, isPublic, direction };
+};
+
+// Determine which row should display the label based on team mention
+export interface LabelRowInfo {
+  isHomeOrOver: boolean;  // true = home team or Over side gets label
+  labelText: string;      // The original label text
+  isSharp: boolean;       // Whether it's a "sharp" indicator
+}
+
+export const parseLabelForRow = (
+  label: string | null,
+  homeTeam: string,
+  awayTeam: string
+): LabelRowInfo | null => {
+  if (!label) return null;
+
+  const lowerLabel = label.toLowerCase();
+  const isSharp = lowerLabel.includes('sharp');
+
+  // For totals - check for Over/Under
+  if (lowerLabel.includes('over')) {
+    return { isHomeOrOver: true, labelText: label, isSharp };
+  }
+  if (lowerLabel.includes('under')) {
+    return { isHomeOrOver: false, labelText: label, isSharp };
+  }
+
+  // For team-based labels (ML and Spread)
+  // Check if label mentions home team
+  if (lowerLabel.includes(homeTeam.toLowerCase())) {
+    return { isHomeOrOver: true, labelText: label, isSharp };
+  }
+  // Check if label mentions away team
+  if (lowerLabel.includes(awayTeam.toLowerCase())) {
+    return { isHomeOrOver: false, labelText: label, isSharp };
+  }
+
+  return null;
 };
 
 // H2H Game interface

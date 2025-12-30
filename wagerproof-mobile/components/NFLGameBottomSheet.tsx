@@ -17,6 +17,7 @@ import { LineMovementSection } from './nfl/LineMovementSection';
 import { PolymarketWidget } from './PolymarketWidget';
 import { WagerBotInsightPill } from './WagerBotInsightPill';
 import { ProContentSection } from './ProContentSection';
+import { FadeAlertTooltip } from './FadeAlertTooltip';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 
@@ -369,12 +370,19 @@ export function NFLGameBottomSheet() {
                     </View>
                     {/* Fade Alert Pill */}
                     {spreadPrediction?.isFadeAlert && (
-                      <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(34, 197, 94, 0.2)', borderColor: 'rgba(34, 197, 94, 0.4)' }]}>
-                        <MaterialCommunityIcons name="lightning-bolt" size={12} color="#22c55e" />
-                        <Text style={[styles.fadeAlertPillText, { color: '#22c55e', marginLeft: 4 }]}>
+                      <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: 'rgba(245, 158, 11, 0.4)' }]}>
+                        <MaterialCommunityIcons name="lightning-bolt" size={12} color="#f59e0b" />
+                        <Text style={[styles.fadeAlertPillText, { color: '#f59e0b', marginLeft: 4 }]}>
                           FADE ALERT
                         </Text>
                       </View>
+                    )}
+                    {/* Fade Alert Tooltip - Spread */}
+                    {spreadPrediction?.isFadeAlert && game && (
+                      <FadeAlertTooltip
+                        betType="spread"
+                        suggestedBet={`${spreadPrediction.predictedTeam === game.home_team ? game.away_team : game.home_team} ${formatSpread(spreadPrediction.predictedTeam === game.home_team ? game.away_spread : game.home_spread)}`}
+                      />
                     )}
                   </View>
                   </View>
@@ -477,27 +485,34 @@ export function NFLGameBottomSheet() {
                     {/* Fade Alert Pill */}
                     {ouPrediction?.isFadeAlert && (
                       <View style={[
-                        styles.fadeAlertPill, 
-                        { 
-                          backgroundColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                          borderColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'
+                        styles.fadeAlertPill,
+                        {
+                          backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                          borderColor: 'rgba(245, 158, 11, 0.4)'
                         }
                       ]}>
-                        <MaterialCommunityIcons 
-                          name="lightning-bolt" 
-                          size={12} 
-                          color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
+                        <MaterialCommunityIcons
+                          name="lightning-bolt"
+                          size={12}
+                          color="#f59e0b"
                         />
                         <Text style={[
-                          styles.fadeAlertPillText, 
-                          { 
-                            color: ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444',
+                          styles.fadeAlertPillText,
+                          {
+                            color: '#f59e0b',
                             marginLeft: 4
                           }
                         ]}>
                           FADE ALERT
                         </Text>
                       </View>
+                    )}
+                    {/* Fade Alert Tooltip - O/U */}
+                    {ouPrediction?.isFadeAlert && game && (
+                      <FadeAlertTooltip
+                        betType="total"
+                        suggestedBet={`${ouPrediction.predictedOutcome === 'over' ? 'Under' : 'Over'} ${ouPrediction.line ? roundToNearestHalf(ouPrediction.line) : ''}`}
+                      />
                     )}
                   </View>
                   </View>
@@ -545,13 +560,26 @@ export function NFLGameBottomSheet() {
           )}
 
           {/* Public Betting Bars */}
-          {(game.ml_splits_label || game.spread_splits_label || game.total_splits_label) && (
-            <ProContentSection title="Public Betting" minHeight={120}>
+          {(game.home_ml_bets || game.away_ml_bets || game.home_spread_bets || game.away_spread_bets || game.over_bets || game.under_bets ||
+            game.ml_splits_label || game.spread_splits_label || game.total_splits_label) && (
+            <ProContentSection title="Public Betting" minHeight={200}>
               <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
                 <View style={styles.sectionContent}>
                   <PublicBettingBars
+                    homeMlBets={game.home_ml_bets}
+                    awayMlBets={game.away_ml_bets}
+                    homeMlHandle={game.home_ml_handle}
+                    awayMlHandle={game.away_ml_handle}
                     mlSplitsLabel={game.ml_splits_label}
+                    homeSpreadBets={game.home_spread_bets}
+                    awaySpreadBets={game.away_spread_bets}
+                    homeSpreadHandle={game.home_spread_handle}
+                    awaySpreadHandle={game.away_spread_handle}
                     spreadSplitsLabel={game.spread_splits_label}
+                    overBets={game.over_bets}
+                    underBets={game.under_bets}
+                    overHandle={game.over_handle}
+                    underHandle={game.under_handle}
                     totalSplitsLabel={game.total_splits_label}
                     homeTeam={game.home_team}
                     awayTeam={game.away_team}

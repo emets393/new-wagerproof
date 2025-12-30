@@ -21,10 +21,28 @@ export interface NFLPrediction {
   precipitation: number | null;
   wind_speed: number | null;
   icon: string | null;
-  // Public betting splits
+  // Public betting splits (labels)
   spread_splits_label: string | null;
   total_splits_label: string | null;
   ml_splits_label: string | null;
+
+  // Public betting data - Moneyline (decimal strings, e.g., "0.61" = 61%)
+  home_ml_handle: string | null;
+  away_ml_handle: string | null;
+  home_ml_bets: string | null;
+  away_ml_bets: string | null;
+
+  // Public betting data - Spread
+  home_spread_handle: string | null;
+  away_spread_handle: string | null;
+  home_spread_bets: string | null;
+  away_spread_bets: string | null;
+
+  // Public betting data - Total
+  over_handle: string | null;
+  under_handle: string | null;
+  over_bets: string | null;
+  under_bets: string | null;
 }
 
 export interface TeamMapping {

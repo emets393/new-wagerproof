@@ -199,7 +199,7 @@ export default function FeedScreen() {
       // Step 3: Fetch betting lines for moneylines, public splits (no order clause)
       const { data: bettingLines, error: bettingError } = await collegeFootballSupabase
         .from('nfl_betting_lines')
-        .select('training_key, home_ml, away_ml, over_line, home_spread, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time');
+        .select('training_key, home_ml, away_ml, over_line, home_spread, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time, home_ml_handle, away_ml_handle, home_ml_bets, away_ml_bets, home_spread_handle, away_spread_handle, home_spread_bets, away_spread_bets, over_handle, under_handle, over_bets, under_bets');
 
       console.log('🏈 NFL betting lines query:', bettingLines?.length || 0, 'error:', bettingError?.message || 'none');
 
@@ -239,6 +239,17 @@ export default function FeedScreen() {
         const bettingLine = bettingLinesMap.get(matchKey);
         const weather = weatherMap.get(matchKey);
 
+        // Debug: Log betting line data for first few games
+        if (bettingLine && game.home_team) {
+          console.log(`🎰 Betting data for ${game.away_team} @ ${game.home_team}:`, {
+            home_ml_bets: bettingLine.home_ml_bets,
+            away_ml_bets: bettingLine.away_ml_bets,
+            home_spread_bets: bettingLine.home_spread_bets,
+            over_bets: bettingLine.over_bets,
+            ml_splits_label: bettingLine.ml_splits_label,
+          });
+        }
+
         return {
           id: game.id || matchKey,
           away_team: game.away_team,
@@ -261,10 +272,25 @@ export default function FeedScreen() {
           precipitation: weather?.precipitation_pct || null,
           wind_speed: weather?.wind_speed || null,
           icon: weather?.icon || null,
-          // Public betting splits
+          // Public betting splits (labels)
           spread_splits_label: bettingLine?.spread_splits_label || null,
           total_splits_label: bettingLine?.total_splits_label || null,
           ml_splits_label: bettingLine?.ml_splits_label || null,
+          // Public betting data - Moneyline
+          home_ml_handle: bettingLine?.home_ml_handle || null,
+          away_ml_handle: bettingLine?.away_ml_handle || null,
+          home_ml_bets: bettingLine?.home_ml_bets || null,
+          away_ml_bets: bettingLine?.away_ml_bets || null,
+          // Public betting data - Spread
+          home_spread_handle: bettingLine?.home_spread_handle || null,
+          away_spread_handle: bettingLine?.away_spread_handle || null,
+          home_spread_bets: bettingLine?.home_spread_bets || null,
+          away_spread_bets: bettingLine?.away_spread_bets || null,
+          // Public betting data - Total
+          over_handle: bettingLine?.over_handle || null,
+          under_handle: bettingLine?.under_handle || null,
+          over_bets: bettingLine?.over_bets || null,
+          under_bets: bettingLine?.under_bets || null,
         };
       });
 
