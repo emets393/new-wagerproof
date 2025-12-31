@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList, ScrollView, TouchableOpacity, Animated } from 'react-native';
-import { useTheme, Card, ActivityIndicator, Button } from 'react-native-paper';
+import { useTheme, Card, ActivityIndicator, Button, FAB } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
@@ -20,6 +20,8 @@ import { useScroll } from '@/contexts/ScrollContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { LockedPickCard } from '@/components/LockedPickCard';
 import { useProAccess } from '@/hooks/useProAccess';
+import { useAdminMode } from '@/contexts/AdminModeContext';
+import { useEditorPickSheet } from '@/contexts/EditorPickSheetContext';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
@@ -206,6 +208,17 @@ export default function PicksScreen() {
   const tabsScrollViewRef = useRef<ScrollView>(null);
   const { onPageChange, openManualMenu, setPicksData } = useWagerBotSuggestion();
   const { isPro, isLoading: isProLoading } = useProAccess();
+  const { adminModeEnabled } = useAdminMode();
+  const { openCreateSheet, openEditSheet, setOnPickSaved } = useEditorPickSheet();
+
+  // Set up callback to refresh picks when a pick is saved
+  useEffect(() => {
+    setOnPickSaved(() => fetchPicks);
+    return () => setOnPickSaved(null);
+  }, [setOnPickSaved]);
+
+  // Admin mode: show drafts toggle
+  const [showDrafts, setShowDrafts] = useState(true); // When admin mode is on, show drafts by default
 
   // Always notify context which page we're on (needed for openManualMenu)
   useEffect(() => {
@@ -259,12 +272,18 @@ export default function PicksScreen() {
     try {
       setError(null);
 
-      // Fetch only published editor picks
-      const { data: picksData, error: picksError } = await supabase
+      // Fetch editor picks - include drafts when admin mode is enabled
+      let query = supabase
         .from('editors_picks')
         .select('*')
-        .eq('is_published', true)
         .order('created_at', { ascending: false });
+
+      // Only filter by is_published when NOT in admin mode OR when showDrafts is false
+      if (!adminModeEnabled || !showDrafts) {
+        query = query.eq('is_published', true);
+      }
+
+      const { data: picksData, error: picksError } = await query;
 
       if (picksError) throw picksError;
 
@@ -727,7 +746,7 @@ export default function PicksScreen() {
 
   useEffect(() => {
     fetchPicks();
-  }, []);
+  }, [adminModeEnabled, showDrafts]);
 
   // Update picks data in WagerBot context for scanning
   useEffect(() => {
@@ -856,6 +875,8 @@ export default function PicksScreen() {
         <EditorPickCard
           pick={item}
           gameData={safeGameData}
+          onUpdate={fetchPicks}
+          onEdit={() => openEditSheet(item)}
         />
       </PickCardErrorBoundary>
     );
@@ -1032,8 +1053,36 @@ export default function PicksScreen() {
           <View style={styles.titleContainer}>
             <Text style={[styles.titleMain, { color: theme.colors.onSurface }]}>Wager</Text>
             <Text style={[styles.titleProof, { color: '#00E676' }]}>Proof</Text>
+            {adminModeEnabled && (
+              <View style={styles.adminBadge}>
+                <MaterialCommunityIcons name="shield-account" size={14} color="#22c55e" />
+              </View>
+            )}
           </View>
-          
+
+          {/* Admin Mode: Show Drafts Toggle */}
+          {adminModeEnabled && (
+            <TouchableOpacity
+              onPress={() => setShowDrafts(!showDrafts)}
+              style={[
+                styles.draftToggle,
+                { backgroundColor: showDrafts ? 'rgba(34, 197, 94, 0.2)' : 'rgba(150, 150, 150, 0.2)' }
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={showDrafts ? "eye" : "eye-off"}
+                size={14}
+                color={showDrafts ? '#22c55e' : theme.colors.onSurfaceVariant}
+              />
+              <Text style={[
+                styles.draftToggleText,
+                { color: showDrafts ? '#22c55e' : theme.colors.onSurfaceVariant }
+              ]}>
+                Drafts
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {user && (
             <TouchableOpacity
               onPress={openManualMenu}
@@ -1084,6 +1133,17 @@ export default function PicksScreen() {
 
       {/* Sport Content */}
       {renderSportPage(selectedSport)}
+
+      {/* Admin FAB - Create new pick */}
+      {adminModeEnabled && (
+        <FAB
+          icon="plus"
+          style={[styles.fab, { bottom: 65 + insets.bottom + 16 }]}
+          onPress={openCreateSheet}
+          color="white"
+          customSize={56}
+        />
+      )}
     </View>
   );
 }
@@ -1245,5 +1305,32 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     paddingHorizontal: 12,
+  },
+  adminBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginLeft: 6,
+  },
+  draftToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  draftToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    backgroundColor: '#22c55e',
+    borderRadius: 28,
   },
 });

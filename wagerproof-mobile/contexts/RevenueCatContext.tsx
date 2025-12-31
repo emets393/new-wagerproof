@@ -46,7 +46,7 @@ interface RevenueCatContextType {
 const RevenueCatContext = createContext<RevenueCatContextType | undefined>(undefined);
 
 export function RevenueCatProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
@@ -59,6 +59,21 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
   // Effective isPro - false if forceFreemiumMode is enabled (for admin testing)
   const isPro = forceFreemiumMode ? false : isProInternal;
+
+  // Safety timeout: if loading takes more than 10 seconds, force it to complete
+  // This prevents the app from getting stuck if RevenueCat fails silently
+  useEffect(() => {
+    if (!isLoading) return;
+
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('📱 RevenueCat: Loading timeout reached (10s), forcing isLoading = false');
+        setIsLoading(false);
+      }
+    }, 10000);
+
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
 
   // Initialize RevenueCat
   useEffect(() => {
@@ -76,10 +91,13 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
         if (isMounted) {
           setIsInitialized(actuallyConfigured);
-          setIsLoading(false);
+          // DON'T set isLoading = false here - wait until customer info is loaded
+          // This prevents the race condition where isPro shows false before entitlements load
 
           if (!actuallyConfigured) {
             console.warn('📱 RevenueCat: SDK initialized but not properly configured (web or native module unavailable)');
+            // Only set loading false if not configured (no entitlements to fetch)
+            setIsLoading(false);
           }
         }
       } catch (err: any) {
@@ -106,9 +124,18 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   // Set user ID when user logs in
+  // Wait for both RevenueCat init AND auth loading to complete before processing
   useEffect(() => {
     if (!isInitialized) {
       console.log('📱 RevenueCat: Skipping user ID set - not initialized yet');
+      return;
+    }
+
+    // Wait for auth to finish loading before deciding there's "no user"
+    // This prevents the race condition where RevenueCat thinks there's no user
+    // just because the cached auth session hasn't loaded yet
+    if (authLoading) {
+      console.log('📱 RevenueCat: Waiting for auth to finish loading...');
       return;
     }
 
@@ -138,30 +165,39 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
             const type = getActiveSubscriptionType(loginCustomerInfo);
             setSubscriptionType(type);
             console.log('📱 RevenueCat: Subscription type:', type);
+
+            // NOW we can set loading to false - entitlements are loaded
+            console.log('📱 RevenueCat: Entitlements loaded, setting isLoading = false');
+            setIsLoading(false);
           } else {
             console.log('📱 RevenueCat: No customer info from login, refreshing...');
             await refreshCustomerInfo();
+            // refreshCustomerInfo already sets isLoading = false in its finally block
           }
 
-          // Refresh offerings
-          await refreshOfferings();
-          console.log('📱 RevenueCat: Offerings refreshed');
+          // Refresh offerings (don't block on this)
+          refreshOfferings().catch(err => console.warn('📱 RevenueCat: Error refreshing offerings:', err));
+          console.log('📱 RevenueCat: Offerings refresh started');
         } else {
-          console.log('📱 RevenueCat: No user, logging out from RevenueCat');
+          console.log('📱 RevenueCat: No user (auth loaded, user is null), logging out from RevenueCat');
           // Log out if no user
           await logOutRevenueCat();
           setCustomerInfo(null);
           setIsProInternal(false);
           setSubscriptionType(null);
+          // No user means no entitlements to check - loading is done
+          setIsLoading(false);
         }
       } catch (err: any) {
         console.error('📱 RevenueCat: Error setting user ID:', err);
         setError(err.message || 'Failed to set user ID');
+        // On error, still set loading to false to unblock the UI
+        setIsLoading(false);
       }
     };
 
     setUserId();
-  }, [user?.id, isInitialized]);
+  }, [user?.id, isInitialized, authLoading]);
 
   // Refresh customer info
   const refreshCustomerInfo = useCallback(async () => {
@@ -228,17 +264,9 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     }
   }, [isInitialized]);
 
-  // Initial load
-  useEffect(() => {
-    if (!isInitialized) return;
-
-    const loadData = async () => {
-      setIsLoading(true);
-      await Promise.all([refreshCustomerInfo(), refreshOfferings()]);
-    };
-
-    loadData();
-  }, [isInitialized, refreshCustomerInfo, refreshOfferings]);
+  // NOTE: Removed redundant "Initial load" effect that was causing race conditions.
+  // Customer info and offerings are now fetched in the user ID effect above,
+  // which ensures proper sequencing: init SDK → set user ID → fetch customer info → set isLoading = false
 
   // Purchase package
   const purchase = useCallback(async (packageToPurchase: PurchasesPackage): Promise<CustomerInfo> => {

@@ -313,6 +313,10 @@ async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
     }) as CFBPrediction[];
 
     console.log(`📊 Fetched ${predictions.length} CFB predictions`);
+    // Log sample predictions to help diagnose matching issues
+    if (predictions.length > 0) {
+      console.log(`   Sample CFB predictions (first 5):`, predictions.slice(0, 5).map(p => `${p.away_team} @ ${p.home_team}`));
+    }
     return predictions;
   } catch (error) {
     console.error('Error in fetchCFBPredictions:', error);
@@ -498,9 +502,22 @@ async function enrichGamesWithPredictions(games: LiveGame[]): Promise<LiveGame[]
           { home_team: pred.home_team, away_team: pred.away_team }
         );
       }) || null;
-      
+
       if (matchedPrediction) {
         console.log(`   ✅ Matched CFB: ${game.away_abbr} @ ${game.home_abbr}`);
+      } else {
+        console.log(`   ❌ UNMATCHED CFB: ${game.away_team} @ ${game.home_team}`);
+        // Log potential matches to help diagnose
+        const possibleMatches = cfbPredictions.filter(pred => {
+          const homeMatch = pred.home_team.toLowerCase().includes(game.home_team.toLowerCase().split(' ')[0]) ||
+                           game.home_team.toLowerCase().includes(pred.home_team.toLowerCase().split(' ')[0]);
+          const awayMatch = pred.away_team.toLowerCase().includes(game.away_team.toLowerCase().split(' ')[0]) ||
+                           game.away_team.toLowerCase().includes(pred.away_team.toLowerCase().split(' ')[0]);
+          return homeMatch || awayMatch;
+        });
+        if (possibleMatches.length > 0) {
+          console.log(`      Possible matches: ${possibleMatches.slice(0, 3).map(p => `${p.away_team} @ ${p.home_team}`).join(', ')}`);
+        }
       }
     } else if (game.league === 'NBA') {
       // Extract numeric game_id from format "NBA-401704933"

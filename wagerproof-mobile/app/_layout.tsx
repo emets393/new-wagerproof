@@ -9,6 +9,8 @@ import { NFLGameSheetProvider } from '../contexts/NFLGameSheetContext';
 import { CFBGameSheetProvider } from '../contexts/CFBGameSheetContext';
 import { NBAGameSheetProvider } from '../contexts/NBAGameSheetContext';
 import { NCAABGameSheetProvider } from '../contexts/NCAABGameSheetContext';
+import { AdminModeProvider } from '../contexts/AdminModeContext';
+import { EditorPickSheetProvider } from '../contexts/EditorPickSheetContext';
 import { WagerBotChatSheetProvider } from '../contexts/WagerBotChatSheetContext';
 import { WagerBotSuggestionProvider, useWagerBotSuggestion } from '../contexts/WagerBotSuggestionContext';
 import { RevenueCatProvider, useRevenueCat } from '../contexts/RevenueCatContext';
@@ -18,6 +20,7 @@ import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
 import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
 import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
 import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
+import { EditorPickCreatorBottomSheet } from '../components/EditorPickCreatorBottomSheet';
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
 import { AnimatedSplash } from '../components/AnimatedSplash';
 import { useOnGameSheetOpen, useGameSheetDetection } from '../hooks/useGameSheetDetection';
@@ -309,18 +312,23 @@ function RootLayoutContent() {
           <WagerBotSuggestionProvider>
             <AuthProvider>
               <RevenueCatProvider>
-                <NFLGameSheetProvider>
-                  <CFBGameSheetProvider>
-                    <NBAGameSheetProvider>
-                      <NCAABGameSheetProvider>
-                        <WagerBotChatSheetProvider>
-                          <RootNavigator />
-                          <WebPurchaseRedemptionHandler />
-                        </WagerBotChatSheetProvider>
-                      </NCAABGameSheetProvider>
-                    </NBAGameSheetProvider>
-                  </CFBGameSheetProvider>
-                </NFLGameSheetProvider>
+                <AdminModeProvider>
+                  <EditorPickSheetProvider>
+                    <NFLGameSheetProvider>
+                      <CFBGameSheetProvider>
+                        <NBAGameSheetProvider>
+                          <NCAABGameSheetProvider>
+                            <WagerBotChatSheetProvider>
+                              <RootNavigator />
+                              <WebPurchaseRedemptionHandler />
+                              <EditorPickCreatorBottomSheet />
+                            </WagerBotChatSheetProvider>
+                          </NCAABGameSheetProvider>
+                        </NBAGameSheetProvider>
+                      </CFBGameSheetProvider>
+                    </NFLGameSheetProvider>
+                  </EditorPickSheetProvider>
+                </AdminModeProvider>
               </RevenueCatProvider>
             </AuthProvider>
           </WagerBotSuggestionProvider>

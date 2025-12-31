@@ -8,6 +8,7 @@ import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useProAccess } from '@/hooks/useProAccess';
+import { useAdminMode } from '@/contexts/AdminModeContext';
 import { getOfferingById, getAllOfferings, syncPurchases } from '@/services/revenuecat';
 
 // Import RevenueCatUI for presenting paywalls
@@ -28,6 +29,7 @@ export default function SecretSettingsScreen() {
   const { user } = useAuth();
   const { testModeEnabled, setTestModeEnabled, triggerTestSuggestion } = useWagerBotSuggestion();
   const { forceFreemiumMode, setForceFreemiumMode, isPro } = useProAccess();
+  const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -346,6 +348,41 @@ export default function SecretSettingsScreen() {
           />
         </List.Section>
         <Divider />
+
+        {/* Admin Mode Section - Only visible to admins */}
+        {canEnableAdminMode && (
+          <>
+            <List.Section>
+              <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
+                Admin Mode
+              </List.Subheader>
+
+              <List.Item
+                title="Admin Mode"
+                description={adminModeEnabled
+                  ? "Admin features enabled - can edit picks, set results"
+                  : "Enable to access editor picks management"}
+                left={props => <List.Icon {...props} icon="shield-account" color={adminModeEnabled ? '#22c55e' : theme.colors.primary} />}
+                right={() => (
+                  <Switch
+                    value={adminModeEnabled}
+                    onValueChange={toggleAdminMode}
+                    color="#22c55e"
+                  />
+                )}
+                style={{ backgroundColor: theme.colors.surface }}
+              />
+
+              <List.Item
+                title="Admin Status"
+                description="You have admin privileges"
+                left={props => <List.Icon {...props} icon="check-decagram" color="#22c55e" />}
+                style={{ backgroundColor: theme.colors.surface }}
+              />
+            </List.Section>
+            <Divider />
+          </>
+        )}
 
         {/* Developer Section */}
         <List.Section>

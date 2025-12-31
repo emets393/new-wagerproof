@@ -1,9 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, Platform, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EditorPick, GameData } from '@/types/editorsPicks';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useAdminMode } from '@/contexts/AdminModeContext';
+import { supabase } from '@/services/supabase';
 import { getTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { calculateUnits } from '@/utils/unitsCalculation';
 import { SportsbookButtons } from '@/components/SportsbookButtons';
@@ -11,11 +14,90 @@ import { SportsbookButtons } from '@/components/SportsbookButtons';
 interface EditorPickCardProps {
   pick: EditorPick;
   gameData: GameData;
+  onUpdate?: () => void;  // Callback to refresh the list after updates
+  onEdit?: () => void;    // Callback to open edit sheet
 }
 
-export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
+export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickCardProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const { adminModeEnabled } = useAdminMode();
+  const [isUpdatingResult, setIsUpdatingResult] = useState(false);
+
+  // Check if the game date has passed (for showing result buttons)
+  const isGamePast = (): boolean => {
+    const rawDate = gameData.raw_game_date;
+    if (!rawDate) return false;
+
+    try {
+      const gameDate = new Date(rawDate);
+      const now = new Date();
+      // Add a buffer of 4 hours after game start to account for game duration
+      const gameEndApprox = new Date(gameDate.getTime() + 4 * 60 * 60 * 1000);
+      return now > gameEndApprox;
+    } catch {
+      return false;
+    }
+  };
+
+  // Handle result update
+  const handleResultUpdate = async (result: 'won' | 'lost' | 'push') => {
+    if (isUpdatingResult) return;
+
+    try {
+      setIsUpdatingResult(true);
+      const { error } = await supabase
+        .from('editors_picks')
+        .update({ result })
+        .eq('id', pick.id);
+
+      if (error) throw error;
+
+      Alert.alert('Success', `Pick marked as ${result.toUpperCase()}`);
+      onUpdate?.();
+    } catch (error) {
+      console.error('Error updating result:', error);
+      Alert.alert('Error', 'Failed to update result. Please try again.');
+    } finally {
+      setIsUpdatingResult(false);
+    }
+  };
+
+  // Handle clear result
+  const handleClearResult = async () => {
+    if (isUpdatingResult) return;
+
+    Alert.alert(
+      'Clear Result',
+      'Are you sure you want to clear the result for this pick?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsUpdatingResult(true);
+              const { error } = await supabase
+                .from('editors_picks')
+                .update({ result: null })
+                .eq('id', pick.id);
+
+              if (error) throw error;
+
+              Alert.alert('Success', 'Result cleared');
+              onUpdate?.();
+            } catch (error) {
+              console.error('Error clearing result:', error);
+              Alert.alert('Error', 'Failed to clear result. Please try again.');
+            } finally {
+              setIsUpdatingResult(false);
+            }
+          },
+        },
+      ]
+    );
+  };
   
   // Validate image URI - Android requires valid non-empty URLs
   const isValidImageUri = (uri: string | null | undefined): boolean => {
@@ -402,6 +484,73 @@ export function EditorPickCard({ pick, gameData }: EditorPickCardProps) {
            <SportsbookButtons betslipLinks={pick.betslip_links} />
         </View>
       )}
+
+      {/* Admin Controls - Only visible when admin mode is enabled */}
+      {adminModeEnabled && (
+        <View style={[styles.adminSection, { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
+          <View style={styles.adminHeader}>
+            <MaterialCommunityIcons name="shield-account" size={14} color="#22c55e" />
+            <Text style={styles.adminLabel}>ADMIN CONTROLS</Text>
+          </View>
+
+          <View style={styles.adminButtonsRow}>
+            {/* Edit Button */}
+            <TouchableOpacity
+              style={[styles.adminButton, styles.editButton]}
+              onPress={onEdit}
+            >
+              <MaterialCommunityIcons name="pencil" size={16} color="#3b82f6" />
+              <Text style={[styles.adminButtonText, { color: '#3b82f6' }]}>Edit</Text>
+            </TouchableOpacity>
+
+            {/* Result Buttons - Only show after game has passed */}
+            {isGamePast() && (
+              <>
+                {isUpdatingResult ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginLeft: 12 }} />
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.adminButton, styles.wonButton]}
+                      onPress={() => handleResultUpdate('won')}
+                    >
+                      <MaterialCommunityIcons name="check-circle" size={16} color="#10b981" />
+                      <Text style={[styles.adminButtonText, { color: '#10b981' }]}>Won</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.adminButton, styles.lostButton]}
+                      onPress={() => handleResultUpdate('lost')}
+                    >
+                      <MaterialCommunityIcons name="close-circle" size={16} color="#ef4444" />
+                      <Text style={[styles.adminButtonText, { color: '#ef4444' }]}>Lost</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.adminButton, styles.pushButton]}
+                      onPress={() => handleResultUpdate('push')}
+                    >
+                      <MaterialCommunityIcons name="minus-circle" size={16} color="#6b7280" />
+                      <Text style={[styles.adminButtonText, { color: '#6b7280' }]}>Push</Text>
+                    </TouchableOpacity>
+
+                    {/* Clear Result - Only show if result is set */}
+                    {pick.result && pick.result !== 'pending' && (
+                      <TouchableOpacity
+                        style={[styles.adminButton, styles.clearButton]}
+                        onPress={handleClearResult}
+                      >
+                        <MaterialCommunityIcons name="refresh" size={16} color="#f59e0b" />
+                        <Text style={[styles.adminButtonText, { color: '#f59e0b' }]}>Clear</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -615,5 +764,54 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  adminSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  adminHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  adminLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#22c55e',
+    letterSpacing: 0.5,
+  },
+  adminButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  editButton: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+  },
+  wonButton: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  lostButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  pushButton: {
+    backgroundColor: 'rgba(107, 114, 128, 0.1)',
+  },
+  clearButton: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
+  adminButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
