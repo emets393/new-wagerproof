@@ -10,6 +10,7 @@
     "reset-cache": "expo start --clear"
   },
   "dependencies": {
+    "@bacons/apple-targets": "^3.0.6",
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.6",
     "@react-native-async-storage/async-storage": "2.2.0",

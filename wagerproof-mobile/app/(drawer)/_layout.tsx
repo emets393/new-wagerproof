@@ -1,8 +1,9 @@
 import { Slot, useRouter } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'react-native-drawer-layout';
-import { useState, createContext, useContext } from 'react';
+import { useState, createContext, useContext, useEffect } from 'react';
 import { useTheme } from 'react-native-paper';
+import { Linking, Platform } from 'react-native';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
@@ -20,9 +21,54 @@ export const useDrawer = () => {
 
 export default function DrawerLayout() {
   const theme = useTheme();
+  const router = useRouter();
   const { isDark } = useThemeContext();
   const { isDetached, dismissFloating } = useWagerBotSuggestion();
   const [open, setOpen] = useState(false);
+
+  // Handle deep links from iOS widget
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
+    const handleDeepLink = (event: { url: string }) => {
+      const url = event.url;
+      console.log('Widget deep link received:', url);
+
+      // Handle wagerproof:// scheme from widget
+      if (url.startsWith('wagerproof://')) {
+        const path = url.replace('wagerproof://', '');
+
+        switch (path) {
+          case 'picks':
+            router.push('/(drawer)/(tabs)/picks');
+            break;
+          case 'outliers':
+            router.push('/(drawer)/(tabs)/outliers');
+            break;
+          case 'feed':
+            router.push('/(drawer)/(tabs)/feed');
+            break;
+          default:
+            // Default to feed if unknown path
+            router.push('/(drawer)/(tabs)/feed');
+        }
+      }
+    };
+
+    // Check for initial URL (app opened via widget)
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    // Listen for deep links while app is running
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
 
   const handleOpen = () => {
     console.log('Opening drawer');

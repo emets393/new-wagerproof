@@ -7,6 +7,7 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useProAccess } from '@/hooks/useProAccess';
+import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { RevenueCatPaywall } from '@/components/RevenueCatPaywall';
 import { CustomerCenter } from '@/components/CustomerCenter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
   const { isPro, getSubscriptionType } = useProAccess();
   const subscriptionType = getSubscriptionType();
   const { openCustomerCenter, isInitialized } = useRevenueCat();
+  const { suggestionsEnabled, setSuggestionsEnabled } = useWagerBotSuggestion();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [tapCount, setTapCount] = useState(0);
@@ -243,6 +245,31 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
             )}
             style={{ backgroundColor: 'transparent' }}
           />
+
+          <List.Item
+            title="WagerBot Suggestions"
+            description={suggestionsEnabled ? "Proactive suggestions enabled" : "Suggestions disabled"}
+            left={props => <List.Icon {...props} icon="robot" color={theme.colors.primary} />}
+            right={() => (
+              <Switch
+                value={suggestionsEnabled}
+                onValueChange={setSuggestionsEnabled}
+                color={theme.colors.primary}
+              />
+            )}
+            style={{ backgroundColor: 'transparent' }}
+          />
+
+          {Platform.OS === 'ios' && (
+            <List.Item
+              title="iOS Home Screen Widget"
+              description="Add widget for quick access"
+              left={props => <List.Icon {...props} icon="widgets" color={theme.colors.primary} />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => router.push('/(modals)/ios-widget')}
+              style={{ backgroundColor: 'transparent' }}
+            />
+          )}
         </List.Section>
         <Divider />
 

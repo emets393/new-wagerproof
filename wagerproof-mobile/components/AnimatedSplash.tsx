@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
-
-const { height: screenHeight } = Dimensions.get('window');
+import LottieView from 'lottie-react-native';
 
 interface AnimatedSplashProps {
   isReady: boolean;
@@ -10,26 +9,36 @@ interface AnimatedSplashProps {
 }
 
 export function AnimatedSplash({ isReady, onAnimationComplete }: AnimatedSplashProps) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  const textFadeAnim = useRef(new Animated.Value(0)).current;
+  const textSlideAnim = useRef(new Animated.Value(30)).current;
+  const lottieFadeAnim = useRef(new Animated.Value(0)).current;
   const fadeOutAnim = useRef(new Animated.Value(1)).current;
   const hasStartedAnimation = useRef(false);
 
   useEffect(() => {
-    // Start the entrance animation immediately
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
+    // Animate text in first, then lottie
+    Animated.sequence([
+      // Text slides in and fades in
+      Animated.parallel([
+        Animated.timing(textFadeAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textSlideAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Then lottie fades in
+      Animated.timing(lottieFadeAnim, {
         toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
+        duration: 400,
         useNativeDriver: true,
       }),
     ]).start(async () => {
-      // Hide the native splash screen after text animation completes
+      // Hide the native splash screen after animations complete
       await SplashScreen.hideAsync();
     });
   }, []);
@@ -54,18 +63,28 @@ export function AnimatedSplash({ isReady, onAnimationComplete }: AnimatedSplashP
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeOutAnim }]}>
-      <Animated.View
-        style={[
-          styles.textContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
-        <Text style={styles.logoText}>WAGERPROOF</Text>
-        <View style={styles.underline} />
-      </Animated.View>
+      <View style={styles.contentContainer}>
+        <Animated.View
+          style={[
+            styles.titleContainer,
+            {
+              opacity: textFadeAnim,
+              transform: [{ translateY: textSlideAnim }],
+            },
+          ]}
+        >
+          <Text style={styles.titleMain}>Wager</Text>
+          <Text style={styles.titleProof}>Proof</Text>
+        </Animated.View>
+        <Animated.View style={{ opacity: lottieFadeAnim }}>
+          <LottieView
+            source={require('../assets/loader.json')}
+            autoPlay
+            loop
+            style={styles.lottie}
+          />
+        </Animated.View>
+      </View>
     </Animated.View>
   );
 }
@@ -78,20 +97,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 9999,
   },
-  textContainer: {
+  contentContainer: {
     alignItems: 'center',
   },
-  logoText: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#22c55e',
-    letterSpacing: 4,
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  underline: {
-    width: 60,
-    height: 3,
-    backgroundColor: '#22c55e',
-    marginTop: 12,
-    borderRadius: 2,
+  titleMain: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  titleProof: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#00E676',
+    letterSpacing: -0.5,
+  },
+  lottie: {
+    width: 280,
+    height: 210,
   },
 });

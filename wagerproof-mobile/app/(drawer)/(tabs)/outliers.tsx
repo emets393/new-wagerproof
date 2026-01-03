@@ -8,6 +8,7 @@ import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useRouter } from 'expo-router';
 
 import { fetchWeekGames, fetchValueAlerts, fetchFadeAlerts, ValueAlert, FadeAlert, GameSummary } from '@/services/outliersService';
+import { syncWidgetData, getWidgetData } from '@/modules/widget-data-bridge';
 import { Card } from '@/components/ui/Card';
 import { AlertCardShimmer } from '@/components/AlertCardShimmer';
 import { useThemeContext } from '@/contexts/ThemeContext';
@@ -152,6 +153,65 @@ export default function OutliersScreen() {
       setOutliersData(valueAlerts || [], fadeAlerts || []);
     }
   }, [valueAlerts, fadeAlerts, setOutliersData]);
+
+  // Sync outliers data to iOS widget
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
+    console.log('📱 Outliers sync check - valueAlerts:', valueAlerts?.length ?? 'undefined', 'fadeAlerts:', fadeAlerts?.length ?? 'undefined');
+
+    if (!valueAlerts && !fadeAlerts) {
+      console.log('📱 Outliers sync skipped - no data');
+      return;
+    }
+
+    const syncToWidget = async () => {
+      try {
+        // Get existing widget data to preserve editor picks
+        const existingData = await getWidgetData();
+        console.log('📱 Existing widget data for outliers:', existingData ? `picks: ${existingData.editorPicks?.length}` : 'none');
+
+        // Transform fade alerts for widget
+        const widgetFadeAlerts = (fadeAlerts || []).slice(0, 5).map(alert => {
+          const result = {
+            gameId: String(alert.gameId), // Ensure gameId is always a string
+            sport: alert.sport,
+            awayTeam: alert.awayTeam,
+            homeTeam: alert.homeTeam,
+            pickType: alert.pickType,
+            predictedTeam: alert.predictedTeam,
+            confidence: alert.confidence,
+            gameTime: alert.game?.gameTime,
+          };
+          console.log('📱 Fade alert transformed:', result.awayTeam, '@', result.homeTeam, '-', result.pickType, result.confidence + '%');
+          return result;
+        });
+
+        // Transform value alerts for widget
+        const widgetValueAlerts = (valueAlerts || []).slice(0, 5).map(alert => ({
+          gameId: String(alert.game.gameId), // Ensure gameId is always a string
+          sport: alert.game.sport,
+          awayTeam: alert.game.awayTeam,
+          homeTeam: alert.game.homeTeam,
+          marketType: alert.marketType,
+          side: alert.side,
+          percentage: alert.percentage,
+        }));
+
+        await syncWidgetData({
+          editorPicks: existingData?.editorPicks || [], // Preserve existing picks
+          fadeAlerts: widgetFadeAlerts,
+          polymarketValues: widgetValueAlerts,
+          lastUpdated: new Date().toISOString(),
+        });
+        console.log('📱 Widget data synced from outliers:', widgetFadeAlerts.length, 'fades,', widgetValueAlerts.length, 'values');
+      } catch (error) {
+        console.error('Failed to sync widget data:', error);
+      }
+    };
+
+    syncToWidget();
+  }, [valueAlerts, fadeAlerts]);
 
   // When floating and data is available, provide enhanced suggestions
   useEffect(() => {

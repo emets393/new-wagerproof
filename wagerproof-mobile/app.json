@@ -2,7 +2,7 @@
   "expo": {
     "name": "WagerProof",
     "slug": "wagerproof-mobile",
-    "version": "3.0.15",
+    "version": "3.0.16",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -16,6 +16,10 @@
       "bundleIdentifier": "com.wagerproof.mobile",
       "buildNumber": "18",
       "usesAppleSignIn": true,
+      "appleTeamId": "88DXY6L653",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.wagerproof.mobile"]
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -26,7 +30,7 @@
         "backgroundColor": "#22c55e"
       },
       "package": "com.wagerproof.mobile",
-      "versionCode": 18,
+      "versionCode": 19,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -43,7 +47,9 @@
           "iosUrlScheme": "com.googleusercontent.apps.142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq"
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "@bacons/apple-targets",
+      "./plugins/withWidgetDataBridge"
     ],
     "experiments": {
       "typedRoutes": true

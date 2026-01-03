@@ -334,6 +334,17 @@ export default function SettingsScreen() {
             )}
             style={{ backgroundColor: theme.colors.surface }}
           />
+
+          {Platform.OS === 'ios' && (
+            <List.Item
+              title="iOS Home Screen Widget"
+              description="Add widget for quick access"
+              left={props => <List.Icon {...props} icon="widgets" color={theme.colors.primary} />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => router.push('/(modals)/ios-widget')}
+              style={{ backgroundColor: theme.colors.surface }}
+            />
+          )}
         </List.Section>
         <Divider />
 

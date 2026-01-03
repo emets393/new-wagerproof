@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList, ScrollView, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useTheme, Card, ActivityIndicator, Button, FAB } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabase';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { EditorPick, GameData } from '@/types/editorsPicks';
+import { syncWidgetData, getWidgetData } from '@/modules/widget-data-bridge';
 import { EditorPickCard } from '@/components/EditorPickCard';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
 import { PickCardErrorBoundary } from '@/components/PickCardErrorBoundary';
@@ -233,6 +234,58 @@ export default function PicksScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync editor picks to iOS widget
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
+    console.log('📱 Widget sync check - picks:', picks.length, 'gamesData size:', gamesData.size);
+
+    if (picks.length === 0) {
+      console.log('📱 Widget sync skipped - no picks');
+      return;
+    }
+
+    const syncPicksToWidget = async () => {
+      try {
+        // Get existing widget data to preserve fade/value alerts
+        const existingData = await getWidgetData();
+        console.log('📱 Existing widget data:', existingData ? 'found' : 'none');
+
+        // Transform picks for widget
+        const widgetPicks = picks.slice(0, 5).map(pick => {
+          const gameData = gamesData.get(pick.game_id);
+          const archived = pick.archived_game_data;
+          const result = {
+            id: pick.id,
+            gameType: pick.game_type,
+            awayTeam: gameData?.away_team || archived?.awayTeam || archived?.away_team || 'Away',
+            homeTeam: gameData?.home_team || archived?.homeTeam || archived?.home_team || 'Home',
+            pickValue: pick.pick_value || undefined,
+            bestPrice: pick.best_price || undefined,
+            sportsbook: pick.sportsbook || undefined,
+            units: pick.units || undefined,
+            result: pick.result || undefined,
+            gameDate: gameData?.raw_game_date || archived?.gameDate || undefined,
+          };
+          console.log('📱 Pick transformed:', result.awayTeam, '@', result.homeTeam, '-', result.pickValue);
+          return result;
+        });
+
+        await syncWidgetData({
+          editorPicks: widgetPicks,
+          fadeAlerts: existingData?.fadeAlerts || [],
+          polymarketValues: existingData?.polymarketValues || [],
+          lastUpdated: new Date().toISOString(),
+        });
+        console.log('📱 Widget data synced from picks:', widgetPicks.length, 'picks');
+      } catch (error) {
+        console.error('Failed to sync picks to widget:', error);
+      }
+    };
+
+    syncPicksToWidget();
+  }, [picks, gamesData]);
 
   const sports: SportOption[] = [
     { id: 'all', label: 'All', available: true, icon: 'view-grid' },

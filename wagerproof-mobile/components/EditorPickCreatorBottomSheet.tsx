@@ -271,7 +271,7 @@ export function EditorPickCreatorBottomSheet() {
         style={{ flex: 1 }}
       >
         <BottomSheetScrollView
-          contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 200 }]}
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
