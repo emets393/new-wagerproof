@@ -41,6 +41,7 @@ import PolymarketTest from "./pages/PolymarketTest";
 import MobileApp from "./pages/MobileApp";
 import TodayInSports from "./pages/TodayInSports";
 import TipJar from "./pages/TipJar";
+import FreePicks from "./pages/FreePicks";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
@@ -146,6 +147,7 @@ function AppRoutes() {
     '/press-kit',
     '/onboarding', // Add onboarding to public routes to avoid nested layouts
     '/paywall-test', // Add paywall test to public routes
+    '/free-picks', // Free picks landing page - public access
   ].includes(location.pathname) || location.pathname.startsWith('/blog');
 
   // Pages that should not have the layout (landing, welcome)
@@ -163,6 +165,7 @@ function AppRoutes() {
           <Route path="/press-kit" element={<PressKit />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/paywall-test" element={<ProtectedRoute><PaywallTest /></ProtectedRoute>} />
+          <Route path="/free-picks" element={<FreePicks />} />
         </Routes>
       </PublicLayout>
     );

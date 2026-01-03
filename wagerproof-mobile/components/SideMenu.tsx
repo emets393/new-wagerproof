@@ -227,6 +227,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
             onPress={handleFeatureRequest}
             style={{ backgroundColor: 'transparent' }}
           />
+
         </List.Section>
         <Divider />
 
