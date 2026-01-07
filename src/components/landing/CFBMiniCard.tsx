@@ -2,8 +2,11 @@ import { AuroraText } from "@/components/magicui/aurora-text";
 import ElectricBorder from "@/components/ui/electric-border";
 import BlurEffect from "react-progressive-blur";
 import { Lock } from "lucide-react";
+import { getNBATeamInitials } from "@/utils/teamColors";
 
-interface CFBPrediction {
+type SportType = 'cfb' | 'nba' | 'dummy';
+
+interface GamePrediction {
   id: string;
   away_team: string;
   home_team: string;
@@ -16,6 +19,8 @@ interface CFBPrediction {
   start_date?: string;
   game_datetime?: string;
   datetime?: string;
+  game_date?: string;
+  game_time?: string;
   away_moneyline?: number | null;
   home_moneyline?: number | null;
   api_spread?: number | null;
@@ -26,24 +31,29 @@ interface CFBPrediction {
   pred_total_proba?: number | null;
   home_spread_diff?: number | null;
   over_line_diff?: number | null;
+  home_away_ml_prob?: number | null;
+  home_away_spread_cover_prob?: number | null;
+  ou_result_prob?: number | null;
 }
 
 interface CFBMiniCardProps {
-  prediction: CFBPrediction;
+  prediction: GamePrediction;
   awayTeamColors: { primary: string; secondary: string };
   homeTeamColors: { primary: string; secondary: string };
   getTeamLogo: (teamName: string) => string;
   cardIndex?: number;
+  sportType?: SportType;
 }
 
-export default function CFBMiniCard({ 
-  prediction, 
-  awayTeamColors, 
-  homeTeamColors, 
+export default function CFBMiniCard({
+  prediction,
+  awayTeamColors,
+  homeTeamColors,
   getTeamLogo,
-  cardIndex = 0
+  cardIndex = 0,
+  sportType = 'cfb'
 }: CFBMiniCardProps) {
-  
+
   const formatMoneyline = (ml: number | null): string => {
     if (ml === null || ml === undefined) return '-';
     if (ml > 0) return `+${ml}`;
@@ -58,7 +68,16 @@ export default function CFBMiniCard({
 
   const formatStartTime = (startTimeString: string | null | undefined): string => {
     if (!startTimeString) return 'TBD';
-    
+
+    // Check if it's already formatted (e.g., "7:30 PM EST" from dummy data or NBA game_time)
+    if (startTimeString.includes('PM') || startTimeString.includes('AM')) {
+      // Add EST if not present
+      if (!startTimeString.includes('EST') && !startTimeString.includes('ET')) {
+        return `${startTimeString} EST`;
+      }
+      return startTimeString;
+    }
+
     try {
       const utcDate = new Date(startTimeString);
       const estTime = utcDate.toLocaleTimeString('en-US', {
@@ -74,6 +93,12 @@ export default function CFBMiniCard({
   };
 
   const getTeamAcronym = (teamName: string): string => {
+    // For NBA/dummy, use the NBA initials utility
+    if (sportType === 'nba' || sportType === 'dummy') {
+      return getNBATeamInitials(teamName);
+    }
+
+    // CFB acronyms
     const acronymMap: { [key: string]: string } = {
       'Alabama': 'ALA', 'Auburn': 'AUB', 'Georgia': 'UGA', 'Florida': 'UF',
       'LSU': 'LSU', 'Texas A&M': 'TAMU', 'Ole Miss': 'MISS', 'Mississippi State': 'MSST',
@@ -93,7 +118,7 @@ export default function CFBMiniCard({
       'Duke': 'DUKE', 'Wake Forest': 'WAKE', 'Georgia Tech': 'GT', 'Boston College': 'BC',
       'Pitt': 'PITT', 'Syracuse': 'SYR', 'Louisville': 'LOU', 'Notre Dame': 'ND'
     };
-    
+
     return acronymMap[teamName] || teamName.substring(0, 4).toUpperCase();
   };
 
@@ -173,7 +198,7 @@ export default function CFBMiniCard({
         {/* Game Time */}
         <div className="text-center">
           <div className="text-xs font-medium text-gray-600 dark:text-gray-400">
-            {formatStartTime(prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime)}
+            {formatStartTime(prediction.game_time || prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime)}
           </div>
         </div>
 
@@ -228,10 +253,10 @@ export default function CFBMiniCard({
           {/* Away ML & Spread */}
           <div className="space-y-0.5 md:space-y-1">
             <div className="text-[10px] md:text-xs font-medium text-blue-600 dark:text-blue-400">
-              {formatMoneyline(prediction.away_moneyline || prediction.away_ml)}
+              {formatMoneyline(prediction.away_ml || prediction.away_moneyline)}
             </div>
             <div className="text-[10px] md:text-xs font-medium text-gray-700 dark:text-gray-300">
-              {formatSpread(prediction.api_spread ? -prediction.api_spread : null)}
+              {formatSpread(prediction.away_spread || (prediction.api_spread ? -prediction.api_spread : null))}
             </div>
           </div>
 
@@ -239,17 +264,17 @@ export default function CFBMiniCard({
           <div className="space-y-0.5 md:space-y-1">
             <div className="text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400">Total</div>
             <div className="text-[10px] md:text-xs font-medium text-gray-700 dark:text-gray-300">
-              {prediction.api_over_line || prediction.total_line || '-'}
+              {prediction.total_line || prediction.api_over_line || '-'}
             </div>
           </div>
 
           {/* Home ML & Spread */}
           <div className="space-y-0.5 md:space-y-1">
             <div className="text-[10px] md:text-xs font-medium text-green-600 dark:text-green-400">
-              {formatMoneyline(prediction.home_moneyline || prediction.home_ml)}
+              {formatMoneyline(prediction.home_ml || prediction.home_moneyline)}
             </div>
             <div className="text-[10px] md:text-xs font-medium text-gray-700 dark:text-gray-300">
-              {formatSpread(prediction.api_spread)}
+              {formatSpread(prediction.home_spread || prediction.api_spread)}
             </div>
           </div>
         </div>

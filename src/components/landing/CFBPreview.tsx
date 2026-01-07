@@ -7,8 +7,11 @@ import { AlertCircle, Shield, Trophy, BarChart, ScatterChart, School, Star, Bot,
 import { Basketball, DiscordLogo } from 'phosphor-react';
 import CFBMiniCard from './CFBMiniCard';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
+import { getNBATeamColors } from '@/utils/teamColors';
 
-interface CFBPrediction {
+type SportType = 'cfb' | 'nba' | 'dummy';
+
+interface GamePrediction {
   id: string;
   away_team: string;
   home_team: string;
@@ -21,6 +24,8 @@ interface CFBPrediction {
   start_date?: string;
   game_datetime?: string;
   datetime?: string;
+  game_date?: string;
+  game_time?: string;
   away_moneyline?: number | null;
   home_moneyline?: number | null;
   api_spread?: number | null;
@@ -31,6 +36,9 @@ interface CFBPrediction {
   pred_total_proba?: number | null;
   home_spread_diff?: number | null;
   over_line_diff?: number | null;
+  home_away_ml_prob?: number | null;
+  home_away_spread_cover_prob?: number | null;
+  ou_result_prob?: number | null;
 }
 
 interface TeamMapping {
@@ -38,11 +46,80 @@ interface TeamMapping {
   logo_light: string;
 }
 
+// Dummy data for when no real games are available
+const DUMMY_GAMES: GamePrediction[] = [
+  {
+    id: 'dummy-1',
+    away_team: 'Los Angeles Lakers',
+    home_team: 'Boston Celtics',
+    home_ml: -150,
+    away_ml: 130,
+    home_spread: -3.5,
+    away_spread: 3.5,
+    total_line: 224.5,
+    game_time: '7:30 PM EST',
+    pred_ml_proba: 0.62,
+    pred_spread_proba: 0.58,
+    pred_total_proba: 0.55,
+    home_spread_diff: 1.2,
+    over_line_diff: -2.5,
+  },
+  {
+    id: 'dummy-2',
+    away_team: 'Golden State Warriors',
+    home_team: 'Phoenix Suns',
+    home_ml: -120,
+    away_ml: 100,
+    home_spread: -2.0,
+    away_spread: 2.0,
+    total_line: 231.0,
+    game_time: '9:00 PM EST',
+    pred_ml_proba: 0.54,
+    pred_spread_proba: 0.52,
+    pred_total_proba: 0.48,
+    home_spread_diff: -0.5,
+    over_line_diff: 3.0,
+  },
+  {
+    id: 'dummy-3',
+    away_team: 'Miami Heat',
+    home_team: 'Milwaukee Bucks',
+    home_ml: -180,
+    away_ml: 155,
+    home_spread: -4.5,
+    away_spread: 4.5,
+    total_line: 218.5,
+    game_time: '7:00 PM EST',
+    pred_ml_proba: 0.68,
+    pred_spread_proba: 0.61,
+    pred_total_proba: 0.52,
+    home_spread_diff: 2.0,
+    over_line_diff: -1.5,
+  },
+  {
+    id: 'dummy-4',
+    away_team: 'Denver Nuggets',
+    home_team: 'Dallas Mavericks',
+    home_ml: 110,
+    away_ml: -130,
+    home_spread: 1.5,
+    away_spread: -1.5,
+    total_line: 226.0,
+    game_time: '8:30 PM EST',
+    pred_ml_proba: 0.45,
+    pred_spread_proba: 0.47,
+    pred_total_proba: 0.56,
+    home_spread_diff: -1.0,
+    over_line_diff: 4.5,
+  },
+];
+
 export default function CFBPreview() {
-  const [predictions, setPredictions] = useState<CFBPrediction[]>([]);
+  const [predictions, setPredictions] = useState<GamePrediction[]>([]);
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sportType, setSportType] = useState<SportType>('cfb');
 
   // Function to get CFB team colors (copied from CollegeFootball.tsx)
   const getCFBTeamColors = (teamName: string): { primary: string; secondary: string } => {
@@ -139,44 +216,96 @@ export default function CFBPreview() {
   };
 
   const getTeamLogo = (teamName: string): string => {
-    const mapping = teamMappings.find(m => m.api === teamName);
-    return mapping?.logo_light || '';
+    // For CFB, use team mappings
+    if (sportType === 'cfb') {
+      const mapping = teamMappings.find(m => m.api === teamName);
+      return mapping?.logo_light || '';
+    }
+    // For NBA/dummy, return empty (will use initials instead)
+    return '';
+  };
+
+  // Get team colors based on current sport type
+  const getTeamColors = (teamName: string): { primary: string; secondary: string } => {
+    if (sportType === 'cfb') {
+      return getCFBTeamColors(teamName);
+    }
+    // For NBA and dummy data (which uses NBA teams)
+    return getNBATeamColors(teamName);
   };
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Fetch team mappings first
-      const { data: mappings, error: mappingsError } = await collegeFootballSupabase
+
+      // Step 1: Try CFB games first
+      const { data: cfbMappings } = await collegeFootballSupabase
         .from('cfb_team_mapping')
         .select('api, logo_light');
-      
-      if (mappingsError) {
-        debug.error('Error fetching team mappings:', mappingsError);
-        setError('Failed to load team data');
-        return;
-      }
-      
-      setTeamMappings(mappings || []);
 
-      // Fetch predictions - limit to 4 games for preview
-      const { data: preds, error: predsError } = await collegeFootballSupabase
+      setTeamMappings(cfbMappings || []);
+
+      const { data: cfbPreds } = await collegeFootballSupabase
         .from('cfb_live_weekly_inputs')
         .select('*')
         .limit(4);
 
-      if (predsError) {
-        debug.error('Error fetching predictions:', predsError);
-        setError('Failed to load game data');
+      if (cfbPreds && cfbPreds.length > 0) {
+        debug.log('Using CFB games for landing page hero');
+        setPredictions(cfbPreds);
+        setSportType('cfb');
         return;
       }
 
-      setPredictions(preds || []);
+      // Step 2: No CFB games, try NBA games
+      debug.log('No CFB games found, trying NBA...');
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data: nbaGames } = await collegeFootballSupabase
+        .from('nba_input_values_view')
+        .select('*')
+        .gte('game_date', today)
+        .order('game_date', { ascending: true })
+        .order('tipoff_time_et', { ascending: true })
+        .limit(4);
+
+      if (nbaGames && nbaGames.length > 0) {
+        debug.log('Using NBA games for landing page hero');
+        // Transform NBA data to match our GamePrediction interface
+        const transformedNbaGames: GamePrediction[] = nbaGames.map((game: any) => ({
+          id: String(game.game_id),
+          away_team: game.away_team,
+          home_team: game.home_team,
+          home_ml: game.home_moneyline,
+          away_ml: game.home_moneyline ? (game.home_moneyline > 0 ? -(game.home_moneyline + 100) : 100 - game.home_moneyline) : null,
+          home_spread: game.home_spread,
+          away_spread: game.home_spread ? -game.home_spread : null,
+          total_line: game.total_line,
+          game_time: game.tipoff_time_et,
+          game_date: game.game_date,
+          // NBA doesn't have these prediction fields in input view, set reasonable defaults
+          pred_ml_proba: 0.55,
+          pred_spread_proba: 0.52,
+          pred_total_proba: 0.50,
+          home_spread_diff: null,
+          over_line_diff: null,
+        }));
+        setPredictions(transformedNbaGames);
+        setSportType('nba');
+        return;
+      }
+
+      // Step 3: No games at all, use dummy data
+      debug.log('No live games found, using dummy data');
+      setPredictions(DUMMY_GAMES);
+      setSportType('dummy');
+
     } catch (err) {
       debug.error('Error fetching data:', err);
-      setError('Failed to load data');
+      // On error, fall back to dummy data instead of showing error
+      setPredictions(DUMMY_GAMES);
+      setSportType('dummy');
     } finally {
       setLoading(false);
     }
@@ -301,9 +430,9 @@ export default function CFBPreview() {
     { icon: Activity, label: 'Score Board', active: false, isHeader: false },
     // SPORTS section
     { icon: null, label: 'SPORTS', active: false, isHeader: true },
-    { icon: Trophy, label: 'College Football', active: true, isHeader: false },
+    { icon: Trophy, label: 'College Football', active: sportType === 'cfb', isHeader: false },
     { icon: Shield, label: 'NFL', active: false, isHeader: false },
-    { icon: Basketball, label: 'NBA', active: false, isHeader: false },
+    { icon: Basketball, label: 'NBA', active: sportType === 'nba' || sportType === 'dummy', isHeader: false },
     { icon: School, label: 'College Basketball', active: false, isHeader: false },
     // COMMUNITY section
     { icon: null, label: 'COMMUNITY', active: false, isHeader: true },
@@ -382,9 +511,9 @@ export default function CFBPreview() {
           {/* Games Grid */}
           <div className="flex-1 p-3 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             {predictions.slice(0, 4).map((prediction, index) => {
-              const awayTeamColors = getCFBTeamColors(prediction.away_team);
-              const homeTeamColors = getCFBTeamColors(prediction.home_team);
-              
+              const awayTeamColors = getTeamColors(prediction.away_team);
+              const homeTeamColors = getTeamColors(prediction.home_team);
+
               return (
                 <CFBMiniCard
                   key={prediction.id}
@@ -393,6 +522,7 @@ export default function CFBPreview() {
                   homeTeamColors={homeTeamColors}
                   getTeamLogo={getTeamLogo}
                   cardIndex={index}
+                  sportType={sportType}
                 />
               );
             })}
