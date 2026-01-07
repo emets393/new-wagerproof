@@ -46,16 +46,35 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Auth timeout - prevents infinite loading on slow networks
+const AUTH_TIMEOUT_MS = 5000;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
 
+  // Safety timeout: force loading to false if auth check takes too long
+  // This prevents the app from getting stuck on slow networks
+  useEffect(() => {
+    if (!loading) return;
+
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ Auth: Timeout reached (5s), forcing loading = false');
+        console.warn('⚠️ Auth: User will use cached session if available');
+        setLoading(false);
+      }
+    }, AUTH_TIMEOUT_MS);
+
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
   useEffect(() => {
     // Configure Google Sign-In if available
     configureGoogleSignIn();
-    
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {

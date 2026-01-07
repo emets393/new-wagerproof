@@ -24,8 +24,10 @@ import { EditorPickCreatorBottomSheet } from '../components/EditorPickCreatorBot
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
 import { AnimatedSplash } from '../components/AnimatedSplash';
 import { useOnGameSheetOpen, useGameSheetDetection } from '../hooks/useGameSheetDetection';
+import { useAppReady } from '../hooks/useAppReady';
+import { useNetworkState } from '../hooks/useNetworkState';
 import { useEffect, useCallback, useRef, useState } from 'react';
-import { View, StyleSheet, Platform, Linking, Alert } from 'react-native';
+import { View, StyleSheet, Platform, Linking, Alert, Text } from 'react-native';
 import Purchases, { WebPurchaseRedemptionResultType } from 'react-native-purchases';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -33,8 +35,29 @@ import * as SplashScreen from 'expo-splash-screen';
 // Prevent auto-hide of splash screen
 SplashScreen.preventAutoHideAsync();
 
-// Create a query client
-const queryClient = new QueryClient();
+// Create a query client with optimized settings for slow networks
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Retry failed requests with exponential backoff
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+      // Keep data fresh for 5 minutes
+      staleTime: 5 * 60 * 1000,
+      // Cache data for 30 minutes
+      gcTime: 30 * 60 * 1000,
+      // Use cached data when offline, refetch when online
+      networkMode: 'offlineFirst',
+      // Don't refetch on window focus by default (reduces unnecessary requests)
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      // Retry mutations once on failure
+      retry: 1,
+      retryDelay: 1000,
+    },
+  },
+});
 
 /**
  * Floating Assistant Wrapper
@@ -217,6 +240,7 @@ function RootNavigator() {
   const segments = useSegments();
   const router = useRouter();
   const { theme } = useThemeContext();
+  const { isSlowConnection, isConnected } = useNetworkState();
 
   useEffect(() => {
     if (loading) return;
@@ -238,6 +262,14 @@ function RootNavigator() {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
+        {/* Show slow connection feedback */}
+        {(isSlowConnection || !isConnected) && (
+          <Text style={[styles.slowConnectionText, { color: theme.colors.onSurfaceVariant }]}>
+            {!isConnected
+              ? 'No internet connection. Checking for cached session...'
+              : 'Connecting... This may take a moment.'}
+          </Text>
+        )}
       </View>
     );
   }
@@ -283,7 +315,10 @@ function RootNavigator() {
 function RootLayoutContent() {
   const { theme } = useThemeContext();
   const [showSplash, setShowSplash] = useState(true);
-  const [appIsReady, setAppIsReady] = useState(false);
+
+  // Use the unified app ready hook instead of arbitrary timer
+  // This ensures splash hides when auth and RevenueCat are actually ready
+  const { isReady: appIsReady, isSlowLoad } = useAppReady();
 
   // Hide Android navigation bar
   useEffect(() => {
@@ -293,13 +328,12 @@ function RootLayoutContent() {
     }
   }, []);
 
-  // Mark app as ready after a short delay to allow initial render
+  // Log when app becomes ready
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setAppIsReady(true);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+    if (appIsReady) {
+      console.log('🚀 App: Ready to hide splash');
+    }
+  }, [appIsReady]);
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
@@ -359,5 +393,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  slowConnectionText: {
+    marginTop: 16,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    opacity: 0.7,
   },
 });

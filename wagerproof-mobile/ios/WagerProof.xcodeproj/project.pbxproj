@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -12,6 +12,7 @@
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		654BCD21E9BD53252E5D6547 /* libPods-WagerProof.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0916FF7E901EABDFC6450B83 /* libPods-WagerProof.a */; };
 		7887523C53F04E90BA446640 /* WidgetDataBridgeModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 911F25D8CE424799AFDD7079 /* WidgetDataBridgeModule.swift */; };
+		AD33446D2F09BC3500B6616F /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = AD33446C2F09BC3500B6616F /* AppIcon.icon */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C204625ADD314CE6A97A7630 /* WidgetDataBridgeModule.m in Sources */ = {isa = PBXBuildFile; fileRef = D070A07825A94B2EB59B2F41 /* WidgetDataBridgeModule.m */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
@@ -53,47 +54,37 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = WagerProof/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = WagerProof/Info.plist; sourceTree = "<group>"; };
 		1F41A16E35546EFA1A0B6F5C /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-WagerProof/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		89768C8747DE5E2F1189CF94 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = WagerProof/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		89768C8747DE5E2F1189CF94 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = WagerProof/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		911F25D8CE424799AFDD7079 /* WidgetDataBridgeModule.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = WidgetDataBridgeModule.swift; path = WagerProof/WidgetDataBridgeModule.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = WagerProof/SplashScreen.storyboard; sourceTree = "<group>"; };
+		AD33446C2F09BC3500B6616F /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		D070A07825A94B2EB59B2F41 /* WidgetDataBridgeModule.m */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = WidgetDataBridgeModule.m; path = WagerProof/WidgetDataBridgeModule.m; sourceTree = "<group>"; };
 		E26FD3674206AD203DBA27A5 /* Pods-WagerProof.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WagerProof.release.xcconfig"; path = "Target Support Files/Pods-WagerProof/Pods-WagerProof.release.xcconfig"; sourceTree = "<group>"; };
 		EAFDDFB5540F3CB8A2ECA79D /* Pods-WagerProof.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WagerProof.debug.xcconfig"; path = "Target Support Files/Pods-WagerProof/Pods-WagerProof.debug.xcconfig"; sourceTree = "<group>"; };
-		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = WagerProof/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* WagerProof-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "WagerProof-Bridging-Header.h"; path = "WagerProof/WagerProof-Bridging-Header.h"; sourceTree = "<group>"; };
 		XX3470CFE53A5ED1567B41XX /* WagerProofWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 4; includeInIndex = 0; path = WagerProofWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		XX470101BAEB8E0BBC8B0DXX /* WidgetKit.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
-		XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		XXA12889081EB894481655XX /* AppIntents.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
-		XXCAF23C3FC41F82140FA1XX /* ActivityKit.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		XX470101BAEB8E0BBC8B0DXX /* WidgetKit.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		XXA12889081EB894481655XX /* AppIntents.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
+		XXCAF23C3FC41F82140FA1XX /* ActivityKit.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		XX2FF1E8B1B9ACFB9FCDA1XX /* Exceptions for "WagerProofWidget" folder in "WagerProofWidget" target */ = {
+		XX2FF1E8B1B9ACFB9FCDA1XX /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
 				"expo-target.config.js",
+				Info.plist,
 			);
 			target = XX14EFF9BABC77DCDF3021XX /* WagerProofWidget */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		XX8076FD1235630F4E51EAXX /* WagerProofWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				XX2FF1E8B1B9ACFB9FCDA1XX /* Exceptions for "WagerProofWidget" folder in "WagerProofWidget" target */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = WagerProofWidget;
-			sourceTree = "<group>";
-		};
+		XX8076FD1235630F4E51EAXX /* WagerProofWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (XX2FF1E8B1B9ACFB9FCDA1XX /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = WagerProofWidget; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,7 +124,6 @@
 				EAFDDFB5540F3CB8A2ECA79D /* Pods-WagerProof.debug.xcconfig */,
 				E26FD3674206AD203DBA27A5 /* Pods-WagerProof.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -182,6 +172,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				AD33446C2F09BC3500B6616F /* AppIcon.icon */,
 				XX3E41C1850246162C0061XX /* expo:targets */,
 				13B07FAE1A68108700A75B9A /* WagerProof */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
@@ -314,6 +305,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
+				AD33446D2F09BC3500B6616F /* AppIcon.icon in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				F502EDA2191FB4F057752B6C /* PrivacyInfo.xcprivacy in Resources */,
