@@ -68,8 +68,8 @@ async function verifyBlogBuild() {
         hasErrors = true;
       }
       
-      // Check for content
-      if (blogIndexContent.includes('<div class="blog-posts">')) {
+      // Check for content (grid layout or legacy blog-posts)
+      if (blogIndexContent.includes('ssg-blog-grid') || blogIndexContent.includes('class="blog-posts"')) {
         success('Blog index has content structure');
       } else {
         error('Blog index missing content structure');

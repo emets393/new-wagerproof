@@ -344,27 +344,23 @@ function RootLayoutContent() {
       <PaperProvider theme={theme}>
         <SettingsProvider>
           <WagerBotSuggestionProvider>
-            <AuthProvider>
-              <RevenueCatProvider>
-                <AdminModeProvider>
-                  <EditorPickSheetProvider>
-                    <NFLGameSheetProvider>
-                      <CFBGameSheetProvider>
-                        <NBAGameSheetProvider>
-                          <NCAABGameSheetProvider>
-                            <WagerBotChatSheetProvider>
-                              <RootNavigator />
-                              <WebPurchaseRedemptionHandler />
-                              <EditorPickCreatorBottomSheet />
-                            </WagerBotChatSheetProvider>
-                          </NCAABGameSheetProvider>
-                        </NBAGameSheetProvider>
-                      </CFBGameSheetProvider>
-                    </NFLGameSheetProvider>
-                  </EditorPickSheetProvider>
-                </AdminModeProvider>
-              </RevenueCatProvider>
-            </AuthProvider>
+            <AdminModeProvider>
+              <EditorPickSheetProvider>
+                <NFLGameSheetProvider>
+                  <CFBGameSheetProvider>
+                    <NBAGameSheetProvider>
+                      <NCAABGameSheetProvider>
+                        <WagerBotChatSheetProvider>
+                          <RootNavigator />
+                          <WebPurchaseRedemptionHandler />
+                          <EditorPickCreatorBottomSheet />
+                        </WagerBotChatSheetProvider>
+                      </NCAABGameSheetProvider>
+                    </NBAGameSheetProvider>
+                  </CFBGameSheetProvider>
+                </NFLGameSheetProvider>
+              </EditorPickSheetProvider>
+            </AdminModeProvider>
           </WagerBotSuggestionProvider>
         </SettingsProvider>
       </PaperProvider>
@@ -382,7 +378,11 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <RootLayoutContent />
+        <AuthProvider>
+          <RevenueCatProvider>
+            <RootLayoutContent />
+          </RevenueCatProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
