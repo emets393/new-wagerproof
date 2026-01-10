@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider, useThemeContext } from '../contexts/ThemeContext';
+import { AnalyticsProvider } from '../contexts/AnalyticsContext';
 import { SettingsProvider } from '../contexts/SettingsContext';
 import { NFLGameSheetProvider } from '../contexts/NFLGameSheetContext';
 import { CFBGameSheetProvider } from '../contexts/CFBGameSheetContext';
@@ -379,9 +380,11 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <RevenueCatProvider>
-            <RootLayoutContent />
-          </RevenueCatProvider>
+          <AnalyticsProvider>
+            <RevenueCatProvider>
+              <RootLayoutContent />
+            </RevenueCatProvider>
+          </AnalyticsProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

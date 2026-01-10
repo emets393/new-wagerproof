@@ -1,6 +1,13 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
+import {
+  trackOnboardingStarted,
+  trackOnboardingStepViewed,
+  trackOnboardingStepCompleted,
+  trackOnboardingCompleted,
+  trackOnboardingAbandoned,
+} from '../services/analytics';
 
 export interface OnboardingData {
   favoriteSports?: string[];
@@ -32,6 +39,28 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [direction, setDirection] = useState(0);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const hasTrackedStart = useRef(false);
+  const previousStep = useRef(1);
+
+  // Track onboarding started when first mounted
+  useEffect(() => {
+    if (!hasTrackedStart.current) {
+      hasTrackedStart.current = true;
+      trackOnboardingStarted();
+      trackOnboardingStepViewed(1);
+    }
+  }, []);
+
+  // Track step changes
+  useEffect(() => {
+    if (currentStep !== previousStep.current) {
+      // Track completion of previous step
+      trackOnboardingStepCompleted(previousStep.current);
+      // Track viewing of new step
+      trackOnboardingStepViewed(currentStep);
+      previousStep.current = currentStep;
+    }
+  }, [currentStep]);
 
   const nextStep = () => {
     if (isTransitioning) {
@@ -99,6 +128,15 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       } else {
         console.log('Profile updated successfully!');
         console.log('Updated data:', data);
+
+        // Track onboarding completion with collected data
+        trackOnboardingStepCompleted(currentStep); // Track final step completion
+        trackOnboardingCompleted({
+          favoriteSports: onboardingData.favoriteSports,
+          bettorType: onboardingData.bettorType,
+          mainGoal: onboardingData.mainGoal,
+          acquisitionSource: onboardingData.acquisitionSource,
+        });
       }
     } catch (err) {
       console.error('Unexpected error during onboarding submission:', err);

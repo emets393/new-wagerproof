@@ -20,6 +20,15 @@ import {
   isRevenueCatConfigured,
 } from '../services/revenuecat';
 import { useAuth } from './AuthContext';
+import {
+  trackSubscriptionStarted,
+  trackSubscriptionPurchased,
+  trackSubscriptionRestored,
+  trackPurchaseFailed,
+  trackPurchaseCancelled,
+  trackPaywallViewed,
+  SubscriptionType,
+} from '../services/analytics';
 
 interface RevenueCatContextType {
   // State
@@ -268,20 +277,54 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   // Customer info and offerings are now fetched in the user ID effect above,
   // which ensures proper sequencing: init SDK → set user ID → fetch customer info → set isLoading = false
 
+  // Helper to map package identifier to subscription type
+  const getSubscriptionTypeFromPackage = (pkg: PurchasesPackage): SubscriptionType => {
+    const identifier = pkg.identifier.toLowerCase();
+    if (identifier.includes('lifetime')) return 'lifetime';
+    if (identifier.includes('annual') || identifier.includes('yearly')) return 'yearly';
+    return 'monthly';
+  };
+
   // Purchase package
   const purchase = useCallback(async (packageToPurchase: PurchasesPackage): Promise<CustomerInfo> => {
+    const subscriptionType = getSubscriptionTypeFromPackage(packageToPurchase);
+    const price = packageToPurchase.product?.price || 0;
+    const currency = packageToPurchase.product?.currencyCode || 'USD';
+
     try {
       setError(null);
       setIsLoading(true);
+
+      // Track purchase started
+      trackSubscriptionStarted(subscriptionType, price, currency);
+
       const info = await purchasePackage(packageToPurchase);
-      
+
+      // Track successful purchase
+      trackSubscriptionPurchased(
+        subscriptionType,
+        price,
+        currency,
+        info.originalAppUserId,
+        false, // isPromo
+        false  // isTrial - could check if product has trial
+      );
+
       // Refresh customer info after purchase
       await refreshCustomerInfo();
-      
+
       return info;
     } catch (err: any) {
       const errorMessage = err.message || 'Purchase failed';
       setError(errorMessage);
+
+      // Track purchase failure or cancellation
+      if (errorMessage.includes('cancel') || errorMessage.includes('user cancelled')) {
+        trackPurchaseCancelled(subscriptionType);
+      } else {
+        trackPurchaseFailed(subscriptionType, errorMessage);
+      }
+
       throw err;
     } finally {
       setIsLoading(false);
@@ -294,10 +337,16 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       setError(null);
       setIsLoading(true);
       const info = await restorePurchases();
-      
+
       // Refresh customer info after restore
       await refreshCustomerInfo();
-      
+
+      // Track if subscription was restored
+      const type = getActiveSubscriptionType(info);
+      if (type) {
+        trackSubscriptionRestored(type as SubscriptionType);
+      }
+
       return info;
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to restore purchases';

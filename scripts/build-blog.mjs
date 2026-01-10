@@ -173,7 +173,7 @@ function renderFooterHtml() {
               <span class="ssg-title-wager">Wager</span><span class="ssg-title-proof">Proof™</span>
             </a>
             <p class="ssg-footer-description">
-              Data-driven sports betting analytics powered by real data. Professional-grade predictions for NFL, College Football, and more.
+              Data-driven sports betting analytics powered by real data. Professional-grade predictions for NFL, College Football, NBA, and more.
             </p>
             <div class="ssg-footer-social">
               <a href="https://twitter.com/wagerproofai" target="_blank" rel="noopener noreferrer">
@@ -192,30 +192,48 @@ function renderFooterHtml() {
                 </svg>
               </a>
             </div>
+            <!-- App Store Badges -->
+            <div class="ssg-footer-badges">
+              <a href="https://play.google.com/store/apps/details?id=com.wagerproof.mobile" target="_blank" rel="noopener noreferrer">
+                <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" class="ssg-app-badge" />
+              </a>
+              <div class="ssg-app-badge-coming-soon">
+                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store - Coming Soon" class="ssg-app-badge ssg-app-badge-disabled" />
+                <span>Coming Soon</span>
+              </div>
+            </div>
           </div>
-          
+
           <!-- Features -->
           <div class="ssg-footer-links">
             <h3>Features</h3>
             <ul>
               <li><a href="/">Game Predictions</a></li>
-              <li><a href="/nfl">NFL Analytics</a></li>
+              <li><a href="/nfl">NFL Predictions</a></li>
               <li><a href="/college-football">College Football</a></li>
               <li><a href="/blog">Blog</a></li>
             </ul>
           </div>
-          
-          <!-- Company -->
+
+          <!-- Resources -->
           <div class="ssg-footer-links">
-            <h3>Company</h3>
+            <h3>Resources</h3>
             <ul>
               <li><a href="/press-kit">Press Kit</a></li>
+              <li><a href="/mobile-app">Mobile App</a></li>
+            </ul>
+          </div>
+
+          <!-- Legal -->
+          <div class="ssg-footer-links">
+            <h3>Legal</h3>
+            <ul>
               <li><a href="/privacy-policy">Privacy Policy</a></li>
-              <li><a href="/terms-and-conditions">Terms and Conditions</a></li>
+              <li><a href="/terms-and-conditions">Terms of Service</a></li>
             </ul>
           </div>
         </div>
-        
+
         <div class="ssg-footer-bottom">
           <p>© ${new Date().getFullYear()} WagerProof. All rights reserved.</p>
           <p class="ssg-footer-disclaimer">Please gamble responsibly. WagerProof provides analytics and information for educational purposes only.</p>
@@ -383,7 +401,7 @@ function getSharedStyles() {
     }
     .ssg-footer-grid {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
       gap: 2rem;
     }
     .ssg-footer-brand {
@@ -412,6 +430,29 @@ function getSharedStyles() {
     }
     .ssg-footer-social a:hover {
       color: #4f9777;
+    }
+    .ssg-footer-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      align-items: center;
+    }
+    .ssg-app-badge {
+      height: 40px;
+      width: auto;
+    }
+    .ssg-app-badge-disabled {
+      opacity: 0.5;
+    }
+    .ssg-app-badge-coming-soon {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .ssg-app-badge-coming-soon span {
+      font-size: 0.75rem;
+      color: #6b7280;
     }
     .ssg-footer-links h3 {
       font-size: 0.75rem;
