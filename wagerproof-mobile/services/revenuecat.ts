@@ -164,7 +164,7 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
     console.log('🔑 Using API key:', apiKey.substring(0, 20) + '...');
     console.log('🔑 Full API key:', apiKey);
     console.log('🔑 API key length:', apiKey.length);
-    console.log('🔑 API key starts with:', Platform.OS === 'android' ? 'goog_' : 'test_');
+    console.log('🔑 API key starts with:', Platform.OS === 'android' ? 'goog_' : 'appl_');
     
     await PurchasesModule.configure({
       apiKey: apiKey,
@@ -353,6 +353,19 @@ export async function getAllOfferings(): Promise<any> {
       allKeys: offerings.all ? Object.keys(offerings.all) : [],
       currentId: offerings.current?.identifier,
     });
+
+    // Debug: Log full offerings structure for iOS debugging
+    if (Platform.OS === 'ios') {
+      console.log('📦 [iOS DEBUG] Full offerings.all:', JSON.stringify(offerings.all, null, 2));
+      console.log('📦 [iOS DEBUG] Full offerings.current:', JSON.stringify(offerings.current, null, 2));
+      if (!offerings.current && (!offerings.all || Object.keys(offerings.all).length === 0)) {
+        console.error('❌ [iOS DEBUG] No offerings found! Check RevenueCat Dashboard:');
+        console.error('❌ 1. Are iOS products imported from App Store Connect?');
+        console.error('❌ 2. Is the "default" offering created with iOS products?');
+        console.error('❌ 3. Is "default" set as the Current Offering?');
+        console.error('❌ 4. Are iOS and Android in the SAME RevenueCat project?');
+      }
+    }
     
     return offerings;
   } catch (error: any) {

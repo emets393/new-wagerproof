@@ -15,6 +15,7 @@ export default function ModalsLayout() {
       <Stack.Screen name="discord" />
       <Stack.Screen name="ios-widget" />
       <Stack.Screen name="secret-settings" />
+      <Stack.Screen name="delete-account" />
     </Stack>
   );
 }

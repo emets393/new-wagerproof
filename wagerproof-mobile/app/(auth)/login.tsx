@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, Animated, TouchableOpacity, Platform, Pressable } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { useTheme, Snackbar } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { Video, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -512,6 +512,8 @@ export default function LoginScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
   
   // Auto-advance with Pause support
   useEffect(() => {
@@ -532,31 +534,47 @@ export default function LoginScreen() {
     setCurrentIndex(index);
   };
 
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setSnackbarVisible(true);
+  };
+
   const handleGoogleSignIn = async () => {
+    console.log('🔐 Google Sign-In button pressed');
     try {
       setLoading(true);
       const { error } = await signInWithProvider('google');
       if (error) {
         console.error('Google sign in error:', error);
-        // Show error to user if needed (currently just logs)
-        // You could add Alert.alert() here to show error messages
+        const message = error.message || 'Google sign-in failed. Please try again.';
+        showError(message);
       } else {
         console.log('Google sign in successful');
         // Navigation will be handled automatically by auth state change listener
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Google sign in error:', err);
+      const message = err?.message || 'An unexpected error occurred. Please try again.';
+      showError(message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleAppleSignIn = async () => {
+    console.log('🔐 Apple Sign-In button pressed');
     try {
       setLoading(true);
-      await signInWithProvider('apple');
-    } catch (err) {
-      console.error(err);
+      const { error } = await signInWithProvider('apple');
+      if (error) {
+        console.error('Apple sign in error:', error);
+        const message = error.message || 'Apple sign-in failed. Please try again.';
+        showError(message);
+      }
+    } catch (err: any) {
+      console.error('Apple sign in error:', err);
+      const message = err?.message || 'An unexpected error occurred. Please try again.';
+      showError(message);
     } finally {
       setLoading(false);
     }
@@ -651,10 +669,10 @@ export default function LoginScreen() {
           </View>
         </AnimatedSlideContent>
 
-        {/* Auth Buttons */}
-        <View 
+        {/* Auth Buttons - Pressable with onStartShouldSetResponder to capture touches on Android */}
+        <Pressable
           style={styles.authContainer}
-          onStartShouldSetResponder={() => true} 
+          onPressIn={() => {}} // Capture press to prevent parent Pressable from pausing
         >
           {isIOS ? (
             // iOS Layout: Apple main, Google secondary, Email icon
@@ -745,8 +763,22 @@ export default function LoginScreen() {
             By continuing, you agree to our{'\n'}
             <Text style={styles.termsLink}>Privacy Policy</Text> • <Text style={styles.termsLink}>Terms of Use</Text>
           </Text>
-        </View>
+        </Pressable>
       </View>
+
+      {/* Error Snackbar */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={5000}
+        style={styles.snackbar}
+        action={{
+          label: 'Dismiss',
+          onPress: () => setSnackbarVisible(false),
+        }}
+      >
+        {errorMessage}
+      </Snackbar>
     </Pressable>
   );
 }
@@ -1118,5 +1150,9 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
     lineHeight: 16,
+  },
+  snackbar: {
+    backgroundColor: '#ff4444',
+    marginBottom: 80,
   },
 });

@@ -9,24 +9,34 @@ let GoogleSignin: any = null;
 let googleSigninConfigured = false;
 
 const configureGoogleSignIn = async () => {
-  if (googleSigninConfigured) return;
-  
+  if (googleSigninConfigured) {
+    console.log('Google Sign-In already configured');
+    return;
+  }
+
   try {
     // Only import on native platforms
     if (Platform.OS !== 'web') {
+      console.log('Importing Google Sign-In module...');
       const googleSignInModule = await import('@react-native-google-signin/google-signin');
       GoogleSignin = googleSignInModule.GoogleSignin;
-      
+      console.log('Google Sign-In module imported, configuring...');
+
       GoogleSignin.configure({
         webClientId: '142325632215-5c9nahlmruos96rsiu60ac4uk2p2s1ua.apps.googleusercontent.com',
         iosClientId: '142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq.apps.googleusercontent.com',
         offlineAccess: true, // Enable to get serverAuthCode
       });
-      
+
       googleSigninConfigured = true;
+      console.log('Google Sign-In configured successfully');
+    } else {
+      console.log('Skipping Google Sign-In configuration on web platform');
     }
-  } catch (error) {
-    console.warn('Google Sign-In module not available:', error);
+  } catch (error: any) {
+    console.error('Failed to configure Google Sign-In:', error);
+    console.error('Error name:', error?.name);
+    console.error('Error message:', error?.message);
     // Module not available, continue without it
   }
 };
@@ -36,12 +46,14 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signingOut: boolean;
+  deletingAccount: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any }>;
   signInWithProvider: (provider: 'google' | 'apple') => Promise<{ error: any }>;
   sendPasswordReset: (email: string) => Promise<{ error: any }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,11 +61,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Auth timeout - prevents infinite loading on slow networks
 const AUTH_TIMEOUT_MS = 5000;
 
+// Supabase Edge Function URL for account deletion
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://aqgmdutqtvqjqfaegvla.supabase.co';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Safety timeout: force loading to false if auth check takes too long
   // This prevents the app from getting stuck on slow networks
@@ -125,28 +141,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (provider === 'google') {
         // Native Google Sign-In flow
         console.log('=== GOOGLE SIGN-IN START ===');
+        console.log('Platform:', Platform.OS);
 
+        console.log('Configuring Google Sign-In...');
         await configureGoogleSignIn();
 
         if (!GoogleSignin) {
-          console.error('Google Sign-In module not available');
-          return { error: new Error('Google Sign-In is not available. Please rebuild the app with native modules.') };
+          console.error('Google Sign-In module not available after configure');
+          return { error: new Error('Google Sign-In is not available. Please ensure you have the latest app version.') };
         }
+        console.log('Google Sign-In module loaded successfully');
 
         // Check if Google Play Services are available (Android only)
         if (Platform.OS === 'android') {
-          await GoogleSignin.hasPlayServices();
+          console.log('Checking Google Play Services...');
+          try {
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+            console.log('Google Play Services available');
+          } catch (playServicesError: any) {
+            console.error('Google Play Services error:', playServicesError);
+            return { error: new Error(`Google Play Services error: ${playServicesError.message || 'Not available'}`) };
+          }
         }
 
         // Sign out first to show account picker
         try {
+          console.log('Clearing previous Google sign-in...');
           await GoogleSignin.signOut();
         } catch (signOutError) {
-          console.log('Could not clear previous Google sign-in:', signOutError);
+          console.log('Could not clear previous Google sign-in (this is okay):', signOutError);
         }
 
         // Sign in with Google
+        console.log('Opening Google Sign-In dialog...');
         const userInfo = await GoogleSignin.signIn();
+        console.log('Google Sign-In dialog returned');
         console.log('Google Sign-In response type:', userInfo?.type);
 
         // Get the ID token
@@ -277,6 +306,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
+  const deleteAccount = async () => {
+    try {
+      console.log('Starting account deletion process...');
+      setDeletingAccount(true);
+
+      // Get the current session for authorization
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession?.access_token) {
+        return { error: new Error('No active session') };
+      }
+
+      // Call the Edge Function to delete the account
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/delete-own-account`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentSession.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        console.error('Account deletion failed:', result.error);
+        return { error: new Error(result.error || 'Failed to delete account') };
+      }
+
+      console.log('Account deleted successfully');
+
+      // Sign out to clear local session
+      await signOut();
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Account deletion error:', error);
+      return { error };
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   const signOut = async () => {
     try {
       console.log('Starting sign out process...');
@@ -319,12 +389,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     signingOut,
+    deletingAccount,
     signUp,
     signIn,
     signInWithProvider,
     sendPasswordReset,
     updatePassword,
-    signOut
+    signOut,
+    deleteAccount,
   };
 
   return (

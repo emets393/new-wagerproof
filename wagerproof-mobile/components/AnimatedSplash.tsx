@@ -13,9 +13,39 @@ export function AnimatedSplash({ isReady, onAnimationComplete }: AnimatedSplashP
   const textSlideAnim = useRef(new Animated.Value(30)).current;
   const lottieFadeAnim = useRef(new Animated.Value(0)).current;
   const fadeOutAnim = useRef(new Animated.Value(1)).current;
-  const hasStartedAnimation = useRef(false);
+  const hasStartedFadeOut = useRef(false);
+  const introAnimationComplete = useRef(false);
+  const isReadyRef = useRef(false);
+
+  // Keep isReadyRef in sync
+  useEffect(() => {
+    isReadyRef.current = isReady;
+  }, [isReady]);
+
+  // Function to start fade-out (only if both conditions are met)
+  const tryStartFadeOut = () => {
+    if (hasStartedFadeOut.current) return;
+    if (!introAnimationComplete.current || !isReadyRef.current) return;
+
+    hasStartedFadeOut.current = true;
+    
+    // Small delay to let user appreciate the animation before fading out
+    setTimeout(() => {
+      Animated.timing(fadeOutAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => {
+        onAnimationComplete();
+      });
+    }, 300);
+  };
 
   useEffect(() => {
+    // Hide native splash immediately so user sees black AnimatedSplash background
+    // instead of white native splash
+    SplashScreen.hideAsync();
+
     // Animate text in first, then lottie
     Animated.sequence([
       // Text slides in and fades in
@@ -37,29 +67,20 @@ export function AnimatedSplash({ isReady, onAnimationComplete }: AnimatedSplashP
         duration: 400,
         useNativeDriver: true,
       }),
-    ]).start(async () => {
-      // Hide the native splash screen after animations complete
-      await SplashScreen.hideAsync();
+    ]).start(() => {
+      // Mark intro animation as complete
+      introAnimationComplete.current = true;
+      // Try to fade out (will only work if isReady is also true)
+      tryStartFadeOut();
     });
   }, []);
 
   useEffect(() => {
-    // When the app is ready, fade out the splash
-    if (isReady && !hasStartedAnimation.current) {
-      hasStartedAnimation.current = true;
-
-      // Wait a moment to show the logo, then fade out
-      setTimeout(() => {
-        Animated.timing(fadeOutAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }).start(() => {
-          onAnimationComplete();
-        });
-      }, 500);
+    // When the app becomes ready, try to start fade-out
+    if (isReady) {
+      tryStartFadeOut();
     }
-  }, [isReady, onAnimationComplete]);
+  }, [isReady]);
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeOutAnim }]}>

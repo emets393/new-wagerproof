@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Linking, Platform, ActivityIndicator } from 'react-native';
 import { useTheme, List, Switch, Divider, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,13 +10,14 @@ import { useProAccess } from '@/hooks/useProAccess';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { RevenueCatPaywall } from '@/components/RevenueCatPaywall';
 import { CustomerCenter } from '@/components/CustomerCenter';
+import { SwipeToDeleteSlider } from '@/components/SwipeToDeleteSlider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const { isDark, toggleTheme } = useThemeContext();
-  const { user, signOut, signingOut } = useAuth();
+  const { user, signOut, signingOut, deleteAccount, deletingAccount } = useAuth();
   const { isPro, subscriptionType } = useProAccess();
   const { openCustomerCenter, isInitialized, restore, customerInfo } = useRevenueCat();
   const { suggestionsEnabled, setSuggestionsEnabled, isDetached, dismissFloating } = useWagerBotSuggestion();
@@ -35,6 +36,7 @@ export default function SettingsScreen() {
   const [customerCenterVisible, setCustomerCenterVisible] = useState(false);
   const [isOpeningCustomerCenter, setIsOpeningCustomerCenter] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [sliderKey, setSliderKey] = useState(0); // Used to reset slider
 
   const handleLogout = async () => {
     Alert.alert(
@@ -48,6 +50,41 @@ export default function SettingsScreen() {
           onPress: async () => {
             await signOut();
             // Navigation will be handled by route protection in _layout.tsx
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccountSlide = () => {
+    // Show confirmation alert after slide completes
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be lost.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            // Reset slider by changing key
+            setSliderKey(prev => prev + 1);
+          },
+        },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await deleteAccount();
+            if (error) {
+              Alert.alert(
+                'Error',
+                error.message || 'Failed to delete account. Please try again.',
+                [{ text: 'OK' }]
+              );
+              // Reset slider
+              setSliderKey(prev => prev + 1);
+            }
+            // On success, user will be logged out automatically
           },
         },
       ]
@@ -441,10 +478,44 @@ export default function SettingsScreen() {
               labelStyle={{ color: theme.colors.onError }}
               icon="logout"
               loading={signingOut}
-              disabled={signingOut}
+              disabled={signingOut || deletingAccount}
             >
               {signingOut ? 'Logging out...' : 'Logout'}
             </Button>
+          </View>
+        )}
+
+        {/* Danger Zone - Delete Account */}
+        {user && (
+          <View style={styles.dangerZone}>
+            <Divider style={{ marginBottom: 16 }} />
+            <View style={styles.dangerHeader}>
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={20}
+                color={theme.colors.error}
+              />
+              <Text style={[styles.dangerTitle, { color: theme.colors.error }]}>
+                Danger Zone
+              </Text>
+            </View>
+            <Text style={[styles.dangerText, { color: theme.colors.onSurfaceVariant }]}>
+              Permanently delete your account and all associated data. This action cannot be undone.
+            </Text>
+            {deletingAccount ? (
+              <View style={styles.deletingContainer}>
+                <ActivityIndicator size="small" color={theme.colors.error} />
+                <Text style={[styles.deletingText, { color: theme.colors.error }]}>
+                  Deleting account...
+                </Text>
+              </View>
+            ) : (
+              <SwipeToDeleteSlider
+                key={sliderKey}
+                onSlideComplete={handleDeleteAccountSlide}
+                disabled={signingOut || deletingAccount}
+              />
+            )}
           </View>
         )}
 
@@ -498,6 +569,36 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     borderRadius: 8,
+  },
+  dangerZone: {
+    padding: 16,
+    marginTop: 8,
+  },
+  dangerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  dangerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  dangerText: {
+    fontSize: 14,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  deletingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 16,
+  },
+  deletingText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

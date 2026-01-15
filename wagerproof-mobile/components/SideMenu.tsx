@@ -349,6 +349,25 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
           />
         </List.Section>
 
+        {/* Danger Zone - Delete Account */}
+        {user && (
+          <>
+            <Divider />
+            <List.Section>
+              <List.Item
+                title="Delete Account"
+                titleStyle={{ color: theme.colors.error }}
+                description="Permanently delete your account"
+                descriptionStyle={{ color: theme.colors.error, opacity: 0.7 }}
+                left={props => <List.Icon {...props} icon="trash-can-outline" color={theme.colors.error} />}
+                right={props => <List.Icon {...props} icon="chevron-right" color={theme.colors.error} />}
+                onPress={() => router.push('/(modals)/delete-account')}
+                style={{ backgroundColor: 'transparent' }}
+              />
+            </List.Section>
+          </>
+        )}
+
         {/* Logout Button - at bottom */}
         {user && (
           <View style={styles.logoutContainer}>

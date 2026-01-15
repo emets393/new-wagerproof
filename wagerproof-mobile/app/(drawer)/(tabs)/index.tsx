@@ -529,32 +529,41 @@ export default function FeedScreen() {
         return;
       }
 
-      // Fetch all predictions (no order clause to avoid column issues)
-      const { data: allPredictions, error: predError } = await collegeFootballSupabase
+      // Get latest run_id first
+      const { data: latestRun } = await collegeFootballSupabase
         .from('ncaab_predictions')
-        .select('*');
-      
-      console.log('🏀 NCAAB predictions query:', allPredictions?.length || 0, 'error:', predError?.message || 'none');
+        .select('run_id')
+        .order('as_of_ts_utc', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      console.log('🏀 NCAAB latest run_id:', latestRun?.run_id || 'none');
 
       let predictionMap = new Map();
-      
-      if (allPredictions && allPredictions.length > 0) {
-        // Group by game_id and keep the one with latest as_of_ts_utc
-        const gameIds = inputValues.map((g: any) => g.game_id);
-        allPredictions.forEach((pred: any) => {
-          if (gameIds.includes(pred.game_id)) {
-            const existing = predictionMap.get(pred.game_id);
-            if (!existing || (pred.as_of_ts_utc && (!existing.as_of_ts_utc || pred.as_of_ts_utc > existing.as_of_ts_utc))) {
-              predictionMap.set(pred.game_id, pred);
-            }
-          }
-        });
-        console.log(`✅ NCAAB predictions matched: ${predictionMap.size} for ${gameIds.length} games`);
+
+      if (latestRun?.run_id) {
+        // Fetch predictions only for latest run_id and matching game_ids
+        const gameIds = inputValues.map((g: any) => Number(g.game_id));
+
+        const { data: predictions, error: predError } = await collegeFootballSupabase
+          .from('ncaab_predictions')
+          .select('*')
+          .eq('run_id', latestRun.run_id)
+          .in('game_id', gameIds);
+
+        console.log('🏀 NCAAB predictions query:', predictions?.length || 0, 'error:', predError?.message || 'none');
+
+        if (predictions && predictions.length > 0) {
+          predictions.forEach((pred: any) => {
+            predictionMap.set(Number(pred.game_id), pred);
+          });
+          console.log(`✅ NCAAB predictions matched: ${predictionMap.size} for ${gameIds.length} games`);
+        }
       }
 
       // Merge input values with predictions
       const games: NCAABGame[] = inputValues.map((input: any) => {
-        const prediction = predictionMap.get(input.game_id);
+        const prediction = predictionMap.get(Number(input.game_id));
         const gameIdStr = String(input.game_id);
         
         return {
