@@ -91,6 +91,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Configure Google Sign-In if available
     configureGoogleSignIn();
 
+    // Track if initial session check is complete
+    // This prevents race conditions on iPad where multitasking can cause rapid lifecycle changes
+    let initialSessionChecked = false;
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -98,16 +102,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Event:', event);
         console.log('User:', session?.user?.email || 'no user');
         console.log('Session exists:', !!session);
+        console.log('Initial session checked:', initialSessionChecked);
+
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
+
+        // Only set loading to false after initial session check is complete
+        // This ensures navigation decisions wait for full session restoration
+        if (initialSessionChecked) {
+          setLoading(false);
+        }
       }
     );
 
-    // Check for existing session
+    // Check for existing session - this is the primary session restoration path
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('=== INITIAL SESSION CHECK ===');
+      console.log('Session exists:', !!session);
+      console.log('User:', session?.user?.email || 'no user');
+
       setSession(session);
       setUser(session?.user ?? null);
+
+      // Mark initial check as complete, then set loading to false
+      // This ensures user state is populated BEFORE navigation decisions are made
+      initialSessionChecked = true;
       setLoading(false);
     });
 

@@ -108,7 +108,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     // If user is authenticated and has completed onboarding, redirect to main app
     if (user && onboardingStatus.completed === true && inOnboardingGroup) {
       console.log('Onboarding already completed, redirecting to main app...');
-      router.replace('/(tabs)');
+      router.replace('/(drawer)/(tabs)');
     }
   }, [user, authLoading, onboardingStatus, segments]);
 
