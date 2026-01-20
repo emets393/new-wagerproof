@@ -120,6 +120,8 @@ export async function getNBATeamLogo(teamName: string): Promise<string> {
     'New Orleans Pelicans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
     'New York Knicks': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
     'Oklahoma City Thunder': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+    'Oklahoma City': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+    'Okla City': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
     'Orlando Magic': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
     'Philadelphia 76ers': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
     'Phoenix Suns': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
