@@ -11,6 +11,7 @@ import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./page
 import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NBA from "./pages/NBA";
+import NBATodayBettingTrends from "./pages/NBATodayBettingTrends";
 import NCAAB from "./pages/NCAAB";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
@@ -182,6 +183,7 @@ function AppRoutes() {
           <Route path="/college-football" element={<ProtectedRoute allowFreemium={true}><CollegeFootball /></ProtectedRoute>} />
           <Route path="/nfl" element={<ProtectedRoute allowFreemium={true}><NFL /></ProtectedRoute>} />
           <Route path="/nba" element={<ProtectedRoute allowFreemium={true}><NBA /></ProtectedRoute>} />
+          <Route path="/nba/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><NBATodayBettingTrends /></ProtectedRoute>} />
           <Route path="/ncaab" element={<ProtectedRoute allowFreemium={true}><NCAAB /></ProtectedRoute>} />
           <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
           <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />

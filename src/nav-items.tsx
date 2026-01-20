@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import { Index } from "./pages/index";
 import CollegeFootball from "./pages/CollegeFootball";
@@ -107,6 +107,13 @@ export const navItems: NavItem[] = [
     to: "/nba",
     icon: <Basketball className="h-4 w-4" />,
     page: <NBA />,
+    subItems: [
+      {
+        title: "Today's Betting Trends",
+        to: "/nba/todays-betting-trends",
+        icon: <TrendingUp className="h-4 w-4" />,
+      },
+    ],
   },
   {
     title: "College Basketball",
