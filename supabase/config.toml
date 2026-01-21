@@ -58,3 +58,6 @@ verify_jwt = false
 
 [functions.calculate-pattern-roi]
 verify_jwt = false
+
+[functions.send-reactivation-events]
+verify_jwt = false  # Cron calls don't have JWT, auth via service key
