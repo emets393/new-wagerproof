@@ -120,6 +120,13 @@ export const navItems: NavItem[] = [
     to: "/ncaab",
     icon: <School className="h-4 w-4" />,
     page: <NCAAB />,
+    subItems: [
+      {
+        title: "Today's Betting Trends",
+        to: "/ncaab/todays-betting-trends",
+        icon: <TrendingUp className="h-4 w-4" />,
+      },
+    ],
   },
   {
     title: "COMMUNITY",

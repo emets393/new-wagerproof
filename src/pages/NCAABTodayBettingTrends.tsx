@@ -7,7 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertCircle, ChevronDown, ChevronUp, TrendingUp, ArrowUp, ArrowDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { getNBATeamColors, getNBATeamInitials } from '@/utils/teamColors';
+import { getNCAABTeamColors, getNCAABTeamInitials } from '@/utils/teamColors';
+import { getNCAABTeamLogo } from '@/utils/teamLogos';
 import debug from '@/utils/debug';
 
 interface SituationalTrendRow {
@@ -20,7 +21,7 @@ interface SituationalTrendRow {
   last_game_situation: string;
   fav_dog_situation: string;
   side_spread_situation: string;
-  home_away_situation: string | null;
+  home_away_situation: string;
   rest_bucket: string;
   rest_comp: string;
   ats_last_game_record: string;
@@ -29,8 +30,8 @@ interface SituationalTrendRow {
   ats_fav_dog_cover_pct: number;
   ats_side_fav_dog_record: string;
   ats_side_fav_dog_cover_pct: number;
-  ats_home_away_record: string | null;
-  ats_home_away_cover_pct: number | null;
+  ats_home_away_record: string;
+  ats_home_away_cover_pct: number;
   ats_rest_bucket_record: string;
   ats_rest_bucket_cover_pct: number;
   ats_rest_comp_record: string;
@@ -44,9 +45,9 @@ interface SituationalTrendRow {
   ou_side_fav_dog_record: string;
   ou_side_fav_dog_over_pct: number;
   ou_side_fav_dog_under_pct: number;
-  ou_home_away_record: string | null;
-  ou_home_away_over_pct: number | null;
-  ou_home_away_under_pct: number | null;
+  ou_home_away_record: string;
+  ou_home_away_over_pct: number;
+  ou_home_away_under_pct: number;
   ou_rest_bucket_record: string;
   ou_rest_bucket_over_pct: number;
   ou_rest_bucket_under_pct: number;
@@ -117,96 +118,6 @@ const getUnderWins = (ouRecord: string | null | undefined): number => {
   return parsed.losses;
 };
 
-// Helper function to get NBA team logo URL
-const getNBATeamLogoUrl = (teamName: string): string => {
-  if (!teamName) return '/placeholder.svg';
-  
-  const espnLogoMap: { [key: string]: string } = {
-    'Atlanta': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
-    'Atlanta Hawks': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
-    'Boston': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
-    'Boston Celtics': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
-    'Brooklyn': 'https://a.espncdn.com/i/teamlogos/nba/500/bkn.png',
-    'Brooklyn Nets': 'https://a.espncdn.com/i/teamlogos/nba/500/bkn.png',
-    'Charlotte': 'https://a.espncdn.com/i/teamlogos/nba/500/cha.png',
-    'Charlotte Hornets': 'https://a.espncdn.com/i/teamlogos/nba/500/cha.png',
-    'Chicago': 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png',
-    'Chicago Bulls': 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png',
-    'Cleveland': 'https://a.espncdn.com/i/teamlogos/nba/500/cle.png',
-    'Cleveland Cavaliers': 'https://a.espncdn.com/i/teamlogos/nba/500/cle.png',
-    'Dallas': 'https://a.espncdn.com/i/teamlogos/nba/500/dal.png',
-    'Dallas Mavericks': 'https://a.espncdn.com/i/teamlogos/nba/500/dal.png',
-    'Denver': 'https://a.espncdn.com/i/teamlogos/nba/500/den.png',
-    'Denver Nuggets': 'https://a.espncdn.com/i/teamlogos/nba/500/den.png',
-    'Detroit': 'https://a.espncdn.com/i/teamlogos/nba/500/det.png',
-    'Detroit Pistons': 'https://a.espncdn.com/i/teamlogos/nba/500/det.png',
-    'Golden State': 'https://a.espncdn.com/i/teamlogos/nba/500/gs.png',
-    'Golden State Warriors': 'https://a.espncdn.com/i/teamlogos/nba/500/gs.png',
-    'Houston': 'https://a.espncdn.com/i/teamlogos/nba/500/hou.png',
-    'Houston Rockets': 'https://a.espncdn.com/i/teamlogos/nba/500/hou.png',
-    'Indiana': 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png',
-    'Indiana Pacers': 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png',
-    'LA Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
-    'Los Angeles Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
-    'LA Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
-    'Los Angeles Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
-    'Memphis': 'https://a.espncdn.com/i/teamlogos/nba/500/mem.png',
-    'Memphis Grizzlies': 'https://a.espncdn.com/i/teamlogos/nba/500/mem.png',
-    'Miami': 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png',
-    'Miami Heat': 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png',
-    'Milwaukee': 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png',
-    'Milwaukee Bucks': 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png',
-    'Minnesota': 'https://a.espncdn.com/i/teamlogos/nba/500/min.png',
-    'Minnesota Timberwolves': 'https://a.espncdn.com/i/teamlogos/nba/500/min.png',
-    'New Orleans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
-    'New Orleans Pelicans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
-    'New York': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
-    'New York Knicks': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
-    'Oklahoma City': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
-    'Oklahoma City Thunder': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
-    'Okla City': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
-    'Orlando': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
-    'Orlando Magic': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
-    'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
-    'Philadelphia 76ers': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
-    'Phoenix': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
-    'Phoenix Suns': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
-    'Portland': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
-    'Portland Trail Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
-    'Sacramento': 'https://a.espncdn.com/i/teamlogos/nba/500/sac.png',
-    'Sacramento Kings': 'https://a.espncdn.com/i/teamlogos/nba/500/sac.png',
-    'San Antonio': 'https://a.espncdn.com/i/teamlogos/nba/500/sa.png',
-    'San Antonio Spurs': 'https://a.espncdn.com/i/teamlogos/nba/500/sa.png',
-    'Toronto': 'https://a.espncdn.com/i/teamlogos/nba/500/tor.png',
-    'Toronto Raptors': 'https://a.espncdn.com/i/teamlogos/nba/500/tor.png',
-    'Utah': 'https://a.espncdn.com/i/teamlogos/nba/500/utah.png',
-    'Utah Jazz': 'https://a.espncdn.com/i/teamlogos/nba/500/utah.png',
-    'Washington': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png',
-    'Washington Wizards': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png',
-  };
-  
-  // Try exact match first
-  if (espnLogoMap[teamName]) {
-    return espnLogoMap[teamName];
-  }
-  
-  // Try case-insensitive match
-  const lowerTeamName = teamName.toLowerCase();
-  const matchedKey = Object.keys(espnLogoMap).find(key => key.toLowerCase() === lowerTeamName);
-  if (matchedKey) {
-    return espnLogoMap[matchedKey];
-  }
-  
-  // Try partial match
-  for (const [key, url] of Object.entries(espnLogoMap)) {
-    if (teamName.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(teamName.toLowerCase())) {
-      return url;
-    }
-  }
-  
-  return '/placeholder.svg';
-};
-
 // Helper function to get color for percentage
 const getPercentageColor = (pct: number | null): string => {
   if (pct === null) return 'text-gray-500';
@@ -229,10 +140,13 @@ const isYellow = (pct: number | null): boolean => {
 const getATSConsensus = (
   awayPct: number | null,
   homePct: number | null,
+  awayTeamId: number,
+  homeTeamId: number,
   awayTeamName: string,
   homeTeamName: string,
   awayTeamAbbr: string,
-  homeTeamAbbr: string
+  homeTeamAbbr: string,
+  logoMap: Map<number, string>
 ) => {
   if (awayPct === null || homePct === null) return null;
   
@@ -241,14 +155,16 @@ const getATSConsensus = (
       type: 'team' as const,
       teamName: awayTeamName,
       teamAbbr: awayTeamAbbr,
-      logo: getNBATeamLogoUrl(awayTeamName)
+      teamId: awayTeamId,
+      logo: logoMap.get(awayTeamId) || '/placeholder.svg'
     };
   } else if (homePct > awayPct) {
     return {
       type: 'team' as const,
       teamName: homeTeamName,
       teamAbbr: homeTeamAbbr,
-      logo: getNBATeamLogoUrl(homeTeamName)
+      teamId: homeTeamId,
+      logo: logoMap.get(homeTeamId) || '/placeholder.svg'
     };
   }
   return null; // Tie
@@ -260,10 +176,13 @@ const getOUConsensus = (
   awayUnderPct: number | null,
   homeOverPct: number | null,
   homeUnderPct: number | null,
+  awayTeamId: number,
+  homeTeamId: number,
   awayTeamName: string,
   homeTeamName: string,
   awayTeamAbbr: string,
-  homeTeamAbbr: string
+  homeTeamAbbr: string,
+  logoMap: Map<number, string>
 ) => {
   const awayOverGreen = isGreen(awayOverPct);
   const awayOverYellow = isYellow(awayOverPct);
@@ -283,7 +202,8 @@ const getOUConsensus = (
       type: 'over' as const,
       teamName: isAway ? awayTeamName : homeTeamName,
       teamAbbr: isAway ? awayTeamAbbr : homeTeamAbbr,
-      logo: getNBATeamLogoUrl(isAway ? awayTeamName : homeTeamName)
+      teamId: isAway ? awayTeamId : homeTeamId,
+      logo: logoMap.get(isAway ? awayTeamId : homeTeamId) || '/placeholder.svg'
     };
   }
   
@@ -295,7 +215,8 @@ const getOUConsensus = (
       type: 'under' as const,
       teamName: isAway ? awayTeamName : homeTeamName,
       teamAbbr: isAway ? awayTeamAbbr : homeTeamAbbr,
-      logo: getNBATeamLogoUrl(isAway ? awayTeamName : homeTeamName)
+      teamId: isAway ? awayTeamId : homeTeamId,
+      logo: logoMap.get(isAway ? awayTeamId : homeTeamId) || '/placeholder.svg'
     };
   }
   
@@ -310,7 +231,8 @@ const getOUConsensus = (
       type: 'over' as const,
       teamName: awayTeamName,
       teamAbbr: awayTeamAbbr,
-      logo: getNBATeamLogoUrl(awayTeamName)
+      teamId: awayTeamId,
+      logo: logoMap.get(awayTeamId) || '/placeholder.svg'
     };
   }
   if (homeOverGreen && awayOverYellow) {
@@ -318,7 +240,8 @@ const getOUConsensus = (
       type: 'over' as const,
       teamName: homeTeamName,
       teamAbbr: homeTeamAbbr,
-      logo: getNBATeamLogoUrl(homeTeamName)
+      teamId: homeTeamId,
+      logo: logoMap.get(homeTeamId) || '/placeholder.svg'
     };
   }
   
@@ -328,7 +251,8 @@ const getOUConsensus = (
       type: 'under' as const,
       teamName: awayTeamName,
       teamAbbr: awayTeamAbbr,
-      logo: getNBATeamLogoUrl(awayTeamName)
+      teamId: awayTeamId,
+      logo: logoMap.get(awayTeamId) || '/placeholder.svg'
     };
   }
   if (homeUnderGreen && awayUnderYellow) {
@@ -336,7 +260,8 @@ const getOUConsensus = (
       type: 'under' as const,
       teamName: homeTeamName,
       teamAbbr: homeTeamAbbr,
-      logo: getNBATeamLogoUrl(homeTeamName)
+      teamId: homeTeamId,
+      logo: logoMap.get(homeTeamId) || '/placeholder.svg'
     };
   }
   
@@ -349,28 +274,72 @@ const getOUConsensus = (
 };
 
 // Helper function to convert UTC time to EST and format it
-const formatTipoffTime = (tipoffTimeUtc: string | null): string => {
+const formatTipoffTime = (tipoffTimeUtc: string | null, gameDate?: string): string => {
   if (!tipoffTimeUtc) return '';
   
   try {
-    // Parse the UTC time string (format: "2026-01-19 18:10:00+00" or ISO format)
-    const utcDate = new Date(tipoffTimeUtc);
+    let dateToFormat: Date;
     
-    if (isNaN(utcDate.getTime())) {
-      console.error('Invalid date:', tipoffTimeUtc);
+    // Check if tipoffTimeUtc is just a time string (e.g., "18:00", "19:30")
+    // Time-only strings match pattern like "HH:MM" or "HH:MM:SS"
+    const timeOnlyPattern = /^\d{1,2}:\d{2}(:\d{2})?$/;
+    
+    if (timeOnlyPattern.test(tipoffTimeUtc)) {
+      // It's a time-only string (e.g., "18:00"), combine with game_date
+      if (!gameDate) {
+        console.warn('Time-only string provided but no game_date:', tipoffTimeUtc);
+        return tipoffTimeUtc; // Return the time as-is if no date available
+      }
+      
+      // Parse the time string (format: "HH:MM" or "HH:MM:SS")
+      const [hoursStr, minutesStr] = tipoffTimeUtc.split(':');
+      const hours = parseInt(hoursStr, 10);
+      const minutes = parseInt(minutesStr, 10);
+      
+      // Convert 24-hour to 12-hour format
+      const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const timeStr = `${hour12}:${minutesStr.padStart(2, '0')} ${ampm}`;
+      
+      // Parse and format the date
+      const [year, month, day] = gameDate.split('-').map(Number);
+      const dateObj = new Date(year, month - 1, day);
+      
+      // Format date with suffix
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+      const monthName = monthNames[month - 1];
+      
+      const getDaySuffix = (d: number): string => {
+        if (d > 3 && d < 21) return 'th';
+        switch (d % 10) {
+          case 1: return 'st';
+          case 2: return 'nd';
+          case 3: return 'rd';
+          default: return 'th';
+        }
+      };
+      
+      // Determine if EST or EDT (simplified - assumes EST for winter months)
+      // For more accuracy, we'd need to check DST, but this is a reasonable approximation
+      const isDST = dateObj.getMonth() >= 2 && dateObj.getMonth() <= 10; // March to November
+      const tzName = isDST ? 'EDT' : 'EST';
+      
+      const formattedDate = `${monthName} ${day}${getDaySuffix(day)}, ${year}`;
+      
+      return `${timeStr} ${tzName} ${formattedDate}`;
+    } else {
+      // It's a full datetime string, parse it directly
+      dateToFormat = new Date(tipoffTimeUtc);
+    }
+    
+    if (isNaN(dateToFormat.getTime())) {
+      console.error('Invalid date:', tipoffTimeUtc, 'gameDate:', gameDate);
       return '';
     }
     
-    // Debug logging
-    console.log('Formatting tipoff time:', {
-      input: tipoffTimeUtc,
-      parsedUTC: utcDate.toISOString(),
-      utcTime: utcDate.toLocaleTimeString('en-US', { timeZone: 'UTC' }),
-      estTime: utcDate.toLocaleTimeString('en-US', { timeZone: 'America/New_York' })
-    });
-    
     // Format time in EST/EDT
-    const timeStr = utcDate.toLocaleTimeString('en-US', {
+    const timeStr = dateToFormat.toLocaleTimeString('en-US', {
       timeZone: 'America/New_York',
       hour: 'numeric',
       minute: '2-digit',
@@ -378,7 +347,7 @@ const formatTipoffTime = (tipoffTimeUtc: string | null): string => {
     });
     
     // Format date in EST/EDT
-    const dateStr = utcDate.toLocaleDateString('en-US', {
+    const dateStr = dateToFormat.toLocaleDateString('en-US', {
       timeZone: 'America/New_York',
       month: 'long',
       day: 'numeric',
@@ -390,7 +359,7 @@ const formatTipoffTime = (tipoffTimeUtc: string | null): string => {
       timeZone: 'America/New_York',
       timeZoneName: 'short'
     });
-    const parts = formatter.formatToParts(utcDate);
+    const parts = formatter.formatToParts(dateToFormat);
     const tzName = parts.find(part => part.type === 'timeZoneName')?.value || 'EST';
     
     // Get day suffix (1st, 2nd, 3rd, 4th, etc.)
@@ -422,8 +391,16 @@ const calculateOUConsensusStrength = (game: GameTrends): number => {
   const minGamesThreshold = 5;
   const minPercentage = 55;
   
-  // Define all situations to check
+  // Define all situations to check (including Home/Away for NCAAB)
   const situations = [
+    {
+      awayOverPct: game.away_team.ou_home_away_over_pct,
+      awayUnderPct: game.away_team.ou_home_away_under_pct,
+      awayRecord: game.away_team.ou_home_away_record,
+      homeOverPct: game.home_team.ou_home_away_over_pct,
+      homeUnderPct: game.home_team.ou_home_away_under_pct,
+      homeRecord: game.home_team.ou_home_away_record,
+    },
     {
       awayOverPct: game.away_team.ou_last_game_over_pct,
       awayUnderPct: game.away_team.ou_last_game_under_pct,
@@ -513,8 +490,14 @@ const calculateATSDominance = (game: GameTrends): number => {
   const minGamesThreshold = 5;
   const minDifference = 10; // Minimum 10 percentage point difference
   
-  // Define all situations to check
+  // Define all situations to check (including Home/Away for NCAAB)
   const situations = [
+    {
+      awayPct: game.away_team.ats_home_away_cover_pct,
+      awayRecord: game.away_team.ats_home_away_record,
+      homePct: game.home_team.ats_home_away_cover_pct,
+      homeRecord: game.home_team.ats_home_away_record,
+    },
     {
       awayPct: game.away_team.ats_last_game_cover_pct,
       awayRecord: game.away_team.ats_last_game_record,
@@ -568,250 +551,14 @@ const calculateATSDominance = (game: GameTrends): number => {
   return totalScore;
 };
 
-export default function NBATodayBettingTrends() {
+export default function NCAABTodayBettingTrends() {
   const [games, setGames] = useState<GameTrends[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [expandedGames, setExpandedGames] = useState<Set<number>>(new Set());
+  const [logoMap, setLogoMap] = useState<Map<number, string>>(new Map());
   const [sortMode, setSortMode] = useState<'time' | 'ou-consensus' | 'ats-dominance'>('time');
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      debug.log('Fetching NBA situational trends data...');
-      
-      // Try the table name as provided
-      let query = collegeFootballSupabase
-        .from('nba_game_situational_trends_today')
-        .select('*')
-        .order('game_date', { ascending: true })
-        .order('game_id', { ascending: true });
-
-      const { data, error: fetchError } = await query;
-
-      if (fetchError) {
-        debug.error('Error fetching NBA trends:', fetchError);
-        console.error('Full error details:', fetchError);
-        console.error('Error code:', fetchError.code);
-        console.error('Error hint:', fetchError.hint);
-        console.error('Error message:', fetchError.message);
-        
-        // If table doesn't exist, try alternative names
-        if (fetchError.code === '42P01' || fetchError.message.includes('does not exist')) {
-          console.log('Table not found, trying alternative names...');
-          // Try without _today suffix
-          const { data: altData, error: altError } = await collegeFootballSupabase
-            .from('nba_game_situational_trends')
-            .select('*')
-            .order('game_date', { ascending: true })
-            .order('game_id', { ascending: true });
-          
-          if (!altError && altData) {
-            console.log('Found data in nba_game_situational_trends:', altData.length);
-            // Process altData here if found
-            setError(`Table 'nba_game_situational_trends_today' not found. Found 'nba_game_situational_trends' with ${altData.length} rows. Please verify table name.`);
-            setLoading(false);
-            return;
-          }
-        }
-        
-        setError(`Failed to load data: ${fetchError.message}. Check console for details.`);
-        setLoading(false);
-        return;
-      }
-
-      debug.log('Fetched trends data:', data?.length || 0, 'rows');
-      debug.log('Sample data:', data?.[0]);
-      console.log('Query result:', { 
-        rowCount: data?.length || 0, 
-        hasData: !!data && data.length > 0,
-        firstRow: data?.[0],
-        allData: data
-      });
-      
-      // Debug: Check for home_away fields in the data
-      if (data && data.length > 0) {
-        const sampleRow = data[0];
-        const allKeys = Object.keys(sampleRow);
-        console.log('All column names in table:', allKeys);
-        console.log('Keys containing "home", "away", or "is_home":', 
-          allKeys.filter(key => {
-            const lower = key.toLowerCase();
-            return lower.includes('home') || lower.includes('away') || lower.includes('is_home') || lower.includes('is_away');
-          })
-        );
-      }
-
-      if (!data || data.length === 0) {
-        debug.log('No data returned from query - table exists but is empty');
-        console.warn('Table "nba_game_situational_trends_today" exists but contains no rows.');
-        console.warn('Please verify:');
-        console.warn('1. The table name is correct: nba_game_situational_trends_today');
-        console.warn('2. There is data in the table for today\'s games');
-        console.warn('3. Check Supabase dashboard to confirm table has data');
-        setGames([]);
-        setLastUpdated(new Date());
-        setLoading(false);
-        return;
-      }
-
-      // Group by game_id (2 rows per game)
-      // Use team_side column to determine if team is 'away' or 'home'
-      const gamesMap = new Map<number, GameTrends>();
-      
-      data.forEach((row: any) => {
-        debug.log('Processing row:', { game_id: row.game_id, team_side: row.team_side, team_name: row.team_name });
-        
-        // Validate team_side is either 'away' or 'home'
-        if (row.team_side !== 'away' && row.team_side !== 'home') {
-          console.warn(`Invalid team_side value "${row.team_side}" for game_id ${row.game_id}, team_name ${row.team_name}. Skipping row.`);
-          return;
-        }
-        
-        if (!gamesMap.has(row.game_id)) {
-          gamesMap.set(row.game_id, {
-            game_id: row.game_id,
-            game_date: row.game_date,
-            tipoff_time_et: null,
-            away_team: row.team_side === 'away' ? row : {} as SituationalTrendRow,
-            home_team: row.team_side === 'home' ? row : {} as SituationalTrendRow,
-          });
-        } else {
-          const game = gamesMap.get(row.game_id)!;
-          // Use team_side to assign to correct team slot
-          if (row.team_side === 'away') {
-            game.away_team = row;
-          } else if (row.team_side === 'home') {
-            game.home_team = row;
-          }
-        }
-      });
-      
-      // Debug: Log specific game data for Oklahoma City vs Cleveland
-      gamesMap.forEach((game, gameId) => {
-        if (game.away_team.team_name && (
-          game.away_team.team_name.includes('Oklahoma') || 
-          game.away_team.team_name.includes('Okla') ||
-          game.home_team.team_name?.includes('Oklahoma') ||
-          game.home_team.team_name?.includes('Okla') ||
-          game.away_team.team_name.includes('Cleveland') ||
-          game.home_team.team_name?.includes('Cleveland')
-        )) {
-          console.log('🔍 Oklahoma City/Cleveland Game Debug:', {
-            game_id: gameId,
-            away_team: game.away_team.team_name,
-            home_team: game.home_team.team_name,
-            away_team_side: game.away_team.team_side,
-            home_team_side: game.home_team.team_side,
-            away_fav_dog: {
-              situation: game.away_team.fav_dog_situation,
-              ats_record: game.away_team.ats_fav_dog_record,
-              ats_pct: game.away_team.ats_fav_dog_cover_pct,
-              ou_record: game.away_team.ou_fav_dog_record,
-              ou_over_pct: game.away_team.ou_fav_dog_over_pct,
-              ou_under_pct: game.away_team.ou_fav_dog_under_pct,
-            },
-            home_fav_dog: {
-              situation: game.home_team.fav_dog_situation,
-              ats_record: game.home_team.ats_fav_dog_record,
-              ats_pct: game.home_team.ats_fav_dog_cover_pct,
-              ou_record: game.home_team.ou_fav_dog_record,
-              ou_over_pct: game.home_team.ou_fav_dog_over_pct,
-              ou_under_pct: game.home_team.ou_fav_dog_under_pct,
-            }
-          });
-        }
-      });
-
-      // Filter to only include games with both away and home teams
-      // Validate that team_side was used correctly to assign teams
-      const gamesArray = Array.from(gamesMap.values()).filter(game => {
-        const hasAway = game.away_team.team_name && game.away_team.team_side === 'away';
-        const hasHome = game.home_team.team_name && game.home_team.team_side === 'home';
-        
-        if (!hasAway || !hasHome) {
-          console.warn(`Game ${game.game_id} missing complete team data:`, {
-            away_team: game.away_team.team_name || 'missing',
-            away_team_side: game.away_team.team_side,
-            home_team: game.home_team.team_name || 'missing',
-            home_team_side: game.home_team.team_side
-          });
-        }
-        
-        return hasAway && hasHome;
-      });
-      
-      // Fetch tipoff times from nba_input_values_view
-      const gameIds = gamesArray.map(game => game.game_id);
-      if (gameIds.length > 0) {
-        const { data: gameTimes, error: timesError } = await collegeFootballSupabase
-          .from('nba_input_values_view')
-          .select('game_id, tipoff_time_et')
-          .in('game_id', gameIds);
-        
-        if (!timesError && gameTimes) {
-          const timesMap = new Map<number, string | null>();
-          gameTimes.forEach((gt: any) => {
-            timesMap.set(gt.game_id, gt.tipoff_time_et);
-          });
-          
-          // Add tipoff times to games
-          gamesArray.forEach(game => {
-            game.tipoff_time_et = timesMap.get(game.game_id) || null;
-          });
-        } else if (timesError) {
-          console.warn('Error fetching tipoff times:', timesError);
-        }
-      }
-      
-      // Calculate scores for each game and store them
-      const gamesWithScores = gamesArray.map(game => ({
-        ...game,
-        ouConsensusScore: calculateOUConsensusStrength(game),
-        atsDominanceScore: calculateATSDominance(game),
-      }));
-      
-      // Sort games based on sortMode
-      gamesWithScores.sort((a, b) => {
-        if (sortMode === 'ou-consensus') {
-          // Sort by OU Consensus Strength (descending - highest first)
-          return b.ouConsensusScore - a.ouConsensusScore;
-        } else if (sortMode === 'ats-dominance') {
-          // Sort by ATS Dominance (descending - highest first)
-          return b.atsDominanceScore - a.atsDominanceScore;
-        } else {
-          // Default: Sort by tipoff time (earliest first)
-          if (a.tipoff_time_et && b.tipoff_time_et) {
-            const timeA = new Date(a.tipoff_time_et).getTime();
-            const timeB = new Date(b.tipoff_time_et).getTime();
-            return timeA - timeB;
-          }
-          // Games with tipoff times come before games without
-          if (a.tipoff_time_et && !b.tipoff_time_et) return -1;
-          if (!a.tipoff_time_et && b.tipoff_time_et) return 1;
-          // If neither has tipoff time, sort by game_date
-          return new Date(a.game_date).getTime() - new Date(b.game_date).getTime();
-        }
-      });
-      
-      // Remove score properties before setting state (keep original structure)
-      const sortedGames = gamesWithScores.map(({ ouConsensusScore, atsDominanceScore, ...game }) => game);
-      
-      debug.log('Processed', sortedGames.length, 'complete games');
-      debug.log('Games array:', sortedGames);
-      
-      setGames(sortedGames);
-      setLastUpdated(new Date());
-    } catch (err) {
-      debug.error('Exception fetching trends:', err);
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchData();
@@ -851,6 +598,219 @@ export default function NBATodayBettingTrends() {
     });
   }, [sortMode]);
 
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      debug.log('Fetching NCAAB situational trends data...');
+      
+      // Try the table name as provided
+      let query = collegeFootballSupabase
+        .from('ncaab_game_situational_trends_today')
+        .select('*')
+        .order('game_date', { ascending: true })
+        .order('game_id', { ascending: true });
+
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) {
+        debug.error('Error fetching NCAAB trends:', fetchError);
+        console.error('Full error details:', fetchError);
+        console.error('Error code:', fetchError.code);
+        console.error('Error hint:', fetchError.hint);
+        console.error('Error message:', fetchError.message);
+        
+        // If table doesn't exist, try alternative names
+        if (fetchError.code === '42P01' || fetchError.message.includes('does not exist')) {
+          console.log('Table not found, trying alternative names...');
+          // Try without _today suffix
+          const { data: altData, error: altError } = await collegeFootballSupabase
+            .from('ncaab_game_situational_trends')
+            .select('*')
+            .order('game_date', { ascending: true })
+            .order('game_id', { ascending: true });
+          
+          if (!altError && altData) {
+            console.log('Found data in ncaab_game_situational_trends:', altData.length);
+            setError(`Table 'ncaab_game_situational_trends_today' not found. Found 'ncaab_game_situational_trends' with ${altData.length} rows. Please verify table name.`);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        setError(`Failed to load data: ${fetchError.message}. Check console for details.`);
+        setLoading(false);
+        return;
+      }
+
+      debug.log('Fetched trends data:', data?.length || 0, 'rows');
+      debug.log('Sample data:', data?.[0]);
+      console.log('Query result:', { 
+        rowCount: data?.length || 0, 
+        hasData: !!data && data.length > 0,
+        firstRow: data?.[0],
+        allData: data
+      });
+
+      if (!data || data.length === 0) {
+        debug.log('No data returned from query - table exists but is empty');
+        console.warn('Table "ncaab_game_situational_trends_today" exists but contains no rows.');
+        console.warn('Please verify:');
+        console.warn('1. The table name is correct: ncaab_game_situational_trends_today');
+        console.warn('2. There is data in the table for today\'s games');
+        console.warn('3. Check Supabase dashboard to confirm table has data');
+        setGames([]);
+        setLastUpdated(new Date());
+        setLoading(false);
+        return;
+      }
+
+      // Group by game_id (2 rows per game)
+      const gamesMap = new Map<number, GameTrends>();
+      
+      data.forEach((row: any) => {
+        debug.log('Processing row:', { game_id: row.game_id, team_side: row.team_side, team_name: row.team_name });
+        
+        if (!gamesMap.has(row.game_id)) {
+          gamesMap.set(row.game_id, {
+            game_id: row.game_id,
+            game_date: row.game_date,
+            tipoff_time_et: null,
+            away_team: row.team_side === 'away' ? row : {} as SituationalTrendRow,
+            home_team: row.team_side === 'home' ? row : {} as SituationalTrendRow,
+          });
+        } else {
+          const game = gamesMap.get(row.game_id)!;
+          if (row.team_side === 'away') {
+            game.away_team = row;
+          } else if (row.team_side === 'home') {
+            game.home_team = row;
+          }
+        }
+      });
+
+      const gamesArray = Array.from(gamesMap.values()).filter(game => 
+        game.away_team.team_name && game.home_team.team_name
+      );
+      
+      // Fetch tipoff times and team IDs from v_cbb_input_values
+      const gameIds = gamesArray.map(game => game.game_id);
+      if (gameIds.length > 0) {
+        const { data: gameTimes, error: timesError } = await collegeFootballSupabase
+          .from('v_cbb_input_values')
+          .select('game_id, tipoff_time_et, home_team_id, away_team_id')
+          .in('game_id', gameIds);
+        
+        if (!timesError && gameTimes) {
+          const timesMap = new Map<number, string | null>();
+          const teamIdsMap = new Map<number, { home_team_id: number; away_team_id: number }>();
+          
+          gameTimes.forEach((gt: any) => {
+            timesMap.set(gt.game_id, gt.tipoff_time_et);
+            if (gt.home_team_id && gt.away_team_id) {
+              teamIdsMap.set(gt.game_id, {
+                home_team_id: gt.home_team_id,
+                away_team_id: gt.away_team_id
+              });
+            }
+          });
+          
+          // Add tipoff times and correct team IDs to games
+          gamesArray.forEach(game => {
+            game.tipoff_time_et = timesMap.get(game.game_id) || null;
+            
+            // Update team IDs from v_cbb_input_values (these match api_team_id in mapping table)
+            const teamIds = teamIdsMap.get(game.game_id);
+            if (teamIds) {
+              // Assign correct team IDs based on team_side
+              // away_team should get away_team_id, home_team should get home_team_id
+              game.away_team.team_id = teamIds.away_team_id;
+              game.home_team.team_id = teamIds.home_team_id;
+            }
+          });
+        } else if (timesError) {
+          console.warn('Error fetching tipoff times:', timesError);
+        }
+      }
+      
+      // Calculate scores for each game and store them
+      const gamesWithScores = gamesArray.map(game => ({
+        ...game,
+        ouConsensusScore: calculateOUConsensusStrength(game),
+        atsDominanceScore: calculateATSDominance(game),
+      }));
+      
+      // Sort games based on sortMode
+      gamesWithScores.sort((a, b) => {
+        if (sortMode === 'ou-consensus') {
+          // Sort by OU Consensus Strength (descending - highest first)
+          return b.ouConsensusScore - a.ouConsensusScore;
+        } else if (sortMode === 'ats-dominance') {
+          // Sort by ATS Dominance (descending - highest first)
+          return b.atsDominanceScore - a.atsDominanceScore;
+        } else {
+          // Default: Sort by tipoff time (earliest first)
+          if (a.tipoff_time_et && b.tipoff_time_et) {
+            const timeA = new Date(a.tipoff_time_et).getTime();
+            const timeB = new Date(b.tipoff_time_et).getTime();
+            return timeA - timeB;
+          }
+          // Games with tipoff times come before games without
+          if (a.tipoff_time_et && !b.tipoff_time_et) return -1;
+          if (!a.tipoff_time_et && b.tipoff_time_et) return 1;
+          // If neither has tipoff time, sort by game_date
+          return new Date(a.game_date).getTime() - new Date(b.game_date).getTime();
+        }
+      });
+      
+      // Remove score properties before setting state (keep original structure)
+      const sortedGames = gamesWithScores.map(({ ouConsensusScore, atsDominanceScore, ...game }) => game);
+      
+      // Fetch all team logos asynchronously
+      const teamIds = new Set<number>();
+      sortedGames.forEach(game => {
+        if (game.away_team.team_id) teamIds.add(game.away_team.team_id);
+        if (game.home_team.team_id) teamIds.add(game.home_team.team_id);
+      });
+      
+      debug.log('Fetching logos for team IDs:', Array.from(teamIds));
+      console.log('Team IDs to fetch logos for:', Array.from(teamIds));
+      
+      const logoPromises = Array.from(teamIds).map(async (teamId) => {
+        const logo = await getNCAABTeamLogo(teamId);
+        debug.log(`Logo for team_id ${teamId}: ${logo}`);
+        return { teamId, logo };
+      });
+      
+      const logoResults = await Promise.all(logoPromises);
+      const newLogoMap = new Map<number, string>();
+      logoResults.forEach(({ teamId, logo }) => {
+        newLogoMap.set(teamId, logo);
+        if (logo === '/placeholder.svg') {
+          console.warn(`No logo found for team_id: ${teamId}`);
+        }
+      });
+      setLogoMap(newLogoMap);
+      debug.log('Logo map created with', newLogoMap.size, 'entries');
+      
+      debug.log('Processed', sortedGames.length, 'complete games');
+      debug.log('Games array:', sortedGames);
+      
+      setGames(sortedGames);
+      setLastUpdated(new Date());
+    } catch (err) {
+      debug.error('Exception fetching trends:', err);
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   const toggleGame = (gameId: number) => {
     setExpandedGames(prev => {
       const newSet = new Set(prev);
@@ -865,6 +825,8 @@ export default function NBATodayBettingTrends() {
 
   const renderComparisonRow = (
     label: string,
+    awayTeamId: number,
+    homeTeamId: number,
     awayTeamName: string,
     homeTeamName: string,
     awayTeamAbbr: string,
@@ -897,7 +859,7 @@ export default function NBATodayBettingTrends() {
           <div></div>
           <div className="flex items-center justify-center">
             {(() => {
-              const consensus = getATSConsensus(awayAtsPct, homeAtsPct, awayTeamName, homeTeamName, awayTeamAbbr, homeTeamAbbr);
+              const consensus = getATSConsensus(awayAtsPct, homeAtsPct, awayTeamId, homeTeamId, awayTeamName, homeTeamName, awayTeamAbbr, homeTeamAbbr, logoMap);
               if (consensus) {
                 return (
                   <img 
@@ -939,7 +901,7 @@ export default function NBATodayBettingTrends() {
           <div></div>
           <div className="flex items-center justify-center">
             {(() => {
-              const consensus = getATSConsensus(awayAtsPct, homeAtsPct, awayTeamName, homeTeamName, awayTeamAbbr, homeTeamAbbr);
+              const consensus = getATSConsensus(awayAtsPct, homeAtsPct, awayTeamId, homeTeamId, awayTeamName, homeTeamName, awayTeamAbbr, homeTeamAbbr, logoMap);
               if (consensus) {
                 return (
                   <span className="text-sm font-semibold text-white">
@@ -983,7 +945,7 @@ export default function NBATodayBettingTrends() {
           <div></div>
           <div className="flex items-center justify-center gap-1.5">
             {(() => {
-              const consensus = getOUConsensus(awayOuOverPct, awayOuUnderPct, homeOuOverPct, homeOuUnderPct, awayTeamName, homeTeamName, awayTeamAbbr, homeTeamAbbr);
+              const consensus = getOUConsensus(awayOuOverPct, awayOuUnderPct, homeOuOverPct, homeOuUnderPct, awayTeamId, homeTeamId, awayTeamName, homeTeamName, awayTeamAbbr, homeTeamAbbr, logoMap);
               if (consensus.type === 'over') {
                 return (
                   <>
@@ -1058,7 +1020,7 @@ export default function NBATodayBettingTrends() {
             Today's Betting Trends
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Situational betting trends for today's NBA games
+            Situational betting trends for today's NCAAB games
             {lastUpdated && (
               <span className="ml-2">
                 • Last updated: {lastUpdated.toLocaleTimeString()}
@@ -1116,10 +1078,12 @@ export default function NBATodayBettingTrends() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {games.map((game) => {
             const isExpanded = expandedGames.has(game.game_id);
-            const awayColors = getNBATeamColors(game.away_team.team_name);
-            const homeColors = getNBATeamColors(game.home_team.team_name);
-            const awayInitials = getNBATeamInitials(game.away_team.team_name);
-            const homeInitials = getNBATeamInitials(game.home_team.team_name);
+            const awayColors = getNCAABTeamColors(game.away_team.team_name);
+            const homeColors = getNCAABTeamColors(game.home_team.team_name);
+            const awayInitials = getNCAABTeamInitials(game.away_team.team_name);
+            const homeInitials = getNCAABTeamInitials(game.home_team.team_name);
+            const awayLogo = logoMap.get(game.away_team.team_id) || '/placeholder.svg';
+            const homeLogo = logoMap.get(game.home_team.team_id) || '/placeholder.svg';
 
             return (
               <Card key={game.game_id} className="overflow-hidden">
@@ -1131,7 +1095,7 @@ export default function NBATodayBettingTrends() {
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 flex items-center justify-center">
                               <img 
-                                src={getNBATeamLogoUrl(game.away_team.team_name)} 
+                                src={awayLogo} 
                                 alt={game.away_team.team_name}
                                 className="w-8 h-8 object-contain"
                                 onError={(e) => {
@@ -1155,7 +1119,7 @@ export default function NBATodayBettingTrends() {
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 flex items-center justify-center">
                               <img 
-                                src={getNBATeamLogoUrl(game.home_team.team_name)} 
+                                src={homeLogo} 
                                 alt={game.home_team.team_name}
                                 className="w-8 h-8 object-contain"
                                 onError={(e) => {
@@ -1179,7 +1143,7 @@ export default function NBATodayBettingTrends() {
                         <div className="flex items-center gap-2">
                           {game.tipoff_time_et ? (
                             <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {formatTipoffTime(game.tipoff_time_et)}
+                              {formatTipoffTime(game.tipoff_time_et, game.game_date)}
                             </span>
                           ) : (
                             <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -1203,7 +1167,7 @@ export default function NBATodayBettingTrends() {
                         <div className="pl-16 text-left">
                           <div className="flex items-center gap-2">
                             <img 
-                              src={getNBATeamLogoUrl(game.away_team.team_name)} 
+                              src={awayLogo} 
                               alt={game.away_team.team_name}
                               className="w-8 h-8 object-contain"
                               onError={(e) => {
@@ -1221,7 +1185,7 @@ export default function NBATodayBettingTrends() {
                         <div className="pl-16 text-left">
                           <div className="flex items-center gap-2">
                             <img 
-                              src={getNBATeamLogoUrl(game.home_team.team_name)} 
+                              src={homeLogo} 
                               alt={game.home_team.team_name}
                               className="w-8 h-8 object-contain"
                               onError={(e) => {
@@ -1243,7 +1207,31 @@ export default function NBATodayBettingTrends() {
                       
                       {/* Side-by-side comparison for each situation */}
                       {renderComparisonRow(
+                        'Home/Away Situation',
+                        game.away_team.team_id,
+                        game.home_team.team_id,
+                        game.away_team.team_name,
+                        game.home_team.team_name,
+                        game.away_team.team_abbr,
+                        game.home_team.team_abbr,
+                        game.away_team.home_away_situation,
+                        game.home_team.home_away_situation,
+                        game.away_team.ats_home_away_record,
+                        game.away_team.ats_home_away_cover_pct,
+                        game.home_team.ats_home_away_record,
+                        game.home_team.ats_home_away_cover_pct,
+                        game.away_team.ou_home_away_record,
+                        game.away_team.ou_home_away_over_pct,
+                        game.away_team.ou_home_away_under_pct,
+                        game.home_team.ou_home_away_record,
+                        game.home_team.ou_home_away_over_pct,
+                        game.home_team.ou_home_away_under_pct
+                      )}
+                      
+                      {renderComparisonRow(
                         'Last Game Situation',
+                        game.away_team.team_id,
+                        game.home_team.team_id,
                         game.away_team.team_name,
                         game.home_team.team_name,
                         game.away_team.team_abbr,
@@ -1264,6 +1252,8 @@ export default function NBATodayBettingTrends() {
                       
                       {renderComparisonRow(
                         'Favorite/Dog Situation',
+                        game.away_team.team_id,
+                        game.home_team.team_id,
                         game.away_team.team_name,
                         game.home_team.team_name,
                         game.away_team.team_abbr,
@@ -1284,6 +1274,8 @@ export default function NBATodayBettingTrends() {
                       
                       {renderComparisonRow(
                         'Side Spread Situation',
+                        game.away_team.team_id,
+                        game.home_team.team_id,
                         game.away_team.team_name,
                         game.home_team.team_name,
                         game.away_team.team_abbr,
@@ -1304,6 +1296,8 @@ export default function NBATodayBettingTrends() {
                       
                       {renderComparisonRow(
                         'Rest Bucket',
+                        game.away_team.team_id,
+                        game.home_team.team_id,
                         game.away_team.team_name,
                         game.home_team.team_name,
                         game.away_team.team_abbr,
@@ -1324,6 +1318,8 @@ export default function NBATodayBettingTrends() {
                       
                       {renderComparisonRow(
                         'Rest Comparison',
+                        game.away_team.team_id,
+                        game.home_team.team_id,
                         game.away_team.team_name,
                         game.home_team.team_name,
                         game.away_team.team_abbr,
