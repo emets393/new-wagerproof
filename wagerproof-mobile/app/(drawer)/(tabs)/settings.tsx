@@ -449,8 +449,7 @@ export default function SettingsScreen() {
             left={props => <List.Icon {...props} icon="shield-lock" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => {
-              // Open privacy policy
-              Alert.alert('Privacy Policy', 'Opening privacy policy...');
+              Linking.openURL('https://wagerproof.bet/privacy-policy');
             }}
             style={{ backgroundColor: theme.colors.surface }}
           />
@@ -461,8 +460,7 @@ export default function SettingsScreen() {
             left={props => <List.Icon {...props} icon="file-document" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => {
-              // Open terms
-              Alert.alert('Terms & Conditions', 'Opening terms and conditions...');
+              Linking.openURL('https://wagerproof.bet/terms-and-conditions');
             }}
             style={{ backgroundColor: theme.colors.surface }}
           />

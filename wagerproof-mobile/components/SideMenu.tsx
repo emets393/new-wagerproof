@@ -321,7 +321,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
             left={props => <List.Icon {...props} icon="shield-lock" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => {
-              Alert.alert('Privacy Policy', 'Opening privacy policy...');
+              Linking.openURL('https://wagerproof.bet/privacy-policy');
             }}
             style={{ backgroundColor: 'transparent' }}
           />
@@ -332,7 +332,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
             left={props => <List.Icon {...props} icon="file-document" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => {
-              Alert.alert('Terms & Conditions', 'Opening terms and conditions...');
+              Linking.openURL('https://wagerproof.bet/terms-and-conditions');
             }}
             style={{ backgroundColor: 'transparent' }}
           />
