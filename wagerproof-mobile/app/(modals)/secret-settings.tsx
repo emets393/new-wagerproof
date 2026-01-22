@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useProAccess } from '@/hooks/useProAccess';
 import { useAdminMode } from '@/contexts/AdminModeContext';
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { getOfferingById, getAllOfferings, syncPurchases } from '@/services/revenuecat';
 
 // Import RevenueCatUI for presenting paywalls
@@ -30,6 +31,7 @@ export default function SecretSettingsScreen() {
   const { testModeEnabled, setTestModeEnabled, triggerTestSuggestion } = useWagerBotSuggestion();
   const { forceFreemiumMode, setForceFreemiumMode, isPro } = useProAccess();
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
+  const { refreshCustomerInfo } = useRevenueCat();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -229,10 +231,16 @@ export default function SecretSettingsScreen() {
       switch (paywallResult) {
         case PAYWALL_RESULT.PURCHASED:
           console.log('✅ User completed purchase');
+          console.log('🔄 Refreshing customer info to update entitlements...');
+          await refreshCustomerInfo();
+          console.log('✅ Customer info refreshed - entitlements should now be active');
           Alert.alert('Success', 'Purchase completed!');
           break;
         case PAYWALL_RESULT.RESTORED:
           console.log('✅ User restored purchases');
+          console.log('🔄 Refreshing customer info to update entitlements...');
+          await refreshCustomerInfo();
+          console.log('✅ Customer info refreshed - entitlements should now be active');
           Alert.alert('Success', 'Purchases restored!');
           break;
         case PAYWALL_RESULT.CANCELLED:

@@ -6,12 +6,14 @@ import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { useRevenueCat } from '../../../contexts/RevenueCatContext';
 import { presentPaywall } from '../../../services/revenuecat';
 
 export function DataTransparency() {
   const theme = useTheme();
   const router = useRouter();
   const { submitOnboardingData } = useOnboarding();
+  const { refreshCustomerInfo } = useRevenueCat();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCompletion = async () => {
@@ -35,6 +37,11 @@ export function DataTransparency() {
       console.log('Presenting RevenueCat paywall...');
       const result = await presentPaywall();
       console.log('Paywall result:', result);
+
+      // Refresh customer info to ensure entitlements are up to date if purchase was made
+      console.log('🔄 Refreshing customer info after paywall...');
+      await refreshCustomerInfo();
+      console.log('✅ Customer info refreshed');
 
       // Handle paywall result - complete onboarding regardless of purchase
       // User can subscribe later from settings

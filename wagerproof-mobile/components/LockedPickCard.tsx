@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 
 // Import RevenueCatUI for presenting paywalls
 let RevenueCatUI: any = null;
+let PAYWALL_RESULT: any = null;
 try {
   if (Platform.OS !== 'web') {
     const purchasesUI = require('react-native-purchases-ui');
     RevenueCatUI = purchasesUI.default;
+    PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
   }
 } catch (error: any) {
   console.warn('Could not load react-native-purchases-ui:', error.message);
@@ -26,6 +29,7 @@ interface LockedPickCardProps {
  */
 export function LockedPickCard({ sport = 'NFL', minHeight = 180 }: LockedPickCardProps) {
   const { isDark } = useThemeContext();
+  const { refreshCustomerInfo } = useRevenueCat();
   const [isLoading, setIsLoading] = useState(false);
 
   const handlePress = async () => {
@@ -36,7 +40,14 @@ export function LockedPickCard({ sport = 'NFL', minHeight = 180 }: LockedPickCar
 
     try {
       setIsLoading(true);
-      await RevenueCatUI.presentPaywall();
+      const result = await RevenueCatUI.presentPaywall();
+      
+      // If user made a purchase or restored, refresh entitlements
+      if (PAYWALL_RESULT && (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED)) {
+        console.log('🔄 Purchase/restore detected, refreshing customer info...');
+        await refreshCustomerInfo();
+        console.log('✅ Customer info refreshed - entitlements should now be active');
+      }
     } catch (error) {
       console.error('Error presenting paywall:', error);
     } finally {

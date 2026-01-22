@@ -25,7 +25,7 @@ try {
 }
 
 export function RevenueCatPaywallStep() {
-  const { offering, refreshOfferings, isLoading, isInitialized } = useRevenueCat();
+  const { offering, refreshOfferings, refreshCustomerInfo, isLoading, isInitialized } = useRevenueCat();
   const { submitOnboardingData } = useOnboarding();
   const router = useRouter();
   const [isCompleting, setIsCompleting] = useState(false);
@@ -40,6 +40,12 @@ export function RevenueCatPaywallStep() {
     try {
       setIsCompleting(true);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      // Refresh customer info to ensure entitlements are up to date
+      console.log('🔄 Refreshing customer info after purchase...');
+      await refreshCustomerInfo();
+      console.log('✅ Customer info refreshed - entitlements should now be active');
+      
       console.log('Starting onboarding completion from Paywall...');
       await submitOnboardingData();
       console.log('Onboarding data submitted successfully!');

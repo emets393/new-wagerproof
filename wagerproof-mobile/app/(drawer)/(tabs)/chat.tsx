@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useRouter } from 'expo-router';
 import WagerBotChat from '@/components/WagerBotChat';
 import { fetchAndFormatGameContext } from '@/services/gameDataService';
@@ -13,10 +14,12 @@ import { useProAccess } from '@/hooks/useProAccess';
 
 // Import RevenueCatUI for presenting paywalls
 let RevenueCatUI: any = null;
+let PAYWALL_RESULT: any = null;
 try {
   if (Platform.OS !== 'web') {
     const purchasesUI = require('react-native-purchases-ui');
     RevenueCatUI = purchasesUI.default;
+    PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
   }
 } catch (error: any) {
   console.warn('Could not load react-native-purchases-ui:', error.message);
@@ -28,6 +31,7 @@ export default function ChatScreen() {
   const { user } = useAuth();
   const { isDark } = useThemeContext();
   const { setChatPageOpen } = useWagerBotSuggestion();
+  const { refreshCustomerInfo } = useRevenueCat();
   const router = useRouter();
   const { isPro, isLoading: isProLoading } = useProAccess();
 
@@ -102,7 +106,14 @@ export default function ChatScreen() {
       return;
     }
     try {
-      await RevenueCatUI.presentPaywall();
+      const result = await RevenueCatUI.presentPaywall();
+      
+      // If user made a purchase or restored, refresh entitlements
+      if (PAYWALL_RESULT && (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED)) {
+        console.log('🔄 Purchase/restore detected, refreshing customer info...');
+        await refreshCustomerInfo();
+        console.log('✅ Customer info refreshed - entitlements should now be active');
+      }
     } catch (error) {
       console.error('Error presenting paywall:', error);
     }

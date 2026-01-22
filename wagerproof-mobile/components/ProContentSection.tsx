@@ -3,14 +3,17 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useProAccess } from '@/hooks/useProAccess';
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 
 // Import RevenueCatUI for presenting paywalls
 let RevenueCatUI: any = null;
+let PAYWALL_RESULT: any = null;
 try {
   if (Platform.OS !== 'web') {
     const purchasesUI = require('react-native-purchases-ui');
     RevenueCatUI = purchasesUI.default;
+    PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
   }
 } catch (error: any) {
   console.warn('Could not load react-native-purchases-ui:', error.message);
@@ -30,6 +33,7 @@ interface ProContentSectionProps {
 export function ProContentSection({ children, title, minHeight = 100 }: ProContentSectionProps) {
   const { isDark } = useThemeContext();
   const { isPro, isLoading: isProLoading } = useProAccess();
+  const { refreshCustomerInfo } = useRevenueCat();
   const [isPaywallLoading, setIsPaywallLoading] = useState(false);
 
   // If user is Pro or still loading pro status, show children normally
@@ -45,7 +49,14 @@ export function ProContentSection({ children, title, minHeight = 100 }: ProConte
 
     try {
       setIsPaywallLoading(true);
-      await RevenueCatUI.presentPaywall();
+      const result = await RevenueCatUI.presentPaywall();
+      
+      // If user made a purchase or restored, refresh entitlements
+      if (PAYWALL_RESULT && (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED)) {
+        console.log('🔄 Purchase/restore detected, refreshing customer info...');
+        await refreshCustomerInfo();
+        console.log('✅ Customer info refreshed - entitlements should now be active');
+      }
     } catch (error) {
       console.error('Error presenting paywall:', error);
     } finally {

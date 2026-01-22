@@ -47,6 +47,7 @@ export function RevenueCatPaywall({
     isLoading,
     error,
     refreshOfferings,
+    refreshCustomerInfo,
   } = useRevenueCat();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -57,24 +58,38 @@ export function RevenueCatPaywall({
   }, [visible, refreshOfferings]);
 
   const handlePurchaseCompleted = useCallback(async ({ customerInfo }: any) => {
-    console.log('Purchase completed:', customerInfo);
+    console.log('✅ Purchase completed:', customerInfo);
+    console.log('✅ Active entitlements:', Object.keys(customerInfo?.entitlements?.active || {}));
+    
+    // Refresh customer info to update context state immediately
+    console.log('🔄 Refreshing customer info to update entitlement state...');
+    await refreshCustomerInfo();
+    console.log('✅ Customer info refreshed - entitlements should now be active');
+    
     Alert.alert('Success', 'Your subscription is now active!', [
       { text: 'OK', onPress: () => {
         onPurchaseComplete?.();
         onClose();
       }},
     ]);
-  }, [onPurchaseComplete, onClose]);
+  }, [onPurchaseComplete, onClose, refreshCustomerInfo]);
 
   const handleRestoreCompleted = useCallback(async ({ customerInfo }: any) => {
-    console.log('Restore completed:', customerInfo);
+    console.log('✅ Restore completed:', customerInfo);
+    console.log('✅ Active entitlements:', Object.keys(customerInfo?.entitlements?.active || {}));
+    
+    // Refresh customer info to update context state immediately
+    console.log('🔄 Refreshing customer info to update entitlement state...');
+    await refreshCustomerInfo();
+    console.log('✅ Customer info refreshed - entitlements should now be active');
+    
     Alert.alert('Success', 'Purchases restored successfully!', [
       { text: 'OK', onPress: () => {
         onRestoreComplete?.();
         onClose();
       }},
     ]);
-  }, [onRestoreComplete, onClose]);
+  }, [onRestoreComplete, onClose, refreshCustomerInfo]);
 
   if (!visible) return null;
 
