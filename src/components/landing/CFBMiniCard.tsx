@@ -2,7 +2,7 @@ import { AuroraText } from "@/components/magicui/aurora-text";
 import ElectricBorder from "@/components/ui/electric-border";
 import BlurEffect from "react-progressive-blur";
 import { Lock } from "lucide-react";
-import { getNBATeamInitials } from "@/utils/teamColors";
+import { getNBATeamInitials, getContrastingTextColor } from "@/utils/teamColors";
 
 type SportType = 'cfb' | 'nba' | 'dummy';
 
@@ -203,48 +203,76 @@ export default function CFBMiniCard({
         </div>
 
         {/* Teams Row */}
-        <div className="flex items-center justify-between">
-          {/* Away Team */}
-          <div className="flex items-center space-x-1 md:space-x-2 flex-1">
-            {getTeamLogo(prediction.away_team) && (
-              <img 
-                src={getTeamLogo(prediction.away_team)} 
-                alt={`${prediction.away_team} logo`}
-                className="h-6 w-6 md:h-10 md:w-10 drop-shadow-sm"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <div 
-                className="text-xs md:text-sm font-bold truncate"
-                style={{ color: awayTeamColors.primary }}
-              >
-                {getTeamAcronym(prediction.away_team)}
+        <div className="flex flex-col items-center justify-center space-y-2">
+          <div className="flex items-center justify-between w-full">
+            {/* Away Team */}
+            <div className="flex flex-col items-center space-y-1 flex-1">
+              {(() => {
+                const initials = getTeamAcronym(prediction.away_team);
+                const textColor = getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary);
+                
+                return (
+                  <div 
+                    className="h-6 w-6 md:h-10 md:w-10 rounded-full flex items-center justify-center flex-shrink-0 drop-shadow-sm border-2"
+                    style={{
+                      background: `linear-gradient(135deg, ${awayTeamColors.primary} 0%, ${awayTeamColors.secondary} 100%)`,
+                      borderColor: awayTeamColors.secondary,
+                    }}
+                  >
+                    <span 
+                      className="text-[0.5rem] md:text-xs font-bold"
+                      style={{ color: textColor }}
+                    >
+                      {initials}
+                    </span>
+                  </div>
+                );
+              })()}
+              <div className="min-w-0 text-center">
+                <div 
+                  className="text-[10px] md:text-xs font-semibold truncate max-w-[80px] md:max-w-[120px] text-gray-900 dark:text-gray-100"
+                >
+                  {prediction.away_team}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* @ Symbol */}
-          <div className="px-1 md:px-2">
-            <span className="text-sm md:text-lg font-bold text-gray-400 dark:text-gray-500">@</span>
-          </div>
+            {/* @ Symbol */}
+            <div className="px-2 md:px-4">
+              <span className="text-sm md:text-lg font-bold text-gray-400 dark:text-gray-500">@</span>
+            </div>
 
-          {/* Home Team */}
-          <div className="flex items-center space-x-1 md:space-x-2 flex-1 justify-end">
-            <div className="min-w-0 flex-1 text-right">
-              <div 
-                className="text-xs md:text-sm font-bold truncate"
-                style={{ color: homeTeamColors.primary }}
-              >
-                {getTeamAcronym(prediction.home_team)}
+            {/* Home Team */}
+            <div className="flex flex-col items-center space-y-1 flex-1">
+              {(() => {
+                const initials = getTeamAcronym(prediction.home_team);
+                const textColor = getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary);
+                
+                return (
+                  <div 
+                    className="h-6 w-6 md:h-10 md:w-10 rounded-full flex items-center justify-center flex-shrink-0 drop-shadow-sm border-2"
+                    style={{
+                      background: `linear-gradient(135deg, ${homeTeamColors.primary} 0%, ${homeTeamColors.secondary} 100%)`,
+                      borderColor: homeTeamColors.secondary,
+                    }}
+                  >
+                    <span 
+                      className="text-[0.5rem] md:text-xs font-bold"
+                      style={{ color: textColor }}
+                    >
+                      {initials}
+                    </span>
+                  </div>
+                );
+              })()}
+              <div className="min-w-0 text-center">
+                <div 
+                  className="text-[10px] md:text-xs font-semibold truncate max-w-[80px] md:max-w-[120px] text-gray-900 dark:text-gray-100"
+                >
+                  {prediction.home_team}
+                </div>
               </div>
             </div>
-            {getTeamLogo(prediction.home_team) && (
-              <img 
-                src={getTeamLogo(prediction.home_team)} 
-                alt={`${prediction.home_team} logo`}
-                className="h-6 w-6 md:h-10 md:w-10 drop-shadow-sm"
-              />
-            )}
           </div>
         </div>
 
@@ -279,16 +307,6 @@ export default function CFBMiniCard({
           </div>
         </div>
 
-        {/* Model Confidence Indicator - Hidden on mobile */}
-        {modelConfidence > 0 && (
-          <div className="hidden md:flex justify-center">
-            <div className="px-3 py-1 rounded-full bg-background/80 backdrop-blur-sm border border-primary/20">
-              <div className="text-xs font-bold text-foreground">
-                Model Confidence: {modelConfidence}%
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Mini Model Predictions - Hidden on mobile */}
         {(spreadEdge || ouEdge) && (

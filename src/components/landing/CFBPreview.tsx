@@ -119,7 +119,7 @@ export default function CFBPreview() {
   const [teamMappings, setTeamMappings] = useState<TeamMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sportType, setSportType] = useState<SportType>('cfb');
+  const [sportType, setSportType] = useState<SportType>('nba');
 
   // Function to get CFB team colors (copied from CollegeFootball.tsx)
   const getCFBTeamColors = (teamName: string): { primary: string; secondary: string } => {
@@ -221,7 +221,43 @@ export default function CFBPreview() {
       const mapping = teamMappings.find(m => m.api === teamName);
       return mapping?.logo_light || '';
     }
-    // For NBA/dummy, return empty (will use initials instead)
+    // For NBA/dummy, return ESPN logo URLs
+    if (sportType === 'nba' || sportType === 'dummy') {
+      const espnLogoMap: { [key: string]: string } = {
+        'Atlanta Hawks': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
+        'Boston Celtics': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
+        'Brooklyn Nets': 'https://a.espncdn.com/i/teamlogos/nba/500/bkn.png',
+        'Charlotte Hornets': 'https://a.espncdn.com/i/teamlogos/nba/500/cha.png',
+        'Chicago Bulls': 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png',
+        'Cleveland Cavaliers': 'https://a.espncdn.com/i/teamlogos/nba/500/cle.png',
+        'Dallas Mavericks': 'https://a.espncdn.com/i/teamlogos/nba/500/dal.png',
+        'Denver Nuggets': 'https://a.espncdn.com/i/teamlogos/nba/500/den.png',
+        'Detroit Pistons': 'https://a.espncdn.com/i/teamlogos/nba/500/det.png',
+        'Golden State Warriors': 'https://a.espncdn.com/i/teamlogos/nba/500/gs.png',
+        'Houston Rockets': 'https://a.espncdn.com/i/teamlogos/nba/500/hou.png',
+        'Indiana Pacers': 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png',
+        'LA Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+        'Los Angeles Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+        'Los Angeles Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
+        'Memphis Grizzlies': 'https://a.espncdn.com/i/teamlogos/nba/500/mem.png',
+        'Miami Heat': 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png',
+        'Milwaukee Bucks': 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png',
+        'Minnesota Timberwolves': 'https://a.espncdn.com/i/teamlogos/nba/500/min.png',
+        'New Orleans Pelicans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
+        'New York Knicks': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
+        'Oklahoma City Thunder': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+        'Orlando Magic': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
+        'Philadelphia 76ers': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
+        'Phoenix Suns': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
+        'Portland Trail Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
+        'Sacramento Kings': 'https://a.espncdn.com/i/teamlogos/nba/500/sac.png',
+        'San Antonio Spurs': 'https://a.espncdn.com/i/teamlogos/nba/500/sa.png',
+        'Toronto Raptors': 'https://a.espncdn.com/i/teamlogos/nba/500/tor.png',
+        'Utah Jazz': 'https://a.espncdn.com/i/teamlogos/nba/500/utah.png',
+        'Washington Wizards': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png',
+      };
+      return espnLogoMap[teamName] || '';
+    }
     return '';
   };
 
@@ -239,27 +275,7 @@ export default function CFBPreview() {
       setLoading(true);
       setError(null);
 
-      // Step 1: Try CFB games first
-      const { data: cfbMappings } = await collegeFootballSupabase
-        .from('cfb_team_mapping')
-        .select('api, logo_light');
-
-      setTeamMappings(cfbMappings || []);
-
-      const { data: cfbPreds } = await collegeFootballSupabase
-        .from('cfb_live_weekly_inputs')
-        .select('*')
-        .limit(4);
-
-      if (cfbPreds && cfbPreds.length > 0) {
-        debug.log('Using CFB games for landing page hero');
-        setPredictions(cfbPreds);
-        setSportType('cfb');
-        return;
-      }
-
-      // Step 2: No CFB games, try NBA games
-      debug.log('No CFB games found, trying NBA...');
+      // Step 1: Try NBA games first
       const today = new Date().toISOString().split('T')[0];
 
       const { data: nbaGames } = await collegeFootballSupabase
@@ -293,6 +309,26 @@ export default function CFBPreview() {
         }));
         setPredictions(transformedNbaGames);
         setSportType('nba');
+        return;
+      }
+
+      // Step 2: No NBA games, try CFB games
+      debug.log('No NBA games found, trying CFB...');
+      const { data: cfbMappings } = await collegeFootballSupabase
+        .from('cfb_team_mapping')
+        .select('api, logo_light');
+
+      setTeamMappings(cfbMappings || []);
+
+      const { data: cfbPreds } = await collegeFootballSupabase
+        .from('cfb_live_weekly_inputs')
+        .select('*')
+        .limit(4);
+
+      if (cfbPreds && cfbPreds.length > 0) {
+        debug.log('Using CFB games for landing page hero');
+        setPredictions(cfbPreds);
+        setSportType('cfb');
         return;
       }
 

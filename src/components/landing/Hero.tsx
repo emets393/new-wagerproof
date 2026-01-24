@@ -144,7 +144,7 @@ const Hero = () => {
           </p>
         </div>
 
-        {/* Live College Football Preview */}
+        {/* Live Sports Preview */}
         <CFBPreview />
       </div>
 
