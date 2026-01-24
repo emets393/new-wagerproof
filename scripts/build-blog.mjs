@@ -197,10 +197,9 @@ function renderFooterHtml() {
               <a href="https://play.google.com/store/apps/details?id=com.wagerproof.mobile" target="_blank" rel="noopener noreferrer">
                 <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" class="ssg-app-badge" />
               </a>
-              <div class="ssg-app-badge-coming-soon">
-                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store - Coming Soon" class="ssg-app-badge ssg-app-badge-disabled" />
-                <span>Coming Soon</span>
-              </div>
+              <a href="https://apps.apple.com/us/app/wagerproof-sports-picks-ai/id6757089957" target="_blank" rel="noopener noreferrer">
+                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" class="ssg-app-badge" />
+              </a>
             </div>
           </div>
 

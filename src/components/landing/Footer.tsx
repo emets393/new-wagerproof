@@ -9,6 +9,7 @@ const Footer = () => {
   const TWITTER_LINK = "https://twitter.com/wagerproofai";
   const INSTAGRAM_LINK = "https://www.instagram.com/wagerproof.official/";
   const GOOGLE_PLAY_LINK = "https://play.google.com/store/apps/details?id=com.wagerproof.mobile";
+  const APP_STORE_LINK = "https://apps.apple.com/us/app/wagerproof-sports-picks-ai/id6757089957";
 
   return (
     <footer className="bg-gray-900 border-t border-gray-800 transition-colors duration-300">
@@ -56,14 +57,18 @@ const Footer = () => {
                   className="h-10 w-auto"
                 />
               </a>
-              <div className="flex items-center">
+              <a
+                href={APP_STORE_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block"
+              >
                 <img
                   src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
-                  alt="Download on the App Store - Coming Soon"
-                  className="h-10 w-auto opacity-50"
+                  alt="Download on the App Store"
+                  className="h-10 w-auto"
                 />
-                <span className="ml-2 text-xs text-gray-500">Coming Soon</span>
-              </div>
+              </a>
             </div>
           </div>
 
