@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, Animated, TouchableOpacity, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Animated, TouchableOpacity, Platform } from 'react-native';
 import { useTheme, Snackbar } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { Video, ResizeMode } from 'expo-av';
@@ -539,7 +539,16 @@ export default function LoginScreen() {
     setSnackbarVisible(true);
   };
 
+  // #region agent log
+  const debugLog = (location: string, message: string, data: any = {}, hypothesisId: string = 'general') => {
+    fetch('http://127.0.0.1:7243/ingest/d951aa23-37db-46ab-80d8-615d2da9aa8b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location,message,data:{...data,platform:Platform.OS},timestamp:Date.now(),sessionId:'debug-session',hypothesisId})}).catch(()=>{});
+  };
+  // #endregion
+
   const handleGoogleSignIn = async () => {
+    // #region agent log
+    debugLog('login.tsx:handleGoogleSignIn', 'Google Sign-In button TAPPED', { loading }, 'H1');
+    // #endregion
     console.log('🔐 Google Sign-In button pressed');
     try {
       setLoading(true);
@@ -581,6 +590,9 @@ export default function LoginScreen() {
   };
 
   const handleEmailSignIn = () => {
+    // #region agent log
+    debugLog('login.tsx:handleEmailSignIn', 'Email Sign-In button TAPPED', {}, 'H1');
+    // #endregion
     router.push('/(auth)/email-login');
   };
 
@@ -591,10 +603,16 @@ export default function LoginScreen() {
   const isScreen1 = currentIndex === 1;
 
   return (
-    <Pressable 
+    <View 
       style={styles.container}
-      onPressIn={() => setIsPaused(true)}
-      onPressOut={() => setIsPaused(false)}
+      onTouchStart={(e) => {
+        // #region agent log
+        debugLog('login.tsx:rootView', 'Root View onTouchStart (FIX: using View instead of Pressable)', { locationX: e.nativeEvent.locationX, locationY: e.nativeEvent.locationY }, 'H1');
+        // #endregion
+        setIsPaused(true);
+      }}
+      onTouchEnd={() => setIsPaused(false)}
+      onTouchCancel={() => setIsPaused(false)}
     >
       <StatusBar style="light" />
       
@@ -669,11 +687,8 @@ export default function LoginScreen() {
           </View>
         </AnimatedSlideContent>
 
-        {/* Auth Buttons - Pressable with onStartShouldSetResponder to capture touches on Android */}
-        <Pressable
-          style={styles.authContainer}
-          onPressIn={() => {}} // Capture press to prevent parent Pressable from pausing
-        >
+        {/* Auth Buttons - Using View instead of Pressable to not intercept child touches on Android */}
+        <View style={styles.authContainer}>
           {isIOS ? (
             // iOS Layout: Apple main, Google secondary, Email icon
             <>
@@ -726,6 +741,11 @@ export default function LoginScreen() {
               <TouchableOpacity 
                 style={styles.mainButton}
                 onPress={handleGoogleSignIn}
+                onPressIn={() => {
+                  // #region agent log
+                  debugLog('login.tsx:googleButton', 'Google button onPressIn (Android)', {}, 'H1');
+                  // #endregion
+                }}
                 activeOpacity={0.8}
                 disabled={loading}
               >
@@ -744,6 +764,11 @@ export default function LoginScreen() {
               <TouchableOpacity 
                 style={styles.secondaryButton}
                 onPress={handleEmailSignIn}
+                onPressIn={() => {
+                  // #region agent log
+                  debugLog('login.tsx:emailButton', 'Email button onPressIn (Android)', {}, 'H1');
+                  // #endregion
+                }}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons 
@@ -763,7 +788,7 @@ export default function LoginScreen() {
             By continuing, you agree to our{'\n'}
             <Text style={styles.termsLink}>Privacy Policy</Text> • <Text style={styles.termsLink}>Terms of Use</Text>
           </Text>
-        </Pressable>
+        </View>
       </View>
 
       {/* Error Snackbar */}
@@ -779,7 +804,7 @@ export default function LoginScreen() {
       >
         {errorMessage}
       </Snackbar>
-    </Pressable>
+    </View>
   );
 }
 

@@ -4,12 +4,13 @@
  * Provides centralized tracking for onboarding, purchases, and app events.
  * Uses:
  * - Mixpanel for product analytics
- * - Facebook/Meta SDK for purchase attribution (fb_mobile_purchase events)
+ * - Facebook/Meta SDK for purchase attribution (fb_mobile_purchase events) - TODO: Enable when ready
  */
 
 import { Mixpanel } from 'mixpanel-react-native';
 import { Platform } from 'react-native';
-import { AppEventsLogger, Settings as FBSettings } from 'react-native-fbsdk-next';
+// Facebook SDK disabled until properly configured
+// import { AppEventsLogger, Settings as FBSettings } from 'react-native-fbsdk-next';
 
 // Mixpanel project token (same as web app)
 const MIXPANEL_TOKEN = '1346df53bbd034722047aa8a96d5321e';
@@ -17,7 +18,8 @@ const MIXPANEL_TOKEN = '1346df53bbd034722047aa8a96d5321e';
 // Singleton instance
 let mixpanelInstance: Mixpanel | null = null;
 let isInitialized = false;
-let isFacebookInitialized = false;
+// Facebook SDK disabled until properly configured
+const isFacebookInitialized = false;
 
 /**
  * Initialize Analytics SDKs (Mixpanel + Facebook)
@@ -47,18 +49,17 @@ export const initializeAnalytics = async (): Promise<void> => {
     console.error('📊 Analytics: Failed to initialize Mixpanel:', error);
   }
 
-  // Initialize Facebook SDK
-  try {
-    // Enable auto-logging of app events
-    FBSettings.setAutoLogAppEventsEnabled(true);
-    FBSettings.setAdvertiserIDCollectionEnabled(true);
-
-    isFacebookInitialized = true;
-    console.log('📊 Analytics: Facebook SDK initialized successfully');
-  } catch (error) {
-    console.error('📊 Analytics: Failed to initialize Facebook SDK:', error);
-    // Non-critical - continue without Facebook tracking
-  }
+  // Facebook SDK disabled until properly configured
+  // TODO: Uncomment when Facebook App ID and Client Token are set up
+  // try {
+  //   // Enable auto-logging of app events
+  //   FBSettings.setAutoLogAppEventsEnabled(true);
+  //   FBSettings.setAdvertiserIDCollectionEnabled(true);
+  //   isFacebookInitialized = true;
+  //   console.log('📊 Analytics: Facebook SDK initialized successfully');
+  // } catch (error) {
+  //   console.error('📊 Analytics: Failed to initialize Facebook SDK:', error);
+  // }
 };
 
 /**
@@ -227,90 +228,46 @@ export const trackSignOut = (): void => {
 };
 
 // ===== Facebook/Meta Event Tracking =====
+// Facebook SDK disabled until properly configured - these are no-op stubs
 
 /**
  * Track Facebook CompleteRegistration event
  * Called when user completes onboarding
+ * TODO: Enable when Facebook SDK is configured
  */
-const trackFacebookCompleteRegistration = (registrationMethod: string): void => {
-  if (!isFacebookInitialized) {
-    console.warn('📊 Analytics: Facebook SDK not initialized, skipping CompleteRegistration');
-    return;
-  }
-
-  try {
-    AppEventsLogger.logEvent('CompleteRegistration', {
-      fb_registration_method: registrationMethod,
-      fb_content_name: 'onboarding_complete',
-      fb_success: 1,
-    });
-    AppEventsLogger.flush();
-    console.log('📊 Analytics: Facebook CompleteRegistration event logged');
-  } catch (error) {
-    console.error('📊 Analytics: Error logging Facebook CompleteRegistration:', error);
-  }
+const trackFacebookCompleteRegistration = (_registrationMethod: string): void => {
+  // Facebook SDK disabled - no-op
+  console.log('📊 Analytics: Facebook SDK disabled, skipping CompleteRegistration');
 };
 
 /**
  * Track Facebook Purchase event (fb_mobile_purchase)
  * This is the KEY event for Facebook ad attribution
+ * TODO: Enable when Facebook SDK is configured
  */
 const trackFacebookPurchase = (
-  price: number,
-  currency: string,
-  contentId: string,
-  predictedLtv: number,
-  transactionId?: string
+  _price: number,
+  _currency: string,
+  _contentId: string,
+  _predictedLtv: number,
+  _transactionId?: string
 ): void => {
-  if (!isFacebookInitialized) {
-    console.warn('📊 Analytics: Facebook SDK not initialized, skipping Purchase');
-    return;
-  }
-
-  try {
-    // Use logPurchase for standard purchase event (fb_mobile_purchase)
-    AppEventsLogger.logPurchase(price, currency, {
-      fb_content_type: 'product',
-      fb_content_id: contentId,
-      fb_order_id: transactionId || 'unknown',
-      fb_predicted_ltv: predictedLtv.toString(),
-      fb_success: '1',
-      fb_payment_info_available: '1',
-    });
-
-    // Flush immediately - critical for attribution
-    AppEventsLogger.flush();
-    console.log('✅ Analytics: Facebook Purchase event logged:', { price, currency, contentId });
-  } catch (error) {
-    console.error('❌ Analytics: Error logging Facebook Purchase:', error);
-  }
+  // Facebook SDK disabled - no-op
+  console.log('📊 Analytics: Facebook SDK disabled, skipping Purchase');
 };
 
 /**
  * Track Facebook Subscribe event
  * Alternative event for subscription-specific tracking
+ * TODO: Enable when Facebook SDK is configured
  */
 const trackFacebookSubscribe = (
-  price: number,
-  currency: string,
-  subscriptionType: string
+  _price: number,
+  _currency: string,
+  _subscriptionType: string
 ): void => {
-  if (!isFacebookInitialized) {
-    console.warn('📊 Analytics: Facebook SDK not initialized, skipping Subscribe');
-    return;
-  }
-
-  try {
-    AppEventsLogger.logEvent('Subscribe', price, {
-      fb_currency: currency,
-      fb_content_type: 'subscription',
-      fb_content_id: `${subscriptionType}_subscription`,
-    });
-    AppEventsLogger.flush();
-    console.log('📊 Analytics: Facebook Subscribe event logged');
-  } catch (error) {
-    console.error('📊 Analytics: Error logging Facebook Subscribe:', error);
-  }
+  // Facebook SDK disabled - no-op
+  console.log('📊 Analytics: Facebook SDK disabled, skipping Subscribe');
 };
 
 // ===== Onboarding Events =====

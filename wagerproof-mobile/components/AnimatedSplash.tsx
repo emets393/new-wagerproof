@@ -1,7 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
+
+// #region agent log
+const debugLog = (location: string, message: string, data: any = {}, hypothesisId: string = 'H3') => {
+  fetch('http://127.0.0.1:7243/ingest/d951aa23-37db-46ab-80d8-615d2da9aa8b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location,message,data:{...data,platform:Platform.OS},timestamp:Date.now(),sessionId:'debug-session',hypothesisId})}).catch(()=>{});
+};
+// #endregion
 
 interface AnimatedSplashProps {
   isReady: boolean;
@@ -20,7 +26,19 @@ export function AnimatedSplash({ isReady, onAnimationComplete }: AnimatedSplashP
   // Keep isReadyRef in sync
   useEffect(() => {
     isReadyRef.current = isReady;
+    // #region agent log
+    debugLog('AnimatedSplash.tsx:isReadyEffect', 'isReady changed', { isReady });
+    // #endregion
   }, [isReady]);
+
+  // #region agent log
+  useEffect(() => {
+    debugLog('AnimatedSplash.tsx:mount', 'AnimatedSplash MOUNTED', {});
+    return () => {
+      debugLog('AnimatedSplash.tsx:unmount', 'AnimatedSplash UNMOUNTED', {});
+    };
+  }, []);
+  // #endregion
 
   // Function to start fade-out (only if both conditions are met)
   const tryStartFadeOut = () => {
@@ -29,6 +47,10 @@ export function AnimatedSplash({ isReady, onAnimationComplete }: AnimatedSplashP
 
     hasStartedFadeOut.current = true;
     
+    // #region agent log
+    debugLog('AnimatedSplash.tsx:fadeOut', 'Starting fade out animation', {});
+    // #endregion
+    
     // Small delay to let user appreciate the animation before fading out
     setTimeout(() => {
       Animated.timing(fadeOutAnim, {
@@ -36,6 +58,9 @@ export function AnimatedSplash({ isReady, onAnimationComplete }: AnimatedSplashP
         duration: 400,
         useNativeDriver: true,
       }).start(() => {
+        // #region agent log
+        debugLog('AnimatedSplash.tsx:fadeOutComplete', 'Fade out complete, calling onAnimationComplete', {});
+        // #endregion
         onAnimationComplete();
       });
     }, 300);

@@ -313,6 +313,12 @@ function RootNavigator() {
   );
 }
 
+// #region agent log
+const debugLog = (location: string, message: string, data: any = {}, hypothesisId: string = 'H3') => {
+  fetch('http://127.0.0.1:7243/ingest/d951aa23-37db-46ab-80d8-615d2da9aa8b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location,message,data:{...data,platform:Platform.OS},timestamp:Date.now(),sessionId:'debug-session',hypothesisId})}).catch(()=>{});
+};
+// #endregion
+
 function RootLayoutContent() {
   const { theme } = useThemeContext();
   const [showSplash, setShowSplash] = useState(true);
@@ -333,12 +339,24 @@ function RootLayoutContent() {
   useEffect(() => {
     if (appIsReady) {
       console.log('🚀 App: Ready to hide splash');
+      // #region agent log
+      debugLog('_layout.tsx:appIsReady', 'App is ready, should hide splash', { showSplash });
+      // #endregion
     }
-  }, [appIsReady]);
+  }, [appIsReady, showSplash]);
+
+  // #region agent log
+  useEffect(() => {
+    debugLog('_layout.tsx:showSplashChange', 'showSplash state changed', { showSplash, appIsReady });
+  }, [showSplash, appIsReady]);
+  // #endregion
 
   const handleSplashComplete = useCallback(() => {
+    // #region agent log
+    debugLog('_layout.tsx:handleSplashComplete', 'Setting showSplash to false', { appIsReady });
+    // #endregion
     setShowSplash(false);
-  }, []);
+  }, [appIsReady]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
