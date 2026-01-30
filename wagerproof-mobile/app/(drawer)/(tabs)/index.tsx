@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, TouchableOpacity, FlatList, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, TouchableOpacity, FlatList, Dimensions, Alert } from 'react-native';
 import { useTheme, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -28,7 +28,7 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useProAccess } from '@/hooks/useProAccess';
 
-type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
+type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb';
 type SortMode = 'time' | 'spread' | 'ou';
 
 interface SportOption {
@@ -69,7 +69,7 @@ export default function FeedScreen() {
   } = useWagerBotSuggestion();
   
   // State
-  const [selectedSport, setSelectedSport] = useState<Sport>('nfl');
+  const [selectedSport, setSelectedSport] = useState<Sport>('nba');
   
   // Cached data state - keeps data for each sport separately
   const [cachedData, setCachedData] = useState<{
@@ -77,11 +77,13 @@ export default function FeedScreen() {
     cfb: { games: CFBPrediction[], lastFetch: number | null };
     nba: { games: NBAGame[], lastFetch: number | null };
     ncaab: { games: NCAABGame[], lastFetch: number | null };
+    mlb: { games: never[], lastFetch: number | null };
   }>({
     nfl: { games: [], lastFetch: null },
     cfb: { games: [], lastFetch: null },
     nba: { games: [], lastFetch: null },
     ncaab: { games: [], lastFetch: null },
+    mlb: { games: [], lastFetch: null },
   });
   
   // Per-sport state
@@ -90,12 +92,14 @@ export default function FeedScreen() {
     cfb: 'time',
     nba: 'time',
     ncaab: 'time',
+    mlb: 'time',
   });
   const [searchTexts, setSearchTexts] = useState<Record<Sport, string>>({
     nfl: '',
     cfb: '',
     nba: '',
     ncaab: '',
+    mlb: '',
   });
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [loading, setLoading] = useState<Record<Sport, boolean>>({
@@ -144,10 +148,11 @@ export default function FeedScreen() {
   );
 
   const sports: SportOption[] = [
-    { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
-    { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
     { id: 'nba', label: 'NBA', available: true, icon: 'basketball' },
     { id: 'ncaab', label: 'NCAAB', available: true, icon: 'basketball-hoop' },
+    { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
+    { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
+    { id: 'mlb', label: 'MLB', available: false, icon: 'baseball' },
   ];
 
   // Fetch NFL data - matches web app approach using v_input_values_with_epa view
@@ -1140,19 +1145,35 @@ export default function FeedScreen() {
                   <TouchableOpacity
                     key={sport.id}
                     style={styles.sportTab}
-                    onPress={() => sport.available && handleTabPress(sport.id)}
-                    disabled={!sport.available}
-                  >
-                    <Text style={[
-                      styles.sportTabText, 
-                      { 
-                        color: isSelected ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
-                        fontWeight: isSelected ? '700' : '500',
-                        opacity: sport.available ? 1 : 0.4
+                    onPress={() => {
+                      if (sport.available) {
+                        handleTabPress(sport.id);
+                      } else {
+                        Alert.alert(
+                          'Coming Soon',
+                          `${sport.label} predictions are coming soon! Stay tuned for updates.`,
+                          [{ text: 'OK' }]
+                        );
                       }
-                    ]}>
-                      {sport.label}
-                    </Text>
+                    }}
+                  >
+                    <View style={styles.sportTabLabelContainer}>
+                      <Text style={[
+                        styles.sportTabText,
+                        {
+                          color: isSelected ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
+                          fontWeight: isSelected ? '700' : '500',
+                          opacity: sport.available ? 1 : 0.5
+                        }
+                      ]}>
+                        {sport.label}
+                      </Text>
+                      {sport.badge && (
+                        <View style={styles.sportBadge}>
+                          <Text style={styles.sportBadgeText}>{sport.badge}</Text>
+                        </View>
+                      )}
+                    </View>
                     {isSelected && (
                       <View style={[styles.sportIndicator, { backgroundColor: '#00E676' }]} />
                     )}
@@ -1251,6 +1272,22 @@ const styles = StyleSheet.create({
   },
   sportTabText: {
     fontSize: 16,
+  },
+  sportTabLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sportBadge: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  sportBadgeText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '700',
   },
   sportIndicator: {
     position: 'absolute',

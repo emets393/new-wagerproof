@@ -81,7 +81,7 @@ function FloatingTabBar() {
   }
   
   const tabs = [
-    { name: 'index', path: '/(drawer)/(tabs)/', title: 'Feed', icon: 'home' },
+    { name: 'index', path: '/(drawer)/(tabs)/', title: 'Models', icon: 'brain' },
     { name: 'picks', path: '/(drawer)/(tabs)/picks', title: 'Picks', icon: 'star' },
     { name: 'outliers', path: '/(drawer)/(tabs)/outliers', title: 'Outliers', icon: 'trending-up' },
     { name: 'scoreboard', path: '/(drawer)/(tabs)/scoreboard', title: 'Scores', icon: 'scoreboard' },
@@ -358,9 +358,9 @@ function TabsContent() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Feed',
+          title: 'Models',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home" size={size} color={color} />
+            <MaterialCommunityIcons name="brain" size={size} color={color} />
           ),
         }}
       />

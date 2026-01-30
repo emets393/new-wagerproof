@@ -101,11 +101,13 @@ export function NBABettingTrendsBottomSheet() {
                           styles.teamInitials,
                           { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) },
                         ]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
                       >
                         {game.awayTeam.team_abbr || getNBATeamInitials(game.awayTeam.team_name)}
                       </Text>
                     </LinearGradient>
-                    <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
+                    <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={1}>
                       {game.awayTeam.team_name}
                     </Text>
                   </View>
@@ -133,11 +135,13 @@ export function NBABettingTrendsBottomSheet() {
                           styles.teamInitials,
                           { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) },
                         ]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
                       >
                         {game.homeTeam.team_abbr || getNBATeamInitials(game.homeTeam.team_name)}
                       </Text>
                     </LinearGradient>
-                    <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
+                    <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={1}>
                       {game.homeTeam.team_name}
                     </Text>
                   </View>

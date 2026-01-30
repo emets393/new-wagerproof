@@ -82,11 +82,13 @@ export function BettingTrendsMatchupCard({ game }: BettingTrendsMatchupCardProps
                   styles.teamInitials,
                   { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) },
                 ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
               >
                 {game.awayTeam.team_abbr || getNBATeamInitials(game.awayTeam.team_name)}
               </Text>
             </LinearGradient>
-            <Text style={[styles.teamAbbr, { color: theme.colors.onSurface }]}>
+            <Text style={[styles.teamAbbr, { color: theme.colors.onSurface }]} numberOfLines={1}>
               {game.awayTeam.team_abbr}
             </Text>
           </View>
@@ -114,11 +116,13 @@ export function BettingTrendsMatchupCard({ game }: BettingTrendsMatchupCardProps
                   styles.teamInitials,
                   { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) },
                 ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
               >
                 {game.homeTeam.team_abbr || getNBATeamInitials(game.homeTeam.team_name)}
               </Text>
             </LinearGradient>
-            <Text style={[styles.teamAbbr, { color: theme.colors.onSurface }]}>
+            <Text style={[styles.teamAbbr, { color: theme.colors.onSurface }]} numberOfLines={1}>
               {game.homeTeam.team_abbr}
             </Text>
           </View>

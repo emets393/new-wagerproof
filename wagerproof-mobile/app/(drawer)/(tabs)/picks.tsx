@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList, ScrollView, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Linking, SectionList, ScrollView, TouchableOpacity, Animated, Platform, Alert } from 'react-native';
 import { useTheme, Card, ActivityIndicator, Button, FAB } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -26,7 +26,7 @@ import { useEditorPickSheet } from '@/contexts/EditorPickSheetContext';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
-type Sport = 'all' | 'nfl' | 'cfb' | 'nba' | 'ncaab';
+type Sport = 'all' | 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb';
 
 interface SportOption {
   id: Sport;
@@ -289,10 +289,11 @@ export default function PicksScreen() {
 
   const sports: SportOption[] = [
     { id: 'all', label: 'All', available: true, icon: 'view-grid' },
-    { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
-    { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
     { id: 'nba', label: 'NBA', available: true, icon: 'basketball' },
     { id: 'ncaab', label: 'NCAAB', available: true, icon: 'basketball-hoop' },
+    { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
+    { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
+    { id: 'mlb', label: 'MLB', available: false, icon: 'baseball' },
   ];
 
   // Calculate header heights (must match feed page calculation)
@@ -1160,19 +1161,35 @@ export default function PicksScreen() {
                 <TouchableOpacity
                   key={sport.id}
                   style={styles.sportTab}
-                  onPress={() => sport.available && handleTabPress(sport.id)}
-                  disabled={!sport.available}
-                >
-                  <Text style={[
-                    styles.sportTabText, 
-                    { 
-                      color: isSelected ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
-                      fontWeight: isSelected ? '700' : '500',
-                      opacity: sport.available ? 1 : 0.4
+                  onPress={() => {
+                    if (sport.available) {
+                      handleTabPress(sport.id);
+                    } else {
+                      Alert.alert(
+                        'Coming Soon',
+                        `${sport.label} picks are coming soon! Stay tuned for updates.`,
+                        [{ text: 'OK' }]
+                      );
                     }
-                  ]}>
-                    {sport.label}
-                  </Text>
+                  }}
+                >
+                  <View style={styles.sportTabLabelContainer}>
+                    <Text style={[
+                      styles.sportTabText,
+                      {
+                        color: isSelected ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
+                        fontWeight: isSelected ? '700' : '500',
+                        opacity: sport.available ? 1 : 0.5
+                      }
+                    ]}>
+                      {sport.label}
+                    </Text>
+                    {sport.badge && (
+                      <View style={styles.sportBadge}>
+                        <Text style={styles.sportBadgeText}>{sport.badge}</Text>
+                      </View>
+                    )}
+                  </View>
                   {isSelected && (
                     <View style={[styles.sportIndicator, { backgroundColor: '#00E676' }]} />
                   )}
@@ -1268,6 +1285,22 @@ const styles = StyleSheet.create({
   },
   sportTabText: {
     fontSize: 16,
+  },
+  sportTabLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sportBadge: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  sportBadgeText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '700',
   },
   sportIndicator: {
     position: 'absolute',

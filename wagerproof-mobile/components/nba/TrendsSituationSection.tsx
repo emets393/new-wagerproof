@@ -165,6 +165,8 @@ export function TrendsSituationSection({
       <View style={[styles.content, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)' }]}>
         {/* Team Headers */}
         <View style={styles.teamHeaderRow}>
+          {/* Spacer to align with record label */}
+          <View style={styles.recordLabelSpacer} />
           <View style={styles.teamHeader}>
             <LinearGradient
               colors={[awayColors.primary, awayColors.secondary]}
@@ -177,6 +179,8 @@ export function TrendsSituationSection({
                   styles.teamInitials,
                   { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) },
                 ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
               >
                 {awayTeam.team_abbr || getNBATeamInitials(awayTeam.team_name)}
               </Text>
@@ -198,6 +202,8 @@ export function TrendsSituationSection({
                   styles.teamInitials,
                   { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) },
                 ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
               >
                 {homeTeam.team_abbr || getNBATeamInitials(homeTeam.team_name)}
               </Text>
@@ -317,8 +323,11 @@ const styles = StyleSheet.create({
   },
   teamHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  recordLabelSpacer: {
+    width: 40,
   },
   teamHeader: {
     alignItems: 'center',
@@ -335,6 +344,7 @@ const styles = StyleSheet.create({
   teamInitials: {
     fontSize: 12,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   situationLabel: {
     fontSize: 10,
