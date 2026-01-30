@@ -3,6 +3,8 @@ export interface NBAGame {
   game_id: number;
   away_team: string;
   home_team: string;
+  away_abbr: string;
+  home_abbr: string;
   home_ml: number | null;
   away_ml: number | null;
   home_spread: number | null;

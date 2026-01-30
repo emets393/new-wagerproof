@@ -16,7 +16,7 @@ import { PickCardErrorBoundary } from '@/components/PickCardErrorBoundary';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColors } from '@/constants/teamColors';
-import { StatsSummary } from '@/components/StatsSummary';
+import { EditorPicksStatsBanner } from '@/components/EditorPicksStatsBanner';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { LockedPickCard } from '@/components/LockedPickCard';
@@ -1060,7 +1060,7 @@ export default function PicksScreen() {
           overScrollMode="never"
           ListHeaderComponent={
             <View>
-              <StatsSummary picks={allSportPicks} />
+              <EditorPicksStatsBanner />
             </View>
           }
           refreshControl={

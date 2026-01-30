@@ -12,19 +12,10 @@ import {
   formatCompactDate,
   roundToNearestHalf
 } from '@/utils/formatting';
-import { getNBATeamColors, getNBATeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { getNBATeamColors } from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { TeamAvatar } from './TeamAvatar';
 
-/**
- * Format team name - single words on one line, multi-word splits across lines
- */
-function formatTeamName(name: string): { text: string; lines: 1 | 2 } {
-  if (!name.includes(' ')) {
-    return { text: name, lines: 1 };
-  }
-  return { text: name.replace(' ', '\n'), lines: 2 };
-}
 
 interface NBAGameCardProps {
   game: NBAGame;
@@ -109,19 +100,12 @@ export function NBAGameCard({ game, onPress, cardWidth }: NBAGameCardProps) {
             {/* Away Team */}
             <View style={styles.teamColumn}>
               <TeamAvatar teamName={game.away_team} sport="nba" size={42} />
-              {(() => {
-                const { text, lines } = formatTeamName(game.away_team);
-                return (
-                  <Text
-                    style={[styles.teamName, { color: theme.colors.onSurface }]}
-                    numberOfLines={lines}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.6}
-                  >
-                    {text}
-                  </Text>
-                );
-              })()}
+              <Text
+                style={[styles.teamName, { color: theme.colors.onSurface }]}
+                numberOfLines={1}
+              >
+                {game.away_abbr}
+              </Text>
               <View style={styles.teamLinesRow}>
                 {game.away_spread !== null && (
                   <Text style={[styles.lineText, { color: game.away_spread < 0 ? '#3b82f6' : '#22c55e' }]}>
@@ -151,19 +135,12 @@ export function NBAGameCard({ game, onPress, cardWidth }: NBAGameCardProps) {
             {/* Home Team */}
             <View style={styles.teamColumn}>
               <TeamAvatar teamName={game.home_team} sport="nba" size={42} />
-              {(() => {
-                const { text, lines } = formatTeamName(game.home_team);
-                return (
-                  <Text
-                    style={[styles.teamName, { color: theme.colors.onSurface }]}
-                    numberOfLines={lines}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.6}
-                  >
-                    {text}
-                  </Text>
-                );
-              })()}
+              <Text
+                style={[styles.teamName, { color: theme.colors.onSurface }]}
+                numberOfLines={1}
+              >
+                {game.home_abbr}
+              </Text>
               <View style={styles.teamLinesRow}>
                 {game.home_spread !== null && (
                   <Text style={[styles.lineText, { color: game.home_spread < 0 ? '#3b82f6' : '#22c55e' }]}>

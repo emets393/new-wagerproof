@@ -7,7 +7,7 @@ interface PickDetailSheetContextType {
   selectedPick: EditorPick | null;
   selectedGameData: GameData | null;
   openPickDetail: (pick: EditorPick, gameData: GameData) => void;
-  closePickDetail: () => void;
+  closeSheet: () => void;
   bottomSheetRef: React.RefObject<BottomSheet>;
 }
 
@@ -20,17 +20,20 @@ export function PickDetailSheetProvider({ children }: { children: ReactNode }) {
   const bottomSheetRef = useRef<BottomSheet>(null);
 
   const openPickDetail = useCallback((pick: EditorPick, gameData: GameData) => {
+    // Set the data first
     setSelectedPick(pick);
     setSelectedGameData(gameData);
     setIsOpen(true);
-    // Use setTimeout to ensure state is committed and component re-rendered
-    setTimeout(() => {
-      bottomSheetRef.current?.expand();
-    }, 100);
+    
+    // Then open the sheet with a small delay to ensure data is set
+    requestAnimationFrame(() => {
+      bottomSheetRef.current?.snapToIndex(0);
+    });
   }, []);
 
-  const closePickDetail = useCallback(() => {
+  const closeSheet = useCallback(() => {
     bottomSheetRef.current?.close();
+    // Delay state reset to allow animation to complete
     setTimeout(() => {
       setIsOpen(false);
       setSelectedPick(null);
@@ -45,7 +48,7 @@ export function PickDetailSheetProvider({ children }: { children: ReactNode }) {
         selectedPick,
         selectedGameData,
         openPickDetail,
-        closePickDetail,
+        closeSheet,
         bottomSheetRef,
       }}
     >
