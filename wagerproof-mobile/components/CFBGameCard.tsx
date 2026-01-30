@@ -5,15 +5,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { CFBPrediction } from '@/types/cfb';
-import { 
-  formatMoneyline, 
-  formatSpread, 
-  convertTimeToEST, 
+import {
+  formatMoneyline,
+  formatSpread,
+  convertTimeToEST,
   formatCompactDate,
-  roundToNearestHalf 
+  roundToNearestHalf
 } from '@/utils/formatting';
 import { getCFBTeamColors, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { TeamAvatar } from './TeamAvatar';
 
 /**
  * Format team name - single words on one line, multi-word splits across lines
@@ -107,19 +108,7 @@ export function CFBGameCard({ game, onPress, cardWidth }: CFBGameCardProps) {
           <View style={styles.teamsRow}>
             {/* Away Team */}
             <View style={styles.teamColumn}>
-              <View style={styles.teamCircleContainer}>
-                <LinearGradient
-                  colors={[awayColors.primary, awayColors.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.teamCircle, { borderColor: awayColors.primary }]}
-                />
-                <View style={styles.teamCircleContent}>
-                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
-                    {getCFBTeamInitials(game.away_team)}
-                  </Text>
-                </View>
-              </View>
+              <TeamAvatar teamName={game.away_team} sport="cfb" size={42} />
               {(() => {
                 const { text, lines } = formatTeamName(game.away_team);
                 return (
@@ -161,19 +150,7 @@ export function CFBGameCard({ game, onPress, cardWidth }: CFBGameCardProps) {
 
             {/* Home Team */}
             <View style={styles.teamColumn}>
-              <View style={styles.teamCircleContainer}>
-                <LinearGradient
-                  colors={[homeColors.primary, homeColors.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.teamCircle, { borderColor: homeColors.primary }]}
-                />
-                <View style={styles.teamCircleContent}>
-                  <Text style={[styles.teamInitials, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
-                    {getCFBTeamInitials(game.home_team)}
-                  </Text>
-                </View>
-              </View>
+              <TeamAvatar teamName={game.home_team} sport="cfb" size={42} />
               {(() => {
                 const { text, lines } = formatTeamName(game.home_team);
                 return (
@@ -220,16 +197,9 @@ export function CFBGameCard({ game, onPress, cardWidth }: CFBGameCardProps) {
                   return (
                     <View style={styles.pillContainerWithBadge}>
                       <View style={[styles.bettingPillVertical, { backgroundColor: isDark ? '#2a2a2a' : '#f0f0f0', borderColor: theme.colors.outlineVariant }]}>
-                        <LinearGradient
-                          colors={[spreadModelPickColors.primary, spreadModelPickColors.secondary]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={styles.pillCircle}
-                        >
-                          <Text style={[styles.pillInitials, { color: getContrastingTextColor(spreadModelPickColors.primary, spreadModelPickColors.secondary) }]}>
-                            {getCFBTeamInitials(spreadModelPick)}
-                          </Text>
-                        </LinearGradient>
+                        <View style={styles.pillAvatarContainer}>
+                          <TeamAvatar teamName={spreadModelPick} sport="cfb" size={20} />
+                        </View>
                         <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
                           Spread: {formatSpread(spreadValue)}
                         </Text>
@@ -446,6 +416,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 8,
+  },
+  pillAvatarContainer: {
     marginRight: 8,
   },
   pillInitials: {

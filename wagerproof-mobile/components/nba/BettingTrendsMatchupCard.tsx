@@ -5,9 +5,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { NBAGameTrendsData } from '@/types/nbaBettingTrends';
-import { getNBATeamColors, getNBATeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { getNBATeamColors } from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useNBABettingTrendsSheet } from '@/contexts/NBABettingTrendsSheetContext';
+import { TeamAvatar } from '../TeamAvatar';
 
 interface BettingTrendsMatchupCardProps {
   game: NBAGameTrendsData;
@@ -71,23 +72,7 @@ export function BettingTrendsMatchupCard({ game }: BettingTrendsMatchupCardProps
         <View style={styles.content}>
           {/* Away Team */}
           <View style={styles.teamSection}>
-            <LinearGradient
-              colors={[awayColors.primary, awayColors.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.teamCircle}
-            >
-              <Text
-                style={[
-                  styles.teamInitials,
-                  { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) },
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {game.awayTeam.team_abbr || getNBATeamInitials(game.awayTeam.team_name)}
-              </Text>
-            </LinearGradient>
+            <TeamAvatar teamName={game.awayTeam.team_name} sport="nba" size={48} teamAbbr={game.awayTeam.team_abbr} />
             <Text style={[styles.teamAbbr, { color: theme.colors.onSurface }]} numberOfLines={1}>
               {game.awayTeam.team_abbr}
             </Text>
@@ -105,23 +90,7 @@ export function BettingTrendsMatchupCard({ game }: BettingTrendsMatchupCardProps
 
           {/* Home Team */}
           <View style={styles.teamSection}>
-            <LinearGradient
-              colors={[homeColors.primary, homeColors.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.teamCircle}
-            >
-              <Text
-                style={[
-                  styles.teamInitials,
-                  { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) },
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {game.homeTeam.team_abbr || getNBATeamInitials(game.homeTeam.team_name)}
-              </Text>
-            </LinearGradient>
+            <TeamAvatar teamName={game.homeTeam.team_name} sport="nba" size={48} teamAbbr={game.homeTeam.team_abbr} />
             <Text style={[styles.teamAbbr, { color: theme.colors.onSurface }]} numberOfLines={1}>
               {game.homeTeam.team_abbr}
             </Text>

@@ -2,10 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SituationalTrendRow, parseRecord, formatSituation } from '@/types/nbaBettingTrends';
-import { getNBATeamColors, getNBATeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { TeamAvatar } from '../TeamAvatar';
 
 type SituationType = 'lastGame' | 'favDog' | 'sideFavDog' | 'restBucket' | 'restComp';
 
@@ -15,6 +14,8 @@ interface TrendsSituationSectionProps {
   awayTeam: SituationalTrendRow;
   homeTeam: SituationalTrendRow;
   situationType: SituationType;
+  /** Concise tooltip explaining the situation */
+  tooltip?: string;
 }
 
 /**
@@ -122,12 +123,10 @@ export function TrendsSituationSection({
   awayTeam,
   homeTeam,
   situationType,
+  tooltip,
 }: TrendsSituationSectionProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
-
-  const awayColors = getNBATeamColors(awayTeam.team_name);
-  const homeColors = getNBATeamColors(homeTeam.team_name);
 
   const awayATS = getATSData(awayTeam, situationType);
   const homeATS = getATSData(homeTeam, situationType);
@@ -168,23 +167,7 @@ export function TrendsSituationSection({
           {/* Spacer to align with record label */}
           <View style={styles.recordLabelSpacer} />
           <View style={styles.teamHeader}>
-            <LinearGradient
-              colors={[awayColors.primary, awayColors.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.teamCircle}
-            >
-              <Text
-                style={[
-                  styles.teamInitials,
-                  { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) },
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {awayTeam.team_abbr || getNBATeamInitials(awayTeam.team_name)}
-              </Text>
-            </LinearGradient>
+            <TeamAvatar teamName={awayTeam.team_name} sport="nba" size={40} teamAbbr={awayTeam.team_abbr} />
             <Text
               style={[styles.situationLabel, { color: theme.colors.onSurfaceVariant }]}
               numberOfLines={2}
@@ -196,23 +179,7 @@ export function TrendsSituationSection({
           </View>
 
           <View style={styles.teamHeader}>
-            <LinearGradient
-              colors={[homeColors.primary, homeColors.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.teamCircle}
-            >
-              <Text
-                style={[
-                  styles.teamInitials,
-                  { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) },
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {homeTeam.team_abbr || getNBATeamInitials(homeTeam.team_name)}
-              </Text>
-            </LinearGradient>
+            <TeamAvatar teamName={homeTeam.team_name} sport="nba" size={40} teamAbbr={homeTeam.team_abbr} />
             <Text
               style={[styles.situationLabel, { color: theme.colors.onSurfaceVariant }]}
               numberOfLines={2}
@@ -292,6 +259,16 @@ export function TrendsSituationSection({
           </View>
         </View>
       </View>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <View style={styles.tooltipContainer}>
+          <MaterialCommunityIcons name="information-outline" size={12} color={theme.colors.onSurfaceVariant} />
+          <Text style={[styles.tooltipText, { color: theme.colors.onSurfaceVariant }]}>
+            {tooltip}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -400,5 +377,19 @@ const styles = StyleSheet.create({
   noData: {
     fontSize: 15,
     fontWeight: '500',
+  },
+  tooltipContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    marginTop: -4,
+  },
+  tooltipText: {
+    fontSize: 11,
+    lineHeight: 15,
+    flex: 1,
+    fontStyle: 'italic',
   },
 });
