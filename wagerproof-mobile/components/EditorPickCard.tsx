@@ -462,11 +462,11 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
         )}
       </View>
 
-      {/* Analysis / Notes */}
-      {pick.editors_notes && (
+      {/* Analysis / Notes - only show if more than 5 characters */}
+      {pick.editors_notes && pick.editors_notes.length > 5 && (
         <View style={[
-          styles.notesSection, 
-          { 
+          styles.notesSection,
+          {
             backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
             borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
           }

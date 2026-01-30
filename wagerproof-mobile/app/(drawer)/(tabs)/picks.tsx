@@ -23,6 +23,8 @@ import { LockedPickCard } from '@/components/LockedPickCard';
 import { useProAccess } from '@/hooks/useProAccess';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useEditorPickSheet } from '@/contexts/EditorPickSheetContext';
+import { usePickDetailSheet } from '@/contexts/PickDetailSheetContext';
+import { CompactPickCard } from '@/components/CompactPickCard';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
@@ -211,6 +213,10 @@ export default function PicksScreen() {
   const { isPro, isLoading: isProLoading } = useProAccess();
   const { adminModeEnabled } = useAdminMode();
   const { openCreateSheet, openEditSheet, setOnPickSaved } = useEditorPickSheet();
+  const { openPickDetail } = usePickDetailSheet();
+
+  // View mode state: 'compact' is the new default
+  const [viewMode, setViewMode] = useState<'compact' | 'large'>('compact');
 
   // Set up callback to refresh picks when a pick is saved
   useEffect(() => {
@@ -914,7 +920,7 @@ export default function PicksScreen() {
 
     // Show locked card for non-free picks when user is not pro (and loading is complete)
     if (!isProLoading && !isPro && !item.is_free_pick) {
-      return <LockedPickCard sport={item.game_type?.toUpperCase()} />;
+      return <LockedPickCard sport={item.game_type?.toUpperCase()} minHeight={viewMode === 'compact' ? 80 : 180} />;
     }
 
     // Ensure team colors are valid to prevent Android crashes
@@ -923,6 +929,17 @@ export default function PicksScreen() {
       away_team_colors: gameData.away_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
       home_team_colors: gameData.home_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
     };
+
+    // Render compact or large card based on view mode
+    if (viewMode === 'compact') {
+      return (
+        <CompactPickCard
+          pick={item}
+          gameData={safeGameData}
+          onPress={() => openPickDetail(item, safeGameData)}
+        />
+      );
+    }
 
     return (
       <PickCardErrorBoundary pickId={item.id}>
@@ -989,48 +1006,35 @@ export default function PicksScreen() {
     if (sportPicks.length === 0) {
       return (
         <View key={sport} style={styles.pageContainer}>
-          <ScrollView 
-            contentContainerStyle={[styles.centerContainer, { paddingTop: TOTAL_HEADER_HEIGHT + 40 }]}
+          <ScrollView
+            contentContainerStyle={[styles.emptyContainer, { paddingTop: TOTAL_HEADER_HEIGHT + 60 }]}
             refreshControl={
-              <RefreshControl 
-                refreshing={refreshing} 
-                onRefresh={onRefresh} 
-                colors={[theme.colors.primary]} 
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[theme.colors.primary]}
                 progressViewOffset={TOTAL_HEADER_HEIGHT}
               />
             }
           >
-            <Card style={[styles.emptyCard, { backgroundColor: theme.colors.surface }]}>
-              <Card.Content>
-                <View style={styles.emptyContent}>
-                  <MaterialCommunityIcons 
-                    name="creation" 
-                    size={80} 
-                    color={isDark ? '#FFD700' : '#FFB81C'} 
-                    style={styles.sparkleIcon}
-                  />
-                  <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
-                    {sport === 'all' ? 'No Picks Available' : `No ${sport.toUpperCase()} Picks`}
-                  </Text>
-                  <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                    {sport === 'all' 
-                      ? 'Check back later for expert picks.' 
-                      : 'Check back later for expert picks for this sport.'}
-                  </Text>
-                  <Button 
-                    mode="contained" 
-                    onPress={handleOpenTikTok}
-                    style={styles.tiktokButton}
-                    contentStyle={styles.tiktokButtonContent}
-                    labelStyle={styles.tiktokButtonLabel}
-                    buttonColor="#E91E63"
-                    icon={() => <MaterialCommunityIcons name="music-note" size={20} color="white" />}
-                  >
-                    Follow @wagerproof on TikTok
-                  </Button>
-                </View>
-              </Card.Content>
-            </Card>
+            <View style={[
+              styles.emptyPlaceholder,
+              { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
+            ]}>
+              <MaterialCommunityIcons
+                name="clipboard-text-off-outline"
+                size={56}
+                color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}
+              />
+              <Text style={[styles.emptyPlaceholderTitle, { color: theme.colors.onSurface }]}>
+                No Current Picks
+              </Text>
+              <Text style={[styles.emptyPlaceholderSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                {sport === 'all'
+                  ? 'Check back soon for new picks'
+                  : `No ${sport.toUpperCase()} picks right now`}
+              </Text>
+            </View>
           </ScrollView>
         </View>
       );
@@ -1113,6 +1117,21 @@ export default function PicksScreen() {
               </View>
             )}
           </View>
+
+          {/* View Mode Toggle */}
+          <TouchableOpacity
+            onPress={() => setViewMode(viewMode === 'compact' ? 'large' : 'compact')}
+            style={[
+              styles.viewToggle,
+              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={viewMode === 'compact' ? 'view-list' : 'view-agenda'}
+              size={18}
+              color={theme.colors.onSurface}
+            />
+          </TouchableOpacity>
 
           {/* Admin Mode: Show Drafts Toggle */}
           {adminModeEnabled && (
@@ -1334,44 +1353,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  emptyCard: {
-    margin: 16,
-    borderRadius: 12,
-    elevation: 4,
-  },
-  emptyContent: {
-    padding: 24,
+  emptyContainer: {
+    flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 32,
   },
-  sparkleIcon: {
-    marginBottom: 24,
+  emptyPlaceholder: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 32,
+    borderRadius: 20,
+    width: '100%',
   },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    marginBottom: 24,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  tiktokButton: {
-    marginBottom: 16,
-    borderRadius: 24,
-  },
-  tiktokButtonContent: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  tiktokButtonLabel: {
-    fontSize: 16,
+  emptyPlaceholderTitle: {
+    fontSize: 18,
     fontWeight: '600',
+    marginTop: 16,
+    textAlign: 'center',
   },
-  emptyFooter: {
+  emptyPlaceholderSubtitle: {
     fontSize: 14,
+    marginTop: 8,
     textAlign: 'center',
   },
   sectionHeader: {
@@ -1400,6 +1402,13 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     marginLeft: 6,
+  },
+  viewToggle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   draftToggle: {
     flexDirection: 'row',

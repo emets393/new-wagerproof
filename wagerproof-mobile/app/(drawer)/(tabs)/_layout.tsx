@@ -15,6 +15,8 @@ import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 import { useLiveScores } from '@/hooks/useLiveScores';
+import { PickDetailSheetProvider } from '@/contexts/PickDetailSheetContext';
+import { PickDetailBottomSheet } from '@/components/PickDetailBottomSheet';
 
 function LiveIndicator() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -422,7 +424,10 @@ function TabsContent() {
 export default function TabsLayout() {
   return (
     <ScrollProvider>
-      <TabsContent />
+      <PickDetailSheetProvider>
+        <TabsContent />
+        <PickDetailBottomSheet />
+      </PickDetailSheetProvider>
     </ScrollProvider>
   );
 }
