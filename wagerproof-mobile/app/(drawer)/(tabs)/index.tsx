@@ -10,6 +10,7 @@ import { NBAGameCard } from '@/components/NBAGameCard';
 import { NCAABGameCard } from '@/components/NCAABGameCard';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
 import { LockedGameCard } from '@/components/LockedGameCard';
+import { BettingTrendsBanner } from '@/components/nba/BettingTrendsBanner';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
@@ -851,75 +852,80 @@ export default function FeedScreen() {
 
   // Render list header with search and filters for a specific sport
   const renderListHeader = (sport: Sport) => (
-    <View style={[
-      styles.listHeader, 
-      { backgroundColor: isDark ? '#000000' : '#ffffff' }
-    ]}>
-      <View style={[styles.searchContainer, { 
-        backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-      }]}>
-        <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
-        <TextInput
-          style={[styles.searchInput, { color: theme.colors.onSurface, opacity: 0.8 }]}
-          placeholder="Search teams or cities..."
-          placeholderTextColor={theme.colors.onSurfaceVariant}
-          value={searchTexts[sport]}
-          onChangeText={(text) => setSearchTexts(prev => ({ ...prev, [sport]: text }))}
-        />
-        {searchTexts[sport].length > 0 && (
-          <TouchableOpacity onPress={() => setSearchTexts(prev => ({ ...prev, [sport]: '' }))}>
-            <MaterialCommunityIcons
-              name="close-circle"
-              size={20}
-              color={theme.colors.onSurfaceVariant}
-            />
-          </TouchableOpacity>
-        )}
+    <View>
+      <View style={[
+        styles.listHeader,
+        { backgroundColor: isDark ? '#000000' : '#ffffff' }
+      ]}>
+        <View style={[styles.searchContainer, {
+          backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+        }]}>
+          <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.onSurfaceVariant} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.colors.onSurface, opacity: 0.8 }]}
+            placeholder="Search teams or cities..."
+            placeholderTextColor={theme.colors.onSurfaceVariant}
+            value={searchTexts[sport]}
+            onChangeText={(text) => setSearchTexts(prev => ({ ...prev, [sport]: text }))}
+          />
+          {searchTexts[sport].length > 0 && (
+            <TouchableOpacity onPress={() => setSearchTexts(prev => ({ ...prev, [sport]: '' }))}>
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <Menu
+          visible={sortMenuVisible}
+          onDismiss={() => setSortMenuVisible(false)}
+          anchor={
+            <TouchableOpacity
+              style={[styles.filterButton, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}
+              onPress={() => setSortMenuVisible(true)}
+            >
+              <MaterialCommunityIcons
+                name="sort"
+                size={20}
+                color={theme.colors.onSurface}
+              />
+            </TouchableOpacity>
+          }
+          anchorPosition="bottom"
+          contentStyle={{ marginTop: 40 }}
+        >
+          <Menu.Item
+            onPress={() => {
+              setSortModes(prev => ({ ...prev, [sport]: 'time' }));
+              setSortMenuVisible(false);
+            }}
+            title="Sort by Time"
+            leadingIcon="clock-outline"
+          />
+          <Menu.Item
+            onPress={() => {
+              setSortModes(prev => ({ ...prev, [sport]: 'spread' }));
+              setSortMenuVisible(false);
+            }}
+            title="Sort by Spread Value"
+            leadingIcon="chart-line"
+          />
+          <Menu.Item
+            onPress={() => {
+              setSortModes(prev => ({ ...prev, [sport]: 'ou' }));
+              setSortMenuVisible(false);
+            }}
+            title="Sort by O/U Value"
+            leadingIcon="numeric"
+          />
+        </Menu>
       </View>
 
-      <Menu
-        visible={sortMenuVisible}
-        onDismiss={() => setSortMenuVisible(false)}
-        anchor={
-          <TouchableOpacity 
-            style={[styles.filterButton, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}
-            onPress={() => setSortMenuVisible(true)}
-          >
-            <MaterialCommunityIcons 
-              name="sort" 
-              size={20} 
-              color={theme.colors.onSurface} 
-            />
-          </TouchableOpacity>
-        }
-        anchorPosition="bottom"
-        contentStyle={{ marginTop: 40 }}
-      >
-        <Menu.Item 
-          onPress={() => { 
-            setSortModes(prev => ({ ...prev, [sport]: 'time' })); 
-            setSortMenuVisible(false); 
-          }} 
-          title="Sort by Time" 
-          leadingIcon="clock-outline" 
-        />
-        <Menu.Item 
-          onPress={() => { 
-            setSortModes(prev => ({ ...prev, [sport]: 'spread' })); 
-            setSortMenuVisible(false); 
-          }} 
-          title="Sort by Spread Value" 
-          leadingIcon="chart-line" 
-        />
-        <Menu.Item 
-          onPress={() => { 
-            setSortModes(prev => ({ ...prev, [sport]: 'ou' })); 
-            setSortMenuVisible(false); 
-          }} 
-          title="Sort by O/U Value" 
-          leadingIcon="numeric" 
-        />
-      </Menu>
+      {/* NBA Betting Trends Banner - only show when on NBA tab and not searching */}
+      {sport === 'nba' && !searchTexts.nba && <BettingTrendsBanner />}
     </View>
   );
 

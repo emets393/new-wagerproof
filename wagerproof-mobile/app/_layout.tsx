@@ -10,6 +10,7 @@ import { NFLGameSheetProvider } from '../contexts/NFLGameSheetContext';
 import { CFBGameSheetProvider } from '../contexts/CFBGameSheetContext';
 import { NBAGameSheetProvider } from '../contexts/NBAGameSheetContext';
 import { NCAABGameSheetProvider } from '../contexts/NCAABGameSheetContext';
+import { NBABettingTrendsSheetProvider } from '../contexts/NBABettingTrendsSheetContext';
 import { AdminModeProvider } from '../contexts/AdminModeContext';
 import { EditorPickSheetProvider } from '../contexts/EditorPickSheetContext';
 import { WagerBotChatSheetProvider } from '../contexts/WagerBotChatSheetContext';
@@ -20,6 +21,7 @@ import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
 import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
 import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
+import { NBABettingTrendsBottomSheet } from '../components/NBABettingTrendsBottomSheet';
 import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { EditorPickCreatorBottomSheet } from '../components/EditorPickCreatorBottomSheet';
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
@@ -369,11 +371,14 @@ function RootLayoutContent() {
                   <CFBGameSheetProvider>
                     <NBAGameSheetProvider>
                       <NCAABGameSheetProvider>
-                        <WagerBotChatSheetProvider>
-                          <RootNavigator />
-                          <WebPurchaseRedemptionHandler />
-                          <EditorPickCreatorBottomSheet />
-                        </WagerBotChatSheetProvider>
+                        <NBABettingTrendsSheetProvider>
+                          <WagerBotChatSheetProvider>
+                            <RootNavigator />
+                            <WebPurchaseRedemptionHandler />
+                            <EditorPickCreatorBottomSheet />
+                            <NBABettingTrendsBottomSheet />
+                          </WagerBotChatSheetProvider>
+                        </NBABettingTrendsSheetProvider>
                       </NCAABGameSheetProvider>
                     </NBAGameSheetProvider>
                   </CFBGameSheetProvider>

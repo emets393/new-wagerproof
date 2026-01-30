@@ -16,6 +16,9 @@ import { ProContentSection } from './ProContentSection';
 import { FadeAlertTooltip } from './FadeAlertTooltip';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { useNBAMatchupOverview } from '@/hooks/useNBAMatchupOverview';
+import { InjuryReportWidget } from './nba/InjuryReportWidget';
+import { RecentTrendsWidget } from './nba/RecentTrendsWidget';
 
 export function NBAGameBottomSheet() {
   const theme = useTheme();
@@ -27,6 +30,23 @@ export function NBAGameBottomSheet() {
   const [ouExplanationExpanded, setOuExplanationExpanded] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [simulationRevealed, setSimulationRevealed] = useState(false);
+
+  // Fetch matchup overview data (injuries and trends)
+  const {
+    awayInjuries,
+    homeInjuries,
+    awayInjuryImpact,
+    homeInjuryImpact,
+    trends,
+    isLoadingInjuries,
+    isLoadingTrends,
+    error: matchupError,
+  } = useNBAMatchupOverview({
+    awayTeam: game?.away_team,
+    homeTeam: game?.home_team,
+    gameDate: game?.game_date,
+    isOpen: !!game,
+  });
 
   // Reset simulation state when game changes
   useEffect(() => {
@@ -508,6 +528,30 @@ export function NBAGameBottomSheet() {
               )}
             </View>
           )}
+
+          {/* Injury Report Widget (Pro Feature) */}
+          <ProContentSection title="Injury Report" minHeight={80}>
+            <InjuryReportWidget
+              awayTeam={game.away_team}
+              homeTeam={game.home_team}
+              awayInjuries={awayInjuries}
+              homeInjuries={homeInjuries}
+              awayInjuryImpact={awayInjuryImpact}
+              homeInjuryImpact={homeInjuryImpact}
+              isLoading={isLoadingInjuries}
+              error={matchupError}
+            />
+          </ProContentSection>
+
+          {/* Recent Trends Widget (Pro Feature) */}
+          <ProContentSection title="Recent Trends" minHeight={80}>
+            <RecentTrendsWidget
+              awayTeam={game.away_team}
+              homeTeam={game.home_team}
+              trends={trends}
+              isLoading={isLoadingTrends}
+            />
+          </ProContentSection>
 
           {/* Team Stats Section */}
           {(game.home_adj_offense !== null || game.away_adj_offense !== null) && (

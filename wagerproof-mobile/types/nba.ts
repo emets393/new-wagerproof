@@ -36,3 +36,35 @@ export interface NBAGame {
   model_fair_total: number | null;
 }
 
+export interface NBAInjuryReport {
+  player_name: string;
+  avg_pie_season: string | number | null;
+  status: string;
+  team_id: number;
+  team_name: string;
+  team_abbr: string;
+}
+
+export interface NBAGameTrends {
+  home_ovr_rtg: number | null;
+  away_ovr_rtg: number | null;
+  home_consistency: number | null;
+  away_consistency: number | null;
+  home_win_streak: number | null;
+  away_win_streak: number | null;
+  home_ats_pct: number | null;
+  away_ats_pct: number | null;
+  home_ats_streak: number | null;
+  away_ats_streak: number | null;
+  home_last_margin: number | null;
+  away_last_margin: number | null;
+  home_over_pct: number | null;
+  away_over_pct: number | null;
+  home_adj_pace_pregame_l3_trend: number | null;
+  away_adj_pace_pregame_l3_trend: number | null;
+  home_adj_off_rtg_pregame_l3_trend: number | null;
+  away_adj_off_rtg_pregame_l3_trend: number | null;
+  home_adj_def_rtg_pregame_l3_trend: number | null;
+  away_adj_def_rtg_pregame_l3_trend: number | null;
+}
+
