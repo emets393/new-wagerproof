@@ -15,6 +15,16 @@ import {
 import { getNBATeamColors, getNBATeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
 
+/**
+ * Format team name - single words on one line, multi-word splits across lines
+ */
+function formatTeamName(name: string): { text: string; lines: 1 | 2 } {
+  if (!name.includes(' ')) {
+    return { text: name, lines: 1 };
+  }
+  return { text: name.replace(' ', '\n'), lines: 2 };
+}
+
 interface NBAGameCardProps {
   game: NBAGame;
   onPress: () => void;
@@ -110,9 +120,19 @@ export function NBAGameCard({ game, onPress, cardWidth }: NBAGameCardProps) {
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
-                {game.away_team}
-              </Text>
+              {(() => {
+                const { text, lines } = formatTeamName(game.away_team);
+                return (
+                  <Text
+                    style={[styles.teamName, { color: theme.colors.onSurface }]}
+                    numberOfLines={lines}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  >
+                    {text}
+                  </Text>
+                );
+              })()}
               <View style={styles.teamLinesRow}>
                 {game.away_spread !== null && (
                   <Text style={[styles.lineText, { color: game.away_spread < 0 ? '#3b82f6' : '#22c55e' }]}>
@@ -154,9 +174,19 @@ export function NBAGameCard({ game, onPress, cardWidth }: NBAGameCardProps) {
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
-                {game.home_team}
-              </Text>
+              {(() => {
+                const { text, lines } = formatTeamName(game.home_team);
+                return (
+                  <Text
+                    style={[styles.teamName, { color: theme.colors.onSurface }]}
+                    numberOfLines={lines}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  >
+                    {text}
+                  </Text>
+                );
+              })()}
               <View style={styles.teamLinesRow}>
                 {game.home_spread !== null && (
                   <Text style={[styles.lineText, { color: game.home_spread < 0 ? '#3b82f6' : '#22c55e' }]}>
@@ -358,7 +388,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
-    maxWidth: 90,
+    width: '100%',
   },
   atSymbol: {
     fontSize: 24,

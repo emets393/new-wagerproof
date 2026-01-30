@@ -9,6 +9,16 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { TrendsSituationSection } from './nba/TrendsSituationSection';
 
 /**
+ * Format team name - single words on one line, multi-word splits across lines
+ */
+function formatTeamName(name: string): { text: string; lines: 1 | 2 } {
+  if (!name.includes(' ')) {
+    return { text: name, lines: 1 };
+  }
+  return { text: name.replace(' ', '\n'), lines: 2 };
+}
+
+/**
  * Format tipoff time UTC to display format
  */
 function formatTipoffTime(tipoffTimeUtc: string | null): string {
@@ -107,9 +117,19 @@ export function NBABettingTrendsBottomSheet() {
                         {game.awayTeam.team_abbr || getNBATeamInitials(game.awayTeam.team_name)}
                       </Text>
                     </LinearGradient>
-                    <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={1}>
-                      {game.awayTeam.team_name}
-                    </Text>
+                    {(() => {
+                      const { text, lines } = formatTeamName(game.awayTeam.team_name);
+                      return (
+                        <Text
+                          style={[styles.teamName, { color: theme.colors.onSurface }]}
+                          numberOfLines={lines}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.6}
+                        >
+                          {text}
+                        </Text>
+                      );
+                    })()}
                   </View>
 
                   {/* Center */}
@@ -141,9 +161,19 @@ export function NBABettingTrendsBottomSheet() {
                         {game.homeTeam.team_abbr || getNBATeamInitials(game.homeTeam.team_name)}
                       </Text>
                     </LinearGradient>
-                    <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={1}>
-                      {game.homeTeam.team_name}
-                    </Text>
+                    {(() => {
+                      const { text, lines } = formatTeamName(game.homeTeam.team_name);
+                      return (
+                        <Text
+                          style={[styles.teamName, { color: theme.colors.onSurface }]}
+                          numberOfLines={lines}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.6}
+                        >
+                          {text}
+                        </Text>
+                      );
+                    })()}
                   </View>
                 </View>
               </View>
@@ -224,7 +254,7 @@ const styles = StyleSheet.create({
   teamsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   teamSection: {
     alignItems: 'center',
@@ -247,7 +277,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
-    maxWidth: 80,
+    width: '100%',
   },
   centerSection: {
     alignItems: 'center',

@@ -185,7 +185,12 @@ export function TrendsSituationSection({
                 {awayTeam.team_abbr || getNBATeamInitials(awayTeam.team_name)}
               </Text>
             </LinearGradient>
-            <Text style={[styles.situationLabel, { color: theme.colors.onSurfaceVariant }]}>
+            <Text
+              style={[styles.situationLabel, { color: theme.colors.onSurfaceVariant }]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {awayATS.label}
             </Text>
           </View>
@@ -208,7 +213,12 @@ export function TrendsSituationSection({
                 {homeTeam.team_abbr || getNBATeamInitials(homeTeam.team_name)}
               </Text>
             </LinearGradient>
-            <Text style={[styles.situationLabel, { color: theme.colors.onSurfaceVariant }]}>
+            <Text
+              style={[styles.situationLabel, { color: theme.colors.onSurfaceVariant }]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {homeATS.label}
             </Text>
           </View>
