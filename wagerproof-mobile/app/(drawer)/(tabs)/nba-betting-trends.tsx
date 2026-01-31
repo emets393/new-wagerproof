@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,12 +12,17 @@ import { useProAccess } from '@/hooks/useProAccess';
 import { BettingTrendsMatchupCard } from '@/components/nba/BettingTrendsMatchupCard';
 import { NBAGameTrendsData, TrendsSortMode } from '@/types/nbaBettingTrends';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
+import { useScroll } from '@/contexts/ScrollContext';
 
 /**
  * NBA Betting Trends Page
  * Displays situational ATS & O/U trends for today's NBA games
  * Pro feature - non-Pro users see paywall
  */
+// WagerProof green color
+const WAGERPROOF_GREEN = '#00E676';
+
 export default function NBABettingTrendsScreen() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
@@ -25,6 +30,35 @@ export default function NBABettingTrendsScreen() {
   const router = useRouter();
   const { games, isLoading, error, sortMode, setSortMode, refetch } = useNBABettingTrends();
   const { isPro, isLoading: isProLoading } = useProAccess();
+
+  // Use shared scroll context (same as main feed) to sync header and tab bar animations
+  const { scrollY, scrollYClamped } = useScroll();
+
+  // Calculate header heights (must match tab bar calculation in _layout.tsx)
+  const HEADER_HEIGHT = 56;
+  const PILLS_HEIGHT = 48;
+  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_HEIGHT + PILLS_HEIGHT;
+  const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
+
+  // Header slides up as user scrolls (synced with tab bar)
+  const headerTranslate = scrollYClamped.interpolate({
+    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [0, -TOTAL_COLLAPSIBLE_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  // Header fades out as user scrolls
+  const headerOpacity = scrollYClamped.interpolate({
+    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Handle scroll event - updates shared scrollY which drives both header and tab bar
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: true }
+  );
 
   // Show paywall for non-Pro users
   useEffect(() => {
@@ -48,82 +82,46 @@ export default function NBABettingTrendsScreen() {
     setSortMode(mode);
   };
 
-  const renderHeader = () => (
-    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-      <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-        <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
-      </TouchableOpacity>
+  // Sort pill configurations with icons and labels
+  const sortPills: { mode: TrendsSortMode; icon: keyof typeof MaterialCommunityIcons.glyphMap; label: string }[] = [
+    { mode: 'time', icon: 'clock-outline', label: 'Time' },
+    { mode: 'ou-consensus', icon: 'trending-up', label: 'O/U' },
+    { mode: 'ats-dominance', icon: 'chart-line', label: 'ATS' },
+  ];
 
-      <View style={styles.titleContainer}>
-        <MaterialCommunityIcons name="chart-line" size={24} color="#3b82f6" />
-        <Text style={[styles.title, { color: theme.colors.onSurface }]}>Betting Trends</Text>
-      </View>
-
-      <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton} disabled={isLoading}>
-        {isLoading ? (
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-        ) : (
-          <MaterialCommunityIcons name="refresh" size={24} color={theme.colors.onSurface} />
-        )}
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderSortButtons = () => (
-    <View style={styles.sortContainer}>
-      <TouchableOpacity
-        style={[
-          styles.sortButton,
-          sortMode === 'time' && styles.sortButtonActive,
-          { borderColor: sortMode === 'time' ? '#3b82f6' : theme.colors.outlineVariant },
-        ]}
-        onPress={() => handleSortChange('time')}
-      >
-        <Text
-          style={[
-            styles.sortButtonText,
-            { color: sortMode === 'time' ? '#3b82f6' : theme.colors.onSurfaceVariant },
-          ]}
-        >
-          Game Time
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.sortButton,
-          sortMode === 'ou-consensus' && styles.sortButtonActive,
-          { borderColor: sortMode === 'ou-consensus' ? '#3b82f6' : theme.colors.outlineVariant },
-        ]}
-        onPress={() => handleSortChange('ou-consensus')}
-      >
-        <Text
-          style={[
-            styles.sortButtonText,
-            { color: sortMode === 'ou-consensus' ? '#3b82f6' : theme.colors.onSurfaceVariant },
-          ]}
-        >
-          OU Consensus
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.sortButton,
-          sortMode === 'ats-dominance' && styles.sortButtonActive,
-          { borderColor: sortMode === 'ats-dominance' ? '#3b82f6' : theme.colors.outlineVariant },
-        ]}
-        onPress={() => handleSortChange('ats-dominance')}
-      >
-        <Text
-          style={[
-            styles.sortButtonText,
-            { color: sortMode === 'ats-dominance' ? '#3b82f6' : theme.colors.onSurfaceVariant },
-          ]}
-        >
-          ATS Dominance
-        </Text>
-      </TouchableOpacity>
+  const renderSortPills = () => (
+    <View style={styles.pillsContainer}>
+      {sortPills.map((pill) => {
+        const isActive = sortMode === pill.mode;
+        return (
+          <TouchableOpacity
+            key={pill.mode}
+            style={[
+              styles.sortPill,
+              isActive && styles.sortPillActive,
+              { 
+                borderColor: isActive ? WAGERPROOF_GREEN : theme.colors.outlineVariant,
+                backgroundColor: isActive ? 'rgba(0, 230, 118, 0.1)' : 'transparent',
+              },
+            ]}
+            onPress={() => handleSortChange(pill.mode)}
+          >
+            <MaterialCommunityIcons
+              name={pill.icon}
+              size={16}
+              color={isActive ? WAGERPROOF_GREEN : theme.colors.onSurfaceVariant}
+            />
+            <Text
+              style={[
+                styles.sortPillText,
+                { color: isActive ? WAGERPROOF_GREEN : theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {pill.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 
@@ -167,8 +165,47 @@ export default function NBABettingTrendsScreen() {
   if (isLoading && games.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
-        {renderHeader()}
-        {renderShimmer()}
+        {/* Frosted Glass Header */}
+        <Animated.View
+          style={[
+            styles.fixedHeaderContainer,
+            {
+              transform: [{ translateY: headerTranslate }],
+              opacity: headerOpacity,
+            },
+          ]}
+        >
+          <AndroidBlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            style={[styles.fixedHeader, { paddingTop: insets.top }]}
+          >
+            <View style={styles.headerTop}>
+              <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+
+              <View style={styles.titleContainer}>
+                <MaterialCommunityIcons name="chart-line" size={24} color={WAGERPROOF_GREEN} />
+                <Text style={[styles.title, { color: theme.colors.onSurface }]}>NBA Betting Trends</Text>
+              </View>
+
+              <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton} disabled={isLoading}>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color={WAGERPROOF_GREEN} />
+                ) : (
+                  <MaterialCommunityIcons name="refresh" size={24} color={theme.colors.onSurface} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Sort Pills */}
+            {renderSortPills()}
+          </AndroidBlurView>
+        </Animated.View>
+        <View style={{ paddingTop: TOTAL_HEADER_HEIGHT + 12 }}>
+          {renderShimmer()}
+        </View>
       </View>
     );
   }
@@ -177,35 +214,104 @@ export default function NBABettingTrendsScreen() {
   if (error && games.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
-        {renderHeader()}
-        {renderError()}
+        {/* Frosted Glass Header */}
+        <Animated.View
+          style={[
+            styles.fixedHeaderContainer,
+            {
+              transform: [{ translateY: headerTranslate }],
+              opacity: headerOpacity,
+            },
+          ]}
+        >
+          <AndroidBlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            style={[styles.fixedHeader, { paddingTop: insets.top }]}
+          >
+            <View style={styles.headerTop}>
+              <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+
+              <View style={styles.titleContainer}>
+                <MaterialCommunityIcons name="chart-line" size={24} color={WAGERPROOF_GREEN} />
+                <Text style={[styles.title, { color: theme.colors.onSurface }]}>NBA Betting Trends</Text>
+              </View>
+
+              <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton} disabled={isLoading}>
+                <MaterialCommunityIcons name="refresh" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Sort Pills */}
+            {renderSortPills()}
+          </AndroidBlurView>
+        </Animated.View>
+        <View style={{ paddingTop: TOTAL_HEADER_HEIGHT + 12 }}>
+          {renderError()}
+        </View>
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
-      {renderHeader()}
+      {/* Frosted Glass Header - Slides away on scroll */}
+      <Animated.View
+        style={[
+          styles.fixedHeaderContainer,
+          {
+            transform: [{ translateY: headerTranslate }],
+            opacity: headerOpacity,
+          },
+        ]}
+      >
+        <AndroidBlurView
+          intensity={80}
+          tint={isDark ? 'dark' : 'light'}
+          style={[styles.fixedHeader, { paddingTop: insets.top }]}
+        >
+          <View style={styles.headerTop}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
+            </TouchableOpacity>
 
-      {/* Subtitle */}
-      <View style={styles.subtitleContainer}>
-        <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-          Situational ATS & O/U records
-        </Text>
-        <Text style={[styles.gamesCount, { color: theme.colors.onSurfaceVariant }]}>
-          {games.length} game{games.length !== 1 ? 's' : ''}
-        </Text>
-      </View>
+            <View style={styles.titleContainer}>
+              <MaterialCommunityIcons name="chart-line" size={24} color={WAGERPROOF_GREEN} />
+              <Text style={[styles.title, { color: theme.colors.onSurface }]}>NBA Betting Trends</Text>
+            </View>
 
-      {/* Sort Buttons */}
-      {renderSortButtons()}
+            <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton} disabled={isLoading}>
+              {isLoading ? (
+                <ActivityIndicator size="small" color={WAGERPROOF_GREEN} />
+              ) : (
+                <MaterialCommunityIcons name="refresh" size={24} color={theme.colors.onSurface} />
+              )}
+            </TouchableOpacity>
+          </View>
 
-      <FlatList
+          {/* Sort Pills */}
+          {renderSortPills()}
+        </AndroidBlurView>
+      </Animated.View>
+
+      <Animated.FlatList
         data={games}
         renderItem={renderItem}
         keyExtractor={(item) => `${item.gameId}`}
-        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[
+          styles.listContent,
+          { 
+            paddingTop: TOTAL_HEADER_HEIGHT + 12,
+            paddingBottom: insets.bottom + 100 
+          }
+        ]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
         ListEmptyComponent={renderEmpty}
       />
     </View>
@@ -216,13 +322,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  fixedHeaderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  fixedHeader: {
+    width: '100%',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
+    height: 56,
   },
   backButton: {
     padding: 8,
@@ -241,39 +357,28 @@ const styles = StyleSheet.create({
   refreshButton: {
     padding: 8,
   },
-  subtitleContainer: {
+  pillsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingVertical: 8,
+    gap: 10,
   },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  gamesCount: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  sortContainer: {
+  sortPill: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 8,
-  },
-  sortButton: {
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    gap: 6,
   },
-  sortButtonActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+  sortPillActive: {
+    borderWidth: 2,
   },
-  sortButtonText: {
-    fontSize: 12,
+  sortPillText: {
+    fontSize: 13,
     fontWeight: '600',
   },
   listContent: {
@@ -304,7 +409,7 @@ const styles = StyleSheet.create({
   },
   shimmerContainer: {
     paddingHorizontal: 16,
-    paddingTop: 80,
+    paddingTop: 16,
   },
   shimmerCard: {
     marginBottom: 12,

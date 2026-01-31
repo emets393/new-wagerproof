@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { NBAGame } from '@/types/nba';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { getNBATeamColors, getNBATeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { TeamAvatar } from './TeamAvatar';
 import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, roundToNearestHalf } from '@/utils/formatting';
 import { PolymarketWidget } from './PolymarketWidget';
 import { WagerBotInsightPill } from './WagerBotInsightPill';
@@ -238,19 +239,7 @@ export function NBAGameBottomSheet() {
             <View style={styles.teamsRow}>
               {/* Away Team */}
               <View style={styles.teamSection}>
-                <LinearGradient
-                  colors={[awayColors.primary, awayColors.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.teamCircleLarge, { borderColor: awayColors.primary }]}
-                >
-                  <Text style={[
-                    styles.teamInitialsLarge,
-                    { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }
-                  ]}>
-                    {getNBATeamInitials(game.away_team)}
-                  </Text>
-                </LinearGradient>
+                <TeamAvatar teamName={game.away_team} sport="nba" size={88} />
                 <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
                   {game.away_team}
                 </Text>
@@ -285,19 +274,7 @@ export function NBAGameBottomSheet() {
 
               {/* Home Team */}
               <View style={styles.teamSection}>
-                <LinearGradient
-                  colors={[homeColors.primary, homeColors.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.teamCircleLarge, { borderColor: homeColors.primary }]}
-                >
-                  <Text style={[
-                    styles.teamInitialsLarge,
-                    { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }
-                  ]}>
-                    {getNBATeamInitials(game.home_team)}
-                  </Text>
-                </LinearGradient>
+                <TeamAvatar teamName={game.home_team} sport="nba" size={88} />
                 <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
                   {game.home_team}
                 </Text>
@@ -364,19 +341,7 @@ export function NBAGameBottomSheet() {
                         <Text style={[styles.edgeValue, { color: '#22c55e' }]}>
                           {spreadPrediction.edge.toFixed(1)}
                         </Text>
-                        <LinearGradient
-                          colors={[spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={styles.edgeTeamCircle}
-                        >
-                          <Text style={[
-                            styles.edgeTeamInitials,
-                            { color: getContrastingTextColor(spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary) }
-                          ]}>
-                            {getNBATeamInitials(spreadPrediction.predictedTeam)}
-                          </Text>
-                        </LinearGradient>
+                        <TeamAvatar teamName={spreadPrediction.predictedTeam} sport="nba" size={56} />
                       </View>
                       <View style={styles.edgeSection}>
                         <Text style={[styles.edgeLabel, { color: theme.colors.onSurfaceVariant }]}>
@@ -643,19 +608,7 @@ export function NBAGameBottomSheet() {
                 <View style={[styles.simulationResult, { backgroundColor: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
                   {/* Away Team Score */}
                   <View style={styles.teamScoreSection}>
-                    <LinearGradient
-                      colors={[awayColors.primary, awayColors.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[styles.scoreTeamCircle, { borderColor: awayColors.primary }]}
-                    >
-                      <Text style={[
-                        styles.scoreTeamInitials,
-                        { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }
-                      ]}>
-                        {getNBATeamInitials(game.away_team)}
-                      </Text>
-                    </LinearGradient>
+                    <TeamAvatar teamName={game.away_team} sport="nba" size={64} />
                     <Text style={[styles.predictedScore, { color: theme.colors.onSurface }]}>
                       {Math.round(game.away_score_pred)}
                     </Text>
@@ -668,19 +621,7 @@ export function NBAGameBottomSheet() {
 
                   {/* Home Team Score */}
                   <View style={styles.teamScoreSection}>
-                    <LinearGradient
-                      colors={[homeColors.primary, homeColors.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[styles.scoreTeamCircle, { borderColor: homeColors.primary }]}
-                    >
-                      <Text style={[
-                        styles.scoreTeamInitials,
-                        { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }
-                      ]}>
-                        {getNBATeamInitials(game.home_team)}
-                      </Text>
-                    </LinearGradient>
+                    <TeamAvatar teamName={game.home_team} sport="nba" size={64} />
                     <Text style={[styles.predictedScore, { color: theme.colors.onSurface }]}>
                       {Math.round(game.home_score_pred)}
                     </Text>

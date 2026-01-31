@@ -41,7 +41,7 @@ export function BettingTrendsBanner() {
 
         <View style={styles.textContainer}>
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            Betting Trends Tool
+            NBA Betting Trends Tool
           </Text>
           <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
             Situational ATS & O/U records

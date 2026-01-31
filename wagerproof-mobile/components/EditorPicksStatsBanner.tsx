@@ -7,7 +7,9 @@ import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/contexts/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = SCREEN_WIDTH - 32; // 16px margin on each side
+const HORIZONTAL_PADDING = 16;
+const CARD_GAP = 12;
+const CARD_WIDTH = SCREEN_WIDTH - (HORIZONTAL_PADDING * 2);
 
 export function EditorPicksStatsBanner() {
   const theme = useTheme();
@@ -27,7 +29,7 @@ export function EditorPicksStatsBanner() {
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / CARD_WIDTH);
+    const index = Math.round(offsetX / (CARD_WIDTH + CARD_GAP));
     setActiveIndex(index);
   };
 
@@ -36,13 +38,12 @@ export function EditorPicksStatsBanner() {
       <ScrollView
         ref={scrollViewRef}
         horizontal
-        pagingEnabled
         showsHorizontalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         decelerationRate="fast"
-        snapToInterval={CARD_WIDTH}
-        snapToAlignment="start"
+        snapToInterval={CARD_WIDTH + CARD_GAP}
+        snapToAlignment="center"
         contentContainerStyle={styles.scrollContent}
       >
         {/* Editor's Picks Card */}
@@ -167,11 +168,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    gap: 12,
+    paddingHorizontal: HORIZONTAL_PADDING,
+    gap: CARD_GAP,
   },
   container: {
-    width: CARD_WIDTH - 12,
+    width: CARD_WIDTH,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

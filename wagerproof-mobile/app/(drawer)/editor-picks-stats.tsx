@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CartesianChart, Line } from 'victory-native';
+import { Rect } from '@shopify/react-native-skia';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { supabase } from '@/services/supabase';
 import { EditorPick } from '@/types/editorsPicks';
@@ -24,6 +25,8 @@ interface SportStats {
   netUnits: number;
   winRate: number;
   picks: EditorPick[];
+  chartData: { x: number; y: number; isBestRun?: boolean }[];
+  bestRunIndices: { start: number; end: number } | null;
 }
 
 interface BestRun {
@@ -44,7 +47,6 @@ export default function EditorPicksStatsScreen() {
 
   const [allPicks, setAllPicks] = useState<EditorPick[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSport, setSelectedSport] = useState<Sport>('all');
 
   // Fetch all picks
   useEffect(() => {
@@ -68,6 +70,58 @@ export default function EditorPicksStatsScreen() {
     fetchPicks();
   }, []);
 
+  // Helper to calculate best run for a set of picks
+  const calculateBestRun = (picks: EditorPick[]): { bestRun: BestRun | null; bestRunIndices: { start: number; end: number } | null } => {
+    const sortedPicks = [...picks]
+      .filter(p => p.result && p.result !== 'pending')
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    if (sortedPicks.length === 0) return { bestRun: null, bestRunIndices: null };
+
+    let bestRun: BestRun | null = null;
+    let currentRunStart = 0;
+    let currentWins = 0;
+    let runningUnits = 0;
+    let maxUnitsInRun = 0;
+    let currentPicks: EditorPick[] = [];
+
+    for (let i = 0; i < sortedPicks.length; i++) {
+      const pick = sortedPicks[i];
+      const calc = calculateUnits(pick.result, pick.best_price, pick.units);
+
+      if (pick.result === 'won') {
+        currentWins++;
+        currentPicks.push(pick);
+        runningUnits += calc.netUnits;
+        maxUnitsInRun = Math.max(maxUnitsInRun, runningUnits);
+
+        if (!bestRun || currentWins > bestRun.wins ||
+            (currentWins === bestRun.wins && runningUnits > bestRun.netUnits)) {
+          bestRun = {
+            startIndex: currentRunStart,
+            endIndex: i,
+            wins: currentWins,
+            losses: 0,
+            netUnits: runningUnits,
+            maxUnits: maxUnitsInRun,
+            picks: [...currentPicks],
+          };
+        }
+      } else if (pick.result === 'lost') {
+        currentRunStart = i + 1;
+        currentWins = 0;
+        runningUnits = 0;
+        maxUnitsInRun = 0;
+        currentPicks = [];
+      }
+    }
+
+    return {
+      bestRun,
+      bestRunIndices: bestRun ? { start: bestRun.startIndex, end: bestRun.endIndex } : null
+    };
+  };
+
   // Calculate stats for each sport
   const sportStats = useMemo((): SportStats[] => {
     const sports: { sport: Sport; label: string }[] = [
@@ -90,6 +144,34 @@ export default function EditorPicksStatsScreen() {
       const winRate = total > 0 ? (won / total) * 100 : 0;
       const totalUnits = calculateTotalUnits(picks);
 
+      // Calculate chart data
+      const sortedPicks = [...picks].sort((a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+
+      let cumulative = 0;
+      const chartData: { x: number; y: number; isBestRun?: boolean }[] = [{ x: 0, y: 0 }];
+
+      sortedPicks.forEach((pick, index) => {
+        if (pick.result && pick.result !== 'pending') {
+          const calc = calculateUnits(pick.result, pick.best_price, pick.units);
+          cumulative += calc.netUnits;
+        }
+        chartData.push({ x: index + 1, y: cumulative });
+      });
+
+      // Calculate best run indices
+      const { bestRunIndices } = calculateBestRun(picks);
+
+      // Mark best run points in chart data
+      if (bestRunIndices) {
+        for (let i = bestRunIndices.start + 1; i <= bestRunIndices.end + 1; i++) {
+          if (chartData[i]) {
+            chartData[i].isBestRun = true;
+          }
+        }
+      }
+
       return {
         sport,
         label,
@@ -99,109 +181,23 @@ export default function EditorPicksStatsScreen() {
         netUnits: totalUnits.netUnits,
         winRate,
         picks,
+        chartData,
+        bestRunIndices,
       };
     });
   }, [allPicks]);
 
-  // Calculate cumulative units data for chart
-  const cumulativeUnitsData = useMemo(() => {
-    const picks = selectedSport === 'all'
-      ? allPicks
-      : allPicks.filter(p => p.game_type === selectedSport);
+  // Get overall stats (all sports)
+  const overallStats = sportStats.find(s => s.sport === 'all') || sportStats[0];
 
-    // Sort by created_at
-    const sortedPicks = [...picks].sort((a, b) =>
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+  // Get individual sport stats (excluding 'all')
+  const individualSportStats = sportStats.filter(s => s.sport !== 'all');
 
-    let cumulative = 0;
-    const data: { x: number; y: number }[] = [{ x: 0, y: 0 }];
-
-    sortedPicks.forEach((pick, index) => {
-      if (pick.result && pick.result !== 'pending') {
-        const calc = calculateUnits(pick.result, pick.best_price, pick.units);
-        cumulative += calc.netUnits;
-      }
-      data.push({ x: index + 1, y: cumulative });
-    });
-
-    return data;
-  }, [allPicks, selectedSport]);
-
-  // Find best recent run (consecutive wins or positive streak)
-  const bestRun = useMemo((): BestRun | null => {
-    const picks = selectedSport === 'all'
-      ? allPicks
-      : allPicks.filter(p => p.game_type === selectedSport);
-
-    // Sort by created_at descending (most recent first)
-    const sortedPicks = [...picks]
-      .filter(p => p.result && p.result !== 'pending')
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    if (sortedPicks.length === 0) return null;
-
-    let bestRun: BestRun | null = null;
-    let currentRun: BestRun = {
-      startIndex: 0,
-      endIndex: 0,
-      wins: 0,
-      losses: 0,
-      netUnits: 0,
-      maxUnits: 0,
-      picks: [],
-    };
-
-    let runningUnits = 0;
-    let maxUnitsInRun = 0;
-
-    // Look for best consecutive winning streak or positive run
-    for (let i = 0; i < sortedPicks.length; i++) {
-      const pick = sortedPicks[i];
-      const calc = calculateUnits(pick.result, pick.best_price, pick.units);
-
-      if (pick.result === 'won') {
-        currentRun.wins++;
-        currentRun.picks.push(pick);
-        runningUnits += calc.netUnits;
-        currentRun.netUnits = runningUnits;
-        maxUnitsInRun = Math.max(maxUnitsInRun, runningUnits);
-        currentRun.maxUnits = maxUnitsInRun;
-        currentRun.endIndex = i;
-
-        // Update best run if current is better
-        if (!bestRun || currentRun.wins > bestRun.wins ||
-            (currentRun.wins === bestRun.wins && currentRun.netUnits > bestRun.netUnits)) {
-          bestRun = { ...currentRun };
-        }
-      } else if (pick.result === 'lost') {
-        // Reset current run on loss
-        currentRun = {
-          startIndex: i + 1,
-          endIndex: i + 1,
-          wins: 0,
-          losses: 0,
-          netUnits: 0,
-          maxUnits: 0,
-          picks: [],
-        };
-        runningUnits = 0;
-        maxUnitsInRun = 0;
-      }
-    }
-
+  // Calculate overall best run
+  const overallBestRun = useMemo(() => {
+    const { bestRun } = calculateBestRun(allPicks);
     return bestRun;
-  }, [allPicks, selectedSport]);
-
-  const currentStats = sportStats.find(s => s.sport === selectedSport) || sportStats[0];
-
-  // Transform data for CartesianChart format
-  const chartData = useMemo(() => {
-    return cumulativeUnitsData.map(d => ({
-      x: d.x,
-      y: d.y,
-    }));
-  }, [cumulativeUnitsData]);
+  }, [allPicks]);
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
@@ -241,47 +237,15 @@ export default function EditorPicksStatsScreen() {
           </View>
         </LinearGradient>
 
-        {/* Sport Filter Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sportTabs}
-        >
-          {sportStats.map(stat => (
-            <TouchableOpacity
-              key={stat.sport}
-              style={[
-                styles.sportTab,
-                selectedSport === stat.sport && styles.sportTabActive,
-                { backgroundColor: selectedSport === stat.sport
-                  ? (isDark ? 'rgba(59, 130, 246, 0.3)' : '#2563eb')
-                  : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                }
-              ]}
-              onPress={() => setSelectedSport(stat.sport)}
-            >
-              <Text style={[
-                styles.sportTabText,
-                { color: selectedSport === stat.sport
-                  ? (isDark ? '#ffffff' : '#ffffff')
-                  : theme.colors.onSurfaceVariant
-                }
-              ]}>
-                {stat.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
         {/* Overall Stats Cards */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
             <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>Record</Text>
             <Text style={[styles.statCardValue, { color: theme.colors.onSurface }]}>
-              {currentStats.won}-{currentStats.lost}{currentStats.push > 0 ? `-${currentStats.push}` : ''}
+              {overallStats.won}-{overallStats.lost}{overallStats.push > 0 ? `-${overallStats.push}` : ''}
             </Text>
             <Text style={[styles.statCardSubtext, { color: isDark ? '#93c5fd' : '#2563eb' }]}>
-              {currentStats.winRate.toFixed(1)}% Win Rate
+              {overallStats.winRate.toFixed(1)}% Win Rate
             </Text>
           </View>
 
@@ -289,9 +253,9 @@ export default function EditorPicksStatsScreen() {
             <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>Net Units</Text>
             <Text style={[
               styles.statCardValue,
-              { color: currentStats.netUnits >= 0 ? '#22c55e' : '#ef4444' }
+              { color: overallStats.netUnits >= 0 ? '#22c55e' : '#ef4444' }
             ]}>
-              {currentStats.netUnits >= 0 ? '+' : ''}{currentStats.netUnits.toFixed(2)}
+              {overallStats.netUnits >= 0 ? '+' : ''}{overallStats.netUnits.toFixed(2)}
             </Text>
             <Text style={[styles.statCardSubtext, { color: theme.colors.onSurfaceVariant }]}>
               Units P/L
@@ -300,7 +264,7 @@ export default function EditorPicksStatsScreen() {
         </View>
 
         {/* Best Recent Run Card */}
-        {bestRun && bestRun.wins > 0 && (
+        {overallBestRun && overallBestRun.wins > 0 && (
           <LinearGradient
             colors={isDark
               ? ['rgba(34, 197, 94, 0.2)', 'rgba(34, 197, 94, 0.1)']
@@ -316,7 +280,7 @@ export default function EditorPicksStatsScreen() {
             <View style={styles.bestRunStats}>
               <View style={styles.bestRunStat}>
                 <Text style={[styles.bestRunStatValue, { color: theme.colors.onSurface }]}>
-                  {bestRun.wins}
+                  {overallBestRun.wins}
                 </Text>
                 <Text style={[styles.bestRunStatLabel, { color: theme.colors.onSurfaceVariant }]}>
                   Wins
@@ -325,7 +289,7 @@ export default function EditorPicksStatsScreen() {
               <View style={[styles.bestRunDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]} />
               <View style={styles.bestRunStat}>
                 <Text style={[styles.bestRunStatValue, { color: '#22c55e' }]}>
-                  +{bestRun.netUnits.toFixed(2)}
+                  +{overallBestRun.netUnits.toFixed(2)}
                 </Text>
                 <Text style={[styles.bestRunStatLabel, { color: theme.colors.onSurfaceVariant }]}>
                   Units Won
@@ -334,7 +298,7 @@ export default function EditorPicksStatsScreen() {
               <View style={[styles.bestRunDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]} />
               <View style={styles.bestRunStat}>
                 <Text style={[styles.bestRunStatValue, { color: theme.colors.onSurface }]}>
-                  {bestRun.maxUnits.toFixed(2)}
+                  {overallBestRun.maxUnits.toFixed(2)}
                 </Text>
                 <Text style={[styles.bestRunStatLabel, { color: theme.colors.onSurfaceVariant }]}>
                   Max Units
@@ -344,15 +308,23 @@ export default function EditorPicksStatsScreen() {
           </LinearGradient>
         )}
 
-        {/* Cumulative Units Chart */}
+        {/* Overall Cumulative Units Chart */}
         <View style={[styles.chartCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
-          <Text style={[styles.chartTitle, { color: theme.colors.onSurface }]}>
-            Cumulative Units Over Time
-          </Text>
-          {chartData.length > 1 ? (
+          <View style={styles.chartTitleRow}>
+            <Text style={[styles.chartTitle, { color: theme.colors.onSurface }]}>
+              All Sports - Cumulative Units
+            </Text>
+            {overallStats.bestRunIndices && (
+              <View style={[styles.chartLegend, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}>
+                <MaterialCommunityIcons name="fire" size={12} color="#22c55e" />
+                <Text style={styles.chartLegendText}>Best Run</Text>
+              </View>
+            )}
+          </View>
+          {overallStats.chartData.length > 1 ? (
             <View style={styles.chartContainer}>
               <CartesianChart
-                data={chartData}
+                data={overallStats.chartData}
                 xKey="x"
                 yKeys={["y"]}
                 axisOptions={{
@@ -361,20 +333,36 @@ export default function EditorPicksStatsScreen() {
                   labelColor: theme.colors.onSurfaceVariant,
                   formatXLabel: (value: number) => {
                     if (value === 0) return 'Start';
-                    if (value === chartData.length - 1) return 'Now';
+                    if (value === overallStats.chartData.length - 1) return 'Now';
                     return '';
                   },
                   formatYLabel: (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}`,
                 }}
               >
-                {({ points }) => (
-                  <Line
-                    points={points.y}
-                    color={currentStats.netUnits >= 0 ? '#22c55e' : '#ef4444'}
-                    strokeWidth={2}
-                    curveType="monotoneX"
-                  />
-                )}
+                {({ points, chartBounds }) => {
+                  const bestRunIndices = overallStats.bestRunIndices;
+                  return (
+                    <>
+                      {/* Best Run Highlight Area */}
+                      {bestRunIndices && points.y.length > bestRunIndices.end + 1 && (
+                        <Rect
+                          x={points.y[bestRunIndices.start + 1]?.x ?? 0}
+                          y={chartBounds.top}
+                          width={(points.y[bestRunIndices.end + 1]?.x ?? 0) - (points.y[bestRunIndices.start + 1]?.x ?? 0)}
+                          height={chartBounds.bottom - chartBounds.top}
+                          color="rgba(34, 197, 94, 0.15)"
+                        />
+                      )}
+                      {/* Main Line */}
+                      <Line
+                        points={points.y}
+                        color={overallStats.netUnits >= 0 ? '#22c55e' : '#ef4444'}
+                        strokeWidth={2}
+                        curveType="monotoneX"
+                      />
+                    </>
+                  );
+                }}
               </CartesianChart>
             </View>
           ) : (
@@ -387,34 +375,81 @@ export default function EditorPicksStatsScreen() {
           )}
         </View>
 
-        {/* Sport Breakdown */}
+        {/* Individual Sport Charts */}
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-          Breakdown by Sport
+          Performance by Sport
         </Text>
-        {sportStats.filter(s => s.sport !== 'all').map(stat => (
+        {individualSportStats.map(stat => (
           <View
             key={stat.sport}
-            style={[styles.sportBreakdownCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+            style={[styles.sportChartCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
           >
-            <View style={styles.sportBreakdownHeader}>
-              <Text style={[styles.sportBreakdownLabel, { color: theme.colors.onSurface }]}>
+            {/* Sport Header */}
+            <View style={styles.sportChartHeader}>
+              <Text style={[styles.sportChartLabel, { color: theme.colors.onSurface }]}>
                 {stat.label}
               </Text>
-              <Text style={[
-                styles.sportBreakdownUnits,
-                { color: stat.netUnits >= 0 ? '#22c55e' : '#ef4444' }
-              ]}>
-                {stat.netUnits >= 0 ? '+' : ''}{stat.netUnits.toFixed(2)}u
-              </Text>
+              <View style={styles.sportChartStats}>
+                <Text style={[styles.sportChartRecord, { color: theme.colors.onSurfaceVariant }]}>
+                  {stat.won}-{stat.lost}{stat.push > 0 ? `-${stat.push}` : ''}
+                </Text>
+                <Text style={[
+                  styles.sportChartUnits,
+                  { color: stat.netUnits >= 0 ? '#22c55e' : '#ef4444' }
+                ]}>
+                  {stat.netUnits >= 0 ? '+' : ''}{stat.netUnits.toFixed(2)}u
+                </Text>
+              </View>
             </View>
-            <View style={styles.sportBreakdownStats}>
-              <Text style={[styles.sportBreakdownRecord, { color: theme.colors.onSurfaceVariant }]}>
-                {stat.won}-{stat.lost}{stat.push > 0 ? `-${stat.push}` : ''} ({stat.winRate.toFixed(1)}%)
-              </Text>
-              <Text style={[styles.sportBreakdownPicks, { color: theme.colors.onSurfaceVariant }]}>
-                {stat.picks.length} picks
-              </Text>
-            </View>
+
+            {/* Sport Chart */}
+            {stat.chartData.length > 1 ? (
+              <View style={styles.sportChartContainer}>
+                <CartesianChart
+                  data={stat.chartData}
+                  xKey="x"
+                  yKeys={["y"]}
+                  axisOptions={{
+                    font: undefined,
+                    lineColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)',
+                    labelColor: theme.colors.onSurfaceVariant,
+                    formatXLabel: () => '',
+                    formatYLabel: (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(0)}`,
+                  }}
+                >
+                  {({ points, chartBounds }) => {
+                    const bestRunIndices = stat.bestRunIndices;
+                    return (
+                      <>
+                        {/* Best Run Highlight Area */}
+                        {bestRunIndices && points.y.length > bestRunIndices.end + 1 && (
+                          <Rect
+                            x={points.y[bestRunIndices.start + 1]?.x ?? 0}
+                            y={chartBounds.top}
+                            width={(points.y[bestRunIndices.end + 1]?.x ?? 0) - (points.y[bestRunIndices.start + 1]?.x ?? 0)}
+                            height={chartBounds.bottom - chartBounds.top}
+                            color="rgba(34, 197, 94, 0.2)"
+                          />
+                        )}
+                        {/* Main Line */}
+                        <Line
+                          points={points.y}
+                          color={stat.netUnits >= 0 ? '#22c55e' : '#ef4444'}
+                          strokeWidth={2}
+                          curveType="monotoneX"
+                        />
+                      </>
+                    );
+                  }}
+                </CartesianChart>
+              </View>
+            ) : (
+              <View style={styles.noDataContainerSmall}>
+                <Text style={[styles.noDataTextSmall, { color: theme.colors.onSurfaceVariant }]}>
+                  No picks yet
+                </Text>
+              </View>
+            )}
           </View>
         ))}
       </ScrollView>
@@ -483,20 +518,6 @@ const styles = StyleSheet.create({
   editorSubtitle: {
     fontSize: 14,
   },
-  sportTabs: {
-    gap: 8,
-    paddingBottom: 16,
-  },
-  sportTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  sportTabActive: {},
-  sportTabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
   statsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -564,10 +585,28 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
   },
+  chartTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   chartTitle: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 8,
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  chartLegendText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#22c55e',
   },
   chartContainer: {
     height: 200,
@@ -587,33 +626,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
   },
-  sportBreakdownCard: {
+  sportChartCard: {
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 10,
+    borderRadius: 16,
+    marginBottom: 16,
   },
-  sportBreakdownHeader: {
+  sportChartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 12,
   },
-  sportBreakdownLabel: {
-    fontSize: 16,
+  sportChartLabel: {
+    fontSize: 18,
     fontWeight: '700',
   },
-  sportBreakdownUnits: {
+  sportChartStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sportChartRecord: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sportChartUnits: {
     fontSize: 16,
     fontWeight: '800',
   },
-  sportBreakdownStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  sportChartContainer: {
+    height: 120,
   },
-  sportBreakdownRecord: {
-    fontSize: 13,
+  noDataContainerSmall: {
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  sportBreakdownPicks: {
-    fontSize: 13,
+  noDataTextSmall: {
+    fontSize: 12,
   },
 });

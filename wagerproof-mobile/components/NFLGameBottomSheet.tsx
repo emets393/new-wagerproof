@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { NFLPrediction } from '@/types/nfl';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { getNFLTeamColors, getTeamParts, getTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { TeamAvatar } from './TeamAvatar';
 import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, roundToNearestHalf } from '@/utils/formatting';
 import { parseBettingSplit, getBettingColorTheme, getThemeColors } from '@/utils/nflDataFetchers';
 import { PublicBettingBars } from './nfl/PublicBettingBars';
@@ -156,19 +157,7 @@ export function NFLGameBottomSheet() {
             <View style={styles.teamsRow}>
               {/* Away Team */}
               <View style={styles.teamSection}>
-                <LinearGradient
-                  colors={[awayColors.primary, awayColors.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.teamCircleLarge, { borderColor: awayColors.primary }]}
-                >
-                  <Text style={[
-                    styles.teamInitialsLarge,
-                    { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }
-                  ]}>
-                    {getTeamInitials(game.away_team)}
-                  </Text>
-                </LinearGradient>
+                <TeamAvatar teamName={game.away_team} sport="nfl" size={80} />
                 <Text style={[styles.teamCity, { color: theme.colors.onSurface }]}>
                   {awayTeamParts.city}
                 </Text>
@@ -206,19 +195,7 @@ export function NFLGameBottomSheet() {
 
               {/* Home Team */}
               <View style={styles.teamSection}>
-                <LinearGradient
-                  colors={[homeColors.primary, homeColors.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.teamCircleLarge, { borderColor: homeColors.primary }]}
-                >
-                  <Text style={[
-                    styles.teamInitialsLarge,
-                    { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }
-                  ]}>
-                    {getTeamInitials(game.home_team)}
-                  </Text>
-                </LinearGradient>
+                <TeamAvatar teamName={game.home_team} sport="nfl" size={80} />
                 <Text style={[styles.teamCity, { color: theme.colors.onSurface }]}>
                   {homeTeamParts.city}
                 </Text>
@@ -334,19 +311,7 @@ export function NFLGameBottomSheet() {
                     </View>
                     <View style={[styles.predictionContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
                     <View style={styles.predictionRow}>
-                      <LinearGradient
-                        colors={[spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.predictionTeamCircle}
-                      >
-                        <Text style={[
-                          styles.predictionTeamInitials,
-                          { color: getContrastingTextColor(spreadPrediction.teamColors.primary, spreadPrediction.teamColors.secondary) }
-                        ]}>
-                          {getTeamInitials(spreadPrediction.predictedTeam)}
-                        </Text>
-                      </LinearGradient>
+                      <TeamAvatar teamName={spreadPrediction.predictedTeam} sport="nfl" size={40} />
                       <Text style={[styles.predictionTeamText, { color: theme.colors.onSurface }]}>
                         {spreadPrediction.predictedTeam}
                       </Text>
