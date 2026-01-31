@@ -7,30 +7,28 @@
   },
   "groups" : [
     {
-      "blur-material" : 0.5,
+      "hidden" : false,
       "layers" : [
         {
-          "glass" : true,
-          "hidden" : false,
-          "image-name" : "wagerprooflogowhitetransparent.png",
-          "name" : "wagerprooflogowhitetransparent",
+          "fill" : "none",
+          "image-name" : "wagerproofrawlogo.png",
+          "name" : "wagerproofrawlogo",
           "position" : {
-            "scale" : 1.1500000000000001,
+            "scale" : 1.2,
             "translation-in-points" : [
-              0,
-              0
+              -1.4140625,
+              6.0234375
             ]
           }
         }
       ],
       "shadow" : {
-        "kind" : "layer-color",
-        "opacity" : 0.8
+        "kind" : "neutral",
+        "opacity" : 0.5
       },
-      "specular" : true,
       "translucency" : {
         "enabled" : true,
-        "value" : 0.6
+        "value" : 0.5
       }
     }
   ],
