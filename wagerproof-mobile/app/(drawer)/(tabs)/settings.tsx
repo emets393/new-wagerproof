@@ -13,6 +13,7 @@ import { CustomerCenter } from '@/components/CustomerCenter';
 import { SwipeToDeleteSlider } from '@/components/SwipeToDeleteSlider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useLearnWagerProof } from '@/contexts/LearnWagerProofContext';
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
   const { isPro, subscriptionType } = useProAccess();
   const { openCustomerCenter, isInitialized, restore, customerInfo } = useRevenueCat();
   const { suggestionsEnabled, setSuggestionsEnabled, isDetached, dismissFloating } = useWagerBotSuggestion();
+  const { openLearnSheet } = useLearnWagerProof();
 
   // Dismiss floating assistant bubble when settings screen opens
   useEffect(() => {
@@ -402,6 +404,15 @@ export default function SettingsScreen() {
             left={props => <List.Icon {...props} icon="lightbulb-on" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={handleFeatureRequest}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+
+          <List.Item
+            title="Learn WagerProof"
+            description="Take a tour of app features"
+            left={props => <List.Icon {...props} icon="school" color={theme.colors.primary} />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => openLearnSheet()}
             style={{ backgroundColor: theme.colors.surface }}
           />
         </List.Section>

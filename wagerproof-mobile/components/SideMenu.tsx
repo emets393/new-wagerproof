@@ -12,6 +12,7 @@ import { RevenueCatPaywall } from '@/components/RevenueCatPaywall';
 import { CustomerCenter } from '@/components/CustomerCenter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useLearnWagerProof } from '@/contexts/LearnWagerProofContext';
 export default function SideMenu({ onClose }: { onClose?: () => void }) {
   const theme = useTheme();
   const { isDark, toggleTheme } = useThemeContext();
@@ -20,6 +21,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
   const subscriptionType = getSubscriptionType();
   const { openCustomerCenter, isInitialized } = useRevenueCat();
   const { suggestionsEnabled, setSuggestionsEnabled } = useWagerBotSuggestion();
+  const { openLearnSheet } = useLearnWagerProof();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [tapCount, setTapCount] = useState(0);
@@ -225,6 +227,18 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
             left={props => <List.Icon {...props} icon="lightbulb-on" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={handleFeatureRequest}
+            style={{ backgroundColor: 'transparent' }}
+          />
+
+          <List.Item
+            title="Learn WagerProof"
+            description="Take a tour of app features"
+            left={props => <List.Icon {...props} icon="school" color={theme.colors.primary} />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => {
+              onClose?.();
+              openLearnSheet();
+            }}
             style={{ backgroundColor: 'transparent' }}
           />
 

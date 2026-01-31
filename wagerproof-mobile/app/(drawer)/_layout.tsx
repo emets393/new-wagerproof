@@ -8,6 +8,8 @@ import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import SideMenu from '@/components/SideMenu';
+import { LearnWagerProofProvider } from '@/contexts/LearnWagerProofContext';
+import { LearnWagerProofBottomSheet } from '@/components/learn-wagerproof/LearnWagerProofBottomSheet';
 
 const DrawerContext = createContext<{ open: () => void; close: () => void } | null>(null);
 
@@ -86,43 +88,46 @@ export default function DrawerLayout() {
   
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <DrawerContext.Provider value={{ open: handleOpen, close: handleClose }}>
-        <Drawer
-          open={open}
-          onOpen={() => {
-            // Sync state when drawer opens via swipe
-            if (!open) {
-              // Dismiss floating assistant bubble when drawer opens via swipe
-              if (isDetached) {
-                dismissFloating();
+      <LearnWagerProofProvider>
+        <DrawerContext.Provider value={{ open: handleOpen, close: handleClose }}>
+          <Drawer
+            open={open}
+            onOpen={() => {
+              // Sync state when drawer opens via swipe
+              if (!open) {
+                // Dismiss floating assistant bubble when drawer opens via swipe
+                if (isDetached) {
+                  dismissFloating();
+                }
+                setOpen(true);
               }
-              setOpen(true);
-            }
-          }}
-          onClose={() => {
-            // Sync state when drawer closes
-            setOpen(false);
-          }}
-          drawerType="front"
-          renderDrawerContent={() => (
-            <AndroidBlurView
-              intensity={80}
-              tint={isDark ? 'dark' : 'light'}
-              style={{ flex: 1, width: '100%' }}
-            >
-              <SideMenu onClose={handleClose} />
-            </AndroidBlurView>
-          )}
-          drawerStyle={{
-            backgroundColor: 'transparent',
-            width: '80%',
-          }}
-          swipeEnabled={true}
-          swipeEdgeWidth={50}
-        >
-          <Slot />
-        </Drawer>
-      </DrawerContext.Provider>
+            }}
+            onClose={() => {
+              // Sync state when drawer closes
+              setOpen(false);
+            }}
+            drawerType="front"
+            renderDrawerContent={() => (
+              <AndroidBlurView
+                intensity={80}
+                tint={isDark ? 'dark' : 'light'}
+                style={{ flex: 1, width: '100%' }}
+              >
+                <SideMenu onClose={handleClose} />
+              </AndroidBlurView>
+            )}
+            drawerStyle={{
+              backgroundColor: 'transparent',
+              width: '80%',
+            }}
+            swipeEnabled={true}
+            swipeEdgeWidth={50}
+          >
+            <Slot />
+          </Drawer>
+          <LearnWagerProofBottomSheet />
+        </DrawerContext.Provider>
+      </LearnWagerProofProvider>
     </GestureHandlerRootView>
   );
 }
