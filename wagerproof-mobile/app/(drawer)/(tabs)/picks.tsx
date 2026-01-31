@@ -736,12 +736,52 @@ export default function PicksScreen() {
           const pickGameId = String(pick.game_id);
           if (!gameDataMap.has(pickGameId) && pick.archived_game_data) {
             const archived = pick.archived_game_data;
+            const awayTeam = archived.awayTeam || archived.away_team || 'Unknown';
+            const homeTeam = archived.homeTeam || archived.home_team || 'Unknown';
+            
+            // Get logos from archived data, or look them up by team name based on sport
+            let awayLogo = archived.awayLogo || archived.away_logo || '';
+            let homeLogo = archived.homeLogo || archived.home_logo || '';
+            
+            // If logos are empty, try to look them up based on sport type
+            if (!awayLogo || !homeLogo) {
+              const sport = pick.game_type;
+              if (sport === 'nba') {
+                if (!awayLogo) awayLogo = await getNBATeamLogo(awayTeam);
+                if (!homeLogo) homeLogo = await getNBATeamLogo(homeTeam);
+              } else if (sport === 'nfl') {
+                if (!awayLogo) awayLogo = getNFLTeamLogo(awayTeam);
+                if (!homeLogo) homeLogo = getNFLTeamLogo(homeTeam);
+              } else if (sport === 'cfb') {
+                if (!awayLogo) awayLogo = getCFBTeamLogo(awayTeam);
+                if (!homeLogo) homeLogo = getCFBTeamLogo(homeTeam);
+              }
+              // NCAAB requires team IDs which we don't have in archived data, so skip
+            }
+            
+            // Get team colors based on sport
+            let awayColors = archived.awayTeamColors || archived.away_team_colors;
+            let homeColors = archived.homeTeamColors || archived.home_team_colors;
+            
+            if (!awayColors || !homeColors) {
+              const sport = pick.game_type;
+              if (sport === 'nba') {
+                if (!awayColors) awayColors = getNBATeamColors(awayTeam);
+                if (!homeColors) homeColors = getNBATeamColors(homeTeam);
+              } else if (sport === 'nfl') {
+                if (!awayColors) awayColors = getNFLTeamColors(awayTeam);
+                if (!homeColors) homeColors = getNFLTeamColors(homeTeam);
+              } else if (sport === 'cfb' || sport === 'ncaab') {
+                if (!awayColors) awayColors = getCFBTeamColors(awayTeam);
+                if (!homeColors) homeColors = getCFBTeamColors(homeTeam);
+              }
+            }
             
             gameDataMap.set(pickGameId, {
-              away_team: archived.awayTeam || archived.away_team || 'Unknown',
-              home_team: archived.homeTeam || archived.home_team || 'Unknown',
-              away_logo: archived.awayLogo || archived.away_logo || '',
-              home_logo: archived.homeLogo || archived.home_logo || '',
+              away_team: awayTeam,
+              home_team: homeTeam,
+              away_logo: awayLogo,
+              home_logo: homeLogo,
               game_date: archived.gameDate || archived.game_date || 'TBD',
               game_time: archived.gameTime || archived.game_time || '',
               raw_game_date: archived.rawGameDate || archived.raw_game_date || archived.gameDate || archived.game_date,
@@ -750,8 +790,8 @@ export default function PicksScreen() {
               over_line: archived.overLine ?? archived.over_line ?? null,
               away_ml: archived.awayMl ?? archived.away_ml ?? null,
               home_ml: archived.homeMl ?? archived.home_ml ?? null,
-              away_team_colors: archived.awayTeamColors || archived.away_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
-              home_team_colors: archived.homeTeamColors || archived.home_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
+              away_team_colors: awayColors || { primary: '#6B7280', secondary: '#9CA3AF' },
+              home_team_colors: homeColors || { primary: '#6B7280', secondary: '#9CA3AF' },
             });
           }
         }

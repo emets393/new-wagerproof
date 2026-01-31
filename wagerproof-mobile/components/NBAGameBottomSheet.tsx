@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,7 +8,7 @@ import { MotiView } from 'moti';
 import * as Haptics from 'expo-haptics';
 import { NBAGame } from '@/types/nba';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
-import { getNBATeamColors, getNBATeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { getNBATeamColors, getNBATeamInitials, getNBATeamLogo, getContrastingTextColor } from '@/utils/teamColors';
 import { TeamAvatar } from './TeamAvatar';
 import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, roundToNearestHalf } from '@/utils/formatting';
 import { PolymarketWidget } from './PolymarketWidget';
@@ -86,6 +86,15 @@ export function NBAGameBottomSheet() {
 
   const awayColors = game ? getNBATeamColors(game.away_team) : { primary: '#000', secondary: '#000' };
   const homeColors = game ? getNBATeamColors(game.home_team) : { primary: '#000', secondary: '#000' };
+
+  // Get team logos
+  const awayLogo = game ? getNBATeamLogo(game.away_team) : '';
+  const homeLogo = game ? getNBATeamLogo(game.home_team) : '';
+
+  // Helper to check if URI is valid
+  const isValidImageUri = (uri: string | undefined | null): boolean => {
+    return typeof uri === 'string' && uri.length > 0 && (uri.startsWith('http://') || uri.startsWith('https://'));
+  };
 
   // Calculate edge values for spread (like CFB)
   const spreadPrediction = useMemo(() => {
@@ -239,7 +248,22 @@ export function NBAGameBottomSheet() {
             <View style={styles.teamsRow}>
               {/* Away Team */}
               <View style={styles.teamSection}>
-                <TeamAvatar teamName={game.away_team} sport="nba" size={88} />
+                {isValidImageUri(awayLogo) ? (
+                  <Image
+                    source={{ uri: awayLogo }}
+                    style={styles.teamLogoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={[awayColors.primary, awayColors.secondary]}
+                    style={styles.teamLogoFallback}
+                  >
+                    <Text style={[styles.teamInitialsLarge, { color: getContrastingTextColor(awayColors.primary, awayColors.secondary) }]}>
+                      {getNBATeamInitials(game.away_team)}
+                    </Text>
+                  </LinearGradient>
+                )}
                 <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
                   {game.away_team}
                 </Text>
@@ -274,7 +298,22 @@ export function NBAGameBottomSheet() {
 
               {/* Home Team */}
               <View style={styles.teamSection}>
-                <TeamAvatar teamName={game.home_team} sport="nba" size={88} />
+                {isValidImageUri(homeLogo) ? (
+                  <Image
+                    source={{ uri: homeLogo }}
+                    style={styles.teamLogoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={[homeColors.primary, homeColors.secondary]}
+                    style={styles.teamLogoFallback}
+                  >
+                    <Text style={[styles.teamInitialsLarge, { color: getContrastingTextColor(homeColors.primary, homeColors.secondary) }]}>
+                      {getNBATeamInitials(game.home_team)}
+                    </Text>
+                  </LinearGradient>
+                )}
                 <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
                   {game.home_team}
                 </Text>
@@ -654,6 +693,8 @@ const styles = StyleSheet.create({
   timeText: { fontSize: 13, fontWeight: '600' },
   teamsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 24 },
   teamSection: { alignItems: 'center', gap: 8, flex: 1 },
+  teamLogoImage: { width: 88, height: 88 },
+  teamLogoFallback: { width: 88, height: 88, borderRadius: 44, justifyContent: 'center', alignItems: 'center' },
   teamCircleLarge: { width: 88, height: 88, borderRadius: 44, justifyContent: 'center', alignItems: 'center', borderWidth: 3 },
   teamInitialsLarge: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', maxWidth: 76 },
   teamName: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
