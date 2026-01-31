@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useLearnWagerProof } from '@/contexts/LearnWagerProofContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -508,12 +509,22 @@ export default function LoginScreen() {
   const router = useRouter();
   const { signInWithProvider } = useAuth();
   const insets = useSafeAreaInsets();
+  const { openLearnSheet } = useLearnWagerProof();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+
+  // Show learn bottom sheet after 2 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      openLearnSheet();
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [openLearnSheet]);
   
   // Auto-advance with Pause support
   useEffect(() => {

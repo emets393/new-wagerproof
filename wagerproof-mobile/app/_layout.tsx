@@ -16,6 +16,7 @@ import { EditorPickSheetProvider } from '../contexts/EditorPickSheetContext';
 import { WagerBotChatSheetProvider } from '../contexts/WagerBotChatSheetContext';
 import { WagerBotSuggestionProvider, useWagerBotSuggestion } from '../contexts/WagerBotSuggestionContext';
 import { RevenueCatProvider, useRevenueCat } from '../contexts/RevenueCatContext';
+import { LearnWagerProofProvider } from '../contexts/LearnWagerProofContext';
 import { OnboardingGuard } from '../components/OnboardingGuard';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
@@ -26,6 +27,7 @@ import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { EditorPickCreatorBottomSheet } from '../components/EditorPickCreatorBottomSheet';
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
 import { AnimatedSplash } from '../components/AnimatedSplash';
+import { LearnWagerProofBottomSheet } from '../components/learn-wagerproof/LearnWagerProofBottomSheet';
 import { useOnGameSheetOpen, useGameSheetDetection } from '../hooks/useGameSheetDetection';
 import { useAppReady } from '../hooks/useAppReady';
 import { useNetworkState } from '../hooks/useNetworkState';
@@ -373,10 +375,13 @@ function RootLayoutContent() {
                       <NCAABGameSheetProvider>
                         <NBABettingTrendsSheetProvider>
                           <WagerBotChatSheetProvider>
-                            <RootNavigator />
-                            <WebPurchaseRedemptionHandler />
-                            <EditorPickCreatorBottomSheet />
-                            <NBABettingTrendsBottomSheet />
+                            <LearnWagerProofProvider>
+                              <RootNavigator />
+                              <WebPurchaseRedemptionHandler />
+                              <EditorPickCreatorBottomSheet />
+                              <NBABettingTrendsBottomSheet />
+                              <LearnWagerProofBottomSheet />
+                            </LearnWagerProofProvider>
                           </WagerBotChatSheetProvider>
                         </NBABettingTrendsSheetProvider>
                       </NCAABGameSheetProvider>

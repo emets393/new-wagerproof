@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo, useRef, useEffect } from 'react';
-import { StyleSheet, Dimensions, FlatList, View, Text, TouchableOpacity } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import { StyleSheet, Dimensions, FlatList, View, Text, TouchableOpacity, Platform } from 'react-native';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetView, BottomSheetBackgroundProps } from '@gorhom/bottom-sheet';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useLearnWagerProof, TOTAL_SLIDES } from '@/contexts/LearnWagerProofContext';
 import { LearnSlide } from './LearnSlide';
@@ -15,8 +16,42 @@ import {
 } from './slides';
 
 const WAGERPROOF_GREEN = '#00E676';
+const isIOS = Platform.OS === 'ios';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Custom blur background for iOS only
+const BlurredBackground = ({ style, isDark }: BottomSheetBackgroundProps & { isDark: boolean }) => {
+  if (!isIOS) {
+    return (
+      <View
+        style={[
+          style,
+          {
+            backgroundColor: isDark ? '#121212' : '#ffffff',
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+          },
+        ]}
+      />
+    );
+  }
+
+  return (
+    <BlurView
+      intensity={isDark ? 80 : 90}
+      tint={isDark ? 'dark' : 'light'}
+      style={[
+        style,
+        {
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          overflow: 'hidden',
+        },
+      ]}
+    />
+  );
+};
 
 // Slide configuration
 const SLIDES = [
@@ -170,6 +205,11 @@ export function LearnWagerProofBottomSheet() {
     []
   );
 
+  const renderBackground = useCallback(
+    (props: BottomSheetBackgroundProps) => <BlurredBackground {...props} isDark={isDark} />,
+    [isDark]
+  );
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
@@ -178,12 +218,10 @@ export function LearnWagerProofBottomSheet() {
       enableDynamicSizing={false}
       onChange={handleSheetChanges}
       backdropComponent={renderBackdrop}
+      backgroundComponent={renderBackground}
       enablePanDownToClose
       keyboardBehavior="interactive"
       bottomInset={0}
-      backgroundStyle={{
-        backgroundColor: isDark ? '#121212' : '#ffffff',
-      }}
       handleIndicatorStyle={{
         backgroundColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
         width: 40,
