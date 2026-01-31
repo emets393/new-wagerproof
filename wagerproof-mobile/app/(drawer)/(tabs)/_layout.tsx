@@ -426,7 +426,10 @@ export default function TabsLayout() {
     <ScrollProvider>
       <PickDetailSheetProvider>
         <TabsContent />
-        <PickDetailBottomSheet />
+        {/* Wrap in View with higher zIndex to appear above FloatingTabBar (zIndex: 1000) */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, pointerEvents: 'box-none' }}>
+          <PickDetailBottomSheet />
+        </View>
       </PickDetailSheetProvider>
     </ScrollProvider>
   );

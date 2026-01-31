@@ -8,8 +8,10 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const HORIZONTAL_PADDING = 16;
-const CARD_GAP = 12;
-const CARD_WIDTH = SCREEN_WIDTH - (HORIZONTAL_PADDING * 2);
+// Each page is full screen width for perfect paging with no play
+const PAGE_WIDTH = SCREEN_WIDTH;
+// Card has padding on both sides
+const CARD_WIDTH = PAGE_WIDTH - (HORIZONTAL_PADDING * 2);
 
 export function EditorPicksStatsBanner() {
   const theme = useTheme();
@@ -29,7 +31,7 @@ export function EditorPicksStatsBanner() {
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / (CARD_WIDTH + CARD_GAP));
+    const index = Math.round(offsetX / PAGE_WIDTH);
     setActiveIndex(index);
   };
 
@@ -38,103 +40,98 @@ export function EditorPicksStatsBanner() {
       <ScrollView
         ref={scrollViewRef}
         horizontal
+        pagingEnabled
         showsHorizontalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        decelerationRate="fast"
-        snapToInterval={CARD_WIDTH + CARD_GAP}
-        snapToAlignment="center"
-        contentContainerStyle={styles.scrollContent}
       >
-        {/* Editor's Picks Card */}
-        <TouchableOpacity onPress={handleEditorPicksPress} activeOpacity={0.8}>
-          <LinearGradient
-            colors={isDark
-              ? ['rgba(30, 64, 175, 0.25)', 'rgba(6, 95, 70, 0.2)']
-              : ['rgba(239, 246, 255, 1)', 'rgba(236, 253, 245, 1)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[
-              styles.container,
-              { borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : 'rgba(191, 219, 254, 1)' }
-            ]}
-          >
-            <View style={styles.leftSection}>
-              <View style={[styles.avatarContainer, { borderColor: isDark ? '#3b82f6' : '#2563eb' }]}>
-                <Image
-                  source={require('@/assets/editor-avatar.png')}
-                  style={styles.avatar}
-                  resizeMode="cover"
-                />
+        {/* Editor's Picks Card - Page 1 */}
+        <View style={styles.page}>
+          <TouchableOpacity onPress={handleEditorPicksPress} activeOpacity={0.8}>
+            <LinearGradient
+              colors={isDark
+                ? ['rgba(30, 64, 175, 0.25)', 'rgba(6, 95, 70, 0.2)']
+                : ['rgba(239, 246, 255, 1)', 'rgba(236, 253, 245, 1)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[
+                styles.container,
+                { borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : 'rgba(191, 219, 254, 1)' }
+              ]}
+            >
+              <View style={styles.leftSection}>
+                <View style={[styles.avatarContainer, { borderColor: isDark ? '#3b82f6' : '#2563eb' }]}>
+                  <Image
+                    source={require('@/assets/editor-avatar.png')}
+                    style={styles.avatar}
+                    resizeMode="cover"
+                  />
+                </View>
+                <View style={styles.labelContainer}>
+                  <Text style={[styles.editorLabel, { color: isDark ? '#93c5fd' : '#1e40af' }]}>
+                    Editor's Picks
+                  </Text>
+                  <Text style={[styles.viewStats, { color: theme.colors.onSurfaceVariant }]}>
+                    View Stats
+                  </Text>
+                </View>
               </View>
-              <View style={styles.labelContainer}>
-                <Text style={[styles.editorLabel, { color: isDark ? '#93c5fd' : '#1e40af' }]}>
-                  Editor's Picks
-                </Text>
-                <Text style={[styles.viewStats, { color: theme.colors.onSurfaceVariant }]}>
-                  View Stats
-                </Text>
-              </View>
-            </View>
 
-            <View style={styles.rightSection}>
-              <Text style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>
-                Follow the creator's{'\n'}personal picks
-              </Text>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={24}
-                color={theme.colors.onSurfaceVariant}
-                style={styles.chevron}
-              />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* Model History Card */}
-        <TouchableOpacity onPress={handleModelHistoryPress} activeOpacity={0.8}>
-          <LinearGradient
-            colors={isDark
-              ? ['rgba(124, 58, 237, 0.25)', 'rgba(219, 39, 119, 0.2)']
-              : ['rgba(245, 243, 255, 1)', 'rgba(253, 242, 248, 1)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[
-              styles.container,
-              { borderColor: isDark ? 'rgba(139, 92, 246, 0.3)' : 'rgba(221, 214, 254, 1)' }
-            ]}
-          >
-            <View style={styles.leftSection}>
-              <View style={[styles.iconContainer, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)', borderColor: isDark ? '#8b5cf6' : '#7c3aed' }]}>
+              <View style={styles.rightSection}>
+                <Text style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>
+                  Follow the creator's{'\n'}personal picks
+                </Text>
                 <MaterialCommunityIcons
-                  name="chart-line"
-                  size={28}
-                  color={isDark ? '#a78bfa' : '#7c3aed'}
+                  name="chevron-right"
+                  size={24}
+                  color={theme.colors.onSurfaceVariant}
+                  style={styles.chevron}
                 />
               </View>
-              <View style={styles.labelContainer}>
-                <Text style={[styles.editorLabel, { color: isDark ? '#c4b5fd' : '#5b21b6' }]}>
-                  Model History
-                </Text>
-                <Text style={[styles.viewStats, { color: theme.colors.onSurfaceVariant }]}>
-                  View Stats
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
+        {/* Model History Card - Page 2 */}
+        <View style={styles.page}>
+          <TouchableOpacity onPress={handleModelHistoryPress} activeOpacity={0.8}>
+            <LinearGradient
+              colors={isDark
+                ? ['rgba(124, 58, 237, 0.25)', 'rgba(219, 39, 119, 0.2)']
+                : ['rgba(245, 243, 255, 1)', 'rgba(253, 242, 248, 1)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[
+                styles.container,
+                { borderColor: isDark ? 'rgba(139, 92, 246, 0.3)' : 'rgba(221, 214, 254, 1)' }
+              ]}
+            >
+              <View style={styles.leftSection}>
+                <View style={[styles.iconContainer, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)', borderColor: isDark ? '#8b5cf6' : '#7c3aed' }]}>
+                  <MaterialCommunityIcons
+                    name="brain"
+                    size={28}
+                    color={isDark ? '#a78bfa' : '#7c3aed'}
+                  />
+                </View>
+                <View style={styles.labelContainer}>
+                  <Text style={[styles.editorLabel, { color: isDark ? '#c4b5fd' : '#5b21b6' }]}>
+                    Model History
+                  </Text>
+                  <Text style={[styles.viewStats, { color: theme.colors.onSurfaceVariant }]}>
+                    View Stats
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.rightSection}>
+                <Text style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>
+                  Statistical performance{'\n'}of the underlying ML model
                 </Text>
               </View>
-            </View>
-
-            <View style={styles.rightSection}>
-              <Text style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>
-                Statistical performance{'\n'}of the underlying ML model
-              </Text>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={24}
-                color={theme.colors.onSurfaceVariant}
-                style={styles.chevron}
-              />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Pagination Dots */}
@@ -146,7 +143,7 @@ export function EditorPicksStatsBanner() {
       {/* Coming Soon Dialog */}
       <Portal>
         <Dialog visible={showComingSoon} onDismiss={() => setShowComingSoon(false)} style={{ backgroundColor: theme.colors.surface }}>
-          <Dialog.Icon icon="chart-line" />
+          <Dialog.Icon icon="brain" />
           <Dialog.Title style={{ textAlign: 'center' }}>Coming Soon</Dialog.Title>
           <Dialog.Content>
             <Text style={{ textAlign: 'center', color: theme.colors.onSurfaceVariant }}>
@@ -166,10 +163,13 @@ const styles = StyleSheet.create({
   wrapper: {
     marginTop: 20,
     marginBottom: 12,
+    // Use negative horizontal margins to counteract parent's paddingHorizontal: 16
+    marginHorizontal: -HORIZONTAL_PADDING,
   },
-  scrollContent: {
+  page: {
+    width: PAGE_WIDTH,
     paddingHorizontal: HORIZONTAL_PADDING,
-    gap: CARD_GAP,
+    justifyContent: 'center',
   },
   container: {
     width: CARD_WIDTH,

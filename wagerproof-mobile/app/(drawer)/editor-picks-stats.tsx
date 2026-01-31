@@ -15,6 +15,15 @@ import { calculateUnits, calculateTotalUnits } from '@/utils/unitsCalculation';
 const { width: screenWidth } = Dimensions.get('window');
 
 type Sport = 'all' | 'nfl' | 'cfb' | 'nba' | 'ncaab';
+type DateFilter = 'best_run' | '7d' | '30d' | '90d' | 'all_time';
+
+const DATE_FILTERS: { id: DateFilter; label: string; icon: string }[] = [
+  { id: 'best_run', label: 'Best Run', icon: 'chart-timeline-variant-shimmer' },
+  { id: '7d', label: '7 Days', icon: 'calendar-week' },
+  { id: '30d', label: '30 Days', icon: 'calendar-month' },
+  { id: '90d', label: '90 Days', icon: 'calendar-range' },
+  { id: 'all_time', label: 'All Time', icon: 'calendar-star' },
+];
 
 interface SportStats {
   sport: Sport;
@@ -27,6 +36,7 @@ interface SportStats {
   picks: EditorPick[];
   chartData: { x: number; y: number; isBestRun?: boolean }[];
   bestRunIndices: { start: number; end: number } | null;
+  bestRun: BestRun | null;
 }
 
 interface BestRun {
@@ -35,7 +45,8 @@ interface BestRun {
   wins: number;
   losses: number;
   netUnits: number;
-  maxUnits: number;
+  lowPoint: number;
+  highPoint: number;
   picks: EditorPick[];
 }
 
@@ -47,6 +58,7 @@ export default function EditorPicksStatsScreen() {
 
   const [allPicks, setAllPicks] = useState<EditorPick[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dateFilter, setDateFilter] = useState<DateFilter>('best_run');
 
   // Fetch all picks
   useEffect(() => {
@@ -71,6 +83,7 @@ export default function EditorPicksStatsScreen() {
   }, []);
 
   // Helper to calculate best run for a set of picks
+  // This finds the period from lowest low to highest high (maximum gain period)
   const calculateBestRun = (picks: EditorPick[]): { bestRun: BestRun | null; bestRunIndices: { start: number; end: number } | null } => {
     const sortedPicks = [...picks]
       .filter(p => p.result && p.result !== 'pending')
@@ -78,51 +91,97 @@ export default function EditorPicksStatsScreen() {
 
     if (sortedPicks.length === 0) return { bestRun: null, bestRunIndices: null };
 
-    let bestRun: BestRun | null = null;
-    let currentRunStart = 0;
-    let currentWins = 0;
-    let runningUnits = 0;
-    let maxUnitsInRun = 0;
-    let currentPicks: EditorPick[] = [];
-
-    for (let i = 0; i < sortedPicks.length; i++) {
-      const pick = sortedPicks[i];
+    // Calculate cumulative units at each point
+    const cumulativeUnits: number[] = [0]; // Start at 0
+    let running = 0;
+    
+    sortedPicks.forEach(pick => {
       const calc = calculateUnits(pick.result, pick.best_price, pick.units);
+      running += calc.netUnits;
+      cumulativeUnits.push(running);
+    });
 
-      if (pick.result === 'won') {
-        currentWins++;
-        currentPicks.push(pick);
-        runningUnits += calc.netUnits;
-        maxUnitsInRun = Math.max(maxUnitsInRun, runningUnits);
+    // Find the maximum gain period (lowest point to highest point after it)
+    let bestGain = 0;
+    let bestStartIdx = 0;
+    let bestEndIdx = 0;
+    let minValue = cumulativeUnits[0];
+    let minIdx = 0;
 
-        if (!bestRun || currentWins > bestRun.wins ||
-            (currentWins === bestRun.wins && runningUnits > bestRun.netUnits)) {
-          bestRun = {
-            startIndex: currentRunStart,
-            endIndex: i,
-            wins: currentWins,
-            losses: 0,
-            netUnits: runningUnits,
-            maxUnits: maxUnitsInRun,
-            picks: [...currentPicks],
-          };
-        }
-      } else if (pick.result === 'lost') {
-        currentRunStart = i + 1;
-        currentWins = 0;
-        runningUnits = 0;
-        maxUnitsInRun = 0;
-        currentPicks = [];
+    for (let i = 1; i < cumulativeUnits.length; i++) {
+      // Update minimum if we find a new low
+      if (cumulativeUnits[i] < minValue) {
+        minValue = cumulativeUnits[i];
+        minIdx = i;
+      }
+      
+      // Check if current point gives us a better gain from the lowest point
+      const currentGain = cumulativeUnits[i] - minValue;
+      if (currentGain > bestGain) {
+        bestGain = currentGain;
+        bestStartIdx = minIdx;
+        bestEndIdx = i;
       }
     }
 
+    // If no positive gain found, return null
+    if (bestGain <= 0) return { bestRun: null, bestRunIndices: null };
+
+    // Get the picks in the best run period (indices are offset by 1 due to starting at 0)
+    const runPicks = sortedPicks.slice(bestStartIdx, bestEndIdx);
+    const wins = runPicks.filter(p => p.result === 'won').length;
+    const losses = runPicks.filter(p => p.result === 'lost').length;
+
+    const bestRun: BestRun = {
+      startIndex: bestStartIdx,
+      endIndex: bestEndIdx - 1, // Adjust for 0-based pick index
+      wins,
+      losses,
+      netUnits: bestGain,
+      lowPoint: minValue,
+      highPoint: cumulativeUnits[bestEndIdx],
+      picks: runPicks,
+    };
+
     return {
       bestRun,
-      bestRunIndices: bestRun ? { start: bestRun.startIndex, end: bestRun.endIndex } : null
+      bestRunIndices: { start: bestStartIdx, end: bestEndIdx }
     };
   };
 
-  // Calculate stats for each sport
+  // Helper to filter picks by date range
+  const getFilteredPicks = useMemo(() => {
+    if (dateFilter === 'all_time') {
+      return allPicks;
+    }
+
+    if (dateFilter === 'best_run') {
+      // For best run, we'll show the picks in the best run period
+      const { bestRun } = calculateBestRun(allPicks);
+      return bestRun ? bestRun.picks : allPicks;
+    }
+
+    const now = new Date();
+    let cutoffDate: Date;
+
+    switch (dateFilter) {
+      case '7d':
+        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30d':
+        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '90d':
+        cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        return allPicks;
+    }
+
+    return allPicks.filter(pick => new Date(pick.created_at) >= cutoffDate);
+  }, [allPicks, dateFilter]);
+
+  // Calculate stats for each sport (using filtered picks)
   const sportStats = useMemo((): SportStats[] => {
     const sports: { sport: Sport; label: string }[] = [
       { sport: 'all', label: 'All Sports' },
@@ -134,8 +193,8 @@ export default function EditorPicksStatsScreen() {
 
     return sports.map(({ sport, label }) => {
       const picks = sport === 'all'
-        ? allPicks
-        : allPicks.filter(p => p.game_type === sport);
+        ? getFilteredPicks
+        : getFilteredPicks.filter(p => p.game_type === sport);
 
       const won = picks.filter(p => p.result === 'won').length;
       const lost = picks.filter(p => p.result === 'lost').length;
@@ -161,11 +220,11 @@ export default function EditorPicksStatsScreen() {
       });
 
       // Calculate best run indices
-      const { bestRunIndices } = calculateBestRun(picks);
+      const { bestRunIndices, bestRun } = calculateBestRun(picks);
 
       // Mark best run points in chart data
       if (bestRunIndices) {
-        for (let i = bestRunIndices.start + 1; i <= bestRunIndices.end + 1; i++) {
+        for (let i = bestRunIndices.start; i <= bestRunIndices.end; i++) {
           if (chartData[i]) {
             chartData[i].isBestRun = true;
           }
@@ -183,9 +242,10 @@ export default function EditorPicksStatsScreen() {
         picks,
         chartData,
         bestRunIndices,
+        bestRun,
       };
     });
-  }, [allPicks]);
+  }, [getFilteredPicks]);
 
   // Get overall stats (all sports)
   const overallStats = sportStats.find(s => s.sport === 'all') || sportStats[0];
@@ -193,11 +253,17 @@ export default function EditorPicksStatsScreen() {
   // Get individual sport stats (excluding 'all')
   const individualSportStats = sportStats.filter(s => s.sport !== 'all');
 
-  // Calculate overall best run
+  // Calculate overall best run (for filtered data)
   const overallBestRun = useMemo(() => {
-    const { bestRun } = calculateBestRun(allPicks);
+    const { bestRun } = calculateBestRun(getFilteredPicks);
     return bestRun;
-  }, [allPicks]);
+  }, [getFilteredPicks]);
+
+  // Get the date range label for display
+  const getDateRangeLabel = () => {
+    const filter = DATE_FILTERS.find(f => f.id === dateFilter);
+    return filter?.label || 'All Time';
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
@@ -237,6 +303,22 @@ export default function EditorPicksStatsScreen() {
           </View>
         </LinearGradient>
 
+        {/* Transparency Description */}
+        <View style={[styles.transparencyCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }]}>
+          <View style={styles.transparencyHeader}>
+            <MaterialCommunityIcons name="shield-check" size={20} color="#00E676" />
+            <Text style={[styles.transparencyTitle, { color: theme.colors.onSurface }]}>
+              Full Transparency
+            </Text>
+          </View>
+          <Text style={[styles.transparencyText, { color: theme.colors.onSurfaceVariant }]}>
+            This page is dedicated to providing complete transparency. Unlike other apps, we want to show users everything that we do — the wins, the losses, and everything in between.
+          </Text>
+          <Text style={[styles.transparencyText, { color: theme.colors.onSurfaceVariant, marginTop: 8 }]}>
+            WagerProof was designed in Columbus, Ohio and Austin, Texas by two childhood friends who share a passion for sports and technology. We built this for bettors like us who value honesty and data-driven insights.
+          </Text>
+        </View>
+
         {/* Overall Stats Cards */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
@@ -263,8 +345,52 @@ export default function EditorPicksStatsScreen() {
           </View>
         </View>
 
-        {/* Best Recent Run Card */}
-        {overallBestRun && overallBestRun.wins > 0 && (
+        {/* Date Filter Pills */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.dateFilterScroll}
+          contentContainerStyle={styles.dateFilterContainer}
+        >
+          {DATE_FILTERS.map(filter => {
+            const isActive = dateFilter === filter.id;
+            return (
+              <TouchableOpacity
+                key={filter.id}
+                style={[
+                  styles.dateFilterPill,
+                  { 
+                    backgroundColor: isActive 
+                      ? (isDark ? 'rgba(0, 230, 118, 0.2)' : 'rgba(0, 230, 118, 0.15)')
+                      : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'),
+                    borderColor: isActive ? '#00E676' : 'transparent',
+                  }
+                ]}
+                onPress={() => setDateFilter(filter.id)}
+              >
+                <MaterialCommunityIcons 
+                  name={filter.icon as any} 
+                  size={14} 
+                  color={isActive ? '#00E676' : theme.colors.onSurfaceVariant} 
+                />
+                <Text style={[
+                  styles.dateFilterText,
+                  { color: isActive ? '#00E676' : theme.colors.onSurfaceVariant }
+                ]}>
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Filter Context Label */}
+        <Text style={[styles.filterContextLabel, { color: theme.colors.onSurfaceVariant }]}>
+          Showing: {getDateRangeLabel()} ({getFilteredPicks.length} picks)
+        </Text>
+
+        {/* Best Run Card - Lowest Low to Highest High */}
+        {overallBestRun && overallBestRun.netUnits > 0 && (
           <LinearGradient
             colors={isDark
               ? ['rgba(34, 197, 94, 0.2)', 'rgba(34, 197, 94, 0.1)']
@@ -272,36 +398,39 @@ export default function EditorPicksStatsScreen() {
             style={[styles.bestRunCard, { borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : '#86efac' }]}
           >
             <View style={styles.bestRunHeader}>
-              <MaterialCommunityIcons name="fire" size={24} color="#22c55e" />
+              <MaterialCommunityIcons name="chart-timeline-variant-shimmer" size={24} color="#22c55e" />
               <Text style={[styles.bestRunTitle, { color: isDark ? '#86efac' : '#166534' }]}>
-                Best Recent Run
+                Best Run (Low to High)
               </Text>
             </View>
+            <Text style={[styles.bestRunSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+              From lowest point to peak performance
+            </Text>
             <View style={styles.bestRunStats}>
-              <View style={styles.bestRunStat}>
-                <Text style={[styles.bestRunStatValue, { color: theme.colors.onSurface }]}>
-                  {overallBestRun.wins}
-                </Text>
-                <Text style={[styles.bestRunStatLabel, { color: theme.colors.onSurfaceVariant }]}>
-                  Wins
-                </Text>
-              </View>
-              <View style={[styles.bestRunDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]} />
               <View style={styles.bestRunStat}>
                 <Text style={[styles.bestRunStatValue, { color: '#22c55e' }]}>
                   +{overallBestRun.netUnits.toFixed(2)}
                 </Text>
                 <Text style={[styles.bestRunStatLabel, { color: theme.colors.onSurfaceVariant }]}>
-                  Units Won
+                  Units Gained
                 </Text>
               </View>
               <View style={[styles.bestRunDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]} />
               <View style={styles.bestRunStat}>
                 <Text style={[styles.bestRunStatValue, { color: theme.colors.onSurface }]}>
-                  {overallBestRun.maxUnits.toFixed(2)}
+                  {overallBestRun.wins}-{overallBestRun.losses}
                 </Text>
                 <Text style={[styles.bestRunStatLabel, { color: theme.colors.onSurfaceVariant }]}>
-                  Max Units
+                  Record
+                </Text>
+              </View>
+              <View style={[styles.bestRunDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]} />
+              <View style={styles.bestRunStat}>
+                <Text style={[styles.bestRunStatValue, { color: theme.colors.onSurface }]}>
+                  {overallBestRun.picks.length}
+                </Text>
+                <Text style={[styles.bestRunStatLabel, { color: theme.colors.onSurfaceVariant }]}>
+                  Picks
                 </Text>
               </View>
             </View>
@@ -344,11 +473,11 @@ export default function EditorPicksStatsScreen() {
                   return (
                     <>
                       {/* Best Run Highlight Area */}
-                      {bestRunIndices && points.y.length > bestRunIndices.end + 1 && (
+                      {bestRunIndices && points.y.length > bestRunIndices.end && (
                         <Rect
-                          x={points.y[bestRunIndices.start + 1]?.x ?? 0}
+                          x={points.y[bestRunIndices.start]?.x ?? 0}
                           y={chartBounds.top}
-                          width={(points.y[bestRunIndices.end + 1]?.x ?? 0) - (points.y[bestRunIndices.start + 1]?.x ?? 0)}
+                          width={(points.y[bestRunIndices.end]?.x ?? 0) - (points.y[bestRunIndices.start]?.x ?? 0)}
                           height={chartBounds.bottom - chartBounds.top}
                           color="rgba(34, 197, 94, 0.15)"
                         />
@@ -402,6 +531,16 @@ export default function EditorPicksStatsScreen() {
               </View>
             </View>
 
+            {/* Best Run Badge for this sport */}
+            {stat.bestRun && stat.bestRun.netUnits > 0 && (
+              <View style={[styles.sportBestRunBadge, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)' }]}>
+                <MaterialCommunityIcons name="chart-timeline-variant-shimmer" size={14} color="#22c55e" />
+                <Text style={styles.sportBestRunText}>
+                  Best Run: <Text style={{ fontWeight: '700' }}>+{stat.bestRun.netUnits.toFixed(2)}u</Text> ({stat.bestRun.wins}-{stat.bestRun.losses})
+                </Text>
+              </View>
+            )}
+
             {/* Sport Chart */}
             {stat.chartData.length > 1 ? (
               <View style={styles.sportChartContainer}>
@@ -422,11 +561,11 @@ export default function EditorPicksStatsScreen() {
                     return (
                       <>
                         {/* Best Run Highlight Area */}
-                        {bestRunIndices && points.y.length > bestRunIndices.end + 1 && (
+                        {bestRunIndices && points.y.length > bestRunIndices.end && (
                           <Rect
-                            x={points.y[bestRunIndices.start + 1]?.x ?? 0}
+                            x={points.y[bestRunIndices.start]?.x ?? 0}
                             y={chartBounds.top}
-                            width={(points.y[bestRunIndices.end + 1]?.x ?? 0) - (points.y[bestRunIndices.start + 1]?.x ?? 0)}
+                            width={(points.y[bestRunIndices.end]?.x ?? 0) - (points.y[bestRunIndices.start]?.x ?? 0)}
                             height={chartBounds.bottom - chartBounds.top}
                             color="rgba(34, 197, 94, 0.2)"
                           />
@@ -518,6 +657,25 @@ const styles = StyleSheet.create({
   editorSubtitle: {
     fontSize: 14,
   },
+  transparencyCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  transparencyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  transparencyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  transparencyText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
   statsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -544,6 +702,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  dateFilterScroll: {
+    marginBottom: 8,
+    marginHorizontal: -16,
+  },
+  dateFilterContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  dateFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  dateFilterText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterContextLabel: {
+    fontSize: 12,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
   bestRunCard: {
     padding: 16,
     borderRadius: 16,
@@ -559,6 +744,10 @@ const styles = StyleSheet.create({
   bestRunTitle: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  bestRunSubtitle: {
+    fontSize: 12,
+    marginBottom: 12,
   },
   bestRunStats: {
     flexDirection: 'row',
@@ -653,6 +842,20 @@ const styles = StyleSheet.create({
   sportChartUnits: {
     fontSize: 16,
     fontWeight: '800',
+  },
+  sportBestRunBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  sportBestRunText: {
+    fontSize: 12,
+    color: '#22c55e',
   },
   sportChartContainer: {
     height: 120,
