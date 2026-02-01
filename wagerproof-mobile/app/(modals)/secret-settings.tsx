@@ -10,6 +10,7 @@ import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useProAccess } from '@/hooks/useProAccess';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import { useMetaTestSheet } from '@/contexts/MetaTestSheetContext';
 import { getOfferingById, getAllOfferings, syncPurchases } from '@/services/revenuecat';
 
 // Import RevenueCatUI for presenting paywalls
@@ -32,6 +33,7 @@ export default function SecretSettingsScreen() {
   const { forceFreemiumMode, setForceFreemiumMode, isPro } = useProAccess();
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
   const { refreshCustomerInfo } = useRevenueCat();
+  const { openSheet: openMetaTestSheet } = useMetaTestSheet();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -449,6 +451,15 @@ export default function SecretSettingsScreen() {
             left={props => <List.Icon {...props} icon="credit-card" color={theme.colors.primary} />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={handleTestPaywall}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+          
+          <List.Item
+            title="Test Meta SDK Events"
+            description="Debug Facebook/Meta attribution events"
+            left={props => <List.Icon {...props} icon="facebook" color="#1877F2" />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={openMetaTestSheet}
             style={{ backgroundColor: theme.colors.surface }}
           />
         </List.Section>

@@ -619,3 +619,299 @@ export const trackWagerBotMessage = (messageLength: number): void => {
 
   incrementUserProperty('wagerbot_messages_sent');
 };
+
+// ===== Meta SDK Debug/Test Functions =====
+
+/**
+ * Response structure for test Meta events
+ */
+export interface MetaTestEventResponse {
+  timestamp: string;
+  eventName: string;
+  isTestEvent: boolean;
+  services: {
+    meta: {
+      success: boolean;
+      message: string;
+      sentPayload: Record<string, any>;
+      error?: string;
+    };
+    mixpanel: {
+      success: boolean;
+      message: string;
+      sentPayload: Record<string, any>;
+      error?: string;
+    };
+  };
+}
+
+/**
+ * Check if Facebook SDK is initialized and ready
+ */
+export const isFacebookSDKReady = (): boolean => {
+  return isFacebookInitialized;
+};
+
+/**
+ * Check if Mixpanel is initialized and ready
+ */
+export const isMixpanelReady = (): boolean => {
+  return isInitialized && mixpanelInstance !== null;
+};
+
+/**
+ * Flush Facebook events immediately
+ * Forces queued events to be sent to Meta servers
+ */
+export const flushFacebookEvents = async (): Promise<{ success: boolean; message: string }> => {
+  if (!isFacebookInitialized) {
+    return {
+      success: false,
+      message: 'Facebook SDK not initialized',
+    };
+  }
+
+  try {
+    // react-native-fbsdk-next uses AppEventsLogger.flush()
+    await AppEventsLogger.flush();
+    console.log('📊 Analytics: Facebook events flushed');
+    return {
+      success: true,
+      message: 'Events flushed successfully',
+    };
+  } catch (error: any) {
+    console.error('📊 Analytics: Error flushing Facebook events:', error);
+    return {
+      success: false,
+      message: error?.message || 'Failed to flush events',
+    };
+  }
+};
+
+/**
+ * Flush all analytics (Mixpanel + Facebook)
+ */
+export const flushAllAnalytics = async (): Promise<{
+  mixpanel: { success: boolean; message: string };
+  facebook: { success: boolean; message: string };
+}> => {
+  // Flush Mixpanel
+  let mixpanelResult = { success: false, message: 'Not initialized' };
+  if (mixpanelInstance && isInitialized) {
+    try {
+      mixpanelInstance.flush();
+      mixpanelResult = { success: true, message: 'Events flushed successfully' };
+    } catch (error: any) {
+      mixpanelResult = { success: false, message: error?.message || 'Failed to flush' };
+    }
+  }
+
+  // Flush Facebook
+  const facebookResult = await flushFacebookEvents();
+
+  return {
+    mixpanel: mixpanelResult,
+    facebook: facebookResult,
+  };
+};
+
+/**
+ * Send a test Meta subscription (fb_mobile_purchase) event
+ * Returns detailed response for debugging purposes
+ */
+export const sendTestMetaSubscriptionEvent = async (params: {
+  subscriptionType: SubscriptionType;
+  price: number;
+  currency?: string;
+  isPromo?: boolean;
+  transactionId?: string;
+}): Promise<MetaTestEventResponse> => {
+  const {
+    subscriptionType,
+    price,
+    currency = 'USD',
+    isPromo = false,
+    transactionId = `test_${Date.now()}`,
+  } = params;
+
+  const timestamp = new Date().toISOString();
+
+  // Calculate predicted LTV
+  let predictedLtv: number;
+  if (subscriptionType === 'monthly') {
+    predictedLtv = price * 4;
+  } else if (subscriptionType === 'yearly') {
+    predictedLtv = price * 1.3;
+  } else {
+    predictedLtv = price; // Lifetime
+  }
+
+  const contentId = isPromo
+    ? `${subscriptionType}_promo_subscription`
+    : `${subscriptionType}_subscription`;
+
+  // Build the Meta payload
+  const metaPayload = {
+    _valueToSum: price,
+    fb_currency: currency,
+    fb_order_id: transactionId,
+    fb_content_type: 'product',
+    fb_content_id: contentId,
+    fb_success: '1',
+    fb_payment_info_available: '1',
+    fb_predicted_ltv: predictedLtv.toString(),
+    is_test_event: 'true',
+  };
+
+  // Build the Mixpanel payload
+  const mixpanelPayload = {
+    subscription_type: subscriptionType,
+    price,
+    currency,
+    transaction_id: transactionId,
+    content_id: contentId,
+    predicted_ltv: predictedLtv,
+    is_promo: isPromo,
+    is_test_event: true,
+    timestamp,
+  };
+
+  const response: MetaTestEventResponse = {
+    timestamp,
+    eventName: 'fb_mobile_purchase',
+    isTestEvent: true,
+    services: {
+      meta: {
+        success: false,
+        message: 'Not sent',
+        sentPayload: metaPayload,
+      },
+      mixpanel: {
+        success: false,
+        message: 'Not sent',
+        sentPayload: mixpanelPayload,
+      },
+    },
+  };
+
+  // Send to Meta/Facebook
+  if (isFacebookInitialized) {
+    try {
+      await AppEventsLogger.logPurchase(price, currency, metaPayload);
+      await AppEventsLogger.flush();
+      response.services.meta.success = true;
+      response.services.meta.message = 'Event sent and flushed successfully';
+      console.log('📊 Test Meta Purchase event sent:', metaPayload);
+    } catch (error: any) {
+      response.services.meta.success = false;
+      response.services.meta.message = 'Failed to send event';
+      response.services.meta.error = error?.message || 'Unknown error';
+      console.error('📊 Error sending test Meta Purchase event:', error);
+    }
+  } else {
+    response.services.meta.message = 'Facebook SDK not initialized';
+  }
+
+  // Send to Mixpanel
+  if (mixpanelInstance && isInitialized) {
+    try {
+      mixpanelInstance.track('Test Subscription Purchased', mixpanelPayload);
+      mixpanelInstance.flush();
+      response.services.mixpanel.success = true;
+      response.services.mixpanel.message = 'Event sent and flushed successfully';
+      console.log('📊 Test Mixpanel Purchase event sent:', mixpanelPayload);
+    } catch (error: any) {
+      response.services.mixpanel.success = false;
+      response.services.mixpanel.message = 'Failed to send event';
+      response.services.mixpanel.error = error?.message || 'Unknown error';
+      console.error('📊 Error sending test Mixpanel Purchase event:', error);
+    }
+  } else {
+    response.services.mixpanel.message = 'Mixpanel not initialized';
+  }
+
+  return response;
+};
+
+/**
+ * Send a test Meta CompleteRegistration event
+ * Returns detailed response for debugging purposes
+ */
+export const sendTestMetaRegistrationEvent = async (params?: {
+  registrationMethod?: string;
+}): Promise<MetaTestEventResponse> => {
+  const { registrationMethod = 'test_onboarding' } = params || {};
+
+  const timestamp = new Date().toISOString();
+
+  // Build the Meta payload
+  const metaPayload = {
+    fb_registration_method: registrationMethod,
+    fb_content_name: 'WagerProof Onboarding (Test)',
+    fb_success: '1',
+    is_test_event: 'true',
+  };
+
+  // Build the Mixpanel payload
+  const mixpanelPayload = {
+    registration_method: registrationMethod,
+    is_test_event: true,
+    timestamp,
+  };
+
+  const response: MetaTestEventResponse = {
+    timestamp,
+    eventName: 'fb_mobile_complete_registration',
+    isTestEvent: true,
+    services: {
+      meta: {
+        success: false,
+        message: 'Not sent',
+        sentPayload: metaPayload,
+      },
+      mixpanel: {
+        success: false,
+        message: 'Not sent',
+        sentPayload: mixpanelPayload,
+      },
+    },
+  };
+
+  // Send to Meta/Facebook
+  if (isFacebookInitialized) {
+    try {
+      await AppEventsLogger.logEvent('fb_mobile_complete_registration', metaPayload);
+      await AppEventsLogger.flush();
+      response.services.meta.success = true;
+      response.services.meta.message = 'Event sent and flushed successfully';
+      console.log('📊 Test Meta CompleteRegistration event sent:', metaPayload);
+    } catch (error: any) {
+      response.services.meta.success = false;
+      response.services.meta.message = 'Failed to send event';
+      response.services.meta.error = error?.message || 'Unknown error';
+      console.error('📊 Error sending test Meta CompleteRegistration event:', error);
+    }
+  } else {
+    response.services.meta.message = 'Facebook SDK not initialized';
+  }
+
+  // Send to Mixpanel
+  if (mixpanelInstance && isInitialized) {
+    try {
+      mixpanelInstance.track('Test Registration Completed', mixpanelPayload);
+      mixpanelInstance.flush();
+      response.services.mixpanel.success = true;
+      response.services.mixpanel.message = 'Event sent and flushed successfully';
+      console.log('📊 Test Mixpanel Registration event sent:', mixpanelPayload);
+    } catch (error: any) {
+      response.services.mixpanel.success = false;
+      response.services.mixpanel.message = 'Failed to send event';
+      response.services.mixpanel.error = error?.message || 'Unknown error';
+      console.error('📊 Error sending test Mixpanel Registration event:', error);
+    }
+  } else {
+    response.services.mixpanel.message = 'Mixpanel not initialized';
+  }
+
+  return response;
+};

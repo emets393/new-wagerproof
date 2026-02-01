@@ -12,6 +12,7 @@ import com.facebook.react.ReactHost
 import com.facebook.react.common.ReleaseLevel
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.facebook.FacebookSdk
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
@@ -40,6 +41,17 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+
+    // Initialize Facebook SDK before React Native loads
+    // This must happen before TurboModules try to access the SDK
+    // Wrapped in try-catch to allow app to run if Facebook is not configured
+    try {
+      FacebookSdk.sdkInitialize(applicationContext)
+    } catch (e: Exception) {
+      android.util.Log.w("MainApplication", "Facebook SDK initialization failed: ${e.message}. " +
+        "To enable Facebook SDK, configure facebook_app_id in strings.xml and AndroidManifest.xml")
+    }
+
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {

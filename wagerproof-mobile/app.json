@@ -6,7 +6,10 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "scheme": ["wagerproof", "rc-ff2fe0e0af"],
+    "scheme": [
+      "wagerproof",
+      "rc-ff2fe0e0af"
+    ],
     "newArchEnabled": true,
     "splash": {
       "backgroundColor": "#000000"
@@ -18,7 +21,9 @@
       "usesAppleSignIn": true,
       "appleTeamId": "88DXY6L653",
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.wagerproof.mobile"]
+        "com.apple.security.application-groups": [
+          "group.com.wagerproof.mobile"
+        ]
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -49,7 +54,8 @@
       ],
       "expo-apple-authentication",
       "@bacons/apple-targets",
-      "./plugins/withWidgetDataBridge"
+      "./plugins/withWidgetDataBridge",
+      "expo-tracking-transparency"
     ],
     "experiments": {
       "typedRoutes": true

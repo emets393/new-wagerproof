@@ -17,6 +17,9 @@ import { WagerBotChatSheetProvider } from '../contexts/WagerBotChatSheetContext'
 import { WagerBotSuggestionProvider, useWagerBotSuggestion } from '../contexts/WagerBotSuggestionContext';
 import { RevenueCatProvider, useRevenueCat } from '../contexts/RevenueCatContext';
 import { LearnWagerProofProvider } from '../contexts/LearnWagerProofContext';
+
+import { MetaTestSheetProvider } from '../contexts/MetaTestSheetContext';
+
 import { OnboardingGuard } from '../components/OnboardingGuard';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
@@ -28,11 +31,15 @@ import { EditorPickCreatorBottomSheet } from '../components/EditorPickCreatorBot
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
 import { AnimatedSplash } from '../components/AnimatedSplash';
 import { LearnWagerProofBottomSheet } from '../components/learn-wagerproof/LearnWagerProofBottomSheet';
+
+import { MetaTestBottomSheet } from '../components/MetaTestBottomSheet';
+
 import { useOnGameSheetOpen, useGameSheetDetection } from '../hooks/useGameSheetDetection';
 import { useAppReady } from '../hooks/useAppReady';
 import { useNetworkState } from '../hooks/useNetworkState';
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { View, StyleSheet, Platform, Linking, Alert, Text } from 'react-native';
+
 import Purchases, { WebPurchaseRedemptionResultType } from 'react-native-purchases';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -317,12 +324,6 @@ function RootNavigator() {
   );
 }
 
-// #region agent log
-const debugLog = (location: string, message: string, data: any = {}, hypothesisId: string = 'H3') => {
-  fetch('http://127.0.0.1:7243/ingest/d951aa23-37db-46ab-80d8-615d2da9aa8b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location,message,data:{...data,platform:Platform.OS},timestamp:Date.now(),sessionId:'debug-session',hypothesisId})}).catch(()=>{});
-};
-// #endregion
-
 function RootLayoutContent() {
   const { theme } = useThemeContext();
   const [showSplash, setShowSplash] = useState(true);
@@ -343,24 +344,12 @@ function RootLayoutContent() {
   useEffect(() => {
     if (appIsReady) {
       console.log('🚀 App: Ready to hide splash');
-      // #region agent log
-      debugLog('_layout.tsx:appIsReady', 'App is ready, should hide splash', { showSplash });
-      // #endregion
     }
-  }, [appIsReady, showSplash]);
-
-  // #region agent log
-  useEffect(() => {
-    debugLog('_layout.tsx:showSplashChange', 'showSplash state changed', { showSplash, appIsReady });
-  }, [showSplash, appIsReady]);
-  // #endregion
+  }, [appIsReady]);
 
   const handleSplashComplete = useCallback(() => {
-    // #region agent log
-    debugLog('_layout.tsx:handleSplashComplete', 'Setting showSplash to false', { appIsReady });
-    // #endregion
     setShowSplash(false);
-  }, [appIsReady]);
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -376,11 +365,14 @@ function RootLayoutContent() {
                         <NBABettingTrendsSheetProvider>
                           <WagerBotChatSheetProvider>
                             <LearnWagerProofProvider>
-                              <RootNavigator />
-                              <WebPurchaseRedemptionHandler />
-                              <EditorPickCreatorBottomSheet />
-                              <NBABettingTrendsBottomSheet />
-                              <LearnWagerProofBottomSheet />
+                              <MetaTestSheetProvider>
+                                <RootNavigator />
+                                <WebPurchaseRedemptionHandler />
+                                <EditorPickCreatorBottomSheet />
+                                <NBABettingTrendsBottomSheet />
+                                <LearnWagerProofBottomSheet />
+                                <MetaTestBottomSheet />
+                              </MetaTestSheetProvider>
                             </LearnWagerProofProvider>
                           </WagerBotChatSheetProvider>
                         </NBABettingTrendsSheetProvider>
