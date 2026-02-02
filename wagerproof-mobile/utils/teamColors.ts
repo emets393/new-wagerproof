@@ -106,6 +106,7 @@ export const getNFLTeamColors = (teamName: string): { primary: string; secondary
 };
 
 export const getTeamInitials = (teamCity: string): string => {
+  if (!teamCity) return 'TBD';
   const initialsMap: { [key: string]: string } = {
     'Arizona': 'ARI',
     'Atlanta': 'ATL',
@@ -142,7 +143,7 @@ export const getTeamInitials = (teamCity: string): string => {
     'Tennessee': 'TEN',
     'Washington': 'WSH',
   };
-  return initialsMap[teamCity] || teamCity.substring(0, 3).toUpperCase();
+  return initialsMap[teamCity] || (teamCity ? teamCity.substring(0, 3).toUpperCase() : 'TBD');
 };
 
 export const getFullTeamName = (teamCity: string): string => {
@@ -232,11 +233,17 @@ export const getTeamParts = (teamCity: string): { city: string; name: string } =
 };
 
 export const getColorLuminance = (hexColor: string): number => {
-  const hex = hexColor.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  if (!hexColor || typeof hexColor !== 'string') return 0.5;
+  try {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return 0.5;
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  } catch {
+    return 0.5;
+  }
 };
 
 export const getContrastingTextColor = (bgColor1: string, bgColor2: string): string => {
@@ -248,6 +255,7 @@ export const getContrastingTextColor = (bgColor1: string, bgColor2: string): str
 
 // CFB Team Colors
 export const getCFBTeamColors = (teamName: string): { primary: string; secondary: string } => {
+  if (!teamName) return { primary: '#6B7280', secondary: '#9CA3AF' };
   const colorMap: { [key: string]: { primary: string; secondary: string } } = {
     // SEC
     'Alabama': { primary: '#9E1B32', secondary: '#FFFFFF' },
@@ -386,6 +394,7 @@ export const getCFBTeamColors = (teamName: string): { primary: string; secondary
 
 // Get CFB team initials (many CFB teams use full name abbreviations)
 export const getCFBTeamInitials = (teamName: string): string => {
+  if (!teamName) return 'TBD';
   const initialsMap: { [key: string]: string } = {
     'Alabama': 'ALA',
     'Auburn': 'AUB',
@@ -510,7 +519,7 @@ export const getCFBTeamInitials = (teamName: string): string => {
     'Northern Illinois': 'NIU',
     'Ball State': 'BALL',
   };
-  return initialsMap[teamName] || teamName.substring(0, 3).toUpperCase();
+  return initialsMap[teamName] || (teamName ? teamName.substring(0, 3).toUpperCase() : 'TBD');
 };
 
 // NBA Team Colors
@@ -671,7 +680,7 @@ export const getNBATeamInitials = (teamName: string): string => {
     'Washington Wizards': 'WAS',
     'Washington': 'WAS',
   };
-  return initialsMap[teamName] || teamName.substring(0, 3).toUpperCase();
+  return initialsMap[teamName] || (teamName ? teamName.substring(0, 3).toUpperCase() : 'TBD');
 };
 
 // NCAAB Team Initials (reuse CFB initials for most teams)

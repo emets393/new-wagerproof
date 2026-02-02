@@ -110,6 +110,7 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
   
   // Get team initials based on game type
   const getInitials = (teamName: string) => {
+    if (!teamName) return 'TBD';
     switch (pick.game_type) {
       case 'nfl':
         return getTeamInitials(teamName);

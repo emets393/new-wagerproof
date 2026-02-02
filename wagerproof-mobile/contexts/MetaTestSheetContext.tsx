@@ -24,9 +24,10 @@ export function MetaTestSheetProvider({ children }: { children: ReactNode }) {
   const openSheet = useCallback(() => {
     setIsOpen(true);
     // Open the sheet with a small delay to ensure state is set
-    requestAnimationFrame(() => {
-      bottomSheetRef.current?.snapToIndex(0);
-    });
+    // Use setTimeout instead of requestAnimationFrame for better iOS compatibility
+    setTimeout(() => {
+      bottomSheetRef.current?.expand();
+    }, 100);
   }, []);
 
   const closeSheet = useCallback(() => {

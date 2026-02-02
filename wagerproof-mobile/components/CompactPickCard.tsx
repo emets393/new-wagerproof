@@ -16,6 +16,7 @@ interface CompactPickCardProps {
 
 // Get team abbreviation from full name
 const getTeamAbbr = (teamName: string, sport: string): string => {
+  if (!teamName) return 'TBD';
   // Common abbreviations
   const abbrevMap: Record<string, string> = {
     // NFL

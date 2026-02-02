@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
+import { requestTrackingPermissionsAsync, getTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useRevenueCat } from '../../../contexts/RevenueCatContext';
@@ -15,6 +16,30 @@ export function DataTransparency() {
   const { submitOnboardingData } = useOnboarding();
   const { refreshCustomerInfo } = useRevenueCat();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Request App Tracking Transparency permission on iOS
+  useEffect(() => {
+    const requestATT = async () => {
+      if (Platform.OS !== 'ios') return;
+
+      try {
+        const { status } = await getTrackingPermissionsAsync();
+        if (status === 'undetermined') {
+          // Small delay to ensure the view is fully rendered before showing the prompt
+          setTimeout(async () => {
+            const { status: newStatus } = await requestTrackingPermissionsAsync();
+            console.log('ATT permission status:', newStatus);
+          }, 500);
+        } else {
+          console.log('ATT permission already determined:', status);
+        }
+      } catch (error) {
+        console.error('Error requesting ATT permission:', error);
+      }
+    };
+
+    requestATT();
+  }, []);
 
   const handleCompletion = async () => {
     try {

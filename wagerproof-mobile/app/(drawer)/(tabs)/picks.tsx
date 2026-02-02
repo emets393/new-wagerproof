@@ -963,9 +963,11 @@ export default function PicksScreen() {
       return <LockedPickCard sport={item.game_type?.toUpperCase()} minHeight={viewMode === 'compact' ? 80 : 180} />;
     }
 
-    // Ensure team colors are valid to prevent Android crashes
+    // Ensure team data is valid to prevent crashes
     const safeGameData = {
       ...gameData,
+      away_team: gameData.away_team || 'Away Team',
+      home_team: gameData.home_team || 'Home Team',
       away_team_colors: gameData.away_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
       home_team_colors: gameData.home_team_colors || { primary: '#6B7280', secondary: '#9CA3AF' },
     };
@@ -973,11 +975,13 @@ export default function PicksScreen() {
     // Render compact or large card based on view mode
     if (viewMode === 'compact') {
       return (
-        <CompactPickCard
-          pick={item}
-          gameData={safeGameData}
-          onPress={() => openPickDetail(item, safeGameData)}
-        />
+        <PickCardErrorBoundary pickId={item.id}>
+          <CompactPickCard
+            pick={item}
+            gameData={safeGameData}
+            onPress={() => openPickDetail(item, safeGameData)}
+          />
+        </PickCardErrorBoundary>
       );
     }
 

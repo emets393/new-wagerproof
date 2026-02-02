@@ -54,6 +54,7 @@ export function PickDetailBottomSheet() {
 
   // Helper to get team initials
   const getInitials = (teamName: string): string => {
+    if (!teamName) return 'TBD';
     const words = teamName.split(' ');
     if (words.length >= 2) {
       return words.slice(-1)[0].substring(0, 3).toUpperCase();

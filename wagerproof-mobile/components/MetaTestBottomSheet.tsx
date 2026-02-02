@@ -51,7 +51,7 @@ const TEST_PRICES = {
 export function MetaTestBottomSheet() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
-  const { bottomSheetRef, closeSheet } = useMetaTestSheet();
+  const { bottomSheetRef, closeSheet, isOpen } = useMetaTestSheet();
   const { user } = useAuth();
 
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
@@ -61,6 +61,13 @@ export function MetaTestBottomSheet() {
   const [isFlushing, setIsFlushing] = useState(false);
 
   const snapPoints = useMemo(() => ['85%', '95%'], []);
+
+  // Ensure sheet opens when isOpen state changes
+  useEffect(() => {
+    if (isOpen) {
+      bottomSheetRef.current?.expand();
+    }
+  }, [isOpen, bottomSheetRef]);
 
   // Load device info when sheet opens
   useEffect(() => {

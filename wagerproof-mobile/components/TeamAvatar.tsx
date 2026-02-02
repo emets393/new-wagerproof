@@ -30,17 +30,20 @@ interface TeamAvatarProps {
  * falls back to gradient circle with team initials.
  */
 export function TeamAvatar({ teamName, sport, size = 48, teamAbbr }: TeamAvatarProps) {
+  // Safe team name - fallback to avoid crashes
+  const safeTeamName = teamName || 'Unknown';
+
   // Get logo URL based on sport
   const getLogoUrl = (): string => {
     switch (sport) {
       case 'nba':
-        return getNBATeamLogo(teamName);
+        return getNBATeamLogo(safeTeamName);
       case 'ncaab':
-        return getNCAABTeamLogo(teamName);
+        return getNCAABTeamLogo(safeTeamName);
       case 'cfb':
-        return getCFBTeamLogo(teamName);
+        return getCFBTeamLogo(safeTeamName);
       case 'nfl':
-        return getNFLTeamLogo(teamName);
+        return getNFLTeamLogo(safeTeamName);
       default:
         return '';
     }
@@ -50,12 +53,12 @@ export function TeamAvatar({ teamName, sport, size = 48, teamAbbr }: TeamAvatarP
   const getColors = (): { primary: string; secondary: string } => {
     switch (sport) {
       case 'nba':
-        return getNBATeamColors(teamName);
+        return getNBATeamColors(safeTeamName);
       case 'ncaab':
       case 'cfb':
-        return getCFBTeamColors(teamName);
+        return getCFBTeamColors(safeTeamName);
       case 'nfl':
-        return getNFLTeamColors(teamName);
+        return getNFLTeamColors(safeTeamName);
       default:
         return { primary: '#333333', secondary: '#666666' };
     }
@@ -66,14 +69,14 @@ export function TeamAvatar({ teamName, sport, size = 48, teamAbbr }: TeamAvatarP
     if (teamAbbr) return teamAbbr;
     switch (sport) {
       case 'nba':
-        return getNBATeamInitials(teamName);
+        return getNBATeamInitials(safeTeamName);
       case 'ncaab':
       case 'cfb':
-        return getCFBTeamInitials(teamName);
+        return getCFBTeamInitials(safeTeamName);
       case 'nfl':
-        return getTeamInitials(teamName);
+        return getTeamInitials(safeTeamName);
       default:
-        return teamName.substring(0, 3).toUpperCase();
+        return safeTeamName.substring(0, 3).toUpperCase();
     }
   };
 
