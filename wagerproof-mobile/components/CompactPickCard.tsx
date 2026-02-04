@@ -63,9 +63,10 @@ const getTeamAbbr = (teamName: string, sport: string): string => {
   return words[words.length - 1].substring(0, 4).toUpperCase();
 };
 
-// Get pick type icon
+// Get pick type icon - use O/U, Spread, or ML icons based on bet type
 const getPickTypeIcon = (pickValue: string | null | undefined, betType: string): { name: string; color: string } => {
-  const value = (pickValue || betType || '').toLowerCase();
+  // Combine betType (canonical) + pickValue so we match correctly even when pick_value is e.g. "Lakers -3.5"
+  const value = ((betType || '') + ' ' + (pickValue || '')).toLowerCase();
 
   if (value.includes('spread')) {
     return { name: 'plus-minus-variant', color: '#3b82f6' };
@@ -76,8 +77,8 @@ const getPickTypeIcon = (pickValue: string | null | undefined, betType: string):
   if (value.includes('moneyline') || value.includes('ml')) {
     return { name: 'currency-usd', color: '#10b981' };
   }
-  // Default
-  return { name: 'basketball', color: '#f59e0b' };
+  // Fallback - use O/U icon when type can't be determined (generic bet)
+  return { name: 'arrow-up-down', color: '#9ca3af' };
 };
 
 // Get result badge config

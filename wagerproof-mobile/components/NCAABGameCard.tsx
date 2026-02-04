@@ -53,13 +53,21 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
     return '#f97316'; // Orange
   };
 
-  // Determine model's spread pick based on home_away_spread_cover_prob
-  // >= 0.5 means model picks home team to cover, < 0.5 means model picks away team
-  const spreadModelPick = game.home_away_spread_cover_prob !== null
-    ? (game.home_away_spread_cover_prob >= 0.5 ? game.home_team : game.away_team)
-    : null;
+  // Determine model's spread pick based on model_fair_home_spread vs vegas home_spread
+  // If model_fair_home_spread < vegas_home_spread → home team covers
+  // If model_fair_home_spread > vegas_home_spread → away team covers
+  let spreadModelPick: string | null = null;
+  let spreadValue: number | null = null;
+  let spreadModelPickIsHome = false;
+  if (game.model_fair_home_spread !== null && game.home_spread !== null) {
+    const isHomeEdge = game.model_fair_home_spread < game.home_spread;
+    spreadModelPick = isHomeEdge ? game.home_team : game.away_team;
+    spreadValue = isHomeEdge ? game.home_spread : game.away_spread;
+    spreadModelPickIsHome = isHomeEdge;
+  }
   const spreadModelPickColors = spreadModelPick === game.home_team ? homeColors : awayColors;
-  const spreadValue = spreadModelPick === game.home_team ? game.home_spread : game.away_spread;
+  const spreadModelPickLogo = spreadModelPickIsHome ? game.home_team_logo : game.away_team_logo;
+  const spreadModelPickAbbr = spreadModelPickIsHome ? game.home_team_abbrev : game.away_team_abbrev;
 
   // Determine favorite team for background gradient
   const favorite = game.home_spread !== null && game.away_spread !== null
@@ -109,9 +117,19 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
           <View style={styles.teamsRow}>
             {/* Away Team */}
             <View style={styles.teamColumn}>
-              <TeamAvatar teamName={game.away_team} sport="ncaab" size={42} />
+              <TeamAvatar
+                teamName={game.away_team}
+                sport="ncaab"
+                size={42}
+                logoUrl={game.away_team_logo ?? undefined}
+                teamAbbr={game.away_team_abbrev || undefined}
+              />
               {(() => {
-                const { text, lines } = formatTeamName(game.away_team);
+                // Use abbreviation if available, otherwise format the full name
+                const displayName = game.away_team_abbrev || game.away_team;
+                const { text, lines } = game.away_team_abbrev
+                  ? { text: displayName, lines: 1 as const }
+                  : formatTeamName(displayName);
                 return (
                   <Text
                     style={[styles.teamName, { color: theme.colors.onSurface }]}
@@ -151,9 +169,19 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
 
             {/* Home Team */}
             <View style={styles.teamColumn}>
-              <TeamAvatar teamName={game.home_team} sport="ncaab" size={42} />
+              <TeamAvatar
+                teamName={game.home_team}
+                sport="ncaab"
+                size={42}
+                logoUrl={game.home_team_logo ?? undefined}
+                teamAbbr={game.home_team_abbrev || undefined}
+              />
               {(() => {
-                const { text, lines } = formatTeamName(game.home_team);
+                // Use abbreviation if available, otherwise format the full name
+                const displayName = game.home_team_abbrev || game.home_team;
+                const { text, lines } = game.home_team_abbrev
+                  ? { text: displayName, lines: 1 as const }
+                  : formatTeamName(displayName);
                 return (
                   <Text
                     style={[styles.teamName, { color: theme.colors.onSurface }]}
@@ -181,7 +209,7 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
           </View>
 
           {/* Model Predictions Pills - Vertical Stack */}
-          {(game.home_away_spread_cover_prob !== null || game.ou_result_prob !== null) && (
+          {(spreadModelPick !== null || game.ou_result_prob !== null) && (
             <View style={styles.pillsSection}>
               <View style={styles.pillsHeader}>
                 <MaterialCommunityIcons name="brain" size={12} color="#22c55e" />
@@ -191,9 +219,7 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
               </View>
               <View style={styles.pillsColumn}>
                 {/* Spread Pill - Shows model's predicted team to cover */}
-                {spreadModelPick && spreadValue !== null && game.home_away_spread_cover_prob !== null && (() => {
-                  const confidence = game.home_away_spread_cover_prob >= 0.5 ? game.home_away_spread_cover_prob : 1 - game.home_away_spread_cover_prob;
-                  const isFadeAlert = confidence >= 0.8;
+                {spreadModelPick && spreadValue !== null && (() => {
                   const edge = game.model_fair_home_spread !== null && game.home_spread !== null
                     ? Math.abs(game.model_fair_home_spread - game.home_spread)
                     : null;
@@ -201,7 +227,13 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
                     <View style={styles.pillContainerWithBadge}>
                       <View style={[styles.bettingPillVertical, { backgroundColor: isDark ? '#2a2a2a' : '#f0f0f0', borderColor: theme.colors.outlineVariant }]}>
                         <View style={styles.pillAvatarContainer}>
-                          <TeamAvatar teamName={spreadModelPick} sport="ncaab" size={20} />
+                          <TeamAvatar
+                            teamName={spreadModelPick}
+                            sport="ncaab"
+                            size={20}
+                            logoUrl={spreadModelPickLogo ?? undefined}
+                            teamAbbr={spreadModelPickAbbr || undefined}
+                          />
                         </View>
                         <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
                           Spread: {formatSpread(spreadValue)}
@@ -210,11 +242,6 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
                           <Text style={[styles.pillValueRight, { color: getEdgeColor(edge) }]}>
                             +{edge.toFixed(1)}
                           </Text>
-                        )}
-                        {isFadeAlert && (
-                          <View style={styles.fadeAlertBadge}>
-                            <MaterialCommunityIcons name="lightning-bolt" size={10} color={edge !== null ? getEdgeColor(edge) : '#22c55e'} />
-                          </View>
                         )}
                       </View>
                     </View>
@@ -225,19 +252,17 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
                 {game.ou_result_prob !== null && (() => {
                   const isOver = game.ou_result_prob > 0.5;
                   const circleColor = isOver ? '#22c55e' : '#ef4444';
-                  const confidence = game.ou_result_prob >= 0.5 ? game.ou_result_prob : 1 - game.ou_result_prob;
-                  const isFadeAlert = confidence >= 0.8;
-                  const edge = game.pred_total_points !== null && game.over_line !== null 
+                  const edge = game.pred_total_points !== null && game.over_line !== null
                     ? Math.abs(game.pred_total_points - game.over_line)
                     : null;
                   return (
                     <View style={styles.pillContainerWithBadge}>
                       <View style={[styles.bettingPillVertical, { backgroundColor: isDark ? '#2a2a2a' : '#f0f0f0', borderColor: theme.colors.outlineVariant }]}>
                         <View style={[styles.pillCircle, { backgroundColor: circleColor }]}>
-                          <MaterialCommunityIcons 
-                            name={isOver ? "arrow-up" : "arrow-down"} 
-                            size={12} 
-                            color="#fff" 
+                          <MaterialCommunityIcons
+                            name={isOver ? "arrow-up" : "arrow-down"}
+                            size={12}
+                            color="#fff"
                           />
                         </View>
                         <Text style={[styles.pillTextVertical, { color: theme.colors.onSurface }]}>
@@ -247,11 +272,6 @@ export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) 
                           <Text style={[styles.pillValueRight, { color: getEdgeColor(edge) }]}>
                             +{edge.toFixed(1)}
                           </Text>
-                        )}
-                        {isFadeAlert && (
-                          <View style={styles.fadeAlertBadge}>
-                            <MaterialCommunityIcons name="lightning-bolt" size={10} color={edge !== null ? getEdgeColor(edge) : circleColor} />
-                          </View>
                         )}
                       </View>
                     </View>
@@ -442,8 +462,5 @@ const styles = StyleSheet.create({
   },
   pillContainerWithBadge: {
     width: '100%',
-  },
-  fadeAlertBadge: {
-    paddingLeft: 4,
   },
 });

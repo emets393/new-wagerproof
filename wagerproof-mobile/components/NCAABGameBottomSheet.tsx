@@ -83,7 +83,7 @@ export function NCAABGameBottomSheet() {
         teamColors: isHomeEdge ? homeColors : awayColors,
         isHome: isHomeEdge,
         vegasSpread: isHomeEdge ? game.home_spread : game.away_spread,
-        isFadeAlert: edge >= 5,
+        isFadeAlert: false,
       };
     }
     
@@ -99,7 +99,7 @@ export function NCAABGameBottomSheet() {
         teamColors: isHomeEdge ? homeColors : awayColors,
         isHome: isHomeEdge,
         vegasSpread: isHomeEdge ? game.home_spread : game.away_spread,
-        isFadeAlert: edge >= 5,
+        isFadeAlert: false,
       };
     }
     
@@ -115,7 +115,7 @@ export function NCAABGameBottomSheet() {
         isHome,
         vegasSpread: isHome ? game.home_spread : game.away_spread,
         probability: prob,
-        isFadeAlert: prob >= 0.8 || (prob - 0.5) * 20 >= 5,
+        isFadeAlert: false,
       };
     }
     
@@ -135,7 +135,7 @@ export function NCAABGameBottomSheet() {
         predictedOutcome: isOver ? 'over' as const : 'under' as const,
         modelTotal: game.pred_total_points,
         line: game.over_line,
-        isFadeAlert: edge >= 5,
+        isFadeAlert: false,
       };
     }
     
@@ -149,7 +149,7 @@ export function NCAABGameBottomSheet() {
         modelTotal: null,
         line: game.over_line,
         probability: prob,
-        isFadeAlert: prob >= 0.8 || (prob - 0.5) * 20 >= 5,
+        isFadeAlert: false,
       };
     }
     
@@ -245,7 +245,13 @@ export function NCAABGameBottomSheet() {
               {/* Away Team */}
               <View style={styles.teamSection}>
                 <View style={styles.teamCircleWrapper}>
-                  <TeamAvatar teamName={game.away_team} sport="ncaab" size={88} />
+                  <TeamAvatar
+                    teamName={game.away_team}
+                    sport="ncaab"
+                    size={88}
+                    {...(game.away_team_logo ? { logoUrl: game.away_team_logo } : {})}
+                    teamAbbr={game.away_team_abbrev || undefined}
+                  />
                   {game.away_ranking && game.away_ranking <= 25 && (
                     <View style={[styles.rankingBadge, { backgroundColor: theme.colors.primary }]}>
                       <Text style={styles.rankingText}>#{game.away_ranking}</Text>
@@ -253,7 +259,7 @@ export function NCAABGameBottomSheet() {
                   )}
                 </View>
                 <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
-                  {game.away_team}
+                  {game.away_team_abbrev || game.away_team}
                 </Text>
                 <View style={styles.teamLines}>
                   {game.away_spread !== null && (
@@ -283,7 +289,13 @@ export function NCAABGameBottomSheet() {
               {/* Home Team */}
               <View style={styles.teamSection}>
                 <View style={styles.teamCircleWrapper}>
-                  <TeamAvatar teamName={game.home_team} sport="ncaab" size={88} />
+                  <TeamAvatar
+                    teamName={game.home_team}
+                    sport="ncaab"
+                    size={88}
+                    {...(game.home_team_logo ? { logoUrl: game.home_team_logo } : {})}
+                    teamAbbr={game.home_team_abbrev || undefined}
+                  />
                   {game.home_ranking && game.home_ranking <= 25 && (
                     <View style={[styles.rankingBadge, { backgroundColor: theme.colors.primary }]}>
                       <Text style={styles.rankingText}>#{game.home_ranking}</Text>
@@ -291,7 +303,7 @@ export function NCAABGameBottomSheet() {
                   )}
                 </View>
                 <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
-                  {game.home_team}
+                  {game.home_team_abbrev || game.home_team}
                 </Text>
                 <View style={styles.teamLines}>
                   {game.home_spread !== null && (
@@ -347,7 +359,13 @@ export function NCAABGameBottomSheet() {
                         <Text style={[styles.edgeValue, { color: '#22c55e' }]}>
                           {spreadPrediction.edge.toFixed(1)}
                         </Text>
-                        <TeamAvatar teamName={spreadPrediction.predictedTeam} sport="ncaab" size={56} />
+                        <TeamAvatar
+                          teamName={spreadPrediction.predictedTeam}
+                          sport="ncaab"
+                          size={56}
+                          {...((spreadPrediction.isHome ? game.home_team_logo : game.away_team_logo) ? { logoUrl: spreadPrediction.isHome ? game.home_team_logo : game.away_team_logo } : {})}
+                          teamAbbr={spreadPrediction.isHome ? (game.home_team_abbrev || undefined) : (game.away_team_abbrev || undefined)}
+                        />
                       </View>
                       <View style={styles.edgeSection}>
                         <Text style={[styles.edgeLabel, { color: theme.colors.onSurfaceVariant }]}>
@@ -598,7 +616,13 @@ export function NCAABGameBottomSheet() {
                   <View style={[styles.simulationResult, { backgroundColor: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
                     {/* Away Team Score */}
                     <View style={styles.teamScoreSection}>
-                      <TeamAvatar teamName={game.away_team} sport="ncaab" size={64} />
+                      <TeamAvatar
+                        teamName={game.away_team}
+                        sport="ncaab"
+                        size={64}
+                        {...(game.away_team_logo ? { logoUrl: game.away_team_logo } : {})}
+                        teamAbbr={game.away_team_abbrev || undefined}
+                      />
                       <Text style={[styles.predictedScore, { color: theme.colors.onSurface }]}>
                         {Math.round(game.away_score_pred)}
                       </Text>
@@ -611,7 +635,13 @@ export function NCAABGameBottomSheet() {
 
                     {/* Home Team Score */}
                     <View style={styles.teamScoreSection}>
-                      <TeamAvatar teamName={game.home_team} sport="ncaab" size={64} />
+                      <TeamAvatar
+                        teamName={game.home_team}
+                        sport="ncaab"
+                        size={64}
+                        {...(game.home_team_logo ? { logoUrl: game.home_team_logo } : {})}
+                        teamAbbr={game.home_team_abbrev || undefined}
+                      />
                       <Text style={[styles.predictedScore, { color: theme.colors.onSurface }]}>
                         {Math.round(game.home_score_pred)}
                       </Text>

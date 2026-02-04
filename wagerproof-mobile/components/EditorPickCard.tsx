@@ -18,11 +18,18 @@ interface EditorPickCardProps {
   onEdit?: () => void;    // Callback to open edit sheet
 }
 
+// Default colors for fallback when team colors are missing
+const DEFAULT_COLORS = { primary: '#666666', secondary: '#888888' };
+
 export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickCardProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { adminModeEnabled } = useAdminMode();
   const [isUpdatingResult, setIsUpdatingResult] = useState(false);
+
+  // Safe color access with fallbacks
+  const awayTeamColors = gameData?.away_team_colors || DEFAULT_COLORS;
+  const homeTeamColors = gameData?.home_team_colors || DEFAULT_COLORS;
 
   // Check if the game date has passed (for showing result buttons)
   const isGamePast = (): boolean => {
@@ -188,18 +195,18 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
     };
 
     try {
-      if (firstBet?.includes('home') && gameData.home_team_colors) {
+      if (firstBet?.includes('home') && homeTeamColors) {
         return [
-          hexToRgba(gameData.home_team_colors.primary, alpha),
-          hexToRgba(gameData.home_team_colors.secondary, alpha * 0.5),
-          hexToRgba(gameData.home_team_colors.primary, 0)
+          hexToRgba(homeTeamColors.primary, alpha),
+          hexToRgba(homeTeamColors.secondary, alpha * 0.5),
+          hexToRgba(homeTeamColors.primary, 0)
         ];
       }
-      if (firstBet?.includes('away') && gameData.away_team_colors) {
+      if (firstBet?.includes('away') && awayTeamColors) {
         return [
-          hexToRgba(gameData.away_team_colors.primary, alpha),
-          hexToRgba(gameData.away_team_colors.secondary, alpha * 0.5),
-          hexToRgba(gameData.away_team_colors.primary, 0)
+          hexToRgba(awayTeamColors.primary, alpha),
+          hexToRgba(awayTeamColors.secondary, alpha * 0.5),
+          hexToRgba(awayTeamColors.primary, 0)
         ];
       }
       
@@ -280,11 +287,11 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
       <View style={styles.matchupContainer}>
         {/* Away Team */}
         <View style={styles.teamColumn}>
-          <View style={[styles.logoContainer, { borderColor: gameData.away_team_colors.primary }]}>
+          <View style={[styles.logoContainer, { borderColor: awayTeamColors.primary }]}>
             {isValidImageUri(gameData.away_logo) ? (
-              <Image 
-                source={{ uri: gameData.away_logo! }} 
-                style={styles.teamLogo} 
+              <Image
+                source={{ uri: gameData.away_logo! }}
+                style={styles.teamLogo}
                 resizeMode="contain"
                 onError={(e) => {
                   if (__DEV__) {
@@ -293,8 +300,8 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
                 }}
               />
             ) : (
-              <View style={[styles.initialsFallback, { backgroundColor: gameData.away_team_colors.primary }]}>
-                <Text style={[styles.initialsText, { color: getContrastingTextColor(gameData.away_team_colors.primary, gameData.away_team_colors.secondary) }]}>
+              <View style={[styles.initialsFallback, { backgroundColor: awayTeamColors.primary }]}>
+                <Text style={[styles.initialsText, { color: getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary) }]}>
                   {getInitials(gameData.away_team)}
                 </Text>
               </View>
@@ -361,11 +368,11 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
 
         {/* Home Team */}
         <View style={styles.teamColumn}>
-          <View style={[styles.logoContainer, { borderColor: gameData.home_team_colors.primary }]}>
+          <View style={[styles.logoContainer, { borderColor: homeTeamColors.primary }]}>
             {isValidImageUri(gameData.home_logo) ? (
-              <Image 
-                source={{ uri: gameData.home_logo! }} 
-                style={styles.teamLogo} 
+              <Image
+                source={{ uri: gameData.home_logo! }}
+                style={styles.teamLogo}
                 resizeMode="contain"
                 onError={(e) => {
                   if (__DEV__) {
@@ -374,8 +381,8 @@ export function EditorPickCard({ pick, gameData, onUpdate, onEdit }: EditorPickC
                 }}
               />
             ) : (
-              <View style={[styles.initialsFallback, { backgroundColor: gameData.home_team_colors.primary }]}>
-                <Text style={[styles.initialsText, { color: getContrastingTextColor(gameData.home_team_colors.primary, gameData.home_team_colors.secondary) }]}>
+              <View style={[styles.initialsFallback, { backgroundColor: homeTeamColors.primary }]}>
+                <Text style={[styles.initialsText, { color: getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary) }]}>
                   {getInitials(gameData.home_team)}
                 </Text>
               </View>

@@ -8,6 +8,7 @@ interface PickDetailSheetContextType {
   selectedGameData: GameData | null;
   openPickDetail: (pick: EditorPick, gameData: GameData) => void;
   closeSheet: () => void;
+  closePickDetail: () => void;
   bottomSheetRef: React.RefObject<BottomSheet>;
 }
 
@@ -49,6 +50,7 @@ export function PickDetailSheetProvider({ children }: { children: ReactNode }) {
         selectedGameData,
         openPickDetail,
         closeSheet,
+        closePickDetail: closeSheet,
         bottomSheetRef,
       }}
     >

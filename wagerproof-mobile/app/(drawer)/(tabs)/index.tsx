@@ -11,6 +11,7 @@ import { NCAABGameCard } from '@/components/NCAABGameCard';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
 import { LockedGameCard } from '@/components/LockedGameCard';
 import { BettingTrendsBanner } from '@/components/nba/BettingTrendsBanner';
+import { NCAABBettingTrendsBanner } from '@/components/ncaab/BettingTrendsBanner';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
@@ -517,7 +518,7 @@ export default function FeedScreen() {
   const fetchNCAABData = async () => {
     try {
       console.log('🏀 Fetching NCAAB games from v_cbb_input_values...');
-      
+
       // Fetch ALL games from v_cbb_input_values (simple query like CFB)
       const { data: inputValues, error: inputError } = await collegeFootballSupabase
         .from('v_cbb_input_values')
@@ -529,12 +530,41 @@ export default function FeedScreen() {
         console.error('❌ NCAAB query error:', inputError);
         throw inputError;
       }
-      
+
       console.log(`🏀 Found ${inputValues?.length || 0} NCAAB games from view`);
       if (!inputValues || inputValues.length === 0) {
         console.log('⚠️ NCAAB: No games returned from query');
         setCachedData(prev => ({ ...prev, ncaab: { games: [], lastFetch: Date.now() } }));
         return;
+      }
+
+      // Fetch team mappings for logos and abbreviations
+      const { data: teamMappings, error: mappingError } = await collegeFootballSupabase
+        .from('ncaab_team_mapping')
+        .select('api_team_id, espn_team_url, team_abbrev');
+
+      // Use string keys for consistency (database might return numbers or strings)
+      // Generate ESPN logo URLs from team ID since espn_team_url column has page URLs, not image URLs
+      let teamMappingMap = new Map<string, { logo: string | null; abbrev: string | null }>();
+      if (!mappingError && teamMappings) {
+        teamMappings.forEach((mapping: any) => {
+          const key = String(mapping.api_team_id);
+          // ESPN logo URL format: https://a.espncdn.com/i/teamlogos/ncaa/500/{teamId}.png
+          const logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${mapping.api_team_id}.png`;
+          teamMappingMap.set(key, {
+            logo: logoUrl,
+            abbrev: mapping.team_abbrev || null,
+          });
+        });
+        console.log(`✅ NCAAB team mappings loaded: ${teamMappingMap.size} entries`);
+        // Log a sample entry for debugging
+        const sampleEntry = teamMappings[0];
+        if (sampleEntry) {
+          const sampleLogo = `https://a.espncdn.com/i/teamlogos/ncaa/500/${sampleEntry.api_team_id}.png`;
+          console.log(`📋 Sample mapping: api_team_id=${sampleEntry.api_team_id}, abbrev=${sampleEntry.team_abbrev}, logo=${sampleLogo}`);
+        }
+      } else if (mappingError) {
+        console.warn('⚠️ NCAAB team mappings error:', mappingError.message);
       }
 
       // Get latest run_id first
@@ -569,11 +599,33 @@ export default function FeedScreen() {
         }
       }
 
-      // Merge input values with predictions
-      const games: NCAABGame[] = inputValues.map((input: any) => {
+      // Merge input values with predictions and team mappings
+      let mappingHits = 0;
+      let mappingMisses = 0;
+      const games: NCAABGame[] = inputValues.map((input: any, idx: number) => {
         const prediction = predictionMap.get(Number(input.game_id));
         const gameIdStr = String(input.game_id);
-        
+
+        // Get team logos and abbreviations from mapping using string keys
+        const homeTeamId = input.home_team_id;
+        const awayTeamId = input.away_team_id;
+        const homeMapping = homeTeamId != null ? teamMappingMap.get(String(homeTeamId)) : undefined;
+        const awayMapping = awayTeamId != null ? teamMappingMap.get(String(awayTeamId)) : undefined;
+
+        // Debug first game
+        if (idx === 0) {
+          console.log(`🔍 First game mapping debug:`);
+          console.log(`   home_team_id: ${homeTeamId} (type: ${typeof homeTeamId})`);
+          console.log(`   away_team_id: ${awayTeamId} (type: ${typeof awayTeamId})`);
+          console.log(`   homeMapping found: ${!!homeMapping}, logo: ${homeMapping?.logo?.substring(0, 50) || 'none'}`);
+          console.log(`   awayMapping found: ${!!awayMapping}, abbrev: ${awayMapping?.abbrev || 'none'}`);
+        }
+
+        if (homeMapping) mappingHits++;
+        else if (homeTeamId != null) mappingMisses++;
+        if (awayMapping) mappingHits++;
+        else if (awayTeamId != null) mappingMisses++;
+
         return {
           id: gameIdStr,
           game_id: input.game_id,
@@ -609,10 +661,16 @@ export default function FeedScreen() {
           home_score_pred: prediction?.home_score_pred || null,
           away_score_pred: prediction?.away_score_pred || null,
           model_fair_home_spread: prediction?.model_fair_home_spread || null,
+          // Team logos and abbreviations from ncaab_team_mapping
+          home_team_logo: homeMapping?.logo || null,
+          away_team_logo: awayMapping?.logo || null,
+          home_team_abbrev: homeMapping?.abbrev || null,
+          away_team_abbrev: awayMapping?.abbrev || null,
         };
       });
 
       console.log(`📊 NCAAB: ${games.length} games, ${predictionMap.size} have predictions`);
+      console.log(`📊 NCAAB team mappings: ${mappingHits} hits, ${mappingMisses} misses`);
       setCachedData(prev => ({
         ...prev,
         ncaab: { games, lastFetch: Date.now() }
@@ -933,6 +991,9 @@ export default function FeedScreen() {
 
       {/* NBA Betting Trends Banner - only show when on NBA tab and not searching */}
       {sport === 'nba' && !searchTexts.nba && <BettingTrendsBanner />}
+
+      {/* NCAAB Betting Trends Banner - only show when on NCAAB tab and not searching */}
+      {sport === 'ncaab' && !searchTexts.ncaab && <NCAABBettingTrendsBanner />}
     </View>
   );
 

@@ -11,6 +11,7 @@ import { CFBGameSheetProvider } from '../contexts/CFBGameSheetContext';
 import { NBAGameSheetProvider } from '../contexts/NBAGameSheetContext';
 import { NCAABGameSheetProvider } from '../contexts/NCAABGameSheetContext';
 import { NBABettingTrendsSheetProvider } from '../contexts/NBABettingTrendsSheetContext';
+import { NCAABBettingTrendsSheetProvider } from '../contexts/NCAABBettingTrendsSheetContext';
 import { AdminModeProvider } from '../contexts/AdminModeContext';
 import { EditorPickSheetProvider } from '../contexts/EditorPickSheetContext';
 import { WagerBotChatSheetProvider } from '../contexts/WagerBotChatSheetContext';
@@ -26,6 +27,7 @@ import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
 import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
 import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
 import { NBABettingTrendsBottomSheet } from '../components/NBABettingTrendsBottomSheet';
+import { NCAABBettingTrendsBottomSheet } from '../components/NCAABBettingTrendsBottomSheet';
 import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { EditorPickCreatorBottomSheet } from '../components/EditorPickCreatorBottomSheet';
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
@@ -363,18 +365,21 @@ function RootLayoutContent() {
                     <NBAGameSheetProvider>
                       <NCAABGameSheetProvider>
                         <NBABettingTrendsSheetProvider>
-                          <WagerBotChatSheetProvider>
-                            <LearnWagerProofProvider>
-                              <MetaTestSheetProvider>
-                                <RootNavigator />
-                                <WebPurchaseRedemptionHandler />
-                                <EditorPickCreatorBottomSheet />
-                                <NBABettingTrendsBottomSheet />
-                                <LearnWagerProofBottomSheet />
-                                <MetaTestBottomSheet />
-                              </MetaTestSheetProvider>
-                            </LearnWagerProofProvider>
-                          </WagerBotChatSheetProvider>
+                          <NCAABBettingTrendsSheetProvider>
+                            <WagerBotChatSheetProvider>
+                              <LearnWagerProofProvider>
+                                <MetaTestSheetProvider>
+                                  <RootNavigator />
+                                  <WebPurchaseRedemptionHandler />
+                                  <EditorPickCreatorBottomSheet />
+                                  <NBABettingTrendsBottomSheet />
+                                  <NCAABBettingTrendsBottomSheet />
+                                  <LearnWagerProofBottomSheet />
+                                  <MetaTestBottomSheet />
+                                </MetaTestSheetProvider>
+                              </LearnWagerProofProvider>
+                            </WagerBotChatSheetProvider>
+                          </NCAABBettingTrendsSheetProvider>
                         </NBABettingTrendsSheetProvider>
                       </NCAABGameSheetProvider>
                     </NBAGameSheetProvider>

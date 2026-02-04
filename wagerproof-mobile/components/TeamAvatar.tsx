@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Image, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -23,18 +23,25 @@ interface TeamAvatarProps {
   size?: number;
   /** Optional team abbreviation to use instead of computed initials */
   teamAbbr?: string;
+  /** Optional direct logo URL to bypass lookup */
+  logoUrl?: string | null;
 }
 
 /**
  * Reusable team avatar component that shows team logo if available,
  * falls back to gradient circle with team initials.
  */
-export function TeamAvatar({ teamName, sport, size = 48, teamAbbr }: TeamAvatarProps) {
+export function TeamAvatar({ teamName, sport, size = 48, teamAbbr, logoUrl }: TeamAvatarProps) {
+  const [imageError, setImageError] = useState(false);
   // Safe team name - fallback to avoid crashes
   const safeTeamName = teamName || 'Unknown';
 
-  // Get logo URL based on sport
+  // Get logo URL based on sport (use provided logoUrl if available)
   const getLogoUrl = (): string => {
+    // If a direct logoUrl is provided, use it
+    if (logoUrl) {
+      return logoUrl;
+    }
     switch (sport) {
       case 'nba':
         return getNBATeamLogo(safeTeamName);
@@ -80,43 +87,15 @@ export function TeamAvatar({ teamName, sport, size = 48, teamAbbr }: TeamAvatarP
     }
   };
 
-  const logoUrl = getLogoUrl();
+  const resolvedLogoUrl = getLogoUrl();
   const colors = getColors();
   const initials = getInitials();
 
   // Calculate font size based on avatar size
   const fontSize = Math.floor(size * 0.35);
 
-  // If logo is available, show it
-  if (logoUrl) {
-    return (
-      <View
-        style={[
-          styles.logoContainer,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-          },
-        ]}
-      >
-        <Image
-          source={{ uri: logoUrl }}
-          style={[
-            styles.logo,
-            {
-              width: size * 0.85,
-              height: size * 0.85,
-            },
-          ]}
-          resizeMode="contain"
-        />
-      </View>
-    );
-  }
-
-  // Fallback to gradient circle with initials
-  return (
+  // Render the fallback gradient circle with initials
+  const renderFallback = () => (
     <LinearGradient
       colors={[colors.primary, colors.secondary]}
       start={{ x: 0, y: 0 }}
@@ -145,6 +124,38 @@ export function TeamAvatar({ teamName, sport, size = 48, teamAbbr }: TeamAvatarP
       </Text>
     </LinearGradient>
   );
+
+  // If logo is available and hasn't errored, show it
+  if (resolvedLogoUrl && !imageError) {
+    return (
+      <View
+        style={[
+          styles.logoContainer,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+          },
+        ]}
+      >
+        <Image
+          source={{ uri: resolvedLogoUrl }}
+          style={[
+            styles.logo,
+            {
+              width: size * 0.85,
+              height: size * 0.85,
+            },
+          ]}
+          resizeMode="contain"
+          onError={() => setImageError(true)}
+        />
+      </View>
+    );
+  }
+
+  // Fallback to gradient circle with initials
+  return renderFallback();
 }
 
 const styles = StyleSheet.create({

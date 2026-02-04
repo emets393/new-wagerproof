@@ -36,5 +36,10 @@ export interface NCAABGame {
   home_score_pred: number | null;
   away_score_pred: number | null;
   model_fair_home_spread: number | null;
+  // Team logos and abbreviations from ncaab_team_mapping
+  home_team_logo?: string | null;
+  away_team_logo?: string | null;
+  home_team_abbrev?: string | null;
+  away_team_abbrev?: string | null;
 }
 
