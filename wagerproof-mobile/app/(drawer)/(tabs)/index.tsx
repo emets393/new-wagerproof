@@ -541,16 +541,19 @@ export default function FeedScreen() {
       // Fetch team mappings for logos and abbreviations
       const { data: teamMappings, error: mappingError } = await collegeFootballSupabase
         .from('ncaab_team_mapping')
-        .select('api_team_id, espn_team_url, team_abbrev');
+        .select('api_team_id, espn_team_id, team_abbrev');
 
       // Use string keys for consistency (database might return numbers or strings)
-      // Generate ESPN logo URLs from team ID since espn_team_url column has page URLs, not image URLs
+      // Use espn_team_id (not api_team_id) to build ESPN logo URLs — matches how the website does it
       let teamMappingMap = new Map<string, { logo: string | null; abbrev: string | null }>();
       if (!mappingError && teamMappings) {
         teamMappings.forEach((mapping: any) => {
           const key = String(mapping.api_team_id);
-          // ESPN logo URL format: https://a.espncdn.com/i/teamlogos/ncaa/500/{teamId}.png
-          const logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${mapping.api_team_id}.png`;
+          // ESPN logo URL format: https://a.espncdn.com/i/teamlogos/ncaa/500/{espn_team_id}.png
+          let logoUrl: string | null = null;
+          if (mapping.espn_team_id != null) {
+            logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${mapping.espn_team_id}.png`;
+          }
           teamMappingMap.set(key, {
             logo: logoUrl,
             abbrev: mapping.team_abbrev || null,
@@ -560,8 +563,8 @@ export default function FeedScreen() {
         // Log a sample entry for debugging
         const sampleEntry = teamMappings[0];
         if (sampleEntry) {
-          const sampleLogo = `https://a.espncdn.com/i/teamlogos/ncaa/500/${sampleEntry.api_team_id}.png`;
-          console.log(`📋 Sample mapping: api_team_id=${sampleEntry.api_team_id}, abbrev=${sampleEntry.team_abbrev}, logo=${sampleLogo}`);
+          const sampleLogo = sampleEntry.espn_team_id ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${sampleEntry.espn_team_id}.png` : 'none';
+          console.log(`📋 Sample mapping: api_team_id=${sampleEntry.api_team_id}, espn_team_id=${sampleEntry.espn_team_id}, abbrev=${sampleEntry.team_abbrev}, logo=${sampleLogo}`);
         }
       } else if (mappingError) {
         console.warn('⚠️ NCAAB team mappings error:', mappingError.message);

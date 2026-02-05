@@ -543,6 +543,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
+    paddingTop: 16,
   },
   filterChip: {
     borderRadius: 16,

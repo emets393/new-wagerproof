@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -128,6 +128,76 @@ const CFB_TEAM_MAPPINGS: Record<string, string> = {
   'Middle Tennessee': 'Middle Tennessee',
 };
 
+// NCAAB-specific team name mappings: DB name -> Polymarket name
+// Handles cases where database abbreviations differ from Polymarket's full names
+const NCAAB_TEAM_MAPPINGS: Record<string, string> = {
+  // "U" prefix abbreviations
+  'UAlbany': 'Albany',
+  'UMass Lowell': 'Massachusetts Lowell',
+  'UMass': 'Massachusetts',
+  'UConn': 'Connecticut',
+  'UNC': 'North Carolina',
+  'UNC Wilmington': 'UNCW',
+  'UNC Greensboro': 'UNCG',
+  'UNC Asheville': 'UNC Asheville',
+  'UNLV': 'UNLV',
+  'UTEP': 'UTEP',
+  'UTSA': 'UTSA',
+  'UT Martin': 'UT Martin',
+  'UT Arlington': 'UT Arlington',
+  'UCF': 'UCF',
+  'UCLA': 'UCLA',
+  'UCSB': 'UC Santa Barbara',
+  'UCI': 'UC Irvine',
+  'UCD': 'UC Davis',
+  'UCR': 'UC Riverside',
+  // Directional/regional abbreviations
+  'ETSU': 'East Tennessee State',
+  'MTSU': 'Middle Tennessee',
+  'FGCU': 'Florida Gulf Coast',
+  'SFA': 'Stephen F Austin',
+  'SMU': 'SMU',
+  'VCU': 'VCU',
+  'BYU': 'BYU',
+  'TCU': 'TCU',
+  'LSU': 'LSU',
+  'USC': 'USC',
+  // Saint/St variations
+  "St. John's": "St Johns",
+  "Saint Mary's": "Saint Marys",
+  "St. Bonaventure": "St Bonaventure",
+  "St. Thomas": "St Thomas",
+  "Saint Peter's": "Saint Peters",
+  "St. Francis (PA)": "St Francis",
+  // Cal State / UC system
+  'Cal State Northridge': 'CSUN',
+  'Cal State Bakersfield': 'Bakersfield',
+  'Cal State Fullerton': 'Cal State Fullerton',
+  'Cal Poly': 'Cal Poly',
+  'UC Irvine': 'UC Irvine',
+  'UC San Diego': 'California San Diego',
+  'UC Davis': 'UC Davis',
+  'UC Riverside': 'UC Riverside',
+  'UC Santa Barbara': 'UC Santa Barbara',
+  'Long Beach State': 'Long Beach State',
+  // Other common variations
+  'Queens University': 'Queens',
+  'Long Island University': 'LIU',
+  'Ole Miss': 'Ole Miss',
+  'Loyola Chicago': 'Loyola Chicago',
+  'Loyola Marymount': 'Loyola Marymount',
+  'Miami (OH)': 'Miami OH',
+  'Miami (FL)': 'Miami',
+  'LIU': 'LIU',
+  'NJIT': 'NJIT',
+  'SIU Edwardsville': 'SIU Edwardsville',
+  'Southern Indiana': 'Southern Indiana',
+  'Southeast Missouri State': 'Southeast Missouri State',
+  'Purdue Fort Wayne': 'Purdue Fort Wayne',
+  'Little Rock': 'Little Rock',
+  'Central Arkansas': 'Central Arkansas',
+};
+
 // Get team mascot from database team name (NFL only)
 function getTeamMascot(teamName: string): string {
   // Check if it's already a mascot
@@ -158,8 +228,11 @@ function getTeamName(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'):
     console.log(`NBA team fallback: "${teamName}" -> "${extracted}"`);
     return extracted;
   }
-  if (league === 'cfb' || league === 'ncaab') {
-    // CFB/NCAAB: Use school name as-is, matching will handle mascot variations
+  if (league === 'ncaab') {
+    // NCAAB: Check NCAAB-specific mappings first, then CFB mappings, then use as-is
+    return NCAAB_TEAM_MAPPINGS[teamName] || CFB_TEAM_MAPPINGS[teamName] || teamName;
+  }
+  if (league === 'cfb') {
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
   }
   // NFL uses mascot-based names
@@ -312,72 +385,64 @@ serve(async (req) => {
     // Step 3: Fetch events for all leagues
     const allEvents: Array<{ event: any; league: 'nfl' | 'cfb' | 'ncaab' | 'nba' }> = [];
 
-    if (nflTagId) {
-      const nflEventsUrl = `https://gamma-api.polymarket.com/events?tag_id=${nflTagId}&closed=false&limit=100&related_tags=true`;
-      const nflEventsResponse = await fetch(nflEventsUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'WagerProof-PolymarketCache/1.0'
-        }
-      });
+    // Helper to fetch ALL events for a tag with pagination (Polymarket caps at 100 per request)
+    async function fetchAllEventsForTag(tagId: string, leagueName: string): Promise<any[]> {
+      const allLeagueEvents: any[] = [];
+      let offset = 0;
+      const pageSize = 100;
+      const maxPages = 10; // Safety limit: 1000 events max per league
 
-      if (nflEventsResponse.ok) {
-        const nflEventsData = await nflEventsResponse.json();
-        const nflEvents = Array.isArray(nflEventsData) ? nflEventsData : (nflEventsData.events || nflEventsData.data || []);
-        allEvents.push(...nflEvents.map((e: any) => ({ event: e, league: 'nfl' as const })));
-        console.log(`📋 Found ${nflEvents.length} NFL events on Polymarket`);
+      for (let page = 0; page < maxPages; page++) {
+        const url = `https://gamma-api.polymarket.com/events?tag_id=${tagId}&closed=false&limit=${pageSize}&offset=${offset}&related_tags=true`;
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'WagerProof-PolymarketCache/1.0'
+          }
+        });
+
+        if (!response.ok) {
+          console.error(`❌ Failed to fetch ${leagueName} events page ${page + 1}: ${response.status}`);
+          break;
+        }
+
+        const responseData = await response.json();
+        const pageEvents = Array.isArray(responseData) ? responseData : (responseData.events || responseData.data || []);
+        
+        if (pageEvents.length === 0) break; // No more events
+        
+        allLeagueEvents.push(...pageEvents);
+        console.log(`📋 ${leagueName} page ${page + 1}: fetched ${pageEvents.length} events (total so far: ${allLeagueEvents.length})`);
+        
+        if (pageEvents.length < pageSize) break; // Last page (partial)
+        offset += pageSize;
       }
+
+      return allLeagueEvents;
+    }
+
+    if (nflTagId) {
+      const nflEvents = await fetchAllEventsForTag(nflTagId, 'NFL');
+      allEvents.push(...nflEvents.map((e: any) => ({ event: e, league: 'nfl' as const })));
+      console.log(`📋 Found ${nflEvents.length} total NFL events on Polymarket`);
     }
 
     if (cfbTagId) {
-      const cfbEventsUrl = `https://gamma-api.polymarket.com/events?tag_id=${cfbTagId}&closed=false&limit=100&related_tags=true`;
-      const cfbEventsResponse = await fetch(cfbEventsUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'WagerProof-PolymarketCache/1.0'
-        }
-      });
-
-      if (cfbEventsResponse.ok) {
-        const cfbEventsData = await cfbEventsResponse.json();
-        const cfbEvents = Array.isArray(cfbEventsData) ? cfbEventsData : (cfbEventsData.events || cfbEventsData.data || []);
-        allEvents.push(...cfbEvents.map((e: any) => ({ event: e, league: 'cfb' as const })));
-        console.log(`📋 Found ${cfbEvents.length} CFB events on Polymarket`);
-      }
+      const cfbEvents = await fetchAllEventsForTag(cfbTagId, 'CFB');
+      allEvents.push(...cfbEvents.map((e: any) => ({ event: e, league: 'cfb' as const })));
+      console.log(`📋 Found ${cfbEvents.length} total CFB events on Polymarket`);
     }
 
     if (ncaabTagId) {
-      const ncaabEventsUrl = `https://gamma-api.polymarket.com/events?tag_id=${ncaabTagId}&closed=false&limit=100&related_tags=true`;
-      const ncaabEventsResponse = await fetch(ncaabEventsUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'WagerProof-PolymarketCache/1.0'
-        }
-      });
-
-      if (ncaabEventsResponse.ok) {
-        const ncaabEventsData = await ncaabEventsResponse.json();
-        const ncaabEvents = Array.isArray(ncaabEventsData) ? ncaabEventsData : (ncaabEventsData.events || ncaabEventsData.data || []);
-        allEvents.push(...ncaabEvents.map((e: any) => ({ event: e, league: 'ncaab' as const })));
-        console.log(`📋 Found ${ncaabEvents.length} NCAAB events on Polymarket`);
-      }
+      const ncaabEvents = await fetchAllEventsForTag(ncaabTagId, 'NCAAB');
+      allEvents.push(...ncaabEvents.map((e: any) => ({ event: e, league: 'ncaab' as const })));
+      console.log(`📋 Found ${ncaabEvents.length} total NCAAB events on Polymarket`);
     }
 
     if (nbaTagId) {
-      const nbaEventsUrl = `https://gamma-api.polymarket.com/events?tag_id=${nbaTagId}&closed=false&limit=100&related_tags=true`;
-      const nbaEventsResponse = await fetch(nbaEventsUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'WagerProof-PolymarketCache/1.0'
-        }
-      });
-
-      if (nbaEventsResponse.ok) {
-        const nbaEventsData = await nbaEventsResponse.json();
-        const nbaEvents = Array.isArray(nbaEventsData) ? nbaEventsData : (nbaEventsData.events || nbaEventsData.data || []);
-        allEvents.push(...nbaEvents.map((e: any) => ({ event: e, league: 'nba' as const })));
-        console.log(`📋 Found ${nbaEvents.length} NBA events on Polymarket`);
-      }
+      const nbaEvents = await fetchAllEventsForTag(nbaTagId, 'NBA');
+      allEvents.push(...nbaEvents.map((e: any) => ({ event: e, league: 'nba' as const })));
+      console.log(`📋 Found ${nbaEvents.length} total NBA events on Polymarket`);
     }
 
     // Filter events to only include games (vs/@ pattern) - excludes props, futures, etc.
@@ -574,9 +639,22 @@ serve(async (req) => {
   }
 });
 
+// Helper: Parse teams from Polymarket title "Team A vs. Team B" or "Team A @ Team B"
+function parseTeamsFromTitle(title: string): { team1: string; team2: string } | null {
+  // Try "vs." first, then "@"
+  let parts = title.split(' vs. ');
+  if (parts.length !== 2) {
+    parts = title.split(' @ ');
+  }
+  if (parts.length !== 2) return null;
+  return { team1: parts[0].trim(), team2: parts[1].trim() };
+}
+
 // Helper: Find matching event
 function findMatchingEvent(events: any[], awayTeam: string, homeTeam: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): any | null {
-  const cleanName = (name: string) => name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+  // Replace non-alphanumeric chars with spaces (not remove them) so hyphens become word boundaries
+  // e.g., "Massachusetts-Lowell" -> "massachusetts lowell" (not "massachusettslowell")
+  const cleanName = (name: string) => name.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
   
   // Get team names for matching (mascots for NFL, full names for CFB/NCAAB/NBA)
   const awayName = getTeamName(awayTeam, league);
@@ -584,78 +662,40 @@ function findMatchingEvent(events: any[], awayTeam: string, homeTeam: string, le
   
   console.log(`🔍 Looking for ${league.toUpperCase()}: ${awayTeam} (${awayName}) vs ${homeTeam} (${homeName})`);
   
-  // Extract key words from team names for flexible matching
-  const getKeyWords = (name: string, isNcaab: boolean = false): string[] => {
-    const cleaned = cleanName(name);
-    const words = cleaned.split(/\s+/).filter(w => w.length > 2); // Filter out short words like "LA"
+  // Check if a DB team name matches one side of a Polymarket title
+  // Splits the Polymarket team side into words, checks if the DB name appears as a substring
+  const teamMatchesSide = (dbTeamName: string, polymarketSide: string): boolean => {
+    const dbClean = cleanName(dbTeamName);
+    const sideClean = cleanName(polymarketSide);
     
-    // For NCAAB, database has "Duke" but Polymarket has "Duke Blue Devils"
-    // We need to match on just the school name
-    if (isNcaab) {
-      // Return individual words and the full cleaned name
-      return [cleaned, ...words];
+    // First: try full name as substring (handles "Penn State" in "Penn State Nittany Lions")
+    if (sideClean.includes(dbClean)) return true;
+    
+    // Second: for single-word names, check word-level match (handles "Duke" in "Duke Blue Devils")
+    const dbWords = dbClean.split(/\s+/);
+    if (dbWords.length === 1 && dbWords[0].length > 2) {
+      const sideWords = sideClean.split(/\s+/);
+      return sideWords.some(w => w === dbWords[0] || w.startsWith(dbWords[0]));
     }
     
-    // For NBA/NFL, also include the last word (usually the mascot: "Hornets", "Bucks", etc.)
-    if (words.length > 1) {
-      return [cleaned, words[words.length - 1], words.join(' ')];
-    }
-    return [cleaned];
+    return false;
   };
-  
-  const isNcaab = league === 'ncaab';
-  const awayKeywords = getKeyWords(awayName, isNcaab);
-  const homeKeywords = getKeyWords(homeName, isNcaab);
-  
-  console.log(`  Away keywords: [${awayKeywords.join(', ')}]`);
-  console.log(`  Home keywords: [${homeKeywords.join(', ')}]`);
   
   for (const event of events) {
     const title = event.title || '';
-    const titleClean = cleanName(title);
+    const parsed = parseTeamsFromTitle(title);
+    if (!parsed) continue;
     
-    // For NCAAB, use word-based matching (any word from school name matches)
-    // For others, require full keyword match
-    let awayMatch = false;
-    let homeMatch = false;
+    // Match each DB team against each SIDE of the title independently
+    // This prevents "Penn State" matching the wrong side in "Michigan State vs Temple"
+    const awayMatchesSide1 = teamMatchesSide(awayName, parsed.team1) || teamMatchesSide(awayTeam, parsed.team1);
+    const homeMatchesSide2 = teamMatchesSide(homeName, parsed.team2) || teamMatchesSide(homeTeam, parsed.team2);
+    const awayMatchesSide2 = teamMatchesSide(awayName, parsed.team2) || teamMatchesSide(awayTeam, parsed.team2);
+    const homeMatchesSide1 = teamMatchesSide(homeName, parsed.team1) || teamMatchesSide(homeTeam, parsed.team1);
     
-    if (isNcaab) {
-      // NCAAB: Match if any word from school name appears in title
-      // e.g., "Duke" matches "Duke Blue Devils"
-      awayMatch = awayKeywords.some(keyword => {
-        // For single-word schools, match as word boundary
-        const words = titleClean.split(/\s+/);
-        return words.some(w => w === keyword || w.startsWith(keyword));
-      });
-      homeMatch = homeKeywords.some(keyword => {
-        const words = titleClean.split(/\s+/);
-        return words.some(w => w === keyword || w.startsWith(keyword));
-      });
-    } else {
-      // NBA/NFL/CFB: Standard keyword matching
-      awayMatch = awayKeywords.some(keyword => titleClean.includes(keyword));
-      homeMatch = homeKeywords.some(keyword => titleClean.includes(keyword));
-    }
-    
-    // Also check reversed (sometimes Polymarket lists home team first)
-    let awayMatchReversed = false;
-    let homeMatchReversed = false;
-    
-    if (isNcaab) {
-      awayMatchReversed = homeKeywords.some(keyword => {
-        const words = titleClean.split(/\s+/);
-        return words.some(w => w === keyword || w.startsWith(keyword));
-      });
-      homeMatchReversed = awayKeywords.some(keyword => {
-        const words = titleClean.split(/\s+/);
-        return words.some(w => w === keyword || w.startsWith(keyword));
-      });
-    } else {
-      awayMatchReversed = homeKeywords.some(keyword => titleClean.includes(keyword));
-      homeMatchReversed = awayKeywords.some(keyword => titleClean.includes(keyword));
-    }
-    
-    if ((awayMatch && homeMatch) || (awayMatchReversed && homeMatchReversed)) {
+    // Normal order: away matches side1, home matches side2
+    // Reversed order: away matches side2, home matches side1
+    if ((awayMatchesSide1 && homeMatchesSide2) || (awayMatchesSide2 && homeMatchesSide1)) {
       console.log(`✅ Matched: "${title}"`);
       return event;
     }

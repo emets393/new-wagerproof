@@ -19,101 +19,49 @@ import { useScroll } from '@/contexts/ScrollContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useUserAgents } from '@/hooks/useAgents';
 import { trackAppOpen } from '@/services/activityService';
-import { AgentCard } from '@/components/agents/AgentCard';
+import { AgentTimelineSection } from '@/components/agents/AgentTimeline';
 import { AgentLeaderboard } from '@/components/agents/AgentLeaderboard';
 import { AgentWithPerformance } from '@/types/agent';
 import { useDrawer } from '../../_layout';
 
 type AgentsTab = 'my-agents' | 'leaderboard';
 
-// Skeleton component for loading state
-function AgentCardSkeleton({ isDark }: { isDark: boolean }) {
+// Skeleton component for loading state (matches compact header + CompactPickCard)
+function AgentTimelineSkeleton({ isDark }: { isDark: boolean }) {
+  const shimmer = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+  const headerBg = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)';
+  const cardBg = isDark ? 'rgba(30, 30, 30, 0.6)' : 'rgba(255, 255, 255, 0.9)';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)';
+
   return (
-    <View
-      style={[
-        styles.skeletonCard,
-        {
-          backgroundColor: isDark
-            ? 'rgba(255, 255, 255, 0.05)'
-            : 'rgba(0, 0, 0, 0.03)',
-        },
-      ]}
-    >
-      <View style={styles.skeletonAccent} />
-      <View style={styles.skeletonContent}>
-        <View style={styles.skeletonTopRow}>
-          <View
-            style={[
-              styles.skeletonAvatar,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(255, 255, 255, 0.1)'
-                  : 'rgba(0, 0, 0, 0.08)',
-              },
-            ]}
-          />
-          <View style={styles.skeletonNameSection}>
-            <View
-              style={[
-                styles.skeletonName,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.1)'
-                    : 'rgba(0, 0, 0, 0.08)',
-                },
-              ]}
-            />
-            <View style={styles.skeletonBadges}>
-              <View
-                style={[
-                  styles.skeletonBadge,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(0, 0, 0, 0.08)',
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.skeletonBadge,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(0, 0, 0, 0.08)',
-                  },
-                ]}
-              />
+    <View style={styles.skeletonSection}>
+      {/* Compact header skeleton */}
+      <View style={[styles.skeletonHeader, { backgroundColor: headerBg }]}>
+        <View style={[styles.skeletonEmoji, { backgroundColor: shimmer }]} />
+        <View style={[styles.skeletonName, { backgroundColor: shimmer }]} />
+        <View style={{ flex: 1 }} />
+        <View style={[styles.skeletonStat, { backgroundColor: shimmer }]} />
+      </View>
+      {/* CompactPickCard-shaped skeletons */}
+      {[1, 2].map((i) => (
+        <View key={i} style={[styles.skeletonCard, { backgroundColor: cardBg, borderColor }]}>
+          <View style={[styles.skeletonAccent, { backgroundColor: shimmer }]} />
+          <View style={styles.skeletonCardContent}>
+            <View style={styles.skeletonCardRow}>
+              <View style={[styles.skeletonCircle, { backgroundColor: shimmer }]} />
+              <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
+              <View style={[styles.skeletonBarSmall, { backgroundColor: shimmer }]} />
+              <View style={[styles.skeletonCircle, { backgroundColor: shimmer }]} />
+              <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
+            </View>
+            <View style={[styles.skeletonCardRow, { marginTop: 8 }]}>
+              <View style={[styles.skeletonBar, { width: '60%', backgroundColor: shimmer }]} />
+              <View style={{ flex: 1 }} />
+              <View style={[styles.skeletonBar, { width: 50, backgroundColor: shimmer }]} />
             </View>
           </View>
         </View>
-        <View style={styles.skeletonStatsRow}>
-          {[1, 2, 3].map((i) => (
-            <View key={i} style={styles.skeletonStat}>
-              <View
-                style={[
-                  styles.skeletonStatLabel,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(0, 0, 0, 0.08)',
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.skeletonStatValue,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(0, 0, 0, 0.08)',
-                  },
-                ]}
-              />
-            </View>
-          ))}
-        </View>
-      </View>
+      ))}
     </View>
   );
 }
@@ -271,10 +219,10 @@ export default function AgentsHubScreen() {
     refetch();
   }, [refetch]);
 
-  // Render agent card
-  const renderAgentCard = useCallback(
+  // Render agent timeline section
+  const renderAgentSection = useCallback(
     ({ item }: { item: AgentWithPerformance }) => (
-      <AgentCard agent={item} onPress={() => handleAgentPress(item)} />
+      <AgentTimelineSection agent={item} onAgentPress={() => handleAgentPress(item)} />
     ),
     [handleAgentPress]
   );
@@ -289,7 +237,7 @@ export default function AgentsHubScreen() {
   const renderLoadingSkeletons = () => (
     <View style={styles.skeletonContainer}>
       {[1, 2, 3].map((i) => (
-        <AgentCardSkeleton key={i} isDark={isDark} />
+        <AgentTimelineSkeleton key={i} isDark={isDark} />
       ))}
     </View>
   );
@@ -406,7 +354,7 @@ export default function AgentsHubScreen() {
       {/* Content */}
       {activeTab === 'leaderboard' ? (
         <View style={{ flex: 1, paddingTop: TOTAL_HEADER_HEIGHT }}>
-          <AgentLeaderboard limit={50} showViewAll={false} />
+          <AgentLeaderboard limit={50} showViewAll={false} embedded={true} />
         </View>
       ) : isLoading && !agents ? (
         <View style={{ paddingTop: TOTAL_HEADER_HEIGHT }}>
@@ -441,7 +389,7 @@ export default function AgentsHubScreen() {
       ) : (
         <Animated.FlatList
           data={agents}
-          renderItem={renderAgentCard}
+          renderItem={renderAgentSection}
           keyExtractor={keyExtractor}
           contentContainerStyle={[
             styles.listContent,
@@ -677,68 +625,67 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
+  skeletonSection: {
+    marginBottom: 16,
+  },
+  skeletonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 52,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  skeletonEmoji: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+  },
+  skeletonName: {
+    height: 16,
+    width: 80,
+    borderRadius: 4,
+  },
+  skeletonStat: {
+    height: 14,
+    width: 60,
+    borderRadius: 4,
+  },
   skeletonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 16,
-    marginVertical: 6,
+    borderWidth: 1,
+    marginTop: 6,
     overflow: 'hidden',
   },
   skeletonAccent: {
-    height: 4,
-    backgroundColor: 'rgba(128, 128, 128, 0.2)',
+    width: 4,
+    alignSelf: 'stretch',
   },
-  skeletonContent: {
-    padding: 16,
+  skeletonCardContent: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
   },
-  skeletonTopRow: {
+  skeletonCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: 6,
   },
-  skeletonAvatar: {
-    width: 50,
-    height: 50,
+  skeletonCircle: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    marginRight: 12,
   },
-  skeletonNameSection: {
-    flex: 1,
-  },
-  skeletonName: {
-    height: 20,
-    width: '60%',
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  skeletonBadges: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  skeletonBadge: {
-    height: 16,
-    width: 40,
+  skeletonBar: {
+    height: 14,
     borderRadius: 4,
   },
-  skeletonStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(128, 128, 128, 0.15)',
-  },
-  skeletonStat: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  skeletonStatLabel: {
-    height: 12,
-    width: 40,
+  skeletonBarSmall: {
+    width: 14,
+    height: 14,
     borderRadius: 3,
-    marginBottom: 6,
-  },
-  skeletonStatValue: {
-    height: 18,
-    width: 50,
-    borderRadius: 4,
   },
   // FAB styles
   fab: {
