@@ -20,6 +20,7 @@ This allows the personality system to evolve without database migrations.
 | `avatar_performance_cache` | Cached W-L-P stats |
 | `user_avatar_follows` | Follow system for public agents |
 | `preset_archetypes` | Pre-configured agent templates |
+| `agent_system_prompts` | Remotely-editable system prompt templates for AI pick generation |
 
 ---
 
@@ -452,9 +453,65 @@ const validated = PersonalityParamsSchema.parse(params);
 
 ---
 
+## `agent_system_prompts` - Remote System Prompt Templates
+
+Stores the top-level system prompt that drives all AI agent pick generation. Developers edit this directly in the Supabase dashboard to iterate on prompt quality without code deploys.
+
+```sql
+CREATE TABLE IF NOT EXISTS agent_system_prompts (
+  id text PRIMARY KEY,                        -- Slug identifier (e.g., 'v1_default', 'v2_experimental')
+  prompt_text text NOT NULL,                  -- Full system prompt template with {{PLACEHOLDER}} variables
+  is_active boolean NOT NULL DEFAULT false,   -- Only ONE should be active at a time
+  version integer NOT NULL DEFAULT 1,         -- Version number for tracking changes
+  description text,                           -- Developer notes about this prompt version
+  updated_by text,                            -- Who last edited (developer name/email)
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Enforce single active prompt via partial unique index
+CREATE UNIQUE INDEX idx_agent_system_prompts_active
+  ON agent_system_prompts (is_active)
+  WHERE is_active = true;
+```
+
+### Template Variables
+
+The `prompt_text` uses these placeholders, populated by `promptBuilder.ts` at runtime:
+
+| Placeholder | Populated From | Description |
+|-------------|----------------|-------------|
+| `{{AGENT_NAME}}` | `avatar_profiles.name` | Agent display name |
+| `{{AGENT_EMOJI}}` | `avatar_profiles.avatar_emoji` | Agent emoji |
+| `{{AGENT_SPORTS}}` | `avatar_profiles.preferred_sports` | Comma-separated (e.g., "NFL, NBA") |
+| `{{PERSONALITY_INSTRUCTIONS}}` | `personality_params` → `buildPersonalityInstructions()` | Natural language from all 31 params |
+| `{{CUSTOM_INSIGHTS}}` | `custom_insights` | Betting philosophy, perceived edges, targets, avoids |
+| `{{CONSTRAINTS}}` | `personality_params` | Bet type, odds limits |
+
+### Fallback
+
+If no active prompt row exists, `promptBuilder.ts` uses its hardcoded fallback prompt. This means pick generation never breaks due to a missing prompt.
+
+### RLS
+
+```sql
+ALTER TABLE agent_system_prompts ENABLE ROW LEVEL SECURITY;
+
+-- Service role (edge functions) bypasses RLS by default
+-- Read-only policy for safety
+CREATE POLICY "Allow read access to active system prompts"
+  ON agent_system_prompts FOR SELECT USING (is_active = true);
+```
+
+---
+
 ## Migration Files
 
-1. `YYYYMMDD_001_create_avatar_tables.sql` - Create all tables
-2. `YYYYMMDD_002_create_rls_policies.sql` - Create RLS policies
-3. `YYYYMMDD_003_seed_preset_archetypes.sql` - Seed archetype data
-4. `YYYYMMDD_004_create_functions.sql` - Create helper functions
+1. `20260205000001_create_avatar_tables.sql` - Create all tables
+2. `20260205000002_create_avatar_rls_policies.sql` - Create RLS policies
+3. `20260205000003_create_avatar_functions.sql` - Create helper functions
+4. `20260205000004_seed_preset_archetypes.sql` - Seed archetype data
+5. `20260205000005_setup_avatar_picks_cron.sql` - Set up pg_cron for auto-generation
+6. `20260205000006_create_avatar_leaderboard_view.sql` - Leaderboard view
+7. `20260205000007_create_agent_system_prompts.sql` - Create remote system prompts table
+8. `20260205000008_seed_agent_system_prompt_v1.sql` - Seed v1 system prompt

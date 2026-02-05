@@ -6,7 +6,7 @@ The pick generation system uses 4 distinct payloads:
 ┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐
 │  PAYLOAD 1          │   │  PAYLOAD 2          │   │  PAYLOAD 3          │
 │  Agent Personality  │ + │  Game Data          │ + │  System Prompt      │
-│  (from DB)          │   │  (aggregated)       │   │  (hardcoded)        │
+│  (from DB)          │   │  (aggregated)       │   │  (from DB, remote)  │
 └─────────────────────┘   └─────────────────────┘   └─────────────────────┘
             │                       │                       │
             └───────────────────────┼───────────────────────┘
@@ -131,36 +131,82 @@ interface GameMatchup {
 
 ---
 
-## Payload 3: System Prompt (Hardcoded)
+## Payload 3: System Prompt (Remote, from DB)
 
-Foundational instructions for ALL agents regardless of personality:
+The system prompt is stored in the `agent_system_prompts` table on the main Supabase instance and fetched at runtime by both edge functions. This allows developers to iterate on prompt quality without code deploys.
 
-```typescript
-const AGENT_SYSTEM_PROMPT = `
-You are a sports betting analysis agent for WagerProof. Your job is to analyze games and select picks based on your configured personality and strategy.
+### Table: `agent_system_prompts`
 
-## Core Principles
-- You have access to WagerProof's proprietary model predictions
-- Compare model probabilities to Vegas lines to identify value
-- Consider line movement and public betting percentages
-- Factor in contextual elements (weather, injuries, rest)
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | text PK | Slug identifier (e.g., `v1_default`, `v2_experimental`) |
+| `prompt_text` | text | The full system prompt template with placeholder variables |
+| `is_active` | boolean | Only one row can be active (enforced by partial unique index) |
+| `version` | integer | Version number for tracking iterations |
+| `description` | text | Developer notes about this version |
+| `updated_by` | text | Who last edited it |
+| `created_at` | timestamptz | |
+| `updated_at` | timestamptz | Auto-updated via trigger |
 
-## Decision Framework
-1. EDGE IDENTIFICATION: Look for games where model probability differs significantly from implied Vegas odds
-2. VALUE ASSESSMENT: Bigger edge = higher confidence, but consider variance
-3. RISK MANAGEMENT: Stay within your configured parameters (units, confidence threshold)
-4. REASONING: Provide clear, analytical reasoning for each pick
+### Template Variables
 
-## Constraints
-- Only pick games you have genuine edge on
-- Never exceed max_picks_per_day
-- Never pick below min_confidence_threshold
-- Respect bet_type_preferences weightings
+The prompt template uses these placeholders, which `promptBuilder.ts` populates per-agent:
 
-## Output Format
-Return valid JSON matching the specified schema. Include reasoning for each pick.
-`;
+| Placeholder | Source | Description |
+|-------------|--------|-------------|
+| `{{AGENT_NAME}}` | `avatar_profiles.name` | Agent's display name |
+| `{{AGENT_EMOJI}}` | `avatar_profiles.avatar_emoji` | Agent's emoji |
+| `{{AGENT_SPORTS}}` | `avatar_profiles.preferred_sports` | Comma-separated sport list (e.g., "NFL, NBA") |
+| `{{PERSONALITY_INSTRUCTIONS}}` | Built from `personality_params` | Natural language instructions mapped from all 31 params |
+| `{{CUSTOM_INSIGHTS}}` | Built from `custom_insights` | User's free-text betting philosophy, edges, targets, avoids |
+| `{{CONSTRAINTS}}` | Built from `personality_params` | Bet type limits, odds limits |
+
+### How It Works
+
 ```
+Edge function starts
+    ↓
+Fetch active prompt from agent_system_prompts (is_active=true)
+    ↓
+If found → use remote template
+If not found → fall back to hardcoded prompt in promptBuilder.ts
+    ↓
+promptBuilder.ts replaces {{PLACEHOLDERS}} with per-agent data
+    ↓
+Final system prompt sent to OpenAI
+```
+
+### Editing the Prompt
+
+1. Open Supabase dashboard → Table Editor → `agent_system_prompts`
+2. Edit the `prompt_text` column on the active row
+3. Changes take effect immediately on the next pick generation (no deploy needed)
+
+### Creating a New Version
+
+1. Insert a new row with a new `id` slug (e.g., `v2_concise`)
+2. Set `is_active = false` on the new row
+3. Test by temporarily swapping: set old row `is_active = false`, new row `is_active = true`
+4. The partial unique index ensures only one row can be active
+
+### Fallback Behavior
+
+If no active prompt is found (e.g., table is empty, all rows inactive), both edge functions fall back to the hardcoded prompt in `promptBuilder.ts`. This ensures pick generation never breaks due to a missing or misconfigured prompt.
+
+### Current Prompt Contents
+
+The v1 prompt (`v1_default`) includes:
+- **Platform context**: What WagerProof is, the agent's role
+- **Sports definitions**: NFL, CFB, NBA, NCAAB explained
+- **Full personality parameter reference**: All 31 params with scales and meanings
+- **Sport-specific data availability notes**: Which params apply to which sports
+- **Custom insights reference**: How to interpret the 4 free-text fields
+- **Game data field guides**: Per-sport field definitions (vegas lines, weather, team stats, trends, etc.)
+- **Data availability matrix**: What each sport has/doesn't have
+- **Pick quality rules**: Must reference real data, no fabrication
+- **Bet selection rules**: game_id matching, selection format, odds format, confidence scale
+- **Volume/discipline rules**: Respect limits, cross-sport picks, no duplicate bet types
+- **Output format specification**: Exact JSON schema required
 
 ---
 
@@ -213,58 +259,48 @@ interface AgentPick {
 ## Edge Function Assembly
 
 ```typescript
-// In generate-avatar-picks edge function
+// In generate-avatar-picks edge function (simplified)
 async function generatePicks(agentId: string) {
   // 1. Fetch Payload 1: Agent Personality
-  const personality = await fetchAgentPersonality(agentId);
+  const profile = await supabaseClient
+    .from('avatar_profiles').select('*').eq('id', agentId).single();
 
-  // 2. Build Payload 2: Game Data (filtered by agent's sports)
-  const gameData = await aggregateGameData(personality.preferred_sports);
+  // 2. Fetch Payload 3: Remote System Prompt Template
+  const { data: promptRow } = await supabaseClient
+    .from('agent_system_prompts').select('prompt_text').eq('is_active', true).single();
+  const remotePromptTemplate = promptRow?.prompt_text || null;
 
-  // 3. Payload 3: System Prompt (hardcoded)
-  const systemPrompt = AGENT_SYSTEM_PROMPT;
+  // 3. Build Payload 2: Game Data (filtered by agent's sports)
+  for (const sport of profile.preferred_sports) {
+    const { games, formattedGames } = await fetchGamesForSport(cfbClient, sport, today);
+    allGamesData.push({ sport, games, formattedGames });
+  }
 
-  // 4. Construct the API call
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: buildUserPrompt(personality, gameData) }
-    ],
-    response_format: {
-      type: 'json_schema',
-      json_schema: AGENT_PICKS_SCHEMA  // Enforces Payload 4 structure
-    }
+  // 4. Build final system prompt (template + personality + constraints)
+  //    promptBuilder.ts replaces {{PLACEHOLDERS}} in the remote template
+  //    Falls back to hardcoded prompt if no remote template found
+  const systemPrompt = buildSystemPrompt(profile, profile.preferred_sports, remotePromptTemplate);
+
+  // 5. Build user prompt (full game data payload)
+  const userPrompt = buildUserPrompt(combinedGames, 'MULTI', today);
+
+  // 6. Call OpenAI with structured output
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      response_format: { type: 'json_schema', json_schema: AVATAR_PICKS_JSON_SCHEMA },
+      temperature: 0.7,
+      max_tokens: 4000,
+    }),
   });
 
-  // 5. Parse and save Payload 4
-  const picks: AgentPicksResponse = JSON.parse(response.choices[0].message.content);
-  await savePicks(agentId, picks);
-
-  return picks;
-}
-
-function buildUserPrompt(personality: AgentPersonalityPayload, games: GameDataPayload): string {
-  return `
-## Your Identity
-Name: ${personality.name}
-Risk Tolerance: ${personality.risk_tolerance}/10
-Analysis Style: ${personality.analysis_style}
-Preferred Bet Types: ${JSON.stringify(personality.bet_type_weights)}
-Unit Sizing: ${personality.unit_sizing_strategy} (base: ${personality.base_unit_size}u)
-Max Picks: ${personality.max_picks_per_day}
-Min Confidence: ${personality.min_confidence_threshold * 100}%
-
-## Data Source Weights
-${JSON.stringify(personality.data_weights)}
-
-## Today's Games
-${JSON.stringify(games.games, null, 2)}
-
-## Instructions
-Analyze these games through the lens of your personality. Select your best picks (up to ${personality.max_picks_per_day}) where you have genuine edge above ${personality.min_confidence_threshold * 100}% confidence.
-
-Return your picks as JSON matching the AgentPicksResponse schema.
-`;
+  // 7. Validate, insert picks, update timestamps
+  const aiResponse = JSON.parse(response.choices[0].message.content);
+  await savePicks(agentId, aiResponse.picks);
+  return aiResponse;
 }
 ```

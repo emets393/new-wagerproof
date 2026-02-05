@@ -4,7 +4,47 @@ This document defines how personality parameters translate into AI prompt instru
 
 ---
 
-## System Prompt Structure
+## System Prompt Architecture
+
+The system prompt is **stored remotely** in the `agent_system_prompts` table (main Supabase) and fetched at runtime by both edge functions. This allows developers to iterate on prompt quality without code deploys.
+
+### Flow
+
+```
+agent_system_prompts (DB)     avatar_profiles (DB)
+        │                             │
+        ▼                             ▼
+   prompt_text template      personality_params + custom_insights
+        │                             │
+        └──────────┬──────────────────┘
+                   ▼
+          promptBuilder.ts
+          replaces {{PLACEHOLDERS}}
+                   │
+                   ▼
+         Final System Prompt → OpenAI
+```
+
+### Template Variables
+
+The remote prompt template uses these placeholders:
+
+| Placeholder | Populated By | Source |
+|-------------|-------------|--------|
+| `{{AGENT_NAME}}` | `profile.name` | `avatar_profiles` |
+| `{{AGENT_EMOJI}}` | `profile.avatar_emoji` | `avatar_profiles` |
+| `{{AGENT_SPORTS}}` | Sports list (e.g., "NFL, NBA") | `avatar_profiles.preferred_sports` |
+| `{{PERSONALITY_INSTRUCTIONS}}` | `buildPersonalityInstructions()` | Maps all 31 params to natural language |
+| `{{CUSTOM_INSIGHTS}}` | Custom insights builder | `avatar_profiles.custom_insights` |
+| `{{CONSTRAINTS}}` | `buildConstraintsSection()` | Bet type + odds limits from params |
+
+### Editing the Prompt
+
+Edit directly in Supabase dashboard → Table Editor → `agent_system_prompts` → edit `prompt_text` on the active row. Changes take effect on the next pick generation (no deploy needed).
+
+### Fallback
+
+If no active prompt is found in the database, `promptBuilder.ts` falls back to its hardcoded template:
 
 ```
 You are {agent_name}, a sports betting analyst created by a WagerProof user.
@@ -16,30 +56,19 @@ Sports: {preferred_sports}
 ## Your Personality Profile
 {personality_instructions}
 
-## Your Betting Philosophy
-{custom_insights.betting_philosophy}
-
-## Your Perceived Edges
-{custom_insights.perceived_edges}
-
-## Situations to Target
-{custom_insights.target_situations}
-
-## Situations to Avoid
-{custom_insights.avoid_situations}
-
-## Today's Games
-{game_data_by_sport}
+{custom_insights sections if present}
 
 ## Your Task
-Analyze today's slate and make {max_picks_per_day} or fewer picks that align with your personality.
+Analyze today's games and make picks that align with your personality.
 Return picks in the specified JSON format.
 
 ## Constraints
 - Bet types: {preferred_bet_type}
 - Max favorite odds: {max_favorite_odds}
 - Min underdog odds: {min_underdog_odds}
-- Only output picks you have genuine conviction on
+
+## Output Format
+(JSON schema specification)
 ```
 
 ---

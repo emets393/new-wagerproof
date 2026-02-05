@@ -1,0 +1,877 @@
+import React, { useState, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  FlatList,
+} from 'react-native';
+import { useTheme, Button, Chip, Divider, Snackbar } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { useThemeContext } from '@/contexts/ThemeContext';
+import { useAdminMode } from '@/contexts/AdminModeContext';
+import { useAgent } from '@/hooks/useAgents';
+import {
+  useTodaysPicks,
+  useAgentPicks,
+  useGeneratePicks,
+} from '@/hooks/useAgentPicks';
+import { AgentPickCard } from '@/components/agents/AgentPickCard';
+import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
+import {
+  Sport,
+  AgentPick,
+  PickResult,
+  formatRecord,
+  formatNetUnits,
+  formatStreak,
+} from '@/types/agent';
+
+const SPORT_LABELS: Record<Sport, string> = {
+  nfl: 'NFL',
+  cfb: 'CFB',
+  nba: 'NBA',
+  ncaab: 'NCAAB',
+};
+
+type PickFilter = 'all' | 'won' | 'lost' | 'pending';
+
+export default function AgentDetailScreen() {
+  const theme = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { isDark } = useThemeContext();
+  const { adminModeEnabled } = useAdminMode();
+  const { id } = useLocalSearchParams<{ id: string }>();
+
+  // Local state
+  const [pickFilter, setPickFilter] = useState<PickFilter>('all');
+  const [showHistory, setShowHistory] = useState(false);
+  const [limitToastVisible, setLimitToastVisible] = useState(false);
+
+  // Fetch agent data
+  const {
+    data: agent,
+    isLoading: isLoadingAgent,
+    isRefetching: isRefetchingAgent,
+    refetch: refetchAgent,
+  } = useAgent(id || '');
+
+  // Fetch today's picks
+  const {
+    data: todaysPicks,
+    isLoading: isLoadingTodaysPicks,
+    refetch: refetchTodaysPicks,
+  } = useTodaysPicks(id || '');
+
+  // Fetch pick history
+  const {
+    data: allPicks,
+    isLoading: isLoadingAllPicks,
+    refetch: refetchAllPicks,
+  } = useAgentPicks(id || '');
+
+  // Generate picks mutation
+  const generatePicksMutation = useGeneratePicks();
+
+  // Calculate daily generation limit
+  const MAX_DAILY_GENERATIONS = 3;
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  const dailyGenCount = useMemo(() => {
+    if (!agent) return 0;
+    // Reset count if the stored date doesn't match today
+    if (agent.last_generation_date !== todayStr) return 0;
+    return agent.daily_generation_count || 0;
+  }, [agent?.daily_generation_count, agent?.last_generation_date, todayStr]);
+
+  const regensRemaining = adminModeEnabled
+    ? Infinity
+    : MAX_DAILY_GENERATIONS - dailyGenCount;
+
+  const canRegenerate = adminModeEnabled || regensRemaining > 0;
+
+  // Filter picks for history
+  const filteredPicks = useMemo(() => {
+    if (!allPicks) return [];
+    if (pickFilter === 'all') return allPicks;
+    return allPicks.filter((pick) => pick.result === pickFilter);
+  }, [allPicks, pickFilter]);
+
+  // Handle generate picks (initial or regeneration)
+  const handleGeneratePicks = useCallback(async () => {
+    if (!id || !canRegenerate || generatePicksMutation.isPending) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      await generatePicksMutation.mutateAsync({ agentId: id, isAdmin: adminModeEnabled });
+      // Refetch data after generation
+      refetchAgent();
+      refetchTodaysPicks();
+      refetchAllPicks();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('Error generating picks:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [
+    id,
+    canRegenerate,
+    adminModeEnabled,
+    generatePicksMutation,
+    refetchAgent,
+    refetchTodaysPicks,
+    refetchAllPicks,
+  ]);
+
+  // Handle navigation to settings
+  const handleOpenSettings = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/agents/${id}/settings` as any);
+  }, [router, id]);
+
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    refetchAgent();
+    refetchTodaysPicks();
+    refetchAllPicks();
+  }, [refetchAgent, refetchTodaysPicks, refetchAllPicks]);
+
+  // Render loading state
+  if (isLoadingAgent && !agent) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.centerContent,
+          { backgroundColor: isDark ? '#000000' : '#ffffff' },
+        ]}
+      >
+        <ThinkingAnimation stage="Loading agent..." />
+      </View>
+    );
+  }
+
+  // Render error state
+  if (!agent) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.centerContent,
+          { backgroundColor: isDark ? '#000000' : '#ffffff' },
+        ]}
+      >
+        <MaterialCommunityIcons
+          name="alert-circle-outline"
+          size={48}
+          color={theme.colors.error}
+        />
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+          Agent not found
+        </Text>
+        <Button mode="outlined" onPress={() => router.back()}>
+          Go Back
+        </Button>
+      </View>
+    );
+  }
+
+  const performance = agent.performance;
+  const record = formatRecord(performance);
+  const netUnits = performance ? formatNetUnits(performance.net_units) : '+0.00u';
+  const winRate = performance?.win_rate
+    ? `${(performance.win_rate * 100).toFixed(1)}%`
+    : '-';
+  const streak = performance ? formatStreak(performance.current_streak) : '-';
+  const isPositive = performance ? performance.net_units >= 0 : true;
+  const streakColor =
+    performance && performance.current_streak > 0
+      ? '#10b981'
+      : performance && performance.current_streak < 0
+      ? '#ef4444'
+      : theme.colors.onSurfaceVariant;
+
+  const hasTodaysPicks = todaysPicks && todaysPicks.length > 0;
+
+  return (
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: isDark ? '#000000' : '#ffffff' },
+      ]}
+    >
+      {/* Header */}
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top,
+            borderBottomColor: isDark
+              ? 'rgba(255, 255, 255, 0.1)'
+              : 'rgba(0, 0, 0, 0.08)',
+          },
+        ]}
+      >
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color={theme.colors.onSurface}
+            />
+          </TouchableOpacity>
+
+          <View style={styles.headerTitleSection}>
+            <Text
+              style={[styles.headerTitle, { color: theme.colors.onSurface }]}
+              numberOfLines={1}
+            >
+              {agent.name}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleOpenSettings}
+            style={styles.settingsButton}
+          >
+            <MaterialCommunityIcons
+              name="cog"
+              size={24}
+              color={theme.colors.onSurface}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 20 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetchingAgent}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
+        {/* Agent Profile Card */}
+        <View
+          style={[
+            styles.profileCard,
+            {
+              backgroundColor: isDark
+                ? 'rgba(255, 255, 255, 0.05)'
+                : 'rgba(0, 0, 0, 0.02)',
+              borderColor: isDark
+                ? 'rgba(255, 255, 255, 0.1)'
+                : 'rgba(0, 0, 0, 0.08)',
+            },
+          ]}
+        >
+          {/* Avatar and Info */}
+          <View style={styles.profileHeader}>
+            <View
+              style={[
+                styles.avatarLarge,
+                { backgroundColor: `${agent.avatar_color}30` },
+              ]}
+            >
+              <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text
+                style={[styles.agentName, { color: theme.colors.onSurface }]}
+              >
+                {agent.name}
+              </Text>
+              <View style={styles.sportBadges}>
+                {agent.preferred_sports.map((sport) => (
+                  <View
+                    key={sport}
+                    style={[
+                      styles.sportBadge,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.1)'
+                          : 'rgba(0, 0, 0, 0.05)',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sportBadgeText,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {SPORT_LABELS[sport]}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* Stats Row */}
+          <View
+            style={[
+              styles.statsRow,
+              {
+                borderTopColor: isDark
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : 'rgba(0, 0, 0, 0.08)',
+              },
+            ]}
+          >
+            <View style={styles.statItem}>
+              <Text
+                style={[
+                  styles.statLabel,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                Record
+              </Text>
+              <Text
+                style={[styles.statValue, { color: theme.colors.onSurface }]}
+              >
+                {record}
+              </Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <Text
+                style={[
+                  styles.statLabel,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                Net Units
+              </Text>
+              <Text
+                style={[
+                  styles.statValue,
+                  styles.unitsValue,
+                  { color: isPositive ? '#10b981' : '#ef4444' },
+                ]}
+              >
+                {netUnits}
+              </Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <Text
+                style={[
+                  styles.statLabel,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                Win Rate
+              </Text>
+              <Text
+                style={[styles.statValue, { color: theme.colors.onSurface }]}
+              >
+                {winRate}
+              </Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <Text
+                style={[
+                  styles.statLabel,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                Streak
+              </Text>
+              <Text style={[styles.statValue, { color: streakColor }]}>
+                {streak}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Generate Picks Button */}
+        {generatePicksMutation.isPending ? (
+          <ThinkingAnimation />
+        ) : hasTodaysPicks ? (
+          <View
+            style={[
+              styles.generateButton,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : 'rgba(0, 0, 0, 0.05)',
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="check-circle"
+              size={24}
+              color={theme.colors.onSurfaceVariant}
+            />
+            <Text
+              style={[
+                styles.generateButtonText,
+                { color: theme.colors.onSurfaceVariant, flex: 1 },
+              ]}
+            >
+              Picks Generated
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (canRegenerate) {
+                  handleGeneratePicks();
+                } else {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  setLimitToastVisible(true);
+                }
+              }}
+              activeOpacity={0.7}
+              style={[
+                styles.regenButton,
+                {
+                  backgroundColor: canRegenerate
+                    ? theme.colors.primary
+                    : isDark
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : 'rgba(0, 0, 0, 0.03)',
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="refresh"
+                size={18}
+                color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
+              />
+              <Text
+                style={[
+                  styles.regenText,
+                  {
+                    color: canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant,
+                  },
+                ]}
+              >
+                {adminModeEnabled
+                  ? 'Unlimited'
+                  : `${regensRemaining}/${MAX_DAILY_GENERATIONS}`}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.generateButton,
+              {
+                backgroundColor: canRegenerate
+                  ? theme.colors.primary
+                  : isDark
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : 'rgba(0, 0, 0, 0.05)',
+              },
+            ]}
+            onPress={() => {
+              if (canRegenerate) {
+                handleGeneratePicks();
+              } else {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                setLimitToastVisible(true);
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons
+              name="lightning-bolt"
+              size={24}
+              color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
+            />
+            <Text
+              style={[
+                styles.generateButtonText,
+                {
+                  color: canRegenerate
+                    ? '#ffffff'
+                    : theme.colors.onSurfaceVariant,
+                },
+              ]}
+            >
+              {canRegenerate
+                ? "Generate Today's Picks"
+                : 'Daily limit reached'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Today's Picks Section */}
+        <View style={styles.section}>
+          <Text
+            style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+          >
+            Today&apos;s Picks
+          </Text>
+
+          {isLoadingTodaysPicks ? (
+            <View style={styles.loadingContainer}>
+              <Text
+                style={[
+                  styles.loadingText,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                Loading picks...
+              </Text>
+            </View>
+          ) : hasTodaysPicks ? (
+            todaysPicks.map((pick) => (
+              <AgentPickCard key={pick.id} pick={pick} />
+            ))
+          ) : (
+            <View
+              style={[
+                styles.emptyPicksContainer,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.03)'
+                    : 'rgba(0, 0, 0, 0.02)',
+                  borderColor: isDark
+                    ? 'rgba(255, 255, 255, 0.1)'
+                    : 'rgba(0, 0, 0, 0.08)',
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="calendar-blank-outline"
+                size={40}
+                color={theme.colors.onSurfaceVariant}
+              />
+              <Text
+                style={[
+                  styles.emptyPicksText,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                No picks yet today
+              </Text>
+              <Text
+                style={[
+                  styles.emptyPicksSubtext,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                Tap Generate to get started
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Pick History Section */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.sectionHeader}
+            onPress={() => setShowHistory(!showHistory)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+            >
+              Pick History
+            </Text>
+            <MaterialCommunityIcons
+              name={showHistory ? 'chevron-up' : 'chevron-down'}
+              size={24}
+              color={theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+
+          {showHistory && (
+            <>
+              {/* Filter Chips */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterChips}
+              >
+                {(['all', 'won', 'lost', 'pending'] as PickFilter[]).map(
+                  (filter) => (
+                    <Chip
+                      key={filter}
+                      mode={pickFilter === filter ? 'flat' : 'outlined'}
+                      selected={pickFilter === filter}
+                      onPress={() => setPickFilter(filter)}
+                      style={[
+                        styles.filterChip,
+                        pickFilter === filter && {
+                          backgroundColor: theme.colors.primaryContainer,
+                        },
+                      ]}
+                      textStyle={{
+                        color:
+                          pickFilter === filter
+                            ? theme.colors.onPrimaryContainer
+                            : theme.colors.onSurfaceVariant,
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {filter}
+                    </Chip>
+                  )
+                )}
+              </ScrollView>
+
+              {/* Pick List */}
+              {isLoadingAllPicks ? (
+                <View style={styles.loadingContainer}>
+                  <Text
+                    style={[
+                      styles.loadingText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    Loading history...
+                  </Text>
+                </View>
+              ) : filteredPicks.length > 0 ? (
+                filteredPicks.slice(0, 10).map((pick) => (
+                  <AgentPickCard key={pick.id} pick={pick} />
+                ))
+              ) : (
+                <View
+                  style={[
+                    styles.emptyPicksContainer,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(255, 255, 255, 0.03)'
+                        : 'rgba(0, 0, 0, 0.02)',
+                      borderColor: isDark
+                        ? 'rgba(255, 255, 255, 0.1)'
+                        : 'rgba(0, 0, 0, 0.08)',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.emptyPicksText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    No picks in history
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+      </ScrollView>
+
+      <Snackbar
+        visible={limitToastVisible}
+        onDismiss={() => setLimitToastVisible(false)}
+        duration={3000}
+        style={{ backgroundColor: isDark ? '#333' : '#323232' }}
+      >
+        Today's limit exceeded
+      </Snackbar>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  header: {
+    borderBottomWidth: 1,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    height: 56,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  headerTitleSection: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  settingsButton: {
+    padding: 8,
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  // Profile Card
+  profileCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 20,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatarLarge: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  avatarEmojiLarge: {
+    fontSize: 36,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  agentName: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  sportBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sportBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  sportBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Stats Row
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  unitsValue: {
+    fontWeight: '800',
+  },
+  // Generate Button
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 14,
+    gap: 10,
+    marginBottom: 24,
+  },
+  generateButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  regenButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  regenText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  // Sections
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  // Loading
+  loadingContainer: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+  },
+  // Empty Picks
+  emptyPicksContainer: {
+    alignItems: 'center',
+    padding: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  emptyPicksText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  emptyPicksSubtext: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  // Filter Chips
+  filterChips: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterChip: {
+    borderRadius: 20,
+  },
+  // Error
+  errorText: {
+    fontSize: 16,
+    marginTop: 12,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+});

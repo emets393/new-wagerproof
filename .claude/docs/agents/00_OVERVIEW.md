@@ -10,6 +10,7 @@ A feature where users build up to 5 AI-powered "Virtual Picks Experts" (Agents) 
 |----------|--------|-----------|
 | **Visibility** | Private by default, opt-in public | Protects user strategies while enabling community |
 | **AI Backend** | Supabase Edge Functions + OpenAI | Fits existing patterns |
+| **System Prompt** | Remote (DB table `agent_system_prompts`) | Developers iterate without deploys |
 | **Platform** | Mobile-first, then web | Primary user base on mobile |
 | **Personality** | Parameters only (affects pick selection) | Reasoning stays analytical |
 | **Tracking** | Units only (+/- units like editor picks) | Simple, proven system |
@@ -61,10 +62,11 @@ Performance tracked (W-L-P, +/- units)
 
 ## Related Documentation
 
-- [01_DATA_PAYLOADS.md](./01_DATA_PAYLOADS.md) - 4-payload architecture
+- [01_DATA_PAYLOADS.md](./01_DATA_PAYLOADS.md) - 4-payload architecture (system prompt is now remote)
 - [02_PERSONALITY_PARAMS.md](./02_PERSONALITY_PARAMS.md) - All personality parameters
-- [03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) - Database tables
+- [03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) - Database tables (includes `agent_system_prompts`)
 - [04_SCREENS.md](./04_SCREENS.md) - Screen specifications
 - [05_COMPONENTS.md](./05_COMPONENTS.md) - Component list
-- [06_IMPLEMENTATION.md](./06_IMPLEMENTATION.md) - Implementation order
-- [07_GAME_DATA_PAYLOADS.md](./07_GAME_DATA_PAYLOADS.md) - **Sport-specific game data with real examples**
+- [06_IMPLEMENTATION.md](./06_IMPLEMENTATION.md) - Implementation order (updated with remote prompt tasks)
+- [07_GAME_DATA_PAYLOADS.md](./07_GAME_DATA_PAYLOADS.md) - Sport-specific game data with real examples
+- [08_PROMPT_MAPPING.md](./08_PROMPT_MAPPING.md) - How personality params map to AI instructions + remote prompt architecture

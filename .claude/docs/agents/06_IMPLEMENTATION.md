@@ -86,7 +86,17 @@ if (result === 'push') return 0;
   - Seed 8 preset archetypes with full personality_params
   - Include: contrarian, chalk_grinder, plus_money_hunter, model_truther, polymarket_prophet, momentum_rider, weather_watcher, the_analyst
 
-- [ ] **Task 1.1.5**: Run migrations and verify tables created
+- [x] **Task 1.1.5**: Run migrations and verify tables created
+
+- [x] **Task 1.1.6**: Write migration `007_create_agent_system_prompts.sql`
+  - `agent_system_prompts` table for remotely-editable system prompt templates
+  - Partial unique index to enforce single active prompt
+  - RLS with read-only policy for active prompts
+
+- [x] **Task 1.1.7**: Write migration `008_seed_agent_system_prompt_v1.sql`
+  - Seed comprehensive v1 system prompt with template variables
+  - Includes: platform context, sport definitions, full personality param reference,
+    sport-specific data guides, data availability matrix, pick quality rules, output format
 
 ### 1.2 TypeScript Types
 - [ ] **Task 1.2.1**: Create `/wagerproof-mobile/types/agent.ts`
@@ -287,27 +297,31 @@ if (result === 'push') return 0;
 ## Phase 6: Pick Generation Edge Function
 
 ### 6.1 Edge Function
-- [ ] **Task 6.1.1**: Create `/supabase/functions/generate-avatar-picks/index.ts`
+- [x] **Task 6.1.1**: Create `/supabase/functions/generate-avatar-picks/index.ts`
   - **Rate Limiting**: Check `last_generated_at` - reject if < 1 hour ago
   - **Validation**: Verify agent ownership via auth
   - Fetch agent profile + personality_params
+  - **Fetch active system prompt from `agent_system_prompts` table** (with hardcoded fallback)
   - Fetch games for selected sports from CFB Supabase
   - Apply weak slate logic (skip if < 3 games AND skip_weak_slates=true)
-  - Build game payloads (reuse existing builders from `generate-page-level-analysis`)
-  - Call OpenAI with personality-aware prompt
+  - Build system prompt via `buildSystemPrompt(profile, sports, remotePromptTemplate)`
+  - Build user prompt with full game data payload
+  - Call OpenAI with combined system prompt + game data
   - Parse and validate response with Zod
   - Insert picks into avatar_picks with archived snapshots
   - Update `last_generated_at` on avatar_profiles
   - Return picks to client
 
-- [ ] **Task 6.1.2**: Create `/supabase/functions/generate-avatar-picks/promptBuilder.ts`
+- [x] **Task 6.1.2**: Create `/supabase/functions/generate-avatar-picks/promptBuilder.ts`
   - Import personality→prompt mappings from `08_PROMPT_MAPPING.md`
   - Build system prompt with agent persona
+  - Accepts optional `remotePromptTemplate` parameter (fetched from `agent_system_prompts`)
+  - If remote template provided: populates `{{PLACEHOLDERS}}` with per-agent data
+  - If no remote template: falls back to hardcoded prompt (original behavior)
   - Inject personality params as natural language instructions
   - Inject custom_insights verbatim
   - Add sport-specific context based on selected sports
   - Handle unavailable data gracefully (note in prompt)
-  - Output format schema with examples
 
 - [ ] **Task 6.1.3**: Create `/supabase/functions/generate-avatar-picks/pickSchema.ts`
   - Zod schema for structured output:
@@ -387,18 +401,18 @@ if (result === 'push') return 0;
   - Track in `user_profiles` or via Supabase auth metadata
 
 ### 7.5.2 Auto-Generation Edge Function
-- [ ] **Task 7.5.2.1**: Create `/supabase/functions/auto-generate-avatar-picks/index.ts`
-  - Fetch all agents where:
-    - `auto_generate = true`
-    - `is_active = true`
-    - `last_auto_generated_at < today` (haven't generated today)
-    - `owner_last_active_at > now() - interval '5 days'` (user active recently)
+- [x] **Task 7.5.2.1**: Create `/supabase/functions/auto-generate-avatar-picks/index.ts`
+  - **Fetch active system prompt once** from `agent_system_prompts` (with hardcoded fallback)
+  - Fetch all eligible agents via RPC `get_eligible_avatars_for_auto_generation()`
+  - Pre-fetch games once per unique sport (deduplicated across all avatars)
   - For each eligible agent:
+    - Filter pre-fetched games to agent's preferred_sports
     - Check if games exist for agent's sports today
     - Skip if weak slate AND skip_weak_slates=true
-    - Call internal generate logic (same as manual generation)
-    - Update `last_auto_generated_at = now()`
-  - Log results for monitoring
+    - Build system prompt via `buildSystemPrompt(profile, sports, remotePromptTemplate)`
+    - Call OpenAI with combined system prompt + game data
+    - Insert picks + update `last_auto_generated_at = now()`
+  - Return aggregated summary (processed, skipped, errors, total picks)
 
 - [ ] **Task 7.5.2.2**: Set up pg_cron job for auto-generation
   - Run daily at 9am ET (before most games)
@@ -486,24 +500,28 @@ if (result === 'push') return 0;
 └── 08_PROMPT_MAPPING.md  (NEW)
 ```
 
-### Database (4 files)
+### Database (8 files)
 ```
 /supabase/migrations/
-├── YYYYMMDD_001_create_avatar_tables.sql
-├── YYYYMMDD_002_create_rls_policies.sql
-├── YYYYMMDD_003_create_functions.sql
-└── YYYYMMDD_004_seed_preset_archetypes.sql
+├── 20260205000001_create_avatar_tables.sql
+├── 20260205000002_create_avatar_rls_policies.sql
+├── 20260205000003_create_avatar_functions.sql
+├── 20260205000004_seed_preset_archetypes.sql
+├── 20260205000005_setup_avatar_picks_cron.sql
+├── 20260205000006_create_avatar_leaderboard_view.sql
+├── 20260205000007_create_agent_system_prompts.sql     ← Remote prompt table
+└── 20260205000008_seed_agent_system_prompt_v1.sql     ← V1 prompt seed
 ```
 
 ### Edge Functions (4 files)
 ```
 /supabase/functions/
 ├── generate-avatar-picks/
-│   ├── index.ts
-│   ├── promptBuilder.ts
-│   └── pickSchema.ts
+│   ├── index.ts              ← Fetches remote prompt, builds AI call
+│   ├── promptBuilder.ts      ← Populates {{PLACEHOLDERS}} in remote template
+│   └── pickSchema.ts         ← Zod + OpenAI structured output schemas
 ├── grade-avatar-picks/index.ts
-└── auto-generate-avatar-picks/index.ts  (NEW - daily auto-gen)
+└── auto-generate-avatar-picks/index.ts  ← Fetches remote prompt once, processes all avatars
 ```
 
 ### Mobile Types (1 file)
@@ -577,12 +595,12 @@ if (result === 'push') return 0;
 
 ---
 
-## Total: ~38 files
+## Total: ~42 files
 
 | Category | Files |
 |----------|-------|
 | Documentation | 1 |
-| Database migrations | 4 |
+| Database migrations | 8 |
 | Edge functions | 4 |
 | Types | 1 |
 | Services | 4 |
@@ -592,4 +610,4 @@ if (result === 'push') return 0;
 | Components - Creation | 6 |
 | Components - Inputs | 4 |
 | Components - Settings | 2 |
-| **Total** | **38** |
+| **Total** | **42** |
