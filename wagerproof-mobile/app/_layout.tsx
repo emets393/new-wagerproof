@@ -354,7 +354,7 @@ function RootLayoutContent() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000000' }}>
       <PaperProvider theme={theme}>
         <SettingsProvider>
           <WagerBotSuggestionProvider>

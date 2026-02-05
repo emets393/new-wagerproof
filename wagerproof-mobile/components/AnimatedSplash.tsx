@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, InteractionManager } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
 
@@ -42,9 +42,19 @@ export function AnimatedSplash({ isReady, onAnimationComplete }: AnimatedSplashP
   };
 
   useEffect(() => {
-    // Hide native splash immediately so user sees black AnimatedSplash background
-    // instead of white native splash
-    SplashScreen.hideAsync();
+    // Defer native splash hide to avoid "Unbalanced calls to begin/end appearance transitions"
+    // crash on iOS. Wait for our view to paint before hiding native splash to prevent grey flash.
+    const hideTask = InteractionManager.runAfterInteractions(() => {
+      // Double rAF ensures our black AnimatedSplash is painted before native splash hides.
+      // This prevents the grey flash between native splash and our custom splash.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          SplashScreen.hideAsync().catch(() => {
+            // Ignore - splash may already be hidden
+          });
+        });
+      });
+    });
 
     // Animate text in first, then lottie
     Animated.sequence([
@@ -73,6 +83,8 @@ export function AnimatedSplash({ isReady, onAnimationComplete }: AnimatedSplashP
       // Try to fade out (will only work if isReady is also true)
       tryStartFadeOut();
     });
+
+    return () => hideTask.cancel();
   }, []);
 
   useEffect(() => {

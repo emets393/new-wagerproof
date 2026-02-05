@@ -13,6 +13,226 @@ interface PageLevelRequest {
   user_id?: string; // Admin who triggered it
 }
 
+// ==========================================
+// Polymarket API helpers for live fallback
+// ==========================================
+
+const POLYMARKET_TAG_IDS: Record<string, string> = {
+  nfl: '450',      // NFL tag ID
+  cfb: '100639',   // CFB tag ID
+  nba: '745',      // NBA tag ID
+  ncaab: '102114', // NCAAB tag ID
+};
+
+// Team name mappings for Polymarket matching
+const NFL_TEAM_MASCOTS: Record<string, string> = {
+  'Arizona': 'Cardinals', 'Atlanta': 'Falcons', 'Baltimore': 'Ravens', 'Buffalo': 'Bills',
+  'Carolina': 'Panthers', 'Chicago': 'Bears', 'Cincinnati': 'Bengals', 'Cleveland': 'Browns',
+  'Dallas': 'Cowboys', 'Denver': 'Broncos', 'Detroit': 'Lions', 'Green Bay': 'Packers',
+  'Houston': 'Texans', 'Indianapolis': 'Colts', 'Jacksonville': 'Jaguars', 'Kansas City': 'Chiefs',
+  'Las Vegas': 'Raiders', 'Los Angeles Chargers': 'Chargers', 'Los Angeles Rams': 'Rams',
+  'Miami': 'Dolphins', 'Minnesota': 'Vikings', 'New England': 'Patriots', 'New Orleans': 'Saints',
+  'NY Giants': 'Giants', 'NY Jets': 'Jets', 'Philadelphia': 'Eagles', 'Pittsburgh': 'Steelers',
+  'San Francisco': '49ers', 'Seattle': 'Seahawks', 'Tampa Bay': 'Buccaneers', 'Tennessee': 'Titans',
+  'Washington': 'Commanders',
+};
+
+const NBA_TEAM_TO_MASCOT: Record<string, string> = {
+  'Atlanta Hawks': 'Hawks', 'Boston Celtics': 'Celtics', 'Brooklyn Nets': 'Nets',
+  'Charlotte Hornets': 'Hornets', 'Chicago Bulls': 'Bulls', 'Cleveland Cavaliers': 'Cavaliers',
+  'Dallas Mavericks': 'Mavericks', 'Denver Nuggets': 'Nuggets', 'Detroit Pistons': 'Pistons',
+  'Golden State Warriors': 'Warriors', 'Houston Rockets': 'Rockets', 'Indiana Pacers': 'Pacers',
+  'LA Clippers': 'Clippers', 'Los Angeles Clippers': 'Clippers', 'Los Angeles Lakers': 'Lakers',
+  'Memphis Grizzlies': 'Grizzlies', 'Miami Heat': 'Heat', 'Milwaukee Bucks': 'Bucks',
+  'Minnesota Timberwolves': 'Timberwolves', 'New Orleans Pelicans': 'Pelicans',
+  'New York Knicks': 'Knicks', 'Oklahoma City Thunder': 'Thunder', 'Orlando Magic': 'Magic',
+  'Philadelphia 76ers': '76ers', 'Phoenix Suns': 'Suns', 'Portland Trail Blazers': 'Trail Blazers',
+  'Sacramento Kings': 'Kings', 'San Antonio Spurs': 'Spurs', 'Toronto Raptors': 'Raptors',
+  'Utah Jazz': 'Jazz', 'Washington Wizards': 'Wizards',
+};
+
+function getTeamMascotForPolymarket(teamName: string, league: string): string {
+  if (league === 'nfl') {
+    return NFL_TEAM_MASCOTS[teamName] || teamName;
+  }
+  if (league === 'nba') {
+    const mascot = NBA_TEAM_TO_MASCOT[teamName];
+    if (mascot) return mascot;
+    const parts = teamName.split(' ');
+    return parts[parts.length - 1];
+  }
+  return teamName; // CFB/NCAAB use school names directly
+}
+
+function parsePolymarketTeams(title: string): { awayTeam: string; homeTeam: string } | null {
+  if (!title) return null;
+  if (title.includes(' vs. ')) {
+    const [away, home] = title.split(' vs. ').map(s => s.trim());
+    if (away && home) return { awayTeam: away, homeTeam: home };
+  } else if (title.includes(' @ ')) {
+    const [away, home] = title.split(' @ ').map(s => s.trim());
+    if (away && home) return { awayTeam: away, homeTeam: home };
+  }
+  return null;
+}
+
+async function fetchPolymarketEventsLive(league: string): Promise<any[]> {
+  const tagId = POLYMARKET_TAG_IDS[league];
+  if (!tagId) return [];
+
+  try {
+    const url = `https://gamma-api.polymarket.com/events?tag_id=${tagId}&closed=false&limit=100&related_tags=true`;
+    const response = await fetch(url);
+    if (!response.ok) return [];
+    const data = await response.json();
+    const events = Array.isArray(data) ? data : (data.events || data.data || []);
+    return events.filter((event: any) => parsePolymarketTeams(event.title) !== null);
+  } catch (error) {
+    console.error(`Error fetching Polymarket events for ${league}:`, error);
+    return [];
+  }
+}
+
+function findMatchingPolymarketEvent(
+  events: any[],
+  awayTeam: string,
+  homeTeam: string,
+  league: string
+): any | null {
+  if (!events || events.length === 0) return null;
+
+  const cleanTeamName = (name: string) =>
+    name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+
+  const awayMascot = getTeamMascotForPolymarket(awayTeam, league);
+  const homeMascot = getTeamMascotForPolymarket(homeTeam, league);
+
+  for (const event of events) {
+    const parsedTeams = parsePolymarketTeams(event.title);
+    if (!parsedTeams) continue;
+
+    const eventAway = cleanTeamName(parsedTeams.awayTeam);
+    const eventHome = cleanTeamName(parsedTeams.homeTeam);
+    const awayClean = cleanTeamName(awayMascot);
+    const homeClean = cleanTeamName(homeMascot);
+
+    const awayMatch = eventAway.includes(awayClean) || awayClean.includes(eventAway.split(' ')[0]);
+    const homeMatch = eventHome.includes(homeClean) || homeClean.includes(eventHome.split(' ')[0]);
+    const awayMatchReversed = eventHome.includes(awayClean) || awayClean.includes(eventHome.split(' ')[0]);
+    const homeMatchReversed = eventAway.includes(homeClean) || homeClean.includes(eventAway.split(' ')[0]);
+
+    if ((awayMatch && homeMatch) || (awayMatchReversed && homeMatchReversed)) {
+      return event;
+    }
+  }
+
+  return null;
+}
+
+function classifyPolymarketType(question: string, slug: string): string | null {
+  const qLower = question.toLowerCase();
+  const sLower = slug.toLowerCase();
+
+  if (qLower.includes('1h') || sLower.includes('-1h-')) return null;
+  if (qLower.includes('spread') || sLower.includes('-spread-')) return 'spread';
+  if (qLower.includes('o/u') || qLower.includes('total') || sLower.includes('-total-')) return 'total';
+  if (qLower.includes('moneyline') || sLower.includes('-moneyline')) return 'moneyline';
+  if (qLower.includes(' vs ') || qLower.includes(' vs. ')) return 'moneyline';
+  if (!sLower.includes('-total-') && !sLower.includes('-spread-')) return 'moneyline';
+  return null;
+}
+
+function extractPolymarketToken(market: any): string | null {
+  if (market.tokens && Array.isArray(market.tokens)) {
+    const yesToken = market.tokens.find((t: any) => (t.outcome || '').toLowerCase() === 'yes');
+    return yesToken?.token_id || null;
+  }
+  if (market.clobTokenIds) {
+    if (typeof market.clobTokenIds === 'string') {
+      try {
+        const arr = JSON.parse(market.clobTokenIds);
+        return Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
+      } catch { return null; }
+    }
+    if (Array.isArray(market.clobTokenIds) && market.clobTokenIds.length > 0) {
+      return market.clobTokenIds[0];
+    }
+  }
+  return null;
+}
+
+async function fetchPolymarketPriceHistory(tokenId: string): Promise<{ t: number; p: number }[]> {
+  try {
+    const url = `https://clob.polymarket.com/prices-history?market=${tokenId}&interval=max&fidelity=60`;
+    const response = await fetch(url);
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.history || [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchPolymarketDataLive(
+  awayTeam: string,
+  homeTeam: string,
+  league: string
+): Promise<any | null> {
+  try {
+    console.log(`🔍 Fetching live Polymarket data for ${awayTeam} @ ${homeTeam} (${league})`);
+
+    const events = await fetchPolymarketEventsLive(league);
+    if (events.length === 0) {
+      console.log(`⚠️ No Polymarket events found for ${league}`);
+      return null;
+    }
+
+    const event = findMatchingPolymarketEvent(events, awayTeam, homeTeam, league);
+    if (!event) {
+      console.log(`⚠️ No matching Polymarket event for ${awayTeam} @ ${homeTeam}`);
+      return null;
+    }
+
+    console.log(`✅ Found Polymarket event: ${event.title}`);
+
+    const result: any = {};
+
+    for (const market of (event.markets || [])) {
+      if (!market.active || market.closed) continue;
+
+      const marketType = classifyPolymarketType(market.question || '', market.slug || '');
+      if (!marketType || result[marketType]) continue;
+
+      const tokenId = extractPolymarketToken(market);
+      if (!tokenId) continue;
+
+      const priceHistory = await fetchPolymarketPriceHistory(tokenId);
+      if (priceHistory.length === 0) continue;
+
+      const latestPrice = priceHistory[priceHistory.length - 1]?.p || 0.5;
+      const awayOdds = Math.round(latestPrice * 100);
+      const homeOdds = 100 - awayOdds;
+
+      if (marketType === 'total') {
+        result.total = { over_odds: awayOdds, under_odds: homeOdds };
+      } else {
+        result[marketType] = { away_odds: awayOdds, home_odds: homeOdds };
+      }
+
+      console.log(`📊 ${marketType}: ${awayOdds}% - ${homeOdds}%`);
+    }
+
+    return Object.keys(result).length > 0 ? result : null;
+  } catch (error) {
+    console.error(`Error fetching live Polymarket data:`, error);
+    return null;
+  }
+}
+
+// ==========================================
+// Main serve handler
+// ==========================================
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -22,6 +242,21 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    console.log(`🔧 Supabase URL configured: ${supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NOT SET'}`);
+    console.log(`🔧 Service key configured: ${supabaseServiceKey ? 'YES' : 'NO'}`);
+
+    // Debug: Test the polymarket_markets table is accessible
+    const { data: testCacheData, error: testCacheError } = await supabaseClient
+      .from('polymarket_markets')
+      .select('game_key, league, market_type')
+      .limit(3);
+
+    if (testCacheError) {
+      console.error('❌ polymarket_markets table test query failed:', testCacheError);
+    } else {
+      console.log(`✅ polymarket_markets table accessible, sample data: ${JSON.stringify(testCacheData)}`);
+    }
 
     // Get the college football supabase URL and key from edge function secrets
     const cfbSupabaseUrl = Deno.env.get('CFB_SUPABASE_URL') ?? '';
@@ -120,22 +355,31 @@ serve(async (req) => {
 
     console.log(`Found ${completions?.length || 0} completions`);
 
-    // Fetch Polymarket data for all games from cache
+    // Fetch Polymarket data for all games from cache, with live API fallback
     const polymarketCache = new Map<string, any>();
-    
+
     for (const game of games) {
       const gameKey = `${sport_type}_${game.away_team}_${game.home_team}`;
-      
-      const { data: polymarketData } = await supabaseClient
+      console.log(`🔍 Looking up Polymarket cache for: ${gameKey}`);
+
+      // Try cache first - include error handling
+      const { data: polymarketData, error: polymarketError } = await supabaseClient
         .from('polymarket_markets')
         .select('*')
         .eq('game_key', gameKey)
         .eq('league', sport_type);
-      
+
+      if (polymarketError) {
+        console.error(`❌ Polymarket cache query error for ${gameKey}:`, polymarketError);
+      }
+
+      console.log(`📊 Cache query result for ${gameKey}: ${polymarketData?.length || 0} rows found`);
+
       if (polymarketData && polymarketData.length > 0) {
         // Organize by market type - format to match individual card payloads
         const marketsByType: any = {};
         for (const market of polymarketData) {
+          console.log(`  📈 Found ${market.market_type}: away=${market.current_away_odds}%, home=${market.current_home_odds}%`);
           if (market.market_type === 'total') {
             // For totals, use over_odds and under_odds instead of away/home
             marketsByType.total = {
@@ -151,13 +395,21 @@ serve(async (req) => {
           }
         }
         polymarketCache.set(gameKey, marketsByType);
-        console.log(`✅ Found Polymarket data for ${game.away_team} @ ${game.home_team}`);
+        console.log(`✅ Found Polymarket data (cache) for ${game.away_team} @ ${game.home_team}: ${Object.keys(marketsByType).join(', ')}`);
       } else {
-        console.log(`⚠️ No Polymarket data for ${game.away_team} @ ${game.home_team}`);
+        // Cache miss - try live API fallback
+        console.log(`⚠️ Cache miss for ${game.away_team} @ ${game.home_team}, trying live API...`);
+        const liveData = await fetchPolymarketDataLive(game.away_team, game.home_team, sport_type);
+        if (liveData) {
+          polymarketCache.set(gameKey, liveData);
+          console.log(`✅ Found Polymarket data (live) for ${game.away_team} @ ${game.home_team}`);
+        } else {
+          console.log(`❌ No Polymarket data available for ${game.away_team} @ ${game.home_team}`);
+        }
       }
     }
 
-    console.log(`Fetched Polymarket data for ${polymarketCache.size} games`);
+    console.log(`Fetched Polymarket data for ${polymarketCache.size}/${games.length} games`);
 
     // Build comprehensive payload
     const gamesWithCompletions = games.map(game => {
@@ -341,6 +593,10 @@ serve(async (req) => {
     );
   }
 });
+
+// ==========================================
+// Game Data Builder Functions
+// ==========================================
 
 function buildNFLGameData(game: any, polymarketData?: any): any {
   return {
