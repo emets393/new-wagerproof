@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -34,6 +35,10 @@ interface AgentLeaderboardProps {
   limit?: number;
   showViewAll?: boolean;
   embedded?: boolean;
+  onScroll?: (event: any) => void;
+  scrollEventThrottle?: number;
+  contentContainerStyle?: any;
+  progressViewOffset?: number;
 }
 
 // Leaderboard Row component
@@ -285,6 +290,10 @@ export function AgentLeaderboard({
   limit = 10,
   showViewAll = true,
   embedded = false,
+  onScroll,
+  scrollEventThrottle = 16,
+  contentContainerStyle,
+  progressViewOffset = 0,
 }: AgentLeaderboardProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -403,19 +412,27 @@ export function AgentLeaderboard({
           {renderLoadingSkeletons()}
         </>
       ) : leaderboard && leaderboard.length > 0 ? (
-        <FlatList
+        <Animated.FlatList
           data={leaderboard}
           renderItem={renderRow}
           keyExtractor={keyExtractor}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            contentContainerStyle,
+          ]}
           showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={scrollEventThrottle}
+          bounces={false}
+          overScrollMode="never"
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={handleRefresh}
               colors={[theme.colors.primary]}
               tintColor={theme.colors.primary}
+              progressViewOffset={progressViewOffset}
             />
           }
         />

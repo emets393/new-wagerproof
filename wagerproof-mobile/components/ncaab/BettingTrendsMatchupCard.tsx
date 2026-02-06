@@ -59,6 +59,13 @@ export function NCAABBettingTrendsMatchupCard({ game }: NCAABBettingTrendsMatchu
     getCFBTeamColors(game.homeTeam.team_name),
   );
 
+  // Determine favorite team for background gradient (same pattern as game cards)
+  const favoriteColors = game.homeTeam.fav_dog_situation === 'is_fav'
+    ? homeColors
+    : game.awayTeam.fav_dog_situation === 'is_fav'
+      ? awayColors
+      : homeColors; // default to home if no clear favorite
+
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     openTrendsSheet(game);
@@ -67,6 +74,18 @@ export function NCAABBettingTrendsMatchupCard({ game }: NCAABBettingTrendsMatchu
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <View style={[styles.card, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+        {/* Background gradient of favorite team */}
+        <LinearGradient
+          colors={[
+            `${favoriteColors.primary}15`,
+            `${favoriteColors.secondary}10`,
+            isDark ? '#1a1a1a00' : '#ffffff00',
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.backgroundGradient}
+        />
+
         {/* Gradient stripe at top */}
         <LinearGradient
           colors={[awayColors.primary, awayColors.secondary, homeColors.primary, homeColors.secondary]}
@@ -133,6 +152,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginHorizontal: 16,
     marginBottom: 12,
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   gradientStripe: {
     height: 4,

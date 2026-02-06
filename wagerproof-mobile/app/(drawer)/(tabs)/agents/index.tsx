@@ -353,8 +353,19 @@ export default function AgentsHubScreen() {
 
       {/* Content */}
       {activeTab === 'leaderboard' ? (
-        <View style={{ flex: 1, paddingTop: TOTAL_HEADER_HEIGHT }}>
-          <AgentLeaderboard limit={50} showViewAll={false} embedded={true} />
+        <View style={{ flex: 1 }}>
+          <AgentLeaderboard
+            limit={50}
+            showViewAll={false}
+            embedded={true}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            contentContainerStyle={{
+              paddingTop: TOTAL_HEADER_HEIGHT,
+              paddingBottom: TAB_BAR_HEIGHT + 80,
+            }}
+            progressViewOffset={TOTAL_HEADER_HEIGHT}
+          />
         </View>
       ) : isLoading && !agents ? (
         <View style={{ paddingTop: TOTAL_HEADER_HEIGHT }}>
