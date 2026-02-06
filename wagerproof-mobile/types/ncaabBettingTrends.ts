@@ -10,7 +10,7 @@
 export interface NCAABSituationalTrendRow {
   game_id: number;
   game_date: string;
-  team_id: number;
+  api_team_id: number;
   team_abbr: string;
   team_name: string;
   team_side: 'home' | 'away';

@@ -73,7 +73,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		XX5F998EFF6E414E94FBFEXX /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		XX5F998EFF6E414E94FBFEXX /* Exceptions for "WagerProofWidget" folder in "WagerProofWidget" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"expo-target.config.js",
@@ -84,7 +84,18 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		XX3253113B7304BD9E83BBXX /* WagerProofWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (XX5F998EFF6E414E94FBFEXX /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = WagerProofWidget; sourceTree = "<group>"; };
+		XX3253113B7304BD9E83BBXX /* WagerProofWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				XX5F998EFF6E414E94FBFEXX /* Exceptions for "WagerProofWidget" folder in "WagerProofWidget" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = WagerProofWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */

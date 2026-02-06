@@ -9,6 +9,7 @@ import { getCFBTeamColors } from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useNCAABBettingTrendsSheet } from '@/contexts/NCAABBettingTrendsSheetContext';
 import { TeamAvatar } from '../TeamAvatar';
+import { useGameTeamColors } from '@/hooks/useImageColors';
 
 interface NCAABBettingTrendsMatchupCardProps {
   game: NCAABGameTrendsData;
@@ -50,9 +51,13 @@ export function NCAABBettingTrendsMatchupCard({ game }: NCAABBettingTrendsMatchu
   const { isDark } = useThemeContext();
   const { openTrendsSheet } = useNCAABBettingTrendsSheet();
 
-  // Use CFB team colors for NCAAB (same schools)
-  const awayColors = getCFBTeamColors(game.awayTeam.team_name);
-  const homeColors = getCFBTeamColors(game.homeTeam.team_name);
+  // Extract team colors from logo images; fall back to hardcoded CFB colors
+  const { awayColors, homeColors } = useGameTeamColors(
+    game.awayTeamLogo,
+    game.homeTeamLogo,
+    getCFBTeamColors(game.awayTeam.team_name),
+    getCFBTeamColors(game.homeTeam.team_name),
+  );
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTheme, Button, Card, Switch } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useThemeContext } from '@/contexts/ThemeContext';
@@ -38,6 +39,14 @@ const SPORT_CONFIG: Record<Sport, { label: string; color: string }> = {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+function parseAvatarColor(value: string): { isGradient: boolean; colors: string[]; primary: string } {
+  if (value.startsWith('gradient:')) {
+    const colors = value.replace('gradient:', '').split(',');
+    return { isGradient: true, colors, primary: colors[0] };
+  }
+  return { isGradient: false, colors: [value], primary: value };
+}
 
 function generatePersonalitySummary(params: PersonalityParams): string[] {
   const summary: string[] = [];
@@ -176,27 +185,59 @@ export function Screen6_Review({
             backgroundColor: isDark
               ? 'rgba(255, 255, 255, 0.05)'
               : 'rgba(255, 255, 255, 0.95)',
-            borderColor: formState.avatar_color,
+            borderColor: parseAvatarColor(formState.avatar_color).primary,
             borderWidth: 2,
           },
         ]}
       >
         {/* Color accent bar */}
-        <View
-          style={[styles.accentBar, { backgroundColor: formState.avatar_color }]}
-        />
+        {(() => {
+          const parsed = parseAvatarColor(formState.avatar_color);
+          if (parsed.isGradient) {
+            return (
+              <LinearGradient
+                colors={parsed.colors as [string, string]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.accentBar}
+              />
+            );
+          }
+          return (
+            <View
+              style={[styles.accentBar, { backgroundColor: formState.avatar_color }]}
+            />
+          );
+        })()}
 
         <Card.Content style={styles.previewContent}>
           {/* Avatar and Name */}
           <View style={styles.avatarRow}>
-            <View
-              style={[
-                styles.avatarContainer,
-                { backgroundColor: `${formState.avatar_color}30` },
-              ]}
-            >
-              <Text style={styles.avatarEmoji}>{formState.avatar_emoji}</Text>
-            </View>
+            {(() => {
+              const parsed = parseAvatarColor(formState.avatar_color);
+              if (parsed.isGradient) {
+                return (
+                  <LinearGradient
+                    colors={parsed.colors as [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.avatarContainer}
+                  >
+                    <Text style={styles.avatarEmoji}>{formState.avatar_emoji}</Text>
+                  </LinearGradient>
+                );
+              }
+              return (
+                <View
+                  style={[
+                    styles.avatarContainer,
+                    { backgroundColor: `${formState.avatar_color}30` },
+                  ]}
+                >
+                  <Text style={styles.avatarEmoji}>{formState.avatar_emoji}</Text>
+                </View>
+              );
+            })()}
             <View style={styles.nameContainer}>
               <Text style={[styles.agentName, { color: theme.colors.onSurface }]}>
                 {formState.name}

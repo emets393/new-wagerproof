@@ -64,35 +64,8 @@ export async function fetchLeaderboard(
   limit: number = 50,
   sport?: Sport
 ): Promise<LeaderboardEntry[]> {
-  try {
-    // Query from a view that joins avatar_profiles with avatar_performance_cache
-    // for public agents only
-    let query = supabase
-      .from('avatar_leaderboard')
-      .select('*')
-      .order('net_units', { ascending: false })
-      .limit(limit);
-
-    // Filter by sport if provided
-    if (sport) {
-      query = query.contains('preferred_sports', [sport]);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      // If the view doesn't exist, fall back to manual join
-      console.warn('Leaderboard view not available, falling back to manual query');
-      return await fetchLeaderboardFallback(limit, sport);
-    }
-
-    console.log(`Loaded ${data?.length || 0} leaderboard entries`);
-    return (data as LeaderboardEntry[]) || [];
-  } catch (error) {
-    console.error('Error in fetchLeaderboard:', error);
-    // Try fallback
-    return await fetchLeaderboardFallback(limit, sport);
-  }
+  // Always use the manual query so we control the filters directly
+  return await fetchLeaderboardFallback(limit, sport);
 }
 
 /**
@@ -107,8 +80,7 @@ async function fetchLeaderboardFallback(
     let agentsQuery = supabase
       .from('avatar_profiles')
       .select('id, name, avatar_emoji, avatar_color, user_id, preferred_sports')
-      .eq('is_public', true)
-      .eq('is_active', true);
+      .eq('is_public', true);
 
     if (sport) {
       agentsQuery = agentsQuery.contains('preferred_sports', [sport]);
@@ -160,7 +132,6 @@ async function fetchLeaderboardFallback(
           best_streak: perf?.best_streak || 0,
         };
       })
-      .filter((entry) => entry.total_picks > 0) // Only show agents with picks
       .sort((a, b) => b.net_units - a.net_units)
       .slice(0, limit);
 

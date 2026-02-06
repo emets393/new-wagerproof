@@ -191,6 +191,13 @@ If no games meet your standards, return an empty picks array with a slate_note e
 
 ${constraintsSection}
 
+## Data Format
+- Each game has "away_team" and "home_team" fields. The "matchup" is formatted as "AwayTeam @ HomeTeam".
+- "vegas_lines.spread_summary" is a human-readable summary showing each team's spread (e.g., "Wizards +14.5 / Lakers -14.5"). USE THIS as your source of truth for spread values.
+- "vegas_lines.home_spread" is the home team's spread. Negative = home is favorite, positive = home is underdog.
+- "vegas_lines.away_spread" is the away team's spread. It is the opposite sign of home_spread.
+- CRITICAL: When making a spread pick, your "selection" MUST use the correct spread sign for the team you are picking. For example, if spread_summary says "Wizards +14.5 / Lakers -14.5" and you pick the Wizards to cover, your selection must be "Wizards +14.5" (NOT "Wizards -14.5").
+
 ## Output Format
 Return a JSON object with:
 - "picks": Array of pick objects (can be empty if no good plays)
@@ -199,7 +206,7 @@ Return a JSON object with:
 Each pick must include:
 - "game_id": The unique identifier from the game data
 - "bet_type": "spread", "moneyline", or "total"
-- "selection": Your pick (e.g., "Bills -1.5", "Chiefs ML", "Over 47.5")
+- "selection": Your pick. For spreads, use the team name and their EXACT spread from the spread_summary (e.g., "Bills -1.5", "Wizards +14.5"). For moneylines, use "TeamName ML". For totals, use "Over X.X" or "Under X.X".
 - "odds": American odds format (e.g., "-110", "+150")
 - "confidence": 1-5 scale (1=slight lean, 5=max conviction)
 - "reasoning": 2-3 sentences explaining your rationale

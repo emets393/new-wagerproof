@@ -267,17 +267,17 @@ export function useNCAABBettingTrends(): UseNCAABBettingTrendsResult {
             tipoffTime: null,
             awayTeam: row.team_side === 'away' ? row : undefined,
             homeTeam: row.team_side === 'home' ? row : undefined,
-            awayTeamLogo: row.team_side === 'away' ? teamLogoMap.get(row.team_id) || null : null,
-            homeTeamLogo: row.team_side === 'home' ? teamLogoMap.get(row.team_id) || null : null,
+            awayTeamLogo: row.team_side === 'away' ? teamLogoMap.get(row.api_team_id) || null : null,
+            homeTeamLogo: row.team_side === 'home' ? teamLogoMap.get(row.api_team_id) || null : null,
           });
         } else {
           const game = gamesMap.get(row.game_id)!;
           if (row.team_side === 'away') {
             game.awayTeam = row;
-            game.awayTeamLogo = teamLogoMap.get(row.team_id) || null;
+            game.awayTeamLogo = teamLogoMap.get(row.api_team_id) || null;
           } else if (row.team_side === 'home') {
             game.homeTeam = row;
-            game.homeTeamLogo = teamLogoMap.get(row.team_id) || null;
+            game.homeTeamLogo = teamLogoMap.get(row.api_team_id) || null;
           }
         }
       });

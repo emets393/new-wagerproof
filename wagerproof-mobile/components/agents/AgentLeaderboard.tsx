@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,23 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { useTheme, Chip, ActivityIndicator } from 'react-native-paper';
+import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { LeaderboardEntry } from '@/services/agentPerformanceService';
-import { Sport, SPORTS, formatRecord, formatNetUnits } from '@/types/agent';
+import { Sport, formatRecord, formatNetUnits } from '@/types/agent';
 
-const SPORT_LABELS: Record<Sport | 'all', string> = {
-  all: 'All',
+function getPrimaryColor(value: string): string {
+  if (value.startsWith('gradient:')) {
+    return value.replace('gradient:', '').split(',')[0];
+  }
+  return value;
+}
+
+const SPORT_LABELS: Record<Sport, string> = {
   nfl: 'NFL',
   cfb: 'CFB',
   nba: 'NBA',
@@ -95,7 +101,7 @@ function LeaderboardRow({
         <View
           style={[
             styles.avatarSmall,
-            { backgroundColor: `${entry.avatar_color}25` },
+            { backgroundColor: `${getPrimaryColor(entry.avatar_color)}25` },
           ]}
         >
           <Text style={styles.avatarEmoji}>{entry.avatar_emoji}</Text>
@@ -284,24 +290,13 @@ export function AgentLeaderboard({
   const router = useRouter();
   const { isDark } = useThemeContext();
 
-  // State for sport filter
-  const [selectedSport, setSelectedSport] = useState<Sport | undefined>(
-    undefined
-  );
-
   // Fetch leaderboard
   const {
     data: leaderboard,
     isLoading,
     isRefetching,
     refetch,
-  } = useLeaderboard(limit, selectedSport);
-
-  // Handle sport filter change
-  const handleSportChange = useCallback((sport: Sport | undefined) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedSport(sport);
-  }, []);
+  } = useLeaderboard(limit);
 
   // Handle row press
   const handleRowPress = useCallback(
@@ -352,53 +347,6 @@ export function AgentLeaderboard({
           </Text>
         </View>
       )}
-
-      {/* Sport Filter Chips */}
-      <View style={styles.filterContainer}>
-        <Chip
-          mode={selectedSport === undefined ? 'flat' : 'outlined'}
-          selected={selectedSport === undefined}
-          onPress={() => handleSportChange(undefined)}
-          style={[
-            styles.filterChip,
-            selectedSport === undefined && {
-              backgroundColor: theme.colors.primaryContainer,
-            },
-          ]}
-          textStyle={{
-            color:
-              selectedSport === undefined
-                ? theme.colors.onPrimaryContainer
-                : theme.colors.onSurfaceVariant,
-            fontSize: 12,
-          }}
-        >
-          All
-        </Chip>
-        {SPORTS.map((sport) => (
-          <Chip
-            key={sport}
-            mode={selectedSport === sport ? 'flat' : 'outlined'}
-            selected={selectedSport === sport}
-            onPress={() => handleSportChange(sport)}
-            style={[
-              styles.filterChip,
-              selectedSport === sport && {
-                backgroundColor: theme.colors.primaryContainer,
-              },
-            ]}
-            textStyle={{
-              color:
-                selectedSport === sport
-                  ? theme.colors.onPrimaryContainer
-                  : theme.colors.onSurfaceVariant,
-              fontSize: 12,
-            }}
-          >
-            {SPORT_LABELS[sport]}
-          </Chip>
-        ))}
-      </View>
 
       {/* Column Headers */}
       <View style={styles.columnHeaders}>
@@ -463,14 +411,12 @@ export function AgentLeaderboard({
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            !embedded ? (
-              <RefreshControl
-                refreshing={isRefetching}
-                onRefresh={handleRefresh}
-                colors={[theme.colors.primary]}
-                tintColor={theme.colors.primary}
-              />
-            ) : undefined
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={handleRefresh}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
           }
         />
       ) : (
@@ -537,16 +483,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-    paddingTop: 16,
-  },
-  filterChip: {
-    borderRadius: 16,
   },
   columnHeaders: {
     flexDirection: 'row',

@@ -34,7 +34,6 @@ export async function fetchUserAgents(userId: string): Promise<AgentWithPerforma
       .from('avatar_profiles')
       .select('*')
       .eq('user_id', userId)
-      .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (agentsError) {
@@ -151,7 +150,7 @@ export async function createAgent(
       personality_params: validated.personality_params,
       custom_insights: validated.custom_insights,
       auto_generate: validated.auto_generate,
-      is_public: false,
+      is_public: true,
       is_active: true,
     };
 
@@ -222,16 +221,14 @@ export async function updateAgent(
 }
 
 /**
- * Soft delete an agent (set is_active=false)
+ * Delete an agent permanently. Related picks, performance cache,
+ * and follows are removed via ON DELETE CASCADE.
  */
 export async function deleteAgent(agentId: string): Promise<void> {
   try {
     const { error } = await supabase
       .from('avatar_profiles')
-      .update({
-        is_active: false,
-        updated_at: new Date().toISOString(),
-      })
+      .delete()
       .eq('id', agentId);
 
     if (error) {

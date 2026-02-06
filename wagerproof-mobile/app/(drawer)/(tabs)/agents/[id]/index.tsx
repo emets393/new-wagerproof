@@ -6,13 +6,14 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  FlatList,
 } from 'react-native';
-import { useTheme, Button, Chip, Divider, Snackbar } from 'react-native-paper';
+import { useTheme, Button, Chip, Snackbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAgent } from '@/hooks/useAgents';
@@ -21,12 +22,12 @@ import {
   useAgentPicks,
   useGeneratePicks,
 } from '@/hooks/useAgentPicks';
-import { AgentPickCard } from '@/components/agents/AgentPickCard';
+import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
+import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
 import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
+import { useGameLookup } from '@/hooks/useGameLookup';
 import {
   Sport,
-  AgentPick,
-  PickResult,
   formatRecord,
   formatNetUnits,
   formatStreak,
@@ -41,6 +42,50 @@ const SPORT_LABELS: Record<Sport, string> = {
 
 type PickFilter = 'all' | 'won' | 'lost' | 'pending';
 
+function parseAvatarColor(value: string): { isGradient: boolean; colors: string[] } {
+  if (value.startsWith('gradient:')) {
+    const colors = value.replace('gradient:', '').split(',');
+    return { isGradient: true, colors };
+  }
+  return { isGradient: false, colors: [value] };
+}
+
+function getPrimaryColor(value: string): string {
+  if (value.startsWith('gradient:')) {
+    return value.replace('gradient:', '').split(',')[0];
+  }
+  return value;
+}
+
+function getPersonalityPills(params: any): string[] {
+  if (!params) return [];
+  const pills: string[] = [];
+
+  const riskMap: Record<number, string> = { 1: 'Very Safe', 2: 'Conservative', 4: 'Aggressive', 5: 'High Risk' };
+  if (params.risk_tolerance && riskMap[params.risk_tolerance]) pills.push(riskMap[params.risk_tolerance]);
+
+  const betTypeMap: Record<string, string> = { spread: 'Spreads', moneyline: 'Moneylines', total: 'Totals' };
+  if (params.preferred_bet_type && betTypeMap[params.preferred_bet_type]) pills.push(betTypeMap[params.preferred_bet_type]);
+
+  const underdogMap: Record<number, string> = { 1: 'Chalk Only', 2: 'Favors Favorites', 4: 'Likes Underdogs', 5: 'Underdog Hunter' };
+  if (params.underdog_lean && underdogMap[params.underdog_lean]) pills.push(underdogMap[params.underdog_lean]);
+
+  const ouMap: Record<number, string> = { 1: 'Unders', 2: 'Leans Under', 4: 'Leans Over', 5: 'Overs' };
+  if (params.over_under_lean && ouMap[params.over_under_lean]) pills.push(ouMap[params.over_under_lean]);
+
+  if (params.chase_value) pills.push('Value Hunter');
+  if (params.fade_public) pills.push('Fades Public');
+
+  const confMap: Record<number, string> = { 1: 'Takes Any Edge', 4: 'Selective', 5: 'Very Picky' };
+  if (params.confidence_threshold && confMap[params.confidence_threshold]) pills.push(confMap[params.confidence_threshold]);
+
+  if (params.weather_impacts_totals) pills.push('Weather Aware');
+  if (params.ride_hot_streaks) pills.push('Streak Rider');
+  if (params.fade_cold_streaks) pills.push('Fades Cold Streaks');
+
+  return pills.slice(0, 5);
+}
+
 export default function AgentDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -53,6 +98,7 @@ export default function AgentDetailScreen() {
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
   const [showHistory, setShowHistory] = useState(false);
   const [limitToastVisible, setLimitToastVisible] = useState(false);
+  const [slateToastMessage, setSlateToastMessage] = useState<string | null>(null);
 
   // Fetch agent data
   const {
@@ -76,12 +122,18 @@ export default function AgentDetailScreen() {
     refetch: refetchAllPicks,
   } = useAgentPicks(id || '');
 
+  // Game lookup for opening bottom sheets
+  const { openGameForPick } = useGameLookup();
+
   // Generate picks mutation
   const generatePicksMutation = useGeneratePicks();
 
   // Calculate daily generation limit
   const MAX_DAILY_GENERATIONS = 3;
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
 
   const dailyGenCount = useMemo(() => {
     if (!agent) return 0;
@@ -110,15 +162,22 @@ export default function AgentDetailScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await generatePicksMutation.mutateAsync({ agentId: id, isAdmin: adminModeEnabled });
+      const { result } = await generatePicksMutation.mutateAsync({ agentId: id, isAdmin: adminModeEnabled });
       // Refetch data after generation
       refetchAgent();
       refetchTodaysPicks();
       refetchAllPicks();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      if (result.picks.length === 0) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setSlateToastMessage(result.slate_note || 'No games available for your sports today.');
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } catch (error) {
       console.error('Error generating picks:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setSlateToastMessage(error instanceof Error ? error.message : 'Failed to generate picks. Please try again.');
     }
   }, [
     id,
@@ -208,14 +267,14 @@ export default function AgentDetailScreen() {
       ]}
     >
       {/* Header */}
-      <View
+      <AndroidBlurView
+        intensity={80}
+        tint={isDark ? 'dark' : 'light'}
         style={[
           styles.header,
           {
             paddingTop: insets.top,
-            borderBottomColor: isDark
-              ? 'rgba(255, 255, 255, 0.1)'
-              : 'rgba(0, 0, 0, 0.08)',
+            borderBottomColor: 'rgba(150, 150, 150, 0.1)',
           },
         ]}
       >
@@ -251,12 +310,12 @@ export default function AgentDetailScreen() {
             />
           </TouchableOpacity>
         </View>
-      </View>
+      </AndroidBlurView>
 
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 20 },
+          { paddingTop: insets.top + 56, paddingBottom: insets.bottom + 20 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -284,14 +343,31 @@ export default function AgentDetailScreen() {
         >
           {/* Avatar and Info */}
           <View style={styles.profileHeader}>
-            <View
-              style={[
-                styles.avatarLarge,
-                { backgroundColor: `${agent.avatar_color}30` },
-              ]}
-            >
-              <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
-            </View>
+            {(() => {
+              const parsed = parseAvatarColor(agent.avatar_color);
+              if (parsed.isGradient) {
+                return (
+                  <LinearGradient
+                    colors={parsed.colors as [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.avatarLarge}
+                  >
+                    <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
+                  </LinearGradient>
+                );
+              }
+              return (
+                <View
+                  style={[
+                    styles.avatarLarge,
+                    { backgroundColor: agent.avatar_color },
+                  ]}
+                >
+                  <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
+                </View>
+              );
+            })()}
             <View style={styles.profileInfo}>
               <Text
                 style={[styles.agentName, { color: theme.colors.onSurface }]}
@@ -324,6 +400,30 @@ export default function AgentDetailScreen() {
               </View>
             </View>
           </View>
+
+          {/* Personality Pills */}
+          {(() => {
+            const pills = getPersonalityPills(agent.personality_params);
+            if (pills.length === 0) return null;
+            const pillColor = getPrimaryColor(agent.avatar_color);
+            return (
+              <View style={styles.personalityPills}>
+                {pills.map((pill) => (
+                  <View
+                    key={pill}
+                    style={[
+                      styles.personalityPill,
+                      { backgroundColor: `${pillColor}20` },
+                    ]}
+                  >
+                    <Text style={[styles.personalityPillText, { color: pillColor }]}>
+                      {pill}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
 
           {/* Stats Row */}
           <View
@@ -523,58 +623,59 @@ export default function AgentDetailScreen() {
             Today&apos;s Picks
           </Text>
 
-          {isLoadingTodaysPicks ? (
-            <View style={styles.loadingContainer}>
-              <Text
+          <View style={styles.picksList}>
+            {isLoadingTodaysPicks ? (
+              <>
+                <PickCardSkeleton isDark={isDark} />
+                <PickCardSkeleton isDark={isDark} />
+              </>
+            ) : hasTodaysPicks ? (
+              todaysPicks.map((pick) => (
+                <AgentPickItem
+                  key={pick.id}
+                  pick={pick}
+                  showReasoning="full"
+                  onPress={() => pick.game_id ? openGameForPick(pick.sport, pick.game_id) : undefined}
+                />
+              ))
+            ) : (
+              <View
                 style={[
-                  styles.loadingText,
-                  { color: theme.colors.onSurfaceVariant },
+                  styles.emptyPicksContainer,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255, 255, 255, 0.03)'
+                      : 'rgba(0, 0, 0, 0.02)',
+                    borderColor: isDark
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(0, 0, 0, 0.08)',
+                  },
                 ]}
               >
-                Loading picks...
-              </Text>
-            </View>
-          ) : hasTodaysPicks ? (
-            todaysPicks.map((pick) => (
-              <AgentPickCard key={pick.id} pick={pick} />
-            ))
-          ) : (
-            <View
-              style={[
-                styles.emptyPicksContainer,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.03)'
-                    : 'rgba(0, 0, 0, 0.02)',
-                  borderColor: isDark
-                    ? 'rgba(255, 255, 255, 0.1)'
-                    : 'rgba(0, 0, 0, 0.08)',
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="calendar-blank-outline"
-                size={40}
-                color={theme.colors.onSurfaceVariant}
-              />
-              <Text
-                style={[
-                  styles.emptyPicksText,
-                  { color: theme.colors.onSurfaceVariant },
-                ]}
-              >
-                No picks yet today
-              </Text>
-              <Text
-                style={[
-                  styles.emptyPicksSubtext,
-                  { color: theme.colors.onSurfaceVariant },
-                ]}
-              >
-                Tap Generate to get started
-              </Text>
-            </View>
-          )}
+                <MaterialCommunityIcons
+                  name="calendar-blank-outline"
+                  size={40}
+                  color={theme.colors.onSurfaceVariant}
+                />
+                <Text
+                  style={[
+                    styles.emptyPicksText,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  No picks yet today
+                </Text>
+                <Text
+                  style={[
+                    styles.emptyPicksSubtext,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  Tap Generate to get started
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Pick History Section */}
@@ -632,48 +733,57 @@ export default function AgentDetailScreen() {
               </ScrollView>
 
               {/* Pick List */}
-              {isLoadingAllPicks ? (
-                <View style={styles.loadingContainer}>
-                  <Text
+              <View style={styles.picksList}>
+                {isLoadingAllPicks ? (
+                  <>
+                    <PickCardSkeleton isDark={isDark} />
+                    <PickCardSkeleton isDark={isDark} />
+                    <PickCardSkeleton isDark={isDark} />
+                  </>
+                ) : filteredPicks.length > 0 ? (
+                  filteredPicks.slice(0, 10).map((pick) => (
+                    <AgentPickItem
+                      key={pick.id}
+                      pick={pick}
+                      showReasoning="full"
+                      onPress={() => pick.game_id ? openGameForPick(pick.sport, pick.game_id) : undefined}
+                    />
+                  ))
+                ) : (
+                  <View
                     style={[
-                      styles.loadingText,
-                      { color: theme.colors.onSurfaceVariant },
+                      styles.emptyPicksContainer,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.03)'
+                          : 'rgba(0, 0, 0, 0.02)',
+                        borderColor: isDark
+                          ? 'rgba(255, 255, 255, 0.1)'
+                          : 'rgba(0, 0, 0, 0.08)',
+                      },
                     ]}
                   >
-                    Loading history...
-                  </Text>
-                </View>
-              ) : filteredPicks.length > 0 ? (
-                filteredPicks.slice(0, 10).map((pick) => (
-                  <AgentPickCard key={pick.id} pick={pick} />
-                ))
-              ) : (
-                <View
-                  style={[
-                    styles.emptyPicksContainer,
-                    {
-                      backgroundColor: isDark
-                        ? 'rgba(255, 255, 255, 0.03)'
-                        : 'rgba(0, 0, 0, 0.02)',
-                      borderColor: isDark
-                        ? 'rgba(255, 255, 255, 0.1)'
-                        : 'rgba(0, 0, 0, 0.08)',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.emptyPicksText,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    No picks in history
-                  </Text>
-                </View>
-              )}
+                    <Text
+                      style={[
+                        styles.emptyPicksText,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      No picks in history
+                    </Text>
+                  </View>
+                )}
+              </View>
             </>
           )}
         </View>
+
+        {/* Performance Charts */}
+        <AgentPerformanceCharts
+          allPicks={allPicks || []}
+          preferredSports={agent.preferred_sports}
+          agentColor={getPrimaryColor(agent.avatar_color)}
+        />
       </ScrollView>
 
       <Snackbar
@@ -683,6 +793,14 @@ export default function AgentDetailScreen() {
         style={{ backgroundColor: isDark ? '#333' : '#323232' }}
       >
         Today's limit exceeded
+      </Snackbar>
+      <Snackbar
+        visible={!!slateToastMessage}
+        onDismiss={() => setSlateToastMessage(null)}
+        duration={4000}
+        style={{ backgroundColor: isDark ? '#333' : '#323232' }}
+      >
+        {slateToastMessage || ''}
       </Snackbar>
     </View>
   );
@@ -698,6 +816,11 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
     borderBottomWidth: 1,
   },
   headerContent: {
@@ -768,6 +891,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  personalityPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 16,
+  },
+  personalityPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  personalityPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
   // Stats Row
   statsRow: {
     flexDirection: 'row',
@@ -833,6 +971,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 12,
+  },
+  picksList: {
+    gap: 6,
   },
   // Loading
   loadingContainer: {

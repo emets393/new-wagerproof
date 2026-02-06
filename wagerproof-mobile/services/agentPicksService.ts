@@ -89,9 +89,9 @@ export async function fetchPendingPicks(agentId: string): Promise<AgentPick[]> {
  */
 export async function fetchTodaysPicks(agentId: string): Promise<AgentPick[]> {
   try {
-    // Get today's date in YYYY-MM-DD format
+    // Get today's date in YYYY-MM-DD format using local time (not UTC)
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     const { data, error } = await supabase
       .from('avatar_picks')
@@ -161,6 +161,7 @@ export async function generatePicks(agentId: string, isAdmin: boolean = false): 
     };
 
     console.log(`Generated ${result.picks.length} picks for agent ${agentId}`);
+    console.log(`Games analyzed: ${responseBody.games_analyzed}, Slate note: ${responseBody.slate_note || 'none'}`);
     return result;
   } catch (error) {
     console.error('Error in generatePicks:', error);

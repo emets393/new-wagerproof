@@ -160,7 +160,8 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     // 3. Pre-fetch Today's Games for All Sports
     // -------------------------------------------------------------------------
-    const today = new Date().toISOString().split('T')[0];
+    // Use US Eastern time since game dates are stored in ET
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).toISOString().split('T')[0];
     const gamesByPort: Record<string, { games: unknown[]; formattedGames: unknown[] }> = {};
 
     // Determine which sports need to be fetched
@@ -618,17 +619,30 @@ async function fetchNCAABGames(
 // Game Formatting Functions (Reused from generate-avatar-picks)
 // =============================================================================
 
+/** Format a spread number for display: positive gets "+", negative stays as-is */
+function fmtSpread(val: unknown): string {
+  if (val === null || val === undefined) return 'N/A';
+  const n = Number(val);
+  if (isNaN(n)) return 'N/A';
+  return n > 0 ? `+${n}` : String(n);
+}
+
 function formatNFLGame(game: Record<string, unknown>): Record<string, unknown> {
   const gameId = game.training_key || `${game.away_team}_${game.home_team}`;
+  const homeSpread = game.home_spread as number | null;
+  const awaySpread = game.away_spread as number | null;
 
   return {
     game_id: gameId,
     matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
     game_date: game.game_date,
     game_time: game.game_time || '00:00:00',
     vegas_lines: {
-      home_spread: game.home_spread,
-      away_spread: game.away_spread,
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
       home_ml: game.home_ml,
       away_ml: game.away_ml,
       total: game.over_line,
@@ -656,15 +670,20 @@ function formatNFLGame(game: Record<string, unknown>): Record<string, unknown> {
 function formatCFBGame(game: Record<string, unknown>): Record<string, unknown> {
   const gameId = game.training_key || game.unique_id || `${game.away_team}_${game.home_team}`;
   const spreadProb = game.pred_spread_proba || game.home_away_spread_cover_prob;
+  const homeSpread = (game.api_spread || game.home_spread) as number | null;
+  const awaySpread = game.api_spread ? -(game.api_spread as number) : game.away_spread as number | null;
 
   return {
     game_id: gameId,
     matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
     game_date: game.game_date || game.start_date,
     game_time: game.game_time || game.start_time || '00:00:00',
     vegas_lines: {
-      home_spread: game.api_spread || game.home_spread,
-      away_spread: game.api_spread ? -(game.api_spread as number) : game.away_spread,
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
       home_ml: game.home_moneyline || game.home_ml,
       away_ml: game.away_moneyline || game.away_ml,
       total: game.api_over_line || game.total_line,
@@ -696,15 +715,20 @@ function formatNBAGame(game: Record<string, unknown>): Record<string, unknown> {
   if (homeML) {
     awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
   }
+  const homeSpread = game.home_spread as number | null;
+  const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
 
   return {
     game_id: gameId,
     matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
     game_date: game.game_date,
     game_time: game.tipoff_time_et,
     vegas_lines: {
-      home_spread: game.home_spread,
-      away_spread: game.home_spread ? -(game.home_spread as number) : null,
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
       home_ml: homeML,
       away_ml: awayML,
       total: game.total_line,
@@ -728,17 +752,22 @@ function formatNBAGame(game: Record<string, unknown>): Record<string, unknown> {
 
 function formatNCAABGame(game: Record<string, unknown>): Record<string, unknown> {
   const gameId = String(game.game_id);
+  const homeSpread = game.spread as number | null;
+  const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
 
   return {
     game_id: gameId,
     matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
     game_date: game.game_date_et,
     game_time: game.start_utc || game.tipoff_time_et,
     conference_game: game.conference_game,
     neutral_site: game.neutral_site,
     vegas_lines: {
-      home_spread: game.spread,
-      away_spread: game.spread ? -(game.spread as number) : null,
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
       home_ml: game.homeMoneyline,
       away_ml: game.awayMoneyline,
       total: game.over_under,

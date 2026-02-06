@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { NCAABGame } from '@/types/ncaab';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 import { getCFBTeamColors, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { useGameTeamColors } from '@/hooks/useImageColors';
 import { TeamAvatar } from './TeamAvatar';
 import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, roundToNearestHalf } from '@/utils/formatting';
 import { PolymarketWidget } from './PolymarketWidget';
@@ -64,9 +65,15 @@ export function NCAABGameBottomSheet() {
     }, 2500);
   };
 
-  // Reuse CFB colors for NCAAB (same schools)
-  const awayColors = game ? getCFBTeamColors(game.away_team) : { primary: '#000', secondary: '#000' };
-  const homeColors = game ? getCFBTeamColors(game.home_team) : { primary: '#000', secondary: '#000' };
+  // Extract team colors from logo images; fall back to hardcoded CFB colors
+  const cfbAwayFallback = game ? getCFBTeamColors(game.away_team) : { primary: '#000', secondary: '#000' };
+  const cfbHomeFallback = game ? getCFBTeamColors(game.home_team) : { primary: '#000', secondary: '#000' };
+  const { awayColors, homeColors } = useGameTeamColors(
+    game?.away_team_logo,
+    game?.home_team_logo,
+    cfbAwayFallback,
+    cfbHomeFallback,
+  );
 
   // Calculate edge values for spread (like CFB)
   const spreadPrediction = useMemo(() => {

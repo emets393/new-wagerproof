@@ -98,11 +98,13 @@ serve(async (req) => {
 
     const avatarProfile = profile as AvatarProfile;
     console.log(`[generate-avatar-picks] Found avatar: ${avatarProfile.name} (${avatarProfile.avatar_emoji})`);
+    console.log(`[generate-avatar-picks] Preferred sports: ${JSON.stringify(avatarProfile.preferred_sports)}`);
 
     // ---------------------------------------------------------------------
     // 4. Daily Generation Limit Check
     // ---------------------------------------------------------------------
-    const todayDate = new Date().toISOString().split('T')[0];
+    // Use US Eastern time for consistency with game dates
+    const todayDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).toISOString().split('T')[0];
     let currentGenCount = avatarProfile.daily_generation_count || 0;
 
     // Reset count if date has changed
@@ -140,14 +142,18 @@ serve(async (req) => {
     // ---------------------------------------------------------------------
     // 6. Fetch Today's Games for Preferred Sports
     // ---------------------------------------------------------------------
-    const today = new Date().toISOString().split('T')[0];
+    // Use US Eastern time for date since game dates are stored in ET
+    const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const today = nowET.toISOString().split('T')[0];
+    console.log(`[generate-avatar-picks] Querying games for date: ${today} (ET)`);
+
     const allGamesData: { sport: string; games: unknown[]; formattedGames: unknown[] }[] = [];
 
     for (const sport of avatarProfile.preferred_sports) {
       const { games, formattedGames } = await fetchGamesForSport(cfbClient, sport, today);
+      console.log(`[generate-avatar-picks] ${sport.toUpperCase()}: ${games.length} games found`);
       if (games.length > 0) {
         allGamesData.push({ sport, games, formattedGames });
-        console.log(`[generate-avatar-picks] Found ${games.length} ${sport.toUpperCase()} games`);
       }
     }
 
@@ -346,31 +352,35 @@ serve(async (req) => {
     }
 
     // Delete existing picks for today before inserting new ones (regeneration)
+    // Delete by avatar_id + game_date to clear today's picks, AND by the specific
+    // game_ids being inserted (to handle games with different dates like NFL)
+    const newGameIds = insertedPicks.map(p => p.game_id);
+
     const { error: deleteError } = await supabaseClient
       .from('avatar_picks')
       .delete()
       .eq('avatar_id', avatar_id)
-      .eq('game_date', today);
+      .or(`game_date.eq.${today},game_id.in.(${newGameIds.join(',')})`);
 
     if (deleteError) {
       console.error('[generate-avatar-picks] Delete existing picks error:', deleteError);
-      // Non-fatal: continue with insert even if delete fails
+      // Non-fatal: continue with upsert even if delete fails
     } else {
-      console.log(`[generate-avatar-picks] Cleared existing picks for ${today}`);
+      console.log(`[generate-avatar-picks] Cleared existing picks for ${today} and ${newGameIds.length} game IDs`);
     }
 
-    // Insert all picks
+    // Upsert picks (handles any remaining constraint conflicts gracefully)
     if (insertedPicks.length > 0) {
       const { error: insertError } = await supabaseClient
         .from('avatar_picks')
-        .insert(insertedPicks);
+        .upsert(insertedPicks, { onConflict: 'avatar_id,game_id,bet_type' });
 
       if (insertError) {
-        console.error('[generate-avatar-picks] Insert error:', insertError);
+        console.error('[generate-avatar-picks] Upsert error:', insertError);
         throw new Error(`Failed to save picks: ${insertError.message}`);
       }
 
-      console.log(`[generate-avatar-picks] Inserted ${insertedPicks.length} picks`);
+      console.log(`[generate-avatar-picks] Upserted ${insertedPicks.length} picks`);
     }
 
     // ---------------------------------------------------------------------
@@ -555,17 +565,30 @@ async function fetchNCAABGames(
 // Game Formatting Functions
 // =============================================================================
 
+/** Format a spread number for display: positive gets "+", negative stays as-is */
+function fmtSpread(val: unknown): string {
+  if (val === null || val === undefined) return 'N/A';
+  const n = Number(val);
+  if (isNaN(n)) return 'N/A';
+  return n > 0 ? `+${n}` : String(n);
+}
+
 function formatNFLGame(game: Record<string, unknown>): Record<string, unknown> {
   const gameId = game.training_key || `${game.away_team}_${game.home_team}`;
+  const homeSpread = game.home_spread as number | null;
+  const awaySpread = game.away_spread as number | null;
 
   return {
     game_id: gameId,
     matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
     game_date: game.game_date,
     game_time: game.game_time || '00:00:00',
     vegas_lines: {
-      home_spread: game.home_spread,
-      away_spread: game.away_spread,
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
       home_ml: game.home_ml,
       away_ml: game.away_ml,
       total: game.over_line,
@@ -593,15 +616,20 @@ function formatNFLGame(game: Record<string, unknown>): Record<string, unknown> {
 function formatCFBGame(game: Record<string, unknown>): Record<string, unknown> {
   const gameId = game.training_key || game.unique_id || `${game.away_team}_${game.home_team}`;
   const spreadProb = game.pred_spread_proba || game.home_away_spread_cover_prob;
+  const homeSpread = (game.api_spread || game.home_spread) as number | null;
+  const awaySpread = game.api_spread ? -(game.api_spread as number) : game.away_spread as number | null;
 
   return {
     game_id: gameId,
     matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
     game_date: game.game_date || game.start_date,
     game_time: game.game_time || game.start_time || '00:00:00',
     vegas_lines: {
-      home_spread: game.api_spread || game.home_spread,
-      away_spread: game.api_spread ? -(game.api_spread as number) : game.away_spread,
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
       home_ml: game.home_moneyline || game.home_ml,
       away_ml: game.away_moneyline || game.away_ml,
       total: game.api_over_line || game.total_line,
@@ -633,15 +661,20 @@ function formatNBAGame(game: Record<string, unknown>): Record<string, unknown> {
   if (homeML) {
     awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
   }
+  const homeSpread = game.home_spread as number | null;
+  const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
 
   return {
     game_id: gameId,
     matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
     game_date: game.game_date,
     game_time: game.tipoff_time_et,
     vegas_lines: {
-      home_spread: game.home_spread,
-      away_spread: game.home_spread ? -(game.home_spread as number) : null,
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
       home_ml: homeML,
       away_ml: awayML,
       total: game.total_line,
@@ -665,17 +698,22 @@ function formatNBAGame(game: Record<string, unknown>): Record<string, unknown> {
 
 function formatNCAABGame(game: Record<string, unknown>): Record<string, unknown> {
   const gameId = String(game.game_id);
+  const homeSpread = game.spread as number | null;
+  const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
 
   return {
     game_id: gameId,
     matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
     game_date: game.game_date_et,
     game_time: game.start_utc || game.tipoff_time_et,
     conference_game: game.conference_game,
     neutral_site: game.neutral_site,
     vegas_lines: {
-      home_spread: game.spread,
-      away_spread: game.spread ? -(game.spread as number) : null,
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
       home_ml: game.homeMoneyline,
       away_ml: game.awayMoneyline,
       total: game.over_under,

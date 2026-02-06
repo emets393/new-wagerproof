@@ -394,7 +394,7 @@ export default function AgentsHubScreen() {
           contentContainerStyle={[
             styles.listContent,
             {
-              paddingTop: TOTAL_HEADER_HEIGHT,
+              paddingTop: TOTAL_HEADER_HEIGHT + 10 ,
               paddingBottom: TAB_BAR_HEIGHT + 80,
             },
           ]}

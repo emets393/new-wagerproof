@@ -9,6 +9,7 @@ import { getCFBTeamColors } from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { NCAABTrendsSituationSection } from './ncaab/TrendsSituationSection';
 import { TeamAvatar } from './TeamAvatar';
+import { useGameTeamColors } from '@/hooks/useImageColors';
 
 // Tooltips for each situation type
 const TOOLTIPS = {
@@ -65,9 +66,13 @@ export function NCAABBettingTrendsBottomSheet() {
   const { selectedGameTrends: game, closeTrendsSheet, bottomSheetRef } = useNCAABBettingTrendsSheet();
   const snapPoints = useMemo(() => ['85%', '95%'], []);
 
-  // Use CFB team colors for NCAAB (same schools)
-  const awayColors = game ? getCFBTeamColors(game.awayTeam.team_name) : { primary: '#000', secondary: '#000' };
-  const homeColors = game ? getCFBTeamColors(game.homeTeam.team_name) : { primary: '#000', secondary: '#000' };
+  // Extract team colors from logo images; fall back to hardcoded CFB colors
+  const { awayColors, homeColors } = useGameTeamColors(
+    game?.awayTeamLogo,
+    game?.homeTeamLogo,
+    game ? getCFBTeamColors(game.awayTeam.team_name) : { primary: '#000', secondary: '#000' },
+    game ? getCFBTeamColors(game.homeTeam.team_name) : { primary: '#000', secondary: '#000' },
+  );
 
   const renderBackdrop = (props: any) => (
     <BottomSheetBackdrop

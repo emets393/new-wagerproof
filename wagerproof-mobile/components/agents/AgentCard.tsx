@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme, Card } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import {
@@ -22,6 +23,14 @@ const SPORT_LABELS: Record<Sport, string> = {
   nba: 'NBA',
   ncaab: 'NCAAB',
 };
+
+function parseAvatarColor(value: string): { isGradient: boolean; colors: string[] } {
+  if (value.startsWith('gradient:')) {
+    const colors = value.replace('gradient:', '').split(',');
+    return { isGradient: true, colors };
+  }
+  return { isGradient: false, colors: [value] };
+}
 
 export function AgentCard({ agent, onPress }: AgentCardProps) {
   const theme = useTheme();
@@ -60,21 +69,53 @@ export function AgentCard({ agent, onPress }: AgentCardProps) {
         ]}
       >
         {/* Color accent bar */}
-        <View
-          style={[styles.accentBar, { backgroundColor: agent.avatar_color }]}
-        />
+        {(() => {
+          const parsed = parseAvatarColor(agent.avatar_color);
+          if (parsed.isGradient) {
+            return (
+              <LinearGradient
+                colors={parsed.colors as [string, string]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.accentBar}
+              />
+            );
+          }
+          return (
+            <View
+              style={[styles.accentBar, { backgroundColor: agent.avatar_color }]}
+            />
+          );
+        })()}
 
         <Card.Content style={styles.content}>
           {/* Top Row: Avatar, Name, Sport Badges */}
           <View style={styles.topRow}>
-            <View
-              style={[
-                styles.avatarContainer,
-                { backgroundColor: `${agent.avatar_color}20` },
-              ]}
-            >
-              <Text style={styles.avatarEmoji}>{agent.avatar_emoji}</Text>
-            </View>
+            {(() => {
+              const parsed = parseAvatarColor(agent.avatar_color);
+              if (parsed.isGradient) {
+                return (
+                  <LinearGradient
+                    colors={parsed.colors as [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.avatarContainer}
+                  >
+                    <Text style={styles.avatarEmoji}>{agent.avatar_emoji}</Text>
+                  </LinearGradient>
+                );
+              }
+              return (
+                <View
+                  style={[
+                    styles.avatarContainer,
+                    { backgroundColor: `${agent.avatar_color}20` },
+                  ]}
+                >
+                  <Text style={styles.avatarEmoji}>{agent.avatar_emoji}</Text>
+                </View>
+              );
+            })()}
 
             <View style={styles.nameSection}>
               <Text
