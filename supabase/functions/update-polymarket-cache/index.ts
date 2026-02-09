@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -421,29 +421,35 @@ serve(async (req) => {
       return allLeagueEvents;
     }
 
+    // Fetch events for all leagues in parallel
+    const eventFetches: Promise<void>[] = [];
+    
     if (nflTagId) {
-      const nflEvents = await fetchAllEventsForTag(nflTagId, 'NFL');
-      allEvents.push(...nflEvents.map((e: any) => ({ event: e, league: 'nfl' as const })));
-      console.log(`📋 Found ${nflEvents.length} total NFL events on Polymarket`);
+      eventFetches.push(fetchAllEventsForTag(nflTagId, 'NFL').then(events => {
+        allEvents.push(...events.map((e: any) => ({ event: e, league: 'nfl' as const })));
+        console.log(`📋 Found ${events.length} total NFL events on Polymarket`);
+      }));
     }
-
     if (cfbTagId) {
-      const cfbEvents = await fetchAllEventsForTag(cfbTagId, 'CFB');
-      allEvents.push(...cfbEvents.map((e: any) => ({ event: e, league: 'cfb' as const })));
-      console.log(`📋 Found ${cfbEvents.length} total CFB events on Polymarket`);
+      eventFetches.push(fetchAllEventsForTag(cfbTagId, 'CFB').then(events => {
+        allEvents.push(...events.map((e: any) => ({ event: e, league: 'cfb' as const })));
+        console.log(`📋 Found ${events.length} total CFB events on Polymarket`);
+      }));
     }
-
     if (ncaabTagId) {
-      const ncaabEvents = await fetchAllEventsForTag(ncaabTagId, 'NCAAB');
-      allEvents.push(...ncaabEvents.map((e: any) => ({ event: e, league: 'ncaab' as const })));
-      console.log(`📋 Found ${ncaabEvents.length} total NCAAB events on Polymarket`);
+      eventFetches.push(fetchAllEventsForTag(ncaabTagId, 'NCAAB').then(events => {
+        allEvents.push(...events.map((e: any) => ({ event: e, league: 'ncaab' as const })));
+        console.log(`📋 Found ${events.length} total NCAAB events on Polymarket`);
+      }));
     }
-
     if (nbaTagId) {
-      const nbaEvents = await fetchAllEventsForTag(nbaTagId, 'NBA');
-      allEvents.push(...nbaEvents.map((e: any) => ({ event: e, league: 'nba' as const })));
-      console.log(`📋 Found ${nbaEvents.length} total NBA events on Polymarket`);
+      eventFetches.push(fetchAllEventsForTag(nbaTagId, 'NBA').then(events => {
+        allEvents.push(...events.map((e: any) => ({ event: e, league: 'nba' as const })));
+        console.log(`📋 Found ${events.length} total NBA events on Polymarket`);
+      }));
     }
+    
+    await Promise.all(eventFetches);
 
     // Filter events to only include games (vs/@ pattern) - excludes props, futures, etc.
     const gameEvents = allEvents.filter((e: any) => {
@@ -500,114 +506,126 @@ serve(async (req) => {
       nba: { total: 0, matched: 0, markets: 0 }
     };
 
-    // Step 4: Process each game
+    // Pre-index league events for fast lookup (avoid re-filtering per game)
+    const leagueEventsMap: Record<string, any[]> = {};
+    for (const league of ['nfl', 'cfb', 'ncaab', 'nba'] as const) {
+      leagueEventsMap[league] = gameEvents.filter(e => e.league === league).map(e => e.event);
+    }
+
+    // Step 4a: Match all games to events and collect market tasks (fast, in-memory)
+    interface MarketTask {
+      gameKey: string;
+      league: string;
+      away_team: string;
+      home_team: string;
+      marketType: string;
+      tokenId: string;
+      question: string;
+    }
+    const marketTasks: MarketTask[] = [];
+
     for (const game of allGames) {
       leagueStats[game.league].total++;
-      try {
-        const gameKey = `${game.league}_${game.away_team}_${game.home_team}`;
-        console.log(`\n🔍 Processing ${game.league.toUpperCase()}: ${game.away_team} vs ${game.home_team}`);
+      const gameKey = `${game.league}_${game.away_team}_${game.home_team}`;
 
-        // Find matching event (filter by league and only game events)
-        const leagueEvents = gameEvents.filter(e => e.league === game.league).map(e => e.event);
-        const event = findMatchingEvent(leagueEvents, game.away_team, game.home_team, game.league);
-        
-        if (!event) {
-          console.log(`⚠️ No Polymarket event found for ${gameKey}`);
-          debugInfo.push({
-            game: gameKey,
-            league: game.league,
-            awayTeam: game.away_team,
-            homeTeam: game.home_team,
-            awayName: getTeamName(game.away_team, game.league),
-            homeName: getTeamName(game.home_team, game.league),
-            matched: false
-          });
-          continue;
-        }
-
-        leagueStats[game.league].matched++;
+      const leagueEvents = leagueEventsMap[game.league] || [];
+      const event = findMatchingEvent(leagueEvents, game.away_team, game.home_team, game.league);
+      
+      if (!event) {
         debugInfo.push({
-          game: gameKey,
-          league: game.league,
-          awayTeam: game.away_team,
-          homeTeam: game.home_team,
-          matched: true,
-          eventTitle: event.title
+          game: gameKey, league: game.league,
+          awayTeam: game.away_team, homeTeam: game.home_team,
+          awayName: getTeamName(game.away_team, game.league),
+          homeName: getTeamName(game.home_team, game.league),
+          matched: false
         });
+        continue;
+      }
 
-        console.log(`✅ Found event: ${event.title}`);
-        console.log(`📊 Event has ${event.markets?.length || 0} markets`);
+      leagueStats[game.league].matched++;
+      debugInfo.push({
+        game: gameKey, league: game.league,
+        awayTeam: game.away_team, homeTeam: game.home_team,
+        matched: true, eventTitle: event.title
+      });
 
-        // Extract all market types
-        const markets = extractMarkets(event);
-        console.log(`📋 Extracted markets:`, JSON.stringify(markets, null, 2));
-
-        // Fetch and store data for each market type
-        for (const [marketType, marketData] of Object.entries(markets)) {
-          if (!marketData) continue;
-
-          try {
-            // Fetch price history
-            const priceUrl = `https://clob.polymarket.com/prices-history?market=${marketData.tokenId}&interval=max&fidelity=60`;
-            const priceResponse = await fetch(priceUrl);
-            
-            if (!priceResponse.ok) {
-              console.log(`⚠️ Failed to fetch ${marketType} price history`);
-              continue;
-            }
-
-            const priceData = await priceResponse.json();
-            const history = priceData.history || [];
-
-            if (history.length === 0) {
-              console.log(`⚠️ No price history for ${marketType}`);
-              continue;
-            }
-
-            // Calculate current odds
-            const latest = history[history.length - 1];
-            const currentAwayOdds = Math.round(latest.p * 100);
-            const currentHomeOdds = 100 - currentAwayOdds;
-
-            // Upsert to database
-            const { error: upsertError } = await supabase
-              .from('polymarket_markets')
-              .upsert({
-                game_key: gameKey,
-                league: game.league,
-                away_team: game.away_team,
-                home_team: game.home_team,
-                market_type: marketType,
-                price_history: history,
-                current_away_odds: currentAwayOdds,
-                current_home_odds: currentHomeOdds,
-                token_id: marketData.tokenId,
-                question: marketData.question,
-                last_updated: new Date().toISOString(),
-              }, {
-                onConflict: 'game_key,market_type'
-              });
-
-            if (upsertError) {
-              console.error(`❌ Error upserting ${marketType}:`, upsertError);
-              errors.push(`${gameKey}-${marketType}: ${upsertError.message}`);
-            } else {
-              console.log(`✅ Updated ${marketType}: ${currentAwayOdds}% - ${currentHomeOdds}%`);
-              updatedCount++;
-              leagueStats[game.league].markets++;
-            }
-          } catch (err) {
-            console.error(`❌ Error processing ${marketType}:`, err);
-            errors.push(`${gameKey}-${marketType}: ${err.message}`);
-          }
-        }
-      } catch (err) {
-        console.error(`❌ Error processing game ${game.away_team} vs ${game.home_team}:`, err);
-        errors.push(`${game.away_team}_${game.home_team}: ${err.message}`);
+      const markets = extractMarkets(event);
+      for (const [marketType, marketData] of Object.entries(markets)) {
+        if (!marketData) continue;
+        marketTasks.push({
+          gameKey, league: game.league,
+          away_team: game.away_team, home_team: game.home_team,
+          marketType, tokenId: marketData.tokenId, question: marketData.question,
+        });
       }
     }
 
-    console.log(`\n✅ Cache update complete! Updated ${updatedCount} markets`);
+    console.log(`📊 Matched games - NFL: ${leagueStats.nfl.matched}/${leagueStats.nfl.total}, CFB: ${leagueStats.cfb.matched}/${leagueStats.cfb.total}, NCAAB: ${leagueStats.ncaab.matched}/${leagueStats.ncaab.total}, NBA: ${leagueStats.nba.matched}/${leagueStats.nba.total}`);
+    console.log(`📋 Total market tasks to fetch: ${marketTasks.length}`);
+
+    // Step 4b: Fetch price histories and upsert in parallel batches
+    const BATCH_SIZE = 15; // Process 15 markets concurrently
+    
+    async function processMarketTask(task: MarketTask): Promise<boolean> {
+      try {
+        const priceUrl = `https://clob.polymarket.com/prices-history?market=${task.tokenId}&interval=max&fidelity=60`;
+        const priceResponse = await fetch(priceUrl);
+        
+        if (!priceResponse.ok) return false;
+
+        const priceData = await priceResponse.json();
+        const history = priceData.history || [];
+        if (history.length === 0) return false;
+
+        const latest = history[history.length - 1];
+        const currentAwayOdds = Math.round(latest.p * 100);
+        const currentHomeOdds = 100 - currentAwayOdds;
+
+        const { error: upsertError } = await supabase
+          .from('polymarket_markets')
+          .upsert({
+            game_key: task.gameKey,
+            league: task.league,
+            away_team: task.away_team,
+            home_team: task.home_team,
+            market_type: task.marketType,
+            price_history: history,
+            current_away_odds: currentAwayOdds,
+            current_home_odds: currentHomeOdds,
+            token_id: task.tokenId,
+            question: task.question,
+            last_updated: new Date().toISOString(),
+          }, { onConflict: 'game_key,market_type' });
+
+        if (upsertError) {
+          errors.push(`${task.gameKey}-${task.marketType}: ${upsertError.message}`);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        errors.push(`${task.gameKey}-${task.marketType}: ${err.message}`);
+        return false;
+      }
+    }
+
+    // Process in batches for controlled parallelism
+    for (let i = 0; i < marketTasks.length; i += BATCH_SIZE) {
+      const batch = marketTasks.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch.map(processMarketTask));
+      const batchSuccesses = results.filter(Boolean).length;
+      updatedCount += batchSuccesses;
+      
+      // Attribute successes to league stats
+      for (let j = 0; j < batch.length; j++) {
+        if (results[j]) {
+          leagueStats[batch[j].league as keyof typeof leagueStats].markets++;
+        }
+      }
+      
+      console.log(`⚡ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(marketTasks.length / BATCH_SIZE)}: ${batchSuccesses}/${batch.length} succeeded`);
+    }
+
+    console.log(`\n✅ Cache update complete! Updated ${updatedCount}/${marketTasks.length} markets`);
     console.log(`📊 League Stats:`, JSON.stringify(leagueStats, null, 2));
     if (errors.length > 0) {
       console.log(`⚠️ Errors: ${errors.length}`);
@@ -617,6 +635,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         updated: updatedCount,
+        totalMarketTasks: marketTasks.length,
         games: allGames.length,
         nflGames: allGames.filter(g => g.league === 'nfl').length,
         cfbGames: allGames.filter(g => g.league === 'cfb').length,
@@ -624,7 +643,7 @@ serve(async (req) => {
         nbaGames: allGames.filter(g => g.league === 'nba').length,
         leagueStats: leagueStats,
         errors: errors.length > 0 ? errors : undefined,
-        debug: debugInfo.slice(0, 10), // First 10 games for debugging
+        debug: debugInfo.slice(0, 10),
         availableEvents: allEvents.slice(0, 5).map((e: any) => ({ title: e.event.title, league: e.league }))
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
