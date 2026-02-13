@@ -15,6 +15,7 @@ import NBATodayBettingTrends from "./pages/NBATodayBettingTrends";
 import NBATodayHalftimeTrends from "./pages/NBATodayHalftimeTrends";
 import NCAAB from "./pages/NCAAB";
 import NCAABTodayBettingTrends from "./pages/NCAABTodayBettingTrends";
+import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import WagerBotChat from "./pages/WagerBotChat";
@@ -189,6 +190,7 @@ function AppRoutes() {
           <Route path="/nba/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NBATodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab" element={<ProtectedRoute allowFreemium={true}><NCAAB /></ProtectedRoute>} />
           <Route path="/ncaab/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayBettingTrends /></ProtectedRoute>} />
+          <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
           <Route path="/nfl/teaser-sharpness" element={<ProtectedRoute><NFLTeaserSharpness /></ProtectedRoute>} />
           <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />

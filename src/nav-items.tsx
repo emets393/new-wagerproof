@@ -131,6 +131,11 @@ export const navItems: NavItem[] = [
         to: "/ncaab/todays-betting-trends",
         icon: <TrendingUp className="h-4 w-4" />,
       },
+      {
+        title: "Halftime Trends",
+        to: "/ncaab/halftime-trends",
+        icon: <Clock className="h-4 w-4" />,
+      },
     ],
   },
   {
