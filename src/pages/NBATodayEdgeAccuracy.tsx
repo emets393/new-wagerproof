@@ -485,7 +485,7 @@ export default function NBATodayEdgeAccuracy() {
                   </div>
                   <div className="rounded-lg bg-muted/60 dark:bg-muted/40 border border-border px-3 py-2 space-y-1.5">
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Moneyline</span>
+                      <span className="text-muted-foreground">Moneyline Win Prob %</span>
                       <span>{mlLabel}</span>
                     </div>
                     <div className="flex justify-between items-center text-muted-foreground">
