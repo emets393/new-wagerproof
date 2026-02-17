@@ -226,7 +226,29 @@ function parseSideLeanLabel(label: string): { strength: 'slight' | 'heavy'; team
 type Consensus1H2H = { type: 'no_play' } | { type: 'slight' | 'heavy'; teamAbbr: string };
 type ConsensusFlip = 'no_play' | 'slight' | 'heavy';
 
-/** NCAAB: 1H = by side then Fav/Dog. 2H = by side then Fav/Dog. Flip = single Flip % (Slight or Heavy). */
+/** Consensus from two metrics: only show a pick when one team leads in BOTH metrics; strength from average of the two. */
+function consensusFromTwoMetrics(
+  m1A: number | null,
+  m1B: number | null,
+  m2A: number | null,
+  m2B: number | null,
+  awayAbbr: string,
+  homeAbbr: string,
+  halfLabel: '1H' | '2H'
+): Consensus1H2H {
+  if (m1A == null || m1B == null || m2A == null || m2B == null) return { type: 'no_play' };
+  const a1 = pctTo100(m1A), b1 = pctTo100(m1B);
+  const a2 = pctTo100(m2A), b2 = pctTo100(m2B);
+  const awayWinsBoth = a1 > b1 && a2 > b2;
+  const homeWinsBoth = b1 > a1 && b2 > a2;
+  if (!awayWinsBoth && !homeWinsBoth) return { type: 'no_play' };
+  const avgA = (a1 + a2) / 2, avgB = (b1 + b2) / 2;
+  const lean = getLeanLabel(halfLabel, avgA, avgB, awayAbbr, homeAbbr, false);
+  const parsed = parseSideLeanLabel(lean);
+  return parsed ? { type: parsed.strength, teamAbbr: parsed.teamAbbr } : { type: 'no_play' };
+}
+
+/** NCAAB: 1H = average of 1H by side + 1H Fav/Dog; pick only when one team leads in both. 2H = same for 2H. Flip unchanged. */
 function getConsensus(
   game: NCAABGameHalftimeTrends,
   awayAbbr: string,
@@ -235,33 +257,25 @@ function getConsensus(
   const away = game.away_team;
   const home = game.home_team;
 
-  const oneHOrder: Array<{ label: string; a: number | null; b: number | null }> = [
-    { label: '1H by side', a: away.first_half_side_win_pct, b: home.first_half_side_win_pct },
-    { label: '1H Fav/Dog', a: away.first_half_favdog_side_win_pct, b: home.first_half_favdog_side_win_pct },
-  ];
-  let oneH: Consensus1H2H = { type: 'no_play' };
-  for (const row of oneHOrder) {
-    const lean = getLeanLabel(row.label, row.a, row.b, awayAbbr, homeAbbr, false);
-    const parsed = parseSideLeanLabel(lean);
-    if (parsed) {
-      oneH = { type: parsed.strength, teamAbbr: parsed.teamAbbr };
-      break;
-    }
-  }
+  const oneH = consensusFromTwoMetrics(
+    away.first_half_side_win_pct,
+    home.first_half_side_win_pct,
+    away.first_half_favdog_side_win_pct,
+    home.first_half_favdog_side_win_pct,
+    awayAbbr,
+    homeAbbr,
+    '1H'
+  );
 
-  const twoHOrder: Array<{ label: string; a: number | null; b: number | null }> = [
-    { label: '2H by side', a: away.second_half_side_win_pct, b: home.second_half_side_win_pct },
-    { label: '2H Fav/Dog', a: away.second_half_favdog_side_win_pct, b: home.second_half_favdog_side_win_pct },
-  ];
-  let twoH: Consensus1H2H = { type: 'no_play' };
-  for (const row of twoHOrder) {
-    const lean = getLeanLabel(row.label, row.a, row.b, awayAbbr, homeAbbr, false);
-    const parsed = parseSideLeanLabel(lean);
-    if (parsed) {
-      twoH = { type: parsed.strength, teamAbbr: parsed.teamAbbr };
-      break;
-    }
-  }
+  const twoH = consensusFromTwoMetrics(
+    away.second_half_side_win_pct,
+    home.second_half_side_win_pct,
+    away.second_half_favdog_side_win_pct,
+    home.second_half_favdog_side_win_pct,
+    awayAbbr,
+    homeAbbr,
+    '2H'
+  );
 
   const flipLabel = getLeanLabel('Flip % (1H↔2H)', away.side_flip_pct, home.side_flip_pct, awayAbbr, homeAbbr, true);
   let flip: ConsensusFlip = 'no_play';
