@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { useLeaderboard } from '@/hooks/useLeaderboard';
-import { LeaderboardEntry } from '@/services/agentPerformanceService';
-import { Sport, formatRecord, formatNetUnits } from '@/types/agent';
+import { useLeaderboardByMode } from '@/hooks/useLeaderboard';
+import { LeaderboardEntry, LeaderboardSortMode } from '@/services/agentPerformanceService';
+import { Sport, formatNetUnits } from '@/types/agent';
 
 function getPrimaryColor(value: string): string {
   if (value.startsWith('gradient:')) {
@@ -30,6 +30,11 @@ const SPORT_LABELS: Record<Sport, string> = {
   nba: 'NBA',
   ncaab: 'NCAAB',
 };
+
+const LEADERBOARD_FILTERS: { label: string; value: LeaderboardSortMode }[] = [
+  { label: 'Top Overall', value: 'overall' },
+  { label: 'Best Recent Run', value: 'recent_run' },
+];
 
 interface AgentLeaderboardProps {
   limit?: number;
@@ -298,6 +303,7 @@ export function AgentLeaderboard({
   const theme = useTheme();
   const router = useRouter();
   const { isDark } = useThemeContext();
+  const [sortMode, setSortMode] = useState<LeaderboardSortMode>('overall');
 
   // Fetch leaderboard
   const {
@@ -305,7 +311,7 @@ export function AgentLeaderboard({
     isLoading,
     isRefetching,
     refetch,
-  } = useLeaderboard(limit);
+  } = useLeaderboardByMode(sortMode, limit);
 
   // Handle row press
   const handleRowPress = useCallback(
@@ -357,6 +363,39 @@ export function AgentLeaderboard({
         </View>
       )}
 
+      <View style={styles.filterRow}>
+        {LEADERBOARD_FILTERS.map((filter) => {
+          const isActive = sortMode === filter.value;
+          return (
+            <TouchableOpacity
+              key={filter.value}
+              style={[
+                styles.filterPill,
+                {
+                  backgroundColor: isActive
+                    ? (isDark ? 'rgba(0, 230, 118, 0.16)' : 'rgba(0, 230, 118, 0.14)')
+                    : (isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)'),
+                  borderColor: isActive
+                    ? 'rgba(0, 230, 118, 0.45)'
+                    : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
+                },
+              ]}
+              activeOpacity={0.8}
+              onPress={() => setSortMode(filter.value)}
+            >
+              <Text
+                style={[
+                  styles.filterPillText,
+                  { color: isActive ? '#00E676' : theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       {/* Column Headers */}
       <View style={styles.columnHeaders}>
         <Text
@@ -404,13 +443,30 @@ export function AgentLeaderboard({
     </View>
   );
 
+  // When embedded with onScroll, wrap empty/loading in ScrollView so scroll drives header/footer hide
+  const ScrollWrapper = embedded && onScroll ? Animated.ScrollView : View;
+  const scrollWrapperProps =
+    embedded && onScroll
+      ? {
+          onScroll,
+          scrollEventThrottle: scrollEventThrottle ?? 16,
+          contentContainerStyle: [
+            styles.listContent,
+            contentContainerStyle,
+            { flexGrow: 1 },
+          ],
+          showsVerticalScrollIndicator: false,
+          bounces: false,
+        }
+      : {};
+
   return (
     <View style={[styles.container, embedded && styles.embeddedContainer]}>
       {isLoading && !leaderboard ? (
-        <>
+        <ScrollWrapper {...scrollWrapperProps}>
           {renderHeader()}
           {renderLoadingSkeletons()}
-        </>
+        </ScrollWrapper>
       ) : leaderboard && leaderboard.length > 0 ? (
         <Animated.FlatList
           data={leaderboard}
@@ -437,10 +493,10 @@ export function AgentLeaderboard({
           }
         />
       ) : (
-        <>
+        <ScrollWrapper {...scrollWrapperProps}>
           {renderHeader()}
           <EmptyState isDark={isDark} />
-        </>
+        </ScrollWrapper>
       )}
 
       {/* View All Link */}
@@ -481,7 +537,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   embeddedContainer: {
-    flex: 0,
+    flex: 1,
   },
   listContent: {
     paddingBottom: 16,
@@ -500,6 +556,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 8,
+    marginBottom: 12,
+  },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   columnHeaders: {
     flexDirection: 'row',

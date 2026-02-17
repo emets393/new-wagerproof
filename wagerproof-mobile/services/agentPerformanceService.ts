@@ -22,6 +22,8 @@ export interface LeaderboardEntry {
   best_streak: number;
 }
 
+export type LeaderboardSortMode = 'overall' | 'recent_run';
+
 // ============================================================================
 // PERFORMANCE OPERATIONS
 // ============================================================================
@@ -62,10 +64,11 @@ export async function fetchAgentPerformance(
  */
 export async function fetchLeaderboard(
   limit: number = 50,
-  sport?: Sport
+  sport?: Sport,
+  sortMode: LeaderboardSortMode = 'overall'
 ): Promise<LeaderboardEntry[]> {
   // Always use the manual query so we control the filters directly
-  return await fetchLeaderboardFallback(limit, sport);
+  return await fetchLeaderboardFallback(limit, sport, sortMode);
 }
 
 /**
@@ -73,7 +76,8 @@ export async function fetchLeaderboard(
  */
 async function fetchLeaderboardFallback(
   limit: number = 50,
-  sport?: Sport
+  sport?: Sport,
+  sortMode: LeaderboardSortMode = 'overall'
 ): Promise<LeaderboardEntry[]> {
   try {
     // Fetch public agents
@@ -132,7 +136,26 @@ async function fetchLeaderboardFallback(
           best_streak: perf?.best_streak || 0,
         };
       })
-      .sort((a, b) => b.net_units - a.net_units)
+      .sort((a, b) => {
+        if (sortMode === 'recent_run') {
+          // "On a roll" ranking is driven by the recent run calculation (current streak).
+          if (b.current_streak !== a.current_streak) {
+            return b.current_streak - a.current_streak;
+          }
+          if (b.net_units !== a.net_units) {
+            return b.net_units - a.net_units;
+          }
+          return (b.win_rate || 0) - (a.win_rate || 0);
+        }
+
+        if (b.net_units !== a.net_units) {
+          return b.net_units - a.net_units;
+        }
+        if ((b.win_rate || 0) !== (a.win_rate || 0)) {
+          return (b.win_rate || 0) - (a.win_rate || 0);
+        }
+        return b.current_streak - a.current_streak;
+      })
       .slice(0, limit);
 
     console.log(`Loaded ${leaderboard.length} leaderboard entries (fallback)`);

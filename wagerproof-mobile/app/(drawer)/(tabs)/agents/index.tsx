@@ -83,11 +83,6 @@ const JOURNEY_STEPS = [
     title: 'Get Daily Picks',
     desc: 'Picks generate automatically each morning with reasoning and confidence levels.',
   },
-  {
-    icon: 'chart-timeline-variant' as const,
-    title: 'Track Performance',
-    desc: 'Every pick is graded. See W-L record, units, streaks, and compare on the leaderboard.',
-  },
 ];
 
 function EmptyState({
@@ -170,9 +165,9 @@ export default function AgentsHubScreen() {
     error,
   } = useUserAgents();
 
-  // Header Animation Constants
+  // Header Animation Constants (match games page for consistent header/footer hide)
   const HEADER_TOP_HEIGHT = 56;
-  const TAB_BAR_ROW_HEIGHT = 44;
+  const TAB_BAR_ROW_HEIGHT = 48;
   const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT + TAB_BAR_ROW_HEIGHT;
   const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
 
@@ -507,7 +502,7 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    height: 44,
+    height: 48,
     paddingHorizontal: 16,
   },
   tabButton: {
@@ -604,7 +599,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   emptyButtonText: {
-    color: '#000000',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
   },

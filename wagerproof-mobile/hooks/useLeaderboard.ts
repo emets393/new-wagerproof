@@ -3,6 +3,7 @@ import {
   fetchLeaderboard,
   fetchAgentPerformance,
   LeaderboardEntry,
+  LeaderboardSortMode,
 } from '@/services/agentPerformanceService';
 import { AgentPerformance, Sport } from '@/types/agent';
 
@@ -12,8 +13,8 @@ import { AgentPerformance, Sport } from '@/types/agent';
 
 export const leaderboardKeys = {
   all: ['leaderboard'] as const,
-  list: (limit?: number, sport?: Sport) =>
-    [...leaderboardKeys.all, 'list', limit, sport] as const,
+  list: (limit?: number, sport?: Sport, sortMode?: LeaderboardSortMode) =>
+    [...leaderboardKeys.all, 'list', limit, sport, sortMode] as const,
   performance: (agentId: string) =>
     [...leaderboardKeys.all, 'performance', agentId] as const,
 };
@@ -26,9 +27,22 @@ export const leaderboardKeys = {
  * Hook to fetch the leaderboard of top public agents
  */
 export function useLeaderboard(limit: number = 50, sport?: Sport) {
+  const sortMode: LeaderboardSortMode = 'overall';
   return useQuery({
-    queryKey: leaderboardKeys.list(limit, sport),
-    queryFn: () => fetchLeaderboard(limit, sport),
+    queryKey: leaderboardKeys.list(limit, sport, sortMode),
+    queryFn: () => fetchLeaderboard(limit, sport, sortMode),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useLeaderboardByMode(
+  sortMode: LeaderboardSortMode,
+  limit: number = 50,
+  sport?: Sport
+) {
+  return useQuery({
+    queryKey: leaderboardKeys.list(limit, sport, sortMode),
+    queryFn: () => fetchLeaderboard(limit, sport, sortMode),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -49,9 +63,10 @@ export function useAgentPerformance(agentId: string) {
  * Hook to fetch top performers by sport
  */
 export function useTopPerformersBySport(sport: Sport, limit: number = 10) {
+  const sortMode: LeaderboardSortMode = 'overall';
   return useQuery({
-    queryKey: leaderboardKeys.list(limit, sport),
-    queryFn: () => fetchLeaderboard(limit, sport),
+    queryKey: leaderboardKeys.list(limit, sport, sortMode),
+    queryFn: () => fetchLeaderboard(limit, sport, sortMode),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

@@ -92,10 +92,10 @@ function FloatingTabBar() {
     { name: 'scoreboard', path: '/(drawer)/(tabs)/scoreboard', title: 'Scores', icon: 'scoreboard' },
   ];
 
-  // Calculate collapsible height (must match the feed screen)
-  const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
-  const PILLS_HEIGHT = 72;
-  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT;
+  // Calculate collapsible height (must match feed screen: 56 header + 48 tabs)
+  const HEADER_TOP_HEIGHT = 56;
+  const TABS_HEIGHT = 48;
+  const TOTAL_COLLAPSIBLE_HEIGHT = insets.top + HEADER_TOP_HEIGHT + TABS_HEIGHT;
   const TAB_BAR_BASE_HEIGHT = 65;
   const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
 

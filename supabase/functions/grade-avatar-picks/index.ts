@@ -27,37 +27,15 @@ interface AvatarPick {
   graded_at: string | null;
 }
 
-interface LiveScore {
-  game_id: string;
+interface GameResult {
   league: string;
-  away_team: string;
-  away_abbr: string;
-  away_score: number;
+  game_id: string;
+  game_date: string;
   home_team: string;
-  home_abbr: string;
-  home_score: number;
-  status: string;
-  is_live: boolean;
-}
-
-interface ESPNGame {
-  id: string;
-  status: {
-    type: {
-      name: string;
-      state: string;
-      completed: boolean;
-      description: string;
-    };
-  };
-  competitors: Array<{
-    team: {
-      displayName: string;
-      abbreviation: string;
-    };
-    score: string;
-    homeAway: 'home' | 'away';
-  }>;
+  away_team: string;
+  ml_result: string | null;
+  spread_result: string | null;
+  ou_result: string | null;
 }
 
 interface ParsedSpreadPick {
@@ -94,13 +72,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const ESPN_ENDPOINTS: Record<string, string> = {
-  nfl: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
-  cfb: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard',
-  nba: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
-  ncaab: 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard',
-};
-
 // =============================================================================
 // Date Utilities
 // =============================================================================
@@ -116,17 +87,14 @@ function getTodayInET(): string {
 // =============================================================================
 
 /**
- * Parse spread pick selection like "Bills -3" or "Chiefs +3"
- * Returns the team name and spread number
+ * Parse spread pick selection like "Bills -3" or "Chiefs +3.5"
  */
 function parseSpreadPick(selection: string): ParsedSpreadPick | null {
-  // Match patterns like "Bills -3", "Chiefs +3.5", "Kansas City Chiefs -7"
   const match = selection.match(/^(.+?)\s*([+-]?\d+\.?\d*)$/);
   if (!match) {
     console.log(`[grade-avatar-picks] Could not parse spread selection: ${selection}`);
     return null;
   }
-
   return {
     team: match[1].trim(),
     spread: parseFloat(match[2]),
@@ -142,7 +110,6 @@ function parseTotalPick(selection: string): ParsedTotalPick | null {
     console.log(`[grade-avatar-picks] Could not parse total selection: ${selection}`);
     return null;
   }
-
   return {
     direction: match[1].toLowerCase() as 'over' | 'under',
     line: parseFloat(match[2]),
@@ -150,393 +117,231 @@ function parseTotalPick(selection: string): ParsedTotalPick | null {
 }
 
 /**
- * Parse moneyline pick selection like "Bills -150" or "Chiefs +130" or "Bills ML"
+ * Parse moneyline pick selection like "Bills -150" or "Bills ML"
  * Returns the team name
  */
 function parseMoneylinePick(selection: string): string | null {
-  // Remove "ML" suffix if present
   let cleaned = selection.replace(/\s*ML$/i, '').trim();
-
-  // Remove odds suffix like "-150" or "+130"
   cleaned = cleaned.replace(/\s*[+-]\d+$/, '').trim();
-
   if (!cleaned) {
     console.log(`[grade-avatar-picks] Could not parse moneyline selection: ${selection}`);
     return null;
   }
-
   return cleaned;
 }
 
 // =============================================================================
-// Team Matching
+// Game Results from all_game_results View (CFB Supabase)
 // =============================================================================
 
 /**
- * Check if two team names match (handles abbreviations, nicknames, etc.)
+ * Fetch pre-computed game results from the all_game_results view.
+ * Returns a Map keyed by game_id for O(1) lookup.
  */
-function teamsMatch(pickTeam: string, scoreTeam: string, scoreAbbr: string): boolean {
-  const pickLower = pickTeam.toLowerCase().trim();
-  const teamLower = scoreTeam.toLowerCase().trim();
-  const abbrLower = scoreAbbr.toLowerCase().trim();
+async function fetchGameResults(
+  cfbClient: SupabaseClient,
+  league: string,
+  gameDates: string[]
+): Promise<Map<string, GameResult>> {
+  const results = new Map<string, GameResult>();
+  if (gameDates.length === 0) return results;
 
-  // Direct match
-  if (pickLower === teamLower || pickLower === abbrLower) {
-    return true;
-  }
-
-  // Check if pick team is contained in full team name (e.g., "Bills" in "Buffalo Bills")
-  if (teamLower.includes(pickLower) || pickLower.includes(teamLower)) {
-    return true;
-  }
-
-  // Check if pick team contains the abbreviation
-  if (pickLower.includes(abbrLower) || abbrLower.includes(pickLower)) {
-    return true;
-  }
-
-  // Common city/team mappings
-  const teamMappings: Record<string, string[]> = {
-    // NFL
-    'buf': ['bills', 'buffalo'],
-    'kc': ['chiefs', 'kansas city'],
-    'ne': ['patriots', 'new england'],
-    'nyj': ['jets', 'new york jets'],
-    'nyg': ['giants', 'new york giants'],
-    'lac': ['chargers', 'los angeles chargers', 'la chargers'],
-    'lar': ['rams', 'los angeles rams', 'la rams'],
-    'lv': ['raiders', 'las vegas'],
-    'sf': ['49ers', 'niners', 'san francisco'],
-    'tb': ['buccaneers', 'bucs', 'tampa bay'],
-    'gb': ['packers', 'green bay'],
-    'no': ['saints', 'new orleans'],
-    // NBA
-    'gsw': ['warriors', 'golden state'],
-    'lac': ['clippers', 'la clippers'],
-    'lal': ['lakers', 'la lakers'],
-    'nyk': ['knicks', 'new york knicks'],
-    'bkn': ['nets', 'brooklyn'],
-    'okc': ['thunder', 'oklahoma city'],
-    'por': ['blazers', 'trail blazers', 'portland'],
-    'sas': ['spurs', 'san antonio'],
-    'phx': ['suns', 'phoenix'],
-    'uta': ['jazz', 'utah'],
-    'mem': ['grizzlies', 'memphis'],
-    'min': ['timberwolves', 'wolves', 'minnesota'],
-    'den': ['nuggets', 'denver'],
-    'mia': ['heat', 'miami'],
-    'bos': ['celtics', 'boston'],
-    'phi': ['76ers', 'sixers', 'philadelphia'],
-    'mil': ['bucks', 'milwaukee'],
-  };
-
-  // Check mappings
-  for (const [abbr, names] of Object.entries(teamMappings)) {
-    if (abbrLower === abbr || names.some(n => pickLower.includes(n) || n.includes(pickLower))) {
-      if (names.some(n => teamLower.includes(n) || abbrLower === abbr)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-// =============================================================================
-// Grading Logic
-// =============================================================================
-
-/**
- * Grade a spread bet
- * picked_team_margin = picked_team_score - opponent_score
- * if picked_team_margin > -spread -> WON
- * if picked_team_margin < -spread -> LOST
- * if picked_team_margin == -spread -> PUSH
- */
-function gradeSpreadBet(
-  parsedPick: ParsedSpreadPick,
-  homeTeam: string,
-  homeAbbr: string,
-  homeScore: number,
-  awayTeam: string,
-  awayAbbr: string,
-  awayScore: number
-): 'won' | 'lost' | 'push' {
-  // Determine which team was picked
-  const isHomePick = teamsMatch(parsedPick.team, homeTeam, homeAbbr);
-  const isAwayPick = teamsMatch(parsedPick.team, awayTeam, awayAbbr);
-
-  if (!isHomePick && !isAwayPick) {
-    console.log(`[grade-avatar-picks] Could not match team "${parsedPick.team}" to either ${homeTeam} or ${awayTeam}`);
-    throw new Error(`Could not match picked team: ${parsedPick.team}`);
-  }
-
-  // Calculate margin from perspective of picked team
-  const pickedTeamScore = isHomePick ? homeScore : awayScore;
-  const opponentScore = isHomePick ? awayScore : homeScore;
-  const margin = pickedTeamScore - opponentScore;
-
-  // The spread is from the picked team's perspective
-  // "Bills -3" means Bills need to win by MORE than 3
-  // The condition: margin + spread > 0 means WIN
-  // margin + spread < 0 means LOSS
-  // margin + spread == 0 means PUSH
-  const coverMargin = margin + parsedPick.spread;
-
-  console.log(`[grade-avatar-picks] Spread grading: ${parsedPick.team} ${parsedPick.spread}, margin=${margin}, coverMargin=${coverMargin}`);
-
-  if (coverMargin > 0) {
-    return 'won';
-  } else if (coverMargin < 0) {
-    return 'lost';
-  } else {
-    return 'push';
-  }
-}
-
-/**
- * Grade a moneyline bet
- */
-function gradeMoneylineBet(
-  pickedTeam: string,
-  homeTeam: string,
-  homeAbbr: string,
-  homeScore: number,
-  awayTeam: string,
-  awayAbbr: string,
-  awayScore: number
-): 'won' | 'lost' | 'push' {
-  const isHomePick = teamsMatch(pickedTeam, homeTeam, homeAbbr);
-  const isAwayPick = teamsMatch(pickedTeam, awayTeam, awayAbbr);
-
-  if (!isHomePick && !isAwayPick) {
-    console.log(`[grade-avatar-picks] Could not match team "${pickedTeam}" to either ${homeTeam} or ${awayTeam}`);
-    throw new Error(`Could not match picked team: ${pickedTeam}`);
-  }
-
-  const pickedTeamScore = isHomePick ? homeScore : awayScore;
-  const opponentScore = isHomePick ? awayScore : homeScore;
-
-  console.log(`[grade-avatar-picks] Moneyline grading: ${pickedTeam}, picked=${pickedTeamScore}, opponent=${opponentScore}`);
-
-  if (pickedTeamScore > opponentScore) {
-    return 'won';
-  } else if (pickedTeamScore < opponentScore) {
-    return 'lost';
-  } else {
-    // Ties are rare but possible in some sports
-    return 'push';
-  }
-}
-
-/**
- * Grade a total (over/under) bet
- */
-function gradeTotalBet(
-  parsedPick: ParsedTotalPick,
-  homeScore: number,
-  awayScore: number
-): 'won' | 'lost' | 'push' {
-  const actualTotal = homeScore + awayScore;
-
-  console.log(`[grade-avatar-picks] Total grading: ${parsedPick.direction} ${parsedPick.line}, actual=${actualTotal}`);
-
-  if (actualTotal === parsedPick.line) {
-    return 'push';
-  }
-
-  if (parsedPick.direction === 'over') {
-    return actualTotal > parsedPick.line ? 'won' : 'lost';
-  } else {
-    return actualTotal < parsedPick.line ? 'won' : 'lost';
-  }
-}
-
-// =============================================================================
-// ESPN API Integration
-// =============================================================================
-
-/**
- * Fetch final scores from ESPN API for a specific date
- */
-async function fetchESPNScores(sport: string, date: string): Promise<Map<string, LiveScore>> {
-  const endpoint = ESPN_ENDPOINTS[sport.toLowerCase()];
-  if (!endpoint) {
-    console.log(`[grade-avatar-picks] No ESPN endpoint for sport: ${sport}`);
-    return new Map();
-  }
-
-  // Format date for ESPN (YYYYMMDD)
-  const espnDate = date.replace(/-/g, '');
-  const url = `${endpoint}?dates=${espnDate}`;
-
-  console.log(`[grade-avatar-picks] Fetching ESPN scores from: ${url}`);
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error(`[grade-avatar-picks] ESPN API error: ${response.status}`);
-      return new Map();
-    }
-
-    const data = await response.json();
-    const scores = new Map<string, LiveScore>();
-
-    if (data.events && Array.isArray(data.events)) {
-      for (const event of data.events) {
-        if (event.competitions && event.competitions.length > 0) {
-          const competition = event.competitions[0];
-          const game: ESPNGame = {
-            id: event.id,
-            status: competition.status,
-            competitors: competition.competitors,
-          };
-
-          // Only include final games
-          const isFinal = game.status?.type?.completed === true ||
-                         game.status?.type?.state === 'post' ||
-                         game.status?.type?.name === 'STATUS_FINAL';
-
-          if (!isFinal) {
-            continue;
-          }
-
-          const homeTeam = game.competitors.find(c => c.homeAway === 'home');
-          const awayTeam = game.competitors.find(c => c.homeAway === 'away');
-
-          if (homeTeam && awayTeam) {
-            const gameId = `${sport.toUpperCase()}-${game.id}`;
-            scores.set(gameId, {
-              game_id: gameId,
-              league: sport.toUpperCase(),
-              away_team: awayTeam.team.displayName,
-              away_abbr: awayTeam.team.abbreviation,
-              away_score: parseInt(awayTeam.score) || 0,
-              home_team: homeTeam.team.displayName,
-              home_abbr: homeTeam.team.abbreviation,
-              home_score: parseInt(homeTeam.score) || 0,
-              status: game.status.type.description || 'Final',
-              is_live: false,
-            });
-          }
-        }
-      }
-    }
-
-    console.log(`[grade-avatar-picks] Found ${scores.size} final ${sport.toUpperCase()} games for ${date}`);
-    return scores;
-  } catch (error) {
-    console.error(`[grade-avatar-picks] Error fetching ESPN scores:`, error);
-    return new Map();
-  }
-}
-
-/**
- * Fetch final scores from live_scores table (backup/cache)
- */
-async function fetchLiveScores(
-  supabase: SupabaseClient,
-  sport: string
-): Promise<Map<string, LiveScore>> {
-  const { data, error } = await supabase
-    .from('live_scores')
+  const { data, error } = await cfbClient
+    .from('all_game_results')
     .select('*')
-    .eq('league', sport.toUpperCase())
-    .eq('is_live', false);
+    .eq('league', league.toUpperCase())
+    .in('game_date', gameDates);
 
   if (error) {
-    console.error(`[grade-avatar-picks] Error fetching live_scores:`, error);
-    return new Map();
+    console.error(`[grade-avatar-picks] Error fetching game results for ${league}:`, error);
+    return results;
   }
 
-  const scores = new Map<string, LiveScore>();
   for (const row of data || []) {
-    scores.set(row.game_id, row as LiveScore);
+    results.set(row.game_id, row as GameResult);
   }
 
-  console.log(`[grade-avatar-picks] Found ${scores.size} cached ${sport} scores in live_scores table`);
-  return scores;
+  console.log(`[grade-avatar-picks] Fetched ${results.size} ${league.toUpperCase()} game results for dates: ${gameDates.join(', ')}`);
+  return results;
 }
 
 // =============================================================================
-// Game ID Matching
+// Team Name Resolution
 // =============================================================================
 
 /**
- * Try to find a matching final score for a pick's game_id
- * The game_id in picks might be different format than ESPN/live_scores
+ * Resolve an abbreviated team name from pick_selection (e.g., "Lakers") to the
+ * canonical full name from the view (e.g., "Los Angeles Lakers").
+ *
+ * Strategy:
+ *   1. Direct match against home_team / away_team
+ *   2. Substring match (either direction)
+ *   3. Matchup fallback — parse "Away @ Home" and substring-match
  */
-function findMatchingScore(
+function resolveCanonicalTeamName(
+  pickedTeam: string,
+  gameResult: GameResult,
+  matchup: string | null
+): string | null {
+  const picked = pickedTeam.toLowerCase().trim();
+  const home = gameResult.home_team.toLowerCase();
+  const away = gameResult.away_team.toLowerCase();
+
+  // Direct match
+  if (picked === home) return gameResult.home_team;
+  if (picked === away) return gameResult.away_team;
+
+  // Substring match (e.g., "lakers" in "los angeles lakers")
+  if (home.includes(picked)) return gameResult.home_team;
+  if (away.includes(picked)) return gameResult.away_team;
+  if (picked.includes(home)) return gameResult.home_team;
+  if (picked.includes(away)) return gameResult.away_team;
+
+  // Matchup fallback: parse "Away Team @ Home Team"
+  if (matchup) {
+    const parts = matchup.split(' @ ');
+    if (parts.length === 2) {
+      const matchupAway = parts[0].trim().toLowerCase();
+      const matchupHome = parts[1].trim().toLowerCase();
+
+      if (matchupHome.includes(picked) || picked.includes(matchupHome)) {
+        return gameResult.home_team;
+      }
+      if (matchupAway.includes(picked) || picked.includes(matchupAway)) {
+        return gameResult.away_team;
+      }
+    }
+  }
+
+  console.log(`[grade-avatar-picks] Could not resolve "${pickedTeam}" to canonical name for ${gameResult.away_team} @ ${gameResult.home_team}`);
+  return null;
+}
+
+// =============================================================================
+// Pick Grading Using View's Pre-Computed Results
+// =============================================================================
+
+/**
+ * Grade a single pick using the view's ml_result, spread_result, ou_result.
+ * Returns null if the game isn't final yet (result columns are null).
+ */
+function gradePickFromView(
   pick: AvatarPick,
-  espnScores: Map<string, LiveScore>,
-  liveScores: Map<string, LiveScore>
-): LiveScore | null {
-  // Try exact match first
-  const espnKey = `${pick.sport.toUpperCase()}-${pick.game_id}`;
-  if (espnScores.has(espnKey)) {
-    return espnScores.get(espnKey)!;
-  }
-  if (espnScores.has(pick.game_id)) {
-    return espnScores.get(pick.game_id)!;
-  }
-  if (liveScores.has(espnKey)) {
-    return liveScores.get(espnKey)!;
-  }
-  if (liveScores.has(pick.game_id)) {
-    return liveScores.get(pick.game_id)!;
-  }
+  gameResult: GameResult
+): { result: 'won' | 'lost' | 'push'; actual_result: string } | null {
+  const actualResultPrefix = `${gameResult.away_team} vs ${gameResult.home_team}`;
 
-  // Try to match by teams from matchup (format: "Away Team @ Home Team")
-  const matchupParts = pick.matchup?.split(' @ ');
-  if (matchupParts && matchupParts.length === 2) {
-    const awayTeamFromMatchup = matchupParts[0].trim();
-    const homeTeamFromMatchup = matchupParts[1].trim();
+  switch (pick.bet_type) {
+    case 'moneyline': {
+      if (!gameResult.ml_result) return null;
 
-    // Search ESPN scores
-    for (const score of espnScores.values()) {
-      if (
-        (teamsMatch(awayTeamFromMatchup, score.away_team, score.away_abbr) &&
-         teamsMatch(homeTeamFromMatchup, score.home_team, score.home_abbr))
-      ) {
-        console.log(`[grade-avatar-picks] Matched game by matchup: ${pick.matchup} -> ${score.game_id}`);
-        return score;
-      }
+      const pickedTeam = parseMoneylinePick(pick.pick_selection);
+      if (!pickedTeam) return null;
+
+      const canonical = resolveCanonicalTeamName(pickedTeam, gameResult, pick.matchup);
+      if (!canonical) return null;
+
+      const result = canonical === gameResult.ml_result ? 'won' : 'lost';
+      return {
+        result,
+        actual_result: `${actualResultPrefix} — ML winner: ${gameResult.ml_result}`,
+      };
     }
 
-    // Search live_scores cache
-    for (const score of liveScores.values()) {
-      if (
-        (teamsMatch(awayTeamFromMatchup, score.away_team, score.away_abbr) &&
-         teamsMatch(homeTeamFromMatchup, score.home_team, score.home_abbr))
-      ) {
-        console.log(`[grade-avatar-picks] Matched game by matchup from cache: ${pick.matchup} -> ${score.game_id}`);
-        return score;
+    case 'spread': {
+      if (!gameResult.spread_result) return null;
+
+      const parsed = parseSpreadPick(pick.pick_selection);
+      if (!parsed) return null;
+
+      const canonical = resolveCanonicalTeamName(parsed.team, gameResult, pick.matchup);
+      if (!canonical) return null;
+
+      let result: 'won' | 'lost' | 'push';
+      if (gameResult.spread_result.toUpperCase() === 'PUSH') {
+        result = 'push';
+      } else if (canonical === gameResult.spread_result) {
+        result = 'won';
+      } else {
+        result = 'lost';
       }
+
+      return {
+        result,
+        actual_result: `${actualResultPrefix} — Spread: ${gameResult.spread_result}`,
+      };
     }
+
+    case 'total': {
+      if (!gameResult.ou_result) return null;
+
+      const parsed = parseTotalPick(pick.pick_selection);
+      if (!parsed) return null;
+
+      const ouResult = gameResult.ou_result.toLowerCase();
+      let result: 'won' | 'lost' | 'push';
+      if (ouResult === 'push') {
+        result = 'push';
+      } else if (ouResult === parsed.direction) {
+        result = 'won';
+      } else {
+        result = 'lost';
+      }
+
+      return {
+        result,
+        actual_result: `${actualResultPrefix} — Total: ${gameResult.ou_result}`,
+      };
+    }
+
+    default:
+      console.error(`[grade-avatar-picks] Unknown bet type: ${pick.bet_type}`);
+      return null;
+  }
+}
+
+// =============================================================================
+// Game Lookup
+// =============================================================================
+
+/**
+ * Find a GameResult for a pick. Tries game_id first, then falls back to
+ * matching by game_date + team names parsed from the matchup string.
+ */
+function findGameResult(
+  pick: AvatarPick,
+  resultsMap: Map<string, GameResult>,
+  allResults: GameResult[]
+): GameResult | null {
+  // Primary: lookup by game_id
+  if (resultsMap.has(pick.game_id)) {
+    return resultsMap.get(pick.game_id)!;
   }
 
-  // Try matching from archived_game_data
-  const archived = pick.archived_game_data;
-  if (archived) {
-    const archivedMatchup = (archived.matchup as string) || '';
-    const archivedParts = archivedMatchup.split(' @ ');
-    if (archivedParts.length === 2) {
-      const awayTeam = archivedParts[0].trim();
-      const homeTeam = archivedParts[1].trim();
+  // Fallback: match by game_date + team names from matchup
+  if (pick.matchup) {
+    const parts = pick.matchup.split(' @ ');
+    if (parts.length === 2) {
+      const matchupAway = parts[0].trim().toLowerCase();
+      const matchupHome = parts[1].trim().toLowerCase();
 
-      for (const score of espnScores.values()) {
-        if (
-          teamsMatch(awayTeam, score.away_team, score.away_abbr) &&
-          teamsMatch(homeTeam, score.home_team, score.home_abbr)
-        ) {
-          console.log(`[grade-avatar-picks] Matched game by archived matchup: ${archivedMatchup} -> ${score.game_id}`);
-          return score;
+      for (const result of allResults) {
+        if (result.game_date !== pick.game_date) continue;
+
+        const homeMatch = result.home_team.toLowerCase().includes(matchupHome) ||
+                          matchupHome.includes(result.home_team.toLowerCase());
+        const awayMatch = result.away_team.toLowerCase().includes(matchupAway) ||
+                          matchupAway.includes(result.away_team.toLowerCase());
+
+        if (homeMatch && awayMatch) {
+          console.log(`[grade-avatar-picks] Matched pick ${pick.id} by matchup fallback: ${pick.matchup}`);
+          return result;
         }
       }
     }
   }
 
-  console.log(`[grade-avatar-picks] Could not find score for game: ${pick.game_id} (${pick.matchup})`);
+  console.log(`[grade-avatar-picks] No game result found for pick ${pick.id} (${pick.matchup}, game_id: ${pick.game_id})`);
   return null;
 }
 
@@ -545,7 +350,6 @@ function findMatchingScore(
 // =============================================================================
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -554,7 +358,7 @@ serve(async (req) => {
   console.log('[grade-avatar-picks] Starting pick grading...');
 
   try {
-    // Initialize Supabase client
+    // Initialize Main Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
@@ -563,36 +367,52 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const today = getTodayInET();
 
+    // Initialize CFB Supabase client (hosts all_game_results view)
+    const cfbSupabaseUrl = Deno.env.get('CFB_SUPABASE_URL') ?? '';
+    const cfbSupabaseKey = Deno.env.get('CFB_SUPABASE_ANON_KEY') ?? '';
+    const cfbClient = (cfbSupabaseUrl && cfbSupabaseKey)
+      ? createClient(cfbSupabaseUrl, cfbSupabaseKey)
+      : null;
+
+    if (!cfbClient) {
+      console.warn('[grade-avatar-picks] CFB Supabase not configured — all picks will stay pending');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          summary: { total_processed: 0, won: 0, lost: 0, push: 0, skipped: 0, errors: 0 },
+          avatars_updated: [],
+          details: [],
+          warning: 'CFB Supabase not configured',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const today = getTodayInET();
     console.log(`[grade-avatar-picks] Today (ET): ${today}`);
 
     // -------------------------------------------------------------------------
-    // 1. Fetch pending picks where game_date <= today
+    // 1. Fetch pending picks — NBA and NCAAB only
+    //    (NFL/CFB seasons are over; view doesn't cover them yet)
     // -------------------------------------------------------------------------
     const { data: pendingPicks, error: fetchError } = await supabase
       .from('avatar_picks')
       .select('*')
       .eq('result', 'pending')
-      .lte('game_date', today);
+      .lte('game_date', today)
+      .in('sport', ['nba', 'ncaab']);
 
     if (fetchError) {
       throw new Error(`Failed to fetch pending picks: ${fetchError.message}`);
     }
 
     if (!pendingPicks || pendingPicks.length === 0) {
-      console.log('[grade-avatar-picks] No pending picks to grade');
+      console.log('[grade-avatar-picks] No pending NBA/NCAAB picks to grade');
       return new Response(
         JSON.stringify({
           success: true,
-          summary: {
-            total_processed: 0,
-            won: 0,
-            lost: 0,
-            push: 0,
-            skipped: 0,
-            errors: 0,
-          },
+          summary: { total_processed: 0, won: 0, lost: 0, push: 0, skipped: 0, errors: 0 },
           avatars_updated: [],
           details: [],
         }),
@@ -600,52 +420,35 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[grade-avatar-picks] Found ${pendingPicks.length} pending picks to process`);
+    console.log(`[grade-avatar-picks] Found ${pendingPicks.length} pending NBA/NCAAB picks to process`);
 
     // -------------------------------------------------------------------------
-    // 2. Group picks by sport and date
+    // 2. Collect unique game dates per league and batch fetch results
     // -------------------------------------------------------------------------
-    const picksBySportDate = new Map<string, AvatarPick[]>();
+    const nbaDates = new Set<string>();
+    const ncaabDates = new Set<string>();
+
     for (const pick of pendingPicks) {
-      const key = `${pick.sport}-${pick.game_date}`;
-      if (!picksBySportDate.has(key)) {
-        picksBySportDate.set(key, []);
-      }
-      picksBySportDate.get(key)!.push(pick as AvatarPick);
+      if (pick.sport === 'nba') nbaDates.add(pick.game_date);
+      else if (pick.sport === 'ncaab') ncaabDates.add(pick.game_date);
     }
 
-    console.log(`[grade-avatar-picks] Grouped into ${picksBySportDate.size} sport/date combinations`);
+    const [nbaResults, ncaabResults] = await Promise.all([
+      nbaDates.size > 0
+        ? fetchGameResults(cfbClient, 'NBA', [...nbaDates])
+        : Promise.resolve(new Map<string, GameResult>()),
+      ncaabDates.size > 0
+        ? fetchGameResults(cfbClient, 'NCAAB', [...ncaabDates])
+        : Promise.resolve(new Map<string, GameResult>()),
+    ]);
+
+    const resultsByLeague: Record<string, { map: Map<string, GameResult>; all: GameResult[] }> = {
+      nba: { map: nbaResults, all: [...nbaResults.values()] },
+      ncaab: { map: ncaabResults, all: [...ncaabResults.values()] },
+    };
 
     // -------------------------------------------------------------------------
-    // 3. Fetch final scores for each sport/date
-    // -------------------------------------------------------------------------
-    const allScores = new Map<string, Map<string, LiveScore>>();
-
-    for (const key of picksBySportDate.keys()) {
-      const [sport, date] = key.split('-').slice(0, 1).concat(key.split('-').slice(1).join('-'));
-      const scoreKey = key;
-
-      if (!allScores.has(scoreKey)) {
-        // Fetch from ESPN API
-        const espnScores = await fetchESPNScores(sport, date);
-        // Also fetch from live_scores cache as backup
-        const liveScoresCache = await fetchLiveScores(supabase, sport);
-
-        // Merge both sources
-        const merged = new Map<string, LiveScore>();
-        for (const [id, score] of liveScoresCache) {
-          merged.set(id, score);
-        }
-        for (const [id, score] of espnScores) {
-          merged.set(id, score); // ESPN takes precedence
-        }
-
-        allScores.set(scoreKey, merged);
-      }
-    }
-
-    // -------------------------------------------------------------------------
-    // 4. Grade each pick
+    // 3. Grade each pick
     // -------------------------------------------------------------------------
     const summary: GradingSummary = {
       total_processed: 0,
@@ -662,89 +465,31 @@ serve(async (req) => {
       summary.total_processed++;
 
       try {
-        const scoreKey = `${pick.sport}-${pick.game_date}`;
-        const scores = allScores.get(scoreKey) || new Map();
-        const espnScores = await fetchESPNScores(pick.sport, pick.game_date);
-
-        // Find matching final score
-        const finalScore = findMatchingScore(pick, espnScores, scores);
-
-        if (!finalScore) {
-          console.log(`[grade-avatar-picks] Skipping pick ${pick.id} - no final score found for ${pick.matchup}`);
+        const leagueData = resultsByLeague[pick.sport];
+        if (!leagueData) {
           summary.skipped++;
           continue;
         }
 
-        // Grade based on bet type
-        let result: 'won' | 'lost' | 'push';
-        const actualResult = `${finalScore.away_team} ${finalScore.away_score}, ${finalScore.home_team} ${finalScore.home_score}`;
+        const gameResult = findGameResult(pick, leagueData.map, leagueData.all);
+        if (!gameResult) {
+          summary.skipped++;
+          continue;
+        }
 
-        switch (pick.bet_type) {
-          case 'spread': {
-            const parsed = parseSpreadPick(pick.pick_selection);
-            if (!parsed) {
-              console.error(`[grade-avatar-picks] Failed to parse spread pick: ${pick.pick_selection}`);
-              summary.errors++;
-              continue;
-            }
-            result = gradeSpreadBet(
-              parsed,
-              finalScore.home_team,
-              finalScore.home_abbr,
-              finalScore.home_score,
-              finalScore.away_team,
-              finalScore.away_abbr,
-              finalScore.away_score
-            );
-            break;
-          }
-
-          case 'moneyline': {
-            const pickedTeam = parseMoneylinePick(pick.pick_selection);
-            if (!pickedTeam) {
-              console.error(`[grade-avatar-picks] Failed to parse moneyline pick: ${pick.pick_selection}`);
-              summary.errors++;
-              continue;
-            }
-            result = gradeMoneylineBet(
-              pickedTeam,
-              finalScore.home_team,
-              finalScore.home_abbr,
-              finalScore.home_score,
-              finalScore.away_team,
-              finalScore.away_abbr,
-              finalScore.away_score
-            );
-            break;
-          }
-
-          case 'total': {
-            const parsed = parseTotalPick(pick.pick_selection);
-            if (!parsed) {
-              console.error(`[grade-avatar-picks] Failed to parse total pick: ${pick.pick_selection}`);
-              summary.errors++;
-              continue;
-            }
-            result = gradeTotalBet(
-              parsed,
-              finalScore.home_score,
-              finalScore.away_score
-            );
-            break;
-          }
-
-          default:
-            console.error(`[grade-avatar-picks] Unknown bet type: ${pick.bet_type}`);
-            summary.errors++;
-            continue;
+        const grading = gradePickFromView(pick, gameResult);
+        if (!grading) {
+          console.log(`[grade-avatar-picks] Skipping pick ${pick.id} — game not final or parse error`);
+          summary.skipped++;
+          continue;
         }
 
         // Update the pick in database
         const { error: updateError } = await supabase
           .from('avatar_picks')
           .update({
-            result,
-            actual_result: actualResult,
+            result: grading.result,
+            actual_result: grading.actual_result,
             graded_at: new Date().toISOString(),
           })
           .eq('id', pick.id);
@@ -755,16 +500,15 @@ serve(async (req) => {
           continue;
         }
 
-        // Track result
-        summary[result]++;
+        summary[grading.result]++;
         affectedAvatars.add(pick.avatar_id);
         gradedDetails.push({
           pick_id: pick.id,
-          result,
-          actual_result: actualResult,
+          result: grading.result,
+          actual_result: grading.actual_result,
         });
 
-        console.log(`[grade-avatar-picks] Graded pick ${pick.id}: ${result} (${actualResult})`);
+        console.log(`[grade-avatar-picks] Graded pick ${pick.id}: ${grading.result} (${grading.actual_result})`);
 
       } catch (error) {
         console.error(`[grade-avatar-picks] Error grading pick ${pick.id}:`, error);
@@ -773,7 +517,7 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 5. Recalculate performance for affected avatars
+    // 4. Recalculate performance for affected avatars
     // -------------------------------------------------------------------------
     const avatarsUpdated: string[] = [];
 
@@ -795,7 +539,7 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 6. Return summary
+    // 5. Return summary
     // -------------------------------------------------------------------------
     const duration = Date.now() - startTime;
     console.log(`[grade-avatar-picks] Completed in ${duration}ms`);
