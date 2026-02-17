@@ -119,13 +119,7 @@ const formatTipoffTime = (tipoffTimeUtc: string | null, gameDate?: string | null
       minute: '2-digit',
       hour12: true,
     });
-    const dateStr = utcDate.toLocaleDateString('en-US', {
-      timeZone: 'America/New_York',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-    return `${timeStr} ET ${dateStr}`;
+    return `${timeStr} ET`;
   } catch {
     return '';
   }

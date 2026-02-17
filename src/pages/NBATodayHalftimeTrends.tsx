@@ -374,9 +374,29 @@ function getNBAFlipCumulativeScore(away: HalftimeTrendRow, home: HalftimeTrendRo
   return { score, avgEdge };
 }
 
+/** Sortable timestamp: combine game_date + tipoff_time_et so time-only strings like "20:30" parse correctly. */
+function getTipoffTimestamp(g: GameHalftimeTrends): number {
+  const dateStr = g.game_date ?? '';
+  const timeStr = g.tipoff_time_et ?? '';
+  if (dateStr && timeStr) {
+    const timePart = timeStr.length === 5 && timeStr.includes(':') ? `${timeStr}:00` : timeStr;
+    const combined = `${dateStr}T${timePart}`;
+    const ts = new Date(combined).getTime();
+    if (!Number.isNaN(ts)) return ts;
+  }
+  if (dateStr) {
+    const ts = new Date(dateStr).getTime();
+    if (!Number.isNaN(ts)) return ts;
+  }
+  if (timeStr) {
+    const ts = new Date(`1970-01-01T${timeStr}`).getTime();
+    if (!Number.isNaN(ts)) return ts;
+  }
+  return 0;
+}
+
 function sortGamesByMode(games: GameHalftimeTrends[], mode: HalftimeSortMode): GameHalftimeTrends[] {
-  const tipoffTs = (g: GameHalftimeTrends) =>
-    g.tipoff_time_et ? new Date(g.tipoff_time_et).getTime() : (g.game_date ? new Date(g.game_date).getTime() : 0);
+  const tipoffTs = getTipoffTimestamp;
 
   if (mode === 'time') {
     return [...games].sort((a, b) => {
