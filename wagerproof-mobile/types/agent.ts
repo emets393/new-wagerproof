@@ -347,6 +347,41 @@ export const DEFAULT_CUSTOM_INSIGHTS: CustomInsights = {
 };
 
 // ============================================================================
+// CREATE AGENT FORM STATE
+// ============================================================================
+
+export interface CreateAgentFormState {
+  // Screen 1
+  preferred_sports: Sport[];
+  archetype: ArchetypeId | null;
+
+  // Screen 2
+  name: string;
+  avatar_emoji: string;
+  avatar_color: string;
+
+  // Screen 3 & 4
+  personality_params: PersonalityParams;
+
+  // Screen 5
+  custom_insights: CustomInsights;
+
+  // Screen 6
+  auto_generate: boolean;
+}
+
+export const INITIAL_FORM_STATE: CreateAgentFormState = {
+  preferred_sports: [],
+  archetype: null,
+  name: '',
+  avatar_emoji: '',
+  avatar_color: '#6366f1',
+  personality_params: { ...DEFAULT_PERSONALITY_PARAMS },
+  custom_insights: { ...DEFAULT_CUSTOM_INSIGHTS },
+  auto_generate: true,
+};
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 

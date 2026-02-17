@@ -11,7 +11,7 @@ import {
   PersonalityParams,
   BET_TYPES,
 } from '@/types/agent';
-import { CreateAgentFormState } from '@/app/(drawer)/(tabs)/agents/create';
+import { CreateAgentFormState } from '@/types/agent';
 
 // ============================================================================
 // TYPES

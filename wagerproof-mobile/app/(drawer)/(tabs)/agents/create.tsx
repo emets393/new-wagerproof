@@ -25,6 +25,8 @@ import {
   CustomInsights,
   DEFAULT_PERSONALITY_PARAMS,
   DEFAULT_CUSTOM_INSIGHTS,
+  CreateAgentFormState,
+  INITIAL_FORM_STATE,
 } from '@/types/agent';
 
 // Import screen components
@@ -34,41 +36,6 @@ import { Screen3_Personality } from '@/components/agents/creation/Screen3_Person
 import { Screen4_DataAndConditions } from '@/components/agents/creation/Screen4_DataAndConditions';
 import { Screen5_CustomInsights } from '@/components/agents/creation/Screen5_CustomInsights';
 import { Screen6_Review } from '@/components/agents/creation/Screen6_Review';
-
-// ============================================================================
-// FORM STATE TYPES
-// ============================================================================
-
-export interface CreateAgentFormState {
-  // Screen 1
-  preferred_sports: Sport[];
-  archetype: ArchetypeId | null;
-
-  // Screen 2
-  name: string;
-  avatar_emoji: string;
-  avatar_color: string;
-
-  // Screen 3 & 4
-  personality_params: PersonalityParams;
-
-  // Screen 5
-  custom_insights: CustomInsights;
-
-  // Screen 6
-  auto_generate: boolean;
-}
-
-const INITIAL_FORM_STATE: CreateAgentFormState = {
-  preferred_sports: [],
-  archetype: null,
-  name: '',
-  avatar_emoji: '',
-  avatar_color: '#6366f1',
-  personality_params: { ...DEFAULT_PERSONALITY_PARAMS },
-  custom_insights: { ...DEFAULT_CUSTOM_INSIGHTS },
-  auto_generate: true,
-};
 
 const TOTAL_SCREENS = 6;
 

@@ -31,6 +31,7 @@ interface Screen1_SportArchetypeProps {
     personalityParams?: Partial<PersonalityParams>,
     customInsights?: CustomInsights
   ) => void;
+  isOnboarding?: boolean;
 }
 
 // ============================================================================
@@ -56,6 +57,7 @@ export function Screen1_SportArchetype({
   selectedArchetype,
   onSportsChange,
   onArchetypeChange,
+  isOnboarding = false,
 }: Screen1_SportArchetypeProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
@@ -189,16 +191,18 @@ export function Screen1_SportArchetype({
   if (path === 'scratch') {
     return (
       <View style={styles.container}>
-        <TouchableOpacity
-          onPress={() => handleSelectPath(null)}
-          style={styles.backLink}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={18} color={theme.colors.onSurfaceVariant} />
-          <Text style={[styles.backLinkText, { color: theme.colors.onSurfaceVariant }]}>
-            Change path
-          </Text>
-        </TouchableOpacity>
+        {!isOnboarding && (
+          <TouchableOpacity
+            onPress={() => handleSelectPath(null)}
+            style={styles.backLink}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={18} color={theme.colors.onSurfaceVariant} />
+            <Text style={[styles.backLinkText, { color: theme.colors.onSurfaceVariant }]}>
+              Change path
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <Text style={[styles.heading, { color: theme.colors.onSurface }]}>
           Select Sports
@@ -267,16 +271,18 @@ export function Screen1_SportArchetype({
   // ========== PRESET PATH: Archetype Selection ==========
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        onPress={() => handleSelectPath(null)}
-        style={styles.backLink}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <MaterialCommunityIcons name="arrow-left" size={18} color={theme.colors.onSurfaceVariant} />
-        <Text style={[styles.backLinkText, { color: theme.colors.onSurfaceVariant }]}>
-          Change path
-        </Text>
-      </TouchableOpacity>
+      {!isOnboarding && (
+        <TouchableOpacity
+          onPress={() => handleSelectPath(null)}
+          style={styles.backLink}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={18} color={theme.colors.onSurfaceVariant} />
+          <Text style={[styles.backLinkText, { color: theme.colors.onSurfaceVariant }]}>
+            Change path
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <Text style={[styles.heading, { color: theme.colors.onSurface }]}>
         Choose a Preset
