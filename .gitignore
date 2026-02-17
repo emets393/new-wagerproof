@@ -28,3 +28,10 @@ dist-ssr
 
 # Watchman
 .watchman-cookie-*
+
+# Keep shared Claude docs/config in repo
+!.claude/
+!.claude/**
+
+# Keep machine-local Claude settings out of git
+.claude/settings.local.json
