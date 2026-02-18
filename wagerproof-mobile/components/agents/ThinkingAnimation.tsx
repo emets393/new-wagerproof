@@ -1,217 +1,212 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from 'react-native-paper';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  withDelay,
-  Easing,
-  cancelAnimation,
-} from 'react-native-reanimated';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useThemeContext } from '@/contexts/ThemeContext';
 
 interface ThinkingAnimationProps {
+  variant?: 'loadingAgent' | 'generatingPicks';
+  steps?: string[];
   stage?: string;
 }
 
-const DEFAULT_STAGES = [
-  'Analyzing today\'s slate...',
-  'Reviewing model predictions...',
-  'Applying your preferences...',
-  'Making selections...',
+const LOADING_STEPS = [
+  'Syncing agent profile...',
+  'Loading performance snapshot...',
+  'Preparing pick workspace...',
 ];
 
-function AnimatedDot({ delay }: { delay: number }) {
-  const theme = useTheme();
-  const scale = useSharedValue(0.6);
-  const opacity = useSharedValue(0.3);
+const GENERATING_STEPS = [
+  'Connection established. Running pick engine...',
+  'Checking today\'s slate and active markets...',
+  'Applying your risk profile and bet preferences...',
+  'Scoring model edges across candidate games...',
+  'Filtering for confidence and value thresholds...',
+  'Finalizing picks and writing results...',
+];
 
-  useEffect(() => {
-    scale.value = withDelay(
-      delay,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 400, easing: Easing.ease }),
-          withTiming(0.6, { duration: 400, easing: Easing.ease })
-        ),
-        -1,
-        true
-      )
-    );
+const INITIAL_DELAY_MS = 250;
+const CHAR_INTERVAL_MS = 18;
+const LINE_PAUSE_MS = 350;
+const CURSOR_BLINK_MS = 500;
 
-    opacity.value = withDelay(
-      delay,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 400, easing: Easing.ease }),
-          withTiming(0.3, { duration: 400, easing: Easing.ease })
-        ),
-        -1,
-        true
-      )
-    );
-
-    return () => {
-      cancelAnimation(scale);
-      cancelAnimation(opacity);
-    };
-  }, [delay, opacity, scale]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        styles.dot,
-        { backgroundColor: theme.colors.primary },
-        animatedStyle,
-      ]}
-    />
-  );
-}
-
-function BrainIcon() {
-  const theme = useTheme();
-  const rotation = useSharedValue(0);
-  const scale = useSharedValue(1);
-
-  useEffect(() => {
-    rotation.value = withRepeat(
-      withSequence(
-        withTiming(-5, { duration: 200, easing: Easing.ease }),
-        withTiming(5, { duration: 400, easing: Easing.ease }),
-        withTiming(0, { duration: 200, easing: Easing.ease })
-      ),
-      -1,
-      true
-    );
-
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.1, { duration: 500, easing: Easing.ease }),
-        withTiming(1, { duration: 500, easing: Easing.ease })
-      ),
-      -1,
-      true
-    );
-
-    return () => {
-      cancelAnimation(rotation);
-      cancelAnimation(scale);
-    };
-  }, [rotation, scale]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { rotate: `${rotation.value}deg` },
-      { scale: scale.value },
-    ],
-  }));
-
-  return (
-    <Animated.View style={[styles.brainContainer, animatedStyle]}>
-      <Text style={styles.brainEmoji}>🧠</Text>
-    </Animated.View>
-  );
-}
-
-export function ThinkingAnimation({ stage }: ThinkingAnimationProps) {
-  const theme = useTheme();
+export function ThinkingAnimation({
+  variant = 'generatingPicks',
+  steps,
+  stage,
+}: ThinkingAnimationProps) {
   const { isDark } = useThemeContext();
-  const [currentStageIndex, setCurrentStageIndex] = useState(0);
-  const textOpacity = useSharedValue(1);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
 
-  // Cycle through default stages if no specific stage is provided
+  const [historyLines, setHistoryLines] = useState<string[]>([]);
+  const [activeLine, setActiveLine] = useState('');
+  const [activeLineIndex, setActiveLineIndex] = useState(0);
+  const [cursorVisible, setCursorVisible] = useState(true);
+
+  const resolvedSteps = useMemo(() => {
+    if (steps && steps.length > 0) return steps;
+    if (stage) return [stage];
+    return variant === 'loadingAgent' ? LOADING_STEPS : GENERATING_STEPS;
+  }, [steps, stage, variant]);
+
   useEffect(() => {
-    if (stage) return;
-
     const interval = setInterval(() => {
-      textOpacity.value = withSequence(
-        withTiming(0, { duration: 200 }),
-        withTiming(1, { duration: 200 })
-      );
-
-      setCurrentStageIndex((prev) => (prev + 1) % DEFAULT_STAGES.length);
-    }, 2500);
+      setCursorVisible((prev) => !prev);
+    }, CURSOR_BLINK_MS);
 
     return () => clearInterval(interval);
-  }, [stage, textOpacity]);
+  }, []);
 
-  const animatedTextStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-  }));
+  useEffect(() => {
+    const clearTimers = () => {
+      timersRef.current.forEach((timer) => clearTimeout(timer));
+      timersRef.current = [];
+    };
 
-  const displayText = stage || DEFAULT_STAGES[currentStageIndex];
+    clearTimers();
+    setHistoryLines([]);
+    setActiveLine('');
+    setActiveLineIndex(0);
+    setCursorVisible(true);
+
+    if (!resolvedSteps.length) return clearTimers;
+
+    let lineIndex = 0;
+    let charIndex = 0;
+
+    const typeCurrentLine = () => {
+      const fullLine = resolvedSteps[lineIndex];
+      if (!fullLine) return;
+
+      setActiveLineIndex(lineIndex);
+      setActiveLine('');
+      charIndex = 0;
+
+      const typeNextChar = () => {
+        if (charIndex < fullLine.length) {
+          setActiveLine(fullLine.substring(0, charIndex + 1));
+          charIndex += 1;
+          const timer = setTimeout(typeNextChar, CHAR_INTERVAL_MS);
+          timersRef.current.push(timer);
+          return;
+        }
+
+        if (lineIndex < resolvedSteps.length - 1) {
+          setHistoryLines((prev) => [...prev, fullLine]);
+          lineIndex += 1;
+          const timer = setTimeout(typeCurrentLine, LINE_PAUSE_MS);
+          timersRef.current.push(timer);
+          return;
+        }
+
+        setHistoryLines(resolvedSteps.slice(0, resolvedSteps.length - 1));
+        setActiveLineIndex(resolvedSteps.length - 1);
+        setActiveLine(fullLine);
+      };
+
+      typeNextChar();
+    };
+
+    const initialTimer = setTimeout(typeCurrentLine, INITIAL_DELAY_MS);
+    timersRef.current.push(initialTimer);
+
+    return clearTimers;
+  }, [resolvedSteps]);
+
+  useEffect(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, [historyLines, activeLine]);
+
+  const terminalBackground = isDark ? '#070a0a' : '#101617';
+  const terminalBorder = isDark ? 'rgba(0, 230, 118, 0.25)' : 'rgba(0, 186, 98, 0.28)';
+  const terminalHeader = isDark ? '#9fb3ad' : '#b5c3bf';
+  const lineColor = isDark ? '#00E676' : '#33F08A';
+  const historyColor = isDark ? '#8ca89b' : '#a8bbb5';
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: isDark
-            ? 'rgba(255, 255, 255, 0.05)'
-            : 'rgba(0, 0, 0, 0.03)',
-          borderColor: isDark
-            ? 'rgba(255, 255, 255, 0.1)'
-            : 'rgba(0, 0, 0, 0.08)',
+          backgroundColor: terminalBackground,
+          borderColor: terminalBorder,
         },
       ]}
     >
-      <BrainIcon />
+      <Text style={[styles.headerText, { color: terminalHeader }]}>
+        terminal://agent-thinking
+      </Text>
 
-      <View style={styles.dotsContainer}>
-        <AnimatedDot delay={0} />
-        <AnimatedDot delay={150} />
-        <AnimatedDot delay={300} />
-      </View>
-
-      <Animated.Text
-        style={[
-          styles.stageText,
-          { color: theme.colors.onSurfaceVariant },
-          animatedTextStyle,
-        ]}
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.feed}
+        contentContainerStyle={styles.feedContent}
+        showsVerticalScrollIndicator={false}
       >
-        {displayText}
-      </Animated.Text>
+        {historyLines.map((line, index) => (
+          <View key={`history-${index}`} style={styles.lineRow}>
+            <Text style={[styles.prefix, { color: lineColor }]}>›</Text>
+            <Text style={[styles.lineText, { color: historyColor }]}>{line}</Text>
+          </View>
+        ))}
+
+        <View style={styles.lineRow}>
+          <Text style={[styles.prefix, { color: lineColor }]}>›</Text>
+          <Text style={[styles.lineText, { color: lineColor }]}>
+            {activeLine}
+            {cursorVisible ? ' █' : '  '}
+          </Text>
+        </View>
+
+        <Text style={[styles.statusText, { color: terminalHeader }]}>
+          Step {Math.min(activeLineIndex + 1, resolvedSteps.length)} of {resolvedSteps.length}
+        </Text>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 16,
     borderWidth: 1,
     marginVertical: 16,
+    minHeight: 170,
+    maxHeight: 230,
   },
-  brainContainer: {
-    marginBottom: 16,
+  headerText: {
+    fontSize: 12,
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
-  brainEmoji: {
-    fontSize: 48,
+  feed: {
+    flex: 1,
   },
-  dotsContainer: {
+  feedContent: {
+    paddingBottom: 2,
+  },
+  lineRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    alignItems: 'flex-start',
+    marginBottom: 6,
   },
-  dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  prefix: {
+    marginRight: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
-  stageText: {
-    fontSize: 15,
-    fontWeight: '500',
-    textAlign: 'center',
+  lineText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  statusText: {
+    marginTop: 6,
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });

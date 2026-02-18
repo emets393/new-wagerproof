@@ -1,5 +1,17 @@
 # Game Data Payloads by Sport
 
+## Important
+
+This file contains historical examples and field notes. For the current reusable live audit process and the canonical per-sport metric-source mapping, use:
+
+- `./09_GAME_DATA_AUDIT_RUNBOOK.md`
+- `scripts/test-avatar-game-data-payloads.mjs`
+
+Current production payloads also include `prediction_accuracy` for NBA and NCAAB from:
+
+- `nba_todays_games_predictions_with_accuracy`
+- `ncaab_todays_games_predictions_with_accuracy_cache`
+
 This document defines the exact data structure sent to AI agents for pick generation. Each sport has slightly different data available.
 
 ---
@@ -419,6 +431,35 @@ This is the **actual payload** sent to the AI agent, captured from live data:
           {"p": 0.565, "t": 1770245956}
         ]
       }
+    },
+    "prediction_accuracy": {
+      "idx": 0,
+      "game_id": 18447544,
+      "away_team": "Denver Nuggets",
+      "home_team": "New York Knicks",
+      "game_date": "2026-02-04",
+      "tipoff_time_et": "19:10",
+      "start_utc": "2026-02-05 00:10:00+00",
+      "vegas_home_spread": "-4.5",
+      "vegas_total": "227.5",
+      "vegas_home_ml": -192,
+      "run_id": "abc12345-def6-7890-abcd-ef1234567890",
+      "home_win_prob": "0.7234",
+      "away_win_prob": "0.2766",
+      "model_fair_home_spread": "-5.12",
+      "pred_total_points": "224.8",
+      "model_spread_winner": "home",
+      "model_ou_winner": "under",
+      "model_ml_winner": "home",
+      "spread_bucket": -5,
+      "ou_bucket": -3,
+      "ml_bucket": 0.72,
+      "spread_accuracy_pct": "54.32",
+      "spread_bucket_games": 150,
+      "ou_accuracy_pct": "51.20",
+      "ou_bucket_games": 45,
+      "ml_accuracy_pct": "72.15",
+      "ml_bucket_games": 210
     }
   },
   "completions": {}
@@ -436,6 +477,7 @@ This is the **actual payload** sent to the AI agent, captured from live data:
 | **Betting Trends** | ATS%, over%, streaks | Historical performance |
 | **Last Game** | margin, ATS result, O/U result | Recency effects |
 | **Advanced** | luck, ovr_rtg, consistency | Variance/quality metrics |
+| **Prediction Accuracy** | model probs, fair spread/total, bucket accuracy % | Model confidence & track record |
 | **Polymarket** | ML/spread/total odds + price history | Prediction market signal |
 
 ### Field Definitions

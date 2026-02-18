@@ -133,7 +133,7 @@ export default function NBABettingTrendsScreen() {
     <View style={styles.emptyContainer}>
       <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
       <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-        No betting trends available for today
+        No games today
       </Text>
     </View>
   );

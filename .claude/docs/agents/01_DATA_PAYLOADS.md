@@ -37,6 +37,20 @@ See [02_PERSONALITY_PARAMS.md](./02_PERSONALITY_PARAMS.md) for full interface de
 
 Aggregated from multiple sources for each matchup. This is the "menu" the agent picks from.
 
+### Live Audit Test (Reusable)
+
+To generate a live snapshot of payloads 1-3 plus persisted response payload:
+
+```bash
+npm run test:avatar-game-data-payloads
+```
+
+The command writes JSON artifacts into `tmp/live-payload-audit/` and produces `summary_after_update.json` with metric coverage (including Polymarket coverage and missing games list).
+
+Canonical runbook:
+
+- `./09_GAME_DATA_AUDIT_RUNBOOK.md`
+
 ```typescript
 interface GameDataPayload {
   games: GameMatchup[];
@@ -115,6 +129,38 @@ interface GameMatchup {
   home_ats_record?: string;
   away_ou_record?: string;          // Over/under record
   home_ou_record?: string;
+
+  // Prediction Accuracy (NBA & NCAAB only)
+  prediction_accuracy?: PredictionAccuracy | null;
+}
+
+interface PredictionAccuracy {
+  game_id: number;
+  away_team: string;
+  home_team: string;
+  game_date: string;
+  tipoff_time_et?: string;
+  start_utc?: string;
+  vegas_home_spread: string;
+  vegas_total: string;
+  vegas_home_ml: number;
+  run_id: string;
+  home_win_prob: string;            // Model home win probability (0-1)
+  away_win_prob: string;            // Model away win probability (0-1)
+  model_fair_home_spread: string;   // Model's predicted fair spread
+  pred_total_points: string;        // Model's predicted total points
+  model_spread_winner: string;      // "home" or "away"
+  model_ou_winner: string;          // "over" or "under"
+  model_ml_winner: string;          // "home" or "away"
+  spread_bucket: number;            // Bucketed spread value for accuracy lookup
+  ou_bucket: number;                // Bucketed O/U value for accuracy lookup
+  ml_bucket: number;                // Bucketed ML value for accuracy lookup
+  spread_accuracy_pct: string;      // Historical spread accuracy % for this bucket
+  spread_bucket_games: number;      // Sample size for spread bucket
+  ou_accuracy_pct: string;          // Historical O/U accuracy % for this bucket
+  ou_bucket_games: number;          // Sample size for O/U bucket
+  ml_accuracy_pct: string;          // Historical ML accuracy % for this bucket
+  ml_bucket_games: number;          // Sample size for ML bucket
 }
 ```
 
@@ -125,6 +171,7 @@ interface GameMatchup {
 | Teams/Schedule | `nfl_betting_lines` | `nba_input_values_view` | `cfb_live_weekly_inputs` | `v_cbb_input_values` |
 | Vegas Lines | `nfl_betting_lines` | `nba_input_values_view` | `cfb_live_weekly_inputs` | `ncaab_predictions` |
 | Model Predictions | `nfl_predictions_epa` | `nba_predictions` | `cfb_predictions` | `ncaab_predictions` |
+| Prediction Accuracy | — | `nba_todays_games_predictions_with_accuracy` | — | `ncaab_todays_games_predictions_with_accuracy` |
 | Public Betting | The Odds API | The Odds API | The Odds API | The Odds API |
 | Polymarket | `polymarket_events` | `polymarket_events` | `polymarket_events` | — |
 | Weather | Weather API | — | Weather API | — |

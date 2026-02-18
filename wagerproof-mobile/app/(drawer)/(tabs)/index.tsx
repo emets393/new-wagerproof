@@ -106,7 +106,7 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState<Record<Sport, boolean>>({
     nfl: true,
     cfb: false,
-    nba: false,
+    nba: true,
     ncaab: false,
   });
   const [refreshing, setRefreshing] = useState<Record<Sport, boolean>>({
@@ -1068,10 +1068,9 @@ export default function FeedScreen() {
       return gamesCopy;
     }, [filtered, currentSortMode, sport]);
     
-    // Show shimmer if loading or if no data yet (for instant feel when switching tabs)
-    const hasData = games.length > 0;
+    // Show shimmer only during an active load.
     const isCurrentlyLoading = isLoading && !isRefreshing;
-    const showShimmer = isCurrentlyLoading || (!hasData && !errorMsg && !isRefreshing);
+    const showShimmer = isCurrentlyLoading;
     
     return (
       <View key={sport} style={styles.pageContainer}>
@@ -1117,7 +1116,7 @@ export default function FeedScreen() {
               <View style={styles.centerContainer}>
                 <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
                 <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-                  {searchTerm ? 'No games match your search' : 'No games available'}
+                  {searchTerm ? 'No games match your search' : 'No games today'}
                 </Text>
               </View>
             }

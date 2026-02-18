@@ -70,3 +70,4 @@ Performance tracked (W-L-P, +/- units)
 - [06_IMPLEMENTATION.md](./06_IMPLEMENTATION.md) - Implementation order (updated with remote prompt tasks)
 - [07_GAME_DATA_PAYLOADS.md](./07_GAME_DATA_PAYLOADS.md) - Sport-specific game data with real examples
 - [08_PROMPT_MAPPING.md](./08_PROMPT_MAPPING.md) - How personality params map to AI instructions + remote prompt architecture
+- [09_GAME_DATA_AUDIT_RUNBOOK.md](./09_GAME_DATA_AUDIT_RUNBOOK.md) - Reusable live payload test + per-sport metric source map

@@ -176,7 +176,7 @@ serve(async (req) => {
 
     // Fetch games for each sport once
     for (const sport of allSports) {
-      const { games, formattedGames } = await fetchGamesForSport(cfbClient, sport, today);
+      const { games, formattedGames } = await fetchGamesForSport(cfbClient, supabaseClient, sport, today);
       gamesByPort[sport] = { games, formattedGames };
       console.log(`[auto-generate-avatar-picks] ${sport.toUpperCase()}: ${games.length} games found`);
     }
@@ -525,24 +525,28 @@ interface GameFetchResult {
 
 async function fetchGamesForSport(
   cfbClient: SupabaseClient,
+  mainClient: SupabaseClient,
   sport: string,
   targetDate: string
 ): Promise<GameFetchResult> {
   switch (sport) {
     case 'nfl':
-      return fetchNFLGames(cfbClient);
+      return fetchNFLGames(cfbClient, mainClient);
     case 'cfb':
-      return fetchCFBGames(cfbClient);
+      return fetchCFBGames(cfbClient, mainClient);
     case 'nba':
-      return fetchNBAGames(cfbClient, targetDate);
+      return fetchNBAGames(cfbClient, mainClient, targetDate);
     case 'ncaab':
-      return fetchNCAABGames(cfbClient, targetDate);
+      return fetchNCAABGames(cfbClient, mainClient, targetDate);
     default:
       return { games: [], formattedGames: [] };
   }
 }
 
-async function fetchNFLGames(cfbClient: SupabaseClient): Promise<GameFetchResult> {
+async function fetchNFLGames(
+  cfbClient: SupabaseClient,
+  mainClient: SupabaseClient
+): Promise<GameFetchResult> {
   // Get latest run_id
   const { data: latestRun } = await cfbClient
     .from('nfl_predictions_epa')
@@ -564,11 +568,27 @@ async function fetchNFLGames(cfbClient: SupabaseClient): Promise<GameFetchResult
     return { games: [], formattedGames: [] };
   }
 
-  const formattedGames = games.map(game => formatNFLGame(game));
+  const [polymarketByGameKey, lineMovementByTrainingKey, h2hByGameKey] = await Promise.all([
+    fetchPolymarketByGameKey(mainClient, 'nfl', games),
+    fetchLineMovementByTrainingKey(cfbClient, 'nfl_betting_lines', games),
+    fetchNFLH2HByGameKey(cfbClient, games),
+  ]);
+
+  const formattedGames = games.map(game =>
+    formatNFLGame(
+      game,
+      polymarketByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || null,
+      lineMovementByTrainingKey.get(String(game.training_key || '')) || [],
+      h2hByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || []
+    )
+  );
   return { games, formattedGames };
 }
 
-async function fetchCFBGames(cfbClient: SupabaseClient): Promise<GameFetchResult> {
+async function fetchCFBGames(
+  cfbClient: SupabaseClient,
+  mainClient: SupabaseClient
+): Promise<GameFetchResult> {
   const { data: games } = await cfbClient
     .from('cfb_live_weekly_inputs')
     .select('*');
@@ -577,12 +597,24 @@ async function fetchCFBGames(cfbClient: SupabaseClient): Promise<GameFetchResult
     return { games: [], formattedGames: [] };
   }
 
-  const formattedGames = games.map(game => formatCFBGame(game));
+  const [polymarketByGameKey, lineMovementByTrainingKey] = await Promise.all([
+    fetchPolymarketByGameKey(mainClient, 'cfb', games),
+    fetchLineMovementByTrainingKey(cfbClient, 'cfb_betting_lines', games),
+  ]);
+
+  const formattedGames = games.map(game =>
+    formatCFBGame(
+      game,
+      polymarketByGameKey.get(toGameKey('cfb', game.away_team, game.home_team)) || null,
+      lineMovementByTrainingKey.get(String(game.training_key || '')) || []
+    )
+  );
   return { games, formattedGames };
 }
 
 async function fetchNBAGames(
   cfbClient: SupabaseClient,
+  mainClient: SupabaseClient,
   targetDate: string
 ): Promise<GameFetchResult> {
   const { data: games } = await cfbClient
@@ -594,12 +626,27 @@ async function fetchNBAGames(
     return { games: [], formattedGames: [] };
   }
 
-  const formattedGames = games.map(game => formatNBAGame(game));
+  const [polymarketByGameKey, injuriesByTeam, accuracyByGameId] = await Promise.all([
+    fetchPolymarketByGameKey(mainClient, 'nba', games),
+    fetchNBAInjuriesByTeam(cfbClient, games, targetDate),
+    fetchPredictionAccuracyByGameId(cfbClient, 'nba_todays_games_predictions_with_accuracy', games, targetDate, true),
+  ]);
+
+  const formattedGames = games.map(game =>
+    formatNBAGame(
+      game,
+      polymarketByGameKey.get(toGameKey('nba', game.away_team, game.home_team)) || null,
+      injuriesByTeam.get(normalizeTeamKey(game.away_team)) || [],
+      injuriesByTeam.get(normalizeTeamKey(game.home_team)) || [],
+      accuracyByGameId.get(String(game.game_id || '')) || null
+    )
+  );
   return { games, formattedGames };
 }
 
 async function fetchNCAABGames(
   cfbClient: SupabaseClient,
+  mainClient: SupabaseClient,
   targetDate: string
 ): Promise<GameFetchResult> {
   const { data: games } = await cfbClient
@@ -611,7 +658,20 @@ async function fetchNCAABGames(
     return { games: [], formattedGames: [] };
   }
 
-  const formattedGames = games.map(game => formatNCAABGame(game));
+  const [polymarketByGameKey, trendsByGameId, accuracyByGameId] = await Promise.all([
+    fetchPolymarketByGameKey(mainClient, 'ncaab', games),
+    fetchNCAABSituationalTrendsByGameId(cfbClient, games),
+    fetchPredictionAccuracyByGameId(cfbClient, 'ncaab_todays_games_predictions_with_accuracy_cache', games, targetDate, false),
+  ]);
+
+  const formattedGames = games.map(game =>
+    formatNCAABGame(
+      game,
+      polymarketByGameKey.get(toGameKey('ncaab', game.away_team, game.home_team)) || null,
+      trendsByGameId.get(String(game.game_id || '')) || null,
+      accuracyByGameId.get(String(game.game_id || '')) || null
+    )
+  );
   return { games, formattedGames };
 }
 
@@ -627,7 +687,253 @@ function fmtSpread(val: unknown): string {
   return n > 0 ? `+${n}` : String(n);
 }
 
-function formatNFLGame(game: Record<string, unknown>): Record<string, unknown> {
+function toGameKey(sport: string, awayTeam: unknown, homeTeam: unknown): string {
+  return `${sport}_${String(awayTeam || '').trim()}_${String(homeTeam || '').trim()}`;
+}
+
+function normalizeTeamKey(team: unknown): string {
+  return String(team || '').trim().toLowerCase();
+}
+
+function formatPolymarketMarkets(markets: Record<string, unknown>[]): Record<string, unknown> | null {
+  if (!markets.length) return null;
+  const polymarket: Record<string, unknown> = {};
+
+  for (const market of markets) {
+    const marketType = String(market.market_type || '');
+    const awayOdds = market.current_away_odds;
+    const homeOdds = market.current_home_odds;
+    if (!marketType) continue;
+
+    if (marketType === 'total') {
+      polymarket.total = {
+        over_odds: awayOdds,
+        under_odds: homeOdds,
+        updated_at: market.last_updated || null,
+      };
+      continue;
+    }
+
+    polymarket[marketType] = {
+      away_odds: awayOdds,
+      home_odds: homeOdds,
+      updated_at: market.last_updated || null,
+    };
+  }
+
+  return Object.keys(polymarket).length > 0 ? polymarket : null;
+}
+
+async function fetchPolymarketByGameKey(
+  mainClient: SupabaseClient,
+  sport: string,
+  games: Record<string, unknown>[]
+): Promise<Map<string, Record<string, unknown> | null>> {
+  const gameKeys = [...new Set(games.map(g => toGameKey(sport, g.away_team, g.home_team)))];
+  const result = new Map<string, Record<string, unknown> | null>();
+  if (gameKeys.length === 0) return result;
+
+  try {
+    const { data, error } = await mainClient
+      .from('polymarket_markets')
+      .select('*')
+      .eq('league', sport)
+      .in('game_key', gameKeys);
+
+    if (error || !data) {
+      console.warn(`[auto-generate-avatar-picks] Polymarket fetch failed for ${sport}:`, error?.message || 'No data');
+      return result;
+    }
+
+    const grouped = new Map<string, Record<string, unknown>[]>();
+    for (const row of data as Record<string, unknown>[]) {
+      const key = String(row.game_key || '');
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)?.push(row);
+    }
+
+    for (const key of gameKeys) {
+      result.set(key, formatPolymarketMarkets(grouped.get(key) || []));
+    }
+  } catch (error) {
+    console.warn(`[auto-generate-avatar-picks] Polymarket fetch threw for ${sport}:`, (error as Error).message);
+  }
+
+  return result;
+}
+
+async function fetchLineMovementByTrainingKey(
+  cfbClient: SupabaseClient,
+  tableName: string,
+  games: Record<string, unknown>[]
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const trainingKeys = [...new Set(games.map(g => String(g.training_key || '')).filter(Boolean))];
+  const result = new Map<string, Record<string, unknown>[]>();
+  if (trainingKeys.length === 0) return result;
+
+  try {
+    const { data, error } = await cfbClient
+      .from(tableName)
+      .select('training_key, as_of_ts, home_spread, away_spread, over_line')
+      .in('training_key', trainingKeys)
+      .order('as_of_ts', { ascending: true });
+
+    if (error || !data) {
+      console.warn(`[auto-generate-avatar-picks] Line movement fetch failed (${tableName}):`, error?.message || 'No data');
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const key = String(row.training_key || '');
+      if (!result.has(key)) result.set(key, []);
+      result.get(key)?.push(row);
+    }
+  } catch (error) {
+    console.warn(`[auto-generate-avatar-picks] Line movement fetch threw (${tableName}):`, (error as Error).message);
+  }
+
+  return result;
+}
+
+async function fetchNFLH2HByGameKey(
+  cfbClient: SupabaseClient,
+  games: Record<string, unknown>[]
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const result = new Map<string, Record<string, unknown>[]>();
+
+  const h2hPromises = games.map(async (game) => {
+    const away = String(game.away_team || '');
+    const home = String(game.home_team || '');
+    const key = toGameKey('nfl', away, home);
+
+    try {
+      const { data, error } = await cfbClient
+        .from('nfl_training_data')
+        .select('game_date, home_team, away_team, home_score, away_score, home_spread, away_spread, over_line')
+        .or(`and(home_team.eq."${home}",away_team.eq."${away}"),and(home_team.eq."${away}",away_team.eq."${home}")`)
+        .order('game_date', { ascending: false })
+        .limit(5);
+
+      if (!error && data) {
+        result.set(key, data as Record<string, unknown>[]);
+      }
+    } catch (error) {
+      console.warn(`[auto-generate-avatar-picks] NFL H2H fetch failed for ${away} @ ${home}:`, (error as Error).message);
+    }
+  });
+
+  await Promise.all(h2hPromises);
+  return result;
+}
+
+async function fetchNBAInjuriesByTeam(
+  cfbClient: SupabaseClient,
+  games: Record<string, unknown>[],
+  targetDate: string
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const teams = [...new Set(games.flatMap(g => [String(g.away_team || ''), String(g.home_team || '')]).filter(Boolean))];
+  const result = new Map<string, Record<string, unknown>[]>();
+  if (teams.length === 0) return result;
+
+  try {
+    const { data, error } = await cfbClient
+      .from('nba_injury_report')
+      .select('player_name, avg_pie_season, status, team_id, team_name, team_abbr, game_date_et, bucket')
+      .in('team_name', teams)
+      .eq('game_date_et', targetDate)
+      .eq('bucket', 'current');
+
+    if (error || !data) {
+      console.warn('[auto-generate-avatar-picks] NBA injury fetch failed:', error?.message || 'No data');
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const teamKey = normalizeTeamKey(row.team_name);
+      if (!result.has(teamKey)) result.set(teamKey, []);
+      result.get(teamKey)?.push(row);
+    }
+  } catch (error) {
+    console.warn('[auto-generate-avatar-picks] NBA injury fetch threw:', (error as Error).message);
+  }
+
+  return result;
+}
+
+async function fetchNCAABSituationalTrendsByGameId(
+  cfbClient: SupabaseClient,
+  games: Record<string, unknown>[]
+): Promise<Map<string, Record<string, unknown>>> {
+  const gameIds = [...new Set(games.map(g => String(g.game_id || '')).filter(Boolean))];
+  const result = new Map<string, Record<string, unknown>>();
+  if (gameIds.length === 0) return result;
+
+  try {
+    const { data, error } = await cfbClient
+      .from('ncaab_game_situational_trends_today')
+      .select('*')
+      .in('game_id', gameIds);
+
+    if (error || !data) {
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const gameId = String(row.game_id || '');
+      if (gameId) result.set(gameId, row);
+    }
+  } catch {
+    // Optional dataset; ignore if unavailable.
+  }
+
+  return result;
+}
+
+async function fetchPredictionAccuracyByGameId(
+  cfbClient: SupabaseClient,
+  tableName: string,
+  games: Record<string, unknown>[],
+  targetDate: string,
+  applyGameDateFilter: boolean
+): Promise<Map<string, Record<string, unknown>>> {
+  const gameIds = [...new Set(games.map(g => String(g.game_id || '')).filter(Boolean))];
+  const result = new Map<string, Record<string, unknown>>();
+  if (gameIds.length === 0) return result;
+
+  try {
+    let query = cfbClient
+      .from(tableName)
+      .select('*')
+      .in('game_id', gameIds);
+
+    if (applyGameDateFilter) {
+      query = query.eq('game_date', targetDate);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) {
+      console.warn(`[auto-generate-avatar-picks] ${tableName} fetch failed:`, error?.message || 'No data');
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const gameId = String(row.game_id || '');
+      if (gameId) result.set(gameId, row);
+    }
+  } catch (error) {
+    console.warn(`[auto-generate-avatar-picks] ${tableName} fetch threw:`, (error as Error).message);
+  }
+
+  return result;
+}
+
+function formatNFLGame(
+  game: Record<string, unknown>,
+  polymarket: Record<string, unknown> | null,
+  lineMovement: Record<string, unknown>[],
+  h2hGames: Record<string, unknown>[]
+): Record<string, unknown> {
   const gameId = game.training_key || `${game.away_team}_${game.home_team}`;
   const homeSpread = game.home_spread as number | null;
   const awaySpread = game.away_spread as number | null;
@@ -658,16 +964,41 @@ function formatNFLGame(game: Record<string, unknown>): Record<string, unknown> {
       ml_split: game.ml_splits_label,
       total_split: game.total_splits_label,
     },
+    public_betting_detailed: {
+      home_ml_handle: game.home_ml_handle,
+      away_ml_handle: game.away_ml_handle,
+      home_ml_bets: game.home_ml_bets,
+      away_ml_bets: game.away_ml_bets,
+      home_spread_handle: game.home_spread_handle,
+      away_spread_handle: game.away_spread_handle,
+      home_spread_bets: game.home_spread_bets,
+      away_spread_bets: game.away_spread_bets,
+      over_handle: game.over_handle,
+      under_handle: game.under_handle,
+      over_bets: game.over_bets,
+      under_bets: game.under_bets,
+    },
+    line_movement: lineMovement,
+    h2h_recent: h2hGames,
+    polymarket,
     model_predictions: {
       spread_cover_prob: game.home_away_spread_cover_prob,
       ml_prob: game.home_away_ml_prob,
       ou_prob: game.ou_result_prob,
       predicted_team: Number(game.home_away_spread_cover_prob || 0) > 0.5 ? game.home_team : game.away_team,
     },
+    game_data_complete: {
+      source_table: 'nfl_predictions_epa',
+      raw_game_data: game,
+    },
   };
 }
 
-function formatCFBGame(game: Record<string, unknown>): Record<string, unknown> {
+function formatCFBGame(
+  game: Record<string, unknown>,
+  polymarket: Record<string, unknown> | null,
+  lineMovement: Record<string, unknown>[]
+): Record<string, unknown> {
   const gameId = game.training_key || game.unique_id || `${game.away_team}_${game.home_team}`;
   const spreadProb = game.pred_spread_proba || game.home_away_spread_cover_prob;
   const homeSpread = (game.api_spread || game.home_spread) as number | null;
@@ -699,16 +1030,32 @@ function formatCFBGame(game: Record<string, unknown>): Record<string, unknown> {
       ml_split: game.ml_splits_label,
       total_split: game.total_splits_label,
     },
+    line_movement: lineMovement,
+    opening_lines: {
+      opening_spread: game.opening_spread,
+      opening_total: game.opening_total,
+    },
+    polymarket,
     model_predictions: {
       spread_cover_prob: spreadProb,
       ml_prob: game.pred_ml_proba || game.home_away_ml_prob,
       ou_prob: game.pred_total_proba || game.ou_result_prob,
       predicted_team: Number(spreadProb || 0) > 0.5 ? game.home_team : game.away_team,
     },
+    game_data_complete: {
+      source_table: 'cfb_live_weekly_inputs',
+      raw_game_data: game,
+    },
   };
 }
 
-function formatNBAGame(game: Record<string, unknown>): Record<string, unknown> {
+function formatNBAGame(
+  game: Record<string, unknown>,
+  polymarket: Record<string, unknown> | null,
+  awayInjuries: Record<string, unknown>[],
+  homeInjuries: Record<string, unknown>[],
+  predictionAccuracy: Record<string, unknown> | null
+): Record<string, unknown> {
   const gameId = String(game.game_id);
   const homeML = game.home_moneyline as number | null;
   let awayML = null;
@@ -747,10 +1094,25 @@ function formatNBAGame(game: Record<string, unknown>): Record<string, unknown> {
       home_over_pct: game.home_over_pct,
       away_over_pct: game.away_over_pct,
     },
+    injuries: {
+      away_team: awayInjuries,
+      home_team: homeInjuries,
+    },
+    prediction_accuracy: predictionAccuracy,
+    polymarket,
+    game_data_complete: {
+      source_table: 'nba_input_values_view',
+      raw_game_data: game,
+    },
   };
 }
 
-function formatNCAABGame(game: Record<string, unknown>): Record<string, unknown> {
+function formatNCAABGame(
+  game: Record<string, unknown>,
+  polymarket: Record<string, unknown> | null,
+  situationalTrends: Record<string, unknown> | null,
+  predictionAccuracy: Record<string, unknown> | null
+): Record<string, unknown> {
   const gameId = String(game.game_id);
   const homeSpread = game.spread as number | null;
   const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
@@ -781,6 +1143,13 @@ function formatNCAABGame(game: Record<string, unknown>): Record<string, unknown>
       away_defense: game.away_adj_defense,
       home_ranking: game.home_ranking,
       away_ranking: game.away_ranking,
+    },
+    situational_trends: situationalTrends,
+    prediction_accuracy: predictionAccuracy,
+    polymarket,
+    game_data_complete: {
+      source_table: 'v_cbb_input_values',
+      raw_game_data: game,
     },
   };
 }

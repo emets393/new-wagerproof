@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -99,6 +99,8 @@ export default function AgentDetailScreen() {
   const [showHistory, setShowHistory] = useState(false);
   const [limitToastVisible, setLimitToastVisible] = useState(false);
   const [slateToastMessage, setSlateToastMessage] = useState<string | null>(null);
+  const [generatingToastVisible, setGeneratingToastVisible] = useState(false);
+  const isGeneratingRef = useRef(false);
 
   // Fetch agent data
   const {
@@ -157,9 +159,15 @@ export default function AgentDetailScreen() {
 
   // Handle generate picks (initial or regeneration)
   const handleGeneratePicks = useCallback(async () => {
-    if (!id || !canRegenerate || generatePicksMutation.isPending) return;
+    if (!id || !canRegenerate) return;
+
+    if (isGeneratingRef.current || generatePicksMutation.isPending) {
+      setGeneratingToastVisible(true);
+      return;
+    }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    isGeneratingRef.current = true;
 
     try {
       const { result } = await generatePicksMutation.mutateAsync({ agentId: id, isAdmin: adminModeEnabled });
@@ -178,6 +186,8 @@ export default function AgentDetailScreen() {
       console.error('Error generating picks:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSlateToastMessage(error instanceof Error ? error.message : 'Failed to generate picks. Please try again.');
+    } finally {
+      isGeneratingRef.current = false;
     }
   }, [
     id,
@@ -212,7 +222,7 @@ export default function AgentDetailScreen() {
           { backgroundColor: isDark ? '#000000' : '#ffffff' },
         ]}
       >
-        <ThinkingAnimation stage="Loading agent..." />
+        <ThinkingAnimation variant="loadingAgent" />
       </View>
     );
   }
@@ -506,7 +516,7 @@ export default function AgentDetailScreen() {
 
         {/* Generate Picks Button */}
         {generatePicksMutation.isPending ? (
-          <ThinkingAnimation />
+          <ThinkingAnimation variant="generatingPicks" />
         ) : hasTodaysPicks ? (
           <View
             style={[
@@ -801,6 +811,14 @@ export default function AgentDetailScreen() {
         style={{ backgroundColor: isDark ? '#333' : '#323232' }}
       >
         {slateToastMessage || ''}
+      </Snackbar>
+      <Snackbar
+        visible={generatingToastVisible}
+        onDismiss={() => setGeneratingToastVisible(false)}
+        duration={2500}
+        style={{ backgroundColor: isDark ? '#333' : '#323232' }}
+      >
+        Already generating picks...
       </Snackbar>
     </View>
   );

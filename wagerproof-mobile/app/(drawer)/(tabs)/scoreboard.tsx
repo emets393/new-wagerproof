@@ -236,9 +236,9 @@ export default function ScoreboardScreen() {
             <View style={[styles.emptyIconContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
               <MaterialCommunityIcons name="trophy-outline" size={48} color={theme.colors.onSurfaceVariant} />
             </View>
-            <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>No Live Games</Text>
+            <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>No games today</Text>
             <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-              There are currently no live games. Check back later!
+              There are no games on the board right now. Check back later.
             </Text>
           </View>
         ) : (
