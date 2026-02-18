@@ -656,10 +656,65 @@ export async function fetchNCAABPredictions(): Promise<NCAABGame[]> {
   }
 }
 
+/** Round to nearest 0.5 for spread/OU bucket key */
+function roundToHalf(v: number | null | undefined): number | null {
+  if (v == null || Number.isNaN(v)) return null;
+  return Math.round(v * 2) / 2;
+}
+/** Round to nearest 0.05 for ML bucket key */
+function roundTo05(v: number | null | undefined): number | null {
+  if (v == null || Number.isNaN(v)) return null;
+  return Math.round(v * 20) / 20;
+}
+
+/** Build edge-accuracy summary for one game for context string. bucketRows: { edge_type, bucket, accuracy_pct }[] */
+function getEdgeAccuracySummary(
+  game: { home_spread?: number | null; over_line?: number | null; model_fair_home_spread?: number | null; model_fair_total?: number | null; pred_total_points?: number | null; home_away_ml_prob?: number | null },
+  bucketRows: { edge_type: string; bucket: number; accuracy_pct: number }[]
+): string {
+  if (!bucketRows?.length) return '';
+  const map = new Map<string, number>();
+  bucketRows.forEach((r: { edge_type: string; bucket: number; accuracy_pct: number }) => map.set(`${r.edge_type}|${r.bucket}`, r.accuracy_pct));
+  const vegasSpread = game.home_spread ?? null;
+  const modelSpread = game.model_fair_home_spread ?? null;
+  const vegasTotal = game.over_line ?? null;
+  const predTotal = game.model_fair_total ?? game.pred_total_points ?? null;
+  const homeWin = game.home_away_ml_prob != null ? Number(game.home_away_ml_prob) : null;
+  const awayWin = homeWin != null ? 1 - homeWin : null;
+  const spreadDiff = vegasSpread != null && modelSpread != null ? vegasSpread - modelSpread : null;
+  const ouDiff = vegasTotal != null && predTotal != null ? predTotal - vegasTotal : null;
+  const spreadKey = roundToHalf(spreadDiff != null ? Math.abs(spreadDiff) : null);
+  const ouKey = roundToHalf(ouDiff);
+  const mlKey = homeWin != null && awayWin != null ? roundTo05(Math.max(homeWin, awayWin)) : null;
+  const spreadAcc = spreadKey != null ? map.get(`SPREAD_EDGE|${spreadKey}`) : null;
+  const ouAcc = ouKey != null ? map.get(`OU_EDGE|${ouKey}`) : null;
+  const mlAcc = mlKey != null ? map.get(`MONEYLINE_PROB|${mlKey}`) : null;
+  const parts: string[] = [];
+  if (spreadAcc != null) parts.push(`Spread bucket accuracy: ${spreadAcc.toFixed(1)}%`);
+  if (ouAcc != null) parts.push(`OU bucket accuracy: ${ouAcc.toFixed(1)}%`);
+  if (mlAcc != null) parts.push(`ML bucket accuracy: ${mlAcc.toFixed(1)}%`);
+  if (parts.length === 0) return '';
+  return `**Model edge accuracy (use follow/fade by trust_model):** ${parts.join('; ')}`;
+}
+
+/** Format one team's situational trends for context */
+function formatSituationalSlim(row: any): string {
+  if (!row?.team_name) return 'N/A';
+  const ats = row.ats_last_game_cover_pct != null ? `${row.ats_last_game_cover_pct.toFixed(0)}%` : '-';
+  const ouOver = row.ou_last_game_over_pct != null ? `${row.ou_last_game_over_pct.toFixed(0)}%` : '-';
+  const ouUnder = row.ou_last_game_under_pct != null ? `${row.ou_last_game_under_pct.toFixed(0)}%` : '-';
+  return `Situation: ${row.last_game_situation || '-'}, ${row.fav_dog_situation || '-'}, rest: ${row.rest_bucket || '-'}. ATS cover in situation: ${ats}. Over: ${ouOver}, Under: ${ouUnder}.`;
+}
+
 /**
- * Format NBA predictions as markdown context for AI
+ * Format NBA predictions as markdown context for AI (includes edge accuracy and situational trends when provided)
  */
-function formatNBAContext(predictions: NBAGame[], polymarketMap?: Map<string, PolymarketAllMarketsData | null>): string {
+function formatNBAContext(
+  predictions: NBAGame[],
+  polymarketMap?: Map<string, PolymarketAllMarketsData | null>,
+  edgeAccuracyRows?: { edge_type: string; bucket: number; accuracy_pct: number }[],
+  situationalByGameId?: Map<number, { away_team: any; home_team: any }>
+): string {
   if (!predictions || predictions.length === 0) return '';
 
   const contextParts = predictions.slice(0, 20).map((pred, idx) => {
@@ -720,6 +775,20 @@ function formatNBAContext(predictions: NBAGame[], polymarketMap?: Map<string, Po
         }
       }
 
+      let edgeAccuracySection = '';
+      if (edgeAccuracyRows?.length && pred.game_id != null) {
+        const summary = getEdgeAccuracySummary(pred, edgeAccuracyRows);
+        if (summary) edgeAccuracySection = `\n${summary}`;
+      }
+      let situationalSection = '';
+      const sit = pred.game_id != null ? situationalByGameId?.get(pred.game_id) : null;
+      if (sit?.away_team || sit?.home_team) {
+        situationalSection = `
+**Situational trends (real data; always consider for ATS/O/U):**
+- Away ${awayTeam}: ${formatSituationalSlim(sit.away_team)}
+- Home ${homeTeam}: ${formatSituationalSlim(sit.home_team)}`;
+      }
+
       return `
 ### Game ${idx + 1}: ${awayTeam} @ ${homeTeam}
 
@@ -744,6 +813,7 @@ ${polymarketSection}
 **VALUE ANALYSIS (Model vs. Market):**
 - **Spread Difference:** ${spreadValue}
 - **Total Difference:** ${totalValue}
+${edgeAccuracySection}
 
 **Confidence Levels:**
 - ML: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
@@ -757,6 +827,7 @@ ${polymarketSection}
 **Trends:**
 - ${homeTeam} ATS: ${pred.home_ats_pct ? (pred.home_ats_pct * 100).toFixed(1) + '%' : 'N/A'}, Over: ${pred.home_over_pct ? (pred.home_over_pct * 100).toFixed(1) + '%' : 'N/A'}
 - ${awayTeam} ATS: ${pred.away_ats_pct ? (pred.away_ats_pct * 100).toFixed(1) + '%' : 'N/A'}, Over: ${pred.away_over_pct ? (pred.away_over_pct * 100).toFixed(1) + '%' : 'N/A'}
+${situationalSection}
 
 ---`;
     } catch (err) {
@@ -767,9 +838,9 @@ ${polymarketSection}
 
   return `# 🏀 NBA Games Data
 
-I have access to **${predictions.length} NBA games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), betting trends (ATS%, Over%), and Polymarket prediction market data.
+I have access to **${predictions.length} NBA games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), betting trends (ATS%, Over%), edge accuracy by bucket when available, situational trends (ATS/O/U in current situation), and Polymarket prediction market data.
 
-**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER.
+**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER. Use edge accuracy (follow >52%, fade <50%) and situational trends (real data; always consider) per the prompt.
 
 **POLYMARKET DATA:** Real money prediction market probabilities from Polymarket showing what bettors are wagering on moneyline, spread, and totals.
 
@@ -777,9 +848,14 @@ ${contextParts}`;
 }
 
 /**
- * Format NCAAB predictions as markdown context for AI
+ * Format NCAAB predictions as markdown context for AI (includes edge accuracy and situational trends when provided)
  */
-function formatNCAABContext(predictions: NCAABGame[], polymarketMap?: Map<string, PolymarketAllMarketsData | null>): string {
+function formatNCAABContext(
+  predictions: NCAABGame[],
+  polymarketMap?: Map<string, PolymarketAllMarketsData | null>,
+  edgeAccuracyRows?: { edge_type: string; bucket: number; accuracy_pct: number }[],
+  situationalByGameId?: Map<number, { away_team: any; home_team: any }>
+): string {
   if (!predictions || predictions.length === 0) return '';
 
   const contextParts = predictions.slice(0, 20).map((pred, idx) => {
@@ -869,6 +945,19 @@ ${polymarketSection}
 **VALUE ANALYSIS (Model vs. Market):**
 - **Spread Difference:** ${spreadValue}
 - **Total Difference:** ${totalValue}
+${((): string => {
+  if (!edgeAccuracyRows?.length || pred.game_id == null) return '';
+  const summary = getEdgeAccuracySummary(pred, edgeAccuracyRows);
+  return summary ? `\n${summary}` : '';
+})()}
+${((): string => {
+  const sit = pred.game_id != null ? situationalByGameId?.get(pred.game_id) : null;
+  if (!sit?.away_team && !sit?.home_team) return '';
+  return `
+**Situational trends (real data; always consider for ATS/O/U):**
+- Away ${awayTeam}: ${formatSituationalSlim(sit.away_team)}
+- Home ${homeTeam}: ${formatSituationalSlim(sit.home_team)}`;
+})()}
 
 **Confidence Levels:**
 - ML: ${pred.home_away_ml_prob ? (pred.home_away_ml_prob * 100).toFixed(1) + '%' : 'N/A'}
@@ -888,9 +977,9 @@ ${polymarketSection}
 
   return `# 🏀 College Basketball Games Data
 
-I have access to **${predictions.length} College Basketball games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), rankings, game context (conference games, neutral site), and Polymarket prediction market data.
+I have access to **${predictions.length} College Basketball games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), rankings, game context (conference games, neutral site), edge accuracy by bucket when available, situational trends (ATS/O/U in current situation), and Polymarket prediction market data.
 
-**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER.
+**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER. Use edge accuracy (follow >52%, fade <50%) and situational trends (real data; always consider) per the prompt.
 
 **POLYMARKET DATA:** Real money prediction market probabilities from Polymarket showing what bettors are wagering on moneyline, spread, and totals.
 
@@ -917,13 +1006,26 @@ export async function fetchAndFormatGameContext(): Promise<string> {
   console.log(`   - NBA: ${nbaPredictions.length} games`);
   console.log(`   - NCAAB: ${ncaabPredictions.length} games`);
 
-  // Fetch Polymarket data for all leagues in parallel
-  console.log('📈 Fetching Polymarket data...');
-  const [nflPolymarket, cfbPolymarket, nbaPolymarket, ncaabPolymarket] = await Promise.all([
+  // Fetch Polymarket data and NBA/NCAAB edge accuracy + situational trends in parallel
+  console.log('📈 Fetching Polymarket data and NBA/NCAAB edge accuracy + situational trends...');
+  const [
+    nflPolymarket,
+    cfbPolymarket,
+    nbaPolymarket,
+    ncaabPolymarket,
+    nbaEdgeAccuracy,
+    nbaSituationalRows,
+    ncaabEdgeAccuracy,
+    ncaabSituationalRows,
+  ] = await Promise.all([
     fetchPolymarketDataForGames(nflPredictions, 'nfl'),
     fetchPolymarketDataForGames(cfbPredictions, 'cfb'),
     fetchPolymarketDataForGames(nbaPredictions, 'nba'),
     fetchPolymarketDataForGames(ncaabPredictions, 'ncaab'),
+    collegeFootballSupabase.from('nba_edge_accuracy_by_bucket').select('edge_type,bucket,accuracy_pct').then(({ data }) => data || []),
+    collegeFootballSupabase.from('nba_game_situational_trends_today').select('*').then(({ data }) => data || []),
+    collegeFootballSupabase.from('ncaab_edge_accuracy_by_bucket').select('edge_type,bucket,accuracy_pct').then(({ data }) => data || []),
+    collegeFootballSupabase.from('ncaab_game_situational_trends_today').select('*').then(({ data }) => data || []),
   ]);
 
   console.log(`📈 Fetched Polymarket data:`);
@@ -931,11 +1033,40 @@ export async function fetchAndFormatGameContext(): Promise<string> {
   console.log(`   - CFB: ${cfbPolymarket.size} games`);
   console.log(`   - NBA: ${nbaPolymarket.size} games`);
   console.log(`   - NCAAB: ${ncaabPolymarket.size} games`);
+  console.log(`   - NBA edge accuracy: ${Array.isArray(nbaEdgeAccuracy) ? nbaEdgeAccuracy.length : 0} rows, situational: ${Array.isArray(nbaSituationalRows) ? nbaSituationalRows.length : 0} rows`);
+  console.log(`   - NCAAB edge accuracy: ${Array.isArray(ncaabEdgeAccuracy) ? ncaabEdgeAccuracy.length : 0} rows, situational: ${Array.isArray(ncaabSituationalRows) ? ncaabSituationalRows.length : 0} rows`);
+
+  const nbaSituationalByGameId = new Map<number, { away_team: any; home_team: any }>();
+  (nbaSituationalRows || []).forEach((row: any) => {
+    const gid = row.game_id;
+    if (!nbaSituationalByGameId.has(gid)) nbaSituationalByGameId.set(gid, { away_team: null, home_team: null });
+    const entry = nbaSituationalByGameId.get(gid)!;
+    if (row.team_side === 'away') entry.away_team = row;
+    else if (row.team_side === 'home') entry.home_team = row;
+  });
+  const ncaabSituationalByGameId = new Map<number, { away_team: any; home_team: any }>();
+  (ncaabSituationalRows || []).forEach((row: any) => {
+    const gid = row.game_id;
+    if (!ncaabSituationalByGameId.has(gid)) ncaabSituationalByGameId.set(gid, { away_team: null, home_team: null });
+    const entry = ncaabSituationalByGameId.get(gid)!;
+    if (row.team_side === 'away') entry.away_team = row;
+    else if (row.team_side === 'home') entry.home_team = row;
+  });
 
   const nflContext = formatNFLContext(nflPredictions, nflPolymarket);
   const cfbContext = formatCFBContext(cfbPredictions, cfbPolymarket);
-  const nbaContext = formatNBAContext(nbaPredictions, nbaPolymarket);
-  const ncaabContext = formatNCAABContext(ncaabPredictions, ncaabPolymarket);
+  const nbaContext = formatNBAContext(
+    nbaPredictions,
+    nbaPolymarket,
+    Array.isArray(nbaEdgeAccuracy) ? nbaEdgeAccuracy : undefined,
+    nbaSituationalByGameId.size > 0 ? nbaSituationalByGameId : undefined
+  );
+  const ncaabContext = formatNCAABContext(
+    ncaabPredictions,
+    ncaabPolymarket,
+    Array.isArray(ncaabEdgeAccuracy) ? ncaabEdgeAccuracy : undefined,
+    ncaabSituationalByGameId.size > 0 ? ncaabSituationalByGameId : undefined
+  );
 
   console.log(`📝 Formatted contexts:`);
   console.log(`   - NFL context: ${nflContext.length} chars`);

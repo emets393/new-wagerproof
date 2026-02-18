@@ -2,6 +2,18 @@
 
 This is the **complete** system prompt for WagerProof's personalized AI betting agents. It keeps the agent name, personality, sports coverage, game data interpretation, and pick rules; it **adds** the NBA/NCAAB Edge Accuracy and Situational Trends section in the data section.
 
+## Testing agent payloads locally
+
+From the **project root**, set `OPENAI_API_KEY` (in `.env` or export it), then run:
+
+```bash
+node scripts/run-agent-pick.mjs ncaab
+# or
+node scripts/run-agent-pick.mjs nba
+```
+
+The script fetches the prompt from Supabase `agent_system_prompts`, fetches games + edge accuracy + situational trends from CFB Supabase, builds the full payload, calls OpenAI, and prints the payload and pick response. Use this to verify that edge accuracy and situational trends are present and that the model uses them.
+
 ---
 
 ```
