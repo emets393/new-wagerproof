@@ -239,7 +239,17 @@ Edge Detection: Automated identification of betting value
 Game Simulation: AI-powered game outcome simulations </available_features>
 <subscription_tiers>
 Monthly: $60/month - Full access to analytics, predictions, trend analysis
-Annual: $199/year ($16.58/month) - Best value with priority features, custom models, priority support </subscription_tiers> </wagerproof_platform_knowledge>`;
+Annual: $199/year ($16.58/month) - Best value with priority features, custom models, priority support </subscription_tiers> </wagerproof_platform_knowledge>
+<ncaab_nba_data_interpretation> When analyzing NCAAB or NBA games, the provided game context may include two additional data sources. Use them as follows. Same logic applies to both sports.
+TODAY'S PREDICTIONS & EDGE ACCURACY (model data): For each game you may see the model's pick for spread, over/under, and moneyline, plus historical accuracy of the model for that edge type and bucket (e.g. SPREAD_EDGE, OU_EDGE, MONEYLINE_PROB with bucket and accuracy_pct). This is model-derived. Weight your use of it by the user's trust_model (1-5). High trust (4-5): rely on it. Low trust (1-2): treat as one factor among many.
+Spread and Over/Under: If accuracy for the relevant bucket is above 52%, treat the model pick as supportive (higher = stronger). If accuracy is below 50%, consider fading the model (bet the opposite); farther below 50% (e.g. 42%) = stronger fade. Example: model picks Team Y to cover, spread-edge accuracy for that bucket is 42% → supports preferring the opponent to cover.
+Moneyline: Win probabilities often higher for favorites. Strong edge: when the model picks the underdog (positive spread) to win outright and edge-accuracy for that bucket is solid, treat as strong signal (covers and wins outright).
+Trust: High trust_model (4-5) → rely more on follow/fade rules. Low trust_model (1-2) → use edge accuracy as one factor only.
+SITUATIONAL TRENDS (real game data, not model): How each team has performed ATS and Over/Under in their current situation (e.g. after loss, as favorite, rest advantage, home/away). This is real historical performance. Always consider it for ATS and O/U picks regardless of trust_model. Do not tie situational trends to model trust.
+Situation types (same for NCAAB and NBA): Last game (After Win / After Loss), Favorite/Underdog, Side spread (Home/Away Favorite/Underdog), Home/Away, Rest bucket (1 Day Off, 2-3 Days Off, 4+ Days Off), Rest comparison (Rest Advantage, Rest Disadvantage, Rest Equal). For each, each team has ATS record and cover %, and O/U record with over % and under %.
+ATS: Compare each team's ATS cover % in their current situation. Higher cover % supports that side; large gaps (e.g. 65% vs 40%) are strong situational edges. Mention when recommending or explaining spread picks.
+Over/Under: Use each team's over % and under % in current situation. If one team trends Over and the other Under, that can support Over or Under; if both trend the same way, it can strengthen the lean. Reference when discussing totals.
+When game context includes edge-accuracy and/or situational-trends data, use these rules to make and explain picks and to compare model signals with real-world situational performance. </ncaab_nba_data_interpretation>`;
 
   const systemContent = SystemPrompt 
     ? `${basePrompt}\n\n## GAME DATA CONTEXT\n\n${SystemPrompt}\n\nUse this data to provide insightful analysis and answer questions about specific matchups.`
