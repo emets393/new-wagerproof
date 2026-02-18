@@ -155,7 +155,7 @@ export function AgentGenerationStep() {
       {stage === 1 && (
         <Animated.View style={[styles.centerLottieWrap, { transform: [{ scale: stageScale }] }]}>
           <LottieView
-            source={{ uri: 'file:///Users/chrishabib/Downloads/1_Galaxy_Planet.json' }}
+            source={require('@/assets/GalaxyPlanet.json')}
             autoPlay
             loop
             style={styles.centerLottie}
@@ -166,7 +166,7 @@ export function AgentGenerationStep() {
       {stage === 2 && (
         <Animated.View style={[styles.centerLottieWrap, { transform: [{ scale: stageScale }] }]}>
           <LottieView
-            source={{ uri: 'file:///Users/chrishabib/Downloads/2_Orbit_Planet.json' }}
+            source={require('@/assets/OrbitPlanet.json')}
             autoPlay
             loop
             style={styles.centerLottie}

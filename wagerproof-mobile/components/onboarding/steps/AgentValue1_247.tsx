@@ -5,7 +5,7 @@ export function AgentValue1_247() {
   return (
     <AgentValueScreen
       icon="robot-outline"
-      lottieSource={{ uri: 'file:///Users/chrishabib/Downloads/Robot Coding.json' }}
+      lottieSource={require('@/assets/RobotCoding.json')}
       lottieSize={190}
       topPadding={16}
       title="Now lets create an agent that works for you 24/7"

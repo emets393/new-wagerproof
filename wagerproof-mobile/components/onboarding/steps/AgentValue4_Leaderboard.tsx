@@ -6,7 +6,7 @@ export function AgentValue4_Leaderboard() {
     <AgentValueScreen
       icon="trophy-outline"
       iconColor="#2E7D32"
-      lottieSource={{ uri: 'file:///Users/chrishabib/Downloads/Leaderboard.json' }}
+      lottieSource={require('@/assets/Leaderboard.json')}
       lottieSize={190}
       topPadding={16}
       title="See the best agents from around the world"

@@ -6,7 +6,7 @@ export function AgentValue2_VirtualAssistant() {
     <AgentValueScreen
       icon="head-lightbulb-outline"
       iconColor="#00C853"
-      lottieSource={{ uri: 'file:///Users/chrishabib/Downloads/Chatting Robot.json' }}
+      lottieSource={require('@/assets/ChattingRobot.json')}
       lottieSize={190}
       topPadding={16}
       title="Like having a full-time employee"

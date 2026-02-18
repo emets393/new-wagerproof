@@ -166,7 +166,7 @@ export function AgentBornStep() {
       </View>
 
       <LottieView
-        source={{ uri: 'file:///Users/chrishabib/Downloads/4_Wave_Lines_Animation.json' }}
+        source={require('@/assets/WaveLinesAnimation.json')}
         autoPlay
         loop
         style={styles.backgroundLottie}
@@ -291,7 +291,7 @@ export function AgentBornStep() {
 
       {isRevealComplete && (
         <LottieView
-          source={{ uri: 'file:///Users/chrishabib/Downloads/confetti.json' }}
+          source={require('@/assets/confetti.json')}
           autoPlay
           loop={false}
           style={styles.confetti}
@@ -349,7 +349,7 @@ export function AgentBornStep() {
         <View style={styles.revealOverlay} pointerEvents="none">
           <LottieView
             key={`reveal-${revealRunId}`}
-            source={{ uri: 'file:///Users/chrishabib/Downloads/3_fullscreen_green.json' }}
+            source={require('@/assets/FullscreenGreen.json')}
             autoPlay
             loop={false}
             resizeMode="cover"

@@ -6,7 +6,7 @@ export function AgentValue3_MultipleStrategies() {
     <AgentValueScreen
       icon="account-group-outline"
       iconColor="#69F0AE"
-      lottieSource={{ uri: 'file:///Users/chrishabib/Downloads/Robot Analyzing.json' }}
+      lottieSource={require('@/assets/RobotAnalyzing.json')}
       lottieSize={190}
       topPadding={16}
       title="Create multiple agents with different strategies"
