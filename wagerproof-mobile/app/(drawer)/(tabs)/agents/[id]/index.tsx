@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,14 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAdminMode } from '@/contexts/AdminModeContext';
@@ -86,6 +94,103 @@ function getPersonalityPills(params: any): string[] {
   return pills.slice(0, 5);
 }
 
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
+
+function AgentDetailLoadingShimmer({ isDark, topInset }: { isDark: boolean; topInset: number }) {
+  const shimmer = useSharedValue(0);
+
+  useEffect(() => {
+    shimmer.value = withRepeat(withTiming(1, { duration: 1400 }), -1, false);
+  }, [shimmer]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(
+          shimmer.value,
+          [0, 1],
+          [-240, 240],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+
+  const baseColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+  const highlightColor = isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.75)';
+
+  const shimmerBlock = (style: any) => (
+    <View style={[style, { backgroundColor: baseColor, overflow: 'hidden' }]}>
+      <AnimatedLinearGradient
+        colors={[baseColor, highlightColor, baseColor]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[StyleSheet.absoluteFillObject, animatedStyle]}
+      />
+    </View>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
+      <View style={[styles.loadingHeader, { paddingTop: topInset, borderBottomColor: 'rgba(150, 150, 150, 0.1)' }]}>
+        <View style={styles.headerContent}>
+          {shimmerBlock(styles.loadingIconSkeleton)}
+          {shimmerBlock(styles.loadingTitleSkeleton)}
+          {shimmerBlock(styles.loadingIconSkeleton)}
+        </View>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: topInset + 56, paddingBottom: 20 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View
+          style={[
+            styles.profileCard,
+            {
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+            },
+          ]}
+        >
+          <View style={styles.profileHeader}>
+            {shimmerBlock(styles.loadingAvatarSkeleton)}
+            <View style={styles.profileInfo}>
+              {shimmerBlock(styles.loadingNameSkeleton)}
+              <View style={styles.sportBadges}>
+                {shimmerBlock(styles.loadingChipSkeleton)}
+                {shimmerBlock(styles.loadingChipSkeleton)}
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.statsRow, { borderTopColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)' }]}>
+            {[0, 1, 2, 3].map((i) => (
+              <View key={i} style={styles.statItem}>
+                {shimmerBlock(styles.loadingStatLabelSkeleton)}
+                {shimmerBlock(styles.loadingStatValueSkeleton)}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {shimmerBlock(styles.loadingGenerateButtonSkeleton)}
+
+        <View style={styles.section}>
+          {shimmerBlock(styles.loadingSectionTitleSkeleton)}
+          <View style={styles.picksList}>
+            <PickCardSkeleton isDark={isDark} />
+            <PickCardSkeleton isDark={isDark} />
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
 export default function AgentDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -98,7 +203,8 @@ export default function AgentDetailScreen() {
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
   const [showHistory, setShowHistory] = useState(false);
   const [limitToastVisible, setLimitToastVisible] = useState(false);
-  const [slateToastMessage, setSlateToastMessage] = useState<string | null>(null);
+  const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
+  const [noPicksConclusion, setNoPicksConclusion] = useState<string | null>(null);
   const [generatingToastVisible, setGeneratingToastVisible] = useState(false);
   const isGeneratingRef = useRef(false);
 
@@ -168,6 +274,7 @@ export default function AgentDetailScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     isGeneratingRef.current = true;
+    setNoPicksConclusion(null);
 
     try {
       const { result } = await generatePicksMutation.mutateAsync({ agentId: id, isAdmin: adminModeEnabled });
@@ -178,14 +285,15 @@ export default function AgentDetailScreen() {
 
       if (result.picks.length === 0) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        setSlateToastMessage(result.slate_note || 'No games available for your sports today.');
+        setNoPicksConclusion(result.slate_note || 'Conclusion: no quality picks found on this slate.');
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setNoPicksConclusion(null);
       }
     } catch (error) {
       console.error('Error generating picks:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setSlateToastMessage(error instanceof Error ? error.message : 'Failed to generate picks. Please try again.');
+      setErrorToastMessage(error instanceof Error ? error.message : 'Failed to generate picks. Please try again.');
     } finally {
       isGeneratingRef.current = false;
     }
@@ -214,17 +322,7 @@ export default function AgentDetailScreen() {
 
   // Render loading state
   if (isLoadingAgent && !agent) {
-    return (
-      <View
-        style={[
-          styles.container,
-          styles.centerContent,
-          { backgroundColor: isDark ? '#000000' : '#ffffff' },
-        ]}
-      >
-        <ThinkingAnimation variant="loadingAgent" />
-      </View>
-    );
+    return <AgentDetailLoadingShimmer isDark={isDark} topInset={insets.top} />;
   }
 
   // Render error state
@@ -582,47 +680,69 @@ export default function AgentDetailScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            style={[
-              styles.generateButton,
-              {
-                backgroundColor: canRegenerate
-                  ? theme.colors.primary
-                  : isDark
-                  ? 'rgba(255, 255, 255, 0.1)'
-                  : 'rgba(0, 0, 0, 0.05)',
-              },
-            ]}
-            onPress={() => {
-              if (canRegenerate) {
-                handleGeneratePicks();
-              } else {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                setLimitToastVisible(true);
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons
-              name="lightning-bolt"
-              size={24}
-              color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
-            />
-            <Text
+          <View>
+            <TouchableOpacity
               style={[
-                styles.generateButtonText,
+                styles.generateButton,
                 {
-                  color: canRegenerate
-                    ? '#ffffff'
-                    : theme.colors.onSurfaceVariant,
+                  backgroundColor: canRegenerate
+                    ? theme.colors.primary
+                    : isDark
+                    ? 'rgba(255, 255, 255, 0.1)'
+                    : 'rgba(0, 0, 0, 0.05)',
                 },
               ]}
+              onPress={() => {
+                if (canRegenerate) {
+                  handleGeneratePicks();
+                } else {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  setLimitToastVisible(true);
+                }
+              }}
+              activeOpacity={0.8}
             >
-              {canRegenerate
-                ? "Generate Today's Picks"
-                : 'Daily limit reached'}
-            </Text>
-          </TouchableOpacity>
+              <MaterialCommunityIcons
+                name="lightning-bolt"
+                size={24}
+                color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
+              />
+              <Text
+                style={[
+                  styles.generateButtonText,
+                  {
+                    color: canRegenerate
+                      ? '#ffffff'
+                      : theme.colors.onSurfaceVariant,
+                  },
+                ]}
+              >
+                {canRegenerate
+                  ? "Generate Today's Picks"
+                  : 'Daily limit reached'}
+              </Text>
+            </TouchableOpacity>
+
+            {!!noPicksConclusion && (
+              <View style={[styles.noPicksTerminal, { borderColor: isDark ? 'rgba(0, 230, 118, 0.22)' : 'rgba(0, 186, 98, 0.22)' }]}>
+                <Text style={[styles.noPicksHeader, { color: isDark ? '#9fb3ad' : '#7f908c' }]}>
+                  terminal://generation-result
+                </Text>
+                <View style={styles.noPicksLineRow}>
+                  <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
+                  <Text style={[styles.noPicksLineText, { color: isDark ? '#00E676' : '#0f7d4f' }]}>
+                    Analysis complete: no high-confidence picks found.
+                  </Text>
+                </View>
+                <View style={styles.noPicksLineRow}>
+                  <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
+                  <Text style={[styles.noPicksLineText, { color: isDark ? '#8ca89b' : '#6b7f79' }]}>
+                    {noPicksConclusion}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
         )}
 
         {/* Today's Picks Section */}
@@ -805,12 +925,12 @@ export default function AgentDetailScreen() {
         Today's limit exceeded
       </Snackbar>
       <Snackbar
-        visible={!!slateToastMessage}
-        onDismiss={() => setSlateToastMessage(null)}
+        visible={!!errorToastMessage}
+        onDismiss={() => setErrorToastMessage(null)}
         duration={4000}
         style={{ backgroundColor: isDark ? '#333' : '#323232' }}
       >
-        {slateToastMessage || ''}
+        {errorToastMessage || ''}
       </Snackbar>
       <Snackbar
         visible={generatingToastVisible}
@@ -834,6 +954,14 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    borderBottomWidth: 1,
+  },
+  loadingHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -1000,6 +1128,88 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
+  },
+  loadingIconSkeleton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+  },
+  loadingTitleSkeleton: {
+    flex: 1,
+    height: 24,
+    borderRadius: 8,
+    marginHorizontal: 12,
+  },
+  loadingAvatarSkeleton: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    marginRight: 16,
+  },
+  loadingNameSkeleton: {
+    width: '58%',
+    height: 24,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  loadingChipSkeleton: {
+    width: 52,
+    height: 20,
+    borderRadius: 8,
+  },
+  loadingStatLabelSkeleton: {
+    width: 44,
+    height: 10,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  loadingStatValueSkeleton: {
+    width: 52,
+    height: 18,
+    borderRadius: 6,
+  },
+  loadingGenerateButtonSkeleton: {
+    height: 56,
+    borderRadius: 14,
+    marginBottom: 24,
+  },
+  loadingSectionTitleSkeleton: {
+    width: 130,
+    height: 24,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  noPicksTerminal: {
+    marginTop: -12,
+    marginBottom: 24,
+    borderRadius: 14,
+    borderWidth: 1,
+    backgroundColor: '#0c1111',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  noPicksHeader: {
+    fontSize: 11,
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  noPicksLineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 5,
+  },
+  noPicksPrefix: {
+    marginRight: 8,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  noPicksLineText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   // Empty Picks
   emptyPicksContainer: {
