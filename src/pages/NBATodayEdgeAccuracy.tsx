@@ -291,8 +291,8 @@ export default function NBATodayEdgeAccuracy() {
           game_id: game.game_id,
           away_team: game.away_team ?? '',
           home_team: game.home_team ?? '',
-          away_abbr,
-          home_abbr,
+          away_abbr: awayAbbr,
+          home_abbr: homeAbbr,
           game_date: game.game_date ?? '',
           tipoff_time_et: game.tipoff_time_et ?? null,
           home_spread: vegasHomeSpread,
@@ -416,8 +416,10 @@ export default function NBATodayEdgeAccuracy() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {sortedGames.map((g) => {
+            const awayAbbr = g.away_abbr ?? getNBATeamInitials(g.away_team ?? '');
+            const homeAbbr = g.home_abbr ?? getNBATeamInitials(g.home_team ?? '');
             const homePredictedToCover = g.home_spread_diff != null && g.home_spread_diff > 0;
-            const spreadPickAbbr = homePredictedToCover ? g.home_abbr : g.away_abbr;
+            const spreadPickAbbr = homePredictedToCover ? homeAbbr : awayAbbr;
             const spreadPickLine =
               g.home_spread != null
                 ? homePredictedToCover
@@ -432,7 +434,7 @@ export default function NBATodayEdgeAccuracy() {
               g.over_line_diff != null
                 ? `+${roundToNearestHalf(Math.abs(g.over_line_diff))}`
                 : '—';
-            const mlPickAbbr = g.mlPickIsHome ? g.home_abbr : g.away_abbr;
+            const mlPickAbbr = g.mlPickIsHome ? homeAbbr : awayAbbr;
             const mlLabel =
               g.mlPickProbRounded != null
                 ? `${mlPickAbbr} ${Math.round(g.mlPickProbRounded * 100)}%`
@@ -451,17 +453,17 @@ export default function NBATodayEdgeAccuracy() {
                     <CardTitle className="text-base flex items-center gap-2 shrink-0">
                       <img
                         src={getNBATeamLogoUrl(g.away_team)}
-                        alt={g.away_abbr}
+                        alt={awayAbbr}
                         className="w-6 h-6 object-contain"
                       />
-                      <span className="truncate">{g.away_abbr}</span>
+                      <span className="truncate">{awayAbbr}</span>
                       <span className="text-muted-foreground">@</span>
                       <img
                         src={getNBATeamLogoUrl(g.home_team)}
-                        alt={g.home_abbr}
+                        alt={homeAbbr}
                         className="w-6 h-6 object-contain"
                       />
-                      <span className="truncate">{g.home_abbr}</span>
+                      <span className="truncate">{homeAbbr}</span>
                     </CardTitle>
                     <span className="text-sm text-muted-foreground shrink-0">
                       {formatTipoffTime(g.tipoff_time_et, g.game_date) || 'TBD'}

@@ -840,7 +840,9 @@ ${situationalSection}
 
 I have access to **${predictions.length} NBA games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), betting trends (ATS%, Over%), edge accuracy by bucket when available, situational trends (ATS/O/U in current situation), and Polymarket prediction market data.
 
-**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER. Use edge accuracy (follow >52%, fade <50%) and situational trends (real data; always consider) per the prompt.
+**REQUIRED:** When you recommend or explain any pick, you MUST cite **Model edge accuracy** (follow when >52%, consider fading when <50%) and **Situational trends** (each team's ATS/O/U in their current situation) when they appear below for that game. Do not ignore these sections.
+
+**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER. Use edge accuracy and situational trends (real data; always consider) in your reasoning.
 
 **POLYMARKET DATA:** Real money prediction market probabilities from Polymarket showing what bettors are wagering on moneyline, spread, and totals.
 
@@ -979,7 +981,9 @@ ${((): string => {
 
 I have access to **${predictions.length} College Basketball games** with complete betting lines, model predictions, VALUE ANALYSIS (model vs. market differences), team stats (adjusted offense/defense/pace), rankings, game context (conference games, neutral site), edge accuracy by bucket when available, situational trends (ATS/O/U in current situation), and Polymarket prediction market data.
 
-**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER. Use edge accuracy (follow >52%, fade <50%) and situational trends (real data; always consider) per the prompt.
+**REQUIRED:** When you recommend or explain any pick, you MUST cite **Model edge accuracy** (follow when >52%, consider fading when <50%) and **Situational trends** (each team's ATS/O/U in their current situation) when they appear below for that game. Do not ignore these sections.
+
+**KEY INSIGHT:** The "VALUE ANALYSIS" section shows where the model's prediction differs from the betting line. Positive spread differences favor the home team, negative favor away. Positive total differences suggest betting OVER, negative suggest UNDER. Use edge accuracy and situational trends (real data; always consider) in your reasoning.
 
 **POLYMARKET DATA:** Real money prediction market probabilities from Polymarket showing what bettors are wagering on moneyline, spread, and totals.
 
