@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { AgentCard, AgentLeaderboard } from '@/components/agents';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgentLeaderboard, useUpdateAgent, useUserAgents } from '@/hooks/useAgents';
@@ -12,13 +13,15 @@ import { Sport, SPORTS } from '@/types/agent';
 export default function Agents() {
   const navigate = useNavigate();
   const [sportFilter, setSportFilter] = useState<Sport | 'all'>('all');
-  const [sortMode, setSortMode] = useState<'overall' | 'recent_run'>('overall');
+  const [sortMode, setSortMode] = useState<'overall' | 'recent_run' | 'longest_streak' | 'bottom_100'>('overall');
+  const [excludeUnder10Picks, setExcludeUnder10Picks] = useState(false);
   const { data: agents, isLoading, error } = useUserAgents();
   const updateAgentMutation = useUpdateAgent();
   const [togglePendingId, setTogglePendingId] = useState<string | null>(null);
   const { data: leaderboard, isLoading: leaderboardLoading } = useAgentLeaderboard(
     sportFilter === 'all' ? undefined : sportFilter,
-    sortMode
+    sortMode,
+    excludeUnder10Picks
   );
   const { canCreateAnotherAgent, isPro, isAdmin, maxActiveAgents, maxTotalAgents } = useAgentEntitlements();
 
@@ -89,10 +92,17 @@ export default function Agents() {
             <SelectValue placeholder="Sort" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="overall">Overall</SelectItem>
+            <SelectItem value="overall">Top 100</SelectItem>
             <SelectItem value="recent_run">Recent run</SelectItem>
+            <SelectItem value="longest_streak">Longest streak</SelectItem>
+            <SelectItem value="bottom_100">Bottom 100</SelectItem>
           </SelectContent>
         </Select>
+
+        <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+          <Switch checked={excludeUnder10Picks} onCheckedChange={setExcludeUnder10Picks} />
+          <span className="text-sm">10+ picks only</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">

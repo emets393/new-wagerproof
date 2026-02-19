@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Settings, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -70,10 +70,16 @@ export default function AgentDetail() {
           </div>
         </div>
 
-        <Button onClick={handleGenerate} disabled={generateMutation.isPending}>
-          <Sparkles className="mr-2 h-4 w-4" />
-          {generateMutation.isPending ? 'Generating...' : 'Generate Picks'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate(`/agents/${id}/settings`)}>
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </Button>
+          <Button onClick={handleGenerate} disabled={generateMutation.isPending}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            {generateMutation.isPending ? 'Generating...' : 'Generate Picks'}
+          </Button>
+        </div>
       </div>
 
       {generateError ? <p className="text-sm text-destructive">{generateError}</p> : null}

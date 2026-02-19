@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   RefreshControl,
   Animated,
@@ -34,8 +35,10 @@ const SPORT_LABELS: Record<Sport, string> = {
 };
 
 const LEADERBOARD_FILTERS: { label: string; value: LeaderboardSortMode }[] = [
-  { label: 'Top Overall', value: 'overall' },
-  { label: 'Best Recent Run', value: 'recent_run' },
+  { label: 'Top 100', value: 'overall' },
+  { label: 'Recent Run', value: 'recent_run' },
+  { label: 'Longest Streak', value: 'longest_streak' },
+  { label: 'Bottom 100', value: 'bottom_100' },
 ];
 
 interface AgentLeaderboardProps {
@@ -327,6 +330,7 @@ export function AgentLeaderboard({
   const { isDark } = useThemeContext();
   const { isPro, isAdmin } = useAgentEntitlements();
   const [sortMode, setSortMode] = useState<LeaderboardSortMode>('overall');
+  const [excludeUnder10Picks, setExcludeUnder10Picks] = useState(false);
   const lockStats = !(isPro || isAdmin);
 
   // Fetch leaderboard
@@ -335,7 +339,7 @@ export function AgentLeaderboard({
     isLoading,
     isRefetching,
     refetch,
-  } = useLeaderboardByMode(sortMode, limit);
+  } = useLeaderboardByMode(sortMode, limit, undefined, excludeUnder10Picks);
 
   const displayLeaderboard = (leaderboard || []).map((entry, index) => ({ entry, rank: index + 1 }));
 
@@ -390,7 +394,11 @@ export function AgentLeaderboard({
         </View>
       )}
 
-      <View style={styles.filterRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+      >
         {LEADERBOARD_FILTERS.map((filter) => {
           const isActive = sortMode === filter.value;
           return (
@@ -421,7 +429,32 @@ export function AgentLeaderboard({
             </TouchableOpacity>
           );
         })}
-      </View>
+
+        <TouchableOpacity
+          style={[
+            styles.filterPill,
+            {
+              backgroundColor: excludeUnder10Picks
+                ? (isDark ? 'rgba(0, 230, 118, 0.16)' : 'rgba(0, 230, 118, 0.14)')
+                : (isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)'),
+              borderColor: excludeUnder10Picks
+                ? 'rgba(0, 230, 118, 0.45)'
+                : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
+            },
+          ]}
+          activeOpacity={0.8}
+          onPress={() => setExcludeUnder10Picks((prev) => !prev)}
+        >
+          <Text
+            style={[
+              styles.filterPillText,
+              { color: excludeUnder10Picks ? '#00E676' : theme.colors.onSurfaceVariant },
+            ]}
+          >
+            10+ picks only
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       {/* Column Headers */}
       <View style={styles.columnHeaders}>
@@ -585,12 +618,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
     paddingTop: 8,
-    marginBottom: 12,
+    paddingBottom: 10,
+    paddingHorizontal: 2,
   },
   filterPill: {
     paddingHorizontal: 12,

@@ -22,7 +22,7 @@ export interface LeaderboardEntry {
   best_streak: number;
 }
 
-export type LeaderboardSortMode = 'overall' | 'recent_run';
+export type LeaderboardSortMode = 'overall' | 'recent_run' | 'longest_streak' | 'bottom_100';
 
 // ============================================================================
 // PERFORMANCE OPERATIONS
@@ -63,22 +63,25 @@ export async function fetchAgentPerformance(
  * Fetch leaderboard of top public agents
  */
 export async function fetchLeaderboard(
-  limit: number = 50,
+  limit: number = 100,
   sport?: Sport,
-  sortMode: LeaderboardSortMode = 'overall'
+  sortMode: LeaderboardSortMode = 'overall',
+  excludeUnder10Picks: boolean = false
 ): Promise<LeaderboardEntry[]> {
   // Always use the manual query so we control the filters directly
-  return await fetchLeaderboardFallback(limit, sport, sortMode);
+  return await fetchLeaderboardFallback(limit, sport, sortMode, excludeUnder10Picks);
 }
 
 /**
  * Fallback leaderboard fetch using manual join
  */
 async function fetchLeaderboardFallback(
-  limit: number = 50,
+  limit: number = 100,
   sport?: Sport,
-  sortMode: LeaderboardSortMode = 'overall'
+  sortMode: LeaderboardSortMode = 'overall',
+  excludeUnder10Picks: boolean = false
 ): Promise<LeaderboardEntry[]> {
+  const effectiveLimit = Math.min(Math.max(limit, 1), 100);
   try {
     // Fetch public agents
     let agentsQuery = supabase
@@ -136,6 +139,8 @@ async function fetchLeaderboardFallback(
           best_streak: perf?.best_streak || 0,
         };
       })
+      .filter((entry) => (entry.wins + entry.losses) > 0)
+      .filter((entry) => (excludeUnder10Picks ? entry.total_picks >= 10 : true))
       .sort((a, b) => {
         if (sortMode === 'recent_run') {
           // "On a roll" ranking is driven by the recent run calculation (current streak).
@@ -147,6 +152,27 @@ async function fetchLeaderboardFallback(
           }
           return (b.win_rate || 0) - (a.win_rate || 0);
         }
+        if (sortMode === 'longest_streak') {
+          if (b.best_streak !== a.best_streak) {
+            return b.best_streak - a.best_streak;
+          }
+          if (b.current_streak !== a.current_streak) {
+            return b.current_streak - a.current_streak;
+          }
+          if (b.net_units !== a.net_units) {
+            return b.net_units - a.net_units;
+          }
+          return (b.win_rate || 0) - (a.win_rate || 0);
+        }
+        if (sortMode === 'bottom_100') {
+          if (a.net_units !== b.net_units) {
+            return a.net_units - b.net_units;
+          }
+          if ((a.win_rate || 0) !== (b.win_rate || 0)) {
+            return (a.win_rate || 0) - (b.win_rate || 0);
+          }
+          return a.current_streak - b.current_streak;
+        }
 
         if (b.net_units !== a.net_units) {
           return b.net_units - a.net_units;
@@ -156,7 +182,7 @@ async function fetchLeaderboardFallback(
         }
         return b.current_streak - a.current_streak;
       })
-      .slice(0, limit);
+      .slice(0, effectiveLimit);
 
     console.log(`Loaded ${leaderboard.length} leaderboard entries (fallback)`);
     return leaderboard;

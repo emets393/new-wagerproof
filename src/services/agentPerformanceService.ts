@@ -18,7 +18,7 @@ export interface LeaderboardEntry {
   best_streak: number;
 }
 
-export type LeaderboardSortMode = 'overall' | 'recent_run';
+export type LeaderboardSortMode = 'overall' | 'recent_run' | 'longest_streak' | 'bottom_100';
 
 export async function fetchAgentPerformance(agentId: string): Promise<AgentPerformance | null> {
   const { data, error } = await (supabase as any)
@@ -32,10 +32,12 @@ export async function fetchAgentPerformance(agentId: string): Promise<AgentPerfo
 }
 
 export async function fetchLeaderboard(
-  limit = 50,
+  limit = 100,
   sport?: Sport,
-  sortMode: LeaderboardSortMode = 'overall'
+  sortMode: LeaderboardSortMode = 'overall',
+  excludeUnder10Picks = false
 ): Promise<LeaderboardEntry[]> {
+  const effectiveLimit = Math.min(Math.max(limit, 1), 100);
   let agentsQuery = (supabase as any)
     .from('avatar_profiles')
     .select('id, name, avatar_emoji, avatar_color, user_id, preferred_sports')
@@ -79,16 +81,29 @@ export async function fetchLeaderboard(
         best_streak: perf?.best_streak || 0,
       } satisfies LeaderboardEntry;
     })
+    .filter((entry) => (entry.wins + entry.losses) > 0)
+    .filter((entry) => (excludeUnder10Picks ? entry.total_picks >= 10 : true))
     .sort((a, b) => {
       if (sortMode === 'recent_run') {
         if (b.current_streak !== a.current_streak) return b.current_streak - a.current_streak;
         if (b.net_units !== a.net_units) return b.net_units - a.net_units;
         return (b.win_rate || 0) - (a.win_rate || 0);
       }
+      if (sortMode === 'longest_streak') {
+        if (b.best_streak !== a.best_streak) return b.best_streak - a.best_streak;
+        if (b.current_streak !== a.current_streak) return b.current_streak - a.current_streak;
+        if (b.net_units !== a.net_units) return b.net_units - a.net_units;
+        return (b.win_rate || 0) - (a.win_rate || 0);
+      }
+      if (sortMode === 'bottom_100') {
+        if (a.net_units !== b.net_units) return a.net_units - b.net_units;
+        if ((a.win_rate || 0) !== (b.win_rate || 0)) return (a.win_rate || 0) - (b.win_rate || 0);
+        return a.current_streak - b.current_streak;
+      }
 
       if (b.net_units !== a.net_units) return b.net_units - a.net_units;
       if ((b.win_rate || 0) !== (a.win_rate || 0)) return (b.win_rate || 0) - (a.win_rate || 0);
       return b.current_streak - a.current_streak;
     })
-    .slice(0, limit);
+    .slice(0, effectiveLimit);
 }

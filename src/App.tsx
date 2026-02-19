@@ -51,6 +51,7 @@ import FreePicks from "./pages/FreePicks";
 import Agents from "./pages/Agents";
 import AgentCreate from "./pages/AgentCreate";
 import AgentDetail from "./pages/AgentDetail";
+import AgentSettings from "./pages/AgentSettings";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
@@ -211,6 +212,7 @@ function AppRoutes() {
           <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
           <Route path="/agents/create" element={<ProtectedRoute><AgentCreate /></ProtectedRoute>} />
           <Route path="/agents/:id" element={<ProtectedRoute><AgentDetail /></ProtectedRoute>} />
+          <Route path="/agents/:id/settings" element={<ProtectedRoute><AgentSettings /></ProtectedRoute>} />
           <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} />
           <Route path="/community-voting" element={<ProtectedRoute><CommunityVoting /></ProtectedRoute>} />
           <Route path="/discord" element={<ProtectedRoute><Discord /></ProtectedRoute>} />

@@ -9,7 +9,7 @@ import {
   updateAgent,
 } from '@/services/agentService';
 import { fetchAgentPicks, generatePicks } from '@/services/agentPicksService';
-import { fetchLeaderboard } from '@/services/agentPerformanceService';
+import { fetchLeaderboard, LeaderboardSortMode } from '@/services/agentPerformanceService';
 import type { CreateAgentInput, UpdateAgentInput, PickResult, Sport } from '@/types/agent';
 
 export function useUserAgents() {
@@ -101,9 +101,13 @@ export function useGenerateAgentPicks() {
   });
 }
 
-export function useAgentLeaderboard(sport?: Sport, sortMode: 'overall' | 'recent_run' = 'overall') {
+export function useAgentLeaderboard(
+  sport?: Sport,
+  sortMode: LeaderboardSortMode = 'overall',
+  excludeUnder10Picks = false
+) {
   return useQuery({
-    queryKey: ['agents', 'leaderboard', sport, sortMode],
-    queryFn: () => fetchLeaderboard(50, sport, sortMode),
+    queryKey: ['agents', 'leaderboard', sport, sortMode, excludeUnder10Picks],
+    queryFn: () => fetchLeaderboard(100, sport, sortMode, excludeUnder10Picks),
   });
 }

@@ -13,8 +13,8 @@ import { AgentPerformance, Sport } from '@/types/agent';
 
 export const leaderboardKeys = {
   all: ['leaderboard'] as const,
-  list: (limit?: number, sport?: Sport, sortMode?: LeaderboardSortMode) =>
-    [...leaderboardKeys.all, 'list', limit, sport, sortMode] as const,
+  list: (limit?: number, sport?: Sport, sortMode?: LeaderboardSortMode, excludeUnder10Picks?: boolean) =>
+    [...leaderboardKeys.all, 'list', limit, sport, sortMode, excludeUnder10Picks] as const,
   performance: (agentId: string) =>
     [...leaderboardKeys.all, 'performance', agentId] as const,
 };
@@ -26,23 +26,25 @@ export const leaderboardKeys = {
 /**
  * Hook to fetch the leaderboard of top public agents
  */
-export function useLeaderboard(limit: number = 50, sport?: Sport) {
+export function useLeaderboard(limit: number = 100, sport?: Sport) {
   const sortMode: LeaderboardSortMode = 'overall';
+  const excludeUnder10Picks = false;
   return useQuery({
-    queryKey: leaderboardKeys.list(limit, sport, sortMode),
-    queryFn: () => fetchLeaderboard(limit, sport, sortMode),
+    queryKey: leaderboardKeys.list(limit, sport, sortMode, excludeUnder10Picks),
+    queryFn: () => fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
 export function useLeaderboardByMode(
   sortMode: LeaderboardSortMode,
-  limit: number = 50,
-  sport?: Sport
+  limit: number = 100,
+  sport?: Sport,
+  excludeUnder10Picks: boolean = false
 ) {
   return useQuery({
-    queryKey: leaderboardKeys.list(limit, sport, sortMode),
-    queryFn: () => fetchLeaderboard(limit, sport, sortMode),
+    queryKey: leaderboardKeys.list(limit, sport, sortMode, excludeUnder10Picks),
+    queryFn: () => fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -64,9 +66,10 @@ export function useAgentPerformance(agentId: string) {
  */
 export function useTopPerformersBySport(sport: Sport, limit: number = 10) {
   const sortMode: LeaderboardSortMode = 'overall';
+  const excludeUnder10Picks = false;
   return useQuery({
-    queryKey: leaderboardKeys.list(limit, sport, sortMode),
-    queryFn: () => fetchLeaderboard(limit, sport, sortMode),
+    queryKey: leaderboardKeys.list(limit, sport, sortMode, excludeUnder10Picks),
+    queryFn: () => fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
