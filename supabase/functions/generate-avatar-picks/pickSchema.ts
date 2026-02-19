@@ -27,6 +27,18 @@ export const GeneratedPickSchema = z.object({
   confidence: z.number().int().min(1).max(5),
   reasoning: z.string().min(50).max(300),
   key_factors: z.array(z.string().min(10).max(100)).min(3).max(5),
+  decision_trace: z.object({
+    leaned_metrics: z.array(z.object({
+      metric_key: z.string().min(2).max(80),
+      metric_value: z.string().min(1).max(120),
+      why_it_mattered: z.string().min(20).max(220),
+      personality_trait: z.string().min(3).max(120),
+      weight: z.number().min(0).max(1).optional(),
+    })).min(2).max(8),
+    rationale_summary: z.string().min(40).max(300),
+    personality_alignment: z.string().min(40).max(300),
+    other_metrics_considered: z.array(z.string().min(3).max(120)).max(12).optional(),
+  }).optional(),
 });
 
 export const AIResponseSchema = z.object({
@@ -83,8 +95,40 @@ export const AVATAR_PICKS_JSON_SCHEMA = {
               items: { type: 'string' },
               description: '3-5 key factors that support this pick',
             },
+            decision_trace: {
+              type: 'object',
+              description: 'Structured audit trail describing which metrics drove the pick and how those metrics map to personality traits.',
+              properties: {
+                leaned_metrics: {
+                  type: 'array',
+                  minItems: 2,
+                  maxItems: 8,
+                  items: {
+                    type: 'object',
+                    properties: {
+                      metric_key: { type: 'string', description: 'Payload metric key used by the model, e.g. model_home_edge, public_spread_bets_pct' },
+                      metric_value: { type: 'string', description: 'Observed value of that metric at pick time' },
+                      why_it_mattered: { type: 'string', description: 'Specific explanation of how this metric influenced the pick' },
+                      personality_trait: { type: 'string', description: 'The personality setting or betting philosophy trait that made this metric important' },
+                      weight: { type: 'number', description: 'Relative importance from 0 to 1 (optional)' },
+                    },
+                    required: ['metric_key', 'metric_value', 'why_it_mattered', 'personality_trait', 'weight'],
+                    additionalProperties: false,
+                  },
+                },
+                rationale_summary: { type: 'string', description: 'Short summary of final pick rationale' },
+                personality_alignment: { type: 'string', description: 'How this pick aligns with the avatar personality settings' },
+                other_metrics_considered: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Optional list of relevant metrics reviewed but not heavily weighted',
+                },
+              },
+              required: ['leaned_metrics', 'rationale_summary', 'personality_alignment', 'other_metrics_considered'],
+              additionalProperties: false,
+            },
           },
-          required: ['game_id', 'bet_type', 'selection', 'odds', 'confidence', 'reasoning', 'key_factors'],
+          required: ['game_id', 'bet_type', 'selection', 'odds', 'confidence', 'reasoning', 'key_factors', 'decision_trace'],
           additionalProperties: false,
         },
       },
@@ -186,6 +230,8 @@ export interface AvatarPick {
   confidence: number;
   reasoning_text: string;  // Matches DB column name
   key_factors: string[];
+  ai_decision_trace?: Record<string, unknown> | null;
+  ai_audit_payload?: Record<string, unknown> | null;
   archived_game_data: Record<string, unknown>;  // Matches DB column name
   archived_personality: PersonalityParams;  // Required by DB
   result: 'won' | 'lost' | 'push' | 'pending';  // Matches DB enum values

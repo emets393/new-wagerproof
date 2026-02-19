@@ -651,7 +651,7 @@ export default function PublicAgentViewScreen() {
                   key={pick.id}
                   pick={pick}
                   showReasoning="full"
-                  onPress={() => pick.game_id ? openGameForPick(pick.sport, pick.game_id) : undefined}
+                  onPress={() => pick.game_id ? openGameForPick(pick.sport, pick.game_id, pick) : undefined}
                 />
               ))
             ) : (

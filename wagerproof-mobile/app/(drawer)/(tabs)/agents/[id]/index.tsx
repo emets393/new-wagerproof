@@ -6,8 +6,10 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { useTheme, Button, Chip, Snackbar } from 'react-native-paper';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +37,7 @@ import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceChar
 import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
 import { useGameLookup } from '@/hooks/useGameLookup';
 import {
+  AgentPick,
   Sport,
   formatRecord,
   formatNetUnits,
@@ -92,6 +95,26 @@ function getPersonalityPills(params: any): string[] {
   if (params.fade_cold_streaks) pills.push('Fades Cold Streaks');
 
   return pills.slice(0, 5);
+}
+
+function buildPersonalityAlignmentFallback(personality: any): string {
+  if (!personality) return 'No archived personality settings available for this pick.';
+
+  const parts: string[] = [];
+  if (personality.preferred_bet_type) parts.push(`bet_type=${personality.preferred_bet_type}`);
+  if (typeof personality.risk_tolerance === 'number') parts.push(`risk_tolerance=${personality.risk_tolerance}/5`);
+  if (typeof personality.confidence_threshold === 'number') parts.push(`confidence_threshold=${personality.confidence_threshold}/5`);
+  if (typeof personality.trust_model === 'number') parts.push(`trust_model=${personality.trust_model}/5`);
+  if (typeof personality.trust_polymarket === 'number') parts.push(`trust_polymarket=${personality.trust_polymarket}/5`);
+  if (personality.chase_value === true) parts.push('chase_value=true');
+  if (personality.fade_public === true) parts.push('fade_public=true');
+  if (personality.skip_weak_slates === true) parts.push('skip_weak_slates=true');
+
+  if (parts.length === 0) {
+    return 'No explicit personality dimensions were found in archived_personality.';
+  }
+
+  return `Fallback personality mapping from archived settings: ${parts.join(', ')}.`;
 }
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
@@ -206,7 +229,9 @@ export default function AgentDetailScreen() {
   const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
   const [noPicksConclusion, setNoPicksConclusion] = useState<string | null>(null);
   const [generatingToastVisible, setGeneratingToastVisible] = useState(false);
+  const [selectedAuditPick, setSelectedAuditPick] = useState<AgentPick | null>(null);
   const isGeneratingRef = useRef(false);
+  const auditSheetRef = useRef<BottomSheet>(null);
 
   // Fetch agent data
   const {
@@ -319,6 +344,106 @@ export default function AgentDetailScreen() {
     refetchTodaysPicks();
     refetchAllPicks();
   }, [refetchAgent, refetchTodaysPicks, refetchAllPicks]);
+
+  const auditSnapPoints = useMemo(() => ['85%', '95%'], []);
+
+  const openPickAudit = useCallback((pick: AgentPick) => {
+    setSelectedAuditPick(pick);
+    auditSheetRef.current?.snapToIndex(0);
+  }, []);
+
+  const closePickAudit = useCallback(() => {
+    setSelectedAuditPick(null);
+    auditSheetRef.current?.close();
+  }, []);
+
+  const renderPickWithActions = (pick: AgentPick) => (
+    <View key={pick.id}>
+      <AgentPickItem
+        pick={pick}
+        showReasoning="full"
+      />
+      <View style={styles.pickActionsRow}>
+        <TouchableOpacity
+          style={[styles.pickActionButton, { backgroundColor: theme.colors.primary }]}
+          onPress={() => {
+            if (pick.game_id) openGameForPick(pick.sport, pick.game_id, pick);
+          }}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="cards-outline" size={14} color="#ffffff" />
+          <Text style={styles.pickActionButtonText}>Open Game Card</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.pickActionButton,
+            {
+              backgroundColor: isDark ? '#111717' : '#0f1718',
+              borderColor: isDark ? 'rgba(0, 230, 118, 0.24)' : 'rgba(0, 186, 98, 0.3)',
+              borderWidth: 1,
+            },
+          ]}
+          onPress={() => openPickAudit(pick)}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="file-code-outline" size={14} color="#26df85" />
+          <Text style={[styles.pickActionButtonText, { color: '#26df85' }]}>Open Pick Audit</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderAuditBackdrop = (props: any) => (
+    <BottomSheetBackdrop
+      {...props}
+      disappearsOnIndex={-1}
+      appearsOnIndex={0}
+      opacity={0.7}
+    />
+  );
+
+  const auditTrace = (selectedAuditPick?.ai_decision_trace as any) || {};
+  const leanedMetrics = Array.isArray(auditTrace.leaned_metrics) && auditTrace.leaned_metrics.length > 0
+    ? auditTrace.leaned_metrics
+    : (selectedAuditPick?.key_factors || []).map((factor, idx) => ({
+        metric_key: `key_factor_${idx + 1}`,
+        metric_value: factor,
+        why_it_mattered: factor,
+        personality_trait: 'fallback_from_key_factors',
+      }));
+  const rationaleText =
+    auditTrace.rationale_summary ||
+    selectedAuditPick?.reasoning_text ||
+    'No rationale text available.';
+  const personalityAlignmentText =
+    auditTrace.personality_alignment ||
+    buildPersonalityAlignmentFallback(selectedAuditPick?.archived_personality);
+  const auditPayload = (selectedAuditPick?.ai_audit_payload as any) || {};
+  const modelInputGamePayload =
+    auditPayload.model_input_game_payload ||
+    selectedAuditPick?.archived_game_data ||
+    {};
+  const modelInputPersonalityPayload =
+    auditPayload.model_input_personality_payload ||
+    selectedAuditPick?.archived_personality ||
+    {};
+  const modelResponsePayload =
+    auditPayload.model_response_payload || {
+      game_id: selectedAuditPick?.game_id,
+      bet_type: selectedAuditPick?.bet_type,
+      selection: selectedAuditPick?.pick_selection,
+      odds: selectedAuditPick?.odds,
+      confidence: selectedAuditPick?.confidence,
+      reasoning: selectedAuditPick?.reasoning_text,
+      key_factors: selectedAuditPick?.key_factors,
+      decision_trace: selectedAuditPick?.ai_decision_trace,
+    };
+  const payloadIsFormatted =
+    !!modelInputGamePayload &&
+    (Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'vegas_lines') ||
+      Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'model_predictions') ||
+      Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'game_data_complete'));
 
   // Render loading state
   if (isLoadingAgent && !agent) {
@@ -760,14 +885,7 @@ export default function AgentDetailScreen() {
                 <PickCardSkeleton isDark={isDark} />
               </>
             ) : hasTodaysPicks ? (
-              todaysPicks.map((pick) => (
-                <AgentPickItem
-                  key={pick.id}
-                  pick={pick}
-                  showReasoning="full"
-                  onPress={() => pick.game_id ? openGameForPick(pick.sport, pick.game_id) : undefined}
-                />
-              ))
+              todaysPicks.map((pick) => renderPickWithActions(pick))
             ) : (
               <View
                 style={[
@@ -871,14 +989,7 @@ export default function AgentDetailScreen() {
                     <PickCardSkeleton isDark={isDark} />
                   </>
                 ) : filteredPicks.length > 0 ? (
-                  filteredPicks.slice(0, 10).map((pick) => (
-                    <AgentPickItem
-                      key={pick.id}
-                      pick={pick}
-                      showReasoning="full"
-                      onPress={() => pick.game_id ? openGameForPick(pick.sport, pick.game_id) : undefined}
-                    />
-                  ))
+                  filteredPicks.slice(0, 10).map((pick) => renderPickWithActions(pick))
                 ) : (
                   <View
                     style={[
@@ -940,6 +1051,94 @@ export default function AgentDetailScreen() {
       >
         Already generating picks...
       </Snackbar>
+
+      <BottomSheet
+        ref={auditSheetRef}
+        index={-1}
+        snapPoints={auditSnapPoints}
+        enablePanDownToClose
+        onClose={closePickAudit}
+        backdropComponent={renderAuditBackdrop}
+        backgroundStyle={{ backgroundColor: isDark ? '#050909' : '#0b1011' }}
+        handleIndicatorStyle={{ backgroundColor: isDark ? '#2a3432' : '#96a6a0' }}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.auditSheetContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {selectedAuditPick ? (
+            <View style={[styles.auditTerminal, { borderColor: isDark ? 'rgba(0, 230, 118, 0.25)' : 'rgba(0, 186, 98, 0.3)' }]}>
+              <Text style={[styles.auditHeader, { color: isDark ? '#9fb3ad' : '#c4d3ce' }]}>
+                terminal://pick-audit/{selectedAuditPick.id}
+              </Text>
+
+              <View style={styles.auditLineRow}>
+                <Text style={styles.auditPrefix}>›</Text>
+                <Text style={styles.auditLineMain}>
+                  {selectedAuditPick.matchup} | {selectedAuditPick.pick_selection}
+                </Text>
+              </View>
+
+              <View style={styles.auditSection}>
+                <Text style={styles.auditSectionTitle}>LEANED METRICS</Text>
+                {leanedMetrics.length > 0 ? (
+                  leanedMetrics.map((m: any, idx: number) => (
+                    <View key={`${m.metric_key || 'metric'}-${idx}`} style={styles.auditMetricBlock}>
+                      <Text style={styles.auditMetricKey}>
+                        {m.metric_key || 'metric'} = {m.metric_value || 'n/a'}
+                      </Text>
+                      <Text style={styles.auditMetricWhy}>{m.why_it_mattered || 'No rationale provided.'}</Text>
+                      <Text style={styles.auditMetricTrait}>trait: {m.personality_trait || 'unspecified'}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.auditBodyText}>No explicit leaned metrics were returned for this pick.</Text>
+                )}
+              </View>
+
+              <View style={styles.auditSection}>
+                <Text style={styles.auditSectionTitle}>WHY THIS PICK</Text>
+                <Text style={styles.auditBodyText}>{rationaleText}</Text>
+              </View>
+
+              <View style={styles.auditSection}>
+                <Text style={styles.auditSectionTitle}>PERSONALITY ALIGNMENT</Text>
+                <Text style={styles.auditBodyText}>{personalityAlignmentText}</Text>
+              </View>
+
+              <View style={styles.auditSection}>
+                <Text style={styles.auditSectionTitle}>MODEL INPUT GAME PAYLOAD</Text>
+                {!payloadIsFormatted ? (
+                  <Text style={styles.auditPayloadWarning}>
+                    Note: This appears to be a legacy raw snapshot. New picks store the exact formatted model input payload.
+                  </Text>
+                ) : null}
+                <Text style={styles.auditPayloadText}>
+                  {JSON.stringify(modelInputGamePayload, null, 2)}
+                </Text>
+              </View>
+
+              <View style={styles.auditSection}>
+                <Text style={styles.auditSectionTitle}>AGENT PERSONALITY PAYLOAD</Text>
+                <Text style={styles.auditPayloadText}>
+                  {JSON.stringify(modelInputPersonalityPayload, null, 2)}
+                </Text>
+              </View>
+
+              <View style={styles.auditSection}>
+                <Text style={styles.auditSectionTitle}>AGENT RESPONSE PAYLOAD</Text>
+                <Text style={styles.auditPayloadText}>
+                  {JSON.stringify(modelResponsePayload, null, 2)}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={[styles.auditBodyText, { color: isDark ? '#a4b3af' : '#4f5f5b' }]}>
+              No pick selected.
+            </Text>
+          )}
+        </BottomSheetScrollView>
+      </BottomSheet>
     </View>
   );
 }
@@ -1121,6 +1320,27 @@ const styles = StyleSheet.create({
   picksList: {
     gap: 6,
   },
+  pickActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  pickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flex: 1,
+  },
+  pickActionButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   // Loading
   loadingContainer: {
     padding: 24,
@@ -1209,6 +1429,93 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  auditSheetContent: {
+    padding: 16,
+    paddingBottom: 28,
+  },
+  auditTerminal: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: '#050909',
+  },
+  auditHeader: {
+    fontSize: 11,
+    marginBottom: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  auditLineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  auditPrefix: {
+    color: '#22d978',
+    marginRight: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  auditLineMain: {
+    color: '#22d978',
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  auditSection: {
+    marginBottom: 14,
+  },
+  auditSectionTitle: {
+    color: '#8ca89b',
+    fontSize: 11,
+    letterSpacing: 0.4,
+    marginBottom: 6,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  auditMetricBlock: {
+    marginBottom: 8,
+  },
+  auditMetricKey: {
+    color: '#7de8b0',
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontWeight: '700',
+  },
+  auditMetricWhy: {
+    color: '#b9c7c2',
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  auditMetricTrait: {
+    color: '#61d29b',
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  auditBodyText: {
+    color: '#b9c7c2',
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  auditPayloadText: {
+    color: '#89d7a8',
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  auditPayloadWarning: {
+    color: '#d2b26a',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 6,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   // Empty Picks

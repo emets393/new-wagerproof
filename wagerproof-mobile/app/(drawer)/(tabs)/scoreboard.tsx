@@ -9,6 +9,7 @@ import { LiveScoreCard } from '@/components/LiveScoreCard';
 import { LiveScoreCardShimmer } from '@/components/LiveScoreCardShimmer';
 import { LiveScorePredictionCard } from '@/components/LiveScorePredictionCard';
 import { LiveScoreDetailModal } from '@/components/LiveScoreDetailModal';
+import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import { useScroll } from '@/contexts/ScrollContext';
 import { LiveGame } from '@/types/liveScores';
 import { useDrawer } from '../_layout';
@@ -233,13 +234,7 @@ export default function ScoreboardScreen() {
           </View>
         ) : !hasLiveGames ? (
           <View style={styles.emptyState}>
-            <View style={[styles.emptyIconContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
-              <MaterialCommunityIcons name="trophy-outline" size={48} color={theme.colors.onSurfaceVariant} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>No games today</Text>
-            <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-              There are no games on the board right now. Check back later.
-            </Text>
+            <NoGamesTerminal context="scoreboard" />
           </View>
         ) : (
           sortedLeagues.map(league => {

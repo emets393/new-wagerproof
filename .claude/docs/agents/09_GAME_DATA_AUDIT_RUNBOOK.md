@@ -18,6 +18,12 @@ From repo root:
 npm run test:avatar-game-data-payloads
 ```
 
+Pick-audit persistence test (real sent/received artifacts):
+
+```bash
+npm run test:avatar-pick-audit-flow
+```
+
 Options:
 
 ```bash
@@ -26,6 +32,13 @@ node scripts/test-avatar-game-data-payloads.mjs \
   --date YYYY-MM-DD \
   --out-dir tmp/live-payload-audit \
   --strict-polymarket
+```
+
+```bash
+node scripts/test-avatar-pick-audit-flow.mjs \
+  --avatar-id <avatar_id> \
+  --user-id <user_id_or_dummy_for_public_avatar> \
+  --out-dir tmp/live-payload-audit
 ```
 
 ---
@@ -39,8 +52,21 @@ The script writes:
 - `tmp/live-payload-audit/payload3_system_prompt_live.json`
 - `tmp/live-payload-audit/response_payload_live_persisted_batch.json`
 - `tmp/live-payload-audit/summary_after_update.json`
+- `tmp/live-payload-audit/pick_audit_flow_test_result.json`
 
 `summary_after_update.json` includes sport counts, coverage counts by metric group, and `missing_polymarket_games`.
+
+`pick_audit_flow_test_result.json` includes:
+
+- edge-function generate result (`picks_count`, `slate_note`)
+- latest persisted pick row snapshot
+- pass/fail checks for:
+  - `ai_decision_trace`
+  - `ai_audit_payload`
+  - exact persisted artifacts:
+    - `model_input_game_payload`
+    - `model_input_personality_payload`
+    - `model_response_payload`
 
 ---
 
@@ -133,6 +159,35 @@ The script writes:
   - `supabase/functions/auto-generate-avatar-picks/index.ts`
 - Reusable live audit test:
   - `scripts/test-avatar-game-data-payloads.mjs`
+- Reusable pick-audit persistence test:
+  - `scripts/test-avatar-pick-audit-flow.mjs`
+
+---
+
+## Pick Audit Feature Validation
+
+Use this when validating the Agent Details `Open Pick Audit` bottom sheet.
+
+1. Run:
+   - `npm run test:avatar-pick-audit-flow`
+2. Open:
+   - `tmp/live-payload-audit/pick_audit_flow_test_result.json`
+3. Confirm all checks are `pass: true`.
+4. In app, open the same avatar’s latest pick and verify sections map directly:
+   - `LEANED METRICS` -> `ai_decision_trace.leaned_metrics`
+   - `WHY THIS PICK` -> `ai_decision_trace.rationale_summary`
+   - `PERSONALITY ALIGNMENT` -> `ai_decision_trace.personality_alignment`
+   - `MODEL INPUT GAME PAYLOAD` -> `ai_audit_payload.model_input_game_payload`
+   - `AGENT PERSONALITY PAYLOAD` -> `ai_audit_payload.model_input_personality_payload`
+   - `AGENT RESPONSE PAYLOAD` -> `ai_audit_payload.model_response_payload`
+
+Failure handling:
+
+- If generate call fails, inspect edge-function logs first.
+- If latest pick lacks `ai_audit_payload`, confirm migrations and function deploy are current.
+- If payload shape fails, confirm formatter path in:
+  - `supabase/functions/generate-avatar-picks/index.ts`
+  - `supabase/functions/auto-generate-avatar-picks/index.ts`
 
 ---
 

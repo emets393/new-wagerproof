@@ -130,12 +130,29 @@ export interface AgentPick {
   confidence: Scale1To5;
   reasoning_text: string;
   key_factors: string[] | null;
+  ai_decision_trace: AgentDecisionTrace | null;
+  ai_audit_payload: Record<string, unknown> | null;
   archived_game_data: Record<string, unknown>;
   archived_personality: PersonalityParams;
   result: PickResult;
   actual_result: string | null;
   graded_at: string | null;
   created_at: string;
+}
+
+export interface AgentUsedMetric {
+  metric_key: string;
+  metric_value: string;
+  why_it_mattered: string;
+  personality_trait: string;
+  weight?: number;
+}
+
+export interface AgentDecisionTrace {
+  leaned_metrics: AgentUsedMetric[];
+  rationale_summary: string;
+  personality_alignment: string;
+  other_metrics_considered?: string[];
 }
 
 // ============================================================================
@@ -296,6 +313,7 @@ export interface GeneratedPick {
   confidence: Scale1To5;
   reasoning: string;
   key_factors: string[];
+  decision_trace?: AgentDecisionTrace;
 }
 
 export interface GeneratePicksResponse {
@@ -311,6 +329,18 @@ export const GeneratedPickSchema = z.object({
   confidence: Scale1To5Schema,
   reasoning: z.string().min(50).max(300),
   key_factors: z.array(z.string().min(10).max(100)).min(3).max(5),
+  decision_trace: z.object({
+    leaned_metrics: z.array(z.object({
+      metric_key: z.string(),
+      metric_value: z.string(),
+      why_it_mattered: z.string(),
+      personality_trait: z.string(),
+      weight: z.number().optional(),
+    })),
+    rationale_summary: z.string(),
+    personality_alignment: z.string(),
+    other_metrics_considered: z.array(z.string()).optional(),
+  }).optional(),
 });
 
 export const GeneratePicksResponseSchema = z.object({

@@ -14,6 +14,7 @@ import { NBAGameTrendsData, TrendsSortMode } from '@/types/nbaBettingTrends';
 import { BettingTrendsMatchupCardShimmer } from '@/components/BettingTrendsMatchupCardShimmer';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useScroll } from '@/contexts/ScrollContext';
+import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 
 /**
  * NBA Betting Trends Page
@@ -131,10 +132,7 @@ export default function NBABettingTrendsScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
-      <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-        No games today
-      </Text>
+      <NoGamesTerminal context="nba_trends" />
     </View>
   );
 

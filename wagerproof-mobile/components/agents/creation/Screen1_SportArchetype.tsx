@@ -48,6 +48,15 @@ const SPORT_CONFIG: Record<
   ncaab: { label: 'NCAAB', icon: 'basketball', color: '#FF6B00', desc: 'College Basketball' },
 };
 
+const PERFORMANCE_ROWS = [
+  { label: 'Our Agents', value: '9-12%', direction: 'positive', barWidth: 120, color: '#ff6a00' },
+  { label: 'Pro Bettor', value: '2-5%', direction: 'positive', barWidth: 62, color: '#bdbdbd' },
+  { label: 'Casual Bettor', value: '-5%', direction: 'negative', barWidth: 38, color: '#8d8d8d' },
+] as const;
+
+const ROW_LABEL_WIDTH = 82;
+const BASELINE_IN_PLOT = 48;
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -183,6 +192,62 @@ export function Screen1_SportArchetype({
           </View>
           <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />
         </TouchableOpacity>
+
+        <View style={[styles.performanceCard, { backgroundColor: isDark ? '#141414' : '#f5f5f5' }]}>
+          <View style={styles.performanceHeader}>
+            <View style={styles.performanceBadge}>
+              <MaterialCommunityIcons name="chart-bar" size={14} color="#111" />
+            </View>
+            <Text style={[styles.performanceTitle, { color: theme.colors.onSurface }]}>
+              This Model Wins Across the Board
+            </Text>
+          </View>
+
+          <Text style={[styles.performanceSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+            Our agents consistently outperform average bettors by running disciplined, 24/7 research and execution.
+          </Text>
+
+          <View style={styles.performanceRows}>
+            <View
+              style={[
+                styles.chartBaseline,
+                { backgroundColor: isDark ? '#d6dddd' : '#9ca3af' },
+              ]}
+            />
+            {PERFORMANCE_ROWS.map((row) => (
+              <View key={row.label} style={styles.performanceRow}>
+                <Text style={[styles.rowLabel, { color: theme.colors.onSurface }]}>
+                  {row.label}
+                </Text>
+                <View style={styles.rowPlotArea}>
+                  <View
+                    style={[
+                      row.direction === 'negative' ? styles.negativeBar : styles.positiveBar,
+                      {
+                        width: row.barWidth,
+                        backgroundColor: row.color,
+                        left:
+                          row.direction === 'negative'
+                            ? BASELINE_IN_PLOT - row.barWidth
+                            : BASELINE_IN_PLOT,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.rowValue,
+                    {
+                      color: theme.colors.onSurface,
+                    },
+                  ]}
+                >
+                  {row.value}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
       </View>
     );
   }
@@ -359,6 +424,82 @@ const styles = StyleSheet.create({
   pathDesc: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  performanceCard: {
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginTop: 2,
+  },
+  performanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  performanceBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#ff7a1a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  performanceTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  performanceSubtitle: {
+    fontSize: 10,
+    lineHeight: 14,
+    marginBottom: 8,
+  },
+  performanceRows: {
+    gap: 7,
+    position: 'relative',
+  },
+  chartBaseline: {
+    position: 'absolute',
+    left: ROW_LABEL_WIDTH + BASELINE_IN_PLOT,
+    top: 2,
+    bottom: 2,
+    width: 4,
+    borderRadius: 2,
+    zIndex: 2,
+  },
+  performanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 28,
+  },
+  rowLabel: {
+    width: ROW_LABEL_WIDTH,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  rowPlotArea: {
+    flex: 1,
+    height: 14,
+    position: 'relative',
+  },
+  positiveBar: {
+    position: 'absolute',
+    height: 12,
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  negativeBar: {
+    position: 'absolute',
+    height: 12,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  rowValue: {
+    width: 44,
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'right',
   },
   // Back link
   backLink: {

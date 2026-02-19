@@ -352,24 +352,35 @@ async function processAvatar(
     // -------------------------------------------------------------------------
     console.log(`[auto-generate-avatar-picks] Calling OpenAI for ${avatar.name}...`);
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openaiResponse = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+        model: 'gpt-5-nano',
+        input: [
+          {
+            role: 'system',
+            content: [{ type: 'input_text', text: systemPrompt }],
+          },
+          {
+            role: 'user',
+            content: [{ type: 'input_text', text: userPrompt }],
+          },
         ],
-        response_format: {
-          type: 'json_schema',
-          json_schema: AVATAR_PICKS_JSON_SCHEMA,
+        text: {
+          format: {
+            type: 'json_schema',
+            name: AVATAR_PICKS_JSON_SCHEMA.name,
+            strict: AVATAR_PICKS_JSON_SCHEMA.strict,
+            schema: AVATAR_PICKS_JSON_SCHEMA.schema,
+          },
         },
-        temperature: 0.7,
-        max_tokens: 4000,
+        reasoning: {
+          effort: 'minimal',
+        },
       }),
     });
 
@@ -379,15 +390,20 @@ async function processAvatar(
     }
 
     const openaiData = await openaiResponse.json();
+    if (openaiData?.error) {
+      throw new Error(`OpenAI responses error: ${JSON.stringify(openaiData.error)}`);
+    }
 
-    if (!openaiData.choices?.[0]?.message?.content) {
-      throw new Error('Invalid OpenAI response structure');
+    const rawContent = extractAssistantContent(openaiData);
+    if (!rawContent) {
+      const snippet = JSON.stringify(openaiData).slice(0, 1200);
+      console.error('[auto-generate-avatar-picks] Unexpected OpenAI response:', snippet);
+      throw new Error(`Invalid OpenAI response structure: ${snippet}`);
     }
 
     // -------------------------------------------------------------------------
     // Parse and Validate Response
     // -------------------------------------------------------------------------
-    const rawContent = openaiData.choices[0].message.content;
     let aiResponse;
 
     try {
@@ -420,24 +436,45 @@ async function processAvatar(
     for (const pick of limitedPicks) {
       // Find the original game data for snapshot
       let gameSnapshot: Record<string, unknown> = {};
+      let modelInputGamePayload: Record<string, unknown> | null =
+        combinedGames.find((g: unknown) => gameMatchesPickId(g, pick.game_id)) as Record<string, unknown> | null;
       let sportType: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl';
       let matchup = '';
+      let gameDate = todayDate;
 
       for (const sd of allGamesData) {
-        const foundGame = sd.games.find((g: unknown) => {
-          const game = g as Record<string, unknown>;
-          const gameId = game.training_key || game.unique_id || game.game_id || `${game.away_team}_${game.home_team}`;
-          return String(gameId) === pick.game_id;
-        });
+        const foundFormatted = sd.formattedGames.find((g: unknown) => gameMatchesPickId(g, pick.game_id));
+        if (foundFormatted) {
+          const game = foundFormatted as Record<string, unknown>;
+          gameSnapshot = game;
+          sportType = sd.sport as typeof sportType;
+          matchup = String(game.matchup || `${game.away_team || ''} @ ${game.home_team || ''}` || `Game ${pick.game_id}`);
+          gameDate = String(game.game_date || game.game_date_et || game.start_date || todayDate);
+          if (!modelInputGamePayload) {
+            modelInputGamePayload = game;
+          }
+          break;
+        }
 
-        if (foundGame) {
-          const game = foundGame as Record<string, unknown>;
+        const foundRaw = sd.games.find((g: unknown) => gameMatchesPickId(g, pick.game_id));
+        if (foundRaw) {
+          const rawGame = foundRaw as Record<string, unknown>;
+          const matchedFormatted = sd.formattedGames.find((fg: unknown) =>
+            gameMatchesRawGame(fg, rawGame)
+          );
+          const game = (matchedFormatted as Record<string, unknown>) || rawGame;
           gameSnapshot = game;
           sportType = sd.sport as typeof sportType;
           matchup = `${game.away_team} @ ${game.home_team}`;
+          gameDate = String(game.game_date || game.game_date_et || game.start_date || todayDate);
+          if (!modelInputGamePayload && matchedFormatted) {
+            modelInputGamePayload = matchedFormatted as Record<string, unknown>;
+          }
           break;
         }
       }
+
+      const formattedSnapshot = ensureFormattedGameSnapshot(gameSnapshot, sportType, pick.game_id);
 
       // Build pick record matching the actual database schema
       const avatarPickRecord = {
@@ -445,7 +482,7 @@ async function processAvatar(
         game_id: pick.game_id,
         sport: sportType,
         matchup: matchup || `Game ${pick.game_id}`,
-        game_date: todayDate,
+        game_date: gameDate,
         bet_type: pick.bet_type,
         pick_selection: pick.selection,
         odds: pick.odds,
@@ -453,7 +490,13 @@ async function processAvatar(
         confidence: pick.confidence,
         reasoning_text: pick.reasoning,
         key_factors: pick.key_factors,
-        archived_game_data: gameSnapshot,
+        ai_decision_trace: normalizeDecisionTrace(pick, formattedSnapshot, avatar.personality_params),
+        ai_audit_payload: {
+          model_input_game_payload: modelInputGamePayload || formattedSnapshot,
+          model_input_personality_payload: avatar.personality_params,
+          model_response_payload: pick,
+        },
+        archived_game_data: formattedSnapshot,
         archived_personality: avatar.personality_params,
         result: 'pending',
         is_auto_generated: true,
@@ -512,6 +555,355 @@ async function updateAutoGeneratedTimestamp(
   if (error) {
     console.error(`[auto-generate-avatar-picks] Failed to update timestamp for ${avatarId}:`, error);
   }
+}
+
+function normalizeDecisionTrace(
+  pick: GeneratedPick,
+  gameSnapshot: Record<string, unknown>,
+  personality: Record<string, unknown>
+): Record<string, unknown> {
+  const raw = (pick as unknown as { decision_trace?: unknown }).decision_trace;
+
+  let leanedMetrics = normalizeLeanedMetrics(raw);
+  if (leanedMetrics.length === 0) {
+    leanedMetrics = deriveLeanedMetricsFromGameSnapshot(pick, gameSnapshot);
+  }
+  if (leanedMetrics.length === 0) {
+    leanedMetrics = (pick.key_factors || []).slice(0, 5).map((factor, idx) => ({
+      metric_key: `key_factor_${idx + 1}`,
+      metric_value: factor,
+      why_it_mattered: factor,
+      personality_trait: 'General model preference',
+    }));
+  }
+
+  const rationaleSummary = normalizeTraceString(
+    raw,
+    ['rationale_summary', 'rationaleSummary', 'summary', 'reasoning_summary'],
+    pick.reasoning
+  );
+  const personalityAlignment = normalizeTraceString(
+    raw,
+    ['personality_alignment', 'personalityAlignment', 'alignment'],
+    buildPersonalityAlignmentFromSettings(personality, pick.bet_type)
+  );
+  const otherMetrics = normalizeTraceStringArray(raw, [
+    'other_metrics_considered',
+    'otherMetricsConsidered',
+    'secondary_metrics',
+  ]);
+
+  return {
+    leaned_metrics: leanedMetrics,
+    rationale_summary: rationaleSummary,
+    personality_alignment: personalityAlignment,
+    other_metrics_considered: otherMetrics,
+  };
+}
+
+function normalizeLeanedMetrics(rawTrace: unknown): Array<Record<string, unknown>> {
+  if (!rawTrace || typeof rawTrace !== 'object') return [];
+  const trace = rawTrace as Record<string, unknown>;
+  const candidates =
+    (trace.leaned_metrics as unknown[]) ||
+    (trace.leanedMetrics as unknown[]) ||
+    (trace.metrics_used as unknown[]) ||
+    [];
+
+  if (!Array.isArray(candidates)) return [];
+
+  return candidates
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const m = entry as Record<string, unknown>;
+      const metricKey = String(m.metric_key ?? m.metricKey ?? m.key ?? m.name ?? '').trim();
+      const metricValue = String(m.metric_value ?? m.metricValue ?? m.value ?? '').trim();
+      const whyItMattered = String(m.why_it_mattered ?? m.whyItMattered ?? m.why ?? m.reason ?? '').trim();
+      const personalityTrait = String(m.personality_trait ?? m.personalityTrait ?? m.trait ?? '').trim();
+      const weightRaw = m.weight;
+      const weight = typeof weightRaw === 'number' ? weightRaw : undefined;
+
+      if (!metricKey || !metricValue || !whyItMattered) return null;
+      return {
+        metric_key: metricKey,
+        metric_value: metricValue,
+        why_it_mattered: whyItMattered,
+        personality_trait: personalityTrait || 'Model preference',
+        ...(weight !== undefined ? { weight } : {}),
+      };
+    })
+    .filter((v): v is Record<string, unknown> => !!v);
+}
+
+function normalizeTraceString(
+  rawTrace: unknown,
+  keys: string[],
+  fallback: string
+): string {
+  if (rawTrace && typeof rawTrace === 'object') {
+    const trace = rawTrace as Record<string, unknown>;
+    for (const key of keys) {
+      const value = trace[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+  }
+  return fallback;
+}
+
+function normalizeTraceStringArray(rawTrace: unknown, keys: string[]): string[] {
+  if (!rawTrace || typeof rawTrace !== 'object') return [];
+  const trace = rawTrace as Record<string, unknown>;
+  for (const key of keys) {
+    const value = trace[key];
+    if (Array.isArray(value)) {
+      return value
+        .map(v => (typeof v === 'string' ? v.trim() : ''))
+        .filter(Boolean)
+        .slice(0, 12);
+    }
+  }
+  return [];
+}
+
+function buildPersonalityAlignmentFromSettings(
+  personality: Record<string, unknown>,
+  betType: string
+): string {
+  const preferredBetType = String(personality.preferred_bet_type || 'any');
+  const riskTolerance = Number(personality.risk_tolerance || 3);
+  const confidenceThreshold = Number(personality.confidence_threshold || 3);
+  const trustModel = Number(personality.trust_model || 3);
+  const trustPolymarket = Number(personality.trust_polymarket || 3);
+  const skipWeakSlates = Boolean(personality.skip_weak_slates);
+  return `Aligned with profile: selected a ${betType} angle with preferred_bet_type=${preferredBetType}, risk_tolerance=${riskTolerance}/5, confidence_threshold=${confidenceThreshold}/5, trust_model=${trustModel}/5, trust_polymarket=${trustPolymarket}/5, skip_weak_slates=${skipWeakSlates}.`;
+}
+
+function deriveLeanedMetricsFromGameSnapshot(
+  pick: GeneratedPick,
+  gameSnapshot: Record<string, unknown>
+): Array<Record<string, unknown>> {
+  const metrics: Array<Record<string, unknown>> = [];
+  const vegas = asRecord(gameSnapshot.vegas_lines);
+  const teamStats = asRecord(gameSnapshot.team_stats);
+  const model = asRecord(gameSnapshot.model_predictions);
+  const raw = asRecord(asRecord(gameSnapshot.game_data_complete).raw_game_data);
+  const awayTeam = String(gameSnapshot.away_team || raw.away_team || 'Away');
+  const homeTeam = String(gameSnapshot.home_team || raw.home_team || 'Home');
+
+  const homeSpread = asNumber(vegas.home_spread) ?? asNumber(raw.home_spread) ?? asNumber(raw.api_spread) ?? asNumber(raw.spread);
+  if (homeSpread !== null) {
+    metrics.push({
+      metric_key: 'vegas_lines.home_spread',
+      metric_value: String(homeSpread),
+      why_it_mattered: `The spread baseline was ${homeTeam} ${fmtSpread(homeSpread)} / ${awayTeam} ${fmtSpread(-homeSpread)}.`,
+      personality_trait: 'Preferred market pricing context',
+    });
+  }
+
+  const homeOff = asNumber(teamStats.home_offense) ?? asNumber(raw.home_adj_offense);
+  const awayOff = asNumber(teamStats.away_offense) ?? asNumber(raw.away_adj_offense);
+  if (homeOff !== null && awayOff !== null) {
+    metrics.push({
+      metric_key: 'team_stats.offense_delta',
+      metric_value: `${homeTeam} ${homeOff.toFixed(2)} vs ${awayTeam} ${awayOff.toFixed(2)}`,
+      why_it_mattered: 'Relative offensive efficiency shaped expected scoring margin.',
+      personality_trait: 'Model-driven team quality weighting',
+    });
+  }
+
+  const homeDef = asNumber(teamStats.home_defense) ?? asNumber(raw.home_adj_defense);
+  const awayDef = asNumber(teamStats.away_defense) ?? asNumber(raw.away_adj_defense);
+  if (homeDef !== null && awayDef !== null) {
+    metrics.push({
+      metric_key: 'team_stats.defense_delta',
+      metric_value: `${homeTeam} ${homeDef.toFixed(2)} vs ${awayTeam} ${awayDef.toFixed(2)}`,
+      why_it_mattered: 'Defensive efficiency impacted expected cover probability and variance.',
+      personality_trait: 'Risk-managed side selection',
+    });
+  }
+
+  const spreadProb =
+    asNumber(model.spread_cover_prob) ??
+    asNumber(raw.home_away_spread_cover_prob) ??
+    asNumber(raw.pred_spread_proba);
+  if (spreadProb !== null) {
+    metrics.push({
+      metric_key: 'model_predictions.spread_cover_prob',
+      metric_value: spreadProb.toFixed(3),
+      why_it_mattered: 'Model cover probability was used as a primary confidence anchor.',
+      personality_trait: 'trust_model',
+      weight: 0.8,
+    });
+  }
+
+  return metrics.slice(0, 8);
+}
+
+function ensureFormattedGameSnapshot(
+  snapshot: Record<string, unknown>,
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab',
+  fallbackGameId: string
+): Record<string, unknown> {
+  if (isFormattedGameSnapshot(snapshot)) return snapshot;
+
+  const homeSpread = asNumber(snapshot.home_spread) ?? asNumber(snapshot.api_spread) ?? asNumber(snapshot.spread);
+  const awaySpread = asNumber(snapshot.away_spread) ?? (homeSpread !== null ? -homeSpread : null);
+  const awayTeam = String(snapshot.away_team || 'Away');
+  const homeTeam = String(snapshot.home_team || 'Home');
+  const spreadSummary =
+    homeSpread !== null
+      ? `${awayTeam} ${fmtSpread(awaySpread)} / ${homeTeam} ${fmtSpread(homeSpread)}`
+      : `${awayTeam} vs ${homeTeam}`;
+
+  const spreadProb =
+    asNumber(snapshot.home_away_spread_cover_prob) ??
+    asNumber(snapshot.pred_spread_proba) ??
+    null;
+
+  return {
+    game_id: String(snapshot.game_id || snapshot.training_key || snapshot.unique_id || fallbackGameId),
+    matchup: `${awayTeam} @ ${homeTeam}`,
+    away_team: awayTeam,
+    home_team: homeTeam,
+    game_date: String(snapshot.game_date || snapshot.game_date_et || snapshot.start_date || ''),
+    game_time: String(snapshot.game_time || snapshot.tipoff_time_et || snapshot.start_utc || '00:00:00'),
+    vegas_lines: {
+      spread_summary: spreadSummary,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
+      home_ml: snapshot.home_ml ?? snapshot.home_moneyline ?? snapshot.homeMoneyline ?? null,
+      away_ml: snapshot.away_ml ?? snapshot.away_moneyline ?? snapshot.awayMoneyline ?? null,
+      total: snapshot.over_line ?? snapshot.total_line ?? snapshot.over_under ?? null,
+    },
+    model_predictions: {
+      spread_cover_prob: spreadProb,
+      ml_prob: snapshot.home_away_ml_prob ?? snapshot.pred_ml_proba ?? null,
+      ou_prob: snapshot.ou_result_prob ?? snapshot.pred_total_proba ?? null,
+    },
+    game_data_complete: {
+      source_table: `raw_fallback_${sport}`,
+      raw_game_data: snapshot,
+    },
+  };
+}
+
+function isFormattedGameSnapshot(snapshot: Record<string, unknown>): boolean {
+  return (
+    Object.prototype.hasOwnProperty.call(snapshot, 'vegas_lines') ||
+    Object.prototype.hasOwnProperty.call(snapshot, 'model_predictions') ||
+    Object.prototype.hasOwnProperty.call(snapshot, 'game_data_complete')
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function extractAssistantContent(openaiData: Record<string, unknown>): string | null {
+  const outputText = openaiData.output_text;
+  if (typeof outputText === 'string' && outputText.trim().length > 0) {
+    return outputText.trim();
+  }
+
+  const choices = openaiData.choices;
+  if (Array.isArray(choices) && choices.length > 0) {
+    const first = choices[0] as Record<string, unknown>;
+    const message = (first.message || {}) as Record<string, unknown>;
+    const content = message.content;
+
+    if (typeof content === 'string' && content.trim().length > 0) {
+      return content;
+    }
+
+    if (Array.isArray(content)) {
+      const joined = content
+        .map((part) => {
+          if (!part || typeof part !== 'object') return '';
+          const p = part as Record<string, unknown>;
+          if (p.json && typeof p.json === 'object') return JSON.stringify(p.json);
+          if (typeof p.text === 'string') return p.text;
+          if (typeof p.content === 'string') return p.content;
+          return '';
+        })
+        .join('\n')
+        .trim();
+      if (joined.length > 0) return joined;
+    }
+  }
+
+  const output = openaiData.output;
+  if (Array.isArray(output)) {
+    const joined = output
+      .map((item) => {
+        if (!item || typeof item !== 'object') return '';
+        const outputItem = item as Record<string, unknown>;
+        const outputContent = outputItem.content;
+        if (!Array.isArray(outputContent)) return '';
+        return outputContent
+          .map((part) => {
+            if (!part || typeof part !== 'object') return '';
+            const p = part as Record<string, unknown>;
+            if (p.json && typeof p.json === 'object') return JSON.stringify(p.json);
+            if (typeof p.text === 'string') return p.text;
+            if (typeof p.content === 'string') return p.content;
+            return '';
+          })
+          .filter(Boolean)
+          .join('\n');
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    if (joined.length > 0) return joined;
+  }
+
+  return null;
+}
+
+
+function gameMatchesPickId(game: unknown, pickGameId: string): boolean {
+  const g = game as Record<string, unknown>;
+  const normalizedPickId = String(pickGameId || '').trim();
+  const gameId =
+    g.game_id ||
+    g.training_key ||
+    g.unique_id ||
+    `${String(g.away_team || '').trim()}_${String(g.home_team || '').trim()}`;
+
+  return String(gameId || '').trim() === normalizedPickId;
+}
+
+function gameMatchesRawGame(formattedGame: unknown, rawGame: Record<string, unknown>): boolean {
+  const fg = formattedGame as Record<string, unknown>;
+  const rawAway = String(rawGame.away_team || '').trim().toLowerCase();
+  const rawHome = String(rawGame.home_team || '').trim().toLowerCase();
+  const fgAway = String(fg.away_team || '').trim().toLowerCase();
+  const fgHome = String(fg.home_team || '').trim().toLowerCase();
+
+  if (rawAway && rawHome && fgAway === rawAway && fgHome === rawHome) {
+    return true;
+  }
+
+  const rawTrainingKey = String(rawGame.training_key || '');
+  const rawUniqueId = String(rawGame.unique_id || '');
+  const fgTrainingKey = String(fg.training_key || '');
+  const fgUniqueId = String(fg.unique_id || '');
+
+  return (
+    (rawTrainingKey && fgTrainingKey && rawTrainingKey === fgTrainingKey) ||
+    (rawUniqueId && fgUniqueId && rawUniqueId === fgUniqueId)
+  );
 }
 
 // =============================================================================

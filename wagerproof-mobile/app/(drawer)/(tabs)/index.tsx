@@ -9,6 +9,7 @@ import { CFBGameCard } from '@/components/CFBGameCard';
 import { NBAGameCard } from '@/components/NBAGameCard';
 import { NCAABGameCard } from '@/components/NCAABGameCard';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
+import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import { LockedGameCard } from '@/components/LockedGameCard';
 import { BettingTrendsBanner } from '@/components/nba/BettingTrendsBanner';
 import { NCAABBettingTrendsBanner } from '@/components/ncaab/BettingTrendsBanner';
@@ -1114,10 +1115,28 @@ export default function FeedScreen() {
             ListHeaderComponent={renderListHeader(sport)}
             ListEmptyComponent={
               <View style={styles.centerContainer}>
-                <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
-                <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-                  {searchTerm ? 'No games match your search' : 'No games today'}
-                </Text>
+                {searchTerm ? (
+                  <>
+                    <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
+                    <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
+                      No games match your search
+                    </Text>
+                  </>
+                ) : (
+                  <NoGamesTerminal
+                    context={
+                      sport === 'nfl'
+                        ? 'feed_nfl'
+                        : sport === 'cfb'
+                        ? 'feed_cfb'
+                        : sport === 'nba'
+                        ? 'feed_nba'
+                        : sport === 'ncaab'
+                        ? 'feed_ncaab'
+                        : 'feed_mlb'
+                    }
+                  />
+                )}
               </View>
             }
             refreshControl={

@@ -210,7 +210,12 @@ Each pick must include:
 - "odds": American odds format (e.g., "-110", "+150")
 - "confidence": 1-5 scale (1=slight lean, 5=max conviction)
 - "reasoning": 2-3 sentences explaining your rationale
-- "key_factors": 3-5 specific data points supporting your pick`;
+- "key_factors": 3-5 specific data points supporting your pick
+- "decision_trace": structured audit object with:
+  - "leaned_metrics": 2-8 objects including metric_key, metric_value, why_it_mattered, personality_trait (and optional weight)
+  - "rationale_summary": concise summary of why this specific side/total was chosen
+  - "personality_alignment": explain how the pick follows this avatar's personality settings
+  - "other_metrics_considered": optional list of additional relevant metrics reviewed but not weighted heavily`;
 }
 
 // =============================================================================

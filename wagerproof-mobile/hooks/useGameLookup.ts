@@ -10,6 +10,8 @@ import {
   fetchNCAABPredictions,
 } from '@/services/gameDataService';
 import { Sport } from '@/types/agent';
+import { AgentPick } from '@/types/agent';
+import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
 
 /**
  * Hook that provides a function to look up a game by sport + game_id
@@ -23,10 +25,12 @@ export function useGameLookup() {
   const { openGameSheet: openCFBSheet } = useCFBGameSheet();
   const { openGameSheet: openNBASheet } = useNBAGameSheet();
   const { openGameSheet: openNCAABSheet } = useNCAABGameSheet();
+  const { setAgentPickForAudit } = useAgentPickAudit();
 
   const openGameForPick = useCallback(
-    async (sport: Sport, gameId: string): Promise<boolean> => {
+    async (sport: Sport, gameId: string, agentPick?: AgentPick): Promise<boolean> => {
       try {
+        setAgentPickForAudit(agentPick ?? null);
         switch (sport) {
           case 'nfl': {
             const games = await fetchNFLPredictions();
@@ -92,7 +96,7 @@ export function useGameLookup() {
         return false;
       }
     },
-    [openNFLSheet, openCFBSheet, openNBASheet, openNCAABSheet],
+    [openNFLSheet, openCFBSheet, openNBASheet, openNCAABSheet, setAgentPickForAudit],
   );
 
   return { openGameForPick };

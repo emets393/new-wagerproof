@@ -20,11 +20,14 @@ import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useNBAMatchupOverview } from '@/hooks/useNBAMatchupOverview';
 import { InjuryReportWidget } from './nba/InjuryReportWidget';
 import { RecentTrendsWidget } from './nba/RecentTrendsWidget';
+import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
+import { AgentPickPayloadAuditWidget } from '@/components/agents/AgentPickPayloadAuditWidget';
 
 export function NBAGameBottomSheet() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { selectedGame: game, closeGameSheet, bottomSheetRef } = useNBAGameSheet();
+  const { clearAgentPickAudit } = useAgentPickAudit();
   const { onModelDetailsTap, isDetached } = useWagerBotSuggestion();
   const snapPoints = useMemo(() => ['85%', '95%'], []);
   const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
@@ -206,13 +209,18 @@ export function NBAGameBottomSheet() {
     />
   );
 
+  const handleCloseSheet = () => {
+    closeGameSheet();
+    clearAgentPickAudit();
+  };
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
       index={-1}
       snapPoints={snapPoints}
       enablePanDownToClose
-      onClose={closeGameSheet}
+      onClose={handleCloseSheet}
       backdropComponent={renderBackdrop}
       backgroundStyle={{ backgroundColor: isDark ? '#000000' : '#ffffff' }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.onSurfaceVariant }}
@@ -223,6 +231,9 @@ export function NBAGameBottomSheet() {
       >
         {game ? (
           <>
+          <AgentPickPayloadAuditWidget
+            gameKeys={[game.game_id, game.training_key, game.unique_id]}
+          />
           {/* Header with Teams */}
           <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
             <LinearGradient

@@ -12,6 +12,7 @@
     "build:blog": "node scripts/build-blog.mjs",
     "verify:blog": "node scripts/verify-blog-build.mjs",
     "test:avatar-game-data-payloads": "node scripts/test-avatar-game-data-payloads.mjs",
+    "test:avatar-pick-audit-flow": "node scripts/test-avatar-pick-audit-flow.mjs",
     "postbuild": "node scripts/prerender.js",
     "lint": "eslint .",
     "preview": "vite preview"

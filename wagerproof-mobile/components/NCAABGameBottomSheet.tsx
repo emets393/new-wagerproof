@@ -18,11 +18,14 @@ import { ProContentSection } from './ProContentSection';
 import { FadeAlertTooltip } from './FadeAlertTooltip';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
+import { AgentPickPayloadAuditWidget } from '@/components/agents/AgentPickPayloadAuditWidget';
 
 export function NCAABGameBottomSheet() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { selectedGame: game, closeGameSheet, bottomSheetRef } = useNCAABGameSheet();
+  const { clearAgentPickAudit } = useAgentPickAudit();
   const { onModelDetailsTap, isDetached } = useWagerBotSuggestion();
   const snapPoints = useMemo(() => ['85%', '95%'], []);
   const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
@@ -203,13 +206,18 @@ export function NCAABGameBottomSheet() {
     />
   );
 
+  const handleCloseSheet = () => {
+    closeGameSheet();
+    clearAgentPickAudit();
+  };
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
       index={-1}
       snapPoints={snapPoints}
       enablePanDownToClose
-      onClose={closeGameSheet}
+      onClose={handleCloseSheet}
       backdropComponent={renderBackdrop}
       backgroundStyle={{ backgroundColor: isDark ? '#000000' : '#ffffff' }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.onSurfaceVariant }}
@@ -220,6 +228,9 @@ export function NCAABGameBottomSheet() {
       >
         {game ? (
           <>
+          <AgentPickPayloadAuditWidget
+            gameKeys={[game.game_id, game.training_key, game.unique_id]}
+          />
           {/* Header with Teams */}
           <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
             <LinearGradient
