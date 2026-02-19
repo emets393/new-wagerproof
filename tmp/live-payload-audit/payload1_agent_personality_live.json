@@ -1,0 +1,36 @@
+{
+  "id": "be042477-6565-422e-83fa-0de08c95ec30",
+  "user_id": "f922accb-5870-4d03-a81f-0d73911e3ece",
+  "name": "Cristobalh",
+  "avatar_emoji": "🧫",
+  "preferred_sports": [
+    "nba"
+  ],
+  "personality_params": {
+    "chase_value": false,
+    "trust_model": 4,
+    "underdog_lean": 3,
+    "risk_tolerance": 3,
+    "over_under_lean": 3,
+    "home_court_boost": 3,
+    "skip_weak_slates": true,
+    "trust_polymarket": 3,
+    "max_favorite_odds": -200,
+    "max_picks_per_day": 3,
+    "min_underdog_odds": null,
+    "preferred_bet_type": "any",
+    "confidence_threshold": 3,
+    "polymarket_divergence_flag": true
+  },
+  "custom_insights": {
+    "perceived_edges": null,
+    "avoid_situations": null,
+    "target_situations": null,
+    "betting_philosophy": null
+  },
+  "is_public": true,
+  "daily_generation_count": 1,
+  "last_generation_date": "2026-02-05",
+  "last_generated_at": "2026-02-19T00:24:54.482+00:00",
+  "updated_at": "2026-02-19T12:28:51.926543+00:00"
+}

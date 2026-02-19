@@ -362,20 +362,25 @@ async function fetchNBAPredictions(): Promise<NBAPrediction[]> {
     const merged = (predictions || []).map(pred => {
       const input = inputValues?.find(iv => iv.game_id === pred.game_id);
       
+      const hasModelHomeSpread = pred.model_fair_home_spread !== null && pred.model_fair_home_spread !== undefined;
+      const hasInputHomeSpread = input?.home_spread !== null && input?.home_spread !== undefined;
+      const hasModelTotal = pred.model_fair_total !== null && pred.model_fair_total !== undefined;
+      const hasInputTotal = input?.total_line !== null && input?.total_line !== undefined;
+
       let spreadCoverProb = null;
-      if (pred.model_fair_home_spread !== null && input?.home_spread !== null) {
+      if (hasModelHomeSpread && hasInputHomeSpread) {
         const spreadDiff = input.home_spread - pred.model_fair_home_spread;
         if (pred.model_fair_home_spread < input.home_spread) {
           spreadCoverProb = 0.5 + Math.min(Math.abs(spreadDiff) * 0.05, 0.35);
         } else {
           spreadCoverProb = 0.5 - Math.min(Math.abs(spreadDiff) * 0.05, 0.35);
         }
-      } else if (pred.home_win_prob) {
+      } else if (pred.home_win_prob !== null && pred.home_win_prob !== undefined) {
         spreadCoverProb = pred.home_win_prob;
       }
       
       let ouProb = null;
-      if (pred.model_fair_total !== null && input?.total_line !== null) {
+      if (hasModelTotal && hasInputTotal) {
         const totalDiff = pred.model_fair_total - input.total_line;
         if (totalDiff > 0) {
           ouProb = 0.5 + Math.min(Math.abs(totalDiff) * 0.02, 0.35);
@@ -390,8 +395,8 @@ async function fetchNBAPredictions(): Promise<NBAPrediction[]> {
         away_team: pred.away_team,
         home_win_prob: pred.home_win_prob,
         away_win_prob: pred.away_win_prob,
-        home_spread: input?.home_spread || null,
-        over_line: input?.total_line || null,
+        home_spread: input?.home_spread ?? null,
+        over_line: input?.total_line ?? null,
         home_away_ml_prob: pred.home_win_prob,
         home_away_spread_cover_prob: spreadCoverProb,
         ou_result_prob: ouProb,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -552,17 +553,54 @@ const calculateATSDominance = (game: GameTrends): number => {
 };
 
 export default function NCAABTodayBettingTrends() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [games, setGames] = useState<GameTrends[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [expandedGames, setExpandedGames] = useState<Set<number>>(new Set());
+  const [highlightGameId, setHighlightGameId] = useState<number | null>(null);
   const [logoMap, setLogoMap] = useState<Map<number, string>>(new Map());
   const [sortMode, setSortMode] = useState<'time' | 'ou-consensus' | 'ats-dominance'>('time');
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (games.length === 0) return;
+
+    const focusGameIdParam = searchParams.get('focusGameId');
+    if (!focusGameIdParam) return;
+
+    const focusGameId = Number(focusGameIdParam);
+    if (!Number.isFinite(focusGameId)) return;
+
+    const exists = games.some((game) => game.game_id === focusGameId);
+    if (!exists) return;
+
+    setExpandedGames((prev) => {
+      const next = new Set(prev);
+      next.add(focusGameId);
+      return next;
+    });
+    setHighlightGameId(focusGameId);
+
+    requestAnimationFrame(() => {
+      const target = document.querySelector(`[data-game-id="${focusGameId}"]`);
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    const timeout = window.setTimeout(() => {
+      setHighlightGameId((current) => (current === focusGameId ? null : current));
+    }, 2000);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('focusGameId');
+    setSearchParams(nextParams, { replace: true });
+
+    return () => window.clearTimeout(timeout);
+  }, [games, searchParams, setSearchParams]);
 
   // Re-sort games when sortMode changes
   useEffect(() => {
@@ -1086,7 +1124,13 @@ export default function NCAABTodayBettingTrends() {
             const homeLogo = logoMap.get(game.home_team.team_id) || '/placeholder.svg';
 
             return (
-              <Card key={game.game_id} className="overflow-hidden">
+              <Card
+                key={game.game_id}
+                data-game-id={game.game_id}
+                className={`overflow-hidden transition-all ${
+                  highlightGameId === game.game_id ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-background' : ''
+                }`}
+              >
                 <Collapsible open={isExpanded} onOpenChange={() => toggleGame(game.game_id)}>
                   <CollapsibleTrigger asChild>
                     <CardHeader className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">

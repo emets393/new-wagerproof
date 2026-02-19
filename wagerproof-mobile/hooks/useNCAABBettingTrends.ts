@@ -233,16 +233,19 @@ export function useNCAABBettingTrends(): UseNCAABBettingTrendsResult {
 
       console.log(`Fetched ${trendsData.length} NCAAB trend rows`);
 
-      // Fetch team mappings for logos - generate ESPN logo URLs from team ID
+      // Fetch team mappings for logos - use espn_team_id to build ESPN logo URLs (matches website)
       const { data: teamMappings, error: mappingError } = await collegeFootballSupabase
         .from('ncaab_team_mapping')
-        .select('api_team_id');
+        .select('api_team_id, espn_team_id');
 
       let teamLogoMap = new Map<number, string | null>();
       if (!mappingError && teamMappings) {
         teamMappings.forEach((mapping: any) => {
-          // ESPN logo URL format: https://a.espncdn.com/i/teamlogos/ncaa/500/{teamId}.png
-          const logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${mapping.api_team_id}.png`;
+          // ESPN logo URL format: https://a.espncdn.com/i/teamlogos/ncaa/500/{espn_team_id}.png
+          let logoUrl: string | null = null;
+          if (mapping.espn_team_id != null) {
+            logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${mapping.espn_team_id}.png`;
+          }
           teamLogoMap.set(mapping.api_team_id, logoUrl);
         });
         console.log(`NCAAB team logo mappings loaded: ${teamLogoMap.size}`);
@@ -264,17 +267,17 @@ export function useNCAABBettingTrends(): UseNCAABBettingTrendsResult {
             tipoffTime: null,
             awayTeam: row.team_side === 'away' ? row : undefined,
             homeTeam: row.team_side === 'home' ? row : undefined,
-            awayTeamLogo: row.team_side === 'away' ? teamLogoMap.get(row.team_id) || null : null,
-            homeTeamLogo: row.team_side === 'home' ? teamLogoMap.get(row.team_id) || null : null,
+            awayTeamLogo: row.team_side === 'away' ? teamLogoMap.get(row.api_team_id) || null : null,
+            homeTeamLogo: row.team_side === 'home' ? teamLogoMap.get(row.api_team_id) || null : null,
           });
         } else {
           const game = gamesMap.get(row.game_id)!;
           if (row.team_side === 'away') {
             game.awayTeam = row;
-            game.awayTeamLogo = teamLogoMap.get(row.team_id) || null;
+            game.awayTeamLogo = teamLogoMap.get(row.api_team_id) || null;
           } else if (row.team_side === 'home') {
             game.homeTeam = row;
-            game.homeTeamLogo = teamLogoMap.get(row.team_id) || null;
+            game.homeTeamLogo = teamLogoMap.get(row.api_team_id) || null;
           }
         }
       });

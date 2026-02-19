@@ -337,6 +337,7 @@ const CBB_TEAM_MAPPINGS: Record<string, string> = {
   'UMass Lowell': 'Massachusetts-Lowell',
   'Vermont': 'Vermont',
   'Albany': 'Albany',
+  'UAlbany': 'Albany',
   'Stony Brook': 'Stony Brook',
   'Hartford': 'Hartford',
   'Binghamton': 'Binghamton',
@@ -740,15 +741,30 @@ async function getLeagueEventsLive(league: 'nfl' | 'cfb' | 'ncaab' | 'nba'): Pro
       debug.log(`✅ Filtered to ${games.length} ${league.toUpperCase()} games`);
       return games;
     } else {
-      const url = `https://gamma-api.polymarket.com/events?tag_id=${tagId}&closed=false&limit=100&related_tags=true`;
-      const response = await fetch(url);
-      if (!response.ok) return [];
-      const data = await response.json();
-      const events = Array.isArray(data) ? data : (data.events || data.data || []);
+      // Paginate to fetch ALL events (Polymarket caps at 100 per request, NCAAB can have 400+)
+      const allEvents: any[] = [];
+      let offset = 0;
+      const pageSize = 100;
+      const maxPages = 10; // Safety: 1000 events max
+
+      for (let page = 0; page < maxPages; page++) {
+        const url = `https://gamma-api.polymarket.com/events?tag_id=${tagId}&closed=false&limit=${pageSize}&offset=${offset}&related_tags=true`;
+        const response = await fetch(url);
+        if (!response.ok) break;
+        const data = await response.json();
+        const pageEvents = Array.isArray(data) ? data : (data.events || data.data || []);
+        
+        if (pageEvents.length === 0) break;
+        allEvents.push(...pageEvents);
+        debug.log(`📋 ${league.toUpperCase()} page ${page + 1}: ${pageEvents.length} events (total: ${allEvents.length})`);
+        
+        if (pageEvents.length < pageSize) break;
+        offset += pageSize;
+      }
       
       // Filter for games only (vs/@ pattern) - excludes props, futures, etc.
-      const games = events.filter(event => parseTeamsFromTitle(event.title) !== null);
-      debug.log(`✅ Found ${games.length} ${league.toUpperCase()} games`);
+      const games = allEvents.filter(event => parseTeamsFromTitle(event.title) !== null);
+      debug.log(`✅ Found ${games.length} ${league.toUpperCase()} games (from ${allEvents.length} total events)`);
       return games;
     }
   } catch (error) {
@@ -911,9 +927,10 @@ async function findMatchingEvent(
 ): Promise<PolymarketEvent | null> {
   if (!events || events.length === 0) return null;
 
-  // Clean team names for matching
+  // Clean team names for matching — replace special chars with spaces (not remove)
+  // so hyphens become word boundaries: "Massachusetts-Lowell" -> "massachusetts lowell"
   const cleanTeamName = (name: string) =>
-    name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    name.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
   // Get Polymarket team names for CFB/NCAAB, use mascots for NFL
   let awayPolymarketName: string;
@@ -1191,9 +1208,9 @@ function findBestMarketGamma(
 ): any | null {
   if (!markets || markets.length === 0) return null;
 
-  // Clean team names for matching
+  // Clean team names for matching — replace special chars with spaces (not remove)
   const cleanTeamName = (name: string) =>
-    name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    name.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
   // Get mascots for matching
   const awayMascot = getTeamMascot(awayTeam);

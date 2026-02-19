@@ -76,23 +76,26 @@ function FloatingTabBar() {
   const insets = useSafeAreaInsets();
   const { hasLiveGames } = useLiveScores();
   
-  // Hide tab bar on chat screen
+  // Hide tab bar on chat screen and agent sub-screens (create, detail, settings)
   const isOnChatScreen = pathname.includes('/chat') || segments.includes('chat');
-  if (isOnChatScreen) {
+  const isOnAgentSubScreen = pathname.includes('/agents/create')
+    || pathname.includes('/agents/public')
+    || (pathname.includes('/agents/') && pathname !== '/(drawer)/(tabs)/agents' && pathname !== '/(drawer)/(tabs)/agents/');
+  if (isOnChatScreen || isOnAgentSubScreen) {
     return null;
   }
   
   const tabs = [
-    { name: 'index', path: '/(drawer)/(tabs)/', title: 'Models', icon: 'brain' },
-    { name: 'picks', path: '/(drawer)/(tabs)/picks', title: 'Picks', icon: 'star' },
-    { name: 'outliers', path: '/(drawer)/(tabs)/outliers', title: 'Outliers', icon: 'trending-up' },
+    { name: 'index', path: '/(drawer)/(tabs)/', title: 'Games', icon: 'trophy' },
+    { name: 'agents', path: '/(drawer)/(tabs)/agents', title: 'Agents', icon: 'brain' },
+    { name: 'outliers', path: '/(drawer)/(tabs)/outliers', title: 'Outliers', icon: 'chart-line' },
     { name: 'scoreboard', path: '/(drawer)/(tabs)/scoreboard', title: 'Scores', icon: 'scoreboard' },
   ];
 
-  // Calculate collapsible height (must match the feed screen)
-  const HEADER_HEIGHT = insets.top + 36 + 16; // Safe area + title padding
-  const PILLS_HEIGHT = 72;
-  const TOTAL_COLLAPSIBLE_HEIGHT = HEADER_HEIGHT + PILLS_HEIGHT;
+  // Calculate collapsible height (must match feed screen: 56 header + 48 tabs)
+  const HEADER_TOP_HEIGHT = 56;
+  const TABS_HEIGHT = 48;
+  const TOTAL_COLLAPSIBLE_HEIGHT = insets.top + HEADER_TOP_HEIGHT + TABS_HEIGHT;
   const TAB_BAR_BASE_HEIGHT = 65;
   const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
 
@@ -158,7 +161,9 @@ function FloatingTabBar() {
                 && !normalizedPathname.includes('/feature-requests')
                 && !normalizedPathname.includes('/settings')
                 && !normalizedPathname.includes('/outliers')
-                && !normalizedPathname.includes('/scoreboard');
+                && !normalizedPathname.includes('/scoreboard')
+                && !normalizedPathname.includes('/agents')
+                && !normalizedPathname.includes('/learn');
               isActive = (isRootTabsRoute || segmentsMatch) && isNotOtherTab;
             } else {
               // For other tabs: check if pathname matches or segments include the tab name
@@ -360,9 +365,9 @@ function TabsContent() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Models',
+          title: 'Games',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="brain" size={size} color={color} />
+            <MaterialCommunityIcons name="trophy" size={size} color={color} />
           ),
         }}
       />
@@ -373,6 +378,7 @@ function TabsContent() {
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="star" size={size} color={color} />
           ),
+          href: null, // Moved to drawer, Agents tab replaces it
         }}
       />
       <Tabs.Screen
@@ -380,7 +386,7 @@ function TabsContent() {
         options={{
           title: 'Outliers',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="trending-up" size={size} color={color} />
+            <MaterialCommunityIcons name="chart-line" size={size} color={color} />
           ),
         }}
       />
@@ -390,6 +396,15 @@ function TabsContent() {
           title: 'Scores',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="scoreboard" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="agents"
+        options={{
+          title: 'Agents',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="brain" size={size} color={color} />
           ),
         }}
       />

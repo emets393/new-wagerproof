@@ -362,112 +362,147 @@ export const fetchValueAlerts = async (weekGames: GameSummary[]): Promise<ValueA
   const alerts: ValueAlert[] = [];
   if (!weekGames || weekGames.length === 0) return alerts;
 
+  const gamesByLeague = new Map<'nfl' | 'cfb' | 'nba' | 'ncaab', GameSummary[]>();
   for (const game of weekGames) {
+    const existing = gamesByLeague.get(game.sport) || [];
+    existing.push(game);
+    gamesByLeague.set(game.sport, existing);
+  }
+
+  type CachedMarket = {
+    game_key: string;
+    market_type: 'moneyline' | 'spread' | 'total';
+    current_away_odds: number;
+    current_home_odds: number;
+  };
+
+  const marketsByGameKey = new Map<string, CachedMarket[]>();
+
+  for (const [league, games] of gamesByLeague.entries()) {
+    const gameKeys = Array.from(
+      new Set(games.map((game) => `${game.sport}_${game.awayTeam}_${game.homeTeam}`))
+    );
+    if (gameKeys.length === 0) continue;
+
     try {
-      const gameKey = `${game.sport}_${game.awayTeam}_${game.homeTeam}`;
-      
-      const { data: markets } = await supabase
+      const { data: markets, error } = await supabase
         .from('polymarket_markets')
-        .select('*')
-        .eq('game_key', gameKey)
-        .eq('league', game.sport);
+        .select('game_key, market_type, current_away_odds, current_home_odds')
+        .eq('league', league)
+        .in('game_key', gameKeys);
 
-      if (markets) {
-        for (const market of markets) {
-          // Spread
-          if (market.market_type === 'spread') {
-            if (market.current_away_odds > 57) {
-              alerts.push({
-                gameId: game.gameId,
-                sport: game.sport,
-                awayTeam: game.awayTeam,
-                homeTeam: game.homeTeam,
-                marketType: 'Spread',
-                side: game.awayTeam,
-                percentage: market.current_away_odds,
-                game
-              });
-            }
-            if (market.current_home_odds > 57) {
-              alerts.push({
-                gameId: game.gameId,
-                sport: game.sport,
-                awayTeam: game.awayTeam,
-                homeTeam: game.homeTeam,
-                marketType: 'Spread',
-                side: game.homeTeam,
-                percentage: market.current_home_odds,
-                game
-              });
-            }
-          }
+      if (error) {
+        console.error('Error fetching cached polymarket markets:', error);
+        continue;
+      }
 
-          // Total
-          if (market.market_type === 'total') {
-            if (market.current_away_odds > 57) {
-              alerts.push({
-                gameId: game.gameId,
-                sport: game.sport,
-                awayTeam: game.awayTeam,
-                homeTeam: game.homeTeam,
-                marketType: 'Total',
-                side: 'Over',
-                percentage: market.current_away_odds,
-                game
-              });
-            }
-            if (market.current_home_odds > 57) {
-              alerts.push({
-                gameId: game.gameId,
-                sport: game.sport,
-                awayTeam: game.awayTeam,
-                homeTeam: game.homeTeam,
-                marketType: 'Total',
-                side: 'Under',
-                percentage: market.current_home_odds,
-                game
-              });
-            }
-          }
-
-          // Moneyline
-          // Skip if sportsbook odds are -200 or worse (heavy favorite = no value)
-          if (market.market_type === 'moneyline') {
-            // Away team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
-            const awayOddsHaveValue = !game.awayMl || game.awayMl > -200;
-            if (market.current_away_odds >= 85 && awayOddsHaveValue) {
-              alerts.push({
-                gameId: game.gameId,
-                sport: game.sport,
-                awayTeam: game.awayTeam,
-                homeTeam: game.homeTeam,
-                marketType: 'Moneyline',
-                side: game.awayTeam,
-                percentage: market.current_away_odds,
-                game
-              });
-            }
-            // Home team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
-            const homeOddsHaveValue = !game.homeMl || game.homeMl > -200;
-            if (market.current_home_odds >= 85 && homeOddsHaveValue) {
-              alerts.push({
-                gameId: game.gameId,
-                sport: game.sport,
-                awayTeam: game.awayTeam,
-                homeTeam: game.homeTeam,
-                marketType: 'Moneyline',
-                side: game.homeTeam,
-                percentage: market.current_home_odds,
-                game
-              });
-            }
-          }
-        }
+      for (const market of (markets || []) as CachedMarket[]) {
+        const existing = marketsByGameKey.get(market.game_key) || [];
+        existing.push(market);
+        marketsByGameKey.set(market.game_key, existing);
       }
     } catch (error) {
-      console.error('Error processing game for value alerts:', error);
+      console.error('Error loading cached value alert markets:', error);
     }
   }
+
+  for (const game of weekGames) {
+    const gameKey = `${game.sport}_${game.awayTeam}_${game.homeTeam}`;
+    const markets = marketsByGameKey.get(gameKey);
+    if (!markets) continue;
+
+    for (const market of markets) {
+      // Spread
+      if (market.market_type === 'spread') {
+        if (market.current_away_odds > 57) {
+          alerts.push({
+            gameId: game.gameId,
+            sport: game.sport,
+            awayTeam: game.awayTeam,
+            homeTeam: game.homeTeam,
+            marketType: 'Spread',
+            side: game.awayTeam,
+            percentage: market.current_away_odds,
+            game
+          });
+        }
+        if (market.current_home_odds > 57) {
+          alerts.push({
+            gameId: game.gameId,
+            sport: game.sport,
+            awayTeam: game.awayTeam,
+            homeTeam: game.homeTeam,
+            marketType: 'Spread',
+            side: game.homeTeam,
+            percentage: market.current_home_odds,
+            game
+          });
+        }
+      }
+
+      // Total
+      if (market.market_type === 'total') {
+        if (market.current_away_odds > 57) {
+          alerts.push({
+            gameId: game.gameId,
+            sport: game.sport,
+            awayTeam: game.awayTeam,
+            homeTeam: game.homeTeam,
+            marketType: 'Total',
+            side: 'Over',
+            percentage: market.current_away_odds,
+            game
+          });
+        }
+        if (market.current_home_odds > 57) {
+          alerts.push({
+            gameId: game.gameId,
+            sport: game.sport,
+            awayTeam: game.awayTeam,
+            homeTeam: game.homeTeam,
+            marketType: 'Total',
+            side: 'Under',
+            percentage: market.current_home_odds,
+            game
+          });
+        }
+      }
+
+      // Moneyline
+      // Skip if sportsbook odds are -200 or worse (heavy favorite = no value)
+      if (market.market_type === 'moneyline') {
+        // Away team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
+        const awayOddsHaveValue = !game.awayMl || game.awayMl > -200;
+        if (market.current_away_odds >= 85 && awayOddsHaveValue) {
+          alerts.push({
+            gameId: game.gameId,
+            sport: game.sport,
+            awayTeam: game.awayTeam,
+            homeTeam: game.homeTeam,
+            marketType: 'Moneyline',
+            side: game.awayTeam,
+            percentage: market.current_away_odds,
+            game
+          });
+        }
+        // Home team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
+        const homeOddsHaveValue = !game.homeMl || game.homeMl > -200;
+        if (market.current_home_odds >= 85 && homeOddsHaveValue) {
+          alerts.push({
+            gameId: game.gameId,
+            sport: game.sport,
+            awayTeam: game.awayTeam,
+            homeTeam: game.homeTeam,
+            marketType: 'Moneyline',
+            side: game.homeTeam,
+            percentage: market.current_home_odds,
+            game
+          });
+        }
+      }
+    }
+  }
+
   return alerts;
 };
 

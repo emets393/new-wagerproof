@@ -51,6 +51,43 @@ export const gradientColorSchemes = {
       ['#06b6d4', '#0891b2', '#0e7490'], // Cyan
     ],
   },
+  // Green shades for agent onboarding pages
+  greenPrimary: {
+    colors: [
+      ['#00E676', '#00C853', '#00A843'], // Bright green
+      ['#22c55e', '#16a34a', '#15803d'], // Emerald
+      ['#69F0AE', '#4ADE80', '#22c55e'], // Light mint
+    ],
+  },
+  greenMint: {
+    colors: [
+      ['#69F0AE', '#4ADE80', '#22c55e'], // Light mint
+      ['#00C853', '#00A843', '#008038'], // Medium green
+      ['#00E676', '#69F0AE', '#4ADE80'], // Bright to mint
+    ],
+  },
+  greenForest: {
+    colors: [
+      ['#2E7D32', '#1B5E20', '#0D3D0D'], // Forest green
+      ['#00C853', '#00A843', '#008038'], // Medium green
+      ['#4ADE80', '#22c55e', '#16a34a'], // Lime to emerald
+    ],
+  },
+  greenTeal: {
+    colors: [
+      ['#00BFA5', '#00897B', '#00695C'], // Teal green
+      ['#00E676', '#00C853', '#00A843'], // Bright green
+      ['#2E7D32', '#1B5E20', '#0D3D0D'], // Forest green
+    ],
+  },
+  // Dark background for agent config pages
+  dark: {
+    colors: [
+      ['#1a1a1a', '#0f0f0f', '#080808'],
+      ['#252525', '#151515', '#0a0a0a'],
+      ['#1e1e1e', '#111111', '#090909'],
+    ],
+  },
 };
 
 export function AnimatedGradientBackground({

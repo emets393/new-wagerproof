@@ -11,9 +11,10 @@ import { useNCAABBettingTrends } from '@/hooks/useNCAABBettingTrends';
 import { useProAccess } from '@/hooks/useProAccess';
 import { NCAABBettingTrendsMatchupCard } from '@/components/ncaab/BettingTrendsMatchupCard';
 import { NCAABGameTrendsData, NCAABTrendsSortMode } from '@/types/ncaabBettingTrends';
-import { GameCardShimmer } from '@/components/GameCardShimmer';
+import { BettingTrendsMatchupCardShimmer } from '@/components/BettingTrendsMatchupCardShimmer';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useScroll } from '@/contexts/ScrollContext';
+import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 
 /**
  * NCAAB Betting Trends Page
@@ -131,10 +132,7 @@ export default function NCAABBettingTrendsScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
-      <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-        No betting trends available for today
-      </Text>
+      <NoGamesTerminal context="ncaab_trends" />
     </View>
   );
 
@@ -154,9 +152,7 @@ export default function NCAABBettingTrendsScreen() {
   const renderShimmer = () => (
     <View style={styles.shimmerContainer}>
       {[1, 2, 3, 4].map((i) => (
-        <View key={i} style={styles.shimmerCard}>
-          <GameCardShimmer cardWidth={200} />
-        </View>
+        <BettingTrendsMatchupCardShimmer key={i} />
       ))}
     </View>
   );
@@ -408,11 +404,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   shimmerContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  shimmerCard: {
-    marginBottom: 12,
-    alignItems: 'center',
+    paddingTop: 8,
   },
 });

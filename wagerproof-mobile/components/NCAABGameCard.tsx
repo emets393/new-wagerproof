@@ -15,6 +15,7 @@ import {
 import { getCFBTeamColors, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { TeamAvatar } from './TeamAvatar';
+import { useGameTeamColors } from '@/hooks/useImageColors';
 
 /**
  * Format team name - single words on one line, multi-word splits across lines
@@ -35,9 +36,15 @@ interface NCAABGameCardProps {
 export function NCAABGameCard({ game, onPress, cardWidth }: NCAABGameCardProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
-  // Reuse CFB team colors for NCAAB (same schools)
-  const awayColors = getCFBTeamColors(game.away_team);
-  const homeColors = getCFBTeamColors(game.home_team);
+  // Extract team colors from logo images; fall back to hardcoded CFB colors
+  const cfbAwayFallback = getCFBTeamColors(game.away_team);
+  const cfbHomeFallback = getCFBTeamColors(game.home_team);
+  const { awayColors, homeColors } = useGameTeamColors(
+    game.away_team_logo,
+    game.home_team_logo,
+    cfbAwayFallback,
+    cfbHomeFallback,
+  );
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

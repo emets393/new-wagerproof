@@ -11,6 +11,8 @@
     "build:dev": "vite build --mode development",
     "build:blog": "node scripts/build-blog.mjs",
     "verify:blog": "node scripts/verify-blog-build.mjs",
+    "test:avatar-game-data-payloads": "node scripts/test-avatar-game-data-payloads.mjs",
+    "test:avatar-pick-audit-flow": "node scripts/test-avatar-pick-audit-flow.mjs",
     "postbuild": "node scripts/prerender.js",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -106,6 +108,7 @@
     "eslint-plugin-react-refresh": "^0.4.9",
     "globals": "^15.9.0",
     "lovable-tagger": "^1.1.7",
+    "node-vibrant": "^4.0.4",
     "postcss": "^8.4.47",
     "puppeteer": "^24.25.0",
     "tailwindcss": "^3.4.11",

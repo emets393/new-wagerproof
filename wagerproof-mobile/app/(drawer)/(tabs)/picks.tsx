@@ -282,6 +282,7 @@ export default function PicksScreen() {
           editorPicks: widgetPicks,
           fadeAlerts: existingData?.fadeAlerts || [],
           polymarketValues: existingData?.polymarketValues || [],
+          topAgentPicks: existingData?.topAgentPicks || [],
           lastUpdated: new Date().toISOString(),
         });
         console.log('📱 Widget data synced from picks:', widgetPicks.length, 'picks');

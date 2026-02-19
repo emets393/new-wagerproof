@@ -3,7 +3,7 @@
  *
  * Manages state and trigger logic for proactive WagerBot suggestions.
  * Supports three modes:
- * 1. Automatic: Triggers on first sport visit and after 2 minutes
+ * 1. Automatic: Triggers on first sport visit and after a longer interval
  * 2. Manual: User taps icon to see menu with "Scan this page" and "Open chat" options
  * 3. Floating (Detached): Clippy-like assistant that follows user across app
  */
@@ -155,8 +155,8 @@ const STORAGE_KEY = '@wagerproof_suggestions_enabled';
 const TEST_MODE_STORAGE_KEY = '@wagerproof_suggestions_test_mode';
 const SUGGESTION_HISTORY_KEY = '@wagerproof_suggestion_history';
 const HISTORY_CLEAR_TIMESTAMP_KEY = '@wagerproof_suggestion_history_cleared';
-const FIRST_VISIT_TRIGGER_DELAY = 2000; // 2 seconds after first visit
-const RE_TRIGGER_INTERVAL = 2 * 60 * 1000; // 2 minutes
+const FIRST_VISIT_TRIGGER_DELAY = 5000; // 5 seconds after first visit
+const RE_TRIGGER_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const AUTO_DISMISS_DURATION = 20000; // 20 seconds
 const MAX_SUGGESTION_HISTORY = 10;
 const HISTORY_CLEAR_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12 hours

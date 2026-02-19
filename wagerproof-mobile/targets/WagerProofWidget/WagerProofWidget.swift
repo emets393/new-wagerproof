@@ -53,6 +53,7 @@ struct WagerProofWidgetEntryView: View {
         editorPicks: EditorPickWidgetData.sampleArray,
         fadeAlerts: FadeAlertWidgetData.sampleArray,
         polymarketValues: PolymarketValueWidgetData.sampleArray,
+        topAgentPicks: TopAgentWidgetData.sampleArray,
         isPlaceholder: false,
         lastUpdated: Date()
     )
@@ -67,6 +68,7 @@ struct WagerProofWidgetEntryView: View {
         editorPicks: EditorPickWidgetData.sampleArray,
         fadeAlerts: FadeAlertWidgetData.sampleArray,
         polymarketValues: PolymarketValueWidgetData.sampleArray,
+        topAgentPicks: TopAgentWidgetData.sampleArray,
         isPlaceholder: false,
         lastUpdated: Date()
     )

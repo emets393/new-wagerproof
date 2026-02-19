@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-02-19T13:03:49.298Z",
+  "avatar_id": "be042477-6565-422e-83fa-0de08c95ec30",
+  "target_date": "2026-02-18",
+  "payload2_games_count": 2,
+  "breakdown": {
+    "nfl": 1,
+    "cfb": 1,
+    "nba": 0,
+    "ncaab": 0
+  },
+  "coverage": {
+    "polymarket_games": 2,
+    "nfl_line_movement_games": 1,
+    "nfl_h2h_games": 0,
+    "cfb_line_movement_games": 0,
+    "nba_injury_games": 0,
+    "nba_prediction_accuracy_games": 0,
+    "ncaab_situational_trends_games": 0,
+    "ncaab_prediction_accuracy_games": 0
+  },
+  "missing_polymarket_games": [],
+  "files": [
+    "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/payload1_agent_personality_live.json",
+    "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/payload2_game_data_live.json",
+    "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/payload3_system_prompt_live.json",
+    "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/response_payload_live_persisted_batch.json"
+  ]
+}

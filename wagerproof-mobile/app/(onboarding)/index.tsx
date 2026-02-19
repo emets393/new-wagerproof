@@ -10,36 +10,45 @@ import { TermsAcceptance } from '../../components/onboarding/steps/Step1b_TermsA
 import { SportsSelection } from '../../components/onboarding/steps/Step2_SportsSelection';
 import { AgeConfirmation } from '../../components/onboarding/steps/Step3_AgeConfirmation';
 import { BettorTypeSelection } from '../../components/onboarding/steps/Step4_BettorType';
-import { PrimaryGoalSelection } from '../../components/onboarding/steps/Step5_PrimaryGoal';
-import { FeatureSpotlight } from '../../components/onboarding/steps/Step6_FeatureSpotlight';
-import { CompetitorComparison } from '../../components/onboarding/steps/Step7_CompetitorComparison';
-import { EmailOptIn } from '../../components/onboarding/steps/Step8_EmailOptIn';
-import { SocialProof } from '../../components/onboarding/steps/Step9_SocialProof';
-import { DiscordCommunity } from '../../components/onboarding/steps/Step10_DiscordCommunity';
-import { ValueClaim } from '../../components/onboarding/steps/Step10_ValueClaim';
-import { MethodologyClaim2 } from '../../components/onboarding/steps/Step12_Methodology2';
 import { AcquisitionSource } from '../../components/onboarding/steps/Step13_AcquisitionSource';
+import { PrimaryGoalSelection } from '../../components/onboarding/steps/Step5_PrimaryGoal';
+import { ValueClaim } from '../../components/onboarding/steps/Step10_ValueClaim';
+import { FeatureSpotlight } from '../../components/onboarding/steps/Step6_FeatureSpotlight';
+import { AgentValue1_247 } from '../../components/onboarding/steps/AgentValue1_247';
+import { AgentValue2_VirtualAssistant } from '../../components/onboarding/steps/AgentValue2_VirtualAssistant';
+import { AgentValue3_MultipleStrategies } from '../../components/onboarding/steps/AgentValue3_MultipleStrategies';
+import { AgentValue4_Leaderboard } from '../../components/onboarding/steps/AgentValue4_Leaderboard';
+import { AgentGenerationStep } from '../../components/onboarding/steps/StepAgentGeneration';
+import { AgentBornStep } from '../../components/onboarding/steps/StepAgentBorn';
+import { OnboardingAgentBuilder } from '../../components/onboarding/steps/OnboardingAgentBuilder';
 import { DataTransparency } from '../../components/onboarding/steps/Step14_DataTransparency';
 
 const { width } = Dimensions.get('window');
-const TOTAL_STEPS = 15; // Paywall is presented as a modal from DataTransparency step
+const TOTAL_STEPS = 22;
 
-const stepComponents = {
+const stepComponents: Record<number, React.ComponentType> = {
   1: PersonalizationIntro,
   2: TermsAcceptance,
   3: SportsSelection,
   4: AgeConfirmation,
   5: BettorTypeSelection,
-  6: PrimaryGoalSelection,
-  7: MethodologyClaim2,
-  8: FeatureSpotlight,
-  9: CompetitorComparison,
-  10: EmailOptIn,
-  11: SocialProof,
-  12: DiscordCommunity,
-  13: ValueClaim,
-  14: AcquisitionSource,
-  15: DataTransparency, // Last step - presents native paywall modal on continue
+  6: AcquisitionSource,
+  7: PrimaryGoalSelection,
+  8: ValueClaim,
+  9: FeatureSpotlight,
+  10: DataTransparency,
+  11: AgentValue1_247,
+  12: AgentValue2_VirtualAssistant,
+  13: AgentValue3_MultipleStrategies,
+  14: AgentValue4_Leaderboard,
+  15: OnboardingAgentBuilder,
+  16: OnboardingAgentBuilder,
+  17: OnboardingAgentBuilder,
+  18: OnboardingAgentBuilder,
+  19: OnboardingAgentBuilder,
+  20: OnboardingAgentBuilder,
+  21: AgentGenerationStep,
+  22: AgentBornStep,
 };
 
 function OnboardingContent() {
@@ -107,27 +116,38 @@ function OnboardingContent() {
   }, [currentStep, direction, fadeAnim, translateX]);
 
   const CurrentStepComponent = stepComponents[displayStep] || PersonalizationIntro;
+  const isCinematicStep = displayStep === 21 || displayStep === 22;
+
+  // Steps that handle their own scrolling:
+  // 9 = FeatureSpotlight, 15-20 = Agent Builder screens, 21-22 = cinematic screens
+  const selfScrollingStep =
+    displayStep === 9 ||
+    (displayStep >= 15 && displayStep <= 22);
 
   return (
     <View style={styles.container}>
       {/* Animated Gradient Background */}
-      <AnimatedGradientBackground
-        colorScheme={currentGradient}
-        duration={8000}
-      />
+      {!isCinematicStep && (
+        <AnimatedGradientBackground
+          colorScheme={currentGradient}
+          duration={8000}
+        />
+      )}
 
       {/* Dark overlay for better text readability */}
-      <View style={styles.darkOverlay} />
+      {!isCinematicStep && <View style={styles.darkOverlay} />}
 
       {/* Force dark status bar */}
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       {/* Progress Indicator with Back Button */}
-      <ProgressIndicator
-        currentStep={gradientStep}
-        totalSteps={TOTAL_STEPS}
-        onBack={prevStep}
-      />
+      {!isCinematicStep && (
+        <ProgressIndicator
+          currentStep={gradientStep}
+          totalSteps={TOTAL_STEPS}
+          onBack={prevStep}
+        />
+      )}
 
       {/* Step Content */}
       <Animated.View
@@ -139,8 +159,7 @@ function OnboardingContent() {
           },
         ]}
       >
-        {/* Steps that handle their own scrolling (for floating buttons) */}
-        {displayStep === 7 || displayStep === 9 || displayStep === 12 ? (
+        {selfScrollingStep ? (
           <CurrentStepComponent />
         ) : (
           <ScrollView
@@ -196,4 +215,3 @@ const styles = StyleSheet.create({
     minHeight: '100%',
   },
 });
-

@@ -1,0 +1,18 @@
+{
+  "avatar_id": "c53c8a39-dfb1-47b9-86ce-5bb17f632a93",
+  "batch_created_at": "2026-02-18T15:29:59.515331+00:00",
+  "payload2_games_count": 61,
+  "breakdown": {
+    "nfl": 1,
+    "cfb": 1,
+    "nba": 0,
+    "ncaab": 59
+  },
+  "picks_in_batch": 2,
+  "files": [
+    "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/payload1_agent_personality_live.json",
+    "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/payload2_game_data_live.json",
+    "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/payload3_system_prompt_live.json",
+    "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/response_payload_live_persisted_batch.json"
+  ]
+}

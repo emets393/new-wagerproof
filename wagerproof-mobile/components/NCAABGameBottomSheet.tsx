@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { NCAABGame } from '@/types/ncaab';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 import { getCFBTeamColors, getNCAABTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
+import { useGameTeamColors } from '@/hooks/useImageColors';
 import { TeamAvatar } from './TeamAvatar';
 import { formatCompactDate, convertTimeToEST, formatMoneyline, formatSpread, roundToNearestHalf } from '@/utils/formatting';
 import { PolymarketWidget } from './PolymarketWidget';
@@ -17,11 +18,14 @@ import { ProContentSection } from './ProContentSection';
 import { FadeAlertTooltip } from './FadeAlertTooltip';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
+import { AgentPickPayloadAuditWidget } from '@/components/agents/AgentPickPayloadAuditWidget';
 
 export function NCAABGameBottomSheet() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { selectedGame: game, closeGameSheet, bottomSheetRef } = useNCAABGameSheet();
+  const { clearAgentPickAudit } = useAgentPickAudit();
   const { onModelDetailsTap, isDetached } = useWagerBotSuggestion();
   const snapPoints = useMemo(() => ['85%', '95%'], []);
   const [spreadExplanationExpanded, setSpreadExplanationExpanded] = useState(false);
@@ -64,9 +68,15 @@ export function NCAABGameBottomSheet() {
     }, 2500);
   };
 
-  // Reuse CFB colors for NCAAB (same schools)
-  const awayColors = game ? getCFBTeamColors(game.away_team) : { primary: '#000', secondary: '#000' };
-  const homeColors = game ? getCFBTeamColors(game.home_team) : { primary: '#000', secondary: '#000' };
+  // Extract team colors from logo images; fall back to hardcoded CFB colors
+  const cfbAwayFallback = game ? getCFBTeamColors(game.away_team) : { primary: '#000', secondary: '#000' };
+  const cfbHomeFallback = game ? getCFBTeamColors(game.home_team) : { primary: '#000', secondary: '#000' };
+  const { awayColors, homeColors } = useGameTeamColors(
+    game?.away_team_logo,
+    game?.home_team_logo,
+    cfbAwayFallback,
+    cfbHomeFallback,
+  );
 
   // Calculate edge values for spread (like CFB)
   const spreadPrediction = useMemo(() => {
@@ -196,13 +206,18 @@ export function NCAABGameBottomSheet() {
     />
   );
 
+  const handleCloseSheet = () => {
+    closeGameSheet();
+    clearAgentPickAudit();
+  };
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
       index={-1}
       snapPoints={snapPoints}
       enablePanDownToClose
-      onClose={closeGameSheet}
+      onClose={handleCloseSheet}
       backdropComponent={renderBackdrop}
       backgroundStyle={{ backgroundColor: isDark ? '#000000' : '#ffffff' }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.onSurfaceVariant }}
@@ -213,6 +228,9 @@ export function NCAABGameBottomSheet() {
       >
         {game ? (
           <>
+          <AgentPickPayloadAuditWidget
+            gameKeys={[game.game_id, game.training_key, game.unique_id]}
+          />
           {/* Header with Teams */}
           <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
             <LinearGradient

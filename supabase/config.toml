@@ -61,3 +61,18 @@ verify_jwt = false
 
 [functions.send-reactivation-events]
 verify_jwt = false  # Cron calls don't have JWT, auth via service key
+
+[functions.check-missing-completions]
+verify_jwt = false  # Cron calls don't have JWT, auth via service key
+
+[functions.run-scheduled-value-finds]
+verify_jwt = false  # Cron calls don't have JWT, auth via service key
+
+[functions.auto-generate-avatar-picks]
+verify_jwt = false  # Cron calls don't have JWT, auth via service key
+
+[functions.grade-avatar-picks]
+verify_jwt = false  # Cron calls don't have JWT, auth via service key
+
+[functions.update-polymarket-cache]
+verify_jwt = false  # Cron calls don't have JWT, auth via service key

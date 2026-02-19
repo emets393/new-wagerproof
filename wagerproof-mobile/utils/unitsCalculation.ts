@@ -29,9 +29,11 @@ function parseOdds(oddsString: string | null | undefined): number | null {
   
   const trimmed = oddsString.toString().trim();
   if (trimmed.startsWith('+')) {
-    return parseInt(trimmed.substring(1), 10);
+    const parsed = parseInt(trimmed.substring(1), 10);
+    return Number.isFinite(parsed) ? parsed : null;
   } else if (trimmed.startsWith('-')) {
-    return parseInt(trimmed, 10);
+    const parsed = parseInt(trimmed, 10);
+    return Number.isFinite(parsed) ? parsed : null;
   } else {
     // Check if it's just a number
     const num = parseInt(trimmed, 10);
@@ -41,7 +43,8 @@ function parseOdds(oddsString: string | null | undefined): number | null {
     // Let's assume standard American odds behavior where user input might be lazy.
     // But if it's a small number (like decimal), this logic fails. 
     // Assuming American odds as per web codebase context.
-    return num > 0 ? -num : num;
+    const parsed = num > 0 ? -num : num;
+    return Number.isFinite(parsed) ? parsed : null;
   }
 }
 
@@ -59,7 +62,7 @@ export function calculateUnits(
   units: number | null | undefined
 ): UnitsCalculationResult {
   // Default to 0 if no result or pending
-  if (!result || result === 'pending' || !units || units === 0) {
+  if (!result || result === 'pending' || !units || units === 0 || !Number.isFinite(units)) {
     return { unitsWon: 0, unitsLost: 0, netUnits: 0 };
   }
 
@@ -82,12 +85,18 @@ export function calculateUnits(
     } else {
       // Positive odds: win = +(odds/100) * units
       const unitsWon = (oddsNum / 100) * units;
+      if (!Number.isFinite(unitsWon)) {
+        return { unitsWon: 0, unitsLost: 0, netUnits: 0 };
+      }
       return { unitsWon, unitsLost: 0, netUnits: unitsWon };
     }
   } else if (result === 'lost') {
     if (oddsNum < 0) {
       // Negative odds: loss = -risk, where risk = (|odds|/100) * units
       const risk = (Math.abs(oddsNum) / 100) * units;
+      if (!Number.isFinite(risk)) {
+        return { unitsWon: 0, unitsLost: 0, netUnits: 0 };
+      }
       return { unitsWon: 0, unitsLost: risk, netUnits: -risk };
     } else {
       // Positive odds: loss = -units
@@ -123,4 +132,3 @@ export function calculateTotalUnits(
     netUnits: totalWon - totalLost,
   };
 }
-

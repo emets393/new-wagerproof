@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Animated, 
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
@@ -42,7 +44,7 @@ export default function ChatScreen() {
 
   // Scroll animation setup - disabled header collapsing for better UX
   const scrollY = useRef(new Animated.Value(0)).current;
-  const HEADER_HEIGHT = insets.top + 8 + 44 + 12; // paddingTop + header content height + paddingBottom
+  const HEADER_HEIGHT = insets.top + 8 + 56 + 8; // paddingTop + header content height + paddingBottom
 
   // Hide suggestion bubble when chat screen is open and prevent new ones
   useEffect(() => {
@@ -126,66 +128,59 @@ export default function ChatScreen() {
         style={[
           styles.header,
           {
-            backgroundColor: isDark ? '#000000' : theme.colors.background,
             paddingTop: insets.top + 8,
           }
         ]}
       >
+        <View pointerEvents="none" style={styles.headerFx}>
+          <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <LinearGradient
+            colors={['rgba(8,8,8,0.74)', 'rgba(8,8,8,0.46)', 'rgba(8,8,8,0.18)', 'rgba(8,8,8,0)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </View>
         <View style={styles.headerContent}>
           <TouchableOpacity 
             onPress={handleBack}
-            style={styles.backButton}
+            style={styles.sideButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialCommunityIcons name="arrow-left" size={28} color={theme.colors.onSurface} />
+            <MaterialCommunityIcons name="arrow-left" size={22} color="#ffffff" />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
-            <Text style={[styles.title, { color: theme.colors.onSurface }]}>
+            <Text style={[styles.title, { color: '#ffffff' }]}>
               WagerBot
             </Text>
-            {/* Game Data Indicator - Green when data available, Gray when no data */}
             {!isLoadingContext && (
-              <TouchableOpacity
-                onPress={() => {
-                  // Show info about game data status
-                  const hasData = gameContext && gameContext.length > 0;
-                  const title = hasData ? 'Game Data Active' : 'No Game Data';
-                  const message = hasData 
-                    ? 'I have access to today\'s betting lines, predictions, and game data!'
-                    : 'No games available for today. I can still help with general betting questions.';
-                  Alert.alert(title, message);
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <View style={[
-                  styles.dataIndicator,
-                  { backgroundColor: gameContext && gameContext.length > 0 ? '#22c55e' : '#94a3b8' }
-                ]} />
-              </TouchableOpacity>
+              <Text style={styles.subtitle}>
+                {gameContext && gameContext.length > 0 ? 'Extended' : 'General'}
+              </Text>
             )}
             {isLoadingContext && (
-              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <ActivityIndicator size="small" color="#ffffff" />
             )}
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity 
               onPress={() => chatRef.current?.toggleHistoryDrawer?.()}
-              style={styles.headerIcon}
+              style={styles.sideButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MaterialCommunityIcons name="history" size={24} color={theme.colors.onSurface} />
+              <MaterialCommunityIcons name="history" size={21} color="#ffffff" />
             </TouchableOpacity>
             <TouchableOpacity 
               onPress={() => chatRef.current?.clearChat?.()}
-              style={styles.headerIcon}
+              style={styles.sideButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MaterialCommunityIcons name="message-plus-outline" size={24} color={theme.colors.onSurface} />
+              <MaterialCommunityIcons name="message-plus-outline" size={21} color="#ffffff" />
             </TouchableOpacity>
           </View>
         </View>
         {contextError && (
-          <Text style={[styles.contextWarning, { color: theme.colors.error }]}>
+          <Text style={[styles.contextWarning, { color: 'rgba(255,255,255,0.72)' }]}>
             {contextError}
           </Text>
         )}
@@ -283,57 +278,65 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
-    paddingBottom: 12,
+    paddingBottom: 8,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    overflow: 'visible',
+  },
+  headerFx: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: -4,
+    zIndex: 0,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 44,
+    height: 56,
+    zIndex: 2,
   },
-  backButton: {
-    width: 44,
-    height: 44,
+  sideButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 16, 16, 0.46)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   titleContainer: {
-    flex: 1,
-    flexDirection: 'row',
+    position: 'absolute',
+    left: 84,
+    right: 146,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  dataIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 4,
+    pointerEvents: 'none',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  headerIcon: {
-    padding: 4,
+  title: {
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  subtitle: {
+    marginTop: 1,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    textAlign: 'center',
   },
   contextWarning: {
     fontSize: 11,
     marginTop: 8,
     textAlign: 'center',
+    zIndex: 2,
   },
   chatContainer: {
     flex: 1,
@@ -398,4 +401,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

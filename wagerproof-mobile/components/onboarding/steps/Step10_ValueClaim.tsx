@@ -78,31 +78,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 34,
     paddingBottom: 24,
   },
   title: {
-    fontSize: 40,
+    fontSize: 34,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 10,
     textAlign: 'center',
   },
   description: {
     fontSize: 14,
-    marginBottom: 40,
+    marginBottom: 18,
     textAlign: 'center',
     lineHeight: 20,
   },
   animationContainer: {
     width: '100%',
-    minHeight: 300,
-    marginBottom: 32,
+    minHeight: 220,
+    marginBottom: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
   animation: {
     width: '100%',
-    height: 300,
+    height: 220,
   },
   statsContainer: {
     borderRadius: 16,

@@ -183,7 +183,7 @@ serve(async (req) => {
       );
     }
 
-    // Get events for a specific sport/tag
+    // Get events for a specific sport/tag (with pagination to fetch all)
     if (action === 'events') {
       if (!tagId) {
         return new Response(
@@ -192,37 +192,56 @@ serve(async (req) => {
         );
       }
 
-      const params = new URLSearchParams({
-        tag_id: tagId,
-        closed: 'false',
-        limit: '100',
-        related_tags: 'true',
-      });
+      const allEvents: any[] = [];
+      let currentOffset = 0;
+      const pageSize = 100;
+      const maxPages = 10; // Safety limit: 1000 events max
 
-      const url = `https://gamma-api.polymarket.com/events?${params.toString()}`;
-      console.log('Fetching events:', url);
+      for (let page = 0; page < maxPages; page++) {
+        const params = new URLSearchParams({
+          tag_id: tagId,
+          closed: 'false',
+          limit: String(pageSize),
+          offset: String(currentOffset),
+          related_tags: 'true',
+        });
 
-      const response = await fetch(url, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'WagerProof-PolymarketIntegration/1.0'
+        const url = `https://gamma-api.polymarket.com/events?${params.toString()}`;
+        console.log(`Fetching events page ${page + 1}:`, url);
+
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'WagerProof-PolymarketIntegration/1.0'
+          }
+        });
+
+        if (!response.ok) {
+          console.error('Events API error:', response.status, response.statusText);
+          if (allEvents.length === 0) {
+            return new Response(
+              JSON.stringify({ error: `Events API returned ${response.status}`, events: [] }),
+              { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          break; // Return what we have so far
         }
-      });
 
-      if (!response.ok) {
-        console.error('Events API error:', response.status, response.statusText);
-        return new Response(
-          JSON.stringify({ error: `Events API returned ${response.status}`, events: [] }),
-          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        const data = await response.json();
+        const pageEvents = Array.isArray(data) ? data : (data.events || data.data || []);
+        
+        if (pageEvents.length === 0) break;
+        allEvents.push(...pageEvents);
+        console.log(`Page ${page + 1}: ${pageEvents.length} events (total: ${allEvents.length})`);
+        
+        if (pageEvents.length < pageSize) break; // Last page
+        currentOffset += pageSize;
       }
 
-      const data = await response.json();
-      const events = Array.isArray(data) ? data : (data.events || data.data || []);
-      console.log('Events returned:', events.length, 'events');
+      console.log('Total events returned:', allEvents.length);
 
       return new Response(
-        JSON.stringify({ events }),
+        JSON.stringify({ events: allEvents }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

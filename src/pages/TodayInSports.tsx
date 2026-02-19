@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import debug from '@/utils/debug';
 import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors, getNCAABTeamColors, getNFLTeamInitials, getCFBTeamInitials, getNBATeamInitials, getNCAABTeamInitials } from '@/utils/teamColors';
 import { useTodayInSportsCache } from '@/hooks/useTodayInSportsCache';
+import { SHOW_WEBSITE_TAILING_FEATURES } from '@/lib/featureFlags';
 
 interface GameSummary {
   gameId: string;
@@ -80,7 +81,76 @@ interface TopTailedGame extends GameSummary {
   }>;
 }
 
+interface TrendsTeamRow {
+  game_id: number;
+  game_date: string;
+  team_abbr: string;
+  team_name: string;
+  team_side: 'home' | 'away';
+  last_game_situation: string;
+  fav_dog_situation: string;
+  side_spread_situation: string;
+  rest_bucket: string;
+  rest_comp: string;
+  ats_last_game_record: string;
+  ats_last_game_cover_pct: number | null;
+  ats_fav_dog_record: string;
+  ats_fav_dog_cover_pct: number | null;
+  ats_side_fav_dog_record: string;
+  ats_side_fav_dog_cover_pct: number | null;
+  ats_rest_bucket_record: string;
+  ats_rest_bucket_cover_pct: number | null;
+  ats_rest_comp_record: string;
+  ats_rest_comp_cover_pct: number | null;
+  ou_last_game_record: string;
+  ou_last_game_over_pct: number | null;
+  ou_last_game_under_pct: number | null;
+  ou_fav_dog_record: string;
+  ou_fav_dog_over_pct: number | null;
+  ou_fav_dog_under_pct: number | null;
+  ou_side_fav_dog_record: string;
+  ou_side_fav_dog_over_pct: number | null;
+  ou_side_fav_dog_under_pct: number | null;
+  ou_rest_bucket_record: string;
+  ou_rest_bucket_over_pct: number | null;
+  ou_rest_bucket_under_pct: number | null;
+  ou_rest_comp_record: string;
+  ou_rest_comp_over_pct: number | null;
+  ou_rest_comp_under_pct: number | null;
+}
+
+interface TrendsGame {
+  game_id: number;
+  game_date: string;
+  tipoff_time_et: string | null;
+  away_team: TrendsTeamRow;
+  home_team: TrendsTeamRow;
+}
+
+type TrendMarketType = 'ATS' | 'Over' | 'Under';
+
+interface TrendCandidate {
+  teamName: string;
+  marketType: TrendMarketType;
+  percentage: number;
+  record: string;
+  situationLabel: string;
+  sampleSize: number;
+}
+
+interface TrendOutlier {
+  sport: 'nba' | 'ncaab';
+  gameId: number;
+  awayTeam: string;
+  homeTeam: string;
+  gameTime?: string | null;
+  candidate: TrendCandidate;
+}
+
 type SportFilter = 'all' | 'nfl' | 'cfb' | 'nba' | 'ncaab';
+
+const BETTING_TRENDS_THRESHOLD = 65;
+const BETTING_TRENDS_MIN_GAMES = 5;
 
 // Helper to format game time for display
 const formatGameTime = (gameTime: string | undefined): string | null => {
@@ -113,10 +183,152 @@ const formatMoneyline = (ml: number | null | undefined): string => {
   return ml > 0 ? `+${ml}` : `${ml}`;
 };
 
+const parseTrendRecord = (record: string | null | undefined): { total: number } => {
+  if (!record) return { total: 0 };
+  const [wins = 0, losses = 0, pushes = 0] = record.split('-').map(Number);
+  return { total: wins + losses + pushes };
+};
+
+const formatTrendSituation = (situation: string | null | undefined): string => {
+  if (!situation) return '-';
+  const situationMap: Record<string, string> = {
+    'is_after_loss': 'After Loss',
+    'is_after_win': 'After Win',
+    'is_fav': 'Favorite',
+    'is_dog': 'Underdog',
+    'is_home_fav': 'Home Favorite',
+    'is_away_fav': 'Away Favorite',
+    'is_home_dog': 'Home Underdog',
+    'is_away_dog': 'Away Underdog',
+    'one_day_off': '1 Day Off',
+    'two_three_days_off': '2-3 Days Off',
+    'four_plus_days_off': '4+ Days Off',
+    'rest_advantage': 'Rest Advantage',
+    'rest_disadvantage': 'Rest Disadvantage',
+    'rest_equal': 'Rest Equal',
+  };
+  return situationMap[situation] || situation.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
+const buildTrendCandidates = (team: TrendsTeamRow): TrendCandidate[] => {
+  const situations = [
+    {
+      situationLabel: formatTrendSituation(team.last_game_situation),
+      atsRecord: team.ats_last_game_record,
+      atsPct: team.ats_last_game_cover_pct,
+      ouRecord: team.ou_last_game_record,
+      overPct: team.ou_last_game_over_pct,
+      underPct: team.ou_last_game_under_pct,
+    },
+    {
+      situationLabel: formatTrendSituation(team.fav_dog_situation),
+      atsRecord: team.ats_fav_dog_record,
+      atsPct: team.ats_fav_dog_cover_pct,
+      ouRecord: team.ou_fav_dog_record,
+      overPct: team.ou_fav_dog_over_pct,
+      underPct: team.ou_fav_dog_under_pct,
+    },
+    {
+      situationLabel: formatTrendSituation(team.side_spread_situation),
+      atsRecord: team.ats_side_fav_dog_record,
+      atsPct: team.ats_side_fav_dog_cover_pct,
+      ouRecord: team.ou_side_fav_dog_record,
+      overPct: team.ou_side_fav_dog_over_pct,
+      underPct: team.ou_side_fav_dog_under_pct,
+    },
+    {
+      situationLabel: formatTrendSituation(team.rest_bucket),
+      atsRecord: team.ats_rest_bucket_record,
+      atsPct: team.ats_rest_bucket_cover_pct,
+      ouRecord: team.ou_rest_bucket_record,
+      overPct: team.ou_rest_bucket_over_pct,
+      underPct: team.ou_rest_bucket_under_pct,
+    },
+    {
+      situationLabel: formatTrendSituation(team.rest_comp),
+      atsRecord: team.ats_rest_comp_record,
+      atsPct: team.ats_rest_comp_cover_pct,
+      ouRecord: team.ou_rest_comp_record,
+      overPct: team.ou_rest_comp_over_pct,
+      underPct: team.ou_rest_comp_under_pct,
+    },
+  ];
+
+  const candidates: TrendCandidate[] = [];
+  for (const row of situations) {
+    const atsSample = parseTrendRecord(row.atsRecord).total;
+    const ouSample = parseTrendRecord(row.ouRecord).total;
+
+    if (typeof row.atsPct === 'number' && row.atsPct >= BETTING_TRENDS_THRESHOLD && atsSample >= BETTING_TRENDS_MIN_GAMES) {
+      candidates.push({
+        teamName: team.team_name,
+        marketType: 'ATS',
+        percentage: row.atsPct,
+        record: row.atsRecord || '-',
+        situationLabel: row.situationLabel,
+        sampleSize: atsSample,
+      });
+    }
+
+    if (typeof row.overPct === 'number' && row.overPct >= BETTING_TRENDS_THRESHOLD && ouSample >= BETTING_TRENDS_MIN_GAMES) {
+      candidates.push({
+        teamName: team.team_name,
+        marketType: 'Over',
+        percentage: row.overPct,
+        record: row.ouRecord || '-',
+        situationLabel: row.situationLabel,
+        sampleSize: ouSample,
+      });
+    }
+
+    if (typeof row.underPct === 'number' && row.underPct >= BETTING_TRENDS_THRESHOLD && ouSample >= BETTING_TRENDS_MIN_GAMES) {
+      candidates.push({
+        teamName: team.team_name,
+        marketType: 'Under',
+        percentage: row.underPct,
+        record: row.ouRecord || '-',
+        situationLabel: row.situationLabel,
+        sampleSize: ouSample,
+      });
+    }
+  }
+
+  return candidates;
+};
+
+const sortTrendCandidates = (a: TrendCandidate, b: TrendCandidate) => {
+  if (b.percentage !== a.percentage) return b.percentage - a.percentage;
+  return b.sampleSize - a.sampleSize;
+};
+
+const buildTrendOutliers = (games: TrendsGame[], sport: 'nba' | 'ncaab'): TrendOutlier[] => {
+  const outliers: TrendOutlier[] = [];
+
+  for (const game of games) {
+    const candidates = [
+      ...buildTrendCandidates(game.away_team),
+      ...buildTrendCandidates(game.home_team),
+    ].sort(sortTrendCandidates);
+
+    if (candidates.length === 0) continue;
+    outliers.push({
+      sport,
+      gameId: game.game_id,
+      awayTeam: game.away_team.team_name,
+      homeTeam: game.home_team.team_name,
+      gameTime: game.tipoff_time_et,
+      candidate: candidates[0],
+    });
+  }
+
+  return outliers.sort((a, b) => sortTrendCandidates(a.candidate, b.candidate));
+};
+
 export default function TodayInSports() {
   const { isFreemiumUser } = useFreemiumAccess();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const showWebsiteTailingFeatures = SHOW_WEBSITE_TAILING_FEATURES;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -138,6 +350,8 @@ export default function TodayInSports() {
   const [showAllValueAlerts, setShowAllValueAlerts] = useState(cachedState?.showAllValueAlerts ?? false);
   const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(cachedState?.showAllFadeAlerts ?? false);
   const [showAllTailedGames, setShowAllTailedGames] = useState(cachedState?.showAllTailedGames ?? false);
+  const [showAllNbaTrendOutliers, setShowAllNbaTrendOutliers] = useState(false);
+  const [showAllNcaabTrendOutliers, setShowAllNcaabTrendOutliers] = useState(false);
   const [isRefreshingValueSummary, setIsRefreshingValueSummary] = useState(false);
   
   // Sport filters for each section
@@ -214,6 +428,12 @@ export default function TodayInSports() {
 
   // Helper function to get pick type color classes
   const getPickTypeColorClasses = (pickType: string) => {
+    if (pickType === 'ATS') {
+      return 'bg-teal-500/20 dark:bg-teal-500/20 text-teal-700 dark:text-teal-300 border-teal-500/40 dark:border-teal-500/30';
+    }
+    if (pickType === 'Over' || pickType === 'Under') {
+      return 'bg-emerald-500/20 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 dark:border-emerald-500/30';
+    }
     if (pickType === 'Spread') {
       return 'bg-cyan-500/20 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/40 dark:border-cyan-500/30';
     }
@@ -342,6 +562,8 @@ export default function TodayInSports() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['value-alerts'] }),
         queryClient.invalidateQueries({ queryKey: ['fade-alerts'] }),
+        queryClient.invalidateQueries({ queryKey: ['nba-trend-outliers'] }),
+        queryClient.invalidateQueries({ queryKey: ['ncaab-trend-outliers'] }),
       ]);
     } finally {
       // Keep spinner for at least 500ms for better UX
@@ -935,6 +1157,7 @@ export default function TodayInSports() {
         return (a.gameTime || '').localeCompare(b.gameTime || '');
       });
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   // Filter to get ONLY today's games
@@ -1024,162 +1247,148 @@ export default function TodayInSports() {
       const basketballGames = weekGames.filter(g => g.sport === 'nba' || g.sport === 'ncaab');
       debug.log('Checking value alerts for', weekGames.length, 'games');
       debug.log(`  🏀 Basketball games: ${basketballGames.length} (${basketballGames.filter(g => g.sport === 'nba').length} NBA, ${basketballGames.filter(g => g.sport === 'ncaab').length} NCAAB)`);
+      const gamesByLeague = new Map<'nfl' | 'cfb' | 'nba' | 'ncaab', GameSummary[]>();
+      for (const game of weekGames) {
+        const existing = gamesByLeague.get(game.sport) || [];
+        existing.push(game);
+        gamesByLeague.set(game.sport, existing);
+      }
 
-      // Debug: Check what NBA game_keys exist in database
-      const { data: existingNbaMarkets } = await supabase
-        .from('polymarket_markets')
-        .select('game_key, league, away_team, home_team')
-        .eq('league', 'nba')
-        .limit(20);
-      
-      if (existingNbaMarkets && existingNbaMarkets.length > 0) {
-        const uniqueNbaKeys = [...new Set(existingNbaMarkets.map(m => m.game_key))];
-        debug.log(`  🏀 Found ${uniqueNbaKeys.length} unique NBA game_keys in database:`, uniqueNbaKeys.slice(0, 5));
-      } else {
-        debug.log(`  🏀 No NBA markets found in database - cache may need to be updated`);
+      type CachedMarket = {
+        game_key: string;
+        market_type: 'moneyline' | 'spread' | 'total';
+        current_away_odds: number;
+        current_home_odds: number;
+      };
+
+      const marketsByGameKey = new Map<string, CachedMarket[]>();
+      for (const [league, games] of gamesByLeague.entries()) {
+        const gameKeys = Array.from(
+          new Set(games.map((game) => `${game.sport}_${game.awayTeam}_${game.homeTeam}`))
+        );
+        if (gameKeys.length === 0) continue;
+
+        const { data: markets, error } = await supabase
+          .from('polymarket_markets')
+          .select('game_key, market_type, current_away_odds, current_home_odds')
+          .eq('league', league)
+          .in('game_key', gameKeys);
+
+        if (error) {
+          debug.error('Error fetching batched polymarket markets:', error);
+          continue;
+        }
+
+        for (const market of (markets || []) as CachedMarket[]) {
+          const existing = marketsByGameKey.get(market.game_key) || [];
+          existing.push(market);
+          marketsByGameKey.set(market.game_key, existing);
+        }
       }
 
       for (const game of weekGames) {
-        try {
-          // Construct game_key matching the format used in update-polymarket-cache
-          // Format: {league}_{away_team}_{home_team} (using raw team names from database)
-          const gameKey = `${game.sport}_${game.awayTeam}_${game.homeTeam}`;
-          
-          const isBball = game.sport === 'nba' || game.sport === 'ncaab';
-          if (isBball) {
-            debug.log(`🏀 Checking Polymarket for ${game.sport.toUpperCase()}: ${game.awayTeam} @ ${game.homeTeam} (game_key: ${gameKey})`);
-          } else {
-            debug.log(`🔍 Checking Polymarket for ${game.sport}: ${game.awayTeam} @ ${game.homeTeam} (game_key: ${gameKey})`);
-          }
-          
-          const { data: markets, error: marketsError } = await supabase
-            .from('polymarket_markets')
-            .select('*')
-            .eq('game_key', gameKey)
-            .eq('league', game.sport);
-          
-          if (marketsError) {
-            debug.error(`Error fetching markets for ${gameKey}:`, marketsError);
-          }
-          
-          if (isBball) {
-            debug.log(`  🏀 Found ${markets?.length || 0} markets for ${game.sport.toUpperCase()} ${gameKey}`);
-            if (markets && markets.length > 0) {
-              debug.log(`  🏀 Market types found: ${markets.map(m => m.market_type).join(', ')}`);
+        const gameKey = `${game.sport}_${game.awayTeam}_${game.homeTeam}`;
+        const markets = marketsByGameKey.get(gameKey);
+        if (!markets) continue;
+
+        for (const market of markets) {
+          const gameInfo = {
+            gameTime: game.gameTime,
+            homeSpread: game.homeSpread,
+            totalLine: game.totalLine,
+            homeMl: game.homeMl,
+            awayMl: game.awayMl,
+          };
+
+          if (market.market_type === 'spread') {
+            if (market.current_away_odds > 57) {
+              alerts.push({
+                gameId: game.gameId,
+                sport: game.sport,
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                marketType: 'Spread',
+                side: game.awayTeam,
+                percentage: market.current_away_odds,
+                ...gameInfo,
+              });
             }
-          } else {
-            debug.log(`  Found ${markets?.length || 0} markets for ${gameKey}`);
-          }
-
-          if (markets) {
-            for (const market of markets) {
-              // Common game info to include in alerts
-              const gameInfo = {
-                gameTime: game.gameTime,
-                homeSpread: game.homeSpread,
-                totalLine: game.totalLine,
-                homeMl: game.homeMl,
-                awayMl: game.awayMl,
-              };
-
-              // Check spread
-              if (market.market_type === 'spread') {
-                if (market.current_away_odds > 57) {
-                  alerts.push({
-                    gameId: game.gameId,
-                    sport: game.sport,
-                    awayTeam: game.awayTeam,
-                    homeTeam: game.homeTeam,
-                    marketType: 'Spread',
-                    side: game.awayTeam,
-                    percentage: market.current_away_odds,
-                    ...gameInfo,
-                  });
-                }
-                if (market.current_home_odds > 57) {
-                  alerts.push({
-                    gameId: game.gameId,
-                    sport: game.sport,
-                    awayTeam: game.awayTeam,
-                    homeTeam: game.homeTeam,
-                    marketType: 'Spread',
-                    side: game.homeTeam,
-                    percentage: market.current_home_odds,
-                    ...gameInfo,
-                  });
-                }
-              }
-
-              // Check total
-              if (market.market_type === 'total') {
-                if (market.current_away_odds > 57) {
-                  alerts.push({
-                    gameId: game.gameId,
-                    sport: game.sport,
-                    awayTeam: game.awayTeam,
-                    homeTeam: game.homeTeam,
-                    marketType: 'Total',
-                    side: 'Over',
-                    percentage: market.current_away_odds,
-                    ...gameInfo,
-                  });
-                }
-                if (market.current_home_odds > 57) {
-                  alerts.push({
-                    gameId: game.gameId,
-                    sport: game.sport,
-                    awayTeam: game.awayTeam,
-                    homeTeam: game.homeTeam,
-                    marketType: 'Total',
-                    side: 'Under',
-                    percentage: market.current_home_odds,
-                    ...gameInfo,
-                  });
-                }
-              }
-
-              // Check moneyline
-              // Skip if sportsbook odds are -200 or worse (heavy favorite = no value)
-              if (market.market_type === 'moneyline') {
-                // Away team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
-                const awayOddsHaveValue = !game.awayMl || game.awayMl > -200;
-                if (market.current_away_odds >= 85 && awayOddsHaveValue) {
-                  alerts.push({
-                    gameId: game.gameId,
-                    sport: game.sport,
-                    awayTeam: game.awayTeam,
-                    homeTeam: game.homeTeam,
-                    marketType: 'Moneyline',
-                    side: game.awayTeam,
-                    percentage: market.current_away_odds,
-                    ...gameInfo,
-                  });
-                }
-                // Home team: check if odds are NOT -200 or worse (i.e., odds > -200 or positive)
-                const homeOddsHaveValue = !game.homeMl || game.homeMl > -200;
-                if (market.current_home_odds >= 85 && homeOddsHaveValue) {
-                  alerts.push({
-                    gameId: game.gameId,
-                    sport: game.sport,
-                    awayTeam: game.awayTeam,
-                    homeTeam: game.homeTeam,
-                    marketType: 'Moneyline',
-                    side: game.homeTeam,
-                    percentage: market.current_home_odds,
-                    ...gameInfo,
-                  });
-                }
-              }
+            if (market.current_home_odds > 57) {
+              alerts.push({
+                gameId: game.gameId,
+                sport: game.sport,
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                marketType: 'Spread',
+                side: game.homeTeam,
+                percentage: market.current_home_odds,
+                ...gameInfo,
+              });
             }
           }
-        } catch (error) {
-          debug.error('Error fetching Polymarket data:', error);
+
+          if (market.market_type === 'total') {
+            if (market.current_away_odds > 57) {
+              alerts.push({
+                gameId: game.gameId,
+                sport: game.sport,
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                marketType: 'Total',
+                side: 'Over',
+                percentage: market.current_away_odds,
+                ...gameInfo,
+              });
+            }
+            if (market.current_home_odds > 57) {
+              alerts.push({
+                gameId: game.gameId,
+                sport: game.sport,
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                marketType: 'Total',
+                side: 'Under',
+                percentage: market.current_home_odds,
+                ...gameInfo,
+              });
+            }
+          }
+
+          if (market.market_type === 'moneyline') {
+            const awayOddsHaveValue = !game.awayMl || game.awayMl > -200;
+            if (market.current_away_odds >= 85 && awayOddsHaveValue) {
+              alerts.push({
+                gameId: game.gameId,
+                sport: game.sport,
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                marketType: 'Moneyline',
+                side: game.awayTeam,
+                percentage: market.current_away_odds,
+                ...gameInfo,
+              });
+            }
+            const homeOddsHaveValue = !game.homeMl || game.homeMl > -200;
+            if (market.current_home_odds >= 85 && homeOddsHaveValue) {
+              alerts.push({
+                gameId: game.gameId,
+                sport: game.sport,
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                marketType: 'Moneyline',
+                side: game.homeTeam,
+                percentage: market.current_home_odds,
+                ...gameInfo,
+              });
+            }
+          }
         }
       }
 
       return alerts;
     },
     enabled: !isFreemiumUser && !!weekGames,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch fade alerts (80%+ model confidence) - for ALL games this WEEK
@@ -1547,7 +1756,162 @@ export default function TodayInSports() {
       return alerts;
     },
     enabled: !isFreemiumUser && !!weekGames,
+    staleTime: 5 * 60 * 1000,
   });
+
+  const { data: nbaTrendOutliers = [], isLoading: nbaTrendOutliersLoading } = useQuery({
+    queryKey: ['nba-trend-outliers', today],
+    queryFn: async () => {
+      let trendsData: TrendsTeamRow[] | null = null;
+      const { data: todayRows, error: todayError } = await collegeFootballSupabase
+        .from('nba_game_situational_trends_today')
+        .select('*')
+        .order('game_date', { ascending: true })
+        .order('game_id', { ascending: true });
+
+      if (!todayError && todayRows && todayRows.length > 0) {
+        trendsData = todayRows as TrendsTeamRow[];
+      } else {
+        const { data: fallbackRows, error: fallbackError } = await collegeFootballSupabase
+          .from('nba_game_situational_trends')
+          .select('*')
+          .order('game_date', { ascending: true })
+          .order('game_id', { ascending: true });
+
+        if (fallbackError) {
+          debug.error('Error fetching NBA trend rows:', fallbackError);
+          return [];
+        }
+        trendsData = (fallbackRows || []) as TrendsTeamRow[];
+      }
+
+      if (!trendsData || trendsData.length === 0) return [];
+
+      const gamesMap = new Map<number, TrendsGame>();
+      trendsData.forEach((row) => {
+        if (!gamesMap.has(row.game_id)) {
+          gamesMap.set(row.game_id, {
+            game_id: row.game_id,
+            game_date: row.game_date,
+            tipoff_time_et: null,
+            away_team: row.team_side === 'away' ? row : ({} as TrendsTeamRow),
+            home_team: row.team_side === 'home' ? row : ({} as TrendsTeamRow),
+          });
+        } else {
+          const game = gamesMap.get(row.game_id)!;
+          if (row.team_side === 'away') game.away_team = row;
+          if (row.team_side === 'home') game.home_team = row;
+        }
+      });
+
+      const games = Array.from(gamesMap.values()).filter(
+        (game) => game.away_team?.team_name && game.home_team?.team_name
+      );
+      if (games.length === 0) return [];
+
+      const gameIds = games.map((game) => game.game_id);
+      const { data: timesRows, error: timesError } = await collegeFootballSupabase
+        .from('nba_input_values_view')
+        .select('game_id, tipoff_time_et')
+        .in('game_id', gameIds);
+
+      if (timesError) {
+        debug.error('Error fetching NBA trend tipoff times:', timesError);
+      } else if (timesRows) {
+        const timeMap = new Map<number, string | null>();
+        timesRows.forEach((row: any) => timeMap.set(row.game_id, row.tipoff_time_et));
+        games.forEach((game) => {
+          game.tipoff_time_et = timeMap.get(game.game_id) || null;
+        });
+      }
+
+      return buildTrendOutliers(games, 'nba');
+    },
+    enabled: !isFreemiumUser && !!weekGames,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: ncaabTrendOutliers = [], isLoading: ncaabTrendOutliersLoading } = useQuery({
+    queryKey: ['ncaab-trend-outliers', today],
+    queryFn: async () => {
+      let trendsData: TrendsTeamRow[] | null = null;
+      const { data: todayRows, error: todayError } = await collegeFootballSupabase
+        .from('ncaab_game_situational_trends_today')
+        .select('*')
+        .order('game_date', { ascending: true })
+        .order('game_id', { ascending: true });
+
+      if (!todayError && todayRows && todayRows.length > 0) {
+        trendsData = todayRows as TrendsTeamRow[];
+      } else {
+        const { data: fallbackRows, error: fallbackError } = await collegeFootballSupabase
+          .from('ncaab_game_situational_trends')
+          .select('*')
+          .order('game_date', { ascending: true })
+          .order('game_id', { ascending: true });
+
+        if (fallbackError) {
+          debug.error('Error fetching NCAAB trend rows:', fallbackError);
+          return [];
+        }
+        trendsData = (fallbackRows || []) as TrendsTeamRow[];
+      }
+
+      if (!trendsData || trendsData.length === 0) return [];
+
+      const gamesMap = new Map<number, TrendsGame>();
+      trendsData.forEach((row) => {
+        if (!gamesMap.has(row.game_id)) {
+          gamesMap.set(row.game_id, {
+            game_id: row.game_id,
+            game_date: row.game_date,
+            tipoff_time_et: null,
+            away_team: row.team_side === 'away' ? row : ({} as TrendsTeamRow),
+            home_team: row.team_side === 'home' ? row : ({} as TrendsTeamRow),
+          });
+        } else {
+          const game = gamesMap.get(row.game_id)!;
+          if (row.team_side === 'away') game.away_team = row;
+          if (row.team_side === 'home') game.home_team = row;
+        }
+      });
+
+      const games = Array.from(gamesMap.values()).filter(
+        (game) => game.away_team?.team_name && game.home_team?.team_name
+      );
+      if (games.length === 0) return [];
+
+      const gameIds = games.map((game) => game.game_id);
+      const { data: timesRows, error: timesError } = await collegeFootballSupabase
+        .from('v_cbb_input_values')
+        .select('game_id, start_utc, tipoff_time_et')
+        .in('game_id', gameIds);
+
+      if (timesError) {
+        debug.error('Error fetching NCAAB trend tipoff times:', timesError);
+      } else if (timesRows) {
+        const timeMap = new Map<number, string | null>();
+        timesRows.forEach((row: any) => timeMap.set(row.game_id, row.start_utc || row.tipoff_time_et));
+        games.forEach((game) => {
+          game.tipoff_time_et = timeMap.get(game.game_id) || null;
+        });
+      }
+
+      return buildTrendOutliers(games, 'ncaab');
+    },
+    enabled: !isFreemiumUser && !!weekGames,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const topNbaTrendOutliers = useMemo(
+    () => nbaTrendOutliers.slice(0, showAllNbaTrendOutliers ? nbaTrendOutliers.length : 6),
+    [nbaTrendOutliers, showAllNbaTrendOutliers]
+  );
+
+  const topNcaabTrendOutliers = useMemo(
+    () => ncaabTrendOutliers.slice(0, showAllNcaabTrendOutliers ? ncaabTrendOutliers.length : 6),
+    [ncaabTrendOutliers, showAllNcaabTrendOutliers]
+  );
 
   // Fetch all games with tails - for ALL games this WEEK
   const { data: allTailedGames, isLoading: allTailedLoading } = useQuery({
@@ -2125,7 +2489,7 @@ export default function TodayInSports() {
       
       return gamesWithTails;
     },
-    enabled: !isFreemiumUser && !!weekGames,
+    enabled: showWebsiteTailingFeatures && !isFreemiumUser && !!weekGames,
   });
 
   return (
@@ -2163,7 +2527,7 @@ export default function TodayInSports() {
           <Lock className="h-12 w-12 mx-auto mb-4 text-gray-600 dark:text-gray-400" />
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Premium Feature</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Upgrade to access today's games, value alerts, model predictions, and top tailed games.
+            Upgrade to access today's games, value alerts, and model predictions.
           </p>
           <FreemiumUpgradeBanner totalGames={weekGames?.length || 0} visibleGames={0} />
         </Card>
@@ -2523,198 +2887,78 @@ export default function TodayInSports() {
                   );
                 })()}
               </div>
-            </CardContent>
-          </Card>
 
-          {/* High Tailing It Section */}
-          <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
-            background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
-            backdropFilter: 'blur(40px)',
-            WebkitBackdropFilter: 'blur(40px)',
-          }}>
-            <CardHeader className="px-4 md:px-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <Flame className="h-5 w-5 text-orange-500" />
-                    High Tailing It
-                  </CardTitle>
-                  <CardDescription className="text-gray-600 dark:text-white/70">
-                    Most tailed games this week
-                  </CardDescription>
+              {/* NBA Betting Trends Outliers */}
+              <div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">NBA Betting Trends Outliers</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Highest ATS and O/U trend widgets at {BETTING_TRENDS_THRESHOLD}%+ win rates.
+                    </p>
+                  </div>
                 </div>
-                <SportFilterButtons 
-                  currentFilter={tailedGamesFilter} 
-                  onFilterChange={setTailedGamesFilter} 
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 md:px-6">
-              {allTailedLoading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-24" />
-                  ))}
-                </div>
-              ) : (() => {
-                const filteredTailedGames = filterBySport(allTailedGames || [], tailedGamesFilter);
-                return filteredTailedGames.length > 0 ? (
+                {nbaTrendOutliersLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[...Array(4)].map((_, i) => (
+                      <Skeleton key={`nba-outlier-skeleton-${i}`} className="h-28" />
+                    ))}
+                  </div>
+                ) : nbaTrendOutliers.length > 0 ? (
                   <>
-                    <div className="space-y-4">
-                      {filteredTailedGames
-                        .slice(0, showAllTailedGames ? filteredTailedGames.length : 5)
-                        .map((game, idx) => {
-                    // Helper to normalize pick type for color function
-                    const normalizePickType = (pickType: string) => {
-                      if (pickType === 'moneyline') return 'Moneyline';
-                      if (pickType === 'spread') return 'Spread';
-                      if (pickType === 'over_under') return 'Total';
-                      return pickType;
-                    };
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {topNbaTrendOutliers.map((outlier, idx) => (
+                        <div
+                          key={`nba-trend-outlier-${outlier.gameId}-${idx}`}
+                          className="p-4 rounded-lg bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/30 dark:border-sky-500/20 hover:border-sky-500/50 dark:hover:border-sky-500/40 transition-all cursor-pointer"
+                          onClick={() => navigate(`/nba/todays-betting-trends?focusGameId=${outlier.gameId}`)}
+                        >
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <Badge className={`${getSportColorClasses('nba')} flex items-center gap-1.5`}>
+                              <Dribbble className="h-3 w-3" />
+                              <span className="text-xs font-medium">NBA</span>
+                            </Badge>
 
-                    return (
-                      <div 
-                        key={game.gameId}
-                        className="p-4 rounded-lg bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/30 dark:border-orange-500/20"
-                      >
-                        {/* Pills Row */}
-                        <div className="flex items-center gap-2 mb-3 flex-wrap">
-                          {/* Sport Pill */}
-                          <Badge className={`${getSportColorClasses(game.sport)} flex items-center gap-1.5`}>
-                            {(() => {
-                              const SportIcon = getSportIcon(game.sport);
-                              return <SportIcon className="h-3 w-3" />;
-                            })()}
-                            <span className="text-xs font-medium">{game.sport.toUpperCase()}</span>
-                          </Badge>
-                          
-                          {/* Tail Count Pill */}
-                          <Badge className="bg-orange-500 text-white flex items-center gap-1.5">
-                            <Users className="h-3 w-3" />
-                            <span className="text-xs font-semibold">{game.tailCount || 0} tails</span>
-                          </Badge>
-                        </div>
+                            {outlier.gameTime && formatGameTime(outlier.gameTime) && (
+                              <Badge variant="secondary" className="bg-gray-200/50 dark:bg-white/10 text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                                <Clock className="h-3 w-3" />
+                                <span className="text-xs font-medium">{formatGameTime(outlier.gameTime)}</span>
+                              </Badge>
+                            )}
 
-                        {/* Game Info with Team Circles and Tails in Row */}
-                        <div className="mb-3">
-                          <div className="flex items-center gap-4">
-                            {/* Team Matchup - Subcontainer with Neutral Background - Fixed Width */}
-                            <div className="flex flex-col gap-2 flex-shrink-0 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 w-[120px] sm:w-[140px]">
-                              {/* Away Team Circle */}
-                              {(() => {
-                                const awayColors = getTeamColors(game.awayTeam, game.sport);
-                                const awayInitials = getTeamInitials(game.awayTeam, game.sport);
-                                const awayTextColor = getTeamCircleTextColor(awayColors.primary, awayColors.secondary);
-                                
-                                return (
-                                  <div className="flex flex-col items-center">
-                                    <div
-                                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
-                                      style={{
-                                        background: `linear-gradient(135deg, ${awayColors.primary} 0%, ${awayColors.secondary} 100%)`,
-                                        color: awayTextColor,
-                                        border: `2px solid ${awayColors.primary}`,
-                                      }}
-                                    >
-                                      <span className="text-xs sm:text-sm font-bold">
-                                        {awayInitials}
-                                      </span>
-                                    </div>
-                                    <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
-                                      {game.awayTeam}
-                                    </span>
-                                  </div>
-                                );
-                              })()}
+                            <Badge className={`${getPickTypeColorClasses(outlier.candidate.marketType)} flex items-center gap-1.5`}>
+                              <span className="text-xs font-medium">{outlier.candidate.marketType}</span>
+                            </Badge>
 
-                              {/* @ Symbol */}
-                              <div className="flex flex-col items-center">
-                                <div className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center flex-shrink-0 mb-1">
-                                  <span className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">@</span>
-                                </div>
-                              </div>
+                            <Badge className="bg-sky-600 text-white flex items-center gap-1.5">
+                              <Percent className="h-3 w-3" />
+                              <span className="text-xs font-semibold">{outlier.candidate.percentage.toFixed(0)}%</span>
+                            </Badge>
+                          </div>
 
-                              {/* Home Team Circle */}
-                              {(() => {
-                                const homeColors = getTeamColors(game.homeTeam, game.sport);
-                                const homeInitials = getTeamInitials(game.homeTeam, game.sport);
-                                const homeTextColor = getTeamCircleTextColor(homeColors.primary, homeColors.secondary);
-                                
-                                return (
-                                  <div className="flex flex-col items-center">
-                                    <div
-                                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
-                                      style={{
-                                        background: `linear-gradient(135deg, ${homeColors.primary} 0%, ${homeColors.secondary} 100%)`,
-                                        color: homeTextColor,
-                                        border: `2px solid ${homeColors.primary}`,
-                                      }}
-                                    >
-                                      <span className="text-xs sm:text-sm font-bold">
-                                        {homeInitials}
-                                      </span>
-                                    </div>
-                                    <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
-                                      {game.homeTeam}
-                                    </span>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-
-                            {/* Tailed Picks Breakdown - To the right */}
-                            <div className="flex-1 space-y-2 min-w-0">
-                          {game.tails.map((tail, tidx) => {
-                            // Format pick type label (same as GameTailSection)
-                            const pickTypeLabels = {
-                              moneyline: 'ML',
-                              spread: 'Spread',
-                              over_under: 'O/U',
-                            };
-                            const pickTypeLabel = pickTypeLabels[tail.pickType as keyof typeof pickTypeLabels] || tail.pickType;
-                            
-                            // Format team/side label (same as GameTailSection)
-                            const getDisplayLabel = (teamSelection: 'home' | 'away', pickType: string) => {
-                              if (pickType === 'over_under') {
-                                return teamSelection === 'home' ? 'Over' : 'Under';
-                              }
-                              return teamSelection === 'home' ? game.homeTeam : game.awayTeam;
-                            };
-                            const sideLabel = getDisplayLabel(tail.teamSelection as 'home' | 'away', tail.pickType);
-                            
-                            // Get normalized pick type for color
-                            const normalizedPickType = normalizePickType(tail.pickType);
-                            const PickTypeIcon = getPickTypeIcon(normalizedPickType);
-                            
-                            return (
-                              <div key={tidx} className="flex items-center gap-2 text-xs flex-wrap">
-                                <Badge className={`${getPickTypeColorClasses(normalizedPickType)} flex items-center gap-1.5 shrink-0`}>
-                                  <PickTypeIcon className="h-3 w-3" />
-                                  <span className="text-xs font-medium">
-                                    {sideLabel} {tail.pickType !== 'over_under' && pickTypeLabel}
-                                  </span>
-                                </Badge>
-                                <div className="flex-1 min-w-0 overflow-hidden">
-                                  <TailingAvatarList users={tail.users} size="sm" maxVisible={5} />
-                                </div>
-                              </div>
-                            );
-                          })}
-                            </div>
+                          <div className="mb-2">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1 break-words">
+                              {outlier.awayTeam} @ {outlier.homeTeam}
+                            </p>
+                            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+                              <span className="font-medium">{outlier.candidate.teamName}</span>{' '}
+                              {outlier.candidate.marketType} {outlier.candidate.percentage.toFixed(0)}% ({outlier.candidate.record})
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                              Situation: {outlier.candidate.situationLabel}
+                            </p>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      ))}
                     </div>
-                    {filteredTailedGames.length > 5 && (
+                    {nbaTrendOutliers.length > 6 && (
                       <div className="flex justify-center mt-4">
                         <Button
                           variant="outline"
-                          onClick={() => setShowAllTailedGames(!showAllTailedGames)}
+                          onClick={() => setShowAllNbaTrendOutliers(!showAllNbaTrendOutliers)}
                           className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
                         >
-                          {showAllTailedGames ? (
+                          {showAllNbaTrendOutliers ? (
                             <>
                               <ChevronUp className="h-4 w-4 mr-2" />
                               Show Less
@@ -2722,7 +2966,7 @@ export default function TodayInSports() {
                           ) : (
                             <>
                               <ChevronDown className="h-4 w-4 mr-2" />
-                              View All ({filteredTailedGames.length - 5} more)
+                              Show More ({nbaTrendOutliers.length - 6} more)
                             </>
                           )}
                         </Button>
@@ -2730,15 +2974,320 @@ export default function TodayInSports() {
                     )}
                   </>
                 ) : (
-                  <p className="text-gray-600 dark:text-gray-400 text-center py-8">
-                    {tailedGamesFilter === 'all' 
-                      ? 'No tailed games yet this week'
-                      : `No ${tailedGamesFilter.toUpperCase()} tailed games yet this week`}
+                  <p className="text-gray-600 dark:text-gray-400 text-sm text-center py-4">
+                    No NBA ATS/O-U trend outliers at {BETTING_TRENDS_THRESHOLD}%+ right now.
                   </p>
-                );
-              })()}
+                )}
+              </div>
+
+              {/* NCAAB Betting Trends Outliers */}
+              <div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">NCAAB Betting Trends Outliers</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Highest ATS and O/U trend widgets at {BETTING_TRENDS_THRESHOLD}%+ win rates.
+                    </p>
+                  </div>
+                </div>
+                {ncaabTrendOutliersLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[...Array(4)].map((_, i) => (
+                      <Skeleton key={`ncaab-outlier-skeleton-${i}`} className="h-28" />
+                    ))}
+                  </div>
+                ) : ncaabTrendOutliers.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {topNcaabTrendOutliers.map((outlier, idx) => (
+                        <div
+                          key={`ncaab-trend-outlier-${outlier.gameId}-${idx}`}
+                          className="p-4 rounded-lg bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/30 dark:border-sky-500/20 hover:border-sky-500/50 dark:hover:border-sky-500/40 transition-all cursor-pointer"
+                          onClick={() => navigate(`/ncaab/todays-betting-trends?focusGameId=${outlier.gameId}`)}
+                        >
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <Badge className={`${getSportColorClasses('ncaab')} flex items-center gap-1.5`}>
+                              <Dribbble className="h-3 w-3" />
+                              <span className="text-xs font-medium">NCAAB</span>
+                            </Badge>
+
+                            {outlier.gameTime && formatGameTime(outlier.gameTime) && (
+                              <Badge variant="secondary" className="bg-gray-200/50 dark:bg-white/10 text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                                <Clock className="h-3 w-3" />
+                                <span className="text-xs font-medium">{formatGameTime(outlier.gameTime)}</span>
+                              </Badge>
+                            )}
+
+                            <Badge className={`${getPickTypeColorClasses(outlier.candidate.marketType)} flex items-center gap-1.5`}>
+                              <span className="text-xs font-medium">{outlier.candidate.marketType}</span>
+                            </Badge>
+
+                            <Badge className="bg-sky-600 text-white flex items-center gap-1.5">
+                              <Percent className="h-3 w-3" />
+                              <span className="text-xs font-semibold">{outlier.candidate.percentage.toFixed(0)}%</span>
+                            </Badge>
+                          </div>
+
+                          <div className="mb-2">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1 break-words">
+                              {outlier.awayTeam} @ {outlier.homeTeam}
+                            </p>
+                            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+                              <span className="font-medium">{outlier.candidate.teamName}</span>{' '}
+                              {outlier.candidate.marketType} {outlier.candidate.percentage.toFixed(0)}% ({outlier.candidate.record})
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                              Situation: {outlier.candidate.situationLabel}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {ncaabTrendOutliers.length > 6 && (
+                      <div className="flex justify-center mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowAllNcaabTrendOutliers(!showAllNcaabTrendOutliers)}
+                          className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
+                        >
+                          {showAllNcaabTrendOutliers ? (
+                            <>
+                              <ChevronUp className="h-4 w-4 mr-2" />
+                              Show Less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-4 w-4 mr-2" />
+                              Show More ({ncaabTrendOutliers.length - 6} more)
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-gray-600 dark:text-gray-400 text-sm text-center py-4">
+                    No NCAAB ATS/O-U trend outliers at {BETTING_TRENDS_THRESHOLD}%+ right now.
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
+
+          {showWebsiteTailingFeatures && (
+            <Card className="mb-6 -mx-4 md:mx-0 border-gray-300 dark:border-white/20 rounded-lg" style={{
+              background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.7)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+            }}>
+              <CardHeader className="px-4 md:px-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                      <Flame className="h-5 w-5 text-orange-500" />
+                      High Tailing It
+                    </CardTitle>
+                    <CardDescription className="text-gray-600 dark:text-white/70">
+                      Most tailed games this week
+                    </CardDescription>
+                  </div>
+                  <SportFilterButtons
+                    currentFilter={tailedGamesFilter}
+                    onFilterChange={setTailedGamesFilter}
+                  />
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 md:px-6">
+                {allTailedLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-24" />
+                    ))}
+                  </div>
+                ) : (() => {
+                  const filteredTailedGames = filterBySport(allTailedGames || [], tailedGamesFilter);
+                  return filteredTailedGames.length > 0 ? (
+                    <>
+                      <div className="space-y-4">
+                        {filteredTailedGames
+                          .slice(0, showAllTailedGames ? filteredTailedGames.length : 5)
+                          .map((game, idx) => {
+                      // Helper to normalize pick type for color function
+                      const normalizePickType = (pickType: string) => {
+                        if (pickType === 'moneyline') return 'Moneyline';
+                        if (pickType === 'spread') return 'Spread';
+                        if (pickType === 'over_under') return 'Total';
+                        return pickType;
+                      };
+
+                      return (
+                        <div
+                          key={game.gameId}
+                          className="p-4 rounded-lg bg-orange-500/10 dark:bg-orange-500/10 border border-orange-500/30 dark:border-orange-500/20"
+                        >
+                          {/* Pills Row */}
+                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                            {/* Sport Pill */}
+                            <Badge className={`${getSportColorClasses(game.sport)} flex items-center gap-1.5`}>
+                              {(() => {
+                                const SportIcon = getSportIcon(game.sport);
+                                return <SportIcon className="h-3 w-3" />;
+                              })()}
+                              <span className="text-xs font-medium">{game.sport.toUpperCase()}</span>
+                            </Badge>
+
+                            {/* Tail Count Pill */}
+                            <Badge className="bg-orange-500 text-white flex items-center gap-1.5">
+                              <Users className="h-3 w-3" />
+                              <span className="text-xs font-semibold">{game.tailCount || 0} tails</span>
+                            </Badge>
+                          </div>
+
+                          {/* Game Info with Team Circles and Tails in Row */}
+                          <div className="mb-3">
+                            <div className="flex items-center gap-4">
+                              {/* Team Matchup - Subcontainer with Neutral Background - Fixed Width */}
+                              <div className="flex flex-col gap-2 flex-shrink-0 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 w-[120px] sm:w-[140px]">
+                                {/* Away Team Circle */}
+                                {(() => {
+                                  const awayColors = getTeamColors(game.awayTeam, game.sport);
+                                  const awayInitials = getTeamInitials(game.awayTeam, game.sport);
+                                  const awayTextColor = getTeamCircleTextColor(awayColors.primary, awayColors.secondary);
+
+                                  return (
+                                    <div className="flex flex-col items-center">
+                                      <div
+                                        className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
+                                        style={{
+                                          background: `linear-gradient(135deg, ${awayColors.primary} 0%, ${awayColors.secondary} 100%)`,
+                                          color: awayTextColor,
+                                          border: `2px solid ${awayColors.primary}`,
+                                        }}
+                                      >
+                                        <span className="text-xs sm:text-sm font-bold">
+                                          {awayInitials}
+                                        </span>
+                                      </div>
+                                      <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
+                                        {game.awayTeam}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
+
+                                {/* @ Symbol */}
+                                <div className="flex flex-col items-center">
+                                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center flex-shrink-0 mb-1">
+                                    <span className="text-lg sm:text-xl font-bold text-gray-400 dark:text-gray-500">@</span>
+                                  </div>
+                                </div>
+
+                                {/* Home Team Circle */}
+                                {(() => {
+                                  const homeColors = getTeamColors(game.homeTeam, game.sport);
+                                  const homeInitials = getTeamInitials(game.homeTeam, game.sport);
+                                  const homeTextColor = getTeamCircleTextColor(homeColors.primary, homeColors.secondary);
+
+                                  return (
+                                    <div className="flex flex-col items-center">
+                                      <div
+                                        className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105 mb-1"
+                                        style={{
+                                          background: `linear-gradient(135deg, ${homeColors.primary} 0%, ${homeColors.secondary} 100%)`,
+                                          color: homeTextColor,
+                                          border: `2px solid ${homeColors.primary}`,
+                                        }}
+                                      >
+                                        <span className="text-xs sm:text-sm font-bold">
+                                          {homeInitials}
+                                        </span>
+                                      </div>
+                                      <span className="text-xs font-semibold text-gray-900 dark:text-white break-words text-center w-full line-clamp-2">
+                                        {game.homeTeam}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+
+                              {/* Tailed Picks Breakdown - To the right */}
+                              <div className="flex-1 space-y-2 min-w-0">
+                            {game.tails.map((tail, tidx) => {
+                              // Format pick type label (same as GameTailSection)
+                              const pickTypeLabels = {
+                                moneyline: 'ML',
+                                spread: 'Spread',
+                                over_under: 'O/U',
+                              };
+                              const pickTypeLabel = pickTypeLabels[tail.pickType as keyof typeof pickTypeLabels] || tail.pickType;
+
+                              // Format team/side label (same as GameTailSection)
+                              const getDisplayLabel = (teamSelection: 'home' | 'away', pickType: string) => {
+                                if (pickType === 'over_under') {
+                                  return teamSelection === 'home' ? 'Over' : 'Under';
+                                }
+                                return teamSelection === 'home' ? game.homeTeam : game.awayTeam;
+                              };
+                              const sideLabel = getDisplayLabel(tail.teamSelection as 'home' | 'away', tail.pickType);
+
+                              // Get normalized pick type for color
+                              const normalizedPickType = normalizePickType(tail.pickType);
+                              const PickTypeIcon = getPickTypeIcon(normalizedPickType);
+
+                              return (
+                                <div key={tidx} className="flex items-center gap-2 text-xs flex-wrap">
+                                  <Badge className={`${getPickTypeColorClasses(normalizedPickType)} flex items-center gap-1.5 shrink-0`}>
+                                    <PickTypeIcon className="h-3 w-3" />
+                                    <span className="text-xs font-medium">
+                                      {sideLabel} {tail.pickType !== 'over_under' && pickTypeLabel}
+                                    </span>
+                                  </Badge>
+                                  <div className="flex-1 min-w-0 overflow-hidden">
+                                    <TailingAvatarList users={tail.users} size="sm" maxVisible={5} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                      </div>
+                      {filteredTailedGames.length > 5 && (
+                        <div className="flex justify-center mt-4">
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowAllTailedGames(!showAllTailedGames)}
+                            className="text-gray-900 dark:text-white border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
+                          >
+                            {showAllTailedGames ? (
+                              <>
+                                <ChevronUp className="h-4 w-4 mr-2" />
+                                Show Less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-4 w-4 mr-2" />
+                                View All ({filteredTailedGames.length - 5} more)
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-400 text-center py-8">
+                      {tailedGamesFilter === 'all'
+                        ? 'No tailed games yet this week'
+                        : `No ${tailedGamesFilter.toUpperCase()} tailed games yet this week`}
+                    </p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

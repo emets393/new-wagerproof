@@ -9,6 +9,7 @@ import { CFBGameCard } from '@/components/CFBGameCard';
 import { NBAGameCard } from '@/components/NBAGameCard';
 import { NCAABGameCard } from '@/components/NCAABGameCard';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
+import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import { LockedGameCard } from '@/components/LockedGameCard';
 import { BettingTrendsBanner } from '@/components/nba/BettingTrendsBanner';
 import { NCAABBettingTrendsBanner } from '@/components/ncaab/BettingTrendsBanner';
@@ -106,7 +107,7 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState<Record<Sport, boolean>>({
     nfl: true,
     cfb: false,
-    nba: false,
+    nba: true,
     ncaab: false,
   });
   const [refreshing, setRefreshing] = useState<Record<Sport, boolean>>({
@@ -541,16 +542,19 @@ export default function FeedScreen() {
       // Fetch team mappings for logos and abbreviations
       const { data: teamMappings, error: mappingError } = await collegeFootballSupabase
         .from('ncaab_team_mapping')
-        .select('api_team_id, espn_team_url, team_abbrev');
+        .select('api_team_id, espn_team_id, team_abbrev');
 
       // Use string keys for consistency (database might return numbers or strings)
-      // Generate ESPN logo URLs from team ID since espn_team_url column has page URLs, not image URLs
+      // Use espn_team_id (not api_team_id) to build ESPN logo URLs — matches how the website does it
       let teamMappingMap = new Map<string, { logo: string | null; abbrev: string | null }>();
       if (!mappingError && teamMappings) {
         teamMappings.forEach((mapping: any) => {
           const key = String(mapping.api_team_id);
-          // ESPN logo URL format: https://a.espncdn.com/i/teamlogos/ncaa/500/{teamId}.png
-          const logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${mapping.api_team_id}.png`;
+          // ESPN logo URL format: https://a.espncdn.com/i/teamlogos/ncaa/500/{espn_team_id}.png
+          let logoUrl: string | null = null;
+          if (mapping.espn_team_id != null) {
+            logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${mapping.espn_team_id}.png`;
+          }
           teamMappingMap.set(key, {
             logo: logoUrl,
             abbrev: mapping.team_abbrev || null,
@@ -560,8 +564,8 @@ export default function FeedScreen() {
         // Log a sample entry for debugging
         const sampleEntry = teamMappings[0];
         if (sampleEntry) {
-          const sampleLogo = `https://a.espncdn.com/i/teamlogos/ncaa/500/${sampleEntry.api_team_id}.png`;
-          console.log(`📋 Sample mapping: api_team_id=${sampleEntry.api_team_id}, abbrev=${sampleEntry.team_abbrev}, logo=${sampleLogo}`);
+          const sampleLogo = sampleEntry.espn_team_id ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${sampleEntry.espn_team_id}.png` : 'none';
+          console.log(`📋 Sample mapping: api_team_id=${sampleEntry.api_team_id}, espn_team_id=${sampleEntry.espn_team_id}, abbrev=${sampleEntry.team_abbrev}, logo=${sampleLogo}`);
         }
       } else if (mappingError) {
         console.warn('⚠️ NCAAB team mappings error:', mappingError.message);
@@ -1065,10 +1069,9 @@ export default function FeedScreen() {
       return gamesCopy;
     }, [filtered, currentSortMode, sport]);
     
-    // Show shimmer if loading or if no data yet (for instant feel when switching tabs)
-    const hasData = games.length > 0;
+    // Show shimmer only during an active load.
     const isCurrentlyLoading = isLoading && !isRefreshing;
-    const showShimmer = isCurrentlyLoading || (!hasData && !errorMsg && !isRefreshing);
+    const showShimmer = isCurrentlyLoading;
     
     return (
       <View key={sport} style={styles.pageContainer}>
@@ -1112,10 +1115,28 @@ export default function FeedScreen() {
             ListHeaderComponent={renderListHeader(sport)}
             ListEmptyComponent={
               <View style={styles.centerContainer}>
-                <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
-                <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-                  {searchTerm ? 'No games match your search' : 'No games available'}
-                </Text>
+                {searchTerm ? (
+                  <>
+                    <MaterialCommunityIcons name="calendar-blank" size={60} color={theme.colors.onSurfaceVariant} />
+                    <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
+                      No games match your search
+                    </Text>
+                  </>
+                ) : (
+                  <NoGamesTerminal
+                    context={
+                      sport === 'nfl'
+                        ? 'feed_nfl'
+                        : sport === 'cfb'
+                        ? 'feed_cfb'
+                        : sport === 'nba'
+                        ? 'feed_nba'
+                        : sport === 'ncaab'
+                        ? 'feed_ncaab'
+                        : 'feed_mlb'
+                    }
+                  />
+                )}
               </View>
             }
             refreshControl={

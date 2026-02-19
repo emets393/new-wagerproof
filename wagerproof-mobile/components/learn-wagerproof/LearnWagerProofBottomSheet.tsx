@@ -7,10 +7,10 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useLearnWagerProof, TOTAL_SLIDES } from '@/contexts/LearnWagerProofContext';
 import { LearnSlide } from './LearnSlide';
 import {
+  Slide1_Create247Agent,
   Slide1_GameCards,
   Slide2_GameDetails,
   Slide3_WagerBot,
-  Slide4_EditorPicks,
   Slide5_Outliers,
   Slide6_MoreFeatures,
 } from './slides';
@@ -56,6 +56,13 @@ const BlurredBackground = ({ style, isDark }: BottomSheetBackgroundProps & { isD
 // Slide configuration
 const SLIDES = [
   {
+    icon: 'robot',
+    title: 'Create a 24/7 Agent',
+    description: 'Build agents that research games and find picks for you all day, every day.',
+    valueProposition: "Create multiple agents, run different strategies in parallel, and track the world's best agents with full records and picks on the leaderboard.",
+    Component: Slide1_Create247Agent,
+  },
+  {
     icon: 'cards',
     title: 'Game Predictions',
     description: 'Our AI model analyzes thousands of data points. Green confidence = strong pick.',
@@ -75,13 +82,6 @@ const SLIDES = [
     description: 'WagerBot automatically surfaces insights as you browse.',
     valueProposition: 'Never miss a key insight. WagerBot watches for trends, streaks, and situational edges so you don\'t have to dig through stats yourself. It\'s like having a research assistant in your pocket.',
     Component: Slide3_WagerBot,
-  },
-  {
-    icon: 'star',
-    title: 'Editor Picks',
-    description: "Follow our editor's expert picks with full transparency on results.",
-    valueProposition: 'Follow proven track records, not empty promises. Every pick is recorded with full transparency—wins, losses, and units. You\'ll always know exactly how our editors are performing.',
-    Component: Slide4_EditorPicks,
   },
   {
     icon: 'trending-up',

@@ -4,7 +4,6 @@ import { collegeFootballSupabase } from '@/integrations/supabase/college-footbal
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, Calendar, Clock, Info, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Zap, Search } from 'lucide-react';
@@ -37,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { getNBATeamColors, getNBATeamInitials } from '@/utils/teamColors';
 import { useSportsPageCache } from '@/hooks/useSportsPageCache';
 import { MatchupOverviewModal } from '@/components/MatchupOverviewModal';
+import { SHOW_WEBSITE_TAILING_FEATURES } from '@/lib/featureFlags';
 
 interface NBAPrediction {
   id: string;
@@ -1104,9 +1104,6 @@ ${contextParts}
       <div className="mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">NBA</h1>
-          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-xs sm:text-sm px-2 py-0.5">
-            BETA
-          </Badge>
         </div>
       </div>
       
@@ -1693,22 +1690,24 @@ ${contextParts}
                   </div>
                 </CardContent>
                 
-                <CardFooter className="pt-0 pb-4">
-                  <GameTailSection
-                    gameUniqueId={prediction.training_key || prediction.unique_id}
-                    sport="nba"
-                    homeTeam={prediction.home_team}
-                    awayTeam={prediction.away_team}
-                    lines={{
-                      home_ml: prediction.home_ml,
-                      away_ml: prediction.away_ml,
-                      home_spread: prediction.home_spread,
-                      away_spread: prediction.away_spread,
-                      total: prediction.over_line,
-                    }}
-                    compact
-                  />
-                </CardFooter>
+                {SHOW_WEBSITE_TAILING_FEATURES && (
+                  <CardFooter className="pt-0 pb-4">
+                    <GameTailSection
+                      gameUniqueId={prediction.training_key || prediction.unique_id}
+                      sport="nba"
+                      homeTeam={prediction.home_team}
+                      awayTeam={prediction.away_team}
+                      lines={{
+                        home_ml: prediction.home_ml,
+                        away_ml: prediction.away_ml,
+                        home_spread: prediction.home_spread,
+                        away_spread: prediction.away_spread,
+                        total: prediction.over_line,
+                      }}
+                      compact
+                    />
+                  </CardFooter>
+                )}
               </NFLGameCard>
               
               {/* Lock Overlay for Freemium Users */}

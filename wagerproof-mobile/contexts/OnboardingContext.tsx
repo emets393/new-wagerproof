@@ -8,6 +8,15 @@ import {
   trackOnboardingCompleted,
   trackOnboardingAbandoned,
 } from '../services/analytics';
+import {
+  CreateAgentFormState,
+  INITIAL_FORM_STATE,
+  PersonalityParams,
+  CustomInsights,
+  ArchetypeId,
+  DEFAULT_PERSONALITY_PARAMS,
+  DEFAULT_CUSTOM_INSIGHTS,
+} from '@/types/agent';
 
 export interface OnboardingData {
   favoriteSports?: string[];
@@ -18,6 +27,8 @@ export interface OnboardingData {
   phoneNumber?: string;
   acquisitionSource?: string;
   termsAcceptedAt?: string;
+  agentFormState?: CreateAgentFormState;
+  createdAgentId?: string;
 }
 
 interface OnboardingContextType {
@@ -29,6 +40,12 @@ interface OnboardingContextType {
   updateOnboardingData: (data: Partial<OnboardingData>) => void;
   submitOnboardingData: () => Promise<void>;
   resetOnboarding: () => void;
+  agentFormState: CreateAgentFormState;
+  updateAgentFormState: <K extends keyof CreateAgentFormState>(key: K, value: CreateAgentFormState[K]) => void;
+  updateAgentPersonalityParam: <K extends keyof PersonalityParams>(key: K, value: PersonalityParams[K]) => void;
+  updateAgentCustomInsight: <K extends keyof CustomInsights>(key: K, value: CustomInsights[K]) => void;
+  applyArchetypePreset: (archetypeId: ArchetypeId | null, params?: Partial<PersonalityParams>, insights?: CustomInsights) => void;
+  setCreatedAgentId: (id: string) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -41,6 +58,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [isTransitioning, setIsTransitioning] = useState(false);
   const hasTrackedStart = useRef(false);
   const previousStep = useRef(1);
+
+  // Agent builder form state
+  const [agentFormState, setAgentFormState] = useState<CreateAgentFormState>({
+    ...INITIAL_FORM_STATE,
+    personality_params: { ...INITIAL_FORM_STATE.personality_params },
+    custom_insights: { ...INITIAL_FORM_STATE.custom_insights },
+  });
+  const [createdAgentId, setCreatedAgentIdState] = useState<string | null>(null);
 
   // Track onboarding started when first mounted
   useEffect(() => {
@@ -67,7 +92,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       console.log('Ignoring nextStep - already transitioning');
       return;
     }
-    
+
     console.log('nextStep called, current step:', currentStep);
     setIsTransitioning(true);
     setDirection(1);
@@ -75,7 +100,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       console.log('Setting step from', prev, 'to', prev + 1);
       return prev + 1;
     });
-    
+
     // Reset transition flag after animation completes
     setTimeout(() => setIsTransitioning(false), 300);
   };
@@ -89,13 +114,78 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setOnboardingData((prev) => ({ ...prev, ...data }));
   };
 
+  // Agent form state helpers
+  const updateAgentFormState = useCallback(
+    <K extends keyof CreateAgentFormState>(key: K, value: CreateAgentFormState[K]) => {
+      setAgentFormState((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+
+  const updateAgentPersonalityParam = useCallback(
+    <K extends keyof PersonalityParams>(key: K, value: PersonalityParams[K]) => {
+      setAgentFormState((prev) => ({
+        ...prev,
+        personality_params: {
+          ...prev.personality_params,
+          [key]: value,
+        },
+      }));
+    },
+    []
+  );
+
+  const updateAgentCustomInsight = useCallback(
+    <K extends keyof CustomInsights>(key: K, value: CustomInsights[K]) => {
+      setAgentFormState((prev) => ({
+        ...prev,
+        custom_insights: {
+          ...prev.custom_insights,
+          [key]: value,
+        },
+      }));
+    },
+    []
+  );
+
+  const applyArchetypePreset = useCallback(
+    (
+      archetypeId: ArchetypeId | null,
+      personalityParams?: Partial<PersonalityParams>,
+      customInsights?: CustomInsights
+    ) => {
+      setAgentFormState((prev) => ({
+        ...prev,
+        archetype: archetypeId,
+        personality_params: archetypeId
+          ? { ...DEFAULT_PERSONALITY_PARAMS, ...personalityParams }
+          : { ...DEFAULT_PERSONALITY_PARAMS },
+        custom_insights: archetypeId && customInsights
+          ? { ...customInsights }
+          : { ...DEFAULT_CUSTOM_INSIGHTS },
+      }));
+    },
+    []
+  );
+
+  const setCreatedAgentId = useCallback((id: string) => {
+    setCreatedAgentIdState(id);
+    setOnboardingData((prev) => ({ ...prev, createdAgentId: id }));
+  }, []);
+
   const resetOnboarding = useCallback(() => {
     console.log('Resetting onboarding context to step 1');
     setCurrentStep(1);
     setDirection(0);
     setOnboardingData({});
     setIsTransitioning(false);
-  }, []); // Empty deps - this function doesn't depend on any external values
+    setAgentFormState({
+      ...INITIAL_FORM_STATE,
+      personality_params: { ...INITIAL_FORM_STATE.personality_params },
+      custom_insights: { ...INITIAL_FORM_STATE.custom_insights },
+    });
+    setCreatedAgentIdState(null);
+  }, []);
 
   const submitOnboardingData = async () => {
     if (!user) {
@@ -155,6 +245,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         updateOnboardingData,
         submitOnboardingData,
         resetOnboarding,
+        agentFormState,
+        updateAgentFormState,
+        updateAgentPersonalityParam,
+        updateAgentCustomInsight,
+        applyArchetypePreset,
+        setCreatedAgentId,
       }}
     >
       {children}
@@ -169,4 +265,3 @@ export function useOnboarding() {
   }
   return context;
 }
-
