@@ -12,7 +12,6 @@ import {
   RefreshControl,
   Animated,
   Alert,
-  Image,
   Keyboard,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
@@ -20,7 +19,9 @@ import { useThemeContext } from '../contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import LottieView from 'lottie-react-native';
 import ReanimatedAnimated, { 
   useSharedValue, 
   useAnimatedStyle,
@@ -213,10 +214,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const [isStreaming, setIsStreaming] = useState(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [chatHistories, setChatHistories] = useState<Array<{ id: string; title: string; timestamp: string; threadId: string | null }>>([]);
-  
-  // Image attachment state
-  const [selectedImages, setSelectedImages] = useState<Array<{ uri: string; base64: string; name: string }>>([]);
-  const [isPickingImage, setIsPickingImage] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   
   // Animation values for message appearance
@@ -321,7 +318,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       const threads = await chatThreadService.getThreads(userId);
       const histories = threads.map(thread => ({
         id: thread.id,
-        title: thread.title || thread.openai_thread_id || 'New Chat',
+        title: thread.title || 'New Chat',
         timestamp: thread.updated_at,
         threadId: thread.openai_thread_id,
       }));
@@ -531,61 +528,13 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     }, 100);
   }, [isLoading, isSending]);
 
-  const handlePickImage = useCallback(async () => {
-    try {
-      setIsPickingImage(true);
-
-      // Request permissions
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permissionResult.granted) {
-        Alert.alert('Permission required', 'Please allow access to your photo library to upload images.');
-        setIsPickingImage(false);
-        return;
-      }
-
-      // Pick image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.8,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets.length > 0) {
-        const asset = result.assets[0];
-        const fileName = asset.fileName || `image_${Date.now()}.jpg`;
-
-        if (asset.base64) {
-          setSelectedImages(prev => [...prev, {
-            uri: asset.uri,
-            base64: asset.base64!,
-            name: fileName,
-          }]);
-
-          // Give haptic feedback
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
-    } finally {
-      setIsPickingImage(false);
-    }
-  }, []);
-
-  const handleRemoveImage = useCallback((index: number) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
-  }, []);
-
   const sendMessage = async () => {
-    if ((!inputText.trim() && selectedImages.length === 0) || isLoading || isSending) return;
+    if (!inputText.trim() || isLoading || isSending) return;
     await sendMessageWithText(inputText.trim());
   };
 
   const sendMessageWithText = async (messageText: string) => {
-    if (!messageText && selectedImages.length === 0 || isLoading || isSending) return;
+    if (!messageText || isLoading || isSending) return;
     
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
@@ -598,14 +547,11 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     console.log('  - Input text:', messageText);
     console.log('  - Message content:', userMessage.content);
     console.log('  - Message content length:', userMessage.content.length);
-    console.log(`📸 Attached images: ${selectedImages.length}`);
 
     // Clear input immediately and update UI
     setInputText('');
     setShowWelcome(false);
     setMessages(prev => [...prev, userMessage]);
-    const imagesToSend = selectedImages;
-    setSelectedImages([]); // Clear selected images after sending
     setIsSending(true);
 
     // Animate user message appearance
@@ -666,15 +612,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         console.log(`📝 Including conversation history (${conversationHistory.length} messages)`);
       }
 
-      // Add images if present
-      if (imagesToSend.length > 0) {
-        requestBody.images = imagesToSend.map(img => ({
-          base64: img.base64,
-          name: img.name,
-        }));
-        console.log(`📸 Including ${imagesToSend.length} image(s)`);
-      }
-
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('📦 REQUEST PAYLOAD TO BUILDSHIP (RESPONSES API)');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -685,7 +622,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       console.log('  - message type:', typeof requestBody.message);
       console.log('  - conversationHistory:', requestBody.conversationHistory ? `${requestBody.conversationHistory.length} messages` : 'EMPTY');
       console.log('  - SystemPrompt:', requestBody.SystemPrompt ? `(${requestBody.SystemPrompt.length} chars)` : 'NOT_PRESENT');
-      console.log('  - images:', requestBody.images ? `${requestBody.images.length} images` : 'EMPTY');
       
       // Enhanced debugging for SystemPrompt
       if (requestBody.SystemPrompt) {
@@ -923,13 +859,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               await chatThreadService.saveMessage(thread.id, 'assistant', currentContent);
               console.log('✅ Assistant message saved');
               
-              // Generate AI title asynchronously (don't wait)
-              console.log('🤖 Triggering AI title generation...');
-              chatThreadService.generateThreadTitle(
-                thread.id,
-                messageText,
-                currentContent
-              ).catch(err => console.error('❌ Failed to generate title:', err));
             } else {
               console.log('📝 Updating existing thread:', sessionId);
               
@@ -1034,26 +963,40 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
+      <LinearGradient
+        colors={['#141414', '#0d0d0d', '#080808']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
       {/* History Drawer */}
       <Animated.View 
         style={[
           styles.historyDrawer,
           {
-            backgroundColor: theme.colors.surface,
             paddingTop: insets.top,
             transform: [{ translateX: drawerAnimation }],
           }
         ]}
       >
-        <View style={[styles.drawerHeader, { borderBottomColor: theme.colors.outline }]}>
-          <Text style={[styles.drawerTitle, { color: theme.colors.onSurface }]}>Chat History</Text>
+        <View pointerEvents="none" style={styles.historyDrawerFx}>
+          <BlurView intensity={34} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <LinearGradient
+            colors={['rgba(20,20,20,0.92)', 'rgba(14,14,14,0.85)', 'rgba(10,10,10,0.8)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </View>
+        <View style={styles.drawerHeader}>
+          <Text style={styles.drawerTitle}>Chat History</Text>
           <TouchableOpacity onPress={toggleHistoryDrawer}>
-            <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+            <MaterialCommunityIcons name="close" size={24} color="#ffffff" />
           </TouchableOpacity>
         </View>
         <ScrollView style={styles.drawerContent}>
           {chatHistories.length === 0 ? (
-            <Text style={[styles.emptyHistoryText, { color: theme.colors.onSurfaceVariant }]}>
+            <Text style={styles.emptyHistoryText}>
               No chat history yet
             </Text>
           ) : (
@@ -1062,7 +1005,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 key={history.id}
                 style={[
                   styles.historyItem,
-                  sessionId === history.id && { backgroundColor: theme.colors.primaryContainer },
+                  sessionId === history.id && styles.historyItemActive,
                 ]}
               >
                 <TouchableOpacity
@@ -1072,17 +1015,17 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                   <MaterialCommunityIcons 
                     name="message-text-outline" 
                     size={20} 
-                    color={theme.colors.primary} 
+                    color="rgba(255,255,255,0.82)" 
                     style={styles.historyIcon}
                   />
                   <View style={styles.historyTextContainer}>
                     <Text 
-                      style={[styles.historyTitle, { color: theme.colors.onSurface }]}
+                      style={styles.historyTitle}
                       numberOfLines={1}
                     >
                       {history.title}
                     </Text>
-                    <Text style={[styles.historyTimestamp, { color: theme.colors.onSurfaceVariant }]}>
+                    <Text style={styles.historyTimestamp}>
                       {new Date(history.timestamp).toLocaleDateString()}
                     </Text>
                   </View>
@@ -1095,7 +1038,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                   <MaterialCommunityIcons 
                     name="trash-can-outline" 
                     size={20} 
-                    color={theme.colors.error} 
+                    color="rgba(255,255,255,0.6)" 
                   />
                 </TouchableOpacity>
               </View>
@@ -1133,11 +1076,12 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 }
               >
                 <View style={styles.welcomeContent}>
-                  <View style={styles.iconContainer}>
-                    <MaterialCommunityIcons
-                      name="robot"
-                      size={64}
-                      color={theme.colors.primary}
+                  <View style={[styles.iconContainer, styles.welcomeGlyph]}>
+                    <LottieView
+                      source={require('../assets/ChattingRobot.json')}
+                      autoPlay
+                      loop
+                      style={styles.welcomeLottie}
                     />
                   </View>
                   {isLoading ? (
@@ -1167,7 +1111,13 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               <Animated.ScrollView
                 ref={scrollViewRef}
                 style={[styles.messagesContainer, styles.scrollView]}
-                contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight }]}
+                contentContainerStyle={[
+                  styles.messagesContent,
+                  {
+                    paddingTop: headerHeight,
+                    paddingBottom: keyboardHeight > 0 ? keyboardHeight + 120 : insets.bottom + 150,
+                  }
+                ]}
                 showsVerticalScrollIndicator={true}
                 keyboardShouldPersistTaps="handled"
                 {...scrollProps}
@@ -1239,7 +1189,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                       style={[
                         !isAssistantContent && styles.messageBubble,
                         message.role === 'user'
-                          ? [styles.userMessage, { backgroundColor: theme.colors.primary }]
+                          ? styles.userMessage
                           : (message.role === 'assistant' && !isAssistantContent)
                             ? [styles.assistantMessage, { backgroundColor: theme.colors.surfaceVariant }]
                             : [],
@@ -1257,6 +1207,10 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                             Thinking...
                           </Text>
                         </View>
+                      ) : message.role === 'user' ? (
+                        <Text style={[styles.messageText, { color: '#ffffff' }]}>
+                          {message.content}
+                        </Text>
                       ) : message.role === 'assistant' ? (
                         isStreamingThis ? (
                           // During streaming: use animated plain text for smooth character fade-in
@@ -1289,9 +1243,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                           </ReanimatedAnimated.View>
                         )
                     ) : (
-                      <Text style={[styles.messageText, { color: '#ffffff' }]}>
-                        {message.content}
-                      </Text>
+                      <Text style={[styles.messageText, { color: '#ffffff' }]}>{message.content}</Text>
                     )}
                     </View>
                   </Animated.View>
@@ -1306,7 +1258,6 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             <View style={[
               styles.inputWrapper,
               {
-                backgroundColor: isDark ? '#000000' : theme.colors.background,
                 bottom: keyboardHeight > 0 ? keyboardHeight : 0,
                 paddingBottom: Platform.OS === 'ios' ? insets.bottom : 16,
               }
@@ -1322,17 +1273,16 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 {suggestedMessages.map((item, index) => (
                   <TouchableOpacity
                     key={index}
-                    style={[
-                      styles.suggestedMessageBubble,
-                      {
-                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
-                        borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)',
-                      }
-                    ]}
+                    style={styles.suggestedMessageBubble}
                     onPress={() => handleSuggestedMessage(item.message)}
                     disabled={isLoading || isSending}
                     activeOpacity={0.7}
                   >
+                    <BlurView
+                      intensity={24}
+                      tint="dark"
+                      style={styles.suggestedMessageBlur}
+                    />
                     <Text style={[styles.suggestedMessageText, { color: theme.colors.onSurface }]}>
                       {item.label}
                     </Text>
@@ -1341,39 +1291,18 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               </ScrollView>
             )}
 
-            {/* Selected Images Preview */}
-            {selectedImages.length > 0 && (
-              <View style={styles.imagePreviewContainer}>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.imagePreviewScroll}
-                >
-                  {selectedImages.map((image, index) => (
-                    <View key={`image_${index}`} style={styles.imagePreviewItem}>
-                      <Image
-                        source={{ uri: image.uri }}
-                        style={styles.imagePreview}
-                      />
-                      <TouchableOpacity
-                        style={styles.imageRemoveButton}
-                        onPress={() => handleRemoveImage(index)}
-                      >
-                        <MaterialCommunityIcons name="close" size={14} color="#ffffff" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+            <View style={styles.inputContainer}>
+              <BlurView
+                intensity={30}
+                tint="dark"
+                style={styles.inputBlur}
+              />
               <TextInput
                 ref={inputRef}
                 style={[styles.input, { color: theme.colors.onSurface }]}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder={selectedImages.length > 0 ? 'Add a message with your image...' : 'Chat with WagerBot'}
+                placeholder="Chat with WagerBot"
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 multiline={true}
                 maxLength={500}
@@ -1394,24 +1323,12 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               {/* Bottom row with icons */}
               <View style={styles.inputBottomRow}>
                 <TouchableOpacity
-                  style={[styles.attachButton, isPickingImage && styles.attachButtonDisabled]}
-                  onPress={handlePickImage}
-                  disabled={isPickingImage || isSending}
-                >
-                  {isPickingImage ? (
-                    <ActivityIndicator size="small" color={theme.colors.onSurfaceVariant} />
-                  ) : (
-                    <MaterialCommunityIcons name="image-plus" size={20} color={theme.colors.onSurfaceVariant} />
-                  )}
-                </TouchableOpacity>
-                
-                <TouchableOpacity
                   style={[
                     styles.sendButton,
-                    (inputText.trim() || selectedImages.length > 0) && styles.sendButtonActive,
+                    inputText.trim() && styles.sendButtonActive,
                   ]}
                   onPress={sendMessage}
-                  disabled={(!inputText.trim() && selectedImages.length === 0) || isSending}
+                  disabled={!inputText.trim() || isSending}
                 >
                   {isSending ? (
                     <ActivityIndicator size="small" color="#ffffff" />
@@ -1419,7 +1336,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                     <MaterialCommunityIcons 
                       name="arrow-up" 
                       size={18} 
-                      color="#ffffff"
+                      color={inputText.trim() ? '#101010' : '#f0f0f0'}
                     />
                   )}
                 </TouchableOpacity>
@@ -1456,11 +1373,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 280,
     zIndex: 1000,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  historyDrawerFx: {
+    ...StyleSheet.absoluteFillObject,
   },
   drawerHeader: {
     flexDirection: 'row',
@@ -1468,10 +1389,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
   drawerTitle: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#ffffff',
   },
   drawerContent: {
     flex: 1,
@@ -1480,7 +1403,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  historyItemActive: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   historyItemContent: {
     flex: 1,
@@ -1503,14 +1429,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 4,
+    color: '#ffffff',
   },
   historyTimestamp: {
     fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
   },
   emptyHistoryText: {
     textAlign: 'center',
     padding: 32,
     fontSize: 14,
+    color: 'rgba(255,255,255,0.65)',
   },
   drawerBackdrop: {
     position: 'absolute',
@@ -1553,7 +1482,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
-    paddingVertical: 48,
+    paddingVertical: 56,
   },
   welcomeContent: {
     alignItems: 'center',
@@ -1564,12 +1493,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
+  welcomeGlyph: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: 'rgba(0,0,0,0)',
+  },
+  welcomeLottie: {
+    width: 92,
+    height: 92,
+  },
   welcomeTitle: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: '500',
     textAlign: 'center',
     marginBottom: 12,
-    lineHeight: 32,
+    lineHeight: 28,
+    letterSpacing: -0.5,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : undefined,
   },
   welcomeSubtitle: {
     fontSize: 16,
@@ -1582,7 +1523,6 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     padding: 16,
-    paddingBottom: 200, // Extra padding to account for input area, suggested messages, and keyboard
     flexGrow: 1,
   },
   messageRow: {
@@ -1607,6 +1547,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   messageBubble: {
+    overflow: 'hidden',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 18,
@@ -1618,6 +1559,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   userMessage: {
+    backgroundColor: '#2e7d32',
     borderBottomRightRadius: 4,
   },
   assistantMessage: {
@@ -1644,13 +1586,23 @@ const styles = StyleSheet.create({
     // bottom is set dynamically based on keyboard height
   },
   inputContainer: {
-    borderRadius: 24,
+    overflow: 'hidden',
+    borderRadius: 30,
     paddingTop: 14,
     paddingBottom: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     minHeight: 72,
+    backgroundColor: 'rgba(26, 26, 26, 0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
   },
   input: {
+    zIndex: 1,
     fontSize: 16,
     lineHeight: 20,
     minHeight: 20,
@@ -1661,32 +1613,22 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   inputBottomRow: {
+    zIndex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginTop: 2,
   },
-  attachButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: -4,
-  },
-  attachButtonDisabled: {
-    opacity: 0.7,
-  },
   sendButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(128,128,128,0.3)',
-    marginRight: -4,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
   sendButtonActive: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: '#ffffff',
   },
   // Suggested Messages Styles (User Scrollable)
   suggestedMessagesScrollView: {
@@ -1701,11 +1643,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   suggestedMessageBubble: {
+    overflow: 'hidden',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 0.5,
+    borderRadius: 16,
+    borderWidth: 1,
     marginRight: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  suggestedMessageBlur: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  inputBlur: {
+    ...StyleSheet.absoluteFillObject,
   },
   suggestedMessageText: {
     fontSize: 14,
@@ -1726,40 +1677,5 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 40,
     zIndex: 10,
-  },
-  // Image Preview Styles
-  imagePreviewContainer: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 12,
-  },
-  imagePreviewScroll: {
-    flexDirection: 'row',
-  },
-  imagePreviewItem: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    marginRight: 8,
-    position: 'relative',
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-  },
-  imageRemoveButton: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

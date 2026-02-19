@@ -31,4 +31,6 @@ export {
   type EditorPickForWidget,
   type FadeAlertForWidget,
   type PolymarketValueForWidget,
+  type AgentPickForWidget,
+  type TopAgentWidgetData,
 } from './src/WidgetDataBridge';

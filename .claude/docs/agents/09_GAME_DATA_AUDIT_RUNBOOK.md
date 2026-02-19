@@ -117,7 +117,7 @@ The script writes:
   - Source table: `nba_input_values_view`
   - Payload field groups: `vegas_lines`, `team_stats`, `trends`
 - Prediction accuracy snapshot:
-  - Source table: `nba_todays_games_predictions_with_accuracy`
+  - Source table: `nba_todays_games_predictions_with_accuracy_cache`
   - Join key: `game_id`
   - Payload field group: `prediction_accuracy`
 - Injuries:

@@ -13,7 +13,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useLeaderboardByMode } from '@/hooks/useLeaderboard';
+import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { LeaderboardEntry, LeaderboardSortMode } from '@/services/agentPerformanceService';
 import { Sport, formatNetUnits } from '@/types/agent';
 
@@ -52,11 +54,13 @@ function LeaderboardRow({
   rank,
   onPress,
   isDark,
+  lockStats,
 }: {
   entry: LeaderboardEntry;
   rank: number;
   onPress: () => void;
   isDark: boolean;
+  lockStats: boolean;
 }) {
   const theme = useTheme();
 
@@ -154,14 +158,32 @@ function LeaderboardRow({
         <Text style={[styles.recordText, { color: theme.colors.onSurface }]}>
           {record}
         </Text>
-        <Text
-          style={[
-            styles.unitsText,
-            { color: isPositive ? '#10b981' : '#ef4444' },
-          ]}
-        >
-          {netUnits}
-        </Text>
+        <View style={styles.unitsMaskContainer}>
+          <Text
+            style={[
+              styles.unitsText,
+              { color: isPositive ? '#10b981' : '#ef4444' },
+            ]}
+          >
+            {netUnits}
+          </Text>
+          {lockStats && (
+            <>
+              <AndroidBlurView
+                intensity={18}
+                tint={isDark ? 'dark' : 'light'}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <View style={styles.unitsLockIcon}>
+                <MaterialCommunityIcons
+                  name="lock"
+                  size={10}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              </View>
+            </>
+          )}
+        </View>
       </View>
 
       {/* Win Rate */}
@@ -303,7 +325,9 @@ export function AgentLeaderboard({
   const theme = useTheme();
   const router = useRouter();
   const { isDark } = useThemeContext();
+  const { isPro, isAdmin } = useAgentEntitlements();
   const [sortMode, setSortMode] = useState<LeaderboardSortMode>('overall');
+  const lockStats = !(isPro || isAdmin);
 
   // Fetch leaderboard
   const {
@@ -312,6 +336,8 @@ export function AgentLeaderboard({
     isRefetching,
     refetch,
   } = useLeaderboardByMode(sortMode, limit);
+
+  const displayLeaderboard = (leaderboard || []).map((entry, index) => ({ entry, rank: index + 1 }));
 
   // Handle row press
   const handleRowPress = useCallback(
@@ -329,20 +355,21 @@ export function AgentLeaderboard({
 
   // Render row
   const renderRow = useCallback(
-    ({ item, index }: { item: LeaderboardEntry; index: number }) => (
+    ({ item }: { item: { entry: LeaderboardEntry; rank: number } }) => (
       <LeaderboardRow
-        entry={item}
-        rank={index + 1}
-        onPress={() => handleRowPress(item)}
+        entry={item.entry}
+        rank={item.rank}
+        onPress={() => handleRowPress(item.entry)}
         isDark={isDark}
+        lockStats={lockStats}
       />
     ),
-    [handleRowPress, isDark]
+    [handleRowPress, isDark, lockStats]
   );
 
   // Key extractor
   const keyExtractor = useCallback(
-    (item: LeaderboardEntry) => item.avatar_id,
+    (item: { entry: LeaderboardEntry; rank: number }) => `${item.entry.avatar_id}:${item.rank}`,
     []
   );
 
@@ -467,9 +494,9 @@ export function AgentLeaderboard({
           {renderHeader()}
           {renderLoadingSkeletons()}
         </ScrollWrapper>
-      ) : leaderboard && leaderboard.length > 0 ? (
+      ) : displayLeaderboard.length > 0 ? (
         <Animated.FlatList
-          data={leaderboard}
+          data={displayLeaderboard}
           renderItem={renderRow}
           keyExtractor={keyExtractor}
           ListHeaderComponent={renderHeader}
@@ -500,7 +527,7 @@ export function AgentLeaderboard({
       )}
 
       {/* View All Link */}
-      {showViewAll && leaderboard && leaderboard.length >= limit && (
+      {showViewAll && displayLeaderboard.length >= limit && (
         <TouchableOpacity
           style={[
             styles.viewAllButton,
@@ -668,6 +695,26 @@ const styles = StyleSheet.create({
   unitsText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  unitsMaskContainer: {
+    minWidth: 50,
+    height: 18,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  unitsLockIcon: {
+    position: 'absolute',
+    right: 2,
+    top: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   winRateContainer: {
     width: 50,

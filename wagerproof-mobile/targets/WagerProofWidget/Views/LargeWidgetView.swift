@@ -35,6 +35,8 @@ struct LargeWidgetView: View {
             fadeAlertsContent
         case .polymarketValue:
             polymarketContent
+        case .topAgentsPicks:
+            topAgentsContent
         }
     }
 
@@ -80,6 +82,20 @@ struct LargeWidgetView: View {
         }
     }
 
+    @ViewBuilder
+    private var topAgentsContent: some View {
+        if entry.topAgentPicks.isEmpty {
+            EmptyStateView(contentType: .topAgentsPicks)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            VStack(spacing: 4) {
+                ForEach(entry.topAgentPicks.prefix(3)) { agent in
+                    TopAgentPicksRow(agent: agent, maxPicks: 2, isCompact: true)
+                }
+            }
+        }
+    }
+
     private func footerView(lastUpdated: Date) -> some View {
         HStack {
             Spacer()
@@ -102,6 +118,7 @@ struct LargeWidgetView: View {
         editorPicks: EditorPickWidgetData.sampleArray,
         fadeAlerts: [],
         polymarketValues: [],
+        topAgentPicks: [],
         isPlaceholder: false,
         lastUpdated: Date().addingTimeInterval(-300)
     )
@@ -116,6 +133,7 @@ struct LargeWidgetView: View {
         editorPicks: [],
         fadeAlerts: FadeAlertWidgetData.sampleArray,
         polymarketValues: [],
+        topAgentPicks: [],
         isPlaceholder: false,
         lastUpdated: Date().addingTimeInterval(-600)
     )
@@ -130,6 +148,22 @@ struct LargeWidgetView: View {
         editorPicks: [],
         fadeAlerts: [],
         polymarketValues: PolymarketValueWidgetData.sampleArray,
+        topAgentPicks: [],
+        isPlaceholder: false,
+        lastUpdated: Date().addingTimeInterval(-900)
+    )
+}
+
+#Preview("Large - Top Agents", as: .systemLarge) {
+    WagerProofWidget()
+} timeline: {
+    WagerProofEntry(
+        date: Date(),
+        contentType: .topAgentsPicks,
+        editorPicks: [],
+        fadeAlerts: [],
+        polymarketValues: [],
+        topAgentPicks: TopAgentWidgetData.sampleArray,
         isPlaceholder: false,
         lastUpdated: Date().addingTimeInterval(-900)
     )

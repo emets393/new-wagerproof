@@ -1021,7 +1021,7 @@ async function fetchNBAGames(
   const [polymarketByGameKey, injuriesByTeam, accuracyByGameId] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nba', games),
     fetchNBAInjuriesByTeam(cfbClient, games, targetDate),
-    fetchPredictionAccuracyByGameId(cfbClient, 'nba_todays_games_predictions_with_accuracy', games, targetDate, true),
+    fetchPredictionAccuracyByGameId(cfbClient, 'nba_todays_games_predictions_with_accuracy_cache', games, targetDate, true),
   ]);
 
   const formattedGames = games.map(game =>

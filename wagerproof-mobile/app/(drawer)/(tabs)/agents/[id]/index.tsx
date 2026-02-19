@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Platform,
+  Alert,
 } from 'react-native';
 import { useTheme, Button, Chip, Snackbar } from 'react-native-paper';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
@@ -26,7 +27,9 @@ import Animated, {
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAdminMode } from '@/contexts/AdminModeContext';
-import { useAgent } from '@/hooks/useAgents';
+import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
+import { useAgent, useUpdateAgent, useUserAgents } from '@/hooks/useAgents';
+import { syncTopAgentsWidgetData } from '@/hooks/useTopAgentsWidgetSync';
 import {
   useTodaysPicks,
   useAgentPicks,
@@ -35,6 +38,7 @@ import {
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
 import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
+import { LockedPickCard } from '@/components/LockedPickCard';
 import { useGameLookup } from '@/hooks/useGameLookup';
 import {
   AgentPick,
@@ -221,6 +225,9 @@ export default function AgentDetailScreen() {
   const { isDark } = useThemeContext();
   const { adminModeEnabled } = useAdminMode();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { canViewAgentPicks } = useAgentEntitlements();
+  const updateAgentMutation = useUpdateAgent();
+  const { data: userAgents } = useUserAgents();
 
   // Local state
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
@@ -230,6 +237,7 @@ export default function AgentDetailScreen() {
   const [noPicksConclusion, setNoPicksConclusion] = useState<string | null>(null);
   const [generatingToastVisible, setGeneratingToastVisible] = useState(false);
   const [selectedAuditPick, setSelectedAuditPick] = useState<AgentPick | null>(null);
+  const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
   const isGeneratingRef = useRef(false);
   const auditSheetRef = useRef<BottomSheet>(null);
 
@@ -246,14 +254,14 @@ export default function AgentDetailScreen() {
     data: todaysPicks,
     isLoading: isLoadingTodaysPicks,
     refetch: refetchTodaysPicks,
-  } = useTodaysPicks(id || '');
+  } = useTodaysPicks(id || '', { enabled: canViewAgentPicks });
 
   // Fetch pick history
   const {
     data: allPicks,
     isLoading: isLoadingAllPicks,
     refetch: refetchAllPicks,
-  } = useAgentPicks(id || '');
+  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks });
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -279,7 +287,8 @@ export default function AgentDetailScreen() {
     ? Infinity
     : MAX_DAILY_GENERATIONS - dailyGenCount;
 
-  const canRegenerate = adminModeEnabled || regensRemaining > 0;
+  const regenLockedBySubscription = !adminModeEnabled && !canViewAgentPicks;
+  const canRegenerate = adminModeEnabled || (!regenLockedBySubscription && regensRemaining > 0);
 
   // Filter picks for history
   const filteredPicks = useMemo(() => {
@@ -288,9 +297,60 @@ export default function AgentDetailScreen() {
     return allPicks.filter((pick) => pick.result === pickFilter);
   }, [allPicks, pickFilter]);
 
+  const otherFavoriteAgents = useMemo(
+    () =>
+      (userAgents || []).filter(
+      (userAgent) => userAgent.id !== id && userAgent.is_widget_favorite
+        && userAgent.is_active
+      ),
+    [userAgents, id]
+  );
+
+  const handleToggleWidgetFavorite = useCallback(async () => {
+    if (!agent || !id || isFavoriteUpdating) return;
+
+    const nextFavoriteState = !agent.is_widget_favorite;
+    if (nextFavoriteState && otherFavoriteAgents.length >= 3) {
+      const favoriteList = otherFavoriteAgents.map((fav) => `• ${fav.name}`).join('\n');
+      Alert.alert(
+        'Favorite Limit Reached',
+        `You can select up to 3 favorite agents for the widget.\n\nCurrent favorites:\n${favoriteList}`,
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsFavoriteUpdating(true);
+    try {
+      await updateAgentMutation.mutateAsync({
+        agentId: id,
+        data: { is_widget_favorite: nextFavoriteState },
+      });
+      await refetchAgent();
+
+      if (agent.user_id) {
+        await syncTopAgentsWidgetData(agent.user_id);
+      }
+    } catch (error) {
+      console.error('Error updating widget favorite:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Update Failed', 'Could not update widget favorite. Please try again.');
+    } finally {
+      setIsFavoriteUpdating(false);
+    }
+  }, [
+    agent,
+    id,
+    isFavoriteUpdating,
+    otherFavoriteAgents,
+    updateAgentMutation,
+    refetchAgent,
+  ]);
+
   // Handle generate picks (initial or regeneration)
   const handleGeneratePicks = useCallback(async () => {
-    if (!id || !canRegenerate) return;
+    if (!id || regenLockedBySubscription || !canRegenerate) return;
 
     if (isGeneratingRef.current || generatePicksMutation.isPending) {
       setGeneratingToastVisible(true);
@@ -305,8 +365,10 @@ export default function AgentDetailScreen() {
       const { result } = await generatePicksMutation.mutateAsync({ agentId: id, isAdmin: adminModeEnabled });
       // Refetch data after generation
       refetchAgent();
-      refetchTodaysPicks();
-      refetchAllPicks();
+      if (canViewAgentPicks) {
+        refetchTodaysPicks();
+        refetchAllPicks();
+      }
 
       if (result.picks.length === 0) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -324,12 +386,14 @@ export default function AgentDetailScreen() {
     }
   }, [
     id,
+    regenLockedBySubscription,
     canRegenerate,
     adminModeEnabled,
     generatePicksMutation,
     refetchAgent,
     refetchTodaysPicks,
     refetchAllPicks,
+    canViewAgentPicks,
   ]);
 
   // Handle navigation to settings
@@ -341,9 +405,11 @@ export default function AgentDetailScreen() {
   // Handle refresh
   const handleRefresh = useCallback(() => {
     refetchAgent();
-    refetchTodaysPicks();
-    refetchAllPicks();
-  }, [refetchAgent, refetchTodaysPicks, refetchAllPicks]);
+    if (canViewAgentPicks) {
+      refetchTodaysPicks();
+      refetchAllPicks();
+    }
+  }, [refetchAgent, refetchTodaysPicks, refetchAllPicks, canViewAgentPicks]);
 
   const auditSnapPoints = useMemo(() => ['85%', '95%'], []);
 
@@ -631,6 +697,44 @@ export default function AgentDetailScreen() {
                   </View>
                 ))}
               </View>
+              <TouchableOpacity
+                style={[
+                  styles.widgetFavoriteButton,
+                  {
+                    backgroundColor: agent.is_widget_favorite
+                      ? 'rgba(250, 204, 21, 0.16)'
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.06)'
+                      : 'rgba(0, 0, 0, 0.05)',
+                    borderColor: agent.is_widget_favorite
+                      ? 'rgba(250, 204, 21, 0.6)'
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.12)'
+                      : 'rgba(0, 0, 0, 0.12)',
+                  },
+                ]}
+                onPress={handleToggleWidgetFavorite}
+                disabled={isFavoriteUpdating}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons
+                  name={agent.is_widget_favorite ? 'star' : 'star-outline'}
+                  size={14}
+                  color={agent.is_widget_favorite ? '#facc15' : theme.colors.onSurfaceVariant}
+                />
+                <Text
+                  style={[
+                    styles.widgetFavoriteButtonText,
+                    { color: agent.is_widget_favorite ? '#facc15' : theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {isFavoriteUpdating
+                    ? 'Updating...'
+                    : agent.is_widget_favorite
+                    ? 'Widget Favorite'
+                    : 'Add to Widget Favorites'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -694,15 +798,33 @@ export default function AgentDetailScreen() {
               >
                 Net Units
               </Text>
-              <Text
-                style={[
-                  styles.statValue,
-                  styles.unitsValue,
-                  { color: isPositive ? '#10b981' : '#ef4444' },
-                ]}
-              >
-                {netUnits}
-              </Text>
+              <View style={styles.unitsMaskContainer}>
+                <Text
+                  style={[
+                    styles.statValue,
+                    styles.unitsValue,
+                    { color: isPositive ? '#10b981' : '#ef4444' },
+                  ]}
+                >
+                  {netUnits}
+                </Text>
+                {!canViewAgentPicks && (
+                  <>
+                    <AndroidBlurView
+                      intensity={22}
+                      tint={isDark ? 'dark' : 'light'}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                    <View style={styles.unitsLockIcon}>
+                      <MaterialCommunityIcons
+                        name="lock"
+                        size={12}
+                        color={theme.colors.onSurfaceVariant}
+                      />
+                    </View>
+                  </>
+                )}
+              </View>
             </View>
 
             <View style={styles.statItem}>
@@ -766,7 +888,10 @@ export default function AgentDetailScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => {
-                if (canRegenerate) {
+                if (regenLockedBySubscription) {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  setErrorToastMessage('Upgrade to Pro to regenerate picks.');
+                } else if (canRegenerate) {
                   handleGeneratePicks();
                 } else {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -777,7 +902,11 @@ export default function AgentDetailScreen() {
               style={[
                 styles.regenButton,
                 {
-                  backgroundColor: canRegenerate
+                  backgroundColor: regenLockedBySubscription
+                    ? isDark
+                      ? 'rgba(255, 255, 255, 0.05)'
+                      : 'rgba(0, 0, 0, 0.03)'
+                    : canRegenerate
                     ? theme.colors.primary
                     : isDark
                     ? 'rgba(255, 255, 255, 0.05)'
@@ -786,7 +915,7 @@ export default function AgentDetailScreen() {
               ]}
             >
               <MaterialCommunityIcons
-                name="refresh"
+                name={regenLockedBySubscription ? 'lock' : 'refresh'}
                 size={18}
                 color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
               />
@@ -800,6 +929,8 @@ export default function AgentDetailScreen() {
               >
                 {adminModeEnabled
                   ? 'Unlimited'
+                  : regenLockedBySubscription
+                  ? 'Locked'
                   : `${regensRemaining}/${MAX_DAILY_GENERATIONS}`}
               </Text>
             </TouchableOpacity>
@@ -818,7 +949,10 @@ export default function AgentDetailScreen() {
                 },
               ]}
               onPress={() => {
-                if (canRegenerate) {
+                if (regenLockedBySubscription) {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  setErrorToastMessage('Upgrade to Pro to generate picks.');
+                } else if (canRegenerate) {
                   handleGeneratePicks();
                 } else {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -828,7 +962,7 @@ export default function AgentDetailScreen() {
               activeOpacity={0.8}
             >
               <MaterialCommunityIcons
-                name="lightning-bolt"
+                name={regenLockedBySubscription ? 'lock' : 'lightning-bolt'}
                 size={24}
                 color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
               />
@@ -844,6 +978,8 @@ export default function AgentDetailScreen() {
               >
                 {canRegenerate
                   ? "Generate Today's Picks"
+                  : regenLockedBySubscription
+                  ? 'Generate Picks Locked'
                   : 'Daily limit reached'}
               </Text>
             </TouchableOpacity>
@@ -883,6 +1019,11 @@ export default function AgentDetailScreen() {
               <>
                 <PickCardSkeleton isDark={isDark} />
                 <PickCardSkeleton isDark={isDark} />
+              </>
+            ) : !canViewAgentPicks ? (
+              <>
+                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
               </>
             ) : hasTodaysPicks ? (
               todaysPicks.map((pick) => renderPickWithActions(pick))
@@ -947,38 +1088,39 @@ export default function AgentDetailScreen() {
 
           {showHistory && (
             <>
-              {/* Filter Chips */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterChips}
-              >
-                {(['all', 'won', 'lost', 'pending'] as PickFilter[]).map(
-                  (filter) => (
-                    <Chip
-                      key={filter}
-                      mode={pickFilter === filter ? 'flat' : 'outlined'}
-                      selected={pickFilter === filter}
-                      onPress={() => setPickFilter(filter)}
-                      style={[
-                        styles.filterChip,
-                        pickFilter === filter && {
-                          backgroundColor: theme.colors.primaryContainer,
-                        },
-                      ]}
-                      textStyle={{
-                        color:
-                          pickFilter === filter
-                            ? theme.colors.onPrimaryContainer
-                            : theme.colors.onSurfaceVariant,
-                        textTransform: 'capitalize',
-                      }}
-                    >
-                      {filter}
-                    </Chip>
-                  )
-                )}
-              </ScrollView>
+              {canViewAgentPicks && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.filterChips}
+                >
+                  {(['all', 'won', 'lost', 'pending'] as PickFilter[]).map(
+                    (filter) => (
+                      <Chip
+                        key={filter}
+                        mode={pickFilter === filter ? 'flat' : 'outlined'}
+                        selected={pickFilter === filter}
+                        onPress={() => setPickFilter(filter)}
+                        style={[
+                          styles.filterChip,
+                          pickFilter === filter && {
+                            backgroundColor: theme.colors.primaryContainer,
+                          },
+                        ]}
+                        textStyle={{
+                          color:
+                            pickFilter === filter
+                              ? theme.colors.onPrimaryContainer
+                              : theme.colors.onSurfaceVariant,
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {filter}
+                      </Chip>
+                    )
+                  )}
+                </ScrollView>
+              )}
 
               {/* Pick List */}
               <View style={styles.picksList}>
@@ -987,6 +1129,12 @@ export default function AgentDetailScreen() {
                     <PickCardSkeleton isDark={isDark} />
                     <PickCardSkeleton isDark={isDark} />
                     <PickCardSkeleton isDark={isDark} />
+                  </>
+                ) : !canViewAgentPicks ? (
+                  <>
+                    <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                    <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                    <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
                   </>
                 ) : filteredPicks.length > 0 ? (
                   filteredPicks.slice(0, 10).map((pick) => renderPickWithActions(pick))
@@ -1020,11 +1168,38 @@ export default function AgentDetailScreen() {
         </View>
 
         {/* Performance Charts */}
-        <AgentPerformanceCharts
-          allPicks={allPicks || []}
-          preferredSports={agent.preferred_sports}
-          agentColor={getPrimaryColor(agent.avatar_color)}
-        />
+        {canViewAgentPicks ? (
+          <AgentPerformanceCharts
+            allPicks={allPicks || []}
+            preferredSports={agent.preferred_sports}
+            agentColor={getPrimaryColor(agent.avatar_color)}
+          />
+        ) : (
+          <View
+            style={[
+              styles.emptyPicksContainer,
+              {
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+                marginTop: 8,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="lock-outline"
+              size={30}
+              color={theme.colors.onSurfaceVariant}
+            />
+            <Text
+              style={[
+                styles.emptyPicksText,
+                { color: theme.colors.onSurfaceVariant, marginTop: 6 },
+              ]}
+            >
+              Upgrade to view pick charts
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <Snackbar
@@ -1227,6 +1402,21 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
   },
+  widgetFavoriteButton: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  widgetFavoriteButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   sportBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -1275,6 +1465,26 @@ const styles = StyleSheet.create({
   },
   unitsValue: {
     fontWeight: '800',
+  },
+  unitsMaskContainer: {
+    minWidth: 72,
+    height: 24,
+    borderRadius: 10,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  unitsLockIcon: {
+    position: 'absolute',
+    right: 4,
+    top: 3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Generate Button
   generateButton: {

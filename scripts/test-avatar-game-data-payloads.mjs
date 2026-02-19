@@ -403,7 +403,7 @@ async function main() {
 
   const nbaAccuracyRows = nbaRaw.length
     ? await safeGetJson(
-      `${CFB_URL}/rest/v1/nba_todays_games_predictions_with_accuracy?select=*&game_date=eq.${enc(args.date)}&game_id=in.(${nbaRaw.map(g => enc(g.game_id)).join(',')})`,
+      `${CFB_URL}/rest/v1/nba_todays_games_predictions_with_accuracy_cache?select=*&game_date=eq.${enc(args.date)}&game_id=in.(${nbaRaw.map(g => enc(g.game_id)).join(',')})`,
       cfbHeaders,
     )
     : [];

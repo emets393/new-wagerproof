@@ -6,6 +6,7 @@ import {
   Animated,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useTheme, FAB } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useUserAgents } from '@/hooks/useAgents';
+import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { trackAppOpen } from '@/services/activityService';
 import { AgentTimelineSection } from '@/components/agents/AgentTimeline';
 import { AgentLeaderboard } from '@/components/agents/AgentLeaderboard';
@@ -154,6 +156,7 @@ export default function AgentsHubScreen() {
   const { open: openDrawer } = useDrawer();
   const { scrollY, scrollYClamped } = useScroll();
   const { openManualMenu } = useWagerBotSuggestion();
+  const { canCreateAnotherAgent, isPro, isAdmin } = useAgentEntitlements();
   const [activeTab, setActiveTab] = useState<AgentsTab>('my-agents');
 
   // Fetch user's agents
@@ -197,9 +200,20 @@ export default function AgentsHubScreen() {
 
   // Handle navigation to create screen
   const handleCreateAgent = useCallback(() => {
+    const totalCount = agents?.length || 0;
+    const activeCount = agents?.filter((a) => a.is_active).length || 0;
+    if (!canCreateAnotherAgent(activeCount, totalCount)) {
+      Alert.alert(
+        'Agent Limit Reached',
+        isAdmin || isPro
+          ? 'Pro users can have up to 10 active agents and 30 total created agents.'
+          : 'Free users can have 1 active agent. Upgrade to Pro for more.'
+      );
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/agents/create' as any);
-  }, [router]);
+  }, [router, agents, canCreateAnotherAgent, isPro, isAdmin]);
 
   // Handle navigation to agent detail
   const handleAgentPress = useCallback(
@@ -241,6 +255,9 @@ export default function AgentsHubScreen() {
   const TAB_BAR_HEIGHT = 65 + insets.bottom;
 
   const hasAgents = agents && agents.length > 0;
+  const totalCount = agents?.length || 0;
+  const activeCount = agents?.filter((a) => a.is_active).length || 0;
+  const canCreateMoreAgents = canCreateAnotherAgent(activeCount, totalCount);
 
   return (
     <View
@@ -422,7 +439,7 @@ export default function AgentsHubScreen() {
       )}
 
       {/* FAB for creating new agent - only on My Agents tab */}
-      {activeTab === 'my-agents' && hasAgents && (
+      {activeTab === 'my-agents' && hasAgents && canCreateMoreAgents && (
         <FAB
           icon="plus"
           style={[
@@ -435,6 +452,33 @@ export default function AgentsHubScreen() {
           onPress={handleCreateAgent}
           color="#ffffff"
         />
+      )}
+
+      {activeTab === 'my-agents' && hasAgents && !canCreateMoreAgents && (
+        <TouchableOpacity
+          style={[
+            styles.upgradeHint,
+            {
+              bottom: TAB_BAR_HEIGHT + 18,
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(0, 0, 0, 0.1)',
+            },
+          ]}
+          activeOpacity={0.8}
+          onPress={() =>
+            Alert.alert(
+              'Agent Limit Reached',
+              isAdmin || isPro
+                ? 'Pro users can have up to 10 active agents and 30 total created agents.'
+                : 'Free users can have 1 active agent. Upgrade to Pro for more.'
+            )
+          }
+        >
+          <MaterialCommunityIcons name="lock" size={14} color={theme.colors.onSurfaceVariant} />
+          <Text style={[styles.upgradeHintText, { color: theme.colors.onSurfaceVariant }]}>
+            Agent limit reached
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -698,5 +742,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     borderRadius: 28,
+  },
+  upgradeHint: {
+    position: 'absolute',
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  upgradeHintText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

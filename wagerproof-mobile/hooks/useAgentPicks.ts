@@ -24,6 +24,10 @@ export const pickKeys = {
   today: (agentId: string) => [...pickKeys.all, 'today', agentId] as const,
 };
 
+interface PickQueryOptions {
+  enabled?: boolean;
+}
+
 // ============================================================================
 // HOOKS
 // ============================================================================
@@ -31,11 +35,15 @@ export const pickKeys = {
 /**
  * Hook to fetch picks for an agent with optional filters
  */
-export function useAgentPicks(agentId: string, filters?: AgentPicksFilters) {
+export function useAgentPicks(
+  agentId: string,
+  filters?: AgentPicksFilters,
+  options?: PickQueryOptions
+) {
   return useQuery({
     queryKey: pickKeys.list(agentId, filters),
     queryFn: () => fetchAgentPicks(agentId, filters),
-    enabled: !!agentId,
+    enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
@@ -43,11 +51,11 @@ export function useAgentPicks(agentId: string, filters?: AgentPicksFilters) {
 /**
  * Hook to fetch pending picks for an agent
  */
-export function usePendingPicks(agentId: string) {
+export function usePendingPicks(agentId: string, options?: PickQueryOptions) {
   return useQuery({
     queryKey: pickKeys.pending(agentId),
     queryFn: () => fetchPendingPicks(agentId),
-    enabled: !!agentId,
+    enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
@@ -55,11 +63,11 @@ export function usePendingPicks(agentId: string) {
 /**
  * Hook to fetch today's picks for an agent
  */
-export function useTodaysPicks(agentId: string) {
+export function useTodaysPicks(agentId: string, options?: PickQueryOptions) {
   return useQuery({
     queryKey: pickKeys.today(agentId),
     queryFn: () => fetchTodaysPicks(agentId),
-    enabled: !!agentId,
+    enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000, // 2 minutes
     // Refetch more frequently for today's picks
     refetchInterval: 5 * 60 * 1000, // 5 minutes

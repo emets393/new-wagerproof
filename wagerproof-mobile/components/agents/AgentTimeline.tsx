@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useTodaysPicks } from '@/hooks/useAgentPicks';
 import { useUpdateAgent } from '@/hooks/useAgents';
 import {
@@ -15,6 +16,8 @@ import {
   formatStreak,
 } from '@/types/agent';
 import { AgentPickItem, PickCardSkeleton } from './AgentPickItem';
+import { LockedPickCard } from '@/components/LockedPickCard';
+import { LockedGameCard } from '@/components/LockedGameCard';
 
 // ============================================================================
 // CONSTANTS
@@ -57,6 +60,7 @@ interface AgentTimelineSectionProps {
 export function AgentTimelineSection({ agent, onAgentPress }: AgentTimelineSectionProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const { canViewAgentPicks } = useAgentEntitlements();
   const updateAgent = useUpdateAgent();
 
   const {
@@ -199,6 +203,19 @@ export function AgentTimelineSection({ agent, onAgentPress }: AgentTimelineSecti
             <PickCardSkeleton isDark={isDark} />
             <PickCardSkeleton isDark={isDark} />
           </>
+        ) : !canViewAgentPicks ? (
+          todaysPicks && todaysPicks.length > 0 ? (
+            todaysPicks.map((pick) => (
+              <LockedGameCard key={pick.id}>
+                <AgentPickItem pick={pick} showReasoning="summary" onPress={onAgentPress} />
+              </LockedGameCard>
+            ))
+          ) : (
+            <>
+              <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} minHeight={96} />
+              <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} minHeight={96} />
+            </>
+          )
         ) : todaysPicks && todaysPicks.length > 0 ? (
           todaysPicks.map((pick) => (
             <AgentPickItem key={pick.id} pick={pick} showReasoning="summary" onPress={onAgentPress} />

@@ -9,7 +9,7 @@ This file contains historical examples and field notes. For the current reusable
 
 Current production payloads also include `prediction_accuracy` for NBA and NCAAB from:
 
-- `nba_todays_games_predictions_with_accuracy`
+- `nba_todays_games_predictions_with_accuracy_cache`
 - `ncaab_todays_games_predictions_with_accuracy_cache`
 
 This document defines the exact data structure sent to AI agents for pick generation. Each sport has slightly different data available.

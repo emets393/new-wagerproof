@@ -6,12 +6,14 @@ enum WidgetContentType: String, Codable, CaseIterable {
     case editorPicks = "editor_picks"
     case fadeAlerts = "fade_alerts"
     case polymarketValue = "polymarket_value"
+    case topAgentsPicks = "top_agents_picks"
 
     var displayName: String {
         switch self {
         case .editorPicks: return "Editor Picks"
         case .fadeAlerts: return "Fade Alerts"
         case .polymarketValue: return "Market Value"
+        case .topAgentsPicks: return "Top Agents"
         }
     }
 
@@ -20,6 +22,7 @@ enum WidgetContentType: String, Codable, CaseIterable {
         case .editorPicks: return "picks"
         case .fadeAlerts: return "outliers"
         case .polymarketValue: return "outliers"
+        case .topAgentsPicks: return "agents"
         }
     }
 
@@ -28,6 +31,7 @@ enum WidgetContentType: String, Codable, CaseIterable {
         case .editorPicks: return "star.fill"
         case .fadeAlerts: return "bolt.fill"
         case .polymarketValue: return "chart.line.uptrend.xyaxis"
+        case .topAgentsPicks: return "person.3.fill"
         }
     }
 }
@@ -211,19 +215,74 @@ struct PolymarketValueWidgetData: Codable, Identifiable {
     }
 }
 
+// MARK: - Top Agent Data
+
+struct AgentPickWidgetData: Codable, Identifiable {
+    let id: String
+    let sport: String
+    let matchup: String
+    let pickSelection: String
+    let odds: String?
+    let result: String?
+    let gameDate: String?
+}
+
+struct TopAgentWidgetData: Codable, Identifiable {
+    var id: String { agentId }
+    let agentId: String
+    let agentName: String
+    let agentEmoji: String
+    let agentColor: String
+    let isFavorite: Bool
+    let netUnits: Double
+    let winRate: Double?
+    let currentStreak: Int
+    let record: String
+    let picks: [AgentPickWidgetData]
+}
+
 // MARK: - Widget Data Container
 
 struct WidgetDataContainer: Codable {
     let editorPicks: [EditorPickWidgetData]
     let fadeAlerts: [FadeAlertWidgetData]
     let polymarketValues: [PolymarketValueWidgetData]
+    let topAgentPicks: [TopAgentWidgetData]
     let lastUpdated: Date
+
+    enum CodingKeys: String, CodingKey {
+        case editorPicks, fadeAlerts, polymarketValues, topAgentPicks, lastUpdated
+    }
+
+    init(
+        editorPicks: [EditorPickWidgetData],
+        fadeAlerts: [FadeAlertWidgetData],
+        polymarketValues: [PolymarketValueWidgetData],
+        topAgentPicks: [TopAgentWidgetData],
+        lastUpdated: Date
+    ) {
+        self.editorPicks = editorPicks
+        self.fadeAlerts = fadeAlerts
+        self.polymarketValues = polymarketValues
+        self.topAgentPicks = topAgentPicks
+        self.lastUpdated = lastUpdated
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        editorPicks = try container.decodeIfPresent([EditorPickWidgetData].self, forKey: .editorPicks) ?? []
+        fadeAlerts = try container.decodeIfPresent([FadeAlertWidgetData].self, forKey: .fadeAlerts) ?? []
+        polymarketValues = try container.decodeIfPresent([PolymarketValueWidgetData].self, forKey: .polymarketValues) ?? []
+        topAgentPicks = try container.decodeIfPresent([TopAgentWidgetData].self, forKey: .topAgentPicks) ?? []
+        lastUpdated = try container.decode(Date.self, forKey: .lastUpdated)
+    }
 
     static var empty: WidgetDataContainer {
         WidgetDataContainer(
             editorPicks: [],
             fadeAlerts: [],
             polymarketValues: [],
+            topAgentPicks: [],
             lastUpdated: Date()
         )
     }
@@ -442,6 +501,97 @@ extension PolymarketValueWidgetData {
                 marketType: "total",
                 side: "Under",
                 percentage: 58
+            )
+        ]
+    }
+}
+
+extension TopAgentWidgetData {
+    static var sampleArray: [TopAgentWidgetData] {
+        [
+            TopAgentWidgetData(
+                agentId: "agent-1",
+                agentName: "Sharp Edge",
+                agentEmoji: "🎯",
+                agentColor: "#22c55e",
+                isFavorite: true,
+                netUnits: 8.4,
+                winRate: 0.61,
+                currentStreak: 4,
+                record: "28-18",
+                picks: [
+                    AgentPickWidgetData(
+                        id: "pick-a1-1",
+                        sport: "nfl",
+                        matchup: "Ravens @ Chiefs",
+                        pickSelection: "Ravens -3.5",
+                        odds: "-110",
+                        result: nil,
+                        gameDate: nil
+                    ),
+                    AgentPickWidgetData(
+                        id: "pick-a1-2",
+                        sport: "nba",
+                        matchup: "Lakers @ Celtics",
+                        pickSelection: "Over 224.5",
+                        odds: "-105",
+                        result: nil,
+                        gameDate: nil
+                    )
+                ]
+            ),
+            TopAgentWidgetData(
+                agentId: "agent-2",
+                agentName: "Line Hunter",
+                agentEmoji: "🧠",
+                agentColor: "#3b82f6",
+                isFavorite: false,
+                netUnits: 6.1,
+                winRate: 0.57,
+                currentStreak: 2,
+                record: "24-18",
+                picks: [
+                    AgentPickWidgetData(
+                        id: "pick-a2-1",
+                        sport: "cfb",
+                        matchup: "Alabama @ Georgia",
+                        pickSelection: "Georgia -7",
+                        odds: "-115",
+                        result: nil,
+                        gameDate: nil
+                    )
+                ]
+            ),
+            TopAgentWidgetData(
+                agentId: "agent-3",
+                agentName: "Market Fade",
+                agentEmoji: "⚡",
+                agentColor: "#f59e0b",
+                isFavorite: true,
+                netUnits: 4.2,
+                winRate: 0.54,
+                currentStreak: 1,
+                record: "20-17",
+                picks: [
+                    AgentPickWidgetData(
+                        id: "pick-a3-1",
+                        sport: "ncaab",
+                        matchup: "Duke @ UNC",
+                        pickSelection: "Duke +2.5",
+                        odds: "-108",
+                        result: nil,
+                        gameDate: nil
+                    ),
+                    AgentPickWidgetData(
+                        id: "pick-a3-2",
+                        sport: "nfl",
+                        matchup: "Bills @ Dolphins",
+                        pickSelection: "Under 48.5",
+                        odds: "-112",
+                        result: nil,
+                        gameDate: nil
+                    )
+                ]
             )
         ]
     }

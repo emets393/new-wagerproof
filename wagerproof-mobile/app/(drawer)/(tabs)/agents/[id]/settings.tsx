@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAgent, useUpdateAgent, useDeleteAgent } from '@/hooks/useAgents';
+import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { SliderInput } from '@/components/agents/inputs/SliderInput';
 import { ToggleInput } from '@/components/agents/inputs/ToggleInput';
 import { OddsInput } from '@/components/agents/inputs/OddsInput';
@@ -111,6 +112,7 @@ export default function AgentSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { canCreatePublicAgent } = useAgentEntitlements();
 
   // Fetch agent data
   const { data: agent, isLoading } = useAgent(id || '');
@@ -904,12 +906,24 @@ export default function AgentSettingsScreen() {
           <ToggleInput
             value={isPublic}
             onChange={(v) => {
+              if (v && !canCreatePublicAgent) {
+                Alert.alert(
+                  'Pro Feature',
+                  'Only Pro users can make agents public and appear on the leaderboard.'
+                );
+                return;
+              }
               setIsPublic(v);
               markChanged();
             }}
             label="Public Agent"
             description="Allow your agent to appear on the leaderboard"
           />
+          {!canCreatePublicAgent && (
+            <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+              Free agents are private by default and cannot be made public.
+            </Text>
+          )}
           {isPublic && (
             <View
               style={[

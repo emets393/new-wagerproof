@@ -138,6 +138,7 @@ actor SupabaseWidgetService {
             editorPicks: await picks ?? [],
             fadeAlerts: fadeAlerts,
             polymarketValues: await values ?? [],
+            topAgentPicks: [],
             lastUpdated: Date()
         )
     }

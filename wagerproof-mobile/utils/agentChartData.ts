@@ -141,8 +141,9 @@ export function computeAgentChartStats(
 
     gradedPicks.forEach((pick, index) => {
       const calc = calculateUnits(pick.result, pick.odds, pick.units);
-      cumulative += calc.netUnits;
-      chartData.push({ x: index + 1, y: cumulative });
+      const safeNetUnits = Number.isFinite(calc.netUnits) ? calc.netUnits : 0;
+      cumulative += safeNetUnits;
+      chartData.push({ x: index + 1, y: Number.isFinite(cumulative) ? cumulative : 0 });
     });
 
     // Calculate best run

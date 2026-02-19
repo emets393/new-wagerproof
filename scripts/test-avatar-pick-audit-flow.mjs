@@ -2,6 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const MAIN_URL = process.env.MAIN_SUPABASE_URL || 'https://gnjrklxotmbvnxbnnqgq.supabase.co';
 const MAIN_ANON = process.env.MAIN_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduanJrbHhvdG1idm54Ym5ucWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MDMzOTMsImV4cCI6MjA2NDk3OTM5M30.5jjBRWuvBoXhoYeLPMuvgAOB7izKqXLx7_D3lEfoXLQ';
@@ -53,19 +54,18 @@ function encode(value) {
 }
 
 async function invokeGenerate(args, h) {
-  const response = await fetch(`${MAIN_URL}/functions/v1/generate-avatar-picks`, {
+  const body = await requestJson({
     method: 'POST',
+    url: `${MAIN_URL}/functions/v1/generate-avatar-picks`,
     headers: h,
-    body: JSON.stringify({
+    body: {
       avatar_id: args.avatarId,
       user_id: args.userId,
       is_admin: true,
-    }),
+    },
   });
-
-  const body = await response.json();
-  if (!response.ok || body?.success !== true) {
-    const msg = body?.error || `HTTP ${response.status}`;
+  if (body?.success !== true) {
+    const msg = body?.error || 'Unexpected generate-avatar-picks response';
     throw new Error(`generate-avatar-picks failed: ${msg}`);
   }
   return body;
@@ -73,13 +73,44 @@ async function invokeGenerate(args, h) {
 
 async function fetchLatestPick(avatarId, h) {
   const url = `${MAIN_URL}/rest/v1/avatar_picks?avatar_id=eq.${encode(avatarId)}&order=created_at.desc&limit=1&select=id,created_at,game_id,pick_selection,bet_type,ai_decision_trace,ai_audit_payload,archived_game_data`;
-  const response = await fetch(url, { headers: h });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`avatar_picks query failed: HTTP ${response.status}: ${body.slice(0, 400)}`);
-  }
-  const rows = await response.json();
+  const rows = await requestJson({
+    method: 'GET',
+    url,
+    headers: h,
+  });
   return rows?.[0] || null;
+}
+
+async function requestJson({ method, url, headers, body }) {
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await response.text();
+    const parsed = text ? JSON.parse(text) : null;
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${text.slice(0, 400)}`);
+    }
+    return parsed;
+  } catch (error) {
+    const curlArgs = ['-sS', '-X', method, url];
+    for (const [key, value] of Object.entries(headers || {})) {
+      curlArgs.push('-H', `${key}: ${value}`);
+    }
+    if (body) {
+      curlArgs.push('--data', JSON.stringify(body));
+    }
+    try {
+      const raw = execFileSync('curl', curlArgs, { encoding: 'utf8' });
+      return raw ? JSON.parse(raw) : null;
+    } catch (curlError) {
+      const firstError = error instanceof Error ? error.message : String(error);
+      const secondError = curlError instanceof Error ? curlError.message : String(curlError);
+      throw new Error(`request failed (fetch + curl): ${firstError} | ${secondError}`);
+    }
+  }
 }
 
 function hasKeys(obj, keys) {

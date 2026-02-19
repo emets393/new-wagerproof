@@ -19,8 +19,11 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAgent } from '@/hooks/useAgents';
 import { useAgentPicks } from '@/hooks/useAgentPicks';
+import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
+import { LockedPickCard } from '@/components/LockedPickCard';
+import { LockedOverlay } from '@/components/LockedOverlay';
 import { useGameLookup } from '@/hooks/useGameLookup';
 import {
   Sport,
@@ -90,6 +93,7 @@ export default function PublicAgentViewScreen() {
   const { isDark } = useThemeContext();
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { canViewAgentPicks } = useAgentEntitlements();
 
   // Local state
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
@@ -109,7 +113,7 @@ export default function PublicAgentViewScreen() {
     data: allPicks,
     isLoading: isLoadingAllPicks,
     refetch: refetchAllPicks,
-  } = useAgentPicks(id || '');
+  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks });
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -192,8 +196,10 @@ export default function PublicAgentViewScreen() {
   // Handle refresh
   const handleRefresh = useCallback(() => {
     refetchAgent();
-    refetchAllPicks();
-  }, [refetchAgent, refetchAllPicks]);
+    if (canViewAgentPicks) {
+      refetchAllPicks();
+    }
+  }, [refetchAgent, refetchAllPicks, canViewAgentPicks]);
 
   // Render loading state
   if (isLoadingAgent && !agent) {
@@ -492,15 +498,33 @@ export default function PublicAgentViewScreen() {
               >
                 Net Units
               </Text>
-              <Text
-                style={[
-                  styles.statValue,
-                  styles.unitsValue,
-                  { color: isPositive ? '#10b981' : '#ef4444' },
-                ]}
-              >
-                {netUnits}
-              </Text>
+              <View style={styles.unitsMaskContainer}>
+                <Text
+                  style={[
+                    styles.statValue,
+                    styles.unitsValue,
+                    { color: isPositive ? '#10b981' : '#ef4444' },
+                  ]}
+                >
+                  {netUnits}
+                </Text>
+                {!canViewAgentPicks && (
+                  <>
+                    <AndroidBlurView
+                      intensity={22}
+                      tint={isDark ? 'dark' : 'light'}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                    <View style={styles.unitsLockIcon}>
+                      <MaterialCommunityIcons
+                        name="lock"
+                        size={12}
+                        color={theme.colors.onSurfaceVariant}
+                      />
+                    </View>
+                  </>
+                )}
+              </View>
             </View>
 
             <View style={styles.statItem}>
@@ -604,42 +628,49 @@ export default function PublicAgentViewScreen() {
             Pick History
           </Text>
 
-          {/* Filter Chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterChips}
-          >
-            {(['all', 'won', 'lost', 'pending'] as PickFilter[]).map(
-              (filter) => (
-                <Chip
-                  key={filter}
-                  mode={pickFilter === filter ? 'flat' : 'outlined'}
-                  selected={pickFilter === filter}
-                  onPress={() => setPickFilter(filter)}
-                  style={[
-                    styles.filterChip,
-                    pickFilter === filter && {
-                      backgroundColor: theme.colors.primaryContainer,
-                    },
-                  ]}
-                  textStyle={{
-                    color:
-                      pickFilter === filter
-                        ? theme.colors.onPrimaryContainer
-                        : theme.colors.onSurfaceVariant,
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {filter}
-                </Chip>
-              )
-            )}
-          </ScrollView>
+          {canViewAgentPicks && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterChips}
+            >
+              {(['all', 'won', 'lost', 'pending'] as PickFilter[]).map(
+                (filter) => (
+                  <Chip
+                    key={filter}
+                    mode={pickFilter === filter ? 'flat' : 'outlined'}
+                    selected={pickFilter === filter}
+                    onPress={() => setPickFilter(filter)}
+                    style={[
+                      styles.filterChip,
+                      pickFilter === filter && {
+                        backgroundColor: theme.colors.primaryContainer,
+                      },
+                    ]}
+                    textStyle={{
+                      color:
+                        pickFilter === filter
+                          ? theme.colors.onPrimaryContainer
+                          : theme.colors.onSurfaceVariant,
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {filter}
+                  </Chip>
+                )
+              )}
+            </ScrollView>
+          )}
 
           {/* Pick List */}
           <View style={styles.picksList}>
-            {isLoadingAllPicks ? (
+            {!canViewAgentPicks ? (
+              <>
+                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+              </>
+            ) : isLoadingAllPicks ? (
               <>
                 <PickCardSkeleton isDark={isDark} />
                 <PickCardSkeleton isDark={isDark} />
@@ -689,11 +720,36 @@ export default function PublicAgentViewScreen() {
         </View>
 
         {/* Performance Charts */}
-        <AgentPerformanceCharts
-          allPicks={allPicks || []}
-          preferredSports={agent.preferred_sports}
-          agentColor={getPrimaryColor(agent.avatar_color)}
-        />
+        {canViewAgentPicks ? (
+          <AgentPerformanceCharts
+            allPicks={allPicks || []}
+            preferredSports={agent.preferred_sports}
+            agentColor={getPrimaryColor(agent.avatar_color)}
+          />
+        ) : (
+          <LockedOverlay
+            message="Unlock performance with Pro"
+            blurIntensity={20}
+            style={[
+              styles.lockedWidgetContainer,
+              {
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+                marginTop: 8,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.lockedWidgetContent,
+                { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' },
+              ]}
+            >
+              <View style={[styles.lockedLine, { width: '42%', backgroundColor: isDark ? 'rgba(255,255,255,0.11)' : 'rgba(0,0,0,0.08)' }]} />
+              <View style={[styles.lockedChartArea, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]} />
+            </View>
+          </LockedOverlay>
+        )}
       </ScrollView>
     </View>
   );
@@ -834,6 +890,26 @@ const styles = StyleSheet.create({
   unitsValue: {
     fontWeight: '800',
   },
+  unitsMaskContainer: {
+    minWidth: 72,
+    height: 24,
+    borderRadius: 10,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  unitsLockIcon: {
+    position: 'absolute',
+    right: 4,
+    top: 3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   // Follow Button
   followButton: {
     flexDirection: 'row',
@@ -866,6 +942,24 @@ const styles = StyleSheet.create({
   // Sections
   section: {
     marginBottom: 24,
+  },
+  lockedWidgetContainer: {
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  lockedWidgetContent: {
+    padding: 16,
+    borderRadius: 16,
+  },
+  lockedLine: {
+    height: 14,
+    borderRadius: 7,
+    marginBottom: 12,
+  },
+  lockedChartArea: {
+    height: 120,
+    borderRadius: 12,
   },
   sectionTitle: {
     fontSize: 18,

@@ -15,7 +15,6 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScroll } from '@/contexts/ScrollContext';
-import { useSettings } from '@/contexts/SettingsContext';
 
 // Game Sheets
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
@@ -25,9 +24,12 @@ import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useProAccess } from '@/hooks/useProAccess';
 import { LockedOverlay } from '@/components/LockedOverlay';
-
-// Utils for mapping data to game sheet expectations
-import { getNFLTeamColors, getCFBTeamColors, getNBATeamColors } from '@/utils/teamColors';
+import { useNBABettingTrendsSheet } from '@/contexts/NBABettingTrendsSheetContext';
+import { useNCAABBettingTrendsSheet } from '@/contexts/NCAABBettingTrendsSheetContext';
+import { useNBABettingTrends } from '@/hooks/useNBABettingTrends';
+import { useNCAABBettingTrends } from '@/hooks/useNCAABBettingTrends';
+import { NBAGameTrendsData, SituationalTrendRow, parseRecord, formatSituation } from '@/types/nbaBettingTrends';
+import { NCAABGameTrendsData, NCAABSituationalTrendRow, parseNCAABRecord, formatNCAABSituation } from '@/types/ncaabBettingTrends';
 
 // Helper to filter by sport
 const filterBySport = <T extends { sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' }>(
@@ -91,6 +93,280 @@ const formatMoneyline = (ml: number | null | undefined): string | null => {
     return ml > 0 ? `+${ml}` : `${ml}`;
 };
 
+const BETTING_TRENDS_THRESHOLD = 65;
+const BETTING_TRENDS_MIN_GAMES = 5;
+
+type TrendMarketType = 'ATS' | 'Over' | 'Under';
+
+interface TrendCandidate {
+  teamName: string;
+  marketType: TrendMarketType;
+  percentage: number;
+  record: string;
+  situationLabel: string;
+  sampleSize: number;
+}
+
+interface TrendOutlier {
+  gameId: number;
+  sport: 'nba' | 'ncaab';
+  awayTeam: string;
+  homeTeam: string;
+  gameTime: string | null;
+  candidate: TrendCandidate;
+}
+
+const sortTrendCandidates = (a: TrendCandidate, b: TrendCandidate) => {
+  if (b.percentage !== a.percentage) return b.percentage - a.percentage;
+  return b.sampleSize - a.sampleSize;
+};
+
+const buildNBATeamTrendCandidates = (team: SituationalTrendRow): TrendCandidate[] => {
+  const situations = [
+    {
+      situationLabel: formatSituation(team.last_game_situation),
+      atsRecord: team.ats_last_game_record,
+      atsPct: team.ats_last_game_cover_pct,
+      ouRecord: team.ou_last_game_record,
+      ouOverPct: team.ou_last_game_over_pct,
+      ouUnderPct: team.ou_last_game_under_pct,
+    },
+    {
+      situationLabel: formatSituation(team.fav_dog_situation),
+      atsRecord: team.ats_fav_dog_record,
+      atsPct: team.ats_fav_dog_cover_pct,
+      ouRecord: team.ou_fav_dog_record,
+      ouOverPct: team.ou_fav_dog_over_pct,
+      ouUnderPct: team.ou_fav_dog_under_pct,
+    },
+    {
+      situationLabel: formatSituation(team.side_spread_situation),
+      atsRecord: team.ats_side_fav_dog_record,
+      atsPct: team.ats_side_fav_dog_cover_pct,
+      ouRecord: team.ou_side_fav_dog_record,
+      ouOverPct: team.ou_side_fav_dog_over_pct,
+      ouUnderPct: team.ou_side_fav_dog_under_pct,
+    },
+    {
+      situationLabel: formatSituation(team.rest_bucket),
+      atsRecord: team.ats_rest_bucket_record,
+      atsPct: team.ats_rest_bucket_cover_pct,
+      ouRecord: team.ou_rest_bucket_record,
+      ouOverPct: team.ou_rest_bucket_over_pct,
+      ouUnderPct: team.ou_rest_bucket_under_pct,
+    },
+    {
+      situationLabel: formatSituation(team.rest_comp),
+      atsRecord: team.ats_rest_comp_record,
+      atsPct: team.ats_rest_comp_cover_pct,
+      ouRecord: team.ou_rest_comp_record,
+      ouOverPct: team.ou_rest_comp_over_pct,
+      ouUnderPct: team.ou_rest_comp_under_pct,
+    },
+  ];
+
+  const candidates: TrendCandidate[] = [];
+
+  for (const situation of situations) {
+    const atsSample = parseRecord(situation.atsRecord).total;
+    const ouSample = parseRecord(situation.ouRecord).total;
+
+    if (
+      typeof situation.atsPct === 'number' &&
+      situation.atsPct >= BETTING_TRENDS_THRESHOLD &&
+      atsSample >= BETTING_TRENDS_MIN_GAMES
+    ) {
+      candidates.push({
+        teamName: team.team_name,
+        marketType: 'ATS',
+        percentage: situation.atsPct,
+        record: situation.atsRecord || '-',
+        situationLabel: situation.situationLabel,
+        sampleSize: atsSample,
+      });
+    }
+
+    if (
+      typeof situation.ouOverPct === 'number' &&
+      situation.ouOverPct >= BETTING_TRENDS_THRESHOLD &&
+      ouSample >= BETTING_TRENDS_MIN_GAMES
+    ) {
+      candidates.push({
+        teamName: team.team_name,
+        marketType: 'Over',
+        percentage: situation.ouOverPct,
+        record: situation.ouRecord || '-',
+        situationLabel: situation.situationLabel,
+        sampleSize: ouSample,
+      });
+    }
+
+    if (
+      typeof situation.ouUnderPct === 'number' &&
+      situation.ouUnderPct >= BETTING_TRENDS_THRESHOLD &&
+      ouSample >= BETTING_TRENDS_MIN_GAMES
+    ) {
+      candidates.push({
+        teamName: team.team_name,
+        marketType: 'Under',
+        percentage: situation.ouUnderPct,
+        record: situation.ouRecord || '-',
+        situationLabel: situation.situationLabel,
+        sampleSize: ouSample,
+      });
+    }
+  }
+
+  return candidates;
+};
+
+const buildNCAABTeamTrendCandidates = (team: NCAABSituationalTrendRow): TrendCandidate[] => {
+  const situations = [
+    {
+      situationLabel: formatNCAABSituation(team.last_game_situation),
+      atsRecord: team.ats_last_game_record,
+      atsPct: team.ats_last_game_cover_pct,
+      ouRecord: team.ou_last_game_record,
+      ouOverPct: team.ou_last_game_over_pct,
+      ouUnderPct: team.ou_last_game_under_pct,
+    },
+    {
+      situationLabel: formatNCAABSituation(team.fav_dog_situation),
+      atsRecord: team.ats_fav_dog_record,
+      atsPct: team.ats_fav_dog_cover_pct,
+      ouRecord: team.ou_fav_dog_record,
+      ouOverPct: team.ou_fav_dog_over_pct,
+      ouUnderPct: team.ou_fav_dog_under_pct,
+    },
+    {
+      situationLabel: formatNCAABSituation(team.side_spread_situation),
+      atsRecord: team.ats_side_fav_dog_record,
+      atsPct: team.ats_side_fav_dog_cover_pct,
+      ouRecord: team.ou_side_fav_dog_record,
+      ouOverPct: team.ou_side_fav_dog_over_pct,
+      ouUnderPct: team.ou_side_fav_dog_under_pct,
+    },
+    {
+      situationLabel: formatNCAABSituation(team.rest_bucket),
+      atsRecord: team.ats_rest_bucket_record,
+      atsPct: team.ats_rest_bucket_cover_pct,
+      ouRecord: team.ou_rest_bucket_record,
+      ouOverPct: team.ou_rest_bucket_over_pct,
+      ouUnderPct: team.ou_rest_bucket_under_pct,
+    },
+    {
+      situationLabel: formatNCAABSituation(team.rest_comp),
+      atsRecord: team.ats_rest_comp_record,
+      atsPct: team.ats_rest_comp_cover_pct,
+      ouRecord: team.ou_rest_comp_record,
+      ouOverPct: team.ou_rest_comp_over_pct,
+      ouUnderPct: team.ou_rest_comp_under_pct,
+    },
+  ];
+
+  const candidates: TrendCandidate[] = [];
+
+  for (const situation of situations) {
+    const atsSample = parseNCAABRecord(situation.atsRecord).total;
+    const ouSample = parseNCAABRecord(situation.ouRecord).total;
+
+    if (
+      typeof situation.atsPct === 'number' &&
+      situation.atsPct >= BETTING_TRENDS_THRESHOLD &&
+      atsSample >= BETTING_TRENDS_MIN_GAMES
+    ) {
+      candidates.push({
+        teamName: team.team_name,
+        marketType: 'ATS',
+        percentage: situation.atsPct,
+        record: situation.atsRecord || '-',
+        situationLabel: situation.situationLabel,
+        sampleSize: atsSample,
+      });
+    }
+
+    if (
+      typeof situation.ouOverPct === 'number' &&
+      situation.ouOverPct >= BETTING_TRENDS_THRESHOLD &&
+      ouSample >= BETTING_TRENDS_MIN_GAMES
+    ) {
+      candidates.push({
+        teamName: team.team_name,
+        marketType: 'Over',
+        percentage: situation.ouOverPct,
+        record: situation.ouRecord || '-',
+        situationLabel: situation.situationLabel,
+        sampleSize: ouSample,
+      });
+    }
+
+    if (
+      typeof situation.ouUnderPct === 'number' &&
+      situation.ouUnderPct >= BETTING_TRENDS_THRESHOLD &&
+      ouSample >= BETTING_TRENDS_MIN_GAMES
+    ) {
+      candidates.push({
+        teamName: team.team_name,
+        marketType: 'Under',
+        percentage: situation.ouUnderPct,
+        record: situation.ouRecord || '-',
+        situationLabel: situation.situationLabel,
+        sampleSize: ouSample,
+      });
+    }
+  }
+
+  return candidates;
+};
+
+const buildNBATrendOutliers = (games: NBAGameTrendsData[]): TrendOutlier[] => {
+  const outliers: TrendOutlier[] = [];
+
+  for (const game of games) {
+    const candidates = [
+      ...buildNBATeamTrendCandidates(game.awayTeam),
+      ...buildNBATeamTrendCandidates(game.homeTeam),
+    ].sort(sortTrendCandidates);
+
+    if (candidates.length === 0) continue;
+
+    outliers.push({
+      gameId: game.gameId,
+      sport: 'nba',
+      awayTeam: game.awayTeam.team_name,
+      homeTeam: game.homeTeam.team_name,
+      gameTime: game.tipoffTime,
+      candidate: candidates[0],
+    });
+  }
+
+  return outliers.sort((a, b) => sortTrendCandidates(a.candidate, b.candidate));
+};
+
+const buildNCAABTrendOutliers = (games: NCAABGameTrendsData[]): TrendOutlier[] => {
+  const outliers: TrendOutlier[] = [];
+
+  for (const game of games) {
+    const candidates = [
+      ...buildNCAABTeamTrendCandidates(game.awayTeam),
+      ...buildNCAABTeamTrendCandidates(game.homeTeam),
+    ].sort(sortTrendCandidates);
+
+    if (candidates.length === 0) continue;
+
+    outliers.push({
+      gameId: game.gameId,
+      sport: 'ncaab',
+      awayTeam: game.awayTeam.team_name,
+      homeTeam: game.homeTeam.team_name,
+      gameTime: game.tipoffTime,
+      candidate: candidates[0],
+    });
+  }
+
+  return outliers.sort((a, b) => sortTrendCandidates(a.candidate, b.candidate));
+};
+
 export default function OutliersScreen() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
@@ -121,11 +397,16 @@ export default function OutliersScreen() {
 
   // WagerBot floating assistant
   const { onPageChange, onOutliersPageWithData, isDetached, openManualMenu, setOutliersData } = useWagerBotSuggestion();
+  const { games: nbaTrendsGames, isLoading: nbaTrendsLoading, refetch: refetchNbaTrends } = useNBABettingTrends();
+  const { games: ncaabTrendsGames, isLoading: ncaabTrendsLoading, refetch: refetchNcaabTrends } = useNCAABBettingTrends();
+  const { openTrendsSheet: openNBATrendsSheet } = useNBABettingTrendsSheet();
+  const { openTrendsSheet: openNCAABTrendsSheet } = useNCAABBettingTrendsSheet();
 
   // 1. Fetch Week Games
   const { data: weekGames, isLoading: gamesLoading } = useQuery({
     queryKey: ['week-games'],
     queryFn: fetchWeekGames,
+    staleTime: 5 * 60 * 1000,
   });
 
   // 2. Fetch Value Alerts
@@ -133,6 +414,7 @@ export default function OutliersScreen() {
     queryKey: ['value-alerts', weekGames?.length],
     queryFn: () => fetchValueAlerts(weekGames || []),
     enabled: !!weekGames && weekGames.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   // 3. Fetch Fade Alerts
@@ -140,6 +422,7 @@ export default function OutliersScreen() {
     queryKey: ['fade-alerts', weekGames?.length],
     queryFn: () => fetchFadeAlerts(weekGames || []),
     enabled: !!weekGames && weekGames.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Always notify context which page we're on (needed for openManualMenu)
@@ -202,6 +485,7 @@ export default function OutliersScreen() {
           editorPicks: existingData?.editorPicks || [], // Preserve existing picks
           fadeAlerts: widgetFadeAlerts,
           polymarketValues: widgetValueAlerts,
+          topAgentPicks: existingData?.topAgentPicks || [],
           lastUpdated: new Date().toISOString(),
         });
         console.log('📱 Widget data synced from outliers:', widgetFadeAlerts.length, 'fades,', widgetValueAlerts.length, 'values');
@@ -235,9 +519,11 @@ export default function OutliersScreen() {
       queryClient.invalidateQueries({ queryKey: ['week-games'] }),
       queryClient.invalidateQueries({ queryKey: ['value-alerts'] }),
       queryClient.invalidateQueries({ queryKey: ['fade-alerts'] }),
+      refetchNbaTrends(),
+      refetchNcaabTrends(),
     ]);
     setRefreshing(false);
-  }, [queryClient]);
+  }, [queryClient, refetchNbaTrends, refetchNcaabTrends]);
 
   const handleGamePress = useCallback((gameSummary: GameSummary) => {
       if (!gameSummary.originalData) return;
@@ -545,6 +831,8 @@ export default function OutliersScreen() {
 
   const filteredValueAlerts = filterBySport(valueAlerts || [], valueAlertsFilter);
   const filteredFadeAlerts = filterBySport(fadeAlerts || [], fadeAlertsFilter);
+  const nbaTrendOutliers = useMemo(() => buildNBATrendOutliers(nbaTrendsGames), [nbaTrendsGames]);
+  const ncaabTrendOutliers = useMemo(() => buildNCAABTrendOutliers(ncaabTrendsGames), [ncaabTrendsGames]);
 
   // For non-pro users (when loading is complete), only show 2 alerts; for pro users show 5
   const shouldShowLocks = !isProLoading && !isPro;
@@ -612,6 +900,74 @@ export default function OutliersScreen() {
               </View>
           </Modal>
       );
+  };
+
+  const renderTrendOutlierCard = (trend: TrendOutlier, index: number) => {
+    const gameTime = formatGameTime(trend.gameTime || undefined);
+    const handleTrendPress = () => {
+      if (trend.sport === 'nba') {
+        const game = nbaTrendsGames.find((g) => g.gameId === trend.gameId);
+        if (game) {
+          openNBATrendsSheet(game);
+        }
+        return;
+      }
+
+      const game = ncaabTrendsGames.find((g) => g.gameId === trend.gameId);
+      if (game) {
+        openNCAABTrendsSheet(game);
+      }
+    };
+
+    return (
+      <Card
+        key={`${trend.sport}-${trend.gameId}-${trend.candidate.teamName}-${trend.candidate.marketType}-${index}`}
+        style={{
+          ...styles.alertCard,
+          backgroundColor: isDark ? 'rgba(14, 165, 233, 0.1)' : 'rgba(14, 165, 233, 0.08)',
+          borderColor: isDark ? 'rgba(14, 165, 233, 0.35)' : 'rgba(14, 165, 233, 0.4)',
+        }}
+        onPress={handleTrendPress}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.pillsContainer}>
+            <View style={[styles.pill, { backgroundColor: getSportColor(trend.sport) + '20' }]}>
+              <MaterialCommunityIcons name={getSportIconName(trend.sport) as any} size={12} color={getSportColor(trend.sport)} />
+              <Text style={[styles.pillText, { color: getSportColor(trend.sport) }]}>{trend.sport.toUpperCase()}</Text>
+            </View>
+
+            {gameTime && (
+              <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                <MaterialCommunityIcons name="clock-outline" size={10} color={theme.colors.onSurfaceVariant} />
+                <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>{gameTime}</Text>
+              </View>
+            )}
+
+            <View style={[styles.pill, { backgroundColor: 'rgba(14, 165, 233, 0.2)' }]}>
+              <Text style={[styles.pillText, { color: '#0284c7' }]}>{trend.candidate.marketType}</Text>
+            </View>
+
+            <View style={[styles.pill, { backgroundColor: '#0284c7' }]}>
+              <MaterialCommunityIcons name="percent" size={10} color="#fff" />
+              <Text style={[styles.pillText, { color: '#fff' }]}>{trend.candidate.percentage.toFixed(0)}%</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.cardContent}>
+          <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
+            {trend.awayTeam} @ {trend.homeTeam}
+          </Text>
+          <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
+            <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{trend.candidate.teamName}</Text>
+            {` ${trend.candidate.marketType} ${trend.candidate.percentage.toFixed(0)}% (${trend.candidate.record})`}
+          </Text>
+          <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
+            Situation: {trend.candidate.situationLabel}
+          </Text>
+        </View>
+      </Card>
+    );
   };
 
   // Calculate header heights (must match tab bar calculation)
@@ -814,7 +1170,101 @@ export default function OutliersScreen() {
             ) : (
                 <View style={styles.emptyState}>
                      <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
-                        No {fadeAlertsFilter ? fadeAlertsFilter.toUpperCase() : ''} model alerts found for this week.
+                        No {fadeAlertsFilter ? fadeAlertsFilter.toUpperCase() : ''} model alerts found for today.
+                     </Text>
+                </View>
+            )}
+        </View>
+
+        {/* Section 3: NBA Betting Trends Outliers */}
+        <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+                <View style={styles.titleRow}>
+                    <MaterialCommunityIcons name="basketball" size={20} color={theme.colors.onSurface} />
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>NBA Betting Trends Outliers</Text>
+                </View>
+                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+                    Highest ATS and O/U trend widgets at {BETTING_TRENDS_THRESHOLD}%+ win rates.
+                </Text>
+            </View>
+
+            {nbaTrendsLoading ? (
+                <View>
+                    {[1, 2, 3].map((i) => (
+                        <AlertCardShimmer key={`nba-trends-${i}`} />
+                    ))}
+                </View>
+            ) : nbaTrendOutliers.length > 0 ? (
+                <View style={styles.cardsGrid}>
+                    {nbaTrendOutliers.slice(0, visibleAlertCount).map(renderTrendOutlierCard)}
+
+                    {shouldShowLocks && Math.min(3, Math.max(0, nbaTrendOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, nbaTrendOutliers.length - 2)) }).map((_, index) => (
+                      <LockedOverlay
+                        key={`locked-nba-trends-${index}`}
+                        message="Unlock all alerts with Pro"
+                        style={styles.lockedAlertCard}
+                      />
+                    ))}
+
+                    <PaperButton
+                      mode="outlined"
+                      onPress={() => router.push('/(drawer)/(tabs)/nba-betting-trends')}
+                      style={styles.showMoreButton}
+                    >
+                      Open NBA Betting Trends
+                    </PaperButton>
+                </View>
+            ) : (
+                <View style={styles.emptyState}>
+                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                        No NBA ATS/O-U trend outliers at {BETTING_TRENDS_THRESHOLD}%+ right now.
+                     </Text>
+                </View>
+            )}
+        </View>
+
+        {/* Section 4: NCAAB Betting Trends Outliers */}
+        <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+                <View style={styles.titleRow}>
+                    <MaterialCommunityIcons name="basketball-hoop" size={20} color={theme.colors.onSurface} />
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>NCAAB Betting Trends Outliers</Text>
+                </View>
+                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+                    Highest ATS and O/U trend widgets at {BETTING_TRENDS_THRESHOLD}%+ win rates.
+                </Text>
+            </View>
+
+            {ncaabTrendsLoading ? (
+                <View>
+                    {[1, 2, 3].map((i) => (
+                        <AlertCardShimmer key={`ncaab-trends-${i}`} />
+                    ))}
+                </View>
+            ) : ncaabTrendOutliers.length > 0 ? (
+                <View style={styles.cardsGrid}>
+                    {ncaabTrendOutliers.slice(0, visibleAlertCount).map(renderTrendOutlierCard)}
+
+                    {shouldShowLocks && Math.min(3, Math.max(0, ncaabTrendOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, ncaabTrendOutliers.length - 2)) }).map((_, index) => (
+                      <LockedOverlay
+                        key={`locked-ncaab-trends-${index}`}
+                        message="Unlock all alerts with Pro"
+                        style={styles.lockedAlertCard}
+                      />
+                    ))}
+
+                    <PaperButton
+                      mode="outlined"
+                      onPress={() => router.push('/(drawer)/(tabs)/ncaab-betting-trends')}
+                      style={styles.showMoreButton}
+                    >
+                      Open NCAAB Betting Trends
+                    </PaperButton>
+                </View>
+            ) : (
+                <View style={styles.emptyState}>
+                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                        No NCAAB ATS/O-U trend outliers at {BETTING_TRENDS_THRESHOLD}%+ right now.
                      </Text>
                 </View>
             )}

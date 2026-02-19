@@ -38,10 +38,34 @@ export interface PolymarketValueForWidget {
   percentage: number;
 }
 
+export interface AgentPickForWidget {
+  id: string;
+  sport: string;
+  matchup: string;
+  pickSelection: string;
+  odds?: string;
+  result?: string;
+  gameDate?: string;
+}
+
+export interface TopAgentWidgetData {
+  agentId: string;
+  agentName: string;
+  agentEmoji: string;
+  agentColor: string;
+  isFavorite: boolean;
+  netUnits: number;
+  winRate?: number;
+  currentStreak: number;
+  record: string;
+  picks: AgentPickForWidget[];
+}
+
 export interface WidgetDataPayload {
   editorPicks: EditorPickForWidget[];
   fadeAlerts: FadeAlertForWidget[];
   polymarketValues: PolymarketValueForWidget[];
+  topAgentPicks: TopAgentWidgetData[];
   lastUpdated: string;
 }
 

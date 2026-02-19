@@ -38,8 +38,8 @@ const ONBOARDING_SCREENS = [
   },
   {
     type: 'image',
-    title: 'Editors Analysis',
-    subtitle: 'Our editors share top model finds and analysis, daily in-app.',
+    title: 'Create Agent Bots',
+    subtitle: 'Build multiple bots that research picks for you 24/7.',
     media: null, // Placeholder
     color: '#00BFA5', // Teal
     visual: 'screen-3',
@@ -202,26 +202,26 @@ const AIModelCard = () => (
   </View>
 );
 
-// --- New Widgets for Screen 3: Editors Analysis ---
-const EditorPickCard = () => (
+// --- New Widgets for Screen 3: Create Agent Bots ---
+const AgentBotsCard = () => (
   <View style={[styles.widgetCardContainer, { width: 290, height: 180 }]}>
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
       <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
-        <MaterialCommunityIcons name="account" size={24} color="#fff" />
+        <MaterialCommunityIcons name="robot" size={24} color="#fff" />
       </View>
       <View style={{ marginLeft: 12 }}>
-        <Text style={styles.widgetTitle}>Alex's Lock</Text>
-        <Text style={styles.widgetStatSub}>Senior Analyst • 2h ago</Text>
+        <Text style={styles.widgetTitle}>NFL Bot Squad</Text>
+        <Text style={styles.widgetStatSub}>4 bots active • running 24/7</Text>
       </View>
     </View>
 
     <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: 12, borderRadius: 8 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-        <Text style={{ color: '#fff', fontWeight: '700' }}>KC Chiefs vs BAL Ravens</Text>
-        <Text style={{ color: '#00BFA5', fontWeight: '700' }}>KC -3.5</Text>
+        <Text style={{ color: '#fff', fontWeight: '700' }}>Value Hunters</Text>
+        <Text style={{ color: '#00BFA5', fontWeight: '700' }}>3 picks found</Text>
       </View>
       <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 18 }}>
-        Strong line movement on KC despite public money on BAL. Our model shows a 4-point edge.
+        Multiple bots scan odds, props, and market moves around the clock to surface your best opportunities.
       </Text>
     </View>
   </View>
@@ -352,7 +352,7 @@ const ScreenVisuals = ({ isActive, type }: { isActive: boolean, type: string }) 
     return (
       <View style={styles.visualsWrapper}>
         <Animated.View style={[styles.floatingWidgetWrapper, cardTransform]}>
-          <EditorPickCard />
+          <AgentBotsCard />
         </Animated.View>
       </View>
     );

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import {
   syncWidgetData,
+  getWidgetData,
   WidgetDataPayload,
   EditorPickForWidget,
   FadeAlertForWidget,
@@ -150,10 +151,12 @@ export function useWidgetDataSync({
     }
 
     // Build payload
+    const existingData = await getWidgetData();
     const payload: WidgetDataPayload = {
       editorPicks: transformEditorPicks(editorPicks || [], gameDataMap),
       fadeAlerts: transformFadeAlerts(fadeAlerts || []),
       polymarketValues: transformPolymarketValues(valueAlerts || []),
+      topAgentPicks: existingData?.topAgentPicks || [],
       lastUpdated: new Date().toISOString(),
     };
 
@@ -229,6 +232,7 @@ export async function syncDataToWidget(options: {
     return;
   }
 
+  const existingData = await getWidgetData();
   const payload: WidgetDataPayload = {
     editorPicks: transformEditorPicks(
       options.editorPicks || [],
@@ -236,6 +240,7 @@ export async function syncDataToWidget(options: {
     ),
     fadeAlerts: transformFadeAlerts(options.fadeAlerts || []),
     polymarketValues: transformPolymarketValues(options.valueAlerts || []),
+    topAgentPicks: existingData?.topAgentPicks || [],
     lastUpdated: new Date().toISOString(),
   };
 

@@ -1,38 +1,25 @@
 {
-  "generated_at": "2026-02-18T22:21:20.557Z",
-  "avatar_id": "c53c8a39-dfb1-47b9-86ce-5bb17f632a93",
+  "generated_at": "2026-02-19T13:03:49.298Z",
+  "avatar_id": "be042477-6565-422e-83fa-0de08c95ec30",
   "target_date": "2026-02-18",
-  "payload2_games_count": 61,
+  "payload2_games_count": 2,
   "breakdown": {
     "nfl": 1,
     "cfb": 1,
     "nba": 0,
-    "ncaab": 59
+    "ncaab": 0
   },
   "coverage": {
-    "polymarket_games": 58,
+    "polymarket_games": 2,
     "nfl_line_movement_games": 1,
     "nfl_h2h_games": 0,
     "cfb_line_movement_games": 0,
     "nba_injury_games": 0,
     "nba_prediction_accuracy_games": 0,
-    "ncaab_situational_trends_games": 59,
-    "ncaab_prediction_accuracy_games": 59
+    "ncaab_situational_trends_games": 0,
+    "ncaab_prediction_accuracy_games": 0
   },
-  "missing_polymarket_games": [
-    {
-      "sport": "NCAAB",
-      "matchup": "American University @ Bucknell"
-    },
-    {
-      "sport": "NCAAB",
-      "matchup": "Troy @ UL Monroe"
-    },
-    {
-      "sport": "NCAAB",
-      "matchup": "Saint Mary's @ Seattle U"
-    }
-  ],
+  "missing_polymarket_games": [],
   "files": [
     "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/payload1_agent_personality_live.json",
     "/Users/chrishabib/Documents/new-wagerproof/tmp/live-payload-audit/payload2_game_data_live.json",

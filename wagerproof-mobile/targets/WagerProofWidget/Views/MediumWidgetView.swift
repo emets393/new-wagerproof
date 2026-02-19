@@ -30,6 +30,8 @@ struct MediumWidgetView: View {
             fadeAlertsContent
         case .polymarketValue:
             polymarketContent
+        case .topAgentsPicks:
+            topAgentsContent
         }
     }
 
@@ -74,6 +76,20 @@ struct MediumWidgetView: View {
             }
         }
     }
+
+    @ViewBuilder
+    private var topAgentsContent: some View {
+        if entry.topAgentPicks.isEmpty {
+            EmptyStateView(contentType: .topAgentsPicks)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            VStack(spacing: 8) {
+                ForEach(entry.topAgentPicks.prefix(2)) { agent in
+                    TopAgentPicksRow(agent: agent, maxPicks: 1, isCompact: false)
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Previews
@@ -87,6 +103,7 @@ struct MediumWidgetView: View {
         editorPicks: EditorPickWidgetData.sampleArray,
         fadeAlerts: [],
         polymarketValues: [],
+        topAgentPicks: [],
         isPlaceholder: false,
         lastUpdated: Date()
     )
@@ -101,6 +118,7 @@ struct MediumWidgetView: View {
         editorPicks: [],
         fadeAlerts: FadeAlertWidgetData.sampleArray,
         polymarketValues: [],
+        topAgentPicks: [],
         isPlaceholder: false,
         lastUpdated: Date()
     )
@@ -115,6 +133,22 @@ struct MediumWidgetView: View {
         editorPicks: [],
         fadeAlerts: [],
         polymarketValues: PolymarketValueWidgetData.sampleArray,
+        topAgentPicks: [],
+        isPlaceholder: false,
+        lastUpdated: Date()
+    )
+}
+
+#Preview("Medium - Top Agents", as: .systemMedium) {
+    WagerProofWidget()
+} timeline: {
+    WagerProofEntry(
+        date: Date(),
+        contentType: .topAgentsPicks,
+        editorPicks: [],
+        fadeAlerts: [],
+        polymarketValues: [],
+        topAgentPicks: TopAgentWidgetData.sampleArray,
         isPlaceholder: false,
         lastUpdated: Date()
     )

@@ -17,8 +17,8 @@ import {
 // INPUT TYPES
 // ============================================================================
 
-export type CreateAgentInput = z.infer<typeof CreateAgentSchema>;
-export type UpdateAgentInput = z.infer<typeof UpdateAgentSchema>;
+export type CreateAgentInput = z.input<typeof CreateAgentSchema>;
+export type UpdateAgentInput = z.input<typeof UpdateAgentSchema>;
 
 // ============================================================================
 // AGENT CRUD OPERATIONS
@@ -140,6 +140,17 @@ export async function createAgent(
     // Validate input
     const validated = CreateAgentSchema.parse(data);
 
+    let canCreatePublicAgent = false;
+    const { data: canAccessPicks, error: entitlementError } = await supabase.rpc(
+      'can_access_agent_picks',
+      { p_user_id: userId }
+    );
+    if (entitlementError) {
+      console.warn('Could not resolve public-agent entitlement, defaulting to private:', entitlementError);
+    } else {
+      canCreatePublicAgent = Boolean(canAccessPicks);
+    }
+
     const insertData = {
       user_id: userId,
       name: validated.name,
@@ -150,7 +161,8 @@ export async function createAgent(
       personality_params: validated.personality_params,
       custom_insights: validated.custom_insights,
       auto_generate: validated.auto_generate,
-      is_public: true,
+      is_widget_favorite: validated.is_widget_favorite,
+      is_public: canCreatePublicAgent,
       is_active: true,
     };
 
@@ -162,6 +174,13 @@ export async function createAgent(
 
     if (error) {
       console.error('Error creating agent:', error);
+      if (
+        error.code === '42501' ||
+        error.message?.toLowerCase().includes('row-level security') ||
+        error.message?.toLowerCase().includes('permission denied')
+      ) {
+        throw new Error('Agent limit reached. Free: 1 active. Pro: 10 active, 30 total.');
+      }
       throw error;
     }
 
@@ -197,6 +216,7 @@ export async function updateAgent(
     if (validated.personality_params !== undefined) updateData.personality_params = validated.personality_params;
     if (validated.custom_insights !== undefined) updateData.custom_insights = validated.custom_insights;
     if (validated.auto_generate !== undefined) updateData.auto_generate = validated.auto_generate;
+    if (validated.is_widget_favorite !== undefined) updateData.is_widget_favorite = validated.is_widget_favorite;
     if (validated.is_public !== undefined) updateData.is_public = validated.is_public;
     if (validated.is_active !== undefined) updateData.is_active = validated.is_active;
 

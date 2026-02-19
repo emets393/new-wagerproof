@@ -17,7 +17,8 @@ import * as Haptics from 'expo-haptics';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { useCreateAgent } from '@/hooks/useAgents';
+import { useCreateAgent, useUserAgents } from '@/hooks/useAgents';
+import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import {
   Sport,
   ArchetypeId,
@@ -36,6 +37,8 @@ import { Screen3_Personality } from '@/components/agents/creation/Screen3_Person
 import { Screen4_DataAndConditions } from '@/components/agents/creation/Screen4_DataAndConditions';
 import { Screen5_CustomInsights } from '@/components/agents/creation/Screen5_CustomInsights';
 import { Screen6_Review } from '@/components/agents/creation/Screen6_Review';
+import { AgentCreationGenerationIntro } from '@/components/agents/creation/AgentCreationGenerationIntro';
+import { AgentBornCreationCelebration } from '@/components/agents/creation/AgentBornCreationCelebration';
 
 const TOTAL_SCREENS = 6;
 
@@ -63,9 +66,14 @@ export default function CreateAgentScreen() {
   // Form state
   const [formState, setFormState] = useState<CreateAgentFormState>(INITIAL_FORM_STATE);
   const [currentScreen, setCurrentScreen] = useState(0);
+  const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
+  const [showGenerationIntro, setShowGenerationIntro] = useState(false);
+  const [showBornCelebration, setShowBornCelebration] = useState(false);
 
   // Create mutation
   const createMutation = useCreateAgent();
+  const { data: agents } = useUserAgents();
+  const { canCreateAnotherAgent, isPro, isAdmin } = useAgentEntitlements();
 
   // Update form state helper
   const updateFormState = useCallback(
@@ -228,6 +236,18 @@ export default function CreateAgentScreen() {
 
   // Handle create agent
   const handleCreate = useCallback(async () => {
+    const totalCount = agents?.length || 0;
+    const activeCount = agents?.filter((a) => a.is_active).length || 0;
+    if (!canCreateAnotherAgent(activeCount, totalCount)) {
+      Alert.alert(
+        'Agent Limit Reached',
+        isAdmin || isPro
+          ? 'Pro users can have up to 10 active agents and 30 total created agents.'
+          : 'Free users can have 1 active agent. Upgrade to Pro for more.'
+      );
+      return;
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
@@ -242,15 +262,15 @@ export default function CreateAgentScreen() {
         auto_generate: formState.auto_generate,
       });
 
-      // Navigate to the new agent's detail page
-      router.replace(`/(drawer)/(tabs)/agents/${newAgent.id}` as any);
+      setCreatedAgentId(newAgent.id);
+      setShowGenerationIntro(true);
     } catch (error: any) {
       Alert.alert(
         'Error',
         error?.message || 'Failed to create agent. Please try again.'
       );
     }
-  }, [formState, createMutation, router]);
+  }, [formState, createMutation, router, agents, canCreateAnotherAgent, isPro, isAdmin]);
 
   // Render current screen content
   const renderScreenContent = () => {
@@ -315,6 +335,16 @@ export default function CreateAgentScreen() {
   const isFirstScreen = currentScreen === 0;
   const isLastScreen = currentScreen === TOTAL_SCREENS - 1;
   const canProceed = validateScreen(currentScreen);
+  const handleCelebrationContinue = useCallback(() => {
+    if (!createdAgentId) return;
+    setShowBornCelebration(false);
+    router.replace(`/(drawer)/(tabs)/agents/${createdAgentId}` as any);
+  }, [createdAgentId, router]);
+
+  const handleGenerationComplete = useCallback(() => {
+    setShowGenerationIntro(false);
+    setShowBornCelebration(true);
+  }, []);
 
   const HEADER_HEIGHT = insets.top + 56;
   const FOOTER_HEIGHT = 72 + insets.bottom;
@@ -428,6 +458,22 @@ export default function CreateAgentScreen() {
           </View>
         )}
       </View>
+
+      <AgentCreationGenerationIntro
+        visible={showGenerationIntro}
+        onComplete={handleGenerationComplete}
+      />
+
+      <AgentBornCreationCelebration
+        visible={showBornCelebration}
+        agent={{
+          name: formState.name.trim(),
+          avatar_emoji: formState.avatar_emoji,
+          avatar_color: formState.avatar_color,
+          preferred_sports: formState.preferred_sports,
+        }}
+        onContinue={handleCelebrationContinue}
+      />
     </>
   );
 }

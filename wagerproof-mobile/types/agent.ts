@@ -105,6 +105,7 @@ export interface AgentProfile {
   created_at: string;
   updated_at: string;
   auto_generate: boolean;
+  is_widget_favorite: boolean;
   last_generated_at: string | null;
   last_auto_generated_at: string | null;
   owner_last_active_at: string | null;
@@ -290,6 +291,7 @@ export const CreateAgentSchema = z.object({
   personality_params: PersonalityParamsSchema,
   custom_insights: CustomInsightsSchema,
   auto_generate: z.boolean().default(true),
+  is_widget_favorite: z.boolean().default(false),
 });
 
 export const UpdateAgentSchema = CreateAgentSchema.partial().extend({

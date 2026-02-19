@@ -19,6 +19,20 @@ interface AgentPerformanceChartsProps {
   agentColor: string;
 }
 
+function sanitizeChartData(data: { x: number; y: number }[]) {
+  return data.filter(
+    (point) => Number.isFinite(point.x) && Number.isFinite(point.y)
+  );
+}
+
+function hasValidBounds(chartBounds: any): boolean {
+  return (
+    Number.isFinite(chartBounds?.top) &&
+    Number.isFinite(chartBounds?.bottom) &&
+    chartBounds.bottom > chartBounds.top
+  );
+}
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -38,9 +52,10 @@ export function AgentPerformanceCharts({
 
   const overallStats = chartStats.find((s) => s.sport === 'all');
   const sportStats = chartStats.filter((s) => s.sport !== 'all');
+  const safeOverallChartData = sanitizeChartData((overallStats?.chartData || []) as { x: number; y: number }[]);
 
   // Need at least 2 graded picks to show charts
-  const hasEnoughData = overallStats && overallStats.chartData.length > 2;
+  const hasEnoughData = overallStats && safeOverallChartData.length > 2;
 
   if (!hasEnoughData) {
     return (
@@ -84,7 +99,7 @@ export function AgentPerformanceCharts({
         </View>
         <View style={styles.chartContainer}>
           <CartesianChart
-            data={overallStats.chartData as { x: number; y: number }[]}
+            data={safeOverallChartData}
             xKey="x"
             yKeys={["y"]}
             axisOptions={{
@@ -93,7 +108,7 @@ export function AgentPerformanceCharts({
               labelColor: theme.colors.onSurfaceVariant,
               formatXLabel: (value: any) => {
                 if (value === 0) return 'Start';
-                if (value === overallStats.chartData.length - 1) return 'Now';
+                if (value === safeOverallChartData.length - 1) return 'Now';
                 return '';
               },
               formatYLabel: (value: any) =>
@@ -102,22 +117,32 @@ export function AgentPerformanceCharts({
           >
             {({ points, chartBounds }: any) => {
               const bestRunIndices = overallStats.bestRunIndices;
+              const safePoints = (points?.y || []).filter(
+                (p: any) => Number.isFinite(p?.x) && Number.isFinite(p?.y)
+              );
+              const canDrawBestRun =
+                !!bestRunIndices &&
+                safePoints.length > bestRunIndices.end &&
+                hasValidBounds(chartBounds) &&
+                Number.isFinite(safePoints[bestRunIndices.start]?.x) &&
+                Number.isFinite(safePoints[bestRunIndices.end]?.x) &&
+                safePoints[bestRunIndices.end].x > safePoints[bestRunIndices.start].x;
               return (
                 <>
-                  {bestRunIndices && points.y.length > bestRunIndices.end && (
+                  {canDrawBestRun && (
                     <Rect
-                      x={points.y[bestRunIndices.start]?.x ?? 0}
+                      x={safePoints[bestRunIndices!.start].x}
                       y={chartBounds.top}
                       width={
-                        (points.y[bestRunIndices.end]?.x ?? 0) -
-                        (points.y[bestRunIndices.start]?.x ?? 0)
+                        safePoints[bestRunIndices!.end].x -
+                        safePoints[bestRunIndices!.start].x
                       }
                       height={chartBounds.bottom - chartBounds.top}
                       color="rgba(34, 197, 94, 0.15)"
                     />
                   )}
                   <Line
-                    points={points.y}
+                    points={safePoints}
                     color={overallStats.netUnits >= 0 ? '#22c55e' : '#ef4444'}
                     strokeWidth={2}
                     curveType="monotoneX"
@@ -260,6 +285,7 @@ function SportChartCard({
   theme: MD3Theme;
 }) {
   const hasData = stat.chartData.length > 1;
+  const safeChartData = sanitizeChartData(stat.chartData as { x: number; y: number }[]);
   const record = `${stat.wins}-${stat.losses}${stat.pushes > 0 ? `-${stat.pushes}` : ''}`;
 
   return (
@@ -298,10 +324,10 @@ function SportChartCard({
         </View>
       </View>
 
-      {hasData ? (
+      {hasData && safeChartData.length > 1 ? (
         <View style={styles.sportChartContainer}>
           <CartesianChart
-            data={stat.chartData as { x: number; y: number }[]}
+            data={safeChartData}
             xKey="x"
             yKeys={["y"]}
             axisOptions={{
@@ -317,23 +343,32 @@ function SportChartCard({
           >
             {({ points, chartBounds }: any) => {
               const bestRunIndices = stat.bestRunIndices;
+              const safePoints = (points?.y || []).filter(
+                (p: any) => Number.isFinite(p?.x) && Number.isFinite(p?.y)
+              );
+              const canDrawBestRun =
+                !!bestRunIndices &&
+                safePoints.length > bestRunIndices.end &&
+                hasValidBounds(chartBounds) &&
+                Number.isFinite(safePoints[bestRunIndices.start]?.x) &&
+                Number.isFinite(safePoints[bestRunIndices.end]?.x) &&
+                safePoints[bestRunIndices.end].x > safePoints[bestRunIndices.start].x;
               return (
                 <>
-                  {bestRunIndices &&
-                    points.y.length > bestRunIndices.end && (
+                  {canDrawBestRun && (
                       <Rect
-                        x={points.y[bestRunIndices.start]?.x ?? 0}
+                        x={safePoints[bestRunIndices!.start].x}
                         y={chartBounds.top}
                         width={
-                          (points.y[bestRunIndices.end]?.x ?? 0) -
-                          (points.y[bestRunIndices.start]?.x ?? 0)
+                          safePoints[bestRunIndices!.end].x -
+                          safePoints[bestRunIndices!.start].x
                         }
                         height={chartBounds.bottom - chartBounds.top}
                         color="rgba(34, 197, 94, 0.2)"
                       />
-                    )}
+                  )}
                   <Line
-                    points={points.y}
+                    points={safePoints}
                     color={stat.netUnits >= 0 ? '#22c55e' : '#ef4444'}
                     strokeWidth={2}
                     curveType="monotoneX"

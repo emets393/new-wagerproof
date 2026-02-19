@@ -10,6 +10,7 @@ struct WagerProofEntry: TimelineEntry {
     let editorPicks: [EditorPickWidgetData]
     let fadeAlerts: [FadeAlertWidgetData]
     let polymarketValues: [PolymarketValueWidgetData]
+    let topAgentPicks: [TopAgentWidgetData]
     let isPlaceholder: Bool
     let lastUpdated: Date?
 
@@ -20,6 +21,7 @@ struct WagerProofEntry: TimelineEntry {
             editorPicks: EditorPickWidgetData.sampleArray,
             fadeAlerts: [],
             polymarketValues: [],
+            topAgentPicks: [],
             isPlaceholder: true,
             lastUpdated: nil
         )
@@ -32,6 +34,7 @@ struct WagerProofEntry: TimelineEntry {
             editorPicks: [],
             fadeAlerts: [],
             polymarketValues: [],
+            topAgentPicks: [],
             isPlaceholder: false,
             lastUpdated: nil
         )
@@ -44,13 +47,15 @@ enum ContentTypeAppEnum: String, AppEnum, CaseIterable {
     case editorPicks
     case fadeAlerts
     case polymarketValue
+    case topAgentsPicks
 
     static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Content Type")
 
     static var caseDisplayRepresentations: [ContentTypeAppEnum: DisplayRepresentation] = [
         .editorPicks: DisplayRepresentation(title: "Editor Picks", image: .init(systemName: "star.fill")),
         .fadeAlerts: DisplayRepresentation(title: "Fade Alerts", image: .init(systemName: "bolt.fill")),
-        .polymarketValue: DisplayRepresentation(title: "Market Value", image: .init(systemName: "chart.line.uptrend.xyaxis"))
+        .polymarketValue: DisplayRepresentation(title: "Market Value", image: .init(systemName: "chart.line.uptrend.xyaxis")),
+        .topAgentsPicks: DisplayRepresentation(title: "Top Agents", image: .init(systemName: "person.3.fill"))
     ]
 
     var widgetContentType: WidgetContentType {
@@ -58,6 +63,7 @@ enum ContentTypeAppEnum: String, AppEnum, CaseIterable {
         case .editorPicks: return .editorPicks
         case .fadeAlerts: return .fadeAlerts
         case .polymarketValue: return .polymarketValue
+        case .topAgentsPicks: return .topAgentsPicks
         }
     }
 }
@@ -112,7 +118,8 @@ struct WagerProofTimelineProvider: AppIntentTimelineProvider {
         if let cached = dataManager.loadData() {
             let hasContent = !cached.editorPicks.isEmpty ||
                              !cached.fadeAlerts.isEmpty ||
-                             !cached.polymarketValues.isEmpty
+                             !cached.polymarketValues.isEmpty ||
+                             !cached.topAgentPicks.isEmpty
 
             print("Widget Timeline: Found cached data - picks: \(cached.editorPicks.count), fades: \(cached.fadeAlerts.count), values: \(cached.polymarketValues.count)")
 
@@ -123,6 +130,7 @@ struct WagerProofTimelineProvider: AppIntentTimelineProvider {
                     editorPicks: cached.editorPicks,
                     fadeAlerts: cached.fadeAlerts,
                     polymarketValues: cached.polymarketValues,
+                    topAgentPicks: cached.topAgentPicks,
                     isPlaceholder: false,
                     lastUpdated: cached.lastUpdated
                 )
@@ -139,7 +147,8 @@ struct WagerProofTimelineProvider: AppIntentTimelineProvider {
         // Check if we got any data
         let hasData = !fetchedData.editorPicks.isEmpty ||
                       !fetchedData.fadeAlerts.isEmpty ||
-                      !fetchedData.polymarketValues.isEmpty
+                      !fetchedData.polymarketValues.isEmpty ||
+                      !fetchedData.topAgentPicks.isEmpty
 
         print("Widget Timeline: Supabase fetch result - picks: \(fetchedData.editorPicks.count), fades: \(fetchedData.fadeAlerts.count), values: \(fetchedData.polymarketValues.count)")
 
@@ -150,6 +159,7 @@ struct WagerProofTimelineProvider: AppIntentTimelineProvider {
                 editorPicks: fetchedData.editorPicks,
                 fadeAlerts: fetchedData.fadeAlerts,
                 polymarketValues: fetchedData.polymarketValues,
+                topAgentPicks: fetchedData.topAgentPicks,
                 isPlaceholder: false,
                 lastUpdated: fetchedData.lastUpdated
             )
@@ -167,6 +177,7 @@ struct WagerProofTimelineProvider: AppIntentTimelineProvider {
             editorPicks: EditorPickWidgetData.sampleArray,
             fadeAlerts: FadeAlertWidgetData.sampleArray,
             polymarketValues: PolymarketValueWidgetData.sampleArray,
+            topAgentPicks: TopAgentWidgetData.sampleArray,
             isPlaceholder: false,
             lastUpdated: Date()
         )

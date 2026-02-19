@@ -278,6 +278,71 @@ struct PolymarketRow: View {
     }
 }
 
+// MARK: - Top Agents Row
+
+struct TopAgentPicksRow: View {
+    let agent: TopAgentWidgetData
+    let maxPicks: Int
+    let isCompact: Bool
+
+    init(agent: TopAgentWidgetData, maxPicks: Int, isCompact: Bool = false) {
+        self.agent = agent
+        self.maxPicks = maxPicks
+        self.isCompact = isCompact
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: isCompact ? 3 : 6) {
+            HStack(spacing: 6) {
+                Text(agent.agentEmoji)
+                    .font(.system(size: isCompact ? 12 : 14))
+
+                Text(agent.agentName)
+                    .font(.system(size: isCompact ? 10 : 12, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+
+                if agent.isFavorite {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.wpAmber)
+                }
+
+                Spacer(minLength: 4)
+
+                Text(agent.record)
+                    .font(.system(size: isCompact ? 9 : 10, weight: .medium))
+                    .foregroundColor(.wpGray)
+                    .lineLimit(1)
+            }
+
+            if agent.picks.isEmpty {
+                Text("No picks")
+                    .font(.system(size: isCompact ? 9 : 10, weight: .regular))
+                    .foregroundColor(.wpDarkGray)
+                    .lineLimit(1)
+            } else {
+                ForEach(agent.picks.prefix(maxPicks)) { pick in
+                    HStack(spacing: 6) {
+                        SportBadge(sport: pick.sport)
+                        Text(pick.pickSelection)
+                            .font(.system(size: isCompact ? 10 : 12, weight: .medium))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        if let odds = pick.odds {
+                            Text(odds)
+                                .font(.system(size: isCompact ? 9 : 10, weight: .bold))
+                                .foregroundColor(.wpGreen)
+                        }
+                    }
+                }
+            }
+        }
+        .glassCard(isCompact: isCompact)
+    }
+}
+
 // MARK: - Result Badge
 
 struct ResultBadge: View {
@@ -316,13 +381,31 @@ struct EmptyStateView: View {
                 .font(.system(size: 28, weight: .light))
                 .foregroundColor(.wpDarkGray)
 
-            Text("No \(contentType.displayName)")
+            Text(emptyTitle)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.wpGray)
 
-            Text("Open WagerProof to load data")
+            Text(emptySubtitle)
                 .font(.system(size: 11, weight: .regular))
                 .foregroundColor(.wpDarkGray)
+        }
+    }
+
+    private var emptyTitle: String {
+        switch contentType {
+        case .topAgentsPicks:
+            return "No Agent Picks"
+        default:
+            return "No \(contentType.displayName)"
+        }
+    }
+
+    private var emptySubtitle: String {
+        switch contentType {
+        case .topAgentsPicks:
+            return "Favorite agents in app settings"
+        default:
+            return "Open WagerProof to load data"
         }
     }
 }

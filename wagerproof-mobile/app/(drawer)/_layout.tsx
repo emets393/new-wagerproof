@@ -7,6 +7,7 @@ import { Linking, Platform } from 'react-native';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
+import { useTopAgentsWidgetSync } from '@/hooks/useTopAgentsWidgetSync';
 import SideMenu from '@/components/SideMenu';
 import { LearnWagerProofProvider } from '@/contexts/LearnWagerProofContext';
 import { LearnWagerProofBottomSheet } from '@/components/learn-wagerproof/LearnWagerProofBottomSheet';
@@ -27,6 +28,7 @@ export default function DrawerLayout() {
   const { isDark } = useThemeContext();
   const { isDetached, dismissFloating } = useWagerBotSuggestion();
   const [open, setOpen] = useState(false);
+  useTopAgentsWidgetSync();
 
   // Handle deep links from iOS widget
   useEffect(() => {
@@ -43,6 +45,9 @@ export default function DrawerLayout() {
         switch (path) {
           case 'picks':
             router.push('/(drawer)/(tabs)/picks');
+            break;
+          case 'agents':
+            router.push('/(drawer)/(tabs)/agents');
             break;
           case 'outliers':
             router.push('/(drawer)/(tabs)/outliers');
@@ -131,4 +136,3 @@ export default function DrawerLayout() {
     </GestureHandlerRootView>
   );
 }
-

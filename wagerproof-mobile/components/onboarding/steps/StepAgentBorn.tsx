@@ -28,7 +28,7 @@ function getPrimaryColor(value: string): string {
 }
 
 export function AgentBornStep() {
-  const { currentStep, agentFormState, submitOnboardingData, prevStep } = useOnboarding();
+  const { currentStep, agentFormState, submitOnboardingData } = useOnboarding();
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const router = useRouter();
@@ -63,11 +63,6 @@ export function AgentBornStep() {
       console.error('Error completing onboarding:', error);
       setIsContinuing(false);
     }
-  };
-
-  const handleBack = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    prevStep();
   };
 
   // Replay green intro whenever user lands on Agent Born.
@@ -151,20 +146,6 @@ export function AgentBornStep() {
 
   return (
     <View style={styles.container}>
-      <View pointerEvents={isRevealComplete ? 'auto' : 'none'}>
-        <TouchableOpacity
-          onPress={handleBack}
-          style={[
-            styles.backButton,
-            { opacity: elementsOpacity as any },
-          ]}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={22} color="#ffffff" />
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-      </View>
-
       <LottieView
         source={require('@/assets/WaveLinesAnimation.json')}
         autoPlay
@@ -549,23 +530,5 @@ const styles = StyleSheet.create({
   },
   modalButtons: {
     gap: 10,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 58,
-    left: 16,
-    zIndex: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-  },
-  backButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
