@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useCommunityPickTails } from '@/hooks/useCommunityPickTails';
 import { format } from 'date-fns';
+import { SHOW_WEBSITE_TAILING_FEATURES } from '@/lib/featureFlags';
 
 interface CommunityPickCardProps {
   pick: {
@@ -145,7 +146,7 @@ export function CommunityPickCard({
             </Button>
             
             {/* Tailing Users Display */}
-            {tailingUsers.length > 0 && (
+            {SHOW_WEBSITE_TAILING_FEATURES && tailingUsers.length > 0 && (
               <div className="mt-3 flex flex-col items-center gap-1">
                 <TailingAvatarList users={tailingUsers} size="sm" className="flex-col space-x-0 space-y-1" />
               </div>
@@ -256,4 +257,3 @@ export function CommunityPickCard({
     </Card>
   );
 }
-

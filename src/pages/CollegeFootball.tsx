@@ -31,6 +31,7 @@ import { CardFooter } from '@/components/ui/card';
 import { useSportsPageCache } from '@/hooks/useSportsPageCache';
 import { Input } from '@/components/ui/input';
 import { getTodayInET } from '@/utils/dateUtils';
+import { SHOW_WEBSITE_TAILING_FEATURES } from '@/lib/featureFlags';
 
 interface CFBPrediction {
   id: string;
@@ -1988,22 +1989,24 @@ ${contextParts}
                   </div>
                 </CardContent>
                 
-                <CardFooter className="pt-0 pb-4">
-                  <GameTailSection
-                    gameUniqueId={prediction.training_key || prediction.id}
-                    sport="cfb"
-                    homeTeam={prediction.home_team}
-                    awayTeam={prediction.away_team}
-                    lines={{
-                      home_ml: prediction.home_moneyline,
-                      away_ml: prediction.away_moneyline,
-                      home_spread: prediction.api_spread,
-                      away_spread: prediction.api_spread ? -prediction.api_spread : null,
-                      total: prediction.api_over_line,
-                    }}
-                    compact
-                  />
-                </CardFooter>
+                {SHOW_WEBSITE_TAILING_FEATURES && (
+                  <CardFooter className="pt-0 pb-4">
+                    <GameTailSection
+                      gameUniqueId={prediction.training_key || prediction.id}
+                      sport="cfb"
+                      homeTeam={prediction.home_team}
+                      awayTeam={prediction.away_team}
+                      lines={{
+                        home_ml: prediction.home_moneyline,
+                        away_ml: prediction.away_moneyline,
+                        home_spread: prediction.api_spread,
+                        away_spread: prediction.api_spread ? -prediction.api_spread : null,
+                        total: prediction.api_over_line,
+                      }}
+                      compact
+                    />
+                  </CardFooter>
+                )}
               </CFBGameCard>
               
               {/* Lock Overlay for Freemium Users */}

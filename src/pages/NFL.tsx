@@ -37,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useSportsPageCache } from '@/hooks/useSportsPageCache';
 import { Input } from '@/components/ui/input';
 import { getTodayInET } from '@/utils/dateUtils';
+import { SHOW_WEBSITE_TAILING_FEATURES } from '@/lib/featureFlags';
 
 interface NFLPrediction {
   id: string;
@@ -1919,22 +1920,24 @@ ${contextParts}
                   </div>
                 </CardContent>
                 
-                <CardFooter className="pt-0 pb-4">
-                  <GameTailSection
-                    gameUniqueId={prediction.training_key || prediction.unique_id}
-                    sport="nfl"
-                    homeTeam={prediction.home_team}
-                    awayTeam={prediction.away_team}
-                    lines={{
-                      home_ml: prediction.home_ml,
-                      away_ml: prediction.away_ml,
-                      home_spread: prediction.home_spread,
-                      away_spread: prediction.away_spread,
-                      total: prediction.over_line,
-                    }}
-                    compact
-                  />
-                </CardFooter>
+                {SHOW_WEBSITE_TAILING_FEATURES && (
+                  <CardFooter className="pt-0 pb-4">
+                    <GameTailSection
+                      gameUniqueId={prediction.training_key || prediction.unique_id}
+                      sport="nfl"
+                      homeTeam={prediction.home_team}
+                      awayTeam={prediction.away_team}
+                      lines={{
+                        home_ml: prediction.home_ml,
+                        away_ml: prediction.away_ml,
+                        home_spread: prediction.home_spread,
+                        away_spread: prediction.away_spread,
+                        total: prediction.over_line,
+                      }}
+                      compact
+                    />
+                  </CardFooter>
+                )}
               </NFLGameCard>
               
               {/* Lock Overlay for Freemium Users */}

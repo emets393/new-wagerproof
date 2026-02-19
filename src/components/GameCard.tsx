@@ -6,6 +6,7 @@ import PredictionsModal from "./PredictionsModal";
 import PublicBettingDistribution from "./PublicBettingDistribution";
 import { GameTailSection } from "./GameTailSection";
 import { useState } from "react";
+import { SHOW_WEBSITE_TAILING_FEATURES } from "@/lib/featureFlags";
 
 interface Game {
   unique_id: string;
@@ -156,20 +157,22 @@ const GameCard = ({ game }: GameCardProps) => {
             Matchup Overview
           </Button>
           
-          <GameTailSection
-            gameUniqueId={game.unique_id}
-            sport="mlb"
-            homeTeam={game.home_team}
-            awayTeam={game.away_team}
-            lines={{
-              home_ml: game.home_ml,
-              away_ml: game.away_ml,
-              home_spread: game.home_rl,
-              away_spread: game.away_rl,
-              total: game.o_u_line,
-            }}
-            compact
-          />
+          {SHOW_WEBSITE_TAILING_FEATURES && (
+            <GameTailSection
+              gameUniqueId={game.unique_id}
+              sport="mlb"
+              homeTeam={game.home_team}
+              awayTeam={game.away_team}
+              lines={{
+                home_ml: game.home_ml,
+                away_ml: game.away_ml,
+                home_spread: game.home_rl,
+                away_spread: game.away_rl,
+                total: game.o_u_line,
+              }}
+              compact
+            />
+          )}
         </CardFooter>
       </Card>
 

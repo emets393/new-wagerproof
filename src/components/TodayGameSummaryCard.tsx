@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, Users, Shield, Trophy, Dribbble } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
+import { SHOW_WEBSITE_TAILING_FEATURES } from '@/lib/featureFlags';
 
 interface TodayGameSummaryCardProps {
   gameId: string;
@@ -129,7 +130,7 @@ export function TodayGameSummaryCard({
           })()}
           <span className="font-medium">{sport.toUpperCase()}</span>
         </Badge>
-        {tailCount > 0 && (
+        {SHOW_WEBSITE_TAILING_FEATURES && tailCount > 0 && (
           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
             <Users className="h-3 w-3" />
             <span>{tailCount} tailing</span>
@@ -197,4 +198,3 @@ export function TodayGameSummaryCard({
     </Card>
   );
 }
-

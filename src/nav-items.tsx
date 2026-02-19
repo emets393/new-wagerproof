@@ -20,6 +20,7 @@ import ScoreBoard from "./pages/ScoreBoard";
 import MobileApp from "./pages/MobileApp";
 import CommunityVoting from "./pages/CommunityVoting";
 import TipJar from "./pages/TipJar";
+import Agents from "./pages/Agents";
 
 export interface NavItem {
   title: string;
@@ -55,6 +56,12 @@ export const navItems: NavItem[] = [
     title: "Today in Sports",
     to: "/today-in-sports",
     icon: <Newspaper className="h-4 w-4" />,
+  },
+  {
+    title: "Agents",
+    to: "/agents",
+    icon: <Users className="h-4 w-4" />,
+    page: <Agents />,
   },
   {
     title: "Editors Picks",
@@ -147,6 +154,18 @@ export const navItems: NavItem[] = [
         icon: <BarChart2 className="h-4 w-4" />,
       },
     ],
+  },
+  {
+    title: "MLB",
+    to: "/mlb",
+    icon: <Trophy className="h-4 w-4" />,
+    comingSoon: true,
+  },
+  {
+    title: "Curling",
+    to: "/curling",
+    icon: <Goal className="h-4 w-4" />,
+    comingSoon: true,
   },
   {
     title: "COMMUNITY",
