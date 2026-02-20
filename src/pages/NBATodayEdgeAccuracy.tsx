@@ -205,111 +205,72 @@ export default function NBATodayEdgeAccuracy() {
     try {
       setLoading(true);
       setError(null);
-      const today = getTodayISO();
 
-      const [
-        { data: gamesData, error: gamesError },
-        { data: latestRun },
-        { data: bucketData, error: bucketError },
-      ] = await Promise.all([
-        collegeFootballSupabase
-          .from('nba_input_values_view')
-          .select('*')
-          .gte('game_date', today)
-          .order('game_date', { ascending: true })
-          .order('tipoff_time_et', { ascending: true }),
-        collegeFootballSupabase
-          .from('nba_predictions')
-          .select('run_id, as_of_ts_utc')
-          .order('as_of_ts_utc', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        collegeFootballSupabase
-          .from('nba_edge_accuracy_by_bucket')
-          .select('edge_type, bucket, games, correct, accuracy_pct'),
-      ]);
+      // View already returns only today's games (by DB date); no client date filter to avoid timezone mismatch
+      const { data: rows, error: viewError } = await collegeFootballSupabase
+        .from('nba_todays_games_predictions_with_accuracy')
+        .select('*')
+        .order('game_date', { ascending: true })
+        .order('tipoff_time_et', { ascending: true });
 
-      if (gamesError) {
-        setError(`Games: ${gamesError.message}`);
-        setLoading(false);
-        return;
-      }
-      if (bucketError) {
-        setError(`Edge accuracy: ${bucketError.message}`);
+      if (viewError) {
+        setError(`Failed to load: ${viewError.message}`);
         setLoading(false);
         return;
       }
 
-      const bucketRows = (bucketData || []) as EdgeAccuracyBucket[];
-      setBucketMap(buildBucketMap(bucketRows));
-
-      const inputGames = (gamesData || []) as any[];
-      if (inputGames.length === 0) {
-        setGames([]);
-        setLastUpdated(new Date());
-        setLoading(false);
-        return;
-      }
-
-      const gameIds = inputGames.map((g: any) => g.game_id);
-      let predictionMap = new Map<number, any>();
-      if (latestRun) {
-        const { data: predictions } = await collegeFootballSupabase
-          .from('nba_predictions')
-          .select('game_id, home_win_prob, away_win_prob, model_fair_total, model_fair_home_spread')
-          .eq('run_id', latestRun.run_id)
-          .in('game_id', gameIds);
-        (predictions || []).forEach((p: any) => predictionMap.set(p.game_id, p));
-      }
-
-      const map = buildBucketMap(bucketRows);
-
-      const merged: GameWithAccuracy[] = inputGames.map((game: any) => {
-        const pred = predictionMap.get(game.game_id);
-        const vegasHomeSpread = game.home_spread ?? null;
-        const modelFair = pred?.model_fair_home_spread ?? null;
+      const list = (rows || []) as any[];
+      const merged: GameWithAccuracy[] = list.map((row: any) => {
+        const vegasHomeSpread = row.vegas_home_spread != null ? Number(row.vegas_home_spread) : null;
+        const vegasTotal = row.vegas_total != null ? Number(row.vegas_total) : null;
+        const modelFair = row.model_fair_home_spread != null ? Number(row.model_fair_home_spread) : null;
+        const predTotal = row.pred_total_points != null ? Number(row.pred_total_points) : null;
         const homeSpreadDiff =
           vegasHomeSpread !== null && modelFair !== null ? vegasHomeSpread - modelFair : null;
-        const vegasTotal = game.total_line ?? null;
-        const modelFairTotal = pred?.model_fair_total ?? null;
         const overLineDiff =
-          vegasTotal !== null && modelFairTotal !== null ? modelFairTotal - vegasTotal : null;
-        const homeWinProb = pred?.home_win_prob != null ? Number(pred.home_win_prob) : null;
-        const awayWinProb = pred?.away_win_prob != null ? Number(pred.away_win_prob) : null;
-        const mlBucketKey = getBucketKeyForML(homeWinProb, awayWinProb);
+          vegasTotal !== null && predTotal !== null ? predTotal - vegasTotal : null;
+        const homeWinProb = row.home_win_prob != null ? Number(row.home_win_prob) : null;
+        const awayWinProb = row.away_win_prob != null ? Number(row.away_win_prob) : null;
+        const mlBucketKey = row.ml_bucket != null ? Number(row.ml_bucket) : null;
         const mlPickIsHome =
-          homeWinProb != null && awayWinProb != null ? homeWinProb >= awayWinProb : null;
-        const mlPickProbRounded = mlBucketKey;
+          row.model_ml_winner === 'home' ? true : row.model_ml_winner === 'away' ? false : null;
 
-        const spreadBucketKey = getBucketKeyForSpread(homeSpreadDiff);
-        const ouBucketKey = getBucketKeyForOU(overLineDiff);
-
-        const homeAbbr = game.home_abbr ?? getNBATeamInitials(game.home_team ?? '');
-        const awayAbbr = game.away_abbr ?? getNBATeamInitials(game.away_team ?? '');
+        const spreadAcc =
+          row.spread_accuracy_pct != null && row.spread_bucket_games != null
+            ? { games: Number(row.spread_bucket_games), accuracy_pct: Number(row.spread_accuracy_pct) }
+            : null;
+        const ouAcc =
+          row.ou_accuracy_pct != null && row.ou_bucket_games != null
+            ? { games: Number(row.ou_bucket_games), accuracy_pct: Number(row.ou_accuracy_pct) }
+            : null;
+        const mlAcc =
+          row.ml_accuracy_pct != null && row.ml_bucket_games != null
+            ? { games: Number(row.ml_bucket_games), accuracy_pct: Number(row.ml_accuracy_pct) }
+            : null;
 
         return {
-          game_id: game.game_id,
-          away_team: game.away_team ?? '',
-          home_team: game.home_team ?? '',
-          away_abbr: awayAbbr,
-          home_abbr: homeAbbr,
-          game_date: game.game_date ?? '',
-          tipoff_time_et: game.tipoff_time_et ?? null,
+          game_id: row.game_id,
+          away_team: row.away_team ?? '',
+          home_team: row.home_team ?? '',
+          away_abbr: getNBATeamInitials(row.away_team ?? ''),
+          home_abbr: getNBATeamInitials(row.home_team ?? ''),
+          game_date: row.game_date ?? '',
+          tipoff_time_et: row.tipoff_time_et ?? null,
           home_spread: vegasHomeSpread,
           over_line: vegasTotal,
           home_spread_diff: homeSpreadDiff,
           over_line_diff: overLineDiff,
           home_win_prob: homeWinProb,
           away_win_prob: awayWinProb,
-          model_fair_total: modelFairTotal,
-          spreadBucketKey,
-          ouBucketKey,
+          model_fair_total: predTotal,
+          spreadBucketKey: row.spread_bucket != null ? Number(row.spread_bucket) : null,
+          ouBucketKey: row.ou_bucket != null ? Number(row.ou_bucket) : null,
           mlBucketKey,
           mlPickIsHome,
-          mlPickProbRounded,
-          spreadAccuracy: lookupAccuracy(map, 'SPREAD_EDGE', spreadBucketKey),
-          ouAccuracy: lookupAccuracy(map, 'OU_EDGE', ouBucketKey),
-          mlAccuracy: lookupAccuracy(map, 'MONEYLINE_PROB', mlBucketKey),
+          mlPickProbRounded: mlBucketKey,
+          spreadAccuracy: spreadAcc,
+          ouAccuracy: ouAcc,
+          mlAccuracy: mlAcc,
         };
       });
 
