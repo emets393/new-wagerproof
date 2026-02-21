@@ -441,22 +441,45 @@ export default function NCAABTodayHalftimeTrends() {
       setLoading(true);
       setError(null);
 
-      const [mappingRes, { data, error: fetchError }] = await Promise.all([
-        fetchNCAABTeamMappingByName(),
-        collegeFootballSupabase
-          .from('ncaab_halftime_trends_today')
-          .select('*')
-          .order('game_id', { ascending: true }),
-      ]);
-
+      const mappingRes = await fetchNCAABTeamMappingByName();
       setTeamMapping(mappingRes);
 
-      if (fetchError) {
-        setError(`Failed to load data: ${fetchError.message}`);
+      // Get today's game_ids from a lightweight query (avoids heavy view timeout)
+      const todayEt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      const { data: todayGames, error: gamesError } = await collegeFootballSupabase
+        .from('v_cbb_input_values')
+        .select('game_id')
+        .eq('game_date_et', todayEt);
+      if (gamesError || !todayGames?.length) {
+        setGames([]);
+        setLostBothHalvesTeams([]);
+        setLastUpdated(new Date());
         setLoading(false);
         return;
       }
-      if (!data || data.length === 0) {
+      const gameIds = (todayGames as { game_id: number }[]).map((g) => g.game_id);
+
+      // Fetch halftime trends by small game_id batches so each query stays under timeout
+      const GAME_BATCH = 15;
+      let allRows: any[] = [];
+      for (let i = 0; i < gameIds.length; i += GAME_BATCH) {
+        const chunk = gameIds.slice(i, i + GAME_BATCH);
+        const { data: batch, error: fetchError } = await collegeFootballSupabase
+          .from('ncaab_halftime_trends_today')
+          .select('*')
+          .in('game_id', chunk)
+          .order('game_id', { ascending: true });
+        if (fetchError) {
+          setError(`Failed to load data: ${fetchError.message}`);
+          setLoading(false);
+          return;
+        }
+        const list = (batch || []) as any[];
+        allRows = allRows.concat(list);
+      }
+
+      const data = allRows;
+      if (data.length === 0) {
         setGames([]);
         setLostBothHalvesTeams([]);
         setLastUpdated(new Date());
@@ -515,13 +538,19 @@ export default function NCAABTodayHalftimeTrends() {
         g => g.away_team.team_name && g.home_team.team_name
       );
 
-      const gameIds = gamesArray.map(g => g.game_id);
-      if (gameIds.length > 0) {
-        const { data: timesData } = await collegeFootballSupabase
-          .from('v_cbb_input_values')
-          .select('game_id, tipoff_time_et, game_date_et')
-          .in('game_id', gameIds);
-        if (timesData) {
+      const tipoffGameIds = gamesArray.map(g => g.game_id);
+      if (tipoffGameIds.length > 0) {
+        const TIMES_BATCH = 50;
+        const timesData: any[] = [];
+        for (let i = 0; i < tipoffGameIds.length; i += TIMES_BATCH) {
+          const chunk = tipoffGameIds.slice(i, i + TIMES_BATCH);
+          const { data: batch } = await collegeFootballSupabase
+            .from('v_cbb_input_values')
+            .select('game_id, tipoff_time_et, game_date_et')
+            .in('game_id', chunk);
+          if (batch?.length) timesData.push(...batch);
+        }
+        if (timesData.length > 0) {
           const byGame = new Map<number, { tipoff_time_et: string | null; game_date: string | null }>();
           for (const t of timesData as any[]) {
             byGame.set(t.game_id, {
