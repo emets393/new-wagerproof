@@ -76,12 +76,13 @@ function FloatingTabBar() {
   const insets = useSafeAreaInsets();
   const { hasLiveGames } = useLiveScores();
   
-  // Hide tab bar on chat screen and agent sub-screens (create, detail, settings)
+  // Hide tab bar on chat, roast, and agent sub-screens
   const isOnChatScreen = pathname.includes('/chat') || segments.includes('chat');
+  const isOnRoastScreen = pathname.includes('/roast') || segments.includes('roast');
   const isOnAgentSubScreen = pathname.includes('/agents/create')
     || pathname.includes('/agents/public')
     || (pathname.includes('/agents/') && pathname !== '/(drawer)/(tabs)/agents' && pathname !== '/(drawer)/(tabs)/agents/');
-  if (isOnChatScreen || isOnAgentSubScreen) {
+  if (isOnChatScreen || isOnAgentSubScreen || isOnRoastScreen) {
     return null;
   }
   
@@ -163,7 +164,8 @@ function FloatingTabBar() {
                 && !normalizedPathname.includes('/outliers')
                 && !normalizedPathname.includes('/scoreboard')
                 && !normalizedPathname.includes('/agents')
-                && !normalizedPathname.includes('/learn');
+                && !normalizedPathname.includes('/learn')
+                && !normalizedPathname.includes('/roast');
               isActive = (isRootTabsRoute || segmentsMatch) && isNotOtherTab;
             } else {
               // For other tabs: check if pathname matches or segments include the tab name
@@ -427,6 +429,16 @@ function TabsContent() {
             <MaterialCommunityIcons name="lightbulb-on" size={size} color={color} />
           ),
           href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="roast"
+        options={{
+          title: 'Roast Mode',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="fire" size={size} color={color} />
+          ),
+          href: null, // Hide from tab bar - accessed via sidebar
         }}
       />
       {/* Settings removed from tabs as it's now in drawer */}

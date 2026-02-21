@@ -65,15 +65,17 @@
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <string>WagerProof needs microphone access for voice-powered Roast Mode.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your photos</string>
-    <key>NSUserTrackingUsageDescription</key>
-    <string>WagerProof uses this to improve analytics and personalize your experience. Your data helps us provide better predictions and insights.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>WagerProof needs speech recognition for voice-powered Roast Mode.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
     </array>
+    <key>NSUserTrackingUsageDescription</key>
+    <string>WagerProof uses this to improve analytics and personalize your experience. Your data helps us provide better predictions and insights.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>

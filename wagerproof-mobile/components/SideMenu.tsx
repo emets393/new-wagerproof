@@ -288,6 +288,22 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
         </List.Section>
         <Divider />
 
+        {/* Extra Goodies Section */}
+        <List.Section>
+          <List.Item
+            title="Roast Mode"
+            description="Get roasted by The Bookie"
+            left={props => <List.Icon {...props} icon="fire" color="#f97316" />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => {
+              onClose?.();
+              router.push('/roast' as any);
+            }}
+            style={{ backgroundColor: 'transparent' }}
+          />
+        </List.Section>
+        <Divider />
+
         {/* Support Section */}
         <List.Section>
           <List.Item

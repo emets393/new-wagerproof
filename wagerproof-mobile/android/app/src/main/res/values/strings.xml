@@ -2,6 +2,4 @@
   <string name="app_name">WagerProof</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
-  <string name="facebook_app_id">935005752525075</string>
-  <string name="facebook_client_token">bd008d0839f36a9941c0ed27d686b615</string>
 </resources>

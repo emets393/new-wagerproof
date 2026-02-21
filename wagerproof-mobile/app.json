@@ -55,7 +55,19 @@
       "expo-apple-authentication",
       "@bacons/apple-targets",
       "./plugins/withWidgetDataBridge",
-      ["expo-tracking-transparency", {"userTrackingPermission": "WagerProof uses this to improve analytics and personalize your experience. Your data helps us provide better predictions and insights."}]
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "WagerProof uses this to improve analytics and personalize your experience. Your data helps us provide better predictions and insights."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "WagerProof needs microphone access for voice-powered Roast Mode.",
+          "speechRecognitionPermission": "WagerProof needs speech recognition for voice-powered Roast Mode."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
