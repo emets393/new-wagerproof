@@ -491,7 +491,7 @@ export default function NCAABTodayEdgeAccuracy() {
                     <div className="flex justify-between items-center text-muted-foreground">
                       <span>Accuracy</span>
                       <span>
-                        {g.spreadAccuracy ? `${g.spreadAccuracy.accuracy_pct.toFixed(1)}%` : '—'}
+                        {g.spreadAccuracy ? `${g.spreadAccuracy.accuracy_pct.toFixed(1)}% (# of Games: ${g.spreadAccuracy.games})` : '—'}
                       </span>
                     </div>
                   </div>
@@ -503,7 +503,7 @@ export default function NCAABTodayEdgeAccuracy() {
                     <div className="flex justify-between items-center text-muted-foreground">
                       <span>Accuracy</span>
                       <span>
-                        {g.mlAccuracy ? `${g.mlAccuracy.accuracy_pct.toFixed(1)}%` : '—'}
+                        {g.mlAccuracy ? `${g.mlAccuracy.accuracy_pct.toFixed(1)}% (# of Games: ${g.mlAccuracy.games})` : '—'}
                       </span>
                     </div>
                   </div>
@@ -515,7 +515,7 @@ export default function NCAABTodayEdgeAccuracy() {
                     <div className="flex justify-between items-center text-muted-foreground">
                       <span>Accuracy</span>
                       <span>
-                        {g.ouAccuracy ? `${g.ouAccuracy.accuracy_pct.toFixed(1)}%` : '—'}
+                        {g.ouAccuracy ? `${g.ouAccuracy.accuracy_pct.toFixed(1)}% (# of Games: ${g.ouAccuracy.games})` : '—'}
                       </span>
                     </div>
                   </div>

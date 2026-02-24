@@ -38,6 +38,24 @@ interface NCAABHalftimeTrendRow {
   second_half_favdog_side_games: number | null;
   second_half_favdog_side_wins: number | null;
   second_half_favdog_side_win_pct: number | null;
+  // O/U fields (from ncaab_halftime_trends_today)
+  todays_first_half_ou_line: number | null;
+  todays_second_half_ou_line: number | null;
+  first_half_ou_side_games: number | null;
+  first_half_ou_side_overs: number | null;
+  first_half_ou_side_over_pct: number | null;
+  second_half_ou_side_games: number | null;
+  second_half_ou_side_overs: number | null;
+  second_half_ou_side_over_pct: number | null;
+  ou_flip_games: number | null;
+  ou_flip_count: number | null;
+  ou_flip_pct: number | null;
+  first_half_ou_favdog_side_games: number | null;
+  first_half_ou_favdog_side_overs: number | null;
+  first_half_ou_favdog_side_over_pct: number | null;
+  second_half_ou_favdog_side_games: number | null;
+  second_half_ou_favdog_side_overs: number | null;
+  second_half_ou_favdog_side_over_pct: number | null;
 }
 
 interface NCAABGameHalftimeTrends {
@@ -49,6 +67,13 @@ interface NCAABGameHalftimeTrends {
 }
 
 export type NCAABTeamMappingByName = Map<string, { teamAbbrev: string | null; logoUrl: string }>;
+
+function parseNum(val: unknown): number | null {
+  if (val == null) return null;
+  if (typeof val === 'number' && !Number.isNaN(val)) return val;
+  const n = Number(val);
+  return Number.isNaN(n) ? null : n;
+}
 
 const getPercentageColor = (pct: number | null): string => {
   if (pct === null) return 'text-gray-500';
@@ -202,9 +227,132 @@ function getLeanLabel(
   return `Slight Lean ${betterAbbr}${halfSuffix}`;
 }
 
+/** O/U lean from game average and per-team averages. Best leans when BOTH teams trend same direction (both >50% = over, both <50% = under). No Play when teams disagree. */
+function getOULeanFromAverage(
+  gameAvg: number | null | undefined,
+  awayAvg: number | null | undefined,
+  homeAvg: number | null | undefined
+): string {
+  if (gameAvg == null) return '-';
+  const g = pctTo100(gameAvg);
+  const a = awayAvg != null ? pctTo100(awayAvg) : null;
+  const h = homeAvg != null ? pctTo100(homeAvg) : null;
+  const bothOver = a != null && h != null && a > 50 && h > 50;
+  const bothUnder = a != null && h != null && a < 50 && h < 50;
+  if (a != null && h != null && !bothOver && !bothUnder) return 'No Play';
+  if (bothOver) {
+    if (g > 57) return 'Heavy Lean Over';
+    if (g > 53) return 'Slight Lean Over';
+    return 'No Play';
+  }
+  if (bothUnder) {
+    if (g < 43) return 'Heavy Lean Under';
+    if (g < 47) return 'Slight Lean Under';
+    return 'No Play';
+  }
+  if (g > 57) return 'Heavy Lean Over';
+  if (g > 53) return 'Slight Lean Over';
+  if (g >= 47) return 'No Play';
+  if (g >= 43) return 'Slight Lean Under';
+  return 'Heavy Lean Under';
+}
+
+/** O/U lean for flip row only. 1H/2H use getOULeanFromAverage. */
+function getOULeanLabel(
+  awayOverPct: number | null,
+  homeOverPct: number | null,
+  isFlipRow: boolean
+): string {
+  if (!isFlipRow) return '-';
+  const a = pctToBucket(awayOverPct);
+  const b = pctToBucket(homeOverPct);
+  if (a == null || b == null) return '-';
+  const flipLabel = getLeanLabel('Flip % (1H↔2H)', awayOverPct, homeOverPct, 'A', 'H', true);
+  if (flipLabel === 'No Play' || flipLabel === '-') return 'No Play';
+  if (flipLabel.startsWith('Heavy')) return 'Heavy Lean Flip';
+  if (flipLabel.startsWith('Slight')) return 'Slight Lean Flip';
+  if (flipLabel === 'Heavy Lean Same') return 'Heavy Lean Same';
+  return 'No Play';
+}
+
+/** Average of all 1H O/U over_pct values for the game (both teams: 1H by side, 1H Fav/Dog). */
+function getGame1HOUAverage(game: NCAABGameHalftimeTrends): number | null {
+  const away = game.away_team;
+  const home = game.home_team;
+  const vals: number[] = [];
+  const push = (pct: number | null) => {
+    if (pct != null) vals.push(pctTo100(pct));
+  };
+  push(away.first_half_ou_side_over_pct);
+  push(away.first_half_ou_favdog_side_over_pct);
+  push(home.first_half_ou_side_over_pct);
+  push(home.first_half_ou_favdog_side_over_pct);
+  if (vals.length === 0) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length / 100;
+}
+
+function getAway1HOUAverage(game: NCAABGameHalftimeTrends): number | null {
+  const away = game.away_team;
+  const vals: number[] = [];
+  const push = (pct: number | null) => {
+    if (pct != null) vals.push(pctTo100(pct));
+  };
+  push(away.first_half_ou_side_over_pct);
+  push(away.first_half_ou_favdog_side_over_pct);
+  if (vals.length === 0) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length / 100;
+}
+
+function getHome1HOUAverage(game: NCAABGameHalftimeTrends): number | null {
+  const home = game.home_team;
+  const vals: number[] = [];
+  const push = (pct: number | null) => {
+    if (pct != null) vals.push(pctTo100(pct));
+  };
+  push(home.first_half_ou_side_over_pct);
+  push(home.first_half_ou_favdog_side_over_pct);
+  if (vals.length === 0) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length / 100;
+}
+
+function getAway2HOUAverage(game: NCAABGameHalftimeTrends): number | null {
+  const away = game.away_team;
+  const vals: number[] = [];
+  const push = (pct: number | null) => {
+    if (pct != null) vals.push(pctTo100(pct));
+  };
+  push(away.second_half_ou_side_over_pct);
+  push(away.second_half_ou_favdog_side_over_pct);
+  if (vals.length === 0) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length / 100;
+}
+
+function getHome2HOUAverage(game: NCAABGameHalftimeTrends): number | null {
+  const home = game.home_team;
+  const vals: number[] = [];
+  const push = (pct: number | null) => {
+    if (pct != null) vals.push(pctTo100(pct));
+  };
+  push(home.second_half_ou_side_over_pct);
+  push(home.second_half_ou_favdog_side_over_pct);
+  if (vals.length === 0) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length / 100;
+}
+
+/** Average of all 2H O/U over_pct values for the game (both teams). */
+function getGame2HOUAverage(game: NCAABGameHalftimeTrends): number | null {
+  const awayAvg = getAway2HOUAverage(game);
+  const homeAvg = getHome2HOUAverage(game);
+  if (awayAvg == null && homeAvg == null) return null;
+  if (awayAvg == null) return homeAvg;
+  if (homeAvg == null) return awayAvg;
+  return (awayAvg + homeAvg) / 2;
+}
+
 function getLeanCellClassName(leanLabel: string | undefined): string {
   if (!leanLabel || leanLabel === '-') return 'text-foreground';
   if (leanLabel === 'No Play') return 'text-foreground';
+  if (leanLabel === 'Heavy Lean Under') return 'text-red-500';
   if (leanLabel.startsWith('Slight')) return 'text-yellow-500';
   if (leanLabel.startsWith('Heavy')) return 'text-green-500';
   return 'text-foreground';
@@ -225,6 +373,41 @@ function parseSideLeanLabel(label: string): { strength: 'slight' | 'heavy'; team
 
 type Consensus1H2H = { type: 'no_play' } | { type: 'slight' | 'heavy'; teamAbbr: string };
 type ConsensusFlip = 'no_play' | 'slight' | 'heavy';
+
+type OUConsensus1H2H = { type: 'no_play' } | { type: 'slight' | 'heavy'; direction: 'over' | 'under' };
+
+/** O/U consensus for NCAAB: 1H/2H from average of all over_pct metrics for that half (both teams); Flip from ou_flip_pct. */
+function getOUConsensus(
+  game: NCAABGameHalftimeTrends
+): { oneH: OUConsensus1H2H; twoH: OUConsensus1H2H; flip: ConsensusFlip } {
+  const away = game.away_team;
+  const home = game.home_team;
+
+  const oneHAvg = getGame1HOUAverage(game);
+  const oneHAwayAvg = getAway1HOUAverage(game);
+  const oneHHomeAvg = getHome1HOUAverage(game);
+  const oneHLabel = getOULeanFromAverage(oneHAvg, oneHAwayAvg, oneHHomeAvg);
+  let oneH: OUConsensus1H2H = { type: 'no_play' };
+  if (oneHLabel && oneHLabel !== 'No Play' && oneHLabel !== '-') {
+    oneH = { type: oneHLabel.startsWith('Heavy') ? 'heavy' : 'slight', direction: oneHLabel.includes('Over') ? 'over' : 'under' };
+  }
+
+  const twoHAvg = getGame2HOUAverage(game);
+  const twoHAwayAvg = getAway2HOUAverage(game);
+  const twoHHomeAvg = getHome2HOUAverage(game);
+  const twoHLabel = getOULeanFromAverage(twoHAvg, twoHAwayAvg, twoHHomeAvg);
+  let twoH: OUConsensus1H2H = { type: 'no_play' };
+  if (twoHLabel && twoHLabel !== 'No Play' && twoHLabel !== '-') {
+    twoH = { type: twoHLabel.startsWith('Heavy') ? 'heavy' : 'slight', direction: twoHLabel.includes('Over') ? 'over' : 'under' };
+  }
+
+  const flipLabel = getOULeanLabel(away.ou_flip_pct ?? null, home.ou_flip_pct ?? null, true);
+  let flip: ConsensusFlip = 'no_play';
+  if (flipLabel.startsWith('Heavy')) flip = 'heavy';
+  else if (flipLabel.startsWith('Slight') || flipLabel === 'Heavy Lean Same') flip = 'slight';
+
+  return { oneH, twoH, flip };
+}
 
 /** Consensus from two metrics: only show a pick when one team leads in BOTH metrics; strength from average of the two. */
 function consensusFromTwoMetrics(
@@ -375,10 +558,44 @@ function getTipoffTimestamp(g: NCAABGameHalftimeTrends): number {
   return 0;
 }
 
+/** O/U 1H sort score: higher when both teams trend same direction. */
+function getOU1HScore(game: NCAABGameHalftimeTrends): number {
+  const gameAvg = getGame1HOUAverage(game);
+  const awayAvg = getAway1HOUAverage(game);
+  const homeAvg = getHome1HOUAverage(game);
+  if (gameAvg == null || awayAvg == null || homeAvg == null) return 0;
+  const a = pctTo100(awayAvg);
+  const h = pctTo100(homeAvg);
+  const bothOver = a > 50 && h > 50;
+  const bothUnder = a < 50 && h < 50;
+  if (!bothOver && !bothUnder) return 0;
+  return Math.abs(pctTo100(gameAvg) - 50);
+}
+
+/** O/U 2H sort score. */
+function getOU2HScore(game: NCAABGameHalftimeTrends): number {
+  const gameAvg = getGame2HOUAverage(game);
+  const awayAvg = getAway2HOUAverage(game);
+  const homeAvg = getHome2HOUAverage(game);
+  if (gameAvg == null || awayAvg == null || homeAvg == null) return 0;
+  const a = pctTo100(awayAvg);
+  const h = pctTo100(homeAvg);
+  const bothOver = a > 50 && h > 50;
+  const bothUnder = a < 50 && h < 50;
+  if (!bothOver && !bothUnder) return 0;
+  return Math.abs(pctTo100(gameAvg) - 50);
+}
+
+function ouLeanStrength(label: string): number {
+  if (!label || label === 'No Play' || label === '-') return 0;
+  return label.startsWith('Heavy') ? 2 : label.startsWith('Slight') ? 1 : 0;
+}
+
 function sortNCAABGamesByMode(
   games: NCAABGameHalftimeTrends[],
   mode: NCAABHalftimeSortMode,
-  teamMapping: NCAABTeamMappingByName
+  teamMapping: NCAABTeamMappingByName,
+  viewMode: 'ats' | 'ou' = 'ats'
 ): NCAABGameHalftimeTrends[] {
   const tipoffTs = getTipoffTimestamp;
 
@@ -388,6 +605,36 @@ function sortNCAABGamesByMode(
       const tb = tipoffTs(b);
       if (ta !== tb) return ta - tb;
       return (a.game_id ?? 0) - (b.game_id ?? 0);
+    });
+  }
+
+  if (viewMode === 'ou') {
+    return [...games].sort((a, b) => {
+      if (mode === '1h') {
+        const scoreA = getOU1HScore(a);
+        const scoreB = getOU1HScore(b);
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        const labelA = getOULeanFromAverage(getGame1HOUAverage(a), getAway1HOUAverage(a), getHome1HOUAverage(a));
+        const labelB = getOULeanFromAverage(getGame1HOUAverage(b), getAway1HOUAverage(b), getHome1HOUAverage(b));
+        if (ouLeanStrength(labelB) !== ouLeanStrength(labelA)) return ouLeanStrength(labelB) - ouLeanStrength(labelA);
+        return tipoffTs(a) - tipoffTs(b);
+      }
+      if (mode === '2h') {
+        const scoreA = getOU2HScore(a);
+        const scoreB = getOU2HScore(b);
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        const labelA = getOULeanFromAverage(getGame2HOUAverage(a), getAway2HOUAverage(a), getHome2HOUAverage(a));
+        const labelB = getOULeanFromAverage(getGame2HOUAverage(b), getAway2HOUAverage(b), getHome2HOUAverage(b));
+        if (ouLeanStrength(labelB) !== ouLeanStrength(labelA)) return ouLeanStrength(labelB) - ouLeanStrength(labelA);
+        return tipoffTs(a) - tipoffTs(b);
+      }
+      if (mode === 'flip') {
+        const labelA = getOULeanLabel(a.away_team.ou_flip_pct ?? null, a.home_team.ou_flip_pct ?? null, true);
+        const labelB = getOULeanLabel(b.away_team.ou_flip_pct ?? null, b.home_team.ou_flip_pct ?? null, true);
+        if (ouLeanStrength(labelB) !== ouLeanStrength(labelA)) return ouLeanStrength(labelB) - ouLeanStrength(labelA);
+        return tipoffTs(a) - tipoffTs(b);
+      }
+      return tipoffTs(a) - tipoffTs(b);
     });
   }
 
@@ -432,6 +679,7 @@ export default function NCAABTodayHalftimeTrends() {
   const [teamMapping, setTeamMapping] = useState<NCAABTeamMappingByName>(new Map());
   const [sortMode, setSortMode] = useState<NCAABHalftimeSortMode>('time');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'ats' | 'ou'>('ats');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -441,22 +689,45 @@ export default function NCAABTodayHalftimeTrends() {
       setLoading(true);
       setError(null);
 
-      const [mappingRes, { data, error: fetchError }] = await Promise.all([
-        fetchNCAABTeamMappingByName(),
-        collegeFootballSupabase
-          .from('ncaab_halftime_trends_today')
-          .select('*')
-          .order('game_id', { ascending: true }),
-      ]);
-
+      const mappingRes = await fetchNCAABTeamMappingByName();
       setTeamMapping(mappingRes);
 
-      if (fetchError) {
-        setError(`Failed to load data: ${fetchError.message}`);
+      // Get today's game_ids from a lightweight query (avoids heavy view timeout)
+      const todayEt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      const { data: todayGames, error: gamesError } = await collegeFootballSupabase
+        .from('v_cbb_input_values')
+        .select('game_id')
+        .eq('game_date_et', todayEt);
+      if (gamesError || !todayGames?.length) {
+        setGames([]);
+        setLostBothHalvesTeams([]);
+        setLastUpdated(new Date());
         setLoading(false);
         return;
       }
-      if (!data || data.length === 0) {
+      const gameIds = (todayGames as { game_id: number }[]).map((g) => g.game_id);
+
+      // Fetch halftime trends by small game_id batches so each query stays under timeout
+      const GAME_BATCH = 15;
+      let allRows: any[] = [];
+      for (let i = 0; i < gameIds.length; i += GAME_BATCH) {
+        const chunk = gameIds.slice(i, i + GAME_BATCH);
+        const { data: batch, error: fetchError } = await collegeFootballSupabase
+          .from('ncaab_halftime_trends_today')
+          .select('*')
+          .in('game_id', chunk)
+          .order('game_id', { ascending: true });
+        if (fetchError) {
+          setError(`Failed to load data: ${fetchError.message}`);
+          setLoading(false);
+          return;
+        }
+        const list = (batch || []) as any[];
+        allRows = allRows.concat(list);
+      }
+
+      const data = allRows;
+      if (data.length === 0) {
         setGames([]);
         setLostBothHalvesTeams([]);
         setLastUpdated(new Date());
@@ -495,6 +766,23 @@ export default function NCAABTodayHalftimeTrends() {
           second_half_favdog_side_games: row.second_half_favdog_side_games ?? null,
           second_half_favdog_side_wins: row.second_half_favdog_side_wins ?? null,
           second_half_favdog_side_win_pct: row.second_half_favdog_side_win_pct ?? null,
+          todays_first_half_ou_line: parseNum(row.todays_first_half_ou_line ?? row.todays_first_half_ou),
+          todays_second_half_ou_line: parseNum(row.todays_second_half_ou_line ?? row.todays_second_half_ou),
+          first_half_ou_side_games: row.first_half_ou_side_games ?? null,
+          first_half_ou_side_overs: row.first_half_ou_side_overs ?? null,
+          first_half_ou_side_over_pct: parseNum(row.first_half_ou_side_over_pct) ?? null,
+          second_half_ou_side_games: row.second_half_ou_side_games ?? null,
+          second_half_ou_side_overs: row.second_half_ou_side_overs ?? null,
+          second_half_ou_side_over_pct: parseNum(row.second_half_ou_side_over_pct) ?? null,
+          ou_flip_games: row.ou_flip_games ?? null,
+          ou_flip_count: row.ou_flip_count ?? null,
+          ou_flip_pct: parseNum(row.ou_flip_pct) ?? null,
+          first_half_ou_favdog_side_games: row.first_half_ou_favdog_side_games ?? null,
+          first_half_ou_favdog_side_overs: row.first_half_ou_favdog_side_overs ?? null,
+          first_half_ou_favdog_side_over_pct: parseNum(row.first_half_ou_favdog_side_over_pct) ?? null,
+          second_half_ou_favdog_side_games: row.second_half_ou_favdog_side_games ?? null,
+          second_half_ou_favdog_side_overs: row.second_half_ou_favdog_side_overs ?? null,
+          second_half_ou_favdog_side_over_pct: parseNum(row.second_half_ou_favdog_side_over_pct) ?? null,
         };
         if (!gamesMap.has(row.game_id)) {
           gamesMap.set(row.game_id, {
@@ -515,13 +803,19 @@ export default function NCAABTodayHalftimeTrends() {
         g => g.away_team.team_name && g.home_team.team_name
       );
 
-      const gameIds = gamesArray.map(g => g.game_id);
-      if (gameIds.length > 0) {
-        const { data: timesData } = await collegeFootballSupabase
-          .from('v_cbb_input_values')
-          .select('game_id, tipoff_time_et, game_date_et')
-          .in('game_id', gameIds);
-        if (timesData) {
+      const tipoffGameIds = gamesArray.map(g => g.game_id);
+      if (tipoffGameIds.length > 0) {
+        const TIMES_BATCH = 50;
+        const timesData: any[] = [];
+        for (let i = 0; i < tipoffGameIds.length; i += TIMES_BATCH) {
+          const chunk = tipoffGameIds.slice(i, i + TIMES_BATCH);
+          const { data: batch } = await collegeFootballSupabase
+            .from('v_cbb_input_values')
+            .select('game_id, tipoff_time_et, game_date_et')
+            .in('game_id', chunk);
+          if (batch?.length) timesData.push(...batch);
+        }
+        if (timesData.length > 0) {
           const byGame = new Map<number, { tipoff_time_et: string | null; game_date: string | null }>();
           for (const t of timesData as any[]) {
             byGame.set(t.game_id, {
@@ -578,6 +872,23 @@ export default function NCAABTodayHalftimeTrends() {
           second_half_favdog_side_games: row.second_half_favdog_side_games ?? null,
           second_half_favdog_side_wins: row.second_half_favdog_side_wins ?? null,
           second_half_favdog_side_win_pct: row.second_half_favdog_side_win_pct ?? null,
+          todays_first_half_ou_line: null,
+          todays_second_half_ou_line: null,
+          first_half_ou_side_games: null,
+          first_half_ou_side_overs: null,
+          first_half_ou_side_over_pct: null,
+          second_half_ou_side_games: null,
+          second_half_ou_side_overs: null,
+          second_half_ou_side_over_pct: null,
+          ou_flip_games: null,
+          ou_flip_count: null,
+          ou_flip_pct: null,
+          first_half_ou_favdog_side_games: null,
+          first_half_ou_favdog_side_overs: null,
+          first_half_ou_favdog_side_over_pct: null,
+          second_half_ou_favdog_side_games: null,
+          second_half_ou_favdog_side_overs: null,
+          second_half_ou_favdog_side_over_pct: null,
         }));
 
       setGames(gamesArray);
@@ -692,15 +1003,33 @@ export default function NCAABTodayHalftimeTrends() {
             Halftime Trends
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 min-w-0 break-words">
-            First-half and second-half ATS trends for today&apos;s College Basketball games
+            First-half and second-half ATS and O/U trends for today&apos;s College Basketball games
             {lastUpdated && (
               <span className="ml-2">• Last updated: {lastUpdated.toLocaleTimeString()}</span>
             )}
           </p>
         </div>
-        <Button onClick={fetchData} variant="outline" size="sm" className="shrink-0">
-          <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex rounded-lg border border-border bg-muted/30 p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('ats')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${viewMode === 'ats' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              ATS
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('ou')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${viewMode === 'ou' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              O/U
+            </button>
+          </div>
+          <Button onClick={fetchData} variant="outline" size="sm" className="shrink-0">
+            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+          </Button>
+        </div>
       </div>
 
       {games.length > 0 && (
@@ -741,12 +1070,12 @@ export default function NCAABTodayHalftimeTrends() {
       ) : (() => {
         const q = searchQuery.trim().toLowerCase();
         const filtered = q
-          ? sortNCAABGamesByMode(games, sortMode, teamMapping).filter(
+          ? sortNCAABGamesByMode(games, sortMode, teamMapping, viewMode).filter(
               (g) =>
                 g.away_team.team_name.toLowerCase().includes(q) ||
                 g.home_team.team_name.toLowerCase().includes(q)
             )
-          : sortNCAABGamesByMode(games, sortMode, teamMapping);
+          : sortNCAABGamesByMode(games, sortMode, teamMapping, viewMode);
         if (filtered.length === 0) {
           return (
             <Card>
@@ -785,7 +1114,7 @@ export default function NCAABTodayHalftimeTrends() {
                     <span className="font-semibold text-white min-w-0 truncate">
                       <span className="md:hidden">{awayAbbr}</span>
                       <span className="hidden md:inline">{away.team_name}</span>
-                      {(away.todays_first_half_line != null || home.todays_first_half_line != null) &&
+                      {viewMode === 'ats' && (away.todays_first_half_line != null || home.todays_first_half_line != null) &&
                         away.todays_first_half_line != null && (
                           <span className="text-gray-500 font-normal ml-1">
                             (1H: {away.todays_first_half_line >= 0 ? '+' : ''}{away.todays_first_half_line})
@@ -802,10 +1131,16 @@ export default function NCAABTodayHalftimeTrends() {
                     <span className="font-semibold text-white min-w-0 truncate">
                       <span className="md:hidden">{homeAbbr}</span>
                       <span className="hidden md:inline">{home.team_name}</span>
-                      {(away.todays_first_half_line != null || home.todays_first_half_line != null) &&
+                      {viewMode === 'ats' && (away.todays_first_half_line != null || home.todays_first_half_line != null) &&
                         home.todays_first_half_line != null && (
                           <span className="text-gray-500 font-normal ml-1">
                             (1H: {home.todays_first_half_line >= 0 ? '+' : ''}{home.todays_first_half_line})
+                          </span>
+                        )}
+                      {viewMode === 'ou' && (away.todays_first_half_ou_line != null || home.todays_first_half_ou_line != null) &&
+                        home.todays_first_half_ou_line != null && (
+                          <span className="text-gray-500 font-normal ml-1">
+                            (1H O/U: {home.todays_first_half_ou_line})
                           </span>
                         )}
                     </span>
@@ -832,6 +1167,8 @@ export default function NCAABTodayHalftimeTrends() {
                     </div>
                     <div className="min-w-0 break-words">Lean</div>
                   </div>
+                  {viewMode === 'ats' && (
+                    <>
                   {renderMetricRow(
                     '1H by side',
                     away.first_half_side_win_pct,
@@ -898,10 +1235,150 @@ export default function NCAABTodayHalftimeTrends() {
                     true,
                     game.game_id
                   )}
+                    </>
+                  )}
+                  {viewMode === 'ou' && (
+                    <>
+                  {renderMetricRow(
+                    '1H O/U by side',
+                    away.first_half_ou_side_over_pct,
+                    home.first_half_ou_side_over_pct,
+                    away.first_half_ou_side_games,
+                    home.first_half_ou_side_games,
+                    getOULeanFromAverage(getGame1HOUAverage(game), getAway1HOUAverage(game), getHome1HOUAverage(game)),
+                    true,
+                    game.game_id,
+                    'Away',
+                    'Home'
+                  )}
+                  {renderMetricRow(
+                    '1H O/U Fav/Dog',
+                    away.first_half_ou_favdog_side_over_pct,
+                    home.first_half_ou_favdog_side_over_pct,
+                    away.first_half_ou_favdog_side_games,
+                    home.first_half_ou_favdog_side_games,
+                    getOULeanFromAverage(getGame1HOUAverage(game), getAway1HOUAverage(game), getHome1HOUAverage(game)),
+                    true,
+                    game.game_id,
+                    away.todays_first_half_fav_dog
+                      ? away.todays_first_half_fav_dog.charAt(0).toUpperCase() + away.todays_first_half_fav_dog.slice(1).toLowerCase()
+                      : undefined,
+                    home.todays_first_half_fav_dog
+                      ? home.todays_first_half_fav_dog.charAt(0).toUpperCase() + home.todays_first_half_fav_dog.slice(1).toLowerCase()
+                      : undefined
+                  )}
+                  {renderMetricRow(
+                    '2H O/U by side',
+                    away.second_half_ou_side_over_pct,
+                    home.second_half_ou_side_over_pct,
+                    away.second_half_ou_side_games,
+                    home.second_half_ou_side_games,
+                    getOULeanFromAverage(getGame2HOUAverage(game), getAway2HOUAverage(game), getHome2HOUAverage(game)),
+                    true,
+                    game.game_id,
+                    'Away',
+                    'Home'
+                  )}
+                  {renderMetricRow(
+                    '2H O/U Fav/Dog',
+                    away.second_half_ou_favdog_side_over_pct,
+                    home.second_half_ou_favdog_side_over_pct,
+                    away.second_half_ou_favdog_side_games,
+                    home.second_half_ou_favdog_side_games,
+                    getOULeanFromAverage(getGame2HOUAverage(game), getAway2HOUAverage(game), getHome2HOUAverage(game)),
+                    true,
+                    game.game_id,
+                    away.todays_second_half_fav_dog
+                      ? away.todays_second_half_fav_dog.charAt(0).toUpperCase() + away.todays_second_half_fav_dog.slice(1).toLowerCase()
+                      : undefined,
+                    home.todays_second_half_fav_dog
+                      ? home.todays_second_half_fav_dog.charAt(0).toUpperCase() + home.todays_second_half_fav_dog.slice(1).toLowerCase()
+                      : undefined
+                  )}
+                  {renderMetricRow(
+                    'O/U Flip % (1H↔2H)',
+                    away.ou_flip_pct,
+                    home.ou_flip_pct,
+                    undefined,
+                    undefined,
+                    getOULeanLabel(away.ou_flip_pct ?? null, home.ou_flip_pct ?? null, true),
+                    true,
+                    game.game_id
+                  )}
+                    </>
+                  )}
                   {/* Consensus */}
                   {(() => {
-                    const consensus = getConsensus(game, awayAbbr, homeAbbr);
                     const teamForAbbr = (abbr: string) => (abbr === awayAbbr ? away : home);
+                    const format1HLine = (val: number | null) =>
+                      val == null ? '' : `(1H: ${val > 0 ? `+${val}` : `${val}`})`;
+                    if (viewMode === 'ou') {
+                      const consensus = getOUConsensus(game);
+                      return (
+                        <div className="mt-4 pt-4 border-t border-border space-y-2">
+                          <div className="text-sm font-medium text-muted-foreground">Consensus</div>
+                          <div className="flex flex-wrap gap-3 text-sm min-w-0">
+                            <Tooltip delayDuration={200}>
+                              <TooltipTrigger asChild>
+                                <div className="inline-flex flex-wrap items-center gap-2 rounded-full bg-muted/60 dark:bg-muted/40 border border-border px-3 py-1.5 min-w-0 max-w-full cursor-help" tabIndex={0} role="button">
+                                  <span className="text-muted-foreground shrink-0">1st Half Play:</span>
+                                  {consensus.oneH.type === 'no_play' ? (
+                                    <span className="text-foreground">No Play</span>
+                                  ) : (
+                                    <span className={getLeanCellClassName(consensus.oneH.type === 'heavy' ? `Heavy Lean ${consensus.oneH.direction === 'over' ? 'Over' : 'Under'}` : `Slight Lean ${consensus.oneH.direction === 'over' ? 'Over' : 'Under'}`)}>
+                                      {consensus.oneH.type === 'heavy' ? 'Heavy' : 'Slight'} Lean {consensus.oneH.direction === 'over' ? 'Over' : 'Under'}
+                                      {away.todays_first_half_ou_line != null && ` (O/U ${away.todays_first_half_ou_line})`}
+                                    </span>
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[240px]">
+                                {consensus.oneH.type === 'no_play' ? 'No Play' : `1st Half O/U — ${consensus.oneH.type === 'heavy' ? 'Heavy' : 'Slight'} Lean ${consensus.oneH.direction === 'over' ? 'Over' : 'Under'}`}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip delayDuration={200}>
+                              <TooltipTrigger asChild>
+                                <div className="inline-flex flex-wrap items-center gap-2 rounded-full bg-muted/60 dark:bg-muted/40 border border-border px-3 py-1.5 min-w-0 max-w-full cursor-help" tabIndex={0} role="button">
+                                  <span className="text-muted-foreground shrink-0">2nd Half Play:</span>
+                                  {consensus.twoH.type === 'no_play' ? (
+                                    <span className="text-foreground">No Play</span>
+                                  ) : (
+                                    <span className={getLeanCellClassName(consensus.twoH.type === 'heavy' ? `Heavy Lean ${consensus.twoH.direction === 'over' ? 'Over' : 'Under'}` : `Slight Lean ${consensus.twoH.direction === 'over' ? 'Over' : 'Under'}`)}>
+                                      {consensus.twoH.type === 'heavy' ? 'Heavy' : 'Slight'} Lean {consensus.twoH.direction === 'over' ? 'Over' : 'Under'}
+                                      {away.todays_second_half_ou_line != null && ` (O/U ${away.todays_second_half_ou_line})`}
+                                    </span>
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[240px]">
+                                {consensus.twoH.type === 'no_play' ? 'No Play' : `2nd Half O/U — ${consensus.twoH.type === 'heavy' ? 'Heavy' : 'Slight'} Lean ${consensus.twoH.direction === 'over' ? 'Over' : 'Under'}`}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip delayDuration={200}>
+                              <TooltipTrigger asChild>
+                                <div className="inline-flex flex-wrap items-center gap-2 rounded-full bg-muted/60 dark:bg-muted/40 border border-border px-3 py-1.5 min-w-0 max-w-full cursor-help" tabIndex={0} role="button">
+                                  <span className="text-muted-foreground shrink-0">Flip Play:</span>
+                                  {consensus.flip === 'no_play' ? (
+                                    <span className="text-foreground">No Play</span>
+                                  ) : (
+                                    <>
+                                      <ArrowLeftRight className="w-5 h-5 text-muted-foreground shrink-0" aria-hidden />
+                                      <span className={getLeanCellClassName(consensus.flip === 'heavy' ? 'Heavy Lean Flip' : 'Slight Lean Flip')}>
+                                        {consensus.flip === 'heavy' ? 'Heavy Lean Flip' : 'Slight Lean Flip'}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[240px]">
+                                {consensus.flip === 'no_play' ? 'No Play' : (consensus.flip === 'heavy' ? 'Heavy Lean Flip' : 'Slight Lean Flip')}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      );
+                    }
+                    const consensus = getConsensus(game, awayAbbr, homeAbbr);
                     return (
                       <div className="mt-4 pt-4 border-t border-border space-y-2">
                         <div className="text-sm font-medium text-muted-foreground">Consensus</div>
@@ -991,6 +1468,7 @@ export default function NCAABTodayHalftimeTrends() {
         );
       })()}
 
+      {viewMode === 'ats' && (
       <Card className="min-w-0 overflow-hidden">
         <CardHeader>
           <CardTitle className="text-lg">Lost Both Halves Last Game</CardTitle>
@@ -1035,6 +1513,7 @@ export default function NCAABTodayHalftimeTrends() {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
