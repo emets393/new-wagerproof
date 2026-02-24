@@ -12,7 +12,7 @@ import Footer from "@/components/landing/Footer";
 import { FeatureDemo } from "@/components/landing/FeatureDemo";
 import { CompetitorComparison } from "@/components/landing/CompetitorComparison";
 import { MobileAppFeatures } from "@/components/landing/MobileAppFeatures";
-import { BetSlipGraderCTA } from "@/components/landing/BetSlipGraderCTA";
+// import { BetSlipGraderCTA } from "@/components/landing/BetSlipGraderCTA";
 import { useRandomNotifications } from "@/hooks/useRandomNotifications";
 import { SEO } from "@/components/landing/SEO";
 import { StructuredData } from "@/components/landing/StructuredData";
@@ -141,7 +141,7 @@ const NewLanding = () => {
         </div>
 
         <Testimonials />
-        <BetSlipGraderCTA />
+        {/* <BetSlipGraderCTA /> */}
         <FAQ questions={faqQuestions} />
         {/* <Pricing /> */}
       </div>

@@ -363,7 +363,7 @@ async function processAvatar(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-nano',
+        model: 'gpt-5-mini',
         input: [
           {
             role: 'system',
@@ -776,10 +776,11 @@ function ensureFormattedGameSnapshot(
     game_time: String(snapshot.game_time || snapshot.tipoff_time_et || snapshot.start_utc || '00:00:00'),
     vegas_lines: {
       spread_summary: spreadSummary,
+      ml_summary: `${awayTeam} ${fmtML(snapshot.away_ml ?? snapshot.away_moneyline ?? snapshot.awayMoneyline) ?? 'N/A'} / ${homeTeam} ${fmtML(snapshot.home_ml ?? snapshot.home_moneyline ?? snapshot.homeMoneyline) ?? 'N/A'}`,
       home_spread: homeSpread,
       away_spread: awaySpread,
-      home_ml: snapshot.home_ml ?? snapshot.home_moneyline ?? snapshot.homeMoneyline ?? null,
-      away_ml: snapshot.away_ml ?? snapshot.away_moneyline ?? snapshot.awayMoneyline ?? null,
+      home_ml: fmtML(snapshot.home_ml ?? snapshot.home_moneyline ?? snapshot.homeMoneyline),
+      away_ml: fmtML(snapshot.away_ml ?? snapshot.away_moneyline ?? snapshot.awayMoneyline),
       total: snapshot.over_line ?? snapshot.total_line ?? snapshot.over_under ?? null,
     },
     model_predictions: {
@@ -1086,6 +1087,63 @@ function fmtSpread(val: unknown): string {
   return n > 0 ? `+${n}` : String(n);
 }
 
+/** Format a moneyline number as an American odds string: +110, -210, etc. */
+function fmtML(val: unknown): string | null {
+  if (val === null || val === undefined) return null;
+  const n = Number(val);
+  if (isNaN(n)) return null;
+  return n > 0 ? `+${n}` : String(n);
+}
+
+/** Strip noisy/redundant fields from NBA raw game data before sending to AI */
+const NBA_RAW_EXCLUDE = new Set([
+  'away_last_ml', 'away_last_ou', 'home_last_ml', 'home_last_ou',
+  'away_last_ats', 'home_last_ats',
+  'away_ats_streak', 'away_win_streak', 'home_ats_streak', 'home_win_streak',
+  'home_last_margin',
+]);
+
+function filterNBARawGame(game: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(game).filter(([key]) => !NBA_RAW_EXCLUDE.has(key) && !key.includes('_pregame'))
+  );
+}
+
+/** Strip noisy/redundant fields from NCAAB raw game data before sending to AI */
+const NCAAB_RAW_EXCLUDE = new Set([
+  'away_adj_pace', 'home_adj_pace',
+  'away_adj_margin', 'home_adj_margin',
+  'away_adj_defense', 'away_adj_offense', 'home_adj_defense', 'home_adj_offense',
+  'away_ws_prev_all_z', 'away_ws_prev_ret_z', 'home_ws_prev_all_z', 'home_ws_prev_ret_z',
+  'away_roster_count_z', 'home_roster_count_z',
+  'away_continuity_index', 'away_experience_index', 'home_continuity_index', 'home_experience_index',
+  'away_adj_pace_trend_l3', 'home_adj_pace_trend_l3',
+  'away_adj_defense_trend_l3', 'away_adj_offense_trend_l3',
+  'home_adj_defense_trend_l3', 'home_adj_offense_trend_l3',
+]);
+
+function filterNCAABRawGame(game: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(game).filter(([key]) => !NCAAB_RAW_EXCLUDE.has(key))
+  );
+}
+
+/** Strip W-L-P record strings from situational trends — keep only the percentage fields */
+function filterSituationalTrends(trends: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!trends) return null;
+  const filtered: Record<string, unknown> = {};
+  for (const [side, data] of Object.entries(trends)) {
+    if (data && typeof data === 'object') {
+      filtered[side] = Object.fromEntries(
+        Object.entries(data as Record<string, unknown>).filter(([key]) => !key.endsWith('_record'))
+      );
+    } else {
+      filtered[side] = data;
+    }
+  }
+  return filtered;
+}
+
 function toGameKey(sport: string, awayTeam: unknown, homeTeam: unknown): string {
   return `${sport}_${String(awayTeam || '').trim()}_${String(homeTeam || '').trim()}`;
 }
@@ -1360,10 +1418,11 @@ function formatNFLGame(
     game_time: game.game_time || '00:00:00',
     vegas_lines: {
       spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${game.away_team} ${fmtML(game.away_ml) ?? 'N/A'} / ${game.home_team} ${fmtML(game.home_ml) ?? 'N/A'}`,
       home_spread: homeSpread,
       away_spread: awaySpread,
-      home_ml: game.home_ml,
-      away_ml: game.away_ml,
+      home_ml: fmtML(game.home_ml),
+      away_ml: fmtML(game.away_ml),
       total: game.over_line,
     },
     weather: {
@@ -1426,10 +1485,11 @@ function formatCFBGame(
     game_time: game.game_time || game.start_time || '00:00:00',
     vegas_lines: {
       spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${game.away_team} ${fmtML(game.away_moneyline || game.away_ml) ?? 'N/A'} / ${game.home_team} ${fmtML(game.home_moneyline || game.home_ml) ?? 'N/A'}`,
       home_spread: homeSpread,
       away_spread: awaySpread,
-      home_ml: game.home_moneyline || game.home_ml,
-      away_ml: game.away_moneyline || game.away_ml,
+      home_ml: fmtML(game.home_moneyline || game.home_ml),
+      away_ml: fmtML(game.away_moneyline || game.away_ml),
       total: game.api_over_line || game.total_line,
     },
     weather: {
@@ -1488,10 +1548,11 @@ function formatNBAGame(
     game_time: game.tipoff_time_et,
     vegas_lines: {
       spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${game.away_team} ${fmtML(awayML) ?? 'N/A'} / ${game.home_team} ${fmtML(homeML) ?? 'N/A'}`,
       home_spread: homeSpread,
       away_spread: awaySpread,
-      home_ml: homeML,
-      away_ml: awayML,
+      home_ml: fmtML(homeML),
+      away_ml: fmtML(awayML),
       total: game.total_line,
     },
     team_stats: {
@@ -1512,12 +1573,12 @@ function formatNBAGame(
       away_team: awayInjuries,
       home_team: homeInjuries,
     },
-    situational_trends: situationalTrends,
+    situational_trends: filterSituationalTrends(situationalTrends),
     prediction_accuracy: predictionAccuracy,
     polymarket,
     game_data_complete: {
       source_table: 'nba_input_values_view',
-      raw_game_data: game,
+      raw_game_data: filterNBARawGame(game),
     },
   };
 }
@@ -1543,10 +1604,11 @@ function formatNCAABGame(
     neutral_site: game.neutral_site,
     vegas_lines: {
       spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${game.away_team} ${fmtML(game.awayMoneyline) ?? 'N/A'} / ${game.home_team} ${fmtML(game.homeMoneyline) ?? 'N/A'}`,
       home_spread: homeSpread,
       away_spread: awaySpread,
-      home_ml: game.homeMoneyline,
-      away_ml: game.awayMoneyline,
+      home_ml: fmtML(game.homeMoneyline),
+      away_ml: fmtML(game.awayMoneyline),
       total: game.over_under,
     },
     team_stats: {
@@ -1559,12 +1621,12 @@ function formatNCAABGame(
       home_ranking: game.home_ranking,
       away_ranking: game.away_ranking,
     },
-    situational_trends: situationalTrends,
+    situational_trends: filterSituationalTrends(situationalTrends),
     prediction_accuracy: predictionAccuracy,
     polymarket,
     game_data_complete: {
       source_table: 'v_cbb_input_values',
-      raw_game_data: game,
+      raw_game_data: filterNCAABRawGame(game),
     },
   };
 }

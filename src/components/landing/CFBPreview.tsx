@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useAnimation, useReducedMotion } from 'framer-
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Shield, Trophy, School, Star, Bot, Home, Newspaper, Activity, Users, MessageSquare, Smartphone, FileImage, Share2, GraduationCap, User } from 'lucide-react';
+import { AlertCircle, Shield, Trophy, School, Star, Bot, Home, Newspaper, Activity, Users, MessageSquare, Smartphone, FileImage, Share2, GraduationCap, User, Sparkles } from 'lucide-react';
 import { Basketball, DiscordLogo } from 'phosphor-react';
 import CFBMiniCard from './CFBMiniCard';
 import { LiveScoreTicker } from '@/components/LiveScoreTicker';
@@ -39,6 +39,10 @@ interface GamePrediction {
   home_away_ml_prob?: number | null;
   home_away_spread_cover_prob?: number | null;
   ou_result_prob?: number | null;
+  away_abbr?: string;
+  home_abbr?: string;
+  model_fair_home_spread?: number | null;
+  model_fair_total?: number | null;
 }
 
 interface TeamMapping {
@@ -51,114 +55,239 @@ const DUMMY_GAMES: GamePrediction[] = [
     id: 'dummy-1',
     away_team: 'Los Angeles Lakers',
     home_team: 'Boston Celtics',
+    away_abbr: 'LAL', home_abbr: 'BOS',
     home_ml: -150, away_ml: 130,
     home_spread: -3.5, away_spread: 3.5,
     total_line: 224.5,
     game_time: '7:30 PM EST',
-    pred_ml_proba: 0.62, pred_spread_proba: 0.58, pred_total_proba: 0.55,
-    home_spread_diff: 1.2, over_line_diff: -2.5,
+    game_date: '2026-02-24',
+    home_away_spread_cover_prob: 0.62, ou_result_prob: 0.55,
+    model_fair_home_spread: -5.2, model_fair_total: 221.8,
+    home_spread_diff: 1.7, over_line_diff: -2.7,
   },
   {
     id: 'dummy-2',
     away_team: 'Golden State Warriors',
     home_team: 'Phoenix Suns',
+    away_abbr: 'GSW', home_abbr: 'PHX',
     home_ml: -120, away_ml: 100,
     home_spread: -2.0, away_spread: 2.0,
     total_line: 231.0,
     game_time: '9:00 PM EST',
-    pred_ml_proba: 0.54, pred_spread_proba: 0.52, pred_total_proba: 0.48,
-    home_spread_diff: -0.5, over_line_diff: 3.0,
+    game_date: '2026-02-24',
+    home_away_spread_cover_prob: 0.54, ou_result_prob: 0.42,
+    model_fair_home_spread: -2.8, model_fair_total: 234.2,
+    home_spread_diff: -0.8, over_line_diff: 3.2,
   },
   {
     id: 'dummy-3',
     away_team: 'Miami Heat',
     home_team: 'Milwaukee Bucks',
+    away_abbr: 'MIA', home_abbr: 'MIL',
     home_ml: -180, away_ml: 155,
     home_spread: -4.5, away_spread: 4.5,
     total_line: 218.5,
     game_time: '7:00 PM EST',
-    pred_ml_proba: 0.68, pred_spread_proba: 0.61, pred_total_proba: 0.52,
-    home_spread_diff: 2.0, over_line_diff: -1.5,
+    game_date: '2026-02-24',
+    home_away_spread_cover_prob: 0.68, ou_result_prob: 0.52,
+    model_fair_home_spread: -6.8, model_fair_total: 217.1,
+    home_spread_diff: 2.3, over_line_diff: -1.4,
   },
   {
     id: 'dummy-4',
     away_team: 'Denver Nuggets',
     home_team: 'Dallas Mavericks',
+    away_abbr: 'DEN', home_abbr: 'DAL',
     home_ml: 110, away_ml: -130,
     home_spread: 1.5, away_spread: -1.5,
     total_line: 226.0,
     game_time: '8:30 PM EST',
-    pred_ml_proba: 0.45, pred_spread_proba: 0.47, pred_total_proba: 0.56,
-    home_spread_diff: -1.0, over_line_diff: 4.5,
+    game_date: '2026-02-24',
+    home_away_spread_cover_prob: 0.38, ou_result_prob: 0.58,
+    model_fair_home_spread: 3.2, model_fair_total: 230.8,
+    home_spread_diff: -1.7, over_line_diff: 4.8,
   },
 ];
 
 // ─── Agents Panel ───────────────────────────────────────────────────
 
 const DEMO_AGENTS = [
-  { emoji: '🎯', name: 'SharpShooter', sport: 'NBA', color: '#22c55e', trait: 'Value Hunter', target: 87 },
-  { emoji: '🧠', name: 'DeepModel', sport: 'NFL', color: '#8b5cf6', trait: 'ML Specialist', target: 94 },
-  { emoji: '📊', name: 'StatBot', sport: 'NCAAF', color: '#3b82f6', trait: 'Data Analyst', target: 72 },
+  { emoji: '🐻', name: 'The Contrarian', sport: 'NFL', color: '#ef4444', record: '47-31', units: '+18.4' },
+  { emoji: '📊', name: 'Model Truther', sport: 'NBA', color: '#3b82f6', record: '62-44', units: '+24.1' },
+  { emoji: '🌧️', name: 'Weather Watcher', sport: 'CFB', color: '#10b981', record: '38-28', units: '+12.7' },
 ];
 
-const ANALYSIS_LINES = [
-  'Scanning 847 data points across 12 NBA games...',
-  'SharpShooter: Value detected on BOS -3.5 (68% conf)',
-  'DeepModel: Cross-referencing injury reports...',
-  'StatBot: Historical matchup analysis complete',
-  'Consensus: 3/3 agents agree on BOS spread',
-  'Generating pick with 72% model confidence...',
+const TRACE_SCRIPT = [
+  { text: '🧠 Agent "The Contrarian" • NFL Week 4', pause: 500 },
+  { text: '→ Loading KC @ BUF market data...', pause: 250 },
+  { text: '→ Public money: 73% on KC -3', pause: 200 },
+  { text: '→ Fade threshold met (>60%)', pause: 300 },
+  { text: '→ Model edge: BUF +3 → +2.5 units', pause: 250 },
+  { text: '✓ PICK: BUF +3 (-110)', pause: 200 },
+  { text: '✓ Confidence: 87.3%', pause: 2500 },
 ];
+
+const LEADERBOARD_ROWS = [
+  { rank: 1, name: 'The Contrarian', units: '+42.3', trend: 'up' as const },
+  { rank: 2, name: 'Model Truther', units: '+38.7', trend: 'up' as const },
+  { rank: 3, name: 'Weather Watcher', units: '+24.1', trend: 'down' as const },
+];
+
+const SLIDER_CONFIGS = [
+  [
+    { label: 'Risk Tolerance', value: 80, color: '#ef4444' },
+    { label: 'Underdog Lean', value: 90, color: '#f59e0b' },
+  ],
+  [
+    { label: 'Risk Tolerance', value: 20, color: '#ef4444' },
+    { label: 'Underdog Lean', value: 10, color: '#f59e0b' },
+  ],
+  [
+    { label: 'Risk Tolerance', value: 50, color: '#ef4444' },
+    { label: 'Underdog Lean', value: 50, color: '#f59e0b' },
+  ],
+];
+
+// ─── Mini Archetype Carousel (from AIAgentWorkforceSection bento grid) ───
+
+const ARCHETYPES = [
+  { name: 'The Contrarian', emoji: '🐻', color: '#ef4444', philosophy: 'Fade the public. When 70%+ of bets are on one side, I look the other way.', traits: ['High Risk', 'Underdog Lean', 'Fade Public'] },
+  { name: 'Chalk Grinder', emoji: '🏦', color: '#3b82f6', philosophy: 'Favorites win for a reason. I take the sure thing and grind out profits.', traits: ['Low Risk', 'Favorites Only', 'Selective'] },
+  { name: 'Plus Money Hunter', emoji: '🎯', color: '#f59e0b', philosophy: 'Plus money or nothing. One big hit pays for the losses.', traits: ['Max Risk', 'Dogs Only', 'Chase Value'] },
+  { name: 'Model Truther', emoji: '📊', color: '#10b981', philosophy: 'The model is smarter than my gut. When it shows value, I bet.', traits: ['Moderate', 'Trust Math', 'Skip Weak'] },
+  { name: 'Momentum Rider', emoji: '🔥', color: '#8b5cf6', philosophy: 'Hot teams stay hot. I ride winning streaks until they break.', traits: ['NBA Focus', 'Hot Streaks', 'Recent Form'] },
+];
+
+function MiniArchetypeCarousel({ shouldReduce }: { shouldReduce: boolean | null }) {
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    if (shouldReduce) return;
+    const t = setInterval(() => setActive(a => (a + 1) % ARCHETYPES.length), 3500);
+    return () => clearInterval(t);
+  }, [shouldReduce]);
+
+  const current = ARCHETYPES[active];
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+          <span className="text-[8px] font-mono text-gray-500 dark:text-gray-400 tracking-[0.1em] uppercase">Presets</span>
+        </div>
+        <span className="text-[7px] font-mono text-gray-400 dark:text-gray-500 tabular-nums">{active + 1}/{ARCHETYPES.length}</span>
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={current.name}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-center gap-2 mb-1.5">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
+              style={{ backgroundColor: current.color + '18', border: `1px solid ${current.color}30` }}
+            >
+              {current.emoji}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold text-gray-900 dark:text-white">{current.name}</div>
+              <div className="flex gap-0.5 mt-0.5">
+                {current.traits.map(t => (
+                  <span key={t} className="text-[6px] font-mono px-1 py-0.5 rounded bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400">{t}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <p className="text-[8px] text-gray-500 dark:text-gray-400 leading-relaxed italic line-clamp-2">
+            &ldquo;{current.philosophy}&rdquo;
+          </p>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Dot indicators */}
+      <div className="flex items-center gap-1 mt-2 pt-1.5 border-t border-gray-100 dark:border-white/5">
+        {ARCHETYPES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setActive(i)}
+            className={`h-[3px] rounded-full transition-all duration-300 ${i === active ? 'w-3 bg-emerald-500' : 'w-1 bg-gray-300 dark:bg-gray-700'}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function AgentsPanel() {
   const shouldReduce = useReducedMotion();
-  const [visibleLines, setVisibleLines] = useState(0);
-  const [agentProgress, setAgentProgress] = useState([8, 5, 12]);
-  const [confidence, setConfidence] = useState(0);
+  const [spawned, setSpawned] = useState(0);
+  const [traceLines, setTraceLines] = useState<{ text: string; done: boolean }[]>([]);
+  const [lineIdx, setLineIdx] = useState(0);
+  const [charIdx, setCharIdx] = useState(0);
+  const [sliderCycle, setSliderCycle] = useState(0);
 
+  // Agent spawn animation
   useEffect(() => {
-    if (shouldReduce) {
-      setVisibleLines(ANALYSIS_LINES.length);
-      setAgentProgress(DEMO_AGENTS.map(a => a.target));
-      setConfidence(78);
-      return;
-    }
-
-    const lineTimer = setInterval(() => {
-      setVisibleLines(prev => {
-        if (prev >= ANALYSIS_LINES.length) { clearInterval(lineTimer); return prev; }
-        return prev + 1;
-      });
-    }, 800);
-
-    const progressTimer = setInterval(() => {
-      setAgentProgress(prev =>
-        prev.map((p, i) => Math.min(p + Math.random() * 10 + 4, DEMO_AGENTS[i].target))
-      );
-    }, 350);
-
-    let confInterval: ReturnType<typeof setInterval>;
-    const confDelay = setTimeout(() => {
-      confInterval = setInterval(() => {
-        setConfidence(prev => {
-          if (prev >= 78) { clearInterval(confInterval); return 78; }
-          return prev + 3;
-        });
-      }, 40);
-    }, 1800);
-
-    return () => {
-      clearInterval(lineTimer);
-      clearInterval(progressTimer);
-      clearTimeout(confDelay);
-      if (confInterval) clearInterval(confInterval);
-    };
+    if (shouldReduce) { setSpawned(DEMO_AGENTS.length); return; }
+    let i = 0;
+    const t = setInterval(() => { i++; setSpawned(i); if (i >= DEMO_AGENTS.length) clearInterval(t); }, 500);
+    return () => clearInterval(t);
   }, [shouldReduce]);
 
+  // Thinking trace typewriter
+  useEffect(() => {
+    if (shouldReduce) {
+      setTraceLines(TRACE_SCRIPT.map(s => ({ text: s.text, done: true })));
+      return;
+    }
+    let timeout: ReturnType<typeof setTimeout>;
+    const currentLine = TRACE_SCRIPT[lineIdx];
+    if (!currentLine) {
+      timeout = setTimeout(() => { setTraceLines([]); setLineIdx(0); setCharIdx(0); }, 3000);
+      return () => clearTimeout(timeout);
+    }
+    if (charIdx < currentLine.text.length) {
+      timeout = setTimeout(() => {
+        setTraceLines(prev => {
+          const updated = [...prev];
+          if (updated.length <= lineIdx) updated.push({ text: '', done: false });
+          updated[lineIdx] = { text: currentLine.text.slice(0, charIdx + 1), done: false };
+          return updated;
+        });
+        setCharIdx(c => c + 1);
+      }, 15 + Math.random() * 20);
+    } else {
+      timeout = setTimeout(() => {
+        setTraceLines(prev => {
+          const updated = [...prev];
+          if (updated[lineIdx]) updated[lineIdx].done = true;
+          return updated;
+        });
+        setLineIdx(l => l + 1);
+        setCharIdx(0);
+      }, currentLine.pause);
+    }
+    return () => clearTimeout(timeout);
+  }, [lineIdx, charIdx, shouldReduce]);
+
+  // Slider cycle
+  useEffect(() => {
+    if (shouldReduce) return;
+    const t = setInterval(() => setSliderCycle(c => (c + 1) % SLIDER_CONFIGS.length), 3000);
+    return () => clearInterval(t);
+  }, [shouldReduce]);
+
+  const currentSliders = SLIDER_CONFIGS[sliderCycle];
+
   return (
-    <div className="p-3 md:p-5 space-y-3 h-full overflow-y-auto">
+    <div className="p-2 md:p-3 h-full overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-2 md:mb-3">
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-violet-500" />
           <span className="text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">Agent Network</span>
@@ -168,103 +297,217 @@ function AgentsPanel() {
             <span className="animate-ping absolute h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative rounded-full h-1.5 w-1.5 bg-emerald-500" />
           </span>
-          3 Active
+          3/5 Active
         </div>
       </div>
 
-      {/* Agent Cards */}
-      <div className="grid grid-cols-3 gap-1.5 md:gap-3">
-        {DEMO_AGENTS.map((agent, i) => (
-          <motion.div
-            key={agent.name}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.12, duration: 0.35 }}
-            className="bg-white/60 dark:bg-white/[0.04] backdrop-blur-sm rounded-lg p-1.5 md:p-3 border border-gray-200/40 dark:border-white/[0.06]"
-          >
-            <div className="text-center space-y-1 md:space-y-1.5">
-              <div className="text-lg md:text-2xl">{agent.emoji}</div>
-              <div className="text-[9px] md:text-xs font-bold text-gray-800 dark:text-white leading-tight">{agent.name}</div>
-              <div
-                className="inline-block px-1 md:px-1.5 py-0.5 rounded text-[7px] md:text-[9px] font-mono font-bold text-white"
-                style={{ backgroundColor: agent.color }}
-              >
-                {agent.sport}
-              </div>
-              <div className="text-[7px] md:text-[10px] text-gray-500 dark:text-gray-400 hidden md:block">{agent.trait}</div>
-              <div className="h-1 md:h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ backgroundColor: agent.color }}
-                  initial={{ width: '0%' }}
-                  animate={{ width: `${agentProgress[i]}%` }}
-                  transition={{ duration: 0.3 }}
-                />
-              </div>
-              <div className="text-[7px] md:text-[9px] font-mono text-gray-400 tabular-nums">{Math.round(agentProgress[i])}%</div>
+      {/* Mini Bento Grid — mirrors the full AIAgentWorkforceSection */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+
+        {/* Card 1: Agent Roster (2 cols) */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
+          className="md:col-span-2 p-2 md:p-2.5 rounded-xl bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] backdrop-blur-sm"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="text-[7px] md:text-[8px] font-mono text-gray-500 dark:text-gray-400 tracking-[0.1em] uppercase">Your Squad</div>
+              <div className="text-[10px] md:text-xs font-bold text-gray-900 dark:text-white">Agent Roster</div>
             </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Terminal */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-        className="bg-gray-900 dark:bg-black/80 rounded-lg p-2 md:p-3 border border-gray-700/50 font-mono"
-      >
-        <div className="flex items-center gap-2 mb-1.5 pb-1 border-b border-gray-700/50">
-          <div className="flex gap-1">
-            <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-red-500/80" />
-            <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-yellow-500/80" />
-            <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-500/80" />
+            <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20">
+              <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[7px] font-mono text-emerald-600 dark:text-emerald-400 tracking-wider">3/5 ACTIVE</span>
+            </div>
           </div>
-          <span className="text-gray-500 text-[8px] md:text-[9px]">agent-analysis</span>
-        </div>
-        <div className="space-y-0.5 md:space-y-1">
-          <div className="text-gray-500 text-[8px] md:text-[10px]">$ agent-analysis --mode=consensus</div>
-          {ANALYSIS_LINES.slice(0, visibleLines).map((line, i) => (
+          <div className="space-y-1">
+            {DEMO_AGENTS.map((agent, i) => (
+              <motion.div
+                key={agent.name}
+                initial={{ opacity: 0, x: -12 }}
+                animate={i < spawned ? { opacity: 1, x: 0 } : { opacity: 0, x: -12 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 22, delay: shouldReduce ? 0 : i * 0.15 }}
+                className="flex items-center gap-2 p-1.5 rounded-lg bg-white/40 dark:bg-white/[0.02] border border-gray-200/30 dark:border-white/[0.04]"
+              >
+                <motion.div
+                  animate={shouldReduce ? {} : { scale: [1, 1.06, 1] }}
+                  transition={{ duration: 3, repeat: Infinity, delay: i * 0.8 }}
+                  className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center text-xs md:text-sm shrink-0"
+                  style={{ backgroundColor: agent.color + '18', border: `1px solid ${agent.color}30` }}
+                >
+                  {agent.emoji}
+                </motion.div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] md:text-[10px] font-bold text-gray-900 dark:text-white truncate">{agent.name}</span>
+                    <span className="text-[6px] md:text-[7px] font-mono px-1 py-0.5 rounded bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400">{agent.sport}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[7px] md:text-[8px] font-mono text-gray-500 dark:text-gray-400">{agent.record}</span>
+                    <span className="text-[7px] md:text-[8px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{agent.units}u</span>
+                  </div>
+                </div>
+                <div className="shrink-0 flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[6px] font-mono text-emerald-600 dark:text-emerald-400 tracking-wider hidden md:block">ACTIVE</span>
+                </div>
+              </motion.div>
+            ))}
+            {/* Deploy slot */}
             <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -4 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.2 }}
-              className="text-emerald-400 text-[8px] md:text-[10px] leading-relaxed"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: shouldReduce ? 0 : 1.8 }}
+              className="flex items-center justify-center gap-1 p-1.5 rounded-lg border border-dashed border-gray-200 dark:border-white/10 text-gray-400 dark:text-gray-600 cursor-pointer"
             >
-              <span className="text-gray-500">{'>'} </span>{line}
+              <span className="text-xs leading-none">+</span>
+              <span className="text-[8px] md:text-[9px] font-medium">Deploy Agent</span>
             </motion.div>
-          ))}
-          {visibleLines < ANALYSIS_LINES.length && (
-            <span className="inline-block w-1 h-2.5 md:w-1.5 md:h-3 bg-emerald-400 animate-pulse" />
-          )}
-        </div>
-      </motion.div>
+          </div>
+        </motion.div>
 
-      {/* Confidence Bar */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="bg-white/60 dark:bg-white/[0.04] backdrop-blur-sm rounded-lg p-2 md:p-3 border border-gray-200/40 dark:border-white/[0.06]"
-      >
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[9px] md:text-xs font-medium text-gray-600 dark:text-gray-400">Pick Confidence</span>
-          <span className="text-[9px] md:text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums">{confidence}%</span>
-        </div>
-        <div className="h-1.5 md:h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400"
-            initial={{ width: '0%' }}
-            animate={{ width: `${confidence}%` }}
-            transition={{ duration: 0.4 }}
-          />
-        </div>
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-[8px] md:text-[10px] text-gray-500">Agent Agreement</span>
-          <span className="text-[8px] md:text-[10px] font-mono font-bold text-emerald-500">{confidence > 50 ? '3/3' : confidence > 20 ? '2/3' : '1/3'}</span>
-        </div>
-      </motion.div>
+        {/* Card 2: Archetype Carousel (1 col) */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+          className="p-2 md:p-2.5 rounded-xl bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] backdrop-blur-sm hidden md:block"
+        >
+          <MiniArchetypeCarousel shouldReduce={shouldReduce} />
+        </motion.div>
+
+        {/* Card 3: Thinking Trace Terminal (2 cols) */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="md:col-span-2 p-2 md:p-2.5 rounded-xl bg-[#08080f] border border-gray-800/60 font-mono"
+        >
+          <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-white/5">
+            <div className="flex gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500/70" />
+              <div className="w-1.5 h-1.5 rounded-full bg-yellow-500/70" />
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500/70" />
+            </div>
+            <span className="text-gray-500 text-[7px] md:text-[8px] tracking-wider">AGENT TRACE</span>
+          </div>
+          <div className="space-y-0.5 min-h-[60px] md:min-h-[80px]">
+            {traceLines.map((line, i) => (
+              <pre
+                key={i}
+                className={`text-[7px] md:text-[9px] font-mono leading-relaxed whitespace-pre-wrap ${
+                  line.text.includes('✓') ? 'text-emerald-400' : line.text.startsWith('🧠') ? 'text-white font-bold' : 'text-gray-400'
+                }`}
+              >
+                {line.text}
+              </pre>
+            ))}
+            {lineIdx < TRACE_SCRIPT.length && (
+              <span className="inline-block w-[5px] h-[10px] bg-emerald-500/80 animate-pulse" />
+            )}
+          </div>
+          <div className="mt-1.5 pt-1 border-t border-white/5">
+            <div className="h-[2px] bg-white/5 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-emerald-500"
+                animate={{ width: `${(lineIdx / TRACE_SCRIPT.length) * 100}%` }}
+                transition={{ duration: 0.4 }}
+              />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Card 4: Personality Sliders (1 col) */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.25 }}
+          className="p-2 md:p-2.5 rounded-xl bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] backdrop-blur-sm hidden md:block"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[7px] md:text-[8px] font-mono text-gray-500 dark:text-gray-400 tracking-[0.1em] uppercase">Parameters</span>
+            <span className="text-[6px] md:text-[7px] font-mono text-gray-400 dark:text-gray-500">50+ TUNABLE</span>
+          </div>
+          <div className="space-y-2">
+            {currentSliders.map(param => (
+              <div key={param.label}>
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[7px] md:text-[8px] font-medium text-gray-600 dark:text-gray-400">{param.label}</span>
+                  <span className="text-[7px] md:text-[8px] font-mono font-bold tabular-nums" style={{ color: param.color }}>{param.value}%</span>
+                </div>
+                <div className="h-1 w-full bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: param.color }}
+                    animate={{ width: `${param.value}%` }}
+                    transition={{ duration: 1, ease: 'easeInOut' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Card 5: Performance / Leaderboard (1 col) */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="p-2 md:p-2.5 rounded-xl bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] backdrop-blur-sm hidden md:block"
+        >
+          <div className="flex items-center gap-1.5 mb-2">
+            <Trophy className="w-3 h-3 text-yellow-500" />
+            <span className="text-[7px] md:text-[8px] font-mono text-gray-500 dark:text-gray-400 tracking-[0.1em] uppercase">Leaderboard</span>
+          </div>
+          <div className="space-y-1">
+            {LEADERBOARD_ROWS.map((row, i) => (
+              <motion.div
+                key={row.rank}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.8 + i * 0.1 }}
+                className="flex items-center gap-1 py-0.5"
+              >
+                <span className={`text-[7px] md:text-[8px] font-bold w-3.5 text-center ${i === 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
+                  #{row.rank}
+                </span>
+                <span className="text-[8px] md:text-[9px] text-gray-700 dark:text-gray-300 flex-1 truncate">{row.name}</span>
+                <span className="text-[7px] md:text-[8px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{row.units}</span>
+                <Activity className={`w-2.5 h-2.5 ${row.trend === 'up' ? 'text-emerald-500' : 'text-red-400 rotate-180'}`} />
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Card 6: Cost Comparison (1 col) */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.35 }}
+          className="p-2 md:p-2.5 rounded-xl bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] backdrop-blur-sm hidden md:block"
+        >
+          <div className="flex items-center gap-2">
+            <div className="flex-1 text-center p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200/60 dark:border-gray-800/60">
+              <div className="text-[6px] text-gray-500 uppercase font-mono tracking-wider">Human Team</div>
+              <div className="text-[10px] md:text-xs font-bold text-gray-400 line-through decoration-red-500/50">$500k/yr</div>
+            </div>
+            <div className="flex-1 text-center p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/60 dark:border-emerald-800/40 relative overflow-hidden">
+              <motion.div
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent pointer-events-none"
+              />
+              <div className="text-[6px] text-emerald-700 dark:text-emerald-400 uppercase font-mono tracking-wider flex items-center justify-center gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                AI Agents
+              </div>
+              <div className="text-[10px] md:text-xs font-bold text-emerald-600 dark:text-emerald-400">Included</div>
+            </div>
+          </div>
+        </motion.div>
+
+      </div>
     </div>
   );
 }
@@ -441,18 +684,23 @@ export default function CFBPreview() {
           id: String(game.game_id),
           away_team: game.away_team,
           home_team: game.home_team,
-          home_ml: game.home_moneyline,
-          away_ml: game.home_moneyline ? (game.home_moneyline > 0 ? -(game.home_moneyline + 100) : 100 - game.home_moneyline) : null,
+          away_abbr: game.away_abbr || undefined,
+          home_abbr: game.home_abbr || undefined,
+          home_ml: game.home_moneyline ?? game.home_ml ?? null,
+          away_ml: game.away_moneyline ?? game.away_ml ?? (game.home_moneyline ? (game.home_moneyline > 0 ? -(game.home_moneyline + 100) : 100 - game.home_moneyline) : null),
           home_spread: game.home_spread,
-          away_spread: game.home_spread ? -game.home_spread : null,
-          total_line: game.total_line,
+          away_spread: game.away_spread ?? (game.home_spread ? -game.home_spread : null),
+          total_line: game.total_line ?? game.over_line ?? null,
           game_time: game.tipoff_time_et,
           game_date: game.game_date,
-          pred_ml_proba: 0.55,
-          pred_spread_proba: 0.52,
-          pred_total_proba: 0.50,
-          home_spread_diff: null,
-          over_line_diff: null,
+          home_away_spread_cover_prob: game.home_away_spread_cover_prob ?? null,
+          ou_result_prob: game.ou_result_prob ?? null,
+          model_fair_home_spread: game.model_fair_home_spread ?? null,
+          model_fair_total: game.model_fair_total ?? null,
+          home_spread_diff: game.model_fair_home_spread != null && game.home_spread != null
+            ? game.model_fair_home_spread - game.home_spread : null,
+          over_line_diff: game.model_fair_total != null && (game.total_line ?? game.over_line) != null
+            ? game.model_fair_total - (game.total_line ?? game.over_line) : null,
         }));
         setPredictions(transformedNbaGames);
         setSportType('nba');
@@ -503,7 +751,7 @@ export default function CFBPreview() {
     { icon: null, label: 'ANALYSIS', active: false, isHeader: true },
     { icon: Newspaper, label: 'Today in Sports', active: false, isHeader: false },
     { icon: Star, label: "Editors Picks", active: false, isHeader: false },
-    { icon: Bot, label: 'WagerBot Chat', active: activeView === 'agents', isHeader: false },
+    { icon: Bot, label: 'Agents', active: activeView === 'agents', isHeader: false },
     { icon: Activity, label: 'Score Board', active: false, isHeader: false },
     { icon: null, label: 'SPORTS', active: false, isHeader: true },
     { icon: Trophy, label: 'College Football', active: activeView === 'games' && sportType === 'cfb', isHeader: false },
@@ -558,7 +806,7 @@ export default function CFBPreview() {
         // ── Navigate to Agents (WagerBot Chat) ──
         await cursorControls.start({ left: '10%', top: '38%', transition: { duration: 1, ease } });
         if (cancelled) return;
-        setHighlightedSidebar('WagerBot Chat');
+        setHighlightedSidebar('Agents');
         await clickAnim();
         if (cancelled) return;
         await delay(250);
@@ -594,7 +842,7 @@ export default function CFBPreview() {
         // ── Navigate to Agents again ──
         await cursorControls.start({ left: '10%', top: '38%', transition: { duration: 1, ease } });
         if (cancelled) return;
-        setHighlightedSidebar('WagerBot Chat');
+        setHighlightedSidebar('Agents');
         await clickAnim();
         if (cancelled) return;
         await delay(250);

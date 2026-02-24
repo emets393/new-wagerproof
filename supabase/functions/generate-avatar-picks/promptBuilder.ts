@@ -125,6 +125,8 @@ const UNAVAILABLE_DATA_NOTES: Record<string, string> = {
   'cfb:fade_cold_streaks': 'Note: Streak data not available for CFB.',
   'cfb:trust_ats_trends': 'Note: ATS trends not available for CFB.',
   'cfb:regress_luck': 'Note: Luck regression not applicable for CFB.',
+  'nba:ride_hot_streaks': 'Note: Raw streak data not in NBA payload. Use situational trends (last_game_situation) instead.',
+  'nba:fade_cold_streaks': 'Note: Raw streak data not in NBA payload. Use situational trends (last_game_situation) instead.',
   'ncaab:trust_polymarket': 'Note: Polymarket data limited for NCAAB. Applying where available.',
 };
 
@@ -235,9 +237,10 @@ Each pick must include:
 - "selection": Your pick. For spreads, use the team name and their EXACT spread from the spread_summary (e.g., "Bills -1.5", "Wizards +14.5"). For moneylines, use "TeamName ML". For totals, use "Over X.X" or "Under X.X".
 - "odds": American odds string. The value depends on your bet_type:
   - Spread picks: ALWAYS "-110" (standard juice). The spread LINE goes in "selection", not "odds".
-  - Moneyline picks: use vegas_lines.home_ml (if picking HOME) or vegas_lines.away_ml (if picking AWAY). ML odds are almost never -110 — they are the actual moneyline price like "-180" or "+250".
+  - Moneyline picks: Read the ml_summary field in vegas_lines — it shows "AwayTeam [odds] / HomeTeam [odds]" (e.g., "Dallas Mavericks -210 / Brooklyn Nets +110"). Find the team you are picking and COPY their odds exactly. That is your "odds" value. You can also get it from vegas_lines.home_ml or vegas_lines.away_ml — they contain the same values. Do NOT compute, round, guess, or make up odds. Just copy from the data.
   - Total picks: ALWAYS "-110" (standard juice). The total LINE goes in "selection", not "odds".
   - NEVER put -110 for a moneyline pick. NEVER put a moneyline price for a spread or total pick.
+  - NEVER return "+0", "?", or any placeholder for odds. If you cannot find the moneyline value in vegas_lines, do NOT make a moneyline pick for that game.
   - The exact line number in "selection" MUST match the payload (home_spread/away_spread for spreads, vegas_lines.total for totals). Do not round or alter.
 - "confidence": 1-5 scale (1=slight lean, 5=max conviction)
 - "reasoning": 2-3 sentences explaining your rationale

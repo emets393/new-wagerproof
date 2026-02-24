@@ -25,18 +25,18 @@ export const GeneratedPickSchema = z.object({
   selection: z.string().min(1, 'selection is required'),
   odds: z.string().regex(/^[+-]?\d+$/, 'odds must be in format like -110 or +150'),
   confidence: z.number().int().min(1).max(5),
-  reasoning: z.string().min(50).max(300),
-  key_factors: z.array(z.string().min(10).max(100)).min(3).max(5),
+  reasoning: z.string().min(50).max(600),
+  key_factors: z.array(z.string().min(10).max(200)).min(3).max(5),
   decision_trace: z.object({
     leaned_metrics: z.array(z.object({
       metric_key: z.string().min(2).max(80),
       metric_value: z.string().min(1).max(120),
-      why_it_mattered: z.string().min(20).max(220),
+      why_it_mattered: z.string().min(20).max(400),
       personality_trait: z.string().min(3).max(120),
       weight: z.number().min(0).max(1).optional(),
     })).min(2).max(8),
-    rationale_summary: z.string().min(40).max(300),
-    personality_alignment: z.string().min(40).max(300),
+    rationale_summary: z.string().min(40).max(500),
+    personality_alignment: z.string().min(40).max(500),
     other_metrics_considered: z.array(z.string().min(3).max(120)).max(12).optional(),
   }).optional(),
 });

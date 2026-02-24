@@ -14,7 +14,7 @@ import { Account } from "./pages";
 import Landing from "./pages/Landing";
 import Admin from "./pages/Admin";
 import AISettings from "./pages/admin/AISettings";
-import EditorsPicks from "./pages/EditorsPicks";
+// import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import ScoreBoard from "./pages/ScoreBoard";
 import MobileApp from "./pages/MobileApp";
@@ -63,12 +63,12 @@ export const navItems: NavItem[] = [
     icon: <Users className="h-4 w-4" />,
     page: <Agents />,
   },
-  {
-    title: "Editors Picks",
-    to: "/editors-picks",
-    icon: <Star className="h-4 w-4" />,
-    page: <EditorsPicks />,
-  },
+  // {
+  //   title: "Editors Picks",
+  //   to: "/editors-picks",
+  //   icon: <Star className="h-4 w-4" />,
+  //   page: <EditorsPicks />,
+  // },
   {
     title: "WagerBot Chat",
     to: "/wagerbot-chat",

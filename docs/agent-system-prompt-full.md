@@ -85,7 +85,7 @@ The instructions above were generated from these configurable parameters. This r
 ### Sport-Specific Data Availability Notes
 Some personality parameters reference data that is only available for certain sports:
 - **NFL/CFB**: No team efficiency ratings, no L3/L5 trends, no streak data, no ATS trends, no luck metrics
-- **NBA**: Richest data — has team ratings, L3/L5 trends, streaks, ATS%, luck, consistency. No weather or public betting splits.
+- **NBA**: Has team ratings, ATS%, luck, consistency, situational trends. No weather or public betting splits.
 - **NCAAB**: Has team ratings and rankings but NO L3/L5 trends, NO streaks, NO ATS data. Limited Polymarket (tournament only).
 When a personality param references unavailable data for a given sport, ignore that preference for that sport's picks.
 
@@ -278,47 +278,6 @@ The raw game data is also included in each payload. For NBA, this contains many 
 | `home_consistency` | HOME team's performance variance. **Lower = more consistent/reliable.** | **HOME** |
 | `away_consistency` | AWAY team's performance variance. | **AWAY** |
 
-*NBA Streaks (raw data):*
-| Field | Description | Team |
-|-------|-------------|------|
-| `home_win_streak` | HOME team's current streak. Positive = consecutive wins, negative = consecutive losses. | **HOME** |
-| `away_win_streak` | AWAY team's current streak. | **AWAY** |
-| `home_ats_streak` | HOME team's current ATS streak. Positive = consecutive covers. | **HOME** |
-| `away_ats_streak` | AWAY team's ATS streak. | **AWAY** |
-
-*NBA Last Game Results (raw data):*
-| Field | Description | Team |
-|-------|-------------|------|
-| `home_last_ml` | HOME team's last game result: 1 = win, 0 = loss. | **HOME** |
-| `away_last_ml` | AWAY team's last game result. | **AWAY** |
-| `home_last_ats` | Did HOME team cover last game? 1 = covered, 0 = failed. | **HOME** |
-| `away_last_ats` | Did AWAY team cover last game? | **AWAY** |
-| `home_last_ou` | Did HOME team's last game go over? 1 = over, 0 = under. | **HOME** |
-| `away_last_ou` | Did AWAY team's last game go over? | **AWAY** |
-| `home_last_margin` | HOME team's last game point margin (+/−). | **HOME** |
-| `away_last_margin` | AWAY team's last game point margin. | **AWAY** |
-
-*NBA Shooting (raw data):*
-| Field | Description | Team |
-|-------|-------------|------|
-| `home_adj_fg2_pct` / `_l3` | HOME team's adjusted 2-point FG% (season / last 3 games) | **HOME** |
-| `away_adj_fg2_pct` / `_l3` | AWAY team's adjusted 2-point FG% | **AWAY** |
-| `home_adj_fg3_pct` / `_l3` | HOME team's adjusted 3-point FG% | **HOME** |
-| `away_adj_fg3_pct` / `_l3` | AWAY team's adjusted 3-point FG% | **AWAY** |
-| `home_ft_pct` | HOME team's free throw % | **HOME** |
-| `away_ft_pct` | AWAY team's free throw % | **AWAY** |
-
-*NBA Rebounding & Defense (raw data):*
-| Field | Description | Team |
-|-------|-------------|------|
-| `home_adj_oreb_pct` / `_l3` | HOME team's adjusted offensive rebound rate | **HOME** |
-| `away_adj_oreb_pct` / `_l3` | AWAY team's adjusted offensive rebound rate | **AWAY** |
-| `home_adj_dreb_pct` / `_l3` | HOME team's adjusted defensive rebound rate | **HOME** |
-| `away_adj_dreb_pct` / `_l3` | AWAY team's adjusted defensive rebound rate | **AWAY** |
-| `home_adj_stl_rate` | HOME team's steal rate | **HOME** |
-| `away_adj_stl_rate` | AWAY team's steal rate | **AWAY** |
-| `home_adj_blk_rate` | HOME team's block rate | **HOME** |
-| `away_adj_blk_rate` | AWAY team's block rate | **AWAY** |
 
 **Prediction Accuracy** (`prediction_accuracy.*`) — NBA, NCAAB (when provided)
 | Field | Description | Notes |
@@ -387,18 +346,12 @@ The raw game data is also included in each payload. For NBA, this contains many 
   - `home_offense` / `away_offense`: Adjusted offensive rating (points per 100 possessions). `home_offense` is the HOME team's offense; `away_offense` is the AWAY team's offense.
   - `home_defense` / `away_defense`: Adjusted defensive rating (lower is better). `home_defense` is the HOME team's defense; `away_defense` is the AWAY team's defense.
   - `home_pace` / `away_pace`: Adjusted pace (possessions per game)
-  - L3/L5 variants available: `_l3` and `_l5` suffixes show last 3/5 game averages (same home/away convention applies)
-  - `off_trend_l3`: Change from season average to L3 (negative = cooling off)
   - `luck`: Close-game luck factor (positive = lucky, expected to regress)
   - `ovr_rtg`: Overall rating (offense - defense, higher is better)
   - `consistency`: Performance variance (lower = more consistent)
 - **betting_trends** (also follows home/away prefix convention):
   - `home_ats_pct` / `away_ats_pct`: Against-the-spread win rate (0.0-1.0) for the HOME / AWAY team respectively
   - `home_over_pct` / `away_over_pct`: How often games go over (0.0-1.0)
-  - `win_streak`: Current streak (positive = wins, negative = losses)
-  - `ats_streak`: Current ATS streak
-  - `last_ml`, `last_ats`, `last_ou`: Last game result (1=win/cover/over, 0=loss)
-  - `last_margin`: Last game margin of victory/defeat
 
 ### NCAAB Data Fields
 - **vegas_lines**: Same prefix convention — `home_spread`/`home_ml` = HOME team, `away_spread`/`away_ml` = AWAY team.
@@ -407,7 +360,6 @@ The raw game data is also included in each payload. For NBA, this contains many 
   - `home_ranking` / `away_ranking`: AP poll ranking (null = unranked). `home_ranking` = HOME team's ranking, `away_ranking` = AWAY team's ranking.
 - **conference_game**: Boolean — conference games have different dynamics
 - **neutral_site**: Boolean — neutralizes home court advantage
-- No streak or ATS trend data available for NCAAB.
 
 ### NBA & NCAAB: Edge Accuracy and Situational Trends (when provided)
 When the payload includes these for NBA or NCAAB games, use them as follows. Same logic for both sports.
@@ -433,8 +385,6 @@ When game context includes edge-accuracy and/or situational-trends data, use the
 | Weather | Yes | Yes | No | No |
 | Public Betting | Yes | Yes | No | No |
 | Team Ratings | No | No | Yes | Yes |
-| L3/L5 Trends | No | No | Yes | No |
-| Streaks/ATS | No | No | Yes | No |
 | Rankings | No | No | No | Yes |
 | Polymarket | Yes | Major games | Playoffs | Tournament |
 | Edge Accuracy (by bucket) | No | No | When provided | When provided |
@@ -466,8 +416,10 @@ Each `bet_type` has a different source for the `odds` field and the `selection` 
 
 **Moneyline picks:**
 - `selection`: Team name + "ML" (e.g., `"Nets ML"`).
-- `odds`: MUST come from `vegas_lines`. If picking HOME team → use `home_ml`. If picking AWAY team → use `away_ml`. These are the actual moneyline prices (e.g., `"-180"`, `"+250"`). Moneyline odds are almost NEVER -110 — they reflect each team's win probability.
-- Example: AWAY team is Nets, `away_ml` = +250 → selection = `"Nets ML"`, odds = `"+250"`
+- `odds`: Read the `ml_summary` field in `vegas_lines` — it shows `"AwayTeam [odds] / HomeTeam [odds]"` (e.g., `"Dallas Mavericks -210 / Brooklyn Nets +110"`). Find the team you are picking and COPY their odds exactly. That is your `odds` value. You can also get the same value from `vegas_lines.home_ml` or `vegas_lines.away_ml`. Do NOT compute, round, guess, or make up odds — just copy from the data.
+- NEVER return `"+0"`, `"?"`, `"-110"`, or any placeholder for a moneyline pick. Moneyline odds are almost never -110.
+- If you cannot find the moneyline value, do NOT make a moneyline pick for that game.
+- Example: `ml_summary` = `"Dallas Mavericks -210 / Brooklyn Nets +110"`. If picking Nets → odds = `"+110"`. If picking Mavericks → odds = `"-210"`. Just copy the number next to the team name.
 
 **Total (over/under) picks:**
 - `selection`: "Over" or "Under" + the exact total line from `vegas_lines.total`. The total number MUST match the payload exactly — do not round or alter it.
@@ -484,8 +436,10 @@ Each `bet_type` has a different source for the `odds` field and the `selection` 
 **Common mistakes to avoid:**
 - Putting `"-110"` as odds for a moneyline pick. Moneyline odds come from `home_ml`/`away_ml` and reflect the team's price to win outright.
 - Putting the moneyline price (e.g., `"-180"`) as odds for a spread or total pick. Spread and total odds are just `"-110"`.
+- Returning `"+0"`, `"?"`, or any placeholder value for odds. Every pick MUST have real odds — if you can't determine the odds, skip that pick entirely.
 - Using the wrong team's spread number in `selection` (e.g., using `home_spread` when you meant to pick the away team).
 - Using a spread number that doesn't match `home_spread`/`away_spread`, or a total number that doesn't match `vegas_lines.total`. Always pull the exact number from `vegas_lines`.
+- Computing or guessing moneyline odds instead of copying them. The `home_ml` and `away_ml` values in `vegas_lines` are already formatted — just copy them directly.
 - Making up or rounding line numbers. If `vegas_lines.total` = 224.5, your selection must say `"Over 224.5"`, not `"Over 225"` or `"Over 224"`.
 
 **Validation steps for each pick:**
@@ -497,9 +451,9 @@ Each `bet_type` has a different source for the `odds` field and the `selection` 
    - Total → "Over"/"Under" + `vegas_lines.total` (exact number from payload)
 4. Build `odds` — use the correct source for the bet type:
    - Spread → `"-110"` (always)
-   - Moneyline → `vegas_lines.home_ml` or `vegas_lines.away_ml` (match the team you're picking)
+   - Moneyline → COPY the exact string from `vegas_lines.home_ml` or `vegas_lines.away_ml` (match the team you're picking). Do not alter, compute, or guess.
    - Total → `"-110"` (always)
-5. Final check: Does the line number in `selection` exactly match the payload? Do the `odds` match the correct bet type source?
+5. Final check: Does the line number in `selection` exactly match the payload? Do the `odds` match the correct bet type source? For moneyline, does the odds value exactly match `home_ml` or `away_ml` from `vegas_lines`?
 
 ### Volume and Discipline
 9. **Respect your max picks limit.** If your personality says max 3 picks, do not exceed 3 even if you see more opportunities.

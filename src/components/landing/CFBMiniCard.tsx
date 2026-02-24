@@ -1,6 +1,6 @@
+import { useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import BlurEffect from "react-progressive-blur";
-import { Lock, TrendingUp, TrendingDown } from "lucide-react";
+import { Brain, Lock } from "lucide-react";
 import { getNBATeamInitials, getContrastingTextColor } from "@/utils/teamColors";
 
 type SportType = 'cfb' | 'nba' | 'dummy';
@@ -32,6 +32,10 @@ interface GamePrediction {
   home_away_ml_prob?: number | null;
   home_away_spread_cover_prob?: number | null;
   ou_result_prob?: number | null;
+  away_abbr?: string;
+  home_abbr?: string;
+  model_fair_home_spread?: number | null;
+  model_fair_total?: number | null;
 }
 
 interface CFBMiniCardProps {
@@ -44,6 +48,104 @@ interface CFBMiniCardProps {
   focused?: boolean;
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+function formatMoneyline(ml: number | null): string {
+  if (ml === null || ml === undefined) return '-';
+  return ml > 0 ? `+${ml}` : ml.toString();
+}
+
+function formatSpread(spread: number | null): string {
+  if (spread === null || spread === undefined) return '-';
+  return spread > 0 ? `+${spread}` : spread.toString();
+}
+
+function formatCompactDate(dateString: string | null | undefined): string {
+  if (!dateString) return 'TBD';
+  try {
+    const parts = dateString.split('T')[0].split('-');
+    if (parts.length === 3) {
+      const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+    return dateString;
+  } catch {
+    return dateString;
+  }
+}
+
+function formatTime(timeString: string | null | undefined): string {
+  if (!timeString) return 'TBD';
+  if (timeString.includes('PM') || timeString.includes('AM')) {
+    return timeString.includes('EST') || timeString.includes('ET') ? timeString : `${timeString} EST`;
+  }
+  try {
+    const utcDate = new Date(timeString);
+    return utcDate.toLocaleTimeString('en-US', {
+      timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: true,
+    }) + ' EST';
+  } catch {
+    return 'TBD';
+  }
+}
+
+function roundToNearestHalf(value: number | null | undefined): number | string {
+  if (value === null || value === undefined) return '-';
+  return Math.round(value * 2) / 2;
+}
+
+// ─── Team Avatar (web version) ───────────────────────────────────────
+
+function WebTeamAvatar({
+  teamName,
+  colors,
+  logoUrl,
+  size = 36,
+}: {
+  teamName: string;
+  colors: { primary: string; secondary: string };
+  logoUrl: string;
+  size?: number;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const initials = getNBATeamInitials(teamName);
+  const textColor = getContrastingTextColor(colors.primary, colors.secondary);
+
+  if (logoUrl && !imgError) {
+    return (
+      <div
+        className="rounded-full flex items-center justify-center bg-transparent shrink-0"
+        style={{ width: size, height: size }}
+      >
+        <img
+          src={logoUrl}
+          alt={teamName}
+          className="object-contain"
+          style={{ width: size * 0.85, height: size * 0.85 }}
+          onError={() => setImgError(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="rounded-full flex items-center justify-center shrink-0"
+      style={{
+        width: size,
+        height: size,
+        background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`,
+      }}
+    >
+      <span className="font-bold" style={{ fontSize: size * 0.35, color: textColor }}>
+        {initials}
+      </span>
+    </div>
+  );
+}
+
+// ─── Main Card Component ─────────────────────────────────────────────
+
 export default function CFBMiniCard({
   prediction,
   awayTeamColors,
@@ -51,97 +153,24 @@ export default function CFBMiniCard({
   getTeamLogo,
   cardIndex = 0,
   sportType = 'cfb',
-  focused = false
+  focused = false,
 }: CFBMiniCardProps) {
   const shouldReduce = useReducedMotion();
-
-  const formatMoneyline = (ml: number | null): string => {
-    if (ml === null || ml === undefined) return '-';
-    if (ml > 0) return `+${ml}`;
-    return ml.toString();
-  };
-
-  const formatSpread = (spread: number | null): string => {
-    if (spread === null || spread === undefined) return '-';
-    if (spread > 0) return `+${spread}`;
-    return spread.toString();
-  };
-
-  const formatStartTime = (startTimeString: string | null | undefined): string => {
-    if (!startTimeString) return 'TBD';
-    if (startTimeString.includes('PM') || startTimeString.includes('AM')) {
-      if (!startTimeString.includes('EST') && !startTimeString.includes('ET')) {
-        return `${startTimeString} EST`;
-      }
-      return startTimeString;
-    }
-    try {
-      const utcDate = new Date(startTimeString);
-      const estTime = utcDate.toLocaleTimeString('en-US', {
-        timeZone: 'America/New_York',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-      return `${estTime} EST`;
-    } catch {
-      return 'TBD';
-    }
-  };
-
-  const getTeamAcronym = (teamName: string): string => {
-    if (sportType === 'nba' || sportType === 'dummy') {
-      return getNBATeamInitials(teamName);
-    }
-    const acronymMap: { [key: string]: string } = {
-      'Alabama': 'ALA', 'Auburn': 'AUB', 'Georgia': 'UGA', 'Florida': 'UF',
-      'LSU': 'LSU', 'Texas A&M': 'TAMU', 'Ole Miss': 'MISS', 'Mississippi State': 'MSST',
-      'Arkansas': 'ARK', 'Kentucky': 'UK', 'Tennessee': 'TENN', 'South Carolina': 'SC',
-      'Missouri': 'MIZ', 'Vanderbilt': 'VAN', 'Ohio State': 'OSU', 'Michigan': 'MICH',
-      'Penn State': 'PSU', 'Michigan State': 'MSU', 'Wisconsin': 'WISC', 'Iowa': 'IOWA',
-      'Minnesota': 'MINN', 'Nebraska': 'NEB', 'Illinois': 'ILL', 'Northwestern': 'NW',
-      'Purdue': 'PUR', 'Indiana': 'IND', 'Rutgers': 'RUT', 'Maryland': 'MD',
-      'Oklahoma': 'OU', 'Texas': 'TEX', 'Oklahoma State': 'OKST', 'Baylor': 'BAY',
-      'TCU': 'TCU', 'Texas Tech': 'TTU', 'Kansas State': 'KSU', 'Iowa State': 'ISU',
-      'Kansas': 'KU', 'West Virginia': 'WVU', 'BYU': 'BYU', 'Cincinnati': 'CIN',
-      'UCF': 'UCF', 'Houston': 'HOU', 'USC': 'USC', 'UCLA': 'UCLA', 'Oregon': 'ORE',
-      'Washington': 'UW', 'Utah': 'UTAH', 'Arizona State': 'ASU', 'Arizona': 'ARIZ',
-      'Colorado': 'COLO', 'Stanford': 'STAN', 'California': 'CAL', 'Oregon State': 'ORST',
-      'Washington State': 'WSU', 'Clemson': 'CLEM', 'Florida State': 'FSU', 'Miami': 'MIA',
-      'North Carolina': 'UNC', 'NC State': 'NCST', 'Virginia Tech': 'VT', 'Virginia': 'UVA',
-      'Duke': 'DUKE', 'Wake Forest': 'WAKE', 'Georgia Tech': 'GT', 'Boston College': 'BC',
-      'Pitt': 'PITT', 'Syracuse': 'SYR', 'Louisville': 'LOU', 'Notre Dame': 'ND'
-    };
-    return acronymMap[teamName] || teamName.substring(0, 4).toUpperCase();
-  };
-
-  const createAuroraGradient = (colors1: { primary: string; secondary: string }, colors2: { primary: string; secondary: string }) => ({
-    background: `linear-gradient(135deg, ${colors1.primary}12 0%, ${colors2.primary}12 25%, ${colors1.secondary}08 50%, ${colors2.secondary}08 75%, ${colors1.primary}12 100%)`,
-    borderImage: `linear-gradient(135deg, ${colors1.primary}35, ${colors2.primary}35, ${colors1.secondary}25, ${colors2.secondary}25) 1`
-  });
-
-  const auroraStyle = createAuroraGradient(awayTeamColors, homeTeamColors);
-
-  const getSpreadEdge = (): { team: string; edge: number } | null => {
-    if (!prediction.home_spread_diff) return null;
-    const isHomeEdge = prediction.home_spread_diff > 0;
-    return {
-      team: isHomeEdge ? getTeamAcronym(prediction.home_team) : getTeamAcronym(prediction.away_team),
-      edge: Math.abs(prediction.home_spread_diff)
-    };
-  };
-
-  const getOUEdge = (): { direction: 'Over' | 'Under'; edge: number } | null => {
-    if (!prediction.over_line_diff) return null;
-    return {
-      direction: prediction.over_line_diff > 0 ? 'Over' : 'Under',
-      edge: Math.abs(prediction.over_line_diff)
-    };
-  };
-
-  const spreadEdge = getSpreadEdge();
-  const ouEdge = getOUEdge();
   const entranceDelay = shouldReduce ? 0 : cardIndex * 0.1;
+
+  // Determine favorite for background gradient
+  const favoriteColors =
+    prediction.home_spread !== null && prediction.away_spread !== null
+      ? prediction.home_spread < 0 ? homeTeamColors : awayTeamColors
+      : prediction.home_ml !== null && prediction.away_ml !== null
+        ? prediction.home_ml < prediction.away_ml ? homeTeamColors : awayTeamColors
+        : awayTeamColors;
+
+  const getAbbr = (team: string, isHome: boolean) => {
+    if (isHome && prediction.home_abbr) return prediction.home_abbr;
+    if (!isHome && prediction.away_abbr) return prediction.away_abbr;
+    return getNBATeamInitials(team);
+  };
 
   return (
     <motion.div
@@ -151,15 +180,30 @@ export default function CFBMiniCard({
         y: focused ? -4 : 0,
         scale: focused ? 1.03 : 1,
       }}
-      transition={{ duration: 0.5, delay: entranceDelay + 0.3, ease: "easeOut" }}
+      transition={{ duration: 0.5, delay: entranceDelay + 0.3, ease: 'easeOut' }}
       whileHover={shouldReduce ? {} : { scale: 1.025, y: -2 }}
-      className={`relative rounded-xl md:rounded-2xl p-[1.5px] cursor-pointer overflow-hidden group transition-shadow duration-300 ${
+      className={`relative rounded-[20px] overflow-hidden cursor-pointer group transition-shadow duration-300 ${
         focused
-          ? 'ring-2 ring-emerald-400/70 shadow-[0_0_24px_rgba(34,197,94,0.25),0_0_48px_rgba(34,197,94,0.1)]'
-          : ''
-      }`}
-      style={{ background: auroraStyle.borderImage || 'linear-gradient(45deg, #73b69e, #a8d5ba)' }}
+          ? 'ring-2 ring-emerald-400/70 shadow-[0_0_24px_rgba(34,197,94,0.25)]'
+          : 'shadow-[0_2px_12px_rgba(0,0,0,0.1)]'
+      } bg-white dark:bg-[#1a1a1a]`}
     >
+      {/* Top gradient border */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[3px] z-10"
+        style={{
+          background: `linear-gradient(to right, ${awayTeamColors.primary}, ${awayTeamColors.secondary}, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
+        }}
+      />
+
+      {/* Background gradient */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `linear-gradient(to bottom, ${favoriteColors.primary}15, ${favoriteColors.secondary}10, transparent)`,
+        }}
+      />
+
       {/* Focused analyzing badge */}
       <AnimatePresence>
         {focused && (
@@ -168,7 +212,7 @@ export default function CFBMiniCard({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.7 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-1.5 right-1.5 md:top-2 md:right-2 z-30 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[8px] md:text-[10px] font-mono font-bold flex items-center gap-1 shadow-lg"
+            className="absolute top-2 right-2 z-30 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[8px] md:text-[10px] font-mono font-bold flex items-center gap-1 shadow-lg"
           >
             <motion.div
               animate={{ opacity: [1, 0.2, 1] }}
@@ -180,300 +224,133 @@ export default function CFBMiniCard({
         )}
       </AnimatePresence>
 
-      {/* Hover glow effect */}
-      <div
-        className="absolute -inset-1 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md pointer-events-none"
-        style={{ background: `linear-gradient(135deg, ${awayTeamColors.primary}30, ${homeTeamColors.primary}30)` }}
-      />
+      {/* Card Content */}
+      <div className="relative pt-[7px] pb-2.5 md:pb-3 px-2 md:px-2.5">
+        {/* Date + Time */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: entranceDelay + 0.4 }}
+          className="flex justify-between items-center mb-2 md:mb-2.5"
+        >
+          <span className="text-[10px] md:text-xs font-semibold text-gray-900 dark:text-gray-100">
+            {formatCompactDate(prediction.game_date)}
+          </span>
+          <span className="px-1.5 md:px-2 py-0.5 rounded-md bg-gray-100 dark:bg-white/10 text-[8px] md:text-[10px] font-semibold text-gray-600 dark:text-gray-300">
+            {formatTime(prediction.game_time || prediction.start_time || prediction.game_datetime)}
+          </span>
+        </motion.div>
 
-      <div
-        className="relative rounded-xl md:rounded-2xl p-2 md:p-4 w-full h-full overflow-hidden bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm"
-        style={{ background: auroraStyle.background }}
-      >
-        {/* Subtle aurora overlay */}
-        <div
-          className="absolute inset-0 rounded-xl md:rounded-2xl opacity-20 pointer-events-none"
-          style={{
-            background: `radial-gradient(circle at 30% 20%, ${awayTeamColors.primary}20 0%, transparent 50%),
-                        radial-gradient(circle at 70% 80%, ${homeTeamColors.primary}20 0%, transparent 50%)`
-          }}
-        />
-
-        <div className="relative z-10 space-y-2 md:space-y-3">
-          {/* Game Time */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: entranceDelay + 0.5 }}
-            className="text-center"
-          >
-            <div className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-              <motion.div
-                animate={shouldReduce ? {} : { scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="w-1.5 h-1.5 rounded-full bg-emerald-500"
-              />
-              {formatStartTime(prediction.game_time || prediction.start_time || prediction.start_date || prediction.game_datetime || prediction.datetime)}
-            </div>
-          </motion.div>
-
-          {/* Teams Row */}
-          <div className="flex flex-col items-center justify-center space-y-2">
-            <div className="flex items-center justify-between w-full">
-              {/* Away Team */}
-              <motion.div
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: entranceDelay + 0.4, duration: 0.4 }}
-                className="flex flex-col items-center space-y-1 flex-1"
-              >
-                {(() => {
-                  const initials = getTeamAcronym(prediction.away_team);
-                  const textColor = getContrastingTextColor(awayTeamColors.primary, awayTeamColors.secondary);
-                  return (
-                    <motion.div
-                      animate={focused ? { scale: [1, 1.1, 1] } : {}}
-                      transition={focused ? { duration: 1.5, repeat: Infinity } : {}}
-                      className="h-7 w-7 md:h-10 md:w-10 rounded-full flex items-center justify-center flex-shrink-0 drop-shadow-md border-2 transition-shadow group-hover:shadow-md"
-                      style={{
-                        background: `linear-gradient(135deg, ${awayTeamColors.primary} 0%, ${awayTeamColors.secondary} 100%)`,
-                        borderColor: awayTeamColors.secondary + '80',
-                      }}
-                    >
-                      <span className="text-[0.5rem] md:text-xs font-bold" style={{ color: textColor }}>
-                        {initials}
-                      </span>
-                    </motion.div>
-                  );
-                })()}
-                <div className="min-w-0 text-center">
-                  <div className="text-[10px] md:text-xs font-semibold truncate max-w-[80px] md:max-w-[120px] text-gray-900 dark:text-gray-100">
-                    {prediction.away_team}
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* VS divider */}
-              <div className="px-2 md:px-4">
-                <motion.span
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: entranceDelay + 0.5, type: "spring", stiffness: 300 }}
-                  className="text-[10px] md:text-xs font-mono font-bold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 rounded"
-                >
-                  @
-                </motion.span>
-              </div>
-
-              {/* Home Team */}
-              <motion.div
-                initial={{ opacity: 0, x: 12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: entranceDelay + 0.4, duration: 0.4 }}
-                className="flex flex-col items-center space-y-1 flex-1"
-              >
-                {(() => {
-                  const initials = getTeamAcronym(prediction.home_team);
-                  const textColor = getContrastingTextColor(homeTeamColors.primary, homeTeamColors.secondary);
-                  return (
-                    <motion.div
-                      animate={focused ? { scale: [1, 1.1, 1] } : {}}
-                      transition={focused ? { duration: 1.5, repeat: Infinity, delay: 0.3 } : {}}
-                      className="h-7 w-7 md:h-10 md:w-10 rounded-full flex items-center justify-center flex-shrink-0 drop-shadow-md border-2 transition-shadow group-hover:shadow-md"
-                      style={{
-                        background: `linear-gradient(135deg, ${homeTeamColors.primary} 0%, ${homeTeamColors.secondary} 100%)`,
-                        borderColor: homeTeamColors.secondary + '80',
-                      }}
-                    >
-                      <span className="text-[0.5rem] md:text-xs font-bold" style={{ color: textColor }}>
-                        {initials}
-                      </span>
-                    </motion.div>
-                  );
-                })()}
-                <div className="min-w-0 text-center">
-                  <div className="text-[10px] md:text-xs font-semibold truncate max-w-[80px] md:max-w-[120px] text-gray-900 dark:text-gray-100">
-                    {prediction.home_team}
-                  </div>
-                </div>
-              </motion.div>
+        {/* Teams Row */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: entranceDelay + 0.45 }}
+          className="flex justify-around items-center mb-2 md:mb-2.5"
+        >
+          {/* Away Team */}
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <WebTeamAvatar
+              teamName={prediction.away_team}
+              colors={awayTeamColors}
+              logoUrl={getTeamLogo(prediction.away_team)}
+              size={window.innerWidth < 768 ? 28 : 36}
+            />
+            <span className="text-[9px] md:text-[11px] font-semibold text-gray-900 dark:text-gray-100 text-center mt-1 truncate max-w-full">
+              {getAbbr(prediction.away_team, false)}
+            </span>
+            <div className="flex gap-1 md:gap-1.5 mt-0.5 justify-center">
+              {prediction.away_spread !== null && (
+                <span className={`text-[8px] md:text-[9px] font-medium tabular-nums ${(prediction.away_spread ?? 0) < 0 ? 'text-blue-500' : 'text-emerald-500'}`}>
+                  {formatSpread(prediction.away_spread)}
+                </span>
+              )}
+              {(prediction.away_ml ?? prediction.away_moneyline) !== null && (
+                <span className={`text-[8px] md:text-[9px] font-medium tabular-nums ${((prediction.away_ml ?? prediction.away_moneyline) ?? 0) < 0 ? 'text-blue-500' : 'text-emerald-500'}`}>
+                  {formatMoneyline(prediction.away_ml ?? prediction.away_moneyline ?? null)}
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Betting Lines */}
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: entranceDelay + 0.55 }}
-            className="grid grid-cols-3 gap-1 md:gap-2 text-center"
-          >
-            <div className="space-y-0.5 md:space-y-1 p-1.5 rounded-lg bg-white/40 dark:bg-white/[0.03]">
-              <div className="text-[10px] md:text-xs font-bold text-blue-600 dark:text-blue-400 tabular-nums">
-                {formatMoneyline(prediction.away_ml || prediction.away_moneyline)}
-              </div>
-              <div className="text-[10px] md:text-xs font-medium text-gray-600 dark:text-gray-300 tabular-nums">
-                {formatSpread(prediction.away_spread || (prediction.api_spread ? -prediction.api_spread : null))}
-              </div>
-            </div>
-            <div className="space-y-0.5 md:space-y-1 p-1.5 rounded-lg bg-white/40 dark:bg-white/[0.03]">
-              <div className="text-[9px] md:text-[10px] font-mono font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</div>
-              <div className="text-[10px] md:text-xs font-bold text-gray-700 dark:text-gray-300 tabular-nums">
-                {prediction.total_line || prediction.api_over_line || '-'}
-              </div>
-            </div>
-            <div className="space-y-0.5 md:space-y-1 p-1.5 rounded-lg bg-white/40 dark:bg-white/[0.03]">
-              <div className="text-[10px] md:text-xs font-bold text-green-600 dark:text-green-400 tabular-nums">
-                {formatMoneyline(prediction.home_ml || prediction.home_moneyline)}
-              </div>
-              <div className="text-[10px] md:text-xs font-medium text-gray-600 dark:text-gray-300 tabular-nums">
-                {formatSpread(prediction.home_spread || prediction.api_spread)}
-              </div>
-            </div>
-          </motion.div>
+          {/* Center - @ with O/U */}
+          <div className="flex flex-col items-center px-1 md:px-1.5 shrink-0">
+            <span className="text-base md:text-xl font-semibold text-gray-300 dark:text-gray-600">@</span>
+            {(prediction.total_line || prediction.api_over_line) && (
+              <span className="mt-0.5 md:mt-1 px-1.5 md:px-2 py-0.5 rounded-md bg-gray-500/10 border border-gray-300/40 dark:border-gray-600/40 text-[7px] md:text-[9px] font-semibold text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">
+                O/U: {roundToNearestHalf(prediction.total_line || prediction.api_over_line)}
+              </span>
+            )}
+          </div>
 
-          {/* Mini Model Predictions */}
-          {(spreadEdge || ouEdge) && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: entranceDelay + 0.65 }}
-              className="hidden md:grid grid-cols-2 gap-2 text-center"
-            >
-              {spreadEdge && (
-                <div className="bg-white/50 dark:bg-white/[0.04] backdrop-blur-sm rounded-lg p-2 border border-gray-200/40 dark:border-white/[0.06] flex items-center justify-center gap-1.5">
-                  <TrendingUp className="w-3 h-3 text-emerald-500" />
-                  <div>
-                    <div className="text-[9px] font-mono text-gray-400 uppercase">Spread Edge</div>
-                    <div className="text-xs font-bold text-gray-800 dark:text-white tabular-nums">
-                      {spreadEdge.team} {spreadEdge.edge.toFixed(1)}
-                    </div>
-                  </div>
-                </div>
-              )}
-              {ouEdge && (
-                <div className="bg-white/50 dark:bg-white/[0.04] backdrop-blur-sm rounded-lg p-2 border border-gray-200/40 dark:border-white/[0.06] flex items-center justify-center gap-1.5">
-                  {ouEdge.direction === 'Over' ? (
-                    <TrendingUp className="w-3 h-3 text-blue-500" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3 text-orange-500" />
-                  )}
-                  <div>
-                    <div className="text-[9px] font-mono text-gray-400 uppercase">O/U Edge</div>
-                    <div className="text-xs font-bold text-gray-800 dark:text-white tabular-nums">
-                      {ouEdge.direction} {ouEdge.edge.toFixed(1)}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* Premium Features Preview */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: entranceDelay + 0.7 }}
-            className="space-y-2"
-          >
-            <div className="text-center hidden md:block">
-              <div className="text-[10px] font-mono font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-[0.12em]">
-                Model Predictions
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-1.5 relative">
-              {/* Edge Analysis Mockup */}
-              <div className={`relative overflow-hidden rounded-lg border border-gray-200/30 dark:border-white/[0.04] ${cardIndex !== 0 ? 'hidden md:block' : ''}`}>
-                <div className="bg-gradient-to-r from-blue-50/80 to-purple-50/80 dark:from-blue-950/20 dark:to-purple-950/20 p-2 md:p-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[10px] md:text-xs font-medium text-gray-500 dark:text-gray-400">Edge Analysis</div>
-                    <div className="text-[10px] md:text-xs font-bold text-blue-600 dark:text-blue-400 tabular-nums">+2.3 pts</div>
-                  </div>
-                  <div className="text-[9px] md:text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Advanced model edge detection</div>
-                </div>
-                <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-500 ${focused ? 'opacity-20' : ''}`} style={{ borderRadius: '0.5rem' }}>
-                  <BlurEffect
-                    position="right"
-                    intensity={120}
-                    className="bg-gradient-to-r from-transparent via-white/20 to-white/80 dark:via-black/20 dark:to-black/80 w-3/5 pointer-events-none"
-                  />
-                </div>
-                <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 z-10 pointer-events-none">
-                  <div className="bg-white/90 dark:bg-black/80 backdrop-blur-sm rounded-full p-1 shadow-sm border border-gray-200/50 dark:border-white/10">
-                    <Lock className="w-2 h-2 md:w-2.5 md:h-2.5 text-gray-500 dark:text-gray-400" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Public Split Mockup */}
-              <div className={`relative overflow-hidden rounded-lg border border-gray-200/30 dark:border-white/[0.04] ${cardIndex !== 1 ? 'hidden md:block' : ''}`}>
-                <div className="bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-green-950/20 dark:to-emerald-950/20 p-2 md:p-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[10px] md:text-xs font-medium text-gray-500 dark:text-gray-400">Public Split</div>
-                    <div className="text-[10px] md:text-xs font-bold text-green-600 dark:text-green-400 tabular-nums">73% / 27%</div>
-                  </div>
-                  <div className="text-[9px] md:text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Sharp vs public money flow</div>
-                </div>
-                <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-500 ${focused ? 'opacity-20' : ''}`} style={{ borderRadius: '0.5rem' }}>
-                  <BlurEffect
-                    position="right"
-                    intensity={120}
-                    className="bg-gradient-to-r from-transparent via-white/20 to-white/80 dark:via-black/20 dark:to-black/80 w-3/5 pointer-events-none"
-                  />
-                </div>
-                <div className="absolute top-1.5 right-1.5 z-10 pointer-events-none">
-                  <div className="bg-white/90 dark:bg-black/80 backdrop-blur-sm rounded-full p-1 shadow-sm border border-gray-200/50 dark:border-white/10">
-                    <Lock className="w-2.5 h-2.5 text-gray-500 dark:text-gray-400" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Simulate Game Mockup */}
-              <div className={`relative overflow-hidden rounded-lg border border-gray-200/30 dark:border-white/[0.04] ${cardIndex !== 2 && cardIndex !== 3 ? 'hidden md:block' : ''}`}>
-                <div className="bg-gradient-to-r from-orange-50/80 to-red-50/80 dark:from-orange-950/20 dark:to-red-950/20 p-2 md:p-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[10px] md:text-xs font-medium text-gray-500 dark:text-gray-400">Simulate Game</div>
-                    <div className="text-[10px] md:text-xs font-bold text-orange-600 dark:text-orange-400 tabular-nums">28 - 21</div>
-                  </div>
-                  <div className="text-[9px] md:text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">AI game simulation results</div>
-                </div>
-                <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-500 ${focused ? 'opacity-20' : ''}`} style={{ borderRadius: '0.5rem' }}>
-                  <BlurEffect
-                    position="right"
-                    intensity={120}
-                    className="bg-gradient-to-r from-transparent via-white/20 to-white/80 dark:via-black/20 dark:to-black/80 w-3/5 pointer-events-none"
-                  />
-                </div>
-                <div className="absolute top-1.5 right-1.5 z-10 pointer-events-none">
-                  <div className="bg-white/90 dark:bg-black/80 backdrop-blur-sm rounded-full p-1 shadow-sm border border-gray-200/50 dark:border-white/10">
-                    <Lock className="w-2.5 h-2.5 text-gray-500 dark:text-gray-400" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Bottom accent line */}
-          <motion.div
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ delay: entranceDelay + 0.8, duration: 0.6, ease: "easeOut" }}
-            className="flex h-[3px] rounded-full overflow-hidden origin-left"
-          >
-            <motion.div
-              animate={shouldReduce ? {} : { opacity: [0.5, 0.8, 0.5] }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="flex-1 rounded-l-full"
-              style={{ backgroundColor: `${awayTeamColors.primary}70` }}
+          {/* Home Team */}
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <WebTeamAvatar
+              teamName={prediction.home_team}
+              colors={homeTeamColors}
+              logoUrl={getTeamLogo(prediction.home_team)}
+              size={window.innerWidth < 768 ? 28 : 36}
             />
-            <motion.div
-              animate={shouldReduce ? {} : { opacity: [0.5, 0.8, 0.5] }}
-              transition={{ duration: 3, repeat: Infinity, delay: 1.5 }}
-              className="flex-1 rounded-r-full"
-              style={{ backgroundColor: `${homeTeamColors.primary}70` }}
-            />
-          </motion.div>
-        </div>
+            <span className="text-[9px] md:text-[11px] font-semibold text-gray-900 dark:text-gray-100 text-center mt-1 truncate max-w-full">
+              {getAbbr(prediction.home_team, true)}
+            </span>
+            <div className="flex gap-1 md:gap-1.5 mt-0.5 justify-center">
+              {prediction.home_spread !== null && (
+                <span className={`text-[8px] md:text-[9px] font-medium tabular-nums ${(prediction.home_spread ?? 0) < 0 ? 'text-blue-500' : 'text-emerald-500'}`}>
+                  {formatSpread(prediction.home_spread)}
+                </span>
+              )}
+              {(prediction.home_ml ?? prediction.home_moneyline) !== null && (
+                <span className={`text-[8px] md:text-[9px] font-medium tabular-nums ${((prediction.home_ml ?? prediction.home_moneyline) ?? 0) < 0 ? 'text-blue-500' : 'text-emerald-500'}`}>
+                  {formatMoneyline(prediction.home_ml ?? prediction.home_moneyline ?? null)}
+                </span>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Model Predictions Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: entranceDelay + 0.55 }}
+          className="mt-1 md:mt-1.5"
+        >
+          <div className="flex items-center gap-1 mb-1 md:mb-1.5">
+            <Brain className="w-2.5 h-2.5 md:w-3 md:h-3 text-emerald-500" />
+            <span className="text-[8px] md:text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+              Model Picks
+            </span>
+          </div>
+
+          <div className="space-y-1 md:space-y-1.5">
+            {/* Spread Pill — locked with metric name visible */}
+            <div className="flex items-center px-1.5 md:px-2 py-1.5 md:py-2 rounded-xl bg-gray-50 dark:bg-[#2a2a2a] border border-gray-200/50 dark:border-white/[0.08]">
+              <div className="w-4 h-4 md:w-5 md:h-5 rounded-full flex items-center justify-center shrink-0 bg-gray-300/50 dark:bg-gray-600/30">
+                <Lock className="w-2 h-2 md:w-2.5 md:h-2.5 text-gray-400 dark:text-gray-500" />
+              </div>
+              <span className="text-[9px] md:text-[11px] font-semibold text-gray-400 dark:text-gray-500 ml-1.5 md:ml-2">
+                Spread
+              </span>
+              <span className="text-[8px] md:text-[10px] font-semibold text-gray-400 dark:text-gray-500 ml-auto px-1.5 py-0.5 rounded-full bg-gray-200/60 dark:bg-white/[0.06] border border-gray-300/40 dark:border-white/[0.06]">
+                Members Only
+              </span>
+            </div>
+
+            {/* O/U Pill — locked with metric name visible */}
+            <div className="flex items-center px-1.5 md:px-2 py-1.5 md:py-2 rounded-xl bg-gray-50 dark:bg-[#2a2a2a] border border-gray-200/50 dark:border-white/[0.08]">
+              <div className="w-4 h-4 md:w-5 md:h-5 rounded-full flex items-center justify-center shrink-0 bg-gray-300/50 dark:bg-gray-600/30">
+                <Lock className="w-2 h-2 md:w-2.5 md:h-2.5 text-gray-400 dark:text-gray-500" />
+              </div>
+              <span className="text-[9px] md:text-[11px] font-semibold text-gray-400 dark:text-gray-500 ml-1.5 md:ml-2">
+                Over / Under
+              </span>
+              <span className="text-[8px] md:text-[10px] font-semibold text-gray-400 dark:text-gray-500 ml-auto px-1.5 py-0.5 rounded-full bg-gray-200/60 dark:bg-white/[0.06] border border-gray-300/40 dark:border-white/[0.06]">
+                Members Only
+              </span>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </motion.div>
   );

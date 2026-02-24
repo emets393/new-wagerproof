@@ -25,7 +25,7 @@ import BetSlipGrader from "./pages/BetSlipGrader";
 import LearnWagerProof from "./pages/LearnWagerProof";
 import Admin from "./pages/Admin";
 import PaywallTest from "./pages/PaywallTest";
-import EditorsPicks from "./pages/EditorsPicks";
+// import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import FeatureRequests from "./pages/FeatureRequests";
 import CommunityVoting from "./pages/CommunityVoting";
@@ -213,7 +213,7 @@ function AppRoutes() {
           <Route path="/agents/create" element={<ProtectedRoute><AgentCreate /></ProtectedRoute>} />
           <Route path="/agents/:id" element={<ProtectedRoute><AgentDetail /></ProtectedRoute>} />
           <Route path="/agents/:id/settings" element={<ProtectedRoute><AgentSettings /></ProtectedRoute>} />
-          <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} />
+          {/* <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} /> */}
           <Route path="/community-voting" element={<ProtectedRoute><CommunityVoting /></ProtectedRoute>} />
           <Route path="/discord" element={<ProtectedRoute><Discord /></ProtectedRoute>} />
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
