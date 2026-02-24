@@ -2,7 +2,7 @@
   "expo": {
     "name": "WagerProof",
     "slug": "wagerproof-mobile",
-    "version": "3.2.7",
+    "version": "3.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -35,7 +35,10 @@
         "backgroundColor": "#22c55e"
       },
       "package": "com.wagerproof.mobile",
-      "versionCode": 29,
+      "versionCode": 33,
+      "permissions": [
+        "com.google.android.gms.permission.AD_ID"
+      ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },

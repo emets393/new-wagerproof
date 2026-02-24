@@ -2,8 +2,9 @@ import React, { useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import LandingNavBar from "@/components/landing/LandingNavBar";
 import Hero from "@/components/landing/Hero";
+import AIAgentWorkforceSection from "@/components/landing/AIAgentWorkforceSection";
 import RecipeImport from "@/components/landing/RecipeImport";
-import UserJourney from "@/components/landing/UserJourney";
+// import UserJourney from "@/components/landing/UserJourney";
 import Testimonials from "@/components/landing/Testimonials";
 import Pricing from "@/components/landing/Pricing";
 import FAQ from "@/components/landing/FAQ";
@@ -112,10 +113,11 @@ const NewLanding = () => {
       <StructuredData type="faq" questions={faqQuestions} />
       <LandingNavBar />
       <Hero />
+      <AIAgentWorkforceSection />
       <div className="space-y-6">
         <RecipeImport />
         <FeatureDemo />
-        <UserJourney />
+        {/* <UserJourney /> */}
         <MobileAppFeatures />
         {/* Debug: showUserWins = {String(showUserWins)}, isLoadingSettings = {String(isLoadingSettings)} */}
         {showUserWins === true && <UserWinsSection />}

@@ -115,10 +115,11 @@ serve(async (req) => {
     // 2. Fetch Active System Prompt from Database
     // -------------------------------------------------------------------------
     let remotePromptTemplate: string | null = null;
+    let systemPromptVersion: string = 'hardcoded_fallback';
 
     const { data: promptRow, error: promptError } = await supabaseClient
       .from('agent_system_prompts')
-      .select('prompt_text')
+      .select('id, prompt_text')
       .eq('is_active', true)
       .single();
 
@@ -126,7 +127,8 @@ serve(async (req) => {
       console.warn('[auto-generate-avatar-picks] No active system prompt found, using hardcoded fallback');
     } else {
       remotePromptTemplate = promptRow.prompt_text;
-      console.log('[auto-generate-avatar-picks] Loaded remote system prompt template');
+      systemPromptVersion = String(promptRow.id || 'unknown');
+      console.log(`[auto-generate-avatar-picks] Loaded remote system prompt template: ${systemPromptVersion}`);
     }
 
     // -------------------------------------------------------------------------
@@ -191,7 +193,8 @@ serve(async (req) => {
         today,
         supabaseClient,
         openaiApiKey,
-        remotePromptTemplate
+        remotePromptTemplate,
+        systemPromptVersion
       );
 
       results.push(result);
@@ -255,7 +258,8 @@ async function processAvatar(
   targetDate: string,
   supabaseClient: SupabaseClient,
   openaiApiKey: string,
-  remotePromptTemplate: string | null
+  remotePromptTemplate: string | null,
+  systemPromptVersion: string
 ): Promise<ProcessingResult> {
   const result: ProcessingResult = {
     avatar_id: avatar.avatar_id,
@@ -492,6 +496,7 @@ async function processAvatar(
         key_factors: pick.key_factors,
         ai_decision_trace: normalizeDecisionTrace(pick, formattedSnapshot, avatar.personality_params),
         ai_audit_payload: {
+          system_prompt_version: systemPromptVersion,
           model_input_game_payload: modelInputGamePayload || formattedSnapshot,
           model_input_personality_payload: avatar.personality_params,
           model_response_payload: pick,
@@ -1018,10 +1023,11 @@ async function fetchNBAGames(
     return { games: [], formattedGames: [] };
   }
 
-  const [polymarketByGameKey, injuriesByTeam, accuracyByGameId] = await Promise.all([
+  const [polymarketByGameKey, injuriesByTeam, accuracyByGameId, situationalByGameId] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nba', games),
     fetchNBAInjuriesByTeam(cfbClient, games, targetDate),
     fetchPredictionAccuracyByGameId(cfbClient, 'nba_todays_games_predictions_with_accuracy_cache', games, targetDate, true),
+    fetchSituationalTrendsByGameId(cfbClient, 'nba_game_situational_trends_today', games),
   ]);
 
   const formattedGames = games.map(game =>
@@ -1030,7 +1036,8 @@ async function fetchNBAGames(
       polymarketByGameKey.get(toGameKey('nba', game.away_team, game.home_team)) || null,
       injuriesByTeam.get(normalizeTeamKey(game.away_team)) || [],
       injuriesByTeam.get(normalizeTeamKey(game.home_team)) || [],
-      accuracyByGameId.get(String(game.game_id || '')) || null
+      accuracyByGameId.get(String(game.game_id || '')) || null,
+      situationalByGameId.get(String(game.game_id || '')) || null
     )
   );
   return { games, formattedGames };
@@ -1052,7 +1059,7 @@ async function fetchNCAABGames(
 
   const [polymarketByGameKey, trendsByGameId, accuracyByGameId] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'ncaab', games),
-    fetchNCAABSituationalTrendsByGameId(cfbClient, games),
+    fetchSituationalTrendsByGameId(cfbClient, 'ncaab_game_situational_trends_today', games),
     fetchPredictionAccuracyByGameId(cfbClient, 'ncaab_todays_games_predictions_with_accuracy_cache', games, targetDate, false),
   ]);
 
@@ -1252,8 +1259,9 @@ async function fetchNBAInjuriesByTeam(
   return result;
 }
 
-async function fetchNCAABSituationalTrendsByGameId(
+async function fetchSituationalTrendsByGameId(
   cfbClient: SupabaseClient,
+  tableName: string,
   games: Record<string, unknown>[]
 ): Promise<Map<string, Record<string, unknown>>> {
   const gameIds = [...new Set(games.map(g => String(g.game_id || '')).filter(Boolean))];
@@ -1262,7 +1270,7 @@ async function fetchNCAABSituationalTrendsByGameId(
 
   try {
     const { data, error } = await cfbClient
-      .from('ncaab_game_situational_trends_today')
+      .from(tableName)
       .select('*')
       .in('game_id', gameIds);
 
@@ -1270,9 +1278,22 @@ async function fetchNCAABSituationalTrendsByGameId(
       return result;
     }
 
+    // The table has TWO rows per game_id: one with team_side='away', one with team_side='home'.
+    // Group them into a single object per game so the AI sees both teams' situational data.
     for (const row of data as Record<string, unknown>[]) {
       const gameId = String(row.game_id || '');
-      if (gameId) result.set(gameId, row);
+      if (!gameId) continue;
+
+      if (!result.has(gameId)) {
+        result.set(gameId, { away_team: null, home_team: null });
+      }
+      const entry = result.get(gameId)!;
+      const teamSide = String(row.team_side || '').toLowerCase();
+      if (teamSide === 'away') {
+        (entry as Record<string, unknown>).away_team = row;
+      } else if (teamSide === 'home') {
+        (entry as Record<string, unknown>).home_team = row;
+      }
     }
   } catch {
     // Optional dataset; ignore if unavailable.
@@ -1446,7 +1467,8 @@ function formatNBAGame(
   polymarket: Record<string, unknown> | null,
   awayInjuries: Record<string, unknown>[],
   homeInjuries: Record<string, unknown>[],
-  predictionAccuracy: Record<string, unknown> | null
+  predictionAccuracy: Record<string, unknown> | null,
+  situationalTrends: Record<string, unknown> | null = null
 ): Record<string, unknown> {
   const gameId = String(game.game_id);
   const homeML = game.home_moneyline as number | null;
@@ -1473,12 +1495,12 @@ function formatNBAGame(
       total: game.total_line,
     },
     team_stats: {
-      home_pace: game.home_adj_pace,
-      away_pace: game.away_adj_pace,
-      home_offense: game.home_adj_offense,
-      away_offense: game.away_adj_offense,
-      home_defense: game.home_adj_defense,
-      away_defense: game.away_adj_defense,
+      home_pace: game.home_adj_pace ?? game.home_adj_pace_pregame,
+      away_pace: game.away_adj_pace ?? game.away_adj_pace_pregame,
+      home_offense: game.home_adj_offense ?? game.home_adj_off_rtg_pregame,
+      away_offense: game.away_adj_offense ?? game.away_adj_off_rtg_pregame,
+      home_defense: game.home_adj_defense ?? game.home_adj_def_rtg_pregame,
+      away_defense: game.away_adj_defense ?? game.away_adj_def_rtg_pregame,
     },
     trends: {
       home_ats_pct: game.home_ats_pct,
@@ -1490,6 +1512,7 @@ function formatNBAGame(
       away_team: awayInjuries,
       home_team: homeInjuries,
     },
+    situational_trends: situationalTrends,
     prediction_accuracy: predictionAccuracy,
     polymarket,
     game_data_complete: {

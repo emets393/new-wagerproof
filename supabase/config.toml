@@ -76,3 +76,6 @@ verify_jwt = false  # Cron calls don't have JWT, auth via service key
 
 [functions.update-polymarket-cache]
 verify_jwt = false  # Cron calls don't have JWT, auth via service key
+
+[functions.regrade-avatar-pushes]
+verify_jwt = false

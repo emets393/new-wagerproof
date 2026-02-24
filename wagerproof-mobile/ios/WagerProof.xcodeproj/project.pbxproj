@@ -7,15 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		10E19C0ECE7DCD8DADB508A6 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F43C86E6C57F1B93AEF4B3C /* ExpoModulesProvider.swift */; };
+		AD85CB832F2D70C7001FBC1B /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = AD85CB822F2D70C7001FBC1B /* AppIcon.icon */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		59FC39385BC34D7B83049854 /* WidgetDataBridgeModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 2F56B4F89B634634ABEE86A4 /* WidgetDataBridgeModule.m */; };
-		746EF19965ED065E093F32A5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4A0E506ECA82A459188EDA11 /* PrivacyInfo.xcprivacy */; };
-		81909B2AE3378719671EA9F4 /* libPods-WagerProof.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D6DB51883A32758B65348B3B /* libPods-WagerProof.a */; };
-		8D5F2AA0BE544128803FE2F1 /* WidgetDataBridgeModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A213179DA3430D99811BE5 /* WidgetDataBridgeModule.swift */; };
+		48DC458032DF786BFAC0BE8C /* libPods-WagerProof.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D720416F51E8B7A2AB441417 /* libPods-WagerProof.a */; };
+		4E0D11A078B842E1B4D57E15 /* WidgetDataBridgeModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DA2CC1ACB0A43D7BB533A0A /* WidgetDataBridgeModule.m */; };
+		63F488011DC64DCA96635128 /* WidgetDataBridgeModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C117796496CF4B9F8F822FE2 /* WidgetDataBridgeModule.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F76F7595EEC40DEA85FF4324 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E852E5E7D7A8C440E8FFF88B /* ExpoModulesProvider.swift */; };
+		F9800974DE65A9C96D822471 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B8F9896D122183F0236B2633 /* PrivacyInfo.xcprivacy */; };
 		XX12B55A1EDABF083C3B51XX /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XX470101BAEB8E0BBC8B0DXX /* WidgetKit.framework */; };
 		XX1A6800511A685AB346D2XX /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XXA12889081EB894481655XX /* AppIntents.framework */; };
 		XX3C562DEF346B45594832XX /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XXCAF23C3FC41F82140FA1XX /* ActivityKit.framework */; };
@@ -48,18 +49,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		00A213179DA3430D99811BE5 /* WidgetDataBridgeModule.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = WidgetDataBridgeModule.swift; path = WagerProof/WidgetDataBridgeModule.swift; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* WagerProof.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; fileEncoding = 4; includeInIndex = 0; path = WagerProof.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = WagerProof/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = WagerProof/Info.plist; sourceTree = "<group>"; };
-		2F56B4F89B634634ABEE86A4 /* WidgetDataBridgeModule.m */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = WidgetDataBridgeModule.m; path = WagerProof/WidgetDataBridgeModule.m; sourceTree = "<group>"; };
-		4A0E506ECA82A459188EDA11 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = WagerProof/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		4C537E3AB2907D813217CC75 /* Pods-WagerProof.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WagerProof.debug.xcconfig"; path = "Target Support Files/Pods-WagerProof/Pods-WagerProof.debug.xcconfig"; sourceTree = "<group>"; };
-		51357A26C4349C8C498131C6 /* Pods-WagerProof.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WagerProof.release.xcconfig"; path = "Target Support Files/Pods-WagerProof/Pods-WagerProof.release.xcconfig"; sourceTree = "<group>"; };
-		8F43C86E6C57F1B93AEF4B3C /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-WagerProof/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		1EC9716ADE11F98429FB78A5 /* Pods-WagerProof.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WagerProof.debug.xcconfig"; path = "Target Support Files/Pods-WagerProof/Pods-WagerProof.debug.xcconfig"; sourceTree = "<group>"; };
+		4DA2CC1ACB0A43D7BB533A0A /* WidgetDataBridgeModule.m */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = WidgetDataBridgeModule.m; path = WagerProof/WidgetDataBridgeModule.m; sourceTree = "<group>"; };
+		730BDC4408710FABEB2CD051 /* Pods-WagerProof.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WagerProof.release.xcconfig"; path = "Target Support Files/Pods-WagerProof/Pods-WagerProof.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = WagerProof/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B8F9896D122183F0236B2633 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = WagerProof/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		D6DB51883A32758B65348B3B /* libPods-WagerProof.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-WagerProof.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C117796496CF4B9F8F822FE2 /* WidgetDataBridgeModule.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = WidgetDataBridgeModule.swift; path = WagerProof/WidgetDataBridgeModule.swift; sourceTree = "<group>"; };
+		D720416F51E8B7A2AB441417 /* libPods-WagerProof.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-WagerProof.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E852E5E7D7A8C440E8FFF88B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-WagerProof/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = WagerProof/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* WagerProof-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "WagerProof-Bridging-Header.h"; path = "WagerProof/WagerProof-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -68,6 +69,7 @@
 		XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		XXA12889081EB894481655XX /* AppIntents.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		XXCAF23C3FC41F82140FA1XX /* ActivityKit.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		AD85CB822F2D70C7001FBC1B /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -101,7 +103,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				81909B2AE3378719671EA9F4 /* libPods-WagerProof.a in Frameworks */,
+				48DC458032DF786BFAC0BE8C /* libPods-WagerProof.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -128,7 +130,8 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				4A0E506ECA82A459188EDA11 /* PrivacyInfo.xcprivacy */,
+				B8F9896D122183F0236B2633 /* PrivacyInfo.xcprivacy */,
+				AD85CB822F2D70C7001FBC1B /* AppIcon.icon */,
 			);
 			name = WagerProof;
 			sourceTree = "<group>";
@@ -141,9 +144,27 @@
 				XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */,
 				XXCAF23C3FC41F82140FA1XX /* ActivityKit.framework */,
 				XXA12889081EB894481655XX /* AppIntents.framework */,
-				D6DB51883A32758B65348B3B /* libPods-WagerProof.a */,
+				D720416F51E8B7A2AB441417 /* libPods-WagerProof.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		3C2F85F9A34DFD9BC7C3657D /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				931D0079DC88219A4F99878E /* WagerProof */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
+		47D71A52869799F8544F9372 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				1EC9716ADE11F98429FB78A5 /* Pods-WagerProof.debug.xcconfig */,
+				730BDC4408710FABEB2CD051 /* Pods-WagerProof.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -161,10 +182,10 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				00A213179DA3430D99811BE5 /* WidgetDataBridgeModule.swift */,
-				2F56B4F89B634634ABEE86A4 /* WidgetDataBridgeModule.m */,
-				AE1CD8729510DEC1D661574E /* Pods */,
-				90270BCDF3A10D8623364EEF /* ExpoModulesProviders */,
+				C117796496CF4B9F8F822FE2 /* WidgetDataBridgeModule.swift */,
+				4DA2CC1ACB0A43D7BB533A0A /* WidgetDataBridgeModule.m */,
+				47D71A52869799F8544F9372 /* Pods */,
+				3C2F85F9A34DFD9BC7C3657D /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -180,30 +201,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		90270BCDF3A10D8623364EEF /* ExpoModulesProviders */ = {
+		931D0079DC88219A4F99878E /* WagerProof */ = {
 			isa = PBXGroup;
 			children = (
-				A79118F0F5AD9E20648326D3 /* WagerProof */,
-			);
-			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
-		A79118F0F5AD9E20648326D3 /* WagerProof */ = {
-			isa = PBXGroup;
-			children = (
-				8F43C86E6C57F1B93AEF4B3C /* ExpoModulesProvider.swift */,
+				E852E5E7D7A8C440E8FFF88B /* ExpoModulesProvider.swift */,
 			);
 			name = WagerProof;
-			sourceTree = "<group>";
-		};
-		AE1CD8729510DEC1D661574E /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				4C537E3AB2907D813217CC75 /* Pods-WagerProof.debug.xcconfig */,
-				51357A26C4349C8C498131C6 /* Pods-WagerProof.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -232,14 +235,14 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "WagerProof" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				140296EE7C090AC6EA087100 /* [Expo] Configure project */,
+				92FE7A5D22FE44748FB809B6 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				XX72A8CFBF0FBA13A79902XX /* Embed Foundation Extensions */,
-				CD7DFC3C490A7353C6F8E85F /* [CP] Embed Pods Frameworks */,
+				774C663D7227FB240E6B05F1 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -316,7 +319,8 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				746EF19965ED065E093F32A5 /* PrivacyInfo.xcprivacy in Resources */,
+				AD85CB832F2D70C7001FBC1B /* AppIcon.icon in Resources */,
+				F9800974DE65A9C96D822471 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -373,29 +377,39 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		140296EE7C090AC6EA087100 /* [Expo] Configure project */ = {
+		774C663D7227FB240E6B05F1 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputFileListPaths = (
-			);
 			inputPaths = (
-				"$(SRCROOT)/.xcode.env",
-				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/WagerProof/WagerProof.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-WagerProof/expo-configure-project.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-WagerProof/Pods-WagerProof-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBAEMKit/FBAEMKit.framework/FBAEMKit",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKCoreKit/FBSDKCoreKit.framework/FBSDKCoreKit",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKCoreKit_Basics/FBSDKCoreKit_Basics.framework/FBSDKCoreKit_Basics",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKGamingServicesKit/FBSDKGamingServicesKit.framework/FBSDKGamingServicesKit",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKLoginKit/FBSDKLoginKit.framework/FBSDKLoginKit",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKShareKit/FBSDKShareKit.framework/FBSDKShareKit",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
 			);
-			name = "[Expo] Configure project";
-			outputFileListPaths = (
-			);
+			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-WagerProof/ExpoModulesProvider.swift",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBAEMKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKCoreKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKCoreKit_Basics.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKGamingServicesKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKLoginKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKShareKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-WagerProof/expo-configure-project.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-WagerProof/Pods-WagerProof-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -497,39 +511,29 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-WagerProof/Pods-WagerProof-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		CD7DFC3C490A7353C6F8E85F /* [CP] Embed Pods Frameworks */ = {
+		92FE7A5D22FE44748FB809B6 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-WagerProof/Pods-WagerProof-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBAEMKit/FBAEMKit.framework/FBAEMKit",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKCoreKit/FBSDKCoreKit.framework/FBSDKCoreKit",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKCoreKit_Basics/FBSDKCoreKit_Basics.framework/FBSDKCoreKit_Basics",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKGamingServicesKit/FBSDKGamingServicesKit.framework/FBSDKGamingServicesKit",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKLoginKit/FBSDKLoginKit.framework/FBSDKLoginKit",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/FBSDKShareKit/FBSDKShareKit.framework/FBSDKShareKit",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			inputFileListPaths = (
 			);
-			name = "[CP] Embed Pods Frameworks";
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/WagerProof/WagerProof.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-WagerProof/expo-configure-project.sh",
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBAEMKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKCoreKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKCoreKit_Basics.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKGamingServicesKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKLoginKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBSDKShareKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-WagerProof/ExpoModulesProvider.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-WagerProof/Pods-WagerProof-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-WagerProof/expo-configure-project.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -539,9 +543,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				8D5F2AA0BE544128803FE2F1 /* WidgetDataBridgeModule.swift in Sources */,
-				59FC39385BC34D7B83049854 /* WidgetDataBridgeModule.m in Sources */,
-				10E19C0ECE7DCD8DADB508A6 /* ExpoModulesProvider.swift in Sources */,
+				63F488011DC64DCA96635128 /* WidgetDataBridgeModule.swift in Sources */,
+				4E0D11A078B842E1B4D57E15 /* WidgetDataBridgeModule.m in Sources */,
+				F76F7595EEC40DEA85FF4324 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -565,7 +569,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4C537E3AB2907D813217CC75 /* Pods-WagerProof.debug.xcconfig */;
+			baseConfigurationReference = 1EC9716ADE11F98429FB78A5 /* Pods-WagerProof.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -602,7 +606,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 51357A26C4349C8C498131C6 /* Pods-WagerProof.release.xcconfig */;
+			baseConfigurationReference = 730BDC4408710FABEB2CD051 /* Pods-WagerProof.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;

@@ -400,6 +400,15 @@ export default function SecretSettingsScreen() {
             Developer Options
           </List.Subheader>
 
+          <List.Item
+            title="Roast Mode"
+            description="Open hidden roast bot mode"
+            left={props => <List.Icon {...props} icon="fire" color="#f97316" />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => router.push('/roast' as any)}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+
         </List.Section>
         <Divider />
 

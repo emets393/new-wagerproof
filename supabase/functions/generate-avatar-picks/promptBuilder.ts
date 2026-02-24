@@ -192,10 +192,36 @@ If no games meet your standards, return an empty picks array with a slate_note e
 ${constraintsSection}
 
 ## Data Format
+
+### Matchup and Field Naming (CRITICAL)
 - Each game has "away_team" and "home_team" fields. The "matchup" is formatted as "AwayTeam @ HomeTeam".
+- The team BEFORE @ is the AWAY team (away_team). The team AFTER @ is the HOME team (home_team). Only the HOME team has home court/field advantage.
+
+### Data Field Prefix Convention (CRITICAL)
+- ALL fields prefixed with "home_" belong to the HOME team (after @). ALL fields prefixed with "away_" belong to the AWAY team (before @).
+- "home_spread" = the HOME team's spread. "away_spread" = the AWAY team's spread.
+- "home_offense" = the HOME team's offensive rating. "away_offense" = the AWAY team's offensive rating.
+- "home_defense", "home_pace", "home_ml", "home_ats_pct", etc. — all belong to the HOME team.
+- "away_defense", "away_pace", "away_ml", "away_ats_pct", etc. — all belong to the AWAY team.
+
+### How to Identify Home vs Away (Self-Check — Do This For Every Game)
+Each game gives you THREE independent signals. Cross-reference all three before writing reasoning:
+1. "matchup" field: "Away @ Home". The @ means "at" — the first team is traveling to the second team's venue.
+2. "away_team" / "home_team" fields: Explicit labels. away_team = visitor. home_team = host.
+3. "game_id" field: Often "AwayTeam_HomeTeam_Date" (e.g., "Kansas City_Buffalo_2026-01-26"). First name = AWAY, second = HOME.
+
+Example: game_id "Kansas City_Buffalo_2026-01-26", matchup "Kansas City Chiefs @ Buffalo Bills", away_team "Kansas City Chiefs", home_team "Buffalo Bills":
+- All three agree: Kansas City = AWAY, Buffalo = HOME.
+- home_spread applies to Buffalo Bills. away_offense applies to Kansas City Chiefs.
+- Only Buffalo Bills have home field advantage.
+- If home_spread = -1.5, the correct label is "Bills -1.5" (not "Chiefs -1.5").
+
+Before finalizing each pick: read away_team and home_team, confirm matchup matches (away before @, home after @), and for every home_* stat you cite name the home_team, for every away_* stat name the away_team.
+
+### Spread Picks
 - "vegas_lines.spread_summary" is a human-readable summary showing each team's spread (e.g., "Wizards +14.5 / Lakers -14.5"). USE THIS as your source of truth for spread values.
-- "vegas_lines.home_spread" is the home team's spread. Negative = home is favorite, positive = home is underdog.
-- "vegas_lines.away_spread" is the away team's spread. It is the opposite sign of home_spread.
+- "vegas_lines.home_spread" is the HOME team's spread. Negative = home is favorite, positive = home is underdog.
+- "vegas_lines.away_spread" is the AWAY team's spread. It is the opposite sign of home_spread.
 - CRITICAL: When making a spread pick, your "selection" MUST use the correct spread sign for the team you are picking. For example, if spread_summary says "Wizards +14.5 / Lakers -14.5" and you pick the Wizards to cover, your selection must be "Wizards +14.5" (NOT "Wizards -14.5").
 
 ## Output Format
@@ -207,7 +233,12 @@ Each pick must include:
 - "game_id": The unique identifier from the game data
 - "bet_type": "spread", "moneyline", or "total"
 - "selection": Your pick. For spreads, use the team name and their EXACT spread from the spread_summary (e.g., "Bills -1.5", "Wizards +14.5"). For moneylines, use "TeamName ML". For totals, use "Over X.X" or "Under X.X".
-- "odds": American odds format (e.g., "-110", "+150")
+- "odds": American odds string. The value depends on your bet_type:
+  - Spread picks: ALWAYS "-110" (standard juice). The spread LINE goes in "selection", not "odds".
+  - Moneyline picks: use vegas_lines.home_ml (if picking HOME) or vegas_lines.away_ml (if picking AWAY). ML odds are almost never -110 — they are the actual moneyline price like "-180" or "+250".
+  - Total picks: ALWAYS "-110" (standard juice). The total LINE goes in "selection", not "odds".
+  - NEVER put -110 for a moneyline pick. NEVER put a moneyline price for a spread or total pick.
+  - The exact line number in "selection" MUST match the payload (home_spread/away_spread for spreads, vegas_lines.total for totals). Do not round or alter.
 - "confidence": 1-5 scale (1=slight lean, 5=max conviction)
 - "reasoning": 2-3 sentences explaining your rationale
 - "key_factors": 3-5 specific data points supporting your pick

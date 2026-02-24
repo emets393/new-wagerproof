@@ -31,14 +31,10 @@ export async function trackAppOpen(userId: string): Promise<void> {
       }
     }
 
-    // Update owner_last_active_at for all of user's active agents
-    const { error } = await supabase
-      .from('avatar_profiles')
-      .update({
-        owner_last_active_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId)
-      .eq('is_active', true);
+    // Update owner_last_active_at via RPC (bypasses RLS for this specific update)
+    const { error } = await supabase.rpc('update_owner_last_active_at', {
+      p_user_id: userId,
+    });
 
     if (error) {
       console.error('Error tracking activity:', error);
@@ -61,13 +57,9 @@ export async function trackAppOpen(userId: string): Promise<void> {
  */
 export async function forceTrackActivity(userId: string): Promise<void> {
   try {
-    const { error } = await supabase
-      .from('avatar_profiles')
-      .update({
-        owner_last_active_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId)
-      .eq('is_active', true);
+    const { error } = await supabase.rpc('update_owner_last_active_at', {
+      p_user_id: userId,
+    });
 
     if (error) {
       console.error('Error force tracking activity:', error);

@@ -61,6 +61,7 @@ interface GradingSummary {
   push: number;
   skipped: number;
   errors: number;
+  skipped_reasons?: Record<string, number>;
 }
 
 // =============================================================================
@@ -80,6 +81,70 @@ function getTodayInET(): string {
   const now = new Date();
   const easternTime = toZonedTime(now, 'America/New_York');
   return format(easternTime, 'yyyy-MM-dd');
+}
+
+function incrementSkipReason(summary: GradingSummary, reason: string): void {
+  if (!summary.skipped_reasons) {
+    summary.skipped_reasons = {};
+  }
+  summary.skipped_reasons[reason] = (summary.skipped_reasons[reason] || 0) + 1;
+}
+
+function toDateOnly(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const str = String(value).trim();
+  if (!str) return null;
+  if (str.length >= 10) return str.slice(0, 10);
+  return str;
+}
+
+function normalizeTeamName(value: string | null | undefined): string {
+  if (!value) return '';
+  return String(value)
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\bst[.]?\b/g, 'saint')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseMatchup(matchup: string | null | undefined): { away: string; home: string } | null {
+  if (!matchup) return null;
+  const raw = String(matchup).trim();
+  const separators = [' @ ', ' vs ', ' v ', ' at '];
+  for (const sep of separators) {
+    const parts = raw.split(sep);
+    if (parts.length === 2) {
+      return { away: parts[0].trim(), home: parts[1].trim() };
+    }
+  }
+  return null;
+}
+
+function getArchivedTeamNames(archivedGameData: Record<string, unknown> | null | undefined): { away: string | null; home: string | null } {
+  const obj = archivedGameData || {};
+  const awayCandidates = [
+    obj.away_team,
+    (obj.game_data_complete as Record<string, unknown> | undefined)?.away_team,
+    (obj.game_data_complete as Record<string, unknown> | undefined)?.raw_game_data &&
+      ((obj.game_data_complete as Record<string, unknown>).raw_game_data as Record<string, unknown>).away_team,
+  ];
+  const homeCandidates = [
+    obj.home_team,
+    (obj.game_data_complete as Record<string, unknown> | undefined)?.home_team,
+    (obj.game_data_complete as Record<string, unknown> | undefined)?.raw_game_data &&
+      ((obj.game_data_complete as Record<string, unknown>).raw_game_data as Record<string, unknown>).home_team,
+  ];
+
+  const away = awayCandidates.find(v => typeof v === 'string' && v.trim()) as string | undefined;
+  const home = homeCandidates.find(v => typeof v === 'string' && v.trim()) as string | undefined;
+  return { away: away ?? null, home: home ?? null };
+}
+
+function isLikelyPushLine(value: number): boolean {
+  // Whole-number lines can push; half-point hooks generally cannot.
+  return Number.isInteger(value);
 }
 
 // =============================================================================
@@ -181,37 +246,49 @@ async function fetchGameResults(
 function resolveCanonicalTeamName(
   pickedTeam: string,
   gameResult: GameResult,
-  matchup: string | null
+  matchup: string | null,
+  archivedGameData: Record<string, unknown> | null
 ): string | null {
-  const picked = pickedTeam.toLowerCase().trim();
-  const home = gameResult.home_team.toLowerCase();
-  const away = gameResult.away_team.toLowerCase();
+  const picked = normalizeTeamName(pickedTeam);
+  const home = normalizeTeamName(gameResult.home_team);
+  const away = normalizeTeamName(gameResult.away_team);
+  if (!picked) return null;
 
   // Direct match
   if (picked === home) return gameResult.home_team;
   if (picked === away) return gameResult.away_team;
 
-  // Substring match (e.g., "lakers" in "los angeles lakers")
-  if (home.includes(picked)) return gameResult.home_team;
-  if (away.includes(picked)) return gameResult.away_team;
-  if (picked.includes(home)) return gameResult.home_team;
-  if (picked.includes(away)) return gameResult.away_team;
+  // Substring match, but avoid ambiguous two-sided matches.
+  const homeContains = home.includes(picked) || picked.includes(home);
+  const awayContains = away.includes(picked) || picked.includes(away);
+  if (homeContains && !awayContains) return gameResult.home_team;
+  if (awayContains && !homeContains) return gameResult.away_team;
 
-  // Matchup fallback: parse "Away Team @ Home Team"
+  // Matchup fallback: infer side first, then map to canonical game-result side.
   if (matchup) {
-    const parts = matchup.split(' @ ');
-    if (parts.length === 2) {
-      const matchupAway = parts[0].trim().toLowerCase();
-      const matchupHome = parts[1].trim().toLowerCase();
-
-      if (matchupHome.includes(picked) || picked.includes(matchupHome)) {
+    const parsed = parseMatchup(matchup);
+    if (parsed) {
+      const matchupAway = normalizeTeamName(parsed.away);
+      const matchupHome = normalizeTeamName(parsed.home);
+      const homeSideMatch = matchupHome.includes(picked) || picked.includes(matchupHome);
+      const awaySideMatch = matchupAway.includes(picked) || picked.includes(matchupAway);
+      if (homeSideMatch && !awaySideMatch) {
         return gameResult.home_team;
       }
-      if (matchupAway.includes(picked) || picked.includes(matchupAway)) {
+      if (awaySideMatch && !homeSideMatch) {
         return gameResult.away_team;
       }
     }
   }
+
+  // Archived game data fallback (exact game context at pick time).
+  const archivedTeams = getArchivedTeamNames(archivedGameData);
+  const archivedAway = normalizeTeamName(archivedTeams.away);
+  const archivedHome = normalizeTeamName(archivedTeams.home);
+  const archivedHomeMatch = archivedHome && (archivedHome.includes(picked) || picked.includes(archivedHome));
+  const archivedAwayMatch = archivedAway && (archivedAway.includes(picked) || picked.includes(archivedAway));
+  if (archivedHomeMatch && !archivedAwayMatch) return gameResult.home_team;
+  if (archivedAwayMatch && !archivedHomeMatch) return gameResult.away_team;
 
   console.log(`[grade-avatar-picks] Could not resolve "${pickedTeam}" to canonical name for ${gameResult.away_team} @ ${gameResult.home_team}`);
   return null;
@@ -238,7 +315,7 @@ function gradePickFromView(
       const pickedTeam = parseMoneylinePick(pick.pick_selection);
       if (!pickedTeam) return null;
 
-      const canonical = resolveCanonicalTeamName(pickedTeam, gameResult, pick.matchup);
+      const canonical = resolveCanonicalTeamName(pickedTeam, gameResult, pick.matchup, pick.archived_game_data);
       if (!canonical) return null;
 
       const result = canonical === gameResult.ml_result ? 'won' : 'lost';
@@ -254,11 +331,15 @@ function gradePickFromView(
       const parsed = parseSpreadPick(pick.pick_selection);
       if (!parsed) return null;
 
-      const canonical = resolveCanonicalTeamName(parsed.team, gameResult, pick.matchup);
+      const canonical = resolveCanonicalTeamName(parsed.team, gameResult, pick.matchup, pick.archived_game_data);
       if (!canonical) return null;
 
       let result: 'won' | 'lost' | 'push';
       if (gameResult.spread_result.toUpperCase() === 'PUSH') {
+        if (!isLikelyPushLine(parsed.spread)) {
+          console.log(`[grade-avatar-picks] Skipping impossible spread push for hook line: ${pick.pick_selection} (${pick.id})`);
+          return null;
+        }
         result = 'push';
       } else if (canonical === gameResult.spread_result) {
         result = 'won';
@@ -281,6 +362,10 @@ function gradePickFromView(
       const ouResult = gameResult.ou_result.toLowerCase();
       let result: 'won' | 'lost' | 'push';
       if (ouResult === 'push') {
+        if (!isLikelyPushLine(parsed.line)) {
+          console.log(`[grade-avatar-picks] Skipping impossible total push for hook line: ${pick.pick_selection} (${pick.id})`);
+          return null;
+        }
         result = 'push';
       } else if (ouResult === parsed.direction) {
         result = 'won';
@@ -318,25 +403,27 @@ function findGameResult(
     return resultsMap.get(pick.game_id)!;
   }
 
-  // Fallback: match by game_date + team names from matchup
-  if (pick.matchup) {
-    const parts = pick.matchup.split(' @ ');
-    if (parts.length === 2) {
-      const matchupAway = parts[0].trim().toLowerCase();
-      const matchupHome = parts[1].trim().toLowerCase();
+  const pickDate = toDateOnly(pick.game_date);
+  const parsedMatchup = parseMatchup(pick.matchup);
+  const archivedTeams = getArchivedTeamNames(pick.archived_game_data);
+  const rawAway = normalizeTeamName(parsedMatchup?.away ?? archivedTeams.away);
+  const rawHome = normalizeTeamName(parsedMatchup?.home ?? archivedTeams.home);
 
-      for (const result of allResults) {
-        if (result.game_date !== pick.game_date) continue;
+  // Fallback: match by game_date + robust team-name normalization.
+  if (rawAway && rawHome && pickDate) {
+    for (const result of allResults) {
+      const resultDate = toDateOnly(result.game_date);
+      if (!resultDate || resultDate !== pickDate) continue;
 
-        const homeMatch = result.home_team.toLowerCase().includes(matchupHome) ||
-                          matchupHome.includes(result.home_team.toLowerCase());
-        const awayMatch = result.away_team.toLowerCase().includes(matchupAway) ||
-                          matchupAway.includes(result.away_team.toLowerCase());
+      const resultAway = normalizeTeamName(result.away_team);
+      const resultHome = normalizeTeamName(result.home_team);
 
-        if (homeMatch && awayMatch) {
-          console.log(`[grade-avatar-picks] Matched pick ${pick.id} by matchup fallback: ${pick.matchup}`);
-          return result;
-        }
+      const homeMatch = resultHome.includes(rawHome) || rawHome.includes(resultHome);
+      const awayMatch = resultAway.includes(rawAway) || rawAway.includes(resultAway);
+
+      if (homeMatch && awayMatch) {
+        console.log(`[grade-avatar-picks] Matched pick ${pick.id} by team/date fallback: ${pick.matchup}`);
+        return result;
       }
     }
   }
@@ -358,6 +445,17 @@ serve(async (req) => {
   console.log('[grade-avatar-picks] Starting pick grading...');
 
   try {
+    let dryRun = false;
+    try {
+      const body = await req.json();
+      dryRun = Boolean((body as Record<string, unknown> | null)?.dry_run);
+    } catch {
+      // Allow empty or non-JSON cron requests.
+    }
+    if (dryRun) {
+      console.log('[grade-avatar-picks] Running in DRY RUN mode (no DB writes)');
+    }
+
     // Initialize Main Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -468,12 +566,14 @@ serve(async (req) => {
         const leagueData = resultsByLeague[pick.sport];
         if (!leagueData) {
           summary.skipped++;
+          incrementSkipReason(summary, 'unsupported_sport');
           continue;
         }
 
         const gameResult = findGameResult(pick, leagueData.map, leagueData.all);
         if (!gameResult) {
           summary.skipped++;
+          incrementSkipReason(summary, 'game_not_found');
           continue;
         }
 
@@ -481,23 +581,26 @@ serve(async (req) => {
         if (!grading) {
           console.log(`[grade-avatar-picks] Skipping pick ${pick.id} — game not final or parse error`);
           summary.skipped++;
+          incrementSkipReason(summary, 'not_final_or_parse_or_ambiguous');
           continue;
         }
 
         // Update the pick in database
-        const { error: updateError } = await supabase
-          .from('avatar_picks')
-          .update({
-            result: grading.result,
-            actual_result: grading.actual_result,
-            graded_at: new Date().toISOString(),
-          })
-          .eq('id', pick.id);
+        if (!dryRun) {
+          const { error: updateError } = await supabase
+            .from('avatar_picks')
+            .update({
+              result: grading.result,
+              actual_result: grading.actual_result,
+              graded_at: new Date().toISOString(),
+            })
+            .eq('id', pick.id);
 
-        if (updateError) {
-          console.error(`[grade-avatar-picks] Failed to update pick ${pick.id}:`, updateError);
-          summary.errors++;
-          continue;
+          if (updateError) {
+            console.error(`[grade-avatar-picks] Failed to update pick ${pick.id}:`, updateError);
+            summary.errors++;
+            continue;
+          }
         }
 
         summary[grading.result]++;
@@ -522,6 +625,10 @@ serve(async (req) => {
     const avatarsUpdated: string[] = [];
 
     for (const avatarId of affectedAvatars) {
+      if (dryRun) {
+        avatarsUpdated.push(avatarId);
+        continue;
+      }
       try {
         const { error: recalcError } = await supabase.rpc('recalculate_avatar_performance', {
           p_avatar_id: avatarId,
@@ -551,6 +658,7 @@ serve(async (req) => {
         summary,
         avatars_updated: avatarsUpdated,
         details: gradedDetails,
+        dry_run: dryRun,
         duration_ms: duration,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
