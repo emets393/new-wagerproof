@@ -7,6 +7,7 @@ import { formatNetUnits, Sport } from '@/types/agent';
 
 interface AgentLeaderboardProps {
   rows: LeaderboardEntry[];
+  onRowClick?: (avatarId: string) => void;
 }
 
 const SPORT_LABELS: Record<Sport, string> = {
@@ -21,7 +22,7 @@ function getPrimaryColor(value: string): string {
   return value;
 }
 
-export function AgentLeaderboard({ rows }: AgentLeaderboardProps) {
+export function AgentLeaderboard({ rows, onRowClick }: AgentLeaderboardProps) {
   if (!rows.length) {
     return (
       <Card>
@@ -48,8 +49,13 @@ export function AgentLeaderboard({ rows }: AgentLeaderboardProps) {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: idx * 0.02 }}
+            onClick={() => onRowClick?.(entry.avatar_id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick?.(entry.avatar_id); } }}
+            role={onRowClick ? 'button' : undefined}
+            tabIndex={onRowClick ? 0 : undefined}
+            className={onRowClick ? 'cursor-pointer' : undefined}
           >
-            <Card className="border-border/70 bg-card/95">
+            <Card className="border-border/70 bg-card/95 transition-colors hover:border-primary/40">
               <CardContent className="py-3 px-4">
                 <div className="flex items-center gap-3">
                   <div className="w-7 text-center">

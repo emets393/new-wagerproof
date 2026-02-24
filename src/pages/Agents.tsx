@@ -145,7 +145,7 @@ export default function Agents() {
             <p className="text-xs text-muted-foreground">Top public agents by performance.</p>
           </div>
           {leaderboardLoading ? <Card><CardContent className="py-10 text-center">Loading leaderboard...</CardContent></Card> : null}
-          {!leaderboardLoading ? <AgentLeaderboard rows={leaderboard || []} /> : null}
+          {!leaderboardLoading ? <AgentLeaderboard rows={leaderboard || []} onRowClick={(id) => navigate(`/agents/public/${id}`)} /> : null}
         </aside>
       </div>
     </div>

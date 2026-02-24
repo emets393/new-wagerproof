@@ -24,6 +24,7 @@ export function useAgentEntitlements() {
   return {
     isPro,
     isAdmin,
+    canViewAgentPicks: isPro,
     maxActiveAgents: isAdmin ? null : isPro ? PRO_MAX_ACTIVE_AGENTS : FREE_MAX_AGENTS,
     maxTotalAgents: isAdmin ? null : isPro ? PRO_MAX_TOTAL_AGENTS : FREE_MAX_AGENTS,
     canCreateAnotherAgent,
