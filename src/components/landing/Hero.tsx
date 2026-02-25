@@ -59,22 +59,22 @@ const Hero = () => {
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight font-extrabold leading-tight text-gray-900 dark:text-gray-100 mb-6" style={{
             fontFamily: "Inter, sans-serif"
           }}>
-            Turn <GradientText 
-              text="Real Data" 
+            Stop <GradientText 
+              text="Losing Bets" 
               gradient={gradientToUse}
               transition={slowTransition}
               className="font-bold"
             />
             <br />
-            Into Your <GradientText 
-              text="Betting Edge" 
+            You Should Be <GradientText 
+              text="Winning" 
               gradient={gradientToUse}
               transition={slowTransition}
               className="font-bold"
             />
           </h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
-            Value focused, lightweight, data-driven sports betting analytics for everyone.
+            Sportsbooks use algorithms against you. WagerProof gives you tools that analyze live odds, public splits, and ML models 24/7 — so you only bet when the edge is real.
           </p>
 
           {/* CTA Buttons */}
