@@ -12,7 +12,8 @@ import {
   Bot, Brain, Zap, Shield, Trophy, Activity, 
   ArrowRight, SlidersHorizontal, 
   Database, Layers, Network, CheckCircle2,
-  Terminal, LineChart, Target, Cpu, Radar, Code2, Globe
+  Terminal, LineChart, Target, Cpu, Radar, Code2, Globe,
+  History, Newspaper, CloudRain
 } from "lucide-react";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -180,6 +181,15 @@ const HeroPipelineWidget = () => {
     { name: "Momentum", strategy: "Analyzing Streak Form", color: "#8b5cf6" },
   ];
 
+  const inputs = [
+    { name: "Historical Data", icon: History, iconColor: "text-blue-400", bgColor: "bg-blue-500/10", particleColor: "#60a5fa" },
+    { name: "Live Odds API", icon: Database, iconColor: "text-indigo-400", bgColor: "bg-indigo-500/10", particleColor: "#818cf8" },
+    { name: "Public Splits", icon: Globe, iconColor: "text-emerald-400", bgColor: "bg-emerald-500/10", particleColor: "#34d399" },
+    { name: "Recent News", icon: Newspaper, iconColor: "text-yellow-400", bgColor: "bg-yellow-500/10", particleColor: "#facc15" },
+    { name: "Situational Data", icon: CloudRain, iconColor: "text-cyan-400", bgColor: "bg-cyan-500/10", particleColor: "#22d3ee" },
+    { name: "ML Models", icon: Cpu, iconColor: "text-pink-400", bgColor: "bg-pink-500/10", particleColor: "#f472b6" },
+  ];
+
   return (
     <section className="py-24 relative w-full overflow-hidden flex flex-col items-center justify-center bg-[#030305] border-t border-white/5">
       
@@ -200,29 +210,21 @@ const HeroPipelineWidget = () => {
         <div className="absolute inset-4 bg-[#0A0D14]/80 border border-white/10 rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.8)] backdrop-blur-xl" />
         
         {/* Nodes layer */}
-        <div className="absolute inset-0 flex items-center justify-between px-16 z-10">
+        <div className="absolute inset-0 z-10">
           
           {/* Intake */}
-          <div className="w-[200px] flex flex-col gap-10">
-             <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-3 backdrop-blur-md relative overflow-hidden group">
-               <motion.div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-               <Database className="w-5 h-5 text-blue-400" />
-               <span className="text-xs font-mono text-gray-300">Live Odds API</span>
-             </div>
-             <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-3 backdrop-blur-md relative overflow-hidden group">
-               <motion.div className="absolute inset-0 bg-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-               <Globe className="w-5 h-5 text-emerald-400" />
-               <span className="text-xs font-mono text-gray-300">Public Splits</span>
-             </div>
-             <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-3 backdrop-blur-md relative overflow-hidden group">
-               <motion.div className="absolute inset-0 bg-yellow-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-               <Activity className="w-5 h-5 text-yellow-400" />
-               <span className="text-xs font-mono text-gray-300">Telemetry</span>
-             </div>
+          <div className="absolute left-[64px] w-[200px] h-full">
+            {inputs.map((input, i) => (
+               <div key={input.name} className="absolute left-0 w-full -translate-y-1/2 p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-3 backdrop-blur-md overflow-hidden group" style={{ top: `${65 + i * 74}px` }}>
+                 <motion.div className={`absolute inset-0 ${input.bgColor} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                 <input.icon className={`w-5 h-5 ${input.iconColor}`} />
+                 <span className="text-xs font-mono text-gray-300">{input.name}</span>
+               </div>
+            ))}
           </div>
 
           {/* Core */}
-          <div className="relative">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-[160px]">
              <div className="absolute inset-0 bg-violet-600/30 blur-[80px] rounded-full scale-150" />
              <motion.div 
               className="w-40 h-40 rounded-full bg-violet-600/20 border border-violet-500/50 flex items-center justify-center relative z-10 shadow-[0_0_60px_rgba(139,92,246,0.3)] backdrop-blur-xl"
@@ -235,9 +237,9 @@ const HeroPipelineWidget = () => {
           </div>
 
           {/* Agents */}
-          <div className="w-[280px] flex flex-col gap-4">
+          <div className="absolute right-[64px] w-[280px] h-full">
             {agents.map((agent, i) => (
-              <div key={agent.name} className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-4 relative overflow-hidden backdrop-blur-md group hover:border-white/20 transition-colors">
+              <div key={agent.name} className="absolute left-0 w-full -translate-y-1/2 bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-4 overflow-hidden backdrop-blur-md group hover:border-white/20 transition-colors" style={{ top: `${85 + i * 82.5}px` }}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[#0A0D14] border border-white/10 relative z-10">
                   <Bot className="w-4 h-4" style={{ color: agent.color }} />
                 </div>
@@ -265,10 +267,10 @@ const HeroPipelineWidget = () => {
 
         {/* SVG Connections Layer */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 1152 500" preserveAspectRatio="none">
-           {/* Left to Center (3 inputs) */}
-           <path d="M 264 120 C 350 120, 450 250, 500 250" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2" strokeDasharray="4 4" />
-           <path d="M 264 250 C 350 250, 450 250, 500 250" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2" strokeDasharray="4 4" />
-           <path d="M 264 380 C 350 380, 450 250, 500 250" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2" strokeDasharray="4 4" />
+           {/* Left to Center (6 inputs) */}
+           {inputs.map((input, i) => (
+             <path key={`path-${i}`} d={`M 264 ${65 + i * 74} C 350 ${65 + i * 74}, 450 250, 500 250`} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2" strokeDasharray="4 4" />
+           ))}
 
            {/* Center to Right (5 outputs) */}
            <path d="M 650 250 C 720 250, 750 85, 824 85" fill="none" stroke="rgba(139,92,246,0.15)" strokeWidth="2" />
@@ -278,15 +280,11 @@ const HeroPipelineWidget = () => {
            <path d="M 650 250 C 720 250, 750 415, 824 415" fill="none" stroke="rgba(139,92,246,0.15)" strokeWidth="2" />
            
            {/* Animated Data Particles */}
-           <motion.circle r="4" fill="#60a5fa" filter="drop-shadow(0 0 8px #60a5fa)">
-             <animateMotion dur="2.5s" repeatCount="indefinite" path="M 264 120 C 350 120, 450 250, 500 250" />
-           </motion.circle>
-           <motion.circle r="4" fill="#34d399" filter="drop-shadow(0 0 8px #34d399)">
-             <animateMotion dur="2s" repeatCount="indefinite" path="M 264 250 C 350 250, 450 250, 500 250" />
-           </motion.circle>
-           <motion.circle r="4" fill="#fbbf24" filter="drop-shadow(0 0 8px #fbbf24)">
-             <animateMotion dur="3s" repeatCount="indefinite" path="M 264 380 C 350 380, 450 250, 500 250" />
-           </motion.circle>
+           {inputs.map((input, i) => (
+             <motion.circle key={`particle-${i}`} r="4" fill={input.particleColor} filter={`drop-shadow(0 0 8px ${input.particleColor})`}>
+               <animateMotion dur={`${2 + Math.random()}s`} repeatCount="indefinite" path={`M 264 ${65 + i * 74} C 350 ${65 + i * 74}, 450 250, 500 250`} />
+             </motion.circle>
+           ))}
 
            {agents.map((agent, i) => (
              <motion.circle key={i} r="3" fill={agent.color} filter={`drop-shadow(0 0 8px ${agent.color})`}>

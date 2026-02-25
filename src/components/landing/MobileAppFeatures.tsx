@@ -1069,7 +1069,7 @@ const featuresConfig = [
     id: "analytics",
     num: "01",
     Widget: AnalyticsDashboard,
-    title: "Professional Analytics. Anywhere.",
+    title: "Professional Analytics. On Mobile & Web.",
     subtitle: "See the full picture in seconds — not hours.",
     description:
       "Our models compare real-time sportsbook lines against proprietary predictions across every major market. You get the answer. The math. The edge.",
