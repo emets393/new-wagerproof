@@ -48,6 +48,7 @@ import MobileApp from "./pages/MobileApp";
 import TodayInSports from "./pages/TodayInSports";
 import TipJar from "./pages/TipJar";
 import FreePicks from "./pages/FreePicks";
+import AgentLanding from "./pages/AgentLanding"; // New landing page for the Agent feature
 import Agents from "./pages/Agents";
 import AgentCreate from "./pages/AgentCreate";
 import AgentDetail from "./pages/AgentDetail";
@@ -159,6 +160,7 @@ function AppRoutes() {
     '/onboarding', // Add onboarding to public routes to avoid nested layouts
     '/paywall-test', // Add paywall test to public routes
     '/free-picks', // Free picks landing page - public access
+    '/ai-agents', // New separate landing page for the AI Agent feature
   ].includes(location.pathname) || location.pathname.startsWith('/blog');
 
   // Pages that should not have the layout (landing, welcome)
@@ -177,6 +179,7 @@ function AppRoutes() {
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/paywall-test" element={<ProtectedRoute><PaywallTest /></ProtectedRoute>} />
           <Route path="/free-picks" element={<FreePicks />} />
+          <Route path="/ai-agents" element={<AgentLanding />} />
         </Routes>
       </PublicLayout>
     );

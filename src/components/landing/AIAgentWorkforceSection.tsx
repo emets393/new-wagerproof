@@ -595,13 +595,23 @@ const AIAgentWorkforceSection = () => {
               ))}
             </div>
 
-            <div className="flex justify-center">
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <Link to="/ai-agents">
+                <motion.button
+                  whileHover={{ scale: 1.03, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="w-full sm:w-auto px-8 py-4 bg-white/5 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-full font-bold text-sm shadow-lg hover:shadow-xl hover:bg-gray-50 dark:hover:bg-white/10 flex items-center justify-center gap-2"
+                >
+                  <span>Learn More</span>
+                </motion.button>
+              </Link>
               <Link to="/account">
                 <motion.button
                   whileHover={{ scale: 1.03, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  className="group/btn px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full font-bold text-sm shadow-lg hover:shadow-xl flex items-center gap-2"
+                  className="group/btn w-full sm:w-auto px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full font-bold text-sm shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                 >
                   <span>Create Your First Agent</span>
                   <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />

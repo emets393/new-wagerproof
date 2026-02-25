@@ -82,6 +82,11 @@ const Footer = () => {
                 </button>
               </li>
               <li>
+                <Link to="/ai-agents" className="text-gray-400 hover:text-honeydew-400 transition-colors">
+                  AI Betting Agents
+                </Link>
+              </li>
+              <li>
                 <Link to="/nfl" className="text-gray-400 hover:text-honeydew-400 transition-colors">
                   NFL Predictions
                 </Link>
