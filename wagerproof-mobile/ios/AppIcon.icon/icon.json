@@ -14,7 +14,7 @@
           "image-name" : "wagerproofrawlogo.png",
           "name" : "wagerproofrawlogo",
           "position" : {
-            "scale" : 1,
+            "scale" : 1.2,
             "translation-in-points" : [
               -1.4140625,
               6.0234375
