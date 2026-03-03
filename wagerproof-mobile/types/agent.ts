@@ -105,6 +105,8 @@ export interface AgentProfile {
   created_at: string;
   updated_at: string;
   auto_generate: boolean;
+  auto_generate_time: string;
+  auto_generate_timezone: string;
   is_widget_favorite: boolean;
   last_generated_at: string | null;
   last_auto_generated_at: string | null;
@@ -291,6 +293,8 @@ export const CreateAgentSchema = z.object({
   personality_params: PersonalityParamsSchema,
   custom_insights: CustomInsightsSchema,
   auto_generate: z.boolean().default(true),
+  auto_generate_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).default('09:00'),
+  auto_generate_timezone: z.string().default('America/New_York'),
   is_widget_favorite: z.boolean().default(false),
 });
 
@@ -401,6 +405,8 @@ export interface CreateAgentFormState {
 
   // Screen 6
   auto_generate: boolean;
+  auto_generate_time: string;
+  auto_generate_timezone: string;
 }
 
 export const INITIAL_FORM_STATE: CreateAgentFormState = {
@@ -412,7 +418,32 @@ export const INITIAL_FORM_STATE: CreateAgentFormState = {
   personality_params: { ...DEFAULT_PERSONALITY_PARAMS },
   custom_insights: { ...DEFAULT_CUSTOM_INSIGHTS },
   auto_generate: true,
+  auto_generate_time: '09:00',
+  auto_generate_timezone: 'America/New_York',
 };
+
+// ============================================================================
+// US TIMEZONE OPTIONS
+// ============================================================================
+
+export const US_TIMEZONES = [
+  { value: 'America/New_York', label: 'Eastern (ET)' },
+  { value: 'America/Chicago', label: 'Central (CT)' },
+  { value: 'America/Denver', label: 'Mountain (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii (HT)' },
+] as const;
+
+export function getTimezoneLabel(tz: string): string {
+  return US_TIMEZONES.find((t) => t.value === tz)?.label || 'Eastern (ET)';
+}
+
+export function getTimezoneAbbr(tz: string): string {
+  const label = getTimezoneLabel(tz);
+  const match = label.match(/\(([^)]+)\)/);
+  return match ? match[1] : 'ET';
+}
 
 // ============================================================================
 // HELPER FUNCTIONS

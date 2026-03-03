@@ -78,9 +78,11 @@ export async function createAgent(userId: string, data: CreateAgentInput): Promi
     personality_params: validated.personality_params,
     custom_insights: validated.custom_insights,
     auto_generate: validated.auto_generate,
+    auto_generate_time: validated.auto_generate_time,
+    auto_generate_timezone: validated.auto_generate_timezone,
     is_widget_favorite: validated.is_widget_favorite,
     is_public: canCreatePublicAgent,
-    is_active: true,
+    is_active: validated.auto_generate,
   };
 
   const { data: agent, error } = await (supabase as any)

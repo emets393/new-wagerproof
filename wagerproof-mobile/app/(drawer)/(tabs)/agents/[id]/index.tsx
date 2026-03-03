@@ -40,12 +40,15 @@ import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceChar
 import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
 import { LockedPickCard } from '@/components/LockedPickCard';
 import { useGameLookup } from '@/hooks/useGameLookup';
+import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
+import { TimezonePickerModal } from '@/components/agents/inputs/TimezonePickerModal';
 import {
   AgentPick,
   Sport,
   formatRecord,
   formatNetUnits,
   formatStreak,
+  getTimezoneAbbr,
 } from '@/types/agent';
 
 const SPORT_LABELS: Record<Sport, string> = {
@@ -238,6 +241,8 @@ export default function AgentDetailScreen() {
   const [generatingToastVisible, setGeneratingToastVisible] = useState(false);
   const [selectedAuditPick, setSelectedAuditPick] = useState<AgentPick | null>(null);
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
   const isGeneratingRef = useRef(false);
   const auditSheetRef = useRef<BottomSheet>(null);
 
@@ -357,6 +362,39 @@ export default function AgentDetailScreen() {
     updateAgentMutation,
     refetchAgent,
   ]);
+
+  // Handle auto-generate time change
+  const handleAutoGenerateTimeChange = useCallback(async (hours: number, minutes: number) => {
+    if (!id) return;
+    const h = String(hours).padStart(2, '0');
+    const m = String(minutes).padStart(2, '0');
+    const newTime = `${h}:${m}`;
+    try {
+      await updateAgentMutation.mutateAsync({
+        agentId: id,
+        data: { auto_generate_time: newTime },
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      refetchAgent();
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [id, updateAgentMutation, refetchAgent]);
+
+  // Handle auto-generate timezone change
+  const handleAutoGenerateTimezoneChange = useCallback(async (timezone: string) => {
+    if (!id) return;
+    try {
+      await updateAgentMutation.mutateAsync({
+        agentId: id,
+        data: { auto_generate_timezone: timezone },
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      refetchAgent();
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [id, updateAgentMutation, refetchAgent]);
 
   // Handle generate picks (initial or regeneration)
   const handleGeneratePicks = useCallback(async () => {
@@ -870,6 +908,64 @@ export default function AgentDetailScreen() {
             </View>
           </View>
         </View>
+
+        {/* Auto-Generate Time & Timezone */}
+        {agent.auto_generate && (
+          <View
+            style={[
+              styles.autoGenTimeRow,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255, 255, 255, 0.06)'
+                  : 'rgba(0, 0, 0, 0.03)',
+                borderColor: isDark
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : 'rgba(0, 0, 0, 0.06)',
+              },
+            ]}
+          >
+            <View style={styles.autoGenTimeLeft}>
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={18}
+                color={theme.colors.primary}
+              />
+              <Text style={[styles.autoGenTimeLabel, { color: theme.colors.onSurface }]}>
+                Auto-generates daily at
+              </Text>
+            </View>
+            <View style={styles.autoGenTimeRight}>
+              <TouchableOpacity onPress={() => setShowTimePicker(true)} activeOpacity={0.7}>
+                <Text style={[styles.autoGenTimeValue, { color: theme.colors.primary }]}>
+                  {(agent.auto_generate_time || '09:00').slice(0, 5)}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowTimezonePicker(true)} activeOpacity={0.7}>
+                <Text style={[styles.autoGenTimezoneValue, { color: theme.colors.primary }]}>
+                  {getTimezoneAbbr(agent.auto_generate_timezone || 'America/New_York')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <TimePickerModal
+          visible={showTimePicker}
+          onDismiss={() => setShowTimePicker(false)}
+          onConfirm={(hours, minutes) => {
+            setShowTimePicker(false);
+            handleAutoGenerateTimeChange(hours, minutes);
+          }}
+          hours={parseInt((agent.auto_generate_time || '09:00').split(':')[0], 10)}
+          minutes={parseInt((agent.auto_generate_time || '09:00').split(':')[1], 10)}
+        />
+
+        <TimezonePickerModal
+          visible={showTimezonePicker}
+          onDismiss={() => setShowTimezonePicker(false)}
+          onSelect={(tz) => handleAutoGenerateTimezoneChange(tz)}
+          selected={agent.auto_generate_timezone || 'America/New_York'}
+        />
 
         {/* Generate Picks Status */}
         {isGeneratingPicks ? (
@@ -1526,6 +1622,43 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Auto-generate time row
+  autoGenTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  autoGenTimeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  autoGenTimeLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  autoGenTimeRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  autoGenTimeValue: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  autoGenTimezoneValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    overflow: 'hidden',
   },
   // Generate Button
   generateButton: {

@@ -21,6 +21,8 @@ import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { SliderInput } from '@/components/agents/inputs/SliderInput';
 import { ToggleInput } from '@/components/agents/inputs/ToggleInput';
 import { OddsInput } from '@/components/agents/inputs/OddsInput';
+import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
+import { TimezonePickerModal } from '@/components/agents/inputs/TimezonePickerModal';
 import {
   Sport,
   SPORTS,
@@ -32,6 +34,7 @@ import {
   getConditionalParams,
   DEFAULT_PERSONALITY_PARAMS,
   DEFAULT_CUSTOM_INSIGHTS,
+  getTimezoneLabel,
 } from '@/types/agent';
 
 const SPORT_LABELS: Record<Sport, string> = {
@@ -150,6 +153,10 @@ export default function AgentSettingsScreen() {
     DEFAULT_CUSTOM_INSIGHTS
   );
   const [autoGenerate, setAutoGenerate] = useState(true);
+  const [autoGenerateTime, setAutoGenerateTime] = useState('09:00');
+  const [autoGenerateTimezone, setAutoGenerateTimezone] = useState('America/New_York');
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -163,6 +170,8 @@ export default function AgentSettingsScreen() {
       setPersonality(agent.personality_params);
       setCustomInsights(agent.custom_insights);
       setAutoGenerate(agent.auto_generate);
+      setAutoGenerateTime(agent.auto_generate_time || '09:00');
+      setAutoGenerateTimezone(agent.auto_generate_timezone || 'America/New_York');
       setIsPublic(agent.is_public);
       setHasChanges(false);
     }
@@ -229,6 +238,8 @@ export default function AgentSettingsScreen() {
           personality_params: personality,
           custom_insights: customInsights,
           auto_generate: autoGenerate,
+          auto_generate_time: autoGenerateTime,
+          auto_generate_timezone: autoGenerateTimezone,
           is_public: isPublic,
         },
       });
@@ -251,6 +262,8 @@ export default function AgentSettingsScreen() {
     personality,
     customInsights,
     autoGenerate,
+    autoGenerateTime,
+    autoGenerateTimezone,
     isPublic,
     updateAgentMutation,
   ]);
@@ -922,6 +935,90 @@ export default function AgentSettingsScreen() {
               ? 'When enabled, your agent will automatically analyze available games and generate picks each day. You can always manually generate picks as well.'
               : 'Pro subscribers get automatic daily pick generation. Free users can still generate picks manually.'}
           </Text>
+
+          {autoGenerate && canUseAutopilot && (
+            <>
+              <View style={styles.timePickerRow}>
+                <Text style={[styles.inputLabel, { color: theme.colors.onSurface, marginBottom: 0 }]}>
+                  Preferred Time (ET)
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowTimePicker(true)}
+                  style={[
+                    styles.timePickerButton,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(0, 0, 0, 0.05)',
+                      borderColor: isDark
+                        ? 'rgba(255, 255, 255, 0.15)'
+                        : 'rgba(0, 0, 0, 0.1)',
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="clock-outline"
+                    size={18}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={[styles.timePickerText, { color: theme.colors.onSurface }]}>
+                    {autoGenerateTime}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TimePickerModal
+                visible={showTimePicker}
+                onDismiss={() => setShowTimePicker(false)}
+                onConfirm={(hours, minutes) => {
+                  const h = String(hours).padStart(2, '0');
+                  const m = String(minutes).padStart(2, '0');
+                  setAutoGenerateTime(`${h}:${m}`);
+                  setShowTimePicker(false);
+                  markChanged();
+                }}
+                hours={parseInt(autoGenerateTime.split(':')[0], 10)}
+                minutes={parseInt(autoGenerateTime.split(':')[1], 10)}
+              />
+
+              <View style={styles.timePickerRow}>
+                <Text style={[styles.inputLabel, { color: theme.colors.onSurface, marginBottom: 0 }]}>
+                  Timezone
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowTimezonePicker(true)}
+                  style={[
+                    styles.timePickerButton,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(0, 0, 0, 0.05)',
+                      borderColor: isDark
+                        ? 'rgba(255, 255, 255, 0.15)'
+                        : 'rgba(0, 0, 0, 0.1)',
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="earth"
+                    size={18}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={[styles.timePickerText, { color: theme.colors.onSurface }]}>
+                    {getTimezoneLabel(autoGenerateTimezone)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TimezonePickerModal
+                visible={showTimezonePicker}
+                onDismiss={() => setShowTimezonePicker(false)}
+                onSelect={(tz) => {
+                  setAutoGenerateTimezone(tz);
+                  markChanged();
+                }}
+                selected={autoGenerateTimezone}
+              />
+            </>
+          )}
         </CollapsibleSection>
 
         {/* Visibility Section */}
@@ -1223,6 +1320,26 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     borderColor: '#ef4444',
+  },
+  // Time picker
+  timePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  timePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  timePickerText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   // Save button
   saveButtonContainer: {

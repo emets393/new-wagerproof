@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgent, useDeleteAgent, useUpdateAgent } from '@/hooks/useAgents';
-import { CustomInsights, PersonalityParams, Sport, SPORTS } from '@/types/agent';
+import { CustomInsights, PersonalityParams, Sport, SPORTS, US_TIMEZONES } from '@/types/agent';
 import { Screen3_Personality, Screen4_DataAndConditions, Screen5_CustomInsights } from '@/components/agents/creation';
 
 interface AgentSettingsForm {
@@ -32,6 +32,8 @@ interface AgentSettingsForm {
   is_public: boolean;
   is_active: boolean;
   auto_generate: boolean;
+  auto_generate_time: string;
+  auto_generate_timezone: string;
 }
 
 export default function AgentSettings() {
@@ -57,6 +59,8 @@ export default function AgentSettings() {
       is_public: agent.is_public,
       is_active: agent.is_active,
       auto_generate: agent.auto_generate,
+      auto_generate_time: agent.auto_generate_time || '09:00',
+      auto_generate_timezone: agent.auto_generate_timezone || 'America/New_York',
     });
   }, [agent]);
 
@@ -122,6 +126,8 @@ export default function AgentSettings() {
           is_public: form.is_public,
           is_active: form.is_active,
           auto_generate: form.auto_generate,
+          auto_generate_time: form.auto_generate_time,
+          auto_generate_timezone: form.auto_generate_timezone,
         },
       });
       navigate(`/agents/${id}`);
@@ -268,6 +274,40 @@ export default function AgentSettings() {
               onCheckedChange={(checked) => setForm({ ...form, auto_generate: checked })}
             />
           </div>
+
+          {form.auto_generate && form.is_active && canUseAutopilot && (
+            <>
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div>
+                  <Label htmlFor="agent-auto-time" className="font-medium">Preferred Time</Label>
+                  <p className="text-xs text-muted-foreground mt-1">When to generate picks each day.</p>
+                </div>
+                <Input
+                  id="agent-auto-time"
+                  type="time"
+                  value={form.auto_generate_time}
+                  onChange={(e) => setForm({ ...form, auto_generate_time: e.target.value })}
+                  className="w-32"
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div>
+                  <Label htmlFor="agent-auto-timezone" className="font-medium">Timezone</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Timezone for the preferred time above.</p>
+                </div>
+                <select
+                  id="agent-auto-timezone"
+                  value={form.auto_generate_timezone}
+                  onChange={(e) => setForm({ ...form, auto_generate_timezone: e.target.value })}
+                  className="w-48 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {US_TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

@@ -148,6 +148,8 @@ export function OnboardingAgentBuilder() {
         personality_params: agentFormState.personality_params,
         custom_insights: agentFormState.custom_insights,
         auto_generate: agentFormState.auto_generate,
+        auto_generate_time: agentFormState.auto_generate_time,
+        auto_generate_timezone: agentFormState.auto_generate_timezone,
       });
 
       setCreatedAgentId(newAgent.id);
@@ -211,7 +213,14 @@ export function OnboardingAgentBuilder() {
           <Screen6_Review
             formState={agentFormState}
             autoGenerate={agentFormState.auto_generate}
+            liveAutoAgentsCount={0}
+            maxLiveAutoAgents={null}
+            autoModeForcedOff={false}
             onAutoGenerateChange={(value) => updateAgentFormState('auto_generate', value)}
+            autoGenerateTime={agentFormState.auto_generate_time}
+            onAutoGenerateTimeChange={(value) => updateAgentFormState('auto_generate_time', value)}
+            autoGenerateTimezone={agentFormState.auto_generate_timezone}
+            onAutoGenerateTimezoneChange={(value) => updateAgentFormState('auto_generate_timezone', value)}
             onCreate={handleCreate}
             isCreating={createMutation.isPending}
           />

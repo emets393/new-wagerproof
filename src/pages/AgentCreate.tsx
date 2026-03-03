@@ -92,6 +92,8 @@ export default function AgentCreate() {
         personality_params: form.personality_params,
         custom_insights: form.custom_insights,
         auto_generate: form.auto_generate,
+        auto_generate_time: form.auto_generate_time,
+        auto_generate_timezone: form.auto_generate_timezone,
       });
       navigate(`/agents/${created.id}`);
     } catch (err: any) {
@@ -140,7 +142,7 @@ export default function AgentCreate() {
       {step === 2 && <Screen3_Personality params={form.personality_params} onParamChange={updatePersonality} />}
       {step === 3 && <Screen4_DataAndConditions params={form.personality_params} selectedSports={form.preferred_sports} onParamChange={updatePersonality} />}
       {step === 4 && <Screen5_CustomInsights insights={form.custom_insights} onInsightChange={updateInsight} />}
-      {step === 5 && <Screen6_Review state={form} onAutoGenerateChange={(value) => updateForm('auto_generate', value)} />}
+      {step === 5 && <Screen6_Review state={form} onAutoGenerateChange={(value) => updateForm('auto_generate', value)} onAutoGenerateTimeChange={(value) => updateForm('auto_generate_time', value)} onAutoGenerateTimezoneChange={(value) => updateForm('auto_generate_timezone', value)} />}
 
       {validationError ? <p className="text-sm text-destructive">{validationError}</p> : null}
       {submitError ? <p className="text-sm text-destructive">{submitError}</p> : null}

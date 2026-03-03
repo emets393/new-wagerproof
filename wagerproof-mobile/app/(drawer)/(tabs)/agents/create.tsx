@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -67,13 +67,30 @@ export default function CreateAgentScreen() {
   const [formState, setFormState] = useState<CreateAgentFormState>(INITIAL_FORM_STATE);
   const [currentScreen, setCurrentScreen] = useState(0);
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
+  const [createdAgentSummary, setCreatedAgentSummary] = useState<{
+    name: string;
+    avatar_emoji: string;
+    avatar_color: string;
+    preferred_sports: Sport[];
+    is_active: boolean;
+  } | null>(null);
   const [showGenerationIntro, setShowGenerationIntro] = useState(false);
   const [showBornCelebration, setShowBornCelebration] = useState(false);
 
   // Create mutation
   const createMutation = useCreateAgent();
   const { data: agents } = useUserAgents();
-  const { canCreateAnotherAgent, isPro, isAdmin } = useAgentEntitlements();
+  const { canCreateAnotherAgent, isPro, isAdmin, proMaxActiveAgents } = useAgentEntitlements();
+
+  const totalCount = agents?.length || 0;
+  const activeCount = agents?.filter((a) => a.is_active).length || 0;
+  const autoModeForcedOff = !isAdmin && isPro && activeCount >= proMaxActiveAgents;
+
+  useEffect(() => {
+    if (autoModeForcedOff && formState.auto_generate) {
+      setFormState((prev) => ({ ...prev, auto_generate: false }));
+    }
+  }, [autoModeForcedOff, formState.auto_generate]);
 
   // Update form state helper
   const updateFormState = useCallback(
@@ -236,13 +253,11 @@ export default function CreateAgentScreen() {
 
   // Handle create agent
   const handleCreate = useCallback(async () => {
-    const totalCount = agents?.length || 0;
-    const activeCount = agents?.filter((a) => a.is_active).length || 0;
     if (!canCreateAnotherAgent(activeCount, totalCount)) {
       Alert.alert(
         'Agent Limit Reached',
         isAdmin || isPro
-          ? 'Pro users can have up to 10 active agents and 30 total created agents.'
+          ? 'Pro users can have up to 30 total agents. If all 10 live auto-agent slots are full, new agents start in manual mode.'
           : 'Free users can have 1 active agent. Upgrade to Pro for more.'
       );
       return;
@@ -251,6 +266,7 @@ export default function CreateAgentScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
+      const shouldStartInAutoMode = formState.auto_generate && !autoModeForcedOff;
       const newAgent = await createMutation.mutateAsync({
         name: formState.name.trim(),
         avatar_emoji: formState.avatar_emoji,
@@ -259,10 +275,19 @@ export default function CreateAgentScreen() {
         archetype: formState.archetype,
         personality_params: formState.personality_params,
         custom_insights: formState.custom_insights,
-        auto_generate: formState.auto_generate,
+        auto_generate: shouldStartInAutoMode,
+        auto_generate_time: formState.auto_generate_time,
+        auto_generate_timezone: formState.auto_generate_timezone,
       });
 
       setCreatedAgentId(newAgent.id);
+      setCreatedAgentSummary({
+        name: newAgent.name,
+        avatar_emoji: newAgent.avatar_emoji,
+        avatar_color: newAgent.avatar_color,
+        preferred_sports: newAgent.preferred_sports,
+        is_active: newAgent.is_active,
+      });
       setShowGenerationIntro(true);
     } catch (error: any) {
       Alert.alert(
@@ -270,7 +295,7 @@ export default function CreateAgentScreen() {
         error?.message || 'Failed to create agent. Please try again.'
       );
     }
-  }, [formState, createMutation, router, agents, canCreateAnotherAgent, isPro, isAdmin]);
+  }, [formState, createMutation, canCreateAnotherAgent, isPro, isAdmin, activeCount, totalCount, autoModeForcedOff]);
 
   // Render current screen content
   const renderScreenContent = () => {
@@ -322,7 +347,14 @@ export default function CreateAgentScreen() {
           <Screen6_Review
             formState={formState}
             autoGenerate={formState.auto_generate}
+            liveAutoAgentsCount={activeCount}
+            maxLiveAutoAgents={isAdmin ? null : isPro ? proMaxActiveAgents : null}
+            autoModeForcedOff={autoModeForcedOff}
             onAutoGenerateChange={(value) => updateFormState('auto_generate', value)}
+            autoGenerateTime={formState.auto_generate_time}
+            onAutoGenerateTimeChange={(value) => updateFormState('auto_generate_time', value)}
+            autoGenerateTimezone={formState.auto_generate_timezone}
+            onAutoGenerateTimezoneChange={(value) => updateFormState('auto_generate_timezone', value)}
             onCreate={handleCreate}
             isCreating={createMutation.isPending}
           />
@@ -466,12 +498,7 @@ export default function CreateAgentScreen() {
 
       <AgentBornCreationCelebration
         visible={showBornCelebration}
-        agent={{
-          name: formState.name.trim(),
-          avatar_emoji: formState.avatar_emoji,
-          avatar_color: formState.avatar_color,
-          preferred_sports: formState.preferred_sports,
-        }}
+        agent={createdAgentSummary}
         onContinue={handleCelebrationContinue}
       />
     </>

@@ -161,9 +161,12 @@ export async function createAgent(
       personality_params: validated.personality_params,
       custom_insights: validated.custom_insights,
       auto_generate: validated.auto_generate,
+      auto_generate_time: validated.auto_generate_time,
+      auto_generate_timezone: validated.auto_generate_timezone,
       is_widget_favorite: validated.is_widget_favorite,
       is_public: canCreatePublicAgent,
-      is_active: true,
+      // Manual-mode agents are created inactive so they do not count as live autopilot agents.
+      is_active: validated.auto_generate,
     };
 
     const { data: agent, error } = await supabase
@@ -216,6 +219,8 @@ export async function updateAgent(
     if (validated.personality_params !== undefined) updateData.personality_params = validated.personality_params;
     if (validated.custom_insights !== undefined) updateData.custom_insights = validated.custom_insights;
     if (validated.auto_generate !== undefined) updateData.auto_generate = validated.auto_generate;
+    if (validated.auto_generate_time !== undefined) updateData.auto_generate_time = validated.auto_generate_time;
+    if (validated.auto_generate_timezone !== undefined) updateData.auto_generate_timezone = validated.auto_generate_timezone;
     if (validated.is_widget_favorite !== undefined) updateData.is_widget_favorite = validated.is_widget_favorite;
     if (validated.is_public !== undefined) updateData.is_public = validated.is_public;
     if (validated.is_active !== undefined) updateData.is_active = validated.is_active;

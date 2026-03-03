@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTheme, Button, Card, Switch } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +12,9 @@ import {
   BET_TYPES,
 } from '@/types/agent';
 import { CreateAgentFormState } from '@/types/agent';
+import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
+import { TimezonePickerModal } from '@/components/agents/inputs/TimezonePickerModal';
+import { getTimezoneLabel } from '@/types/agent';
 
 // ============================================================================
 // TYPES
@@ -20,7 +23,14 @@ import { CreateAgentFormState } from '@/types/agent';
 interface Screen6_ReviewProps {
   formState: CreateAgentFormState;
   autoGenerate: boolean;
+  liveAutoAgentsCount: number;
+  maxLiveAutoAgents: number | null;
+  autoModeForcedOff: boolean;
   onAutoGenerateChange: (value: boolean) => void;
+  autoGenerateTime: string;
+  onAutoGenerateTimeChange: (value: string) => void;
+  autoGenerateTimezone: string;
+  onAutoGenerateTimezoneChange: (value: string) => void;
   onCreate: () => void;
   isCreating: boolean;
 }
@@ -143,12 +153,21 @@ function generateAgentDescription(
 export function Screen6_Review({
   formState,
   autoGenerate,
+  liveAutoAgentsCount,
+  maxLiveAutoAgents,
+  autoModeForcedOff,
   onAutoGenerateChange,
+  autoGenerateTime,
+  onAutoGenerateTimeChange,
+  autoGenerateTimezone,
+  onAutoGenerateTimezoneChange,
   onCreate,
   isCreating,
 }: Screen6_ReviewProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
 
   // Get archetype info if selected
   const { archetype } = useArchetypeById(formState.archetype);
@@ -375,9 +394,120 @@ export function Screen6_Review({
             value={autoGenerate}
             onValueChange={onAutoGenerateChange}
             color={theme.colors.primary}
+            disabled={autoModeForcedOff}
           />
         </View>
+
+        {autoGenerate && !autoModeForcedOff && (
+          <View style={styles.timePickerRow}>
+            <Text style={[styles.timePickerLabel, { color: theme.colors.onSurface }]}>
+              Preferred Time
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowTimePicker(true)}
+              style={[
+                styles.timePickerButton,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(0, 0, 0, 0.05)',
+                  borderColor: isDark
+                    ? 'rgba(255, 255, 255, 0.15)'
+                    : 'rgba(0, 0, 0, 0.1)',
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={18}
+                color={theme.colors.primary}
+              />
+              <Text style={[styles.timePickerText, { color: theme.colors.onSurface }]}>
+                {autoGenerateTime}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {autoGenerate && !autoModeForcedOff && (
+          <View style={styles.timePickerRow}>
+            <Text style={[styles.timePickerLabel, { color: theme.colors.onSurface }]}>
+              Timezone
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowTimezonePicker(true)}
+              style={[
+                styles.timePickerButton,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(0, 0, 0, 0.05)',
+                  borderColor: isDark
+                    ? 'rgba(255, 255, 255, 0.15)'
+                    : 'rgba(0, 0, 0, 0.1)',
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="earth"
+                size={18}
+                color={theme.colors.primary}
+              />
+              <Text style={[styles.timePickerText, { color: theme.colors.onSurface }]}>
+                {getTimezoneLabel(autoGenerateTimezone)}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TimePickerModal
+          visible={showTimePicker}
+          onDismiss={() => setShowTimePicker(false)}
+          onConfirm={(hours, minutes) => {
+            const h = String(hours).padStart(2, '0');
+            const m = String(minutes).padStart(2, '0');
+            onAutoGenerateTimeChange(`${h}:${m}`);
+            setShowTimePicker(false);
+          }}
+          hours={parseInt(autoGenerateTime.split(':')[0], 10)}
+          minutes={parseInt(autoGenerateTime.split(':')[1], 10)}
+        />
+        <TimezonePickerModal
+          visible={showTimezonePicker}
+          onDismiss={() => setShowTimezonePicker(false)}
+          onSelect={onAutoGenerateTimezoneChange}
+          selected={autoGenerateTimezone}
+        />
       </View>
+
+      {autoModeForcedOff && maxLiveAutoAgents !== null && (
+        <View
+          style={[
+            styles.autoLimitCard,
+            {
+              backgroundColor: isDark ? 'rgba(251, 191, 36, 0.08)' : 'rgba(217, 119, 6, 0.08)',
+              borderColor: isDark ? 'rgba(251, 191, 36, 0.24)' : 'rgba(217, 119, 6, 0.18)',
+            },
+          ]}
+        >
+          <View style={styles.autoLimitHeader}>
+            <MaterialCommunityIcons
+              name="lightning-bolt-outline"
+              size={18}
+              color={isDark ? '#fbbf24' : '#a16207'}
+            />
+            <Text style={[styles.autoLimitTitle, { color: theme.colors.onSurface }]}>
+              Auto mode is full
+            </Text>
+          </View>
+          <Text style={[styles.autoLimitCount, { color: theme.colors.onSurface }]}>
+            {liveAutoAgentsCount}/{maxLiveAutoAgents} live auto agents running
+          </Text>
+          <Text style={[styles.autoLimitDescription, { color: theme.colors.onSurfaceVariant }]}>
+            This new agent will start in manual mode. Turn off one live auto agent to free up a slot later.
+          </Text>
+        </View>
+      )}
 
       {/* Create Button */}
       <View style={styles.createButtonContainer}>
@@ -545,6 +675,55 @@ const styles = StyleSheet.create({
   autoGenerateDescription: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  autoLimitCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 8,
+    marginBottom: 24,
+  },
+  autoLimitHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  autoLimitTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  autoLimitCount: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  autoLimitDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  timePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  timePickerLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  timePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  timePickerText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   createButtonContainer: {
     marginBottom: 16,

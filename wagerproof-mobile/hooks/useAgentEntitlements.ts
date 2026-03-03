@@ -14,10 +14,7 @@ export function useAgentEntitlements() {
     (existingActiveAgentCount: number, existingTotalAgentCount: number = existingActiveAgentCount): boolean => {
       if (isAdmin) return true;
       if (isPro) {
-        return (
-          existingActiveAgentCount < PRO_MAX_ACTIVE_AGENTS &&
-          existingTotalAgentCount < PRO_MAX_TOTAL_AGENTS
-        );
+        return existingTotalAgentCount < PRO_MAX_TOTAL_AGENTS;
       }
       return existingActiveAgentCount < FREE_AGENT_LIMIT;
     },
@@ -45,6 +42,8 @@ export function useAgentEntitlements() {
     canUseAutopilot,
     canCreateAnotherAgent,
     canViewLeaderboardRank,
+    maxActiveAgents: isAdmin ? null : isPro ? PRO_MAX_ACTIVE_AGENTS : FREE_AGENT_LIMIT,
+    maxTotalAgents: isAdmin ? null : isPro ? PRO_MAX_TOTAL_AGENTS : FREE_AGENT_LIMIT,
     freeAgentLimit: FREE_AGENT_LIMIT,
     proMaxActiveAgents: PRO_MAX_ACTIVE_AGENTS,
     proMaxTotalAgents: PRO_MAX_TOTAL_AGENTS,

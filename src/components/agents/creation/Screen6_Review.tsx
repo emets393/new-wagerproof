@@ -1,12 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { CreateAgentFormState, Sport } from '@/types/agent';
+import { CreateAgentFormState, Sport, US_TIMEZONES } from '@/types/agent';
 
 interface Props {
   state: CreateAgentFormState;
   onAutoGenerateChange: (value: boolean) => void;
+  onAutoGenerateTimeChange: (value: string) => void;
+  onAutoGenerateTimezoneChange: (value: string) => void;
 }
 
 const SPORT_COLORS: Record<Sport, string> = {
@@ -17,7 +20,7 @@ const SPORT_COLORS: Record<Sport, string> = {
   mlb: '#0F766E',
 };
 
-export function Screen6_Review({ state, onAutoGenerateChange }: Props) {
+export function Screen6_Review({ state, onAutoGenerateChange, onAutoGenerateTimeChange, onAutoGenerateTimezoneChange }: Props) {
   const gradientStops = state.preferred_sports.length
     ? state.preferred_sports.map((sport) => SPORT_COLORS[sport])
     : ['#3B82F6', '#14B8A6'];
@@ -58,12 +61,48 @@ export function Screen6_Review({ state, onAutoGenerateChange }: Props) {
           <p className="font-medium">{state.archetype || 'Custom (no preset)'}</p>
         </div>
 
-        <div className="flex items-center justify-between rounded-3xl border border-border/50 bg-background/70 p-4 backdrop-blur-md">
-          <div>
-            <Label htmlFor="auto-generate" className="font-medium">Auto-generate picks</Label>
-            <p className="text-xs text-muted-foreground mt-1">Generate picks daily without manual trigger.</p>
+        <div className="rounded-3xl border border-border/50 bg-background/70 p-4 backdrop-blur-md space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="auto-generate" className="font-medium">Auto-generate picks</Label>
+              <p className="text-xs text-muted-foreground mt-1">Generate picks daily without manual trigger.</p>
+            </div>
+            <Switch id="auto-generate" checked={state.auto_generate} onCheckedChange={onAutoGenerateChange} />
           </div>
-          <Switch id="auto-generate" checked={state.auto_generate} onCheckedChange={onAutoGenerateChange} />
+
+          {state.auto_generate && (
+            <>
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                <div>
+                  <Label htmlFor="auto-generate-time" className="font-medium">Preferred Time</Label>
+                  <p className="text-xs text-muted-foreground mt-1">When to generate picks each day.</p>
+                </div>
+                <Input
+                  id="auto-generate-time"
+                  type="time"
+                  value={state.auto_generate_time}
+                  onChange={(e) => onAutoGenerateTimeChange(e.target.value)}
+                  className="w-32"
+                />
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                <div>
+                  <Label htmlFor="auto-generate-timezone" className="font-medium">Timezone</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Timezone for the preferred time.</p>
+                </div>
+                <select
+                  id="auto-generate-timezone"
+                  value={state.auto_generate_timezone}
+                  onChange={(e) => onAutoGenerateTimezoneChange(e.target.value)}
+                  className="w-48 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {US_TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

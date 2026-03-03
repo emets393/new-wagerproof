@@ -204,7 +204,7 @@ export default function AgentsHubScreen() {
       Alert.alert(
         'Agent Limit Reached',
         isAdmin || isPro
-          ? 'Pro users can have up to 10 active agents and 30 total created agents.'
+          ? 'Pro users can have up to 30 total agents. If all 10 live auto-agent slots are full, new agents start in manual mode.'
           : 'Free users can have 1 active agent. Upgrade to Pro for more.'
       );
       return;

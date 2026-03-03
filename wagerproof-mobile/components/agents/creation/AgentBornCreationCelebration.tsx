@@ -35,6 +35,7 @@ interface AgentBornCreationCelebrationProps {
     avatar_emoji: string;
     avatar_color: string;
     preferred_sports: Sport[];
+    is_active: boolean;
   } | null;
   onContinue: () => void;
 }
@@ -85,22 +86,22 @@ export function AgentBornCreationCelebration({
     return () => clearTimeout(pulseTimeout);
   }, [isRevealComplete]);
 
-  if (!visible || !agent) return null;
-
-  const primaryColor = getPrimaryColor(agent.avatar_color || '#00E676');
+  const primaryColor = getPrimaryColor(agent?.avatar_color || '#00E676');
   const accentColors = useMemo(
     () => (
-      agent.preferred_sports.length >= 2
-        ? agent.preferred_sports.map((sport) => SPORT_COLORS[sport])
+      (agent?.preferred_sports?.length ?? 0) >= 2
+        ? agent!.preferred_sports.map((sport) => SPORT_COLORS[sport])
         : [primaryColor, `${primaryColor}99`]
     ) as [string, string, ...string[]],
-    [agent.preferred_sports, primaryColor]
+    [agent?.preferred_sports, primaryColor]
   );
   const backgroundWash = [
     `${accentColors[0]}16`,
     `${accentColors[Math.min(1, accentColors.length - 1)]}10`,
     'rgba(255,255,255,0)',
   ] as [string, string, string];
+
+  if (!visible || !agent) return null;
 
   return (
     <Modal visible={visible} animationType="fade" presentationStyle="fullScreen">
@@ -118,7 +119,11 @@ export function AgentBornCreationCelebration({
             <MaterialCommunityIcons name="star-circle-outline" size={20} color="#00E676" />
             <Text style={styles.title}>Agent Created</Text>
           </View>
-          <Text style={styles.subtitle}>Your strategy is live and ready for picks.</Text>
+          <Text style={styles.subtitle}>
+            {agent.is_active
+              ? 'Your strategy is live and ready for picks.'
+              : 'Your agent starts in manual mode until a live auto slot opens up.'}
+          </Text>
 
           <View style={styles.agentCardWrap}>
             <View
@@ -173,17 +178,19 @@ export function AgentBornCreationCelebration({
                 </View>
                 <View style={styles.autopilotRow}>
                   <Switch
-                    value
+                    value={agent.is_active}
                     disabled
                     trackColor={{
                       false: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
                       true: `${primaryColor}80`,
                     }}
-                    thumbColor={primaryColor}
+                    thumbColor={agent.is_active ? primaryColor : isDark ? '#7f8c8d' : '#9ca3af'}
                     style={styles.activeToggle}
                   />
-                  <Text style={styles.autopilotText}>autopilot on</Text>
-                  {pulseReady && (
+                  <Text style={[styles.autopilotText, !agent.is_active && styles.manualModeText]}>
+                    {agent.is_active ? 'autopilot on' : 'manual mode'}
+                  </Text>
+                  {agent.is_active && pulseReady && (
                     <LottieView
                       source={require('@/assets/pulselottie.json')}
                       autoPlay
@@ -358,6 +365,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+  },
+  manualModeText: {
+    color: '#fbbf24',
   },
   autopilotLottie: {
     width: 18,
