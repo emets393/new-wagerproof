@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLeaderboard } from './useLeaderboard';
 import { useFollowedAgents, useFavoriteAgentIds } from './useFollowedAgents';
-import { fetchTopAgentPicksFeed } from '@/services/agentPicksService';
+import { fetchTopAgentPicksFeed, enrichPicksWithOverlap } from '@/services/agentPicksService';
 import { AgentPick } from '@/types/agent';
 import { LeaderboardEntry } from '@/services/agentPerformanceService';
 
@@ -106,17 +106,21 @@ export function useTopAgentPicksFeed(filter: FeedFilter) {
   const query = useQuery({
     queryKey: ['top-agent-picks-feed', queryDep],
     queryFn: async (): Promise<AgentPick[]> => {
+      let rawPicks: AgentPick[];
+
       if (filter === 'top10') {
-        return await fetchTop10Cascading(leaderboard || []);
+        rawPicks = await fetchTop10Cascading(leaderboard || []);
+      } else {
+        const agentIds =
+          filter === 'following'
+            ? (followedAgents?.map((a) => a.avatar_id) || [])
+            : (favoriteIds || []);
+
+        if (agentIds.length === 0) return [];
+        rawPicks = await fetchTopAgentPicksFeed(agentIds, 50);
       }
 
-      const agentIds =
-        filter === 'following'
-          ? (followedAgents?.map((a) => a.avatar_id) || [])
-          : (favoriteIds || []);
-
-      if (agentIds.length === 0) return [];
-      return await fetchTopAgentPicksFeed(agentIds, 50);
+      return enrichPicksWithOverlap(rawPicks);
     },
     enabled: !isResolvingIds && hasData,
     staleTime: 2 * 60 * 1000,

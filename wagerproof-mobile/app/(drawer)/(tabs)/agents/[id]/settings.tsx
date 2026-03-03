@@ -36,6 +36,8 @@ import {
   DEFAULT_CUSTOM_INSIGHTS,
   getTimezoneLabel,
 } from '@/types/agent';
+import { useAuth } from '@/contexts/AuthContext';
+import { ensureAutoPickNotificationPermission } from '@/services/notificationService';
 
 const SPORT_LABELS: Record<Sport, string> = {
   nfl: 'NFL',
@@ -133,6 +135,7 @@ export default function AgentSettingsScreen() {
   const { isDark } = useThemeContext();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { canCreatePublicAgent, canUseAutopilot } = useAgentEntitlements();
+  const { user } = useAuth();
 
   // Fetch agent data
   const { data: agent, isLoading } = useAgent(id || '');
@@ -916,6 +919,9 @@ export default function AgentSettingsScreen() {
               if (!canUseAutopilot) return;
               setAutoGenerate(v);
               markChanged();
+              if (v && user?.id) {
+                ensureAutoPickNotificationPermission(user.id);
+              }
             }}
             label="Auto-Generate Picks"
             description={

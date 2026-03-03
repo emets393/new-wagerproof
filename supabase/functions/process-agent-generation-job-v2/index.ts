@@ -474,6 +474,32 @@ serve(async (req) => {
       p_no_games: false,
     });
 
+    // Send push notification for auto-gen runs with picks (non-fatal)
+    if (run.generation_type === 'auto' && picksToInsert.length > 0) {
+      try {
+        const notifyResponse = await fetch(
+          `${supabaseUrl}/functions/v1/send-agent-pick-ready-notification`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({ run_id: run.id }),
+          }
+        );
+        if (!notifyResponse.ok) {
+          const errText = await notifyResponse.text();
+          console.warn(`[worker-v2] Push notification failed (non-fatal): ${notifyResponse.status} ${errText.slice(0, 200)}`);
+        } else {
+          const notifyResult = await notifyResponse.json();
+          console.log(`[worker-v2] Push notification: ${notifyResult.status ?? 'unknown'}`);
+        }
+      } catch (notifyErr) {
+        console.warn(`[worker-v2] Push notification error (non-fatal):`, (notifyErr as Error).message);
+      }
+    }
+
     console.log(`[worker-v2] Run ${run.id} succeeded: ${picksToInsert.length} picks, ${inputTokens + outputTokens} tokens`);
     return workerResponse(run.id, 'succeeded', picksToInsert.length, startTime);
 

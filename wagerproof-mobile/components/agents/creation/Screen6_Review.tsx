@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTheme, Button, Card, Switch } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useArchetypeById } from '@/hooks/usePresetArchetypes';
+import { ensureAutoPickNotificationPermission } from '@/services/notificationService';
 import {
   Sport,
   PersonalityParams,
@@ -166,8 +168,16 @@ export function Screen6_Review({
 }: Screen6_ReviewProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const { user } = useAuth();
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showTimezonePicker, setShowTimezonePicker] = useState(false);
+
+  const handleAutoGenerateToggle = useCallback((value: boolean) => {
+    onAutoGenerateChange(value);
+    if (value && user?.id) {
+      ensureAutoPickNotificationPermission(user.id);
+    }
+  }, [onAutoGenerateChange, user?.id]);
 
   // Get archetype info if selected
   const { archetype } = useArchetypeById(formState.archetype);
@@ -392,7 +402,7 @@ export function Screen6_Review({
           </View>
           <Switch
             value={autoGenerate}
-            onValueChange={onAutoGenerateChange}
+            onValueChange={handleAutoGenerateToggle}
             color={theme.colors.primary}
             disabled={autoModeForcedOff}
           />

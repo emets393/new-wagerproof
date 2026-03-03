@@ -8,7 +8,7 @@ import {
   fetchUserAgents,
   updateAgent,
 } from '@/services/agentService';
-import { fetchAgentPicks, generatePicks } from '@/services/agentPicksService';
+import { fetchAgentPicks, generatePicks, enrichPicksWithOverlap } from '@/services/agentPicksService';
 import { fetchLeaderboard, LeaderboardSortMode, LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import type { CreateAgentInput, UpdateAgentInput, PickResult, Sport } from '@/types/agent';
 
@@ -80,7 +80,10 @@ export function usePresetArchetypes() {
 export function useAgentPicks(agentId?: string, filters?: { sport?: Sport; result?: PickResult }) {
   return useQuery({
     queryKey: ['agents', 'picks', agentId, filters?.sport, filters?.result],
-    queryFn: () => fetchAgentPicks(agentId!, filters),
+    queryFn: async () => {
+      const picks = await fetchAgentPicks(agentId!, filters);
+      return enrichPicksWithOverlap(picks);
+    },
     enabled: !!agentId,
   });
 }

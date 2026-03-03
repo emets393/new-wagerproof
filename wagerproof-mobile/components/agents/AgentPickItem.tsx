@@ -15,6 +15,7 @@ import {
   getCFBTeamInitials,
 } from '@/utils/teamColors';
 import { AgentPick, Sport } from '@/types/agent';
+import { AgentOverlapFooter } from './AgentOverlapFooter';
 
 // ============================================================================
 // HELPERS
@@ -281,6 +282,11 @@ export function AgentPickItem({ pick, onPress, showReasoning = false }: AgentPic
                 )}
             </View>
           ) : null}
+
+          {/* Overlap footer */}
+          {pick.overlap && pick.overlap.totalCount > 0 && (
+            <AgentOverlapFooter overlap={pick.overlap} />
+          )}
         </View>
       </View>
     </TouchableOpacity>

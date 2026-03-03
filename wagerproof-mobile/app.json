@@ -80,6 +80,12 @@
           "advertiserIDCollectionEnabled": true,
           "autoLogAppEventsEnabled": true
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#22c55e"
+        }
       ]
     ],
     "experiments": {

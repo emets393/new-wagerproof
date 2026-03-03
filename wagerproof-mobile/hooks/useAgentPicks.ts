@@ -4,6 +4,7 @@ import {
   fetchPendingPicks,
   fetchTodaysPicks,
   generatePicks,
+  enrichPicksWithOverlap,
   AgentPicksFilters,
 } from '@/services/agentPicksService';
 import { forceTrackActivity } from '@/services/activityService';
@@ -42,7 +43,10 @@ export function useAgentPicks(
 ) {
   return useQuery({
     queryKey: pickKeys.list(agentId, filters),
-    queryFn: () => fetchAgentPicks(agentId, filters),
+    queryFn: async () => {
+      const picks = await fetchAgentPicks(agentId, filters);
+      return enrichPicksWithOverlap(picks);
+    },
     enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
@@ -66,7 +70,10 @@ export function usePendingPicks(agentId: string, options?: PickQueryOptions) {
 export function useTodaysPicks(agentId: string, options?: PickQueryOptions) {
   return useQuery({
     queryKey: pickKeys.today(agentId),
-    queryFn: () => fetchTodaysPicks(agentId),
+    queryFn: async () => {
+      const picks = await fetchTodaysPicks(agentId);
+      return enrichPicksWithOverlap(picks);
+    },
     enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000, // 2 minutes
     // Refetch more frequently for today's picks

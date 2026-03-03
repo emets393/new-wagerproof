@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { AgentPick, PickResult, Sport, GeneratePicksResponse } from '@/types/agent';
+import { AgentPick, PickResult, Sport, GeneratePicksResponse, OverlapAgentSummary, AgentPickOverlap } from '@/types/agent';
 
 export interface AgentPicksFilters {
   sport?: Sport;
@@ -98,4 +98,43 @@ async function pollGenerationRun(runId: string): Promise<{ status: string; picks
   }
 
   throw new Error('Pick generation timed out — check back in a few minutes');
+}
+
+export async function enrichPicksWithOverlap(picks: AgentPick[]): Promise<AgentPick[]> {
+  if (picks.length === 0) return picks;
+
+  try {
+    const pickIds = picks.map((p) => p.id);
+    const { data, error } = await (supabase as any).rpc('get_agent_pick_overlap_batch', {
+      p_pick_ids: pickIds,
+    });
+
+    if (error) {
+      console.warn('enrichPicksWithOverlap: RPC failed, returning picks without overlap', error.message);
+      return picks;
+    }
+
+    const overlapMap = new Map<string, OverlapAgentSummary[]>();
+    for (const row of data || []) {
+      const list = overlapMap.get(row.source_pick_id) || [];
+      list.push({
+        avatar_id: row.overlap_avatar_id,
+        name: row.avatar_name,
+        avatar_emoji: row.avatar_emoji || '\u{1F916}',
+        avatar_color: row.avatar_color || '#6366f1',
+      });
+      overlapMap.set(row.source_pick_id, list);
+    }
+
+    return picks.map((pick) => {
+      const agents = overlapMap.get(pick.id) || [];
+      return {
+        ...pick,
+        overlap: { totalCount: agents.length, agents } as AgentPickOverlap,
+      };
+    });
+  } catch (err) {
+    console.warn('enrichPicksWithOverlap: unexpected error, returning picks without overlap', err);
+    return picks;
+  }
 }

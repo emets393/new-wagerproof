@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { deactivatePushTokens } from '../services/notificationService';
 
 // Lazy import Google Sign-In to avoid errors when native module isn't available
 let GoogleSignin: any = null;
@@ -370,6 +371,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Starting sign out process...');
       setSigningOut(true);
+
+      // Deactivate push tokens before signing out
+      if (user?.id) {
+        await deactivatePushTokens(user.id);
+      }
 
       // Sign out from Google Sign-In first (if available and signed in)
       // This clears the cached Google account so users can pick a different account next time

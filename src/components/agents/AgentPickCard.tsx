@@ -4,6 +4,7 @@ import { Clock3, FileSearch, TrendingUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AgentPick, BetType, PickResult, Scale1To5, Sport } from '@/types/agent';
+import { AgentOverlapFooter } from './AgentOverlapFooter';
 import {
   getCFBTeamColors,
   getCFBTeamInitials,
@@ -166,6 +167,9 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
               ) : null}
             </div>
           </button>
+          {pick.overlap && pick.overlap.totalCount > 0 && (
+            <AgentOverlapFooter overlap={pick.overlap} />
+          )}
         </CardContent>
       </Card>
     </motion.div>

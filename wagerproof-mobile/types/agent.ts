@@ -119,6 +119,18 @@ export interface AgentProfile {
 // AGENT PICK INTERFACE
 // ============================================================================
 
+export interface OverlapAgentSummary {
+  avatar_id: string;
+  name: string;
+  avatar_emoji: string;
+  avatar_color: string;
+}
+
+export interface AgentPickOverlap {
+  totalCount: number;
+  agents: OverlapAgentSummary[];
+}
+
 export interface AgentPick {
   id: string;
   avatar_id: string;
@@ -141,6 +153,7 @@ export interface AgentPick {
   actual_result: string | null;
   graded_at: string | null;
   created_at: string;
+  overlap?: AgentPickOverlap;
 }
 
 export interface AgentUsedMetric {

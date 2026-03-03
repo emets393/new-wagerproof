@@ -46,6 +46,14 @@ import { View, StyleSheet, Platform, Linking, Alert, Text } from 'react-native';
 import Purchases, { WebPurchaseRedemptionResultType } from 'react-native-purchases';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
+import {
+  initializeNotifications,
+  syncTokenIfPermitted,
+  registerPushToken,
+  getRouteFromNotificationResponse,
+  getLastNotificationRoute,
+} from '../services/notificationService';
 
 // Prevent auto-hide of splash screen
 SplashScreen.preventAutoHideAsync();
@@ -250,6 +258,58 @@ function WebPurchaseRedemptionHandler() {
   return null;
 }
 
+/**
+ * Notification Handler
+ *
+ * Renderless component that initializes push notifications,
+ * syncs tokens, and handles notification taps (warm + cold start).
+ */
+function NotificationHandler() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const coldStartHandled = useRef(false);
+
+  // 1. Initialize on mount (one-time)
+  useEffect(() => {
+    initializeNotifications();
+  }, []);
+
+  // 2. Silent token sync when user authenticates
+  useEffect(() => {
+    if (!user?.id) return;
+    syncTokenIfPermitted(user.id);
+  }, [user?.id]);
+
+  // 3. Push token change listener (handles mid-session token rotation)
+  useEffect(() => {
+    if (!user?.id) return;
+    const sub = Notifications.addPushTokenListener(() => {
+      registerPushToken(user.id);
+    });
+    return () => sub.remove();
+  }, [user?.id]);
+
+  // 4. Notification tap listener (warm start — app is running)
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const route = getRouteFromNotificationResponse(response);
+      if (route) router.push(route as any);
+    });
+    return () => sub.remove();
+  }, [router]);
+
+  // 5. Cold-start notification tap (app was killed, user tapped notification)
+  useEffect(() => {
+    if (coldStartHandled.current) return;
+    coldStartHandled.current = true;
+    getLastNotificationRoute().then((route) => {
+      if (route) setTimeout(() => router.push(route as any), 500);
+    });
+  }, [router]);
+
+  return null;
+}
+
 function RootNavigator() {
   const { user, loading } = useAuth();
   const segments = useSegments();
@@ -373,6 +433,7 @@ function RootLayoutContent() {
                                   <MetaTestSheetProvider>
                                     <RootNavigator />
                                     <WebPurchaseRedemptionHandler />
+                                    <NotificationHandler />
                                     <EditorPickCreatorBottomSheet />
                                     <NBABettingTrendsBottomSheet />
                                     <NCAABBettingTrendsBottomSheet />
