@@ -307,22 +307,31 @@ const trackFacebookSubscribe = (
 
 // ===== Onboarding Events =====
 
+export const ONBOARDING_TOTAL_STEPS = 22;
+
 const ONBOARDING_STEP_NAMES: Record<number, string> = {
   1: 'PersonalizationIntro',
   2: 'TermsAcceptance',
   3: 'SportsSelection',
   4: 'AgeConfirmation',
   5: 'BettorType',
-  6: 'PrimaryGoal',
-  7: 'Methodology',
-  8: 'FeatureSpotlight',
-  9: 'CompetitorComparison',
-  10: 'EmailOptIn',
-  11: 'SocialProof',
-  12: 'DiscordCommunity',
-  13: 'ValueClaim',
-  14: 'AcquisitionSource',
-  15: 'DataTransparency',
+  6: 'AcquisitionSource',
+  7: 'PrimaryGoal',
+  8: 'ValueClaim',
+  9: 'FeatureSpotlight',
+  10: 'DataTransparency',
+  11: 'AgentValueAlwaysOn',
+  12: 'AgentValueAssistant',
+  13: 'AgentValueStrategies',
+  14: 'AgentValueLeaderboard',
+  15: 'AgentBuilderSportArchetype',
+  16: 'AgentBuilderIdentity',
+  17: 'AgentBuilderPersonality',
+  18: 'AgentBuilderDataConditions',
+  19: 'AgentBuilderCustomInsights',
+  20: 'AgentBuilderReview',
+  21: 'AgentGeneration',
+  22: 'AgentBorn',
 };
 
 /**
@@ -343,7 +352,7 @@ export const trackOnboardingStarted = (): void => {
  */
 export const trackOnboardingStepViewed = (
   stepNumber: number,
-  totalSteps: number = 15
+  totalSteps: number = ONBOARDING_TOTAL_STEPS
 ): void => {
   const stepName = ONBOARDING_STEP_NAMES[stepNumber] || `Step${stepNumber}`;
 
@@ -361,7 +370,7 @@ export const trackOnboardingStepViewed = (
 export const trackOnboardingStepCompleted = (
   stepNumber: number,
   additionalData?: Record<string, any>,
-  totalSteps: number = 15
+  totalSteps: number = ONBOARDING_TOTAL_STEPS
 ): void => {
   const stepName = ONBOARDING_STEP_NAMES[stepNumber] || `Step${stepNumber}`;
 
@@ -393,7 +402,7 @@ export const trackOnboardingCompleted = (onboardingData?: {
   // Mixpanel event
   trackEvent('Onboarding Completed', {
     completion_time: new Date().toISOString(),
-    steps_completed: 15,
+    steps_completed: ONBOARDING_TOTAL_STEPS,
     favorite_sports: onboardingData?.favoriteSports?.join(', ') || 'none',
     bettor_type: onboardingData?.bettorType || 'unknown',
     main_goal: onboardingData?.mainGoal || 'unknown',
@@ -426,7 +435,7 @@ export const trackOnboardingAbandoned = (lastStep: number): void => {
   trackEvent('Onboarding Abandoned', {
     last_step: lastStep,
     last_step_name: stepName,
-    progress_percentage: Math.round((lastStep / 15) * 100),
+    progress_percentage: Math.round((lastStep / ONBOARDING_TOTAL_STEPS) * 100),
   });
 };
 
@@ -443,6 +452,27 @@ export const trackPaywallViewed = (source: string): void => {
   });
 
   incrementUserProperty('paywall_views');
+};
+
+export const trackPaywallDismissed = (source: string, result: string): void => {
+  trackEvent('Paywall Dismissed', {
+    source,
+    result,
+  });
+};
+
+export const trackTrialStarted = (
+  subscriptionType: SubscriptionType,
+  source: string,
+  price?: number,
+  currency: string = 'USD'
+): void => {
+  trackEvent('Trial Started', {
+    subscription_type: subscriptionType,
+    source,
+    price,
+    currency,
+  });
 };
 
 /**

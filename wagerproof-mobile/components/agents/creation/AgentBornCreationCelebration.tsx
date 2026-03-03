@@ -1,17 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, View, Text, StyleSheet, Animated, Switch } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme, Button } from 'react-native-paper';
 import LottieView from 'lottie-react-native';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { Sport } from '@/types/agent';
-import { AndroidBlurView } from '@/components/AndroidBlurView';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const SPORT_ICONS: Record<Sport, string> = {
   nfl: 'football',
   cfb: 'shield-half-full',
   nba: 'basketball',
   ncaab: 'school',
+};
+
+const SPORT_COLORS: Record<Sport, string> = {
+  nfl: '#013369',
+  cfb: '#C41E3A',
+  nba: '#1D428A',
+  ncaab: '#FF6B00',
 };
 
 function getPrimaryColor(value: string): string {
@@ -81,6 +88,19 @@ export function AgentBornCreationCelebration({
   if (!visible || !agent) return null;
 
   const primaryColor = getPrimaryColor(agent.avatar_color || '#00E676');
+  const accentColors = useMemo(
+    () => (
+      agent.preferred_sports.length >= 2
+        ? agent.preferred_sports.map((sport) => SPORT_COLORS[sport])
+        : [primaryColor, `${primaryColor}99`]
+    ) as [string, string, ...string[]],
+    [agent.preferred_sports, primaryColor]
+  );
+  const backgroundWash = [
+    `${accentColors[0]}16`,
+    `${accentColors[Math.min(1, accentColors.length - 1)]}10`,
+    'rgba(255,255,255,0)',
+  ] as [string, string, string];
 
   return (
     <Modal visible={visible} animationType="fade" presentationStyle="fullScreen">
@@ -105,16 +125,22 @@ export function AgentBornCreationCelebration({
               style={[
                 styles.agentCard,
                 {
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.92)',
-                  borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.1)',
-                  borderLeftColor: primaryColor,
+                  backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+                  borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.12)',
                 },
               ]}
             >
-              <AndroidBlurView
-                intensity={24}
-                tint={isDark ? 'dark' : 'light'}
-                style={StyleSheet.absoluteFillObject}
+              <LinearGradient
+                colors={backgroundWash}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.backgroundGradient}
+              />
+              <LinearGradient
+                colors={accentColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientBorder}
               />
               <View style={[styles.avatar, { backgroundColor: `${primaryColor}25` }]}>
                 <Text style={styles.avatarEmoji}>{agent.avatar_emoji || '🤖'}</Text>
@@ -265,12 +291,22 @@ const styles = StyleSheet.create({
   agentCard: {
     width: '100%',
     borderWidth: 1,
-    borderLeftWidth: 4,
     borderRadius: 18,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    overflow: 'hidden',
+  },
+  backgroundGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  gradientBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
   },
   avatar: {
     width: 58,

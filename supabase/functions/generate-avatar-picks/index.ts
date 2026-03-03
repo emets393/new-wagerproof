@@ -15,10 +15,22 @@ import {
   buildUserPrompt,
   getMaxPicks,
 } from './promptBuilder.ts';
+import {
+  OUTPUT_RESERVE,
+  SOFT_SEND_LIMIT,
+  buildPayloadBudget,
+  countPromptTokens,
+  removeSituationalTrendsFromGames,
+  trimGamesByLatestTipoff,
+  type PayloadBudget,
+  type PayloadBudgetMode,
+  type PromptTokenCount,
+} from '../shared/tokenBudget.ts';
 
 // =============================================================================
 // Constants
 // =============================================================================
+// Token-guard bundle revision: 2026-02-28-2
 
 const MAX_DAILY_GENERATIONS = 3;
 const MIN_GAMES_FOR_SLATE = 3;
@@ -37,6 +49,8 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
+
+  let payloadBudget: PayloadBudget | undefined;
 
   try {
     // ---------------------------------------------------------------------
@@ -209,17 +223,79 @@ serve(async (req) => {
     );
 
     // Combine all formatted games with sport labels
-    const combinedGames = allGamesData.flatMap(sd =>
+    const combinedGames: Record<string, unknown>[] = allGamesData.flatMap(sd =>
       sd.formattedGames.map(game => ({
         ...game as Record<string, unknown>,
         sport: sd.sport.toUpperCase(),
       }))
     );
 
-    const userPrompt = buildUserPrompt(combinedGames, 'MULTI', today);
+    const fullUserPrompt = buildUserPrompt(combinedGames, 'MULTI', today);
+    const fullTokenCount = countPromptTokens(systemPrompt, fullUserPrompt, OUTPUT_RESERVE);
 
+    let selectedCombinedGames = combinedGames;
+    let selectedUserPrompt = fullUserPrompt;
+    let finalTokenCount = fullTokenCount;
+    let modeUsed: PayloadBudgetMode = 'full';
+    let removedGameIds: string[] = [];
+    let noTrendsTokenCount: PromptTokenCount | null = null;
+
+    if (fullTokenCount.total_tokens > SOFT_SEND_LIMIT) {
+      const gamesWithoutTrends = removeSituationalTrendsFromGames(combinedGames);
+      const noTrendsUserPrompt = buildUserPrompt(gamesWithoutTrends, 'MULTI', today);
+      noTrendsTokenCount = countPromptTokens(systemPrompt, noTrendsUserPrompt, OUTPUT_RESERVE);
+
+      selectedCombinedGames = gamesWithoutTrends;
+      selectedUserPrompt = noTrendsUserPrompt;
+      finalTokenCount = noTrendsTokenCount;
+      modeUsed = 'no_trends';
+
+      if (noTrendsTokenCount.total_tokens > SOFT_SEND_LIMIT) {
+        const trimResult = trimGamesByLatestTipoff({
+          games: gamesWithoutTrends,
+          systemPrompt,
+          softLimit: SOFT_SEND_LIMIT,
+          outputReserve: OUTPUT_RESERVE,
+          buildUserPrompt,
+          targetDate: today,
+          sport: 'MULTI',
+        });
+
+        selectedCombinedGames = trimResult.trimmedGames;
+        selectedUserPrompt = buildUserPrompt(selectedCombinedGames, 'MULTI', today);
+        finalTokenCount = trimResult.finalTokenCount;
+        removedGameIds = trimResult.removedGameIds;
+        modeUsed = 'no_trends_trimmed';
+      }
+    }
+
+    payloadBudget = buildPayloadBudget(finalTokenCount, modeUsed, removedGameIds);
+
+    console.log('[generate-avatar-picks] Total games before trim:', combinedGames.length);
+    console.log('[generate-avatar-picks] Total games after trim:', selectedCombinedGames.length);
+    console.log('[generate-avatar-picks] Full payload token count:', fullTokenCount.total_tokens);
+    if (noTrendsTokenCount) {
+      console.log('[generate-avatar-picks] No-trends payload token count:', noTrendsTokenCount.total_tokens);
+    }
+    console.log('[generate-avatar-picks] Final payload token count:', finalTokenCount.total_tokens);
+    console.log('[generate-avatar-picks] Payload mode used:', modeUsed);
+    console.log('[generate-avatar-picks] Removed game ids:', JSON.stringify(removedGameIds));
     console.log('[generate-avatar-picks] System prompt length:', systemPrompt.length);
-    console.log('[generate-avatar-picks] User prompt length:', userPrompt.length);
+    console.log('[generate-avatar-picks] User prompt length:', selectedUserPrompt.length);
+
+    if (finalTokenCount.total_tokens > SOFT_SEND_LIMIT) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Payload exceeds token budget even after trimming',
+          payload_budget: payloadBudget,
+        }),
+        {
+          status: 413,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     // ---------------------------------------------------------------------
     // 8. Call OpenAI
@@ -241,7 +317,7 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: [{ type: 'input_text', text: userPrompt }],
+            content: [{ type: 'input_text', text: selectedUserPrompt }],
           },
         ],
         text: {
@@ -322,7 +398,7 @@ serve(async (req) => {
       // Find the original game data for snapshot
       let gameSnapshot: Record<string, unknown> = {};
       let modelInputGamePayload: Record<string, unknown> | null =
-        combinedGames.find((g: unknown) => gameMatchesPickId(g, pick.game_id)) as Record<string, unknown> | null;
+        selectedCombinedGames.find((g: unknown) => gameMatchesPickId(g, pick.game_id)) as Record<string, unknown> | null;
       let sportType: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl';
       let matchup = '';
       let gameDate = today;
@@ -459,6 +535,7 @@ serve(async (req) => {
         tokens_used: openaiData.usage?.total_tokens || 0,
         daily_generation_count: newGenCount,
         daily_limit: MAX_DAILY_GENERATIONS,
+        payload_budget: payloadBudget,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -472,6 +549,7 @@ serve(async (req) => {
         success: false,
         error: (error as Error).message || 'Unknown error',
         errorType: (error as Error).constructor.name,
+        ...(payloadBudget ? { payload_budget: payloadBudget } : {}),
       }),
       {
         status: 500,

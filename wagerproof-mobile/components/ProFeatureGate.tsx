@@ -5,6 +5,7 @@ import { RevenueCatPaywall } from './RevenueCatPaywall';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { PAYWALL_PLACEMENTS } from '@/services/revenuecat';
 
 interface ProFeatureGateProps {
   children: React.ReactNode;
@@ -81,6 +82,7 @@ export function ProFeatureGate({
           </View>
           <RevenueCatPaywall
             visible={paywallVisible}
+            placementId={PAYWALL_PLACEMENTS.GENERIC_FEATURE}
             onClose={() => setPaywallVisible(false)}
             onPurchaseComplete={() => setPaywallVisible(false)}
           />
@@ -133,4 +135,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

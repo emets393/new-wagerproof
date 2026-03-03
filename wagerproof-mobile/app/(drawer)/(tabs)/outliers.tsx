@@ -12,7 +12,6 @@ import { syncWidgetData, getWidgetData } from '@/modules/widget-data-bridge';
 import { Card } from '@/components/ui/Card';
 import { AlertCardShimmer } from '@/components/AlertCardShimmer';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScroll } from '@/contexts/ScrollContext';
 
@@ -24,6 +23,7 @@ import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useProAccess } from '@/hooks/useProAccess';
 import { LockedOverlay } from '@/components/LockedOverlay';
+import { TopAgentPicksFeed } from '@/components/agents/TopAgentPicksFeed';
 import { useNBABettingTrendsSheet } from '@/contexts/NBABettingTrendsSheetContext';
 import { useNCAABBettingTrendsSheet } from '@/contexts/NCAABBettingTrendsSheetContext';
 import { useNBABettingTrends } from '@/hooks/useNBABettingTrends';
@@ -373,13 +373,13 @@ export default function OutliersScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { open: openDrawer } = useDrawer();
   const { user } = useAuth();
   const { scrollY, scrollYClamped } = useScroll();
   const { isPro, isLoading: isProLoading } = useProAccess();
 
   const [refreshing, setRefreshing] = useState(false);
-  
+  const [activeTab, setActiveTab] = useState<'outliers' | 'agentPicks'>('outliers');
+
   // Modals for "Show More"
   const [showAllValueAlerts, setShowAllValueAlerts] = useState(false);
   const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(false);
@@ -972,13 +972,14 @@ export default function OutliersScreen() {
 
   // Calculate header heights (must match tab bar calculation)
   const HEADER_TOP_HEIGHT = 56; // Header top section height
-  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT;
+  const INNER_TABS_HEIGHT = 44; // Inner tab bar height
+  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT + INNER_TABS_HEIGHT;
   const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
-  
+
   // Calculate bottom padding (tab bar + safe area)
   const TAB_BAR_BASE_HEIGHT = 65;
   const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
-  
+
   // Header slides up completely as user scrolls up
   const headerTranslate = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
@@ -999,13 +1000,18 @@ export default function OutliersScreen() {
     { useNativeDriver: true }
   );
 
+  const INNER_TABS: { key: 'outliers' | 'agentPicks'; label: string }[] = [
+    { key: 'outliers', label: 'Outliers' },
+    { key: 'agentPicks', label: 'Top Agent Picks' },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
-       {/* Fixed Header (No Tabs) - Animated */}
-       <Animated.View 
+       {/* Fixed Header with Inner Tabs - Animated */}
+       <Animated.View
          style={[
-           styles.fixedHeaderContainer, 
-           { 
+           styles.fixedHeaderContainer,
+           {
              height: TOTAL_HEADER_HEIGHT,
              transform: [{ translateY: headerTranslate }],
              opacity: headerOpacity,
@@ -1018,26 +1024,22 @@ export default function OutliersScreen() {
              style={[styles.fixedHeader, { paddingTop: insets.top }]}
            >
           <View style={styles.headerTop}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
-                try {
-                  openDrawer();
-                } catch (error) {
-                  console.error('Error opening drawer:', error);
-                }
-              }} 
+                router.push('/(drawer)/settings' as any);
+              }}
               style={styles.menuButton}
             >
-              <MaterialCommunityIcons name="menu" size={28} color={theme.colors.onSurface} />
+              <MaterialCommunityIcons name="account-circle" size={31} color={theme.colors.onSurface} />
             </TouchableOpacity>
-            
+
             <View style={styles.titleContainer}>
               <Text style={[styles.titleMain, { color: theme.colors.onSurface }]}>Wager</Text>
               <Text style={[styles.titleProof, { color: '#00E676' }]}>Proof</Text>
             </View>
-            
+
             {user && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={openManualMenu}
                 style={styles.chatButton}
               >
@@ -1045,15 +1047,58 @@ export default function OutliersScreen() {
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Inner Tab Bar */}
+          <View style={styles.innerTabBar}>
+            {INNER_TABS.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[styles.innerTab]}
+                  onPress={() => setActiveTab(tab.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.innerTabText,
+                      {
+                        color: isActive ? '#00E676' : theme.colors.onSurfaceVariant,
+                        fontWeight: isActive ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                  {isActive && <View style={styles.innerTabIndicator} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </AndroidBlurView>
        </Animated.View>
 
+       {/* Agent Picks Tab */}
+       {activeTab === 'agentPicks' && (
+         <TopAgentPicksFeed
+           onScroll={handleScroll}
+           scrollEventThrottle={16}
+           contentContainerStyle={{
+             paddingTop: TOTAL_HEADER_HEIGHT + 8,
+             paddingBottom: TAB_BAR_HEIGHT + 20,
+           }}
+           progressViewOffset={TOTAL_HEADER_HEIGHT}
+         />
+       )}
+
+       {/* Outliers Tab */}
+       {activeTab === 'outliers' && (
        <Animated.ScrollView
          contentContainerStyle={[
-           styles.scrollContent, 
-           { 
-             paddingTop: TOTAL_HEADER_HEIGHT + 20, 
-             paddingBottom: TAB_BAR_HEIGHT + 20 
+           styles.scrollContent,
+           {
+             paddingTop: TOTAL_HEADER_HEIGHT + 20,
+             paddingBottom: TAB_BAR_HEIGHT + 20
            }
          ]}
          onScroll={handleScroll}
@@ -1062,14 +1107,15 @@ export default function OutliersScreen() {
          overScrollMode="never"
          showsVerticalScrollIndicator={true}
          refreshControl={
-           <RefreshControl 
-             refreshing={refreshing} 
-             onRefresh={onRefresh} 
+           <RefreshControl
+             refreshing={refreshing}
+             onRefresh={onRefresh}
              tintColor={theme.colors.primary}
              progressViewOffset={TOTAL_HEADER_HEIGHT}
            />
          }
        >
+
      
 
         {/* Section 1: Polymarket Value Alerts */}
@@ -1271,21 +1317,22 @@ export default function OutliersScreen() {
         </View>
 
       </Animated.ScrollView>
+       )}
 
       {/* Modals */}
       {renderFullListModal(
-          showAllValueAlerts, 
-          () => setShowAllValueAlerts(false), 
-          "All Prediction Market Alerts", 
-          filteredValueAlerts, 
+          showAllValueAlerts,
+          () => setShowAllValueAlerts(false),
+          "All Prediction Market Alerts",
+          filteredValueAlerts,
           renderValueAlertCard
       )}
-      
+
       {renderFullListModal(
-          showAllFadeAlerts, 
-          () => setShowAllFadeAlerts(false), 
-          "All Model Fade Alerts", 
-          filteredFadeAlerts, 
+          showAllFadeAlerts,
+          () => setShowAllFadeAlerts(false),
+          "All Model Fade Alerts",
+          filteredFadeAlerts,
           renderFadeAlertCard
       )}
 
@@ -1340,6 +1387,31 @@ const styles = StyleSheet.create({
   },
   chatButton: {
     padding: 8,
+  },
+  innerTabBar: {
+    flexDirection: 'row',
+    height: 44,
+    paddingHorizontal: 16,
+  },
+  innerTab: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  innerTabText: {
+    fontSize: 14,
+    letterSpacing: 0.1,
+  },
+  innerTabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '20%',
+    right: '20%',
+    height: 3,
+    backgroundColor: '#00E676',
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   pageHeaderContainer: {
     marginBottom: 24,

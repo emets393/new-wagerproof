@@ -11,20 +11,14 @@ import { useProAccess } from '@/hooks/useProAccess';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useMetaTestSheet } from '@/contexts/MetaTestSheetContext';
-import { getOfferingById, getAllOfferings, syncPurchases } from '@/services/revenuecat';
-
-// Import RevenueCatUI for presenting paywalls
-let RevenueCatUI: any = null;
-let PAYWALL_RESULT: any = null;
-try {
-  if (Platform.OS !== 'web') {
-    const purchasesUI = require('react-native-purchases-ui');
-    RevenueCatUI = purchasesUI.default;
-    PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
-  }
-} catch (error: any) {
-  console.warn('Could not load react-native-purchases-ui:', error.message);
-}
+import {
+  didPaywallGrantEntitlement,
+  getOfferingById,
+  getAllOfferings,
+  PAYWALL_PLACEMENTS,
+  presentPaywallForPlacement,
+  syncPurchases,
+} from '@/services/revenuecat';
 
 export default function SecretSettingsScreen() {
   const theme = useTheme();
@@ -174,95 +168,31 @@ export default function SecretSettingsScreen() {
   const handleTestPaywall = async () => {
     console.log('🎬 Test Paywall button pressed');
     console.log('Platform:', Platform.OS);
-    console.log('RevenueCatUI available:', !!RevenueCatUI);
-    console.log('PAYWALL_RESULT available:', !!PAYWALL_RESULT);
-
-    if (!RevenueCatUI) {
-      console.error('❌ RevenueCatUI is null');
-      Alert.alert(
-        'Not Available',
-        'RevenueCat UI is not available. Make sure you are running on a physical device or simulator (not web) and the app has been rebuilt with native modules.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
 
     try {
-      // First, fetch the specific "default" offering
-      console.log('📦 Fetching offering with identifier "default"...');
-      const defaultOffering = await getOfferingById('default');
-      console.log('"default" offering:', defaultOffering);
-      
-      if (!defaultOffering) {
-        console.error('❌ Offering "default" not found!');
-        Alert.alert(
-          'Offering Not Found',
-          'The offering named "default" could not be found. Make sure you have created an offering with identifier "default" in your RevenueCat dashboard.'
-        );
-        return;
-      }
-      
-      console.log('✅ Offering "default" details:', {
-        identifier: defaultOffering.identifier,
-        serverDescription: defaultOffering.serverDescription,
-        availablePackages: defaultOffering.availablePackages?.length || 0,
-      });
-      
-      console.log('🚀 Calling RevenueCatUI.presentPaywall() with "default" offering...');
-      
-      // Present paywall for the specific "default" offering using the official API
-      const paywallResult = await RevenueCatUI.presentPaywall({
-        offering: defaultOffering
-      });
+      const paywallResult = await presentPaywallForPlacement(
+        PAYWALL_PLACEMENTS.GENERIC_FEATURE,
+        'secret_settings_test_paywall'
+      );
       
       console.log('✅ Paywall completed with result:', paywallResult);
       console.log('Result type:', typeof paywallResult);
-      
-      // Log all PAYWALL_RESULT values for debugging
-      if (PAYWALL_RESULT) {
-        console.log('Available PAYWALL_RESULT values:', {
-          PURCHASED: PAYWALL_RESULT.PURCHASED,
-          RESTORED: PAYWALL_RESULT.RESTORED,
-          CANCELLED: PAYWALL_RESULT.CANCELLED,
-          NOT_PRESENTED: PAYWALL_RESULT.NOT_PRESENTED,
-          ERROR: PAYWALL_RESULT.ERROR,
-        });
-      }
 
-      // Handle the result
-      switch (paywallResult) {
-        case PAYWALL_RESULT.PURCHASED:
-          console.log('✅ User completed purchase');
-          console.log('🔄 Refreshing customer info to update entitlements...');
-          await refreshCustomerInfo();
-          console.log('✅ Customer info refreshed - entitlements should now be active');
-          Alert.alert('Success', 'Purchase completed!');
-          break;
-        case PAYWALL_RESULT.RESTORED:
-          console.log('✅ User restored purchases');
-          console.log('🔄 Refreshing customer info to update entitlements...');
-          await refreshCustomerInfo();
-          console.log('✅ Customer info refreshed - entitlements should now be active');
-          Alert.alert('Success', 'Purchases restored!');
-          break;
-        case PAYWALL_RESULT.CANCELLED:
-          console.log('ℹ️ User cancelled the paywall');
-          // Don't show an alert for cancellation, it's expected behavior
-          break;
-        case PAYWALL_RESULT.NOT_PRESENTED:
-          console.error('❌ Paywall was not presented');
-          Alert.alert(
-            'Paywall Not Shown',
-            'The paywall could not be presented. This usually means:\n\n1. No offerings are configured in RevenueCat dashboard\n2. The offering has no paywall attached\n3. Network connectivity issues\n\nCheck the console logs for more details.'
-          );
-          break;
-        case PAYWALL_RESULT.ERROR:
-          console.error('❌ Paywall returned ERROR result');
-          Alert.alert('Error', 'An error occurred while presenting the paywall. Check console logs for details.');
-          break;
-        default:
-          console.warn('⚠️ Unknown paywall result:', paywallResult);
+      if (didPaywallGrantEntitlement(paywallResult)) {
+        console.log('🔄 Refreshing customer info to update entitlements...');
+        await refreshCustomerInfo();
+        console.log('✅ Customer info refreshed - entitlements should now be active');
+        Alert.alert('Success', 'Purchase completed!');
+      } else if (String(paywallResult).toUpperCase().includes('NOT_PRESENTED')) {
+        Alert.alert(
+          'Paywall Not Shown',
+          'The paywall could not be presented for the configured placement. Check that the placement exists, has an offering, and the paywall is published.'
+        );
+      } else {
+        console.log('ℹ️ Paywall completed with result:', paywallResult);
+        if (!String(paywallResult).toUpperCase().includes('CANCEL')) {
           Alert.alert('Info', `Paywall completed with result: ${paywallResult}`);
+        }
       }
     } catch (error: any) {
       console.error('❌ Exception while presenting paywall:', error);
@@ -555,4 +485,3 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
 });
-

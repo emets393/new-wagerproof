@@ -4,7 +4,6 @@ import { useTheme, Card, ActivityIndicator, Button, FAB } from 'react-native-pap
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
-import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabase';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
@@ -203,7 +202,6 @@ interface DateGroup {
 export default function PicksScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { open: openDrawer } = useDrawer();
   const { user } = useAuth();
   const { isDark } = useThemeContext();
   const { scrollY, scrollYClamped } = useScroll();
@@ -1142,15 +1140,11 @@ export default function PicksScreen() {
         <View style={styles.headerTop}>
           <TouchableOpacity 
             onPress={() => {
-              try {
-                openDrawer();
-              } catch (error) {
-                console.error('Error opening drawer:', error);
-              }
+              router.push('/(drawer)/settings' as any);
             }} 
             style={styles.menuButton}
           >
-            <MaterialCommunityIcons name="menu" size={28} color={theme.colors.onSurface} />
+            <MaterialCommunityIcons name="account-circle" size={31} color={theme.colors.onSurface} />
           </TouchableOpacity>
           
           <View style={styles.titleContainer}>

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,20 +9,29 @@ import { Switch } from '@/components/ui/switch';
 import { AgentCard, AgentLeaderboard } from '@/components/agents';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgentLeaderboard, useUpdateAgent, useUserAgents } from '@/hooks/useAgents';
+import { LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import { Sport, SPORTS } from '@/types/agent';
+
+const LEADERBOARD_TIMEFRAMES: { label: string; value: LeaderboardTimeframe }[] = [
+  { label: 'All time', value: 'all_time' },
+  { label: '7 days', value: 'last_7_days' },
+  { label: '30 days', value: 'last_30_days' },
+];
 
 export default function Agents() {
   const navigate = useNavigate();
   const [sportFilter, setSportFilter] = useState<Sport | 'all'>('all');
   const [sortMode, setSortMode] = useState<'overall' | 'recent_run' | 'longest_streak' | 'bottom_100'>('overall');
   const [excludeUnder10Picks, setExcludeUnder10Picks] = useState(false);
+  const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<LeaderboardTimeframe>('all_time');
   const { data: agents, isLoading, error } = useUserAgents();
   const updateAgentMutation = useUpdateAgent();
   const [togglePendingId, setTogglePendingId] = useState<string | null>(null);
   const { data: leaderboard, isLoading: leaderboardLoading } = useAgentLeaderboard(
     sportFilter === 'all' ? undefined : sportFilter,
     sortMode,
-    excludeUnder10Picks
+    excludeUnder10Picks,
+    leaderboardTimeframe
   );
   const { canCreateAnotherAgent, isPro, isAdmin, maxActiveAgents, maxTotalAgents } = useAgentEntitlements();
 
@@ -144,6 +154,31 @@ export default function Agents() {
             <h2 className="text-lg font-semibold">Leaderboard</h2>
             <p className="text-xs text-muted-foreground">Top public agents by performance.</p>
           </div>
+          <Card>
+            <CardContent className="py-3">
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Time range</p>
+                <ToggleGroup
+                  type="single"
+                  value={leaderboardTimeframe}
+                  onValueChange={(value) => {
+                    if (value) setLeaderboardTimeframe(value as LeaderboardTimeframe);
+                  }}
+                  className="grid grid-cols-3 gap-2"
+                >
+                  {LEADERBOARD_TIMEFRAMES.map((timeframe) => (
+                    <ToggleGroupItem
+                      key={timeframe.value}
+                      value={timeframe.value}
+                      className="h-9 px-2 text-xs"
+                    >
+                      {timeframe.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            </CardContent>
+          </Card>
           {leaderboardLoading ? <Card><CardContent className="py-10 text-center">Loading leaderboard...</CardContent></Card> : null}
           {!leaderboardLoading ? <AgentLeaderboard rows={leaderboard || []} onRowClick={(id) => navigate(`/agents/public/${id}`)} /> : null}
         </aside>

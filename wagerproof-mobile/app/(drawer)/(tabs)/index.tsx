@@ -25,7 +25,6 @@ import { NBAGame } from '@/types/nba';
 import { NCAABGame } from '@/types/ncaab';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useDrawer } from '../_layout';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useProAccess } from '@/hooks/useProAccess';
@@ -44,7 +43,6 @@ interface SportOption {
 export default function FeedScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { open: openDrawer } = useDrawer();
   const { scrollY, scrollYClamped } = useScroll();
   const insets = useSafeAreaInsets();
   const { openGameSheet } = useNFLGameSheet();
@@ -1175,16 +1173,11 @@ export default function FeedScreen() {
           <View style={styles.headerTop}>
             <TouchableOpacity 
               onPress={() => {
-                console.log('Hamburger menu pressed');
-                try {
-                  openDrawer();
-                } catch (error) {
-                  console.error('Error opening drawer:', error);
-                }
+                router.push('/(drawer)/settings' as any);
               }} 
               style={styles.menuButton}
             >
-              <MaterialCommunityIcons name="menu" size={28} color={theme.colors.onSurface} />
+              <MaterialCommunityIcons name="account-circle" size={31} color={theme.colors.onSurface} />
             </TouchableOpacity>
             
             <View style={styles.titleContainer}>

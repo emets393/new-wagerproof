@@ -614,21 +614,11 @@ export default function LoginScreen() {
   const isScreen1 = currentIndex === 1;
 
   return (
-    <View 
-      style={styles.container}
-      onTouchStart={(e) => {
-        // #region agent log
-        debugLog('login.tsx:rootView', 'Root View onTouchStart (FIX: using View instead of Pressable)', { locationX: e.nativeEvent.locationX, locationY: e.nativeEvent.locationY }, 'H1');
-        // #endregion
-        setIsPaused(true);
-      }}
-      onTouchEnd={() => setIsPaused(false)}
-      onTouchCancel={() => setIsPaused(false)}
-    >
+    <View style={styles.container}>
       <StatusBar style="light" />
       
       {/* Background Layer */}
-      <View style={styles.backgroundContainer}>
+      <View style={styles.backgroundContainer} pointerEvents="none">
         {isVideo ? (
           <Video
             source={currentScreen.media}

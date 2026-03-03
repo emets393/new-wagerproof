@@ -12,7 +12,6 @@ import { LiveScoreDetailModal } from '@/components/LiveScoreDetailModal';
 import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import { useScroll } from '@/contexts/ScrollContext';
 import { LiveGame } from '@/types/liveScores';
-import { useDrawer } from '../_layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
@@ -35,7 +34,6 @@ export default function ScoreboardScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { open: openDrawer } = useDrawer();
   const { user } = useAuth();
   const { isDark } = useThemeContext();
   const { scrollY, scrollYClamped } = useScroll();
@@ -138,15 +136,11 @@ export default function ScoreboardScreen() {
           <View style={styles.headerTop}>
             <TouchableOpacity 
               onPress={() => {
-                try {
-                  openDrawer();
-                } catch (error) {
-                  console.error('Error opening drawer:', error);
-                }
+                router.push('/(drawer)/settings' as any);
               }} 
               style={styles.menuButton}
             >
-              <MaterialCommunityIcons name="menu" size={28} color={theme.colors.onSurface} />
+              <MaterialCommunityIcons name="account-circle" size={31} color={theme.colors.onSurface} />
             </TouchableOpacity>
             
             <View style={styles.titleContainer}>

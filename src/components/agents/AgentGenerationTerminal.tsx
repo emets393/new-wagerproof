@@ -42,7 +42,7 @@ export function AgentGenerationTerminal({ status, errorMessage, result }: AgentG
       ];
     }
     if (status === 'success') {
-      const pickCount = result?.picks?.length || 0;
+      const pickCount = result?.picks_generated ?? result?.picks?.length ?? 0;
       return pickCount === 0
         ? [
             'Analysis complete: no high-confidence picks found.',

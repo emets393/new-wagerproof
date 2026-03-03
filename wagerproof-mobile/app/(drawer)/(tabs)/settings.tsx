@@ -1,103 +1,190 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Linking, Platform, ActivityIndicator } from 'react-native';
-import { useTheme, List, Switch, Divider, Button } from 'react-native-paper';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  InteractionManager,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Application from 'expo-application';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useProAccess } from '@/hooks/useProAccess';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { RevenueCatPaywall } from '@/components/RevenueCatPaywall';
-import { CustomerCenter } from '@/components/CustomerCenter';
-import { SwipeToDeleteSlider } from '@/components/SwipeToDeleteSlider';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { PAYWALL_PLACEMENTS } from '@/services/revenuecat';
 import { useLearnWagerProof } from '@/contexts/LearnWagerProofContext';
 
+type ActionRowProps = {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  iconColor: string;
+  iconBackground: string;
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  rightContent?: React.ReactNode;
+  destructive?: boolean;
+  last?: boolean;
+};
+
+function ActionRow({
+  icon,
+  iconColor,
+  iconBackground,
+  title,
+  subtitle,
+  onPress,
+  rightContent,
+  destructive = false,
+  last = false,
+}: ActionRowProps) {
+  const { isDark } = useThemeContext();
+  const rowBackground = isDark ? '#1d1d1d' : '#ffffff';
+  const rowBorder = isDark ? 'rgba(255,255,255,0.08)' : '#ece7e1';
+  const titleColor = isDark ? '#f5f1eb' : '#232325';
+  const subtitleColor = isDark ? '#aea79f' : '#7d7873';
+  const chevronColor = isDark ? '#8f8a84' : '#b7b7b7';
+
+  return (
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.72 : 1}
+      disabled={!onPress}
+      onPress={onPress}
+      style={[
+        styles.actionRow,
+        { backgroundColor: rowBackground },
+        !last && styles.actionRowBorder,
+        !last && { borderBottomColor: rowBorder },
+      ]}
+    >
+      <View style={[styles.actionIconWrap, { backgroundColor: iconBackground }]}>
+        <MaterialCommunityIcons name={icon} size={23} color={iconColor} />
+      </View>
+
+      <View style={styles.actionTextWrap}>
+        <Text style={[styles.actionTitle, { color: titleColor }, destructive && styles.destructiveText]}>
+          {title}
+        </Text>
+        {!!subtitle && <Text style={[styles.actionSubtitle, { color: subtitleColor }]}>{subtitle}</Text>}
+      </View>
+
+      <View style={styles.actionRight}>
+        {rightContent ?? <MaterialCommunityIcons name="chevron-right" size={28} color={chevronColor} />}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function SectionCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  const { isDark } = useThemeContext();
+  const sectionTitleColor = isDark ? '#9e978f' : '#6c6763';
+  const sectionCardColor = isDark ? '#1d1d1d' : '#ffffff';
+
+  return (
+    <View style={styles.sectionWrap}>
+      <Text style={[styles.sectionTitle, { color: sectionTitleColor }]}>{title}</Text>
+      <View style={[styles.sectionCard, { backgroundColor: sectionCardColor }]}>{children}</View>
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
-  const theme = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isDark, toggleTheme } = useThemeContext();
-  const { user, signOut, signingOut, deleteAccount, deletingAccount } = useAuth();
+  const { user, signOut, signingOut, deletingAccount } = useAuth();
   const { isPro, subscriptionType } = useProAccess();
-  const { openCustomerCenter, isInitialized, restore, customerInfo } = useRevenueCat();
+  const { openCustomerCenter } = useRevenueCat();
   const { suggestionsEnabled, setSuggestionsEnabled, isDetached, dismissFloating } = useWagerBotSuggestion();
   const { openLearnSheet } = useLearnWagerProof();
+  const [isOpeningCustomerCenter, setIsOpeningCustomerCenter] = useState(false);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const [tapCount, setTapCount] = useState(0);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Dismiss floating assistant bubble when settings screen opens
   useEffect(() => {
     if (isDetached) {
       dismissFloating();
     }
-  }, []);
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const [tapCount, setTapCount] = React.useState(0);
-  const tapTimer = React.useRef<NodeJS.Timeout | null>(null);
-  const [paywallVisible, setPaywallVisible] = useState(false);
-  const [customerCenterVisible, setCustomerCenterVisible] = useState(false);
-  const [isOpeningCustomerCenter, setIsOpeningCustomerCenter] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
-  const [sliderKey, setSliderKey] = useState(0); // Used to reset slider
+  }, [dismissFloating, isDetached]);
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            // Navigation will be handled by route protection in _layout.tsx
-          },
-        },
-      ]
-    );
+  useEffect(() => {
+    return () => {
+      if (tapTimer.current) {
+        clearTimeout(tapTimer.current);
+      }
+    };
+  }, []);
+
+  const appVersion = useMemo(() => {
+    const nativeVersion = Application.nativeApplicationVersion || '1.0.0';
+    const buildVersion = Application.nativeBuildVersion;
+    return buildVersion ? `${nativeVersion} (${buildVersion})` : nativeVersion;
+  }, []);
+
+  const pageBackground = isDark ? '#111111' : '#f3f0eb';
+  const titleColor = isDark ? '#f8f4ef' : '#1e1e1f';
+  const subtitleColor = isDark ? '#b8b2aa' : '#6f6a66';
+  const switchTrackColors = isDark
+    ? { false: '#4f4a45', true: '#f0c542' }
+    : { false: '#cfc7bf', true: '#1f1f1f' };
+  const switchThumbColor = isDark ? '#fffaf2' : '#ffffff';
+
+  const handleVersionTap = () => {
+    setTapCount((prev) => prev + 1);
+
+    if (tapTimer.current) {
+      clearTimeout(tapTimer.current);
+    }
+
+    tapTimer.current = setTimeout(() => {
+      setTapCount(0);
+    }, 500);
+
+    if (tapCount + 1 >= 2) {
+      setTapCount(0);
+      if (tapTimer.current) {
+        clearTimeout(tapTimer.current);
+      }
+      router.push('/(modals)/secret-settings');
+    }
   };
 
-  const handleDeleteAccountSlide = () => {
-    // Show confirmation alert after slide completes
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be lost.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => {
-            // Reset slider by changing key
-            setSliderKey(prev => prev + 1);
-          },
+  const handleLogout = async () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
         },
-        {
-          text: 'Delete Account',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await deleteAccount();
-            if (error) {
-              Alert.alert(
-                'Error',
-                error.message || 'Failed to delete account. Please try again.',
-                [{ text: 'OK' }]
-              );
-              // Reset slider
-              setSliderKey(prev => prev + 1);
-            }
-            // On success, user will be logged out automatically
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleContactUs = async () => {
     const email = 'admin@wagerproof.bet';
     const subject = 'Contact Us - WagerProof Mobile';
     const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
-    
+
     try {
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) {
@@ -105,52 +192,8 @@ export default function SettingsScreen() {
       } else {
         Alert.alert('Error', 'Unable to open email app. Please email us at admin@wagerproof.bet');
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Unable to open email app. Please email us at admin@wagerproof.bet');
-    }
-  };
-
-  const handleFeatureRequest = () => {
-    router.push('/feature-requests');
-  };
-
-  const handleRestorePurchases = async () => {
-    try {
-      setIsRestoring(true);
-      console.log('🔄 Starting purchase restoration...');
-      console.log('🔄 Current user ID:', user?.id);
-      console.log('🔄 Current RevenueCat customer:', customerInfo?.originalAppUserId);
-
-      const restoredInfo = await restore();
-
-      console.log('✅ Restore completed');
-      console.log('✅ Active entitlements:', Object.keys(restoredInfo?.entitlements?.active || {}));
-
-      // Check if any active entitlements were found
-      const hasActiveEntitlement = Object.keys(restoredInfo?.entitlements?.active || {}).length > 0;
-
-      if (hasActiveEntitlement) {
-        Alert.alert(
-          'Purchases Restored!',
-          'Your subscription has been restored successfully. You now have access to all Pro features.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert(
-          'No Purchases Found',
-          'We couldn\'t find any active purchases for this account. If you believe this is an error, please contact support at admin@wagerproof.bet with your:\n\n• Email address\n• Purchase receipt or confirmation\n• Date of purchase',
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (error: any) {
-      console.error('❌ Restore failed:', error);
-      Alert.alert(
-        'Restore Failed',
-        `Unable to restore purchases: ${error?.message || 'Unknown error'}. Please try again or contact support at admin@wagerproof.bet`,
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsRestoring(false);
     }
   };
 
@@ -159,46 +202,31 @@ export default function SettingsScreen() {
       setIsOpeningCustomerCenter(true);
       await openCustomerCenter();
     } catch (error: any) {
-      // Fallback: try to open store subscription management
       const errorMessage = error?.message || 'Failed to open Customer Center';
-      
+
       if (errorMessage.includes('not available') || errorMessage.includes('not configured')) {
-        // Fallback to store subscription management
         try {
-          if (Platform.OS === 'ios') {
-            // iOS: Open App Store subscription management
-            const url = 'https://apps.apple.com/account/subscriptions';
-            const canOpen = await Linking.canOpenURL(url);
-            if (canOpen) {
-              await Linking.openURL(url);
-            } else {
-              Alert.alert(
-                'Manage Subscription',
-                'Please go to Settings > [Your Name] > Subscriptions in the App Store to manage your subscription.',
-                [{ text: 'OK' }]
-              );
-            }
-          } else if (Platform.OS === 'android') {
-            // Android: Open Play Store subscription management
-            const url = 'https://play.google.com/store/account/subscriptions';
-            const canOpen = await Linking.canOpenURL(url);
-            if (canOpen) {
-              await Linking.openURL(url);
-            } else {
-              Alert.alert(
-                'Manage Subscription',
-                'Please go to Google Play Store > Subscriptions to manage your subscription.',
-                [{ text: 'OK' }]
-              );
-            }
+          const fallbackUrl =
+            Platform.OS === 'ios'
+              ? 'https://apps.apple.com/account/subscriptions'
+              : 'https://play.google.com/store/account/subscriptions';
+          const canOpen = await Linking.canOpenURL(fallbackUrl);
+          if (canOpen) {
+            await Linking.openURL(fallbackUrl);
+          } else {
+            Alert.alert(
+              'Manage Subscription',
+              Platform.OS === 'ios'
+                ? 'Open the App Store subscription manager from iPhone Settings.'
+                : 'Open Google Play Store subscriptions to manage your plan.'
+            );
           }
-        } catch (linkError) {
+        } catch {
           Alert.alert(
             'Manage Subscription',
             Platform.OS === 'ios'
-              ? 'Please go to Settings > [Your Name] > Subscriptions in the App Store to manage your subscription.'
-              : 'Please go to Google Play Store > Subscriptions to manage your subscription.',
-            [{ text: 'OK' }]
+              ? 'Open the App Store subscription manager from iPhone Settings.'
+              : 'Open Google Play Store subscriptions to manage your plan.'
           );
         }
       } else {
@@ -209,342 +237,311 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleVersionTap = () => {
-    setTapCount(prev => prev + 1);
-    
-    // Clear existing timer
-    if (tapTimer.current) {
-      clearTimeout(tapTimer.current);
-    }
-    
-    // Set new timer to reset tap count after 500ms
-    tapTimer.current = setTimeout(() => {
-      setTapCount(0);
-    }, 500);
-    
-    // Check if we've reached double tap
-    if (tapCount + 1 >= 2) {
-      setTapCount(0);
-      if (tapTimer.current) {
-        clearTimeout(tapTimer.current);
-      }
-      // Open secret settings
-      router.push('/(modals)/secret-settings');
-    }
+  const handleSubscriptionPress = () => {
+    setPaywallVisible(true);
   };
 
-  // Cleanup timer on unmount
-  React.useEffect(() => {
-    return () => {
-      if (tapTimer.current) {
-        clearTimeout(tapTimer.current);
-      }
-    };
-  }, []);
+  const handleOpenDeleteAccountTool = () => {
+    router.back();
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(() => {
+        router.push('/(modals)/delete-account');
+      }, 120);
+    });
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.background, paddingTop: insets.top + 16 }]}>
-        <View style={styles.headerContent}>
-          <MaterialCommunityIcons name="cog" size={32} color={theme.colors.primary} />
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            Settings
-          </Text>
-        </View>
-      </View>
+    <View style={[styles.container, { backgroundColor: pageBackground }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + 120,
+        }}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} hitSlop={12}>
+            <MaterialCommunityIcons name="chevron-left" size={38} color={titleColor} />
+          </TouchableOpacity>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 65 + insets.bottom + 20 }}>
-        {/* Account Section */}
-        {user && (
-          <>
-            <List.Section>
-              <List.Item
-                title={user.email || 'Not logged in'}
-                description="Email"
-                left={props => <List.Icon {...props} icon="account" color={theme.colors.primary} />}
-                style={{ backgroundColor: theme.colors.surface }}
-              />
-            </List.Section>
-            <Divider />
-          </>
-        )}
-
-        {/* Subscription Section */}
-        <List.Section>
-          <List.Item
-            title={isPro ? "WagerProof Pro" : "Upgrade to Pro"}
-            description={
-              isPro
-                ? subscriptionType
-                  ? `Active - ${subscriptionType.charAt(0).toUpperCase() + subscriptionType.slice(1)}`
-                  : "Active"
-                : "Unlock premium features"
-            }
-            left={props => (
-              <List.Icon
-                {...props}
-                icon={isPro ? "crown" : "crown-outline"}
-                color={isPro ? "#FFD700" : theme.colors.primary}
-              />
-            )}
-            right={props => <List.Icon {...props} icon="information-outline" />}
-            onPress={() => {
-              // Show subscription debug info for support purposes
-              const debugInfo = `Subscription Debug Info:\n\n` +
-                `Email: ${user?.email || 'Not logged in'}\n` +
-                `User ID: ${user?.id || 'N/A'}\n` +
-                `RevenueCat ID: ${customerInfo?.originalAppUserId || 'Not initialized'}\n` +
-                `Pro Status: ${isPro ? 'Active' : 'Inactive'}\n` +
-                `Subscription Type: ${subscriptionType || 'None'}\n` +
-                `Active Entitlements: ${Object.keys(customerInfo?.entitlements?.active || {}).join(', ') || 'None'}\n\n` +
-                `If you're having subscription issues, please screenshot this and send to admin@wagerproof.bet`;
-
-              Alert.alert('Subscription Info', debugInfo, [{ text: 'OK' }]);
-            }}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Discord Channel"
-            description={isPro ? "Join our community" : "Pro members only"}
-            left={props => <List.Icon {...props} icon="chat" color={theme.colors.primary} />}
-            right={props => (
-              isPro
-                ? <List.Icon {...props} icon="chevron-right" />
-                : <List.Icon {...props} icon="lock" color="#f59e0b" />
-            )}
-            onPress={() => {
-              router.push('/(modals)/discord');
-            }}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-          <List.Item
-            title="Restore Purchases"
-            description={isRestoring ? "Restoring..." : "Already subscribed? Restore here"}
-            left={props => (
-              <List.Icon
-                {...props}
-                icon="restore"
-                color={theme.colors.primary}
-              />
-            )}
-            right={props => (
-              isRestoring ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              ) : (
-                <List.Icon {...props} icon="chevron-right" />
-              )
-            )}
-            onPress={handleRestorePurchases}
-            disabled={isRestoring || !isInitialized}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-        </List.Section>
-        <Divider />
-
-        {/* Preferences Section */}
-        <List.Section>
-          <List.Item
-            title="Dark Mode"
-            description={isDark ? "Dark theme enabled" : "Light theme enabled"}
-            left={props => <List.Icon {...props} icon="theme-light-dark" color={theme.colors.primary} />}
-            right={() => (
-              <Switch
-                value={isDark}
-                onValueChange={toggleTheme}
-                color={theme.colors.primary}
-              />
-            )}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-          <List.Item
-            title="WagerBot Suggestions"
-            description={suggestionsEnabled ? "Proactive suggestions enabled" : "Suggestions disabled"}
-            left={props => <List.Icon {...props} icon="robot" color={theme.colors.primary} />}
-            right={() => (
-              <Switch
-                value={suggestionsEnabled}
-                onValueChange={setSuggestionsEnabled}
-                color={theme.colors.primary}
-              />
-            )}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-          {Platform.OS === 'ios' && (
-            <List.Item
-              title="iOS Home Screen Widget"
-              description="Add widget for quick access"
-              left={props => <List.Icon {...props} icon="widgets" color={theme.colors.primary} />}
-              right={props => <List.Icon {...props} icon="chevron-right" />}
-              onPress={() => router.push('/(modals)/ios-widget')}
-              style={{ backgroundColor: theme.colors.surface }}
-            />
-          )}
-        </List.Section>
-        <Divider />
-
-        {/* Support Section */}
-        <List.Section>
-          <List.Item
-            title="Contact Us"
-            description="Send us feedback"
-            left={props => <List.Icon {...props} icon="email" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleContactUs}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Feature Requests"
-            description="Suggest new features"
-            left={props => <List.Icon {...props} icon="lightbulb-on" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleFeatureRequest}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-          <List.Item
-            title="Learn WagerProof"
-            description="Take a tour of app features"
-            left={props => <List.Icon {...props} icon="school" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => openLearnSheet()}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-        </List.Section>
-        <Divider />
-
-        {/* About Section */}
-        <List.Section>
-          <List.Item
-            title="Manage Subscription"
-            description={
-              isInitialized 
-                ? "View and manage your subscription" 
-                : "Loading subscription services..."
-            }
-            left={props => (
-              <List.Icon
-                {...props}
-                icon="credit-card"
-                color={theme.colors.primary}
-              />
-            )}
-            right={props => (
-              isOpeningCustomerCenter ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              ) : (
-                <List.Icon {...props} icon="chevron-right" />
-              )
-            )}
-            onPress={handleOpenCustomerCenter}
-            disabled={isOpeningCustomerCenter || !isInitialized}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="App Version"
-            description="1.0.0"
-            left={props => <List.Icon {...props} icon="information" color={theme.colors.primary} />}
-            onPress={handleVersionTap}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Privacy Policy"
-            description="View our privacy policy"
-            left={props => <List.Icon {...props} icon="shield-lock" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              Linking.openURL('https://wagerproof.bet/privacy-policy');
-            }}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Terms & Conditions"
-            description="View our terms"
-            left={props => <List.Icon {...props} icon="file-document" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              Linking.openURL('https://wagerproof.bet/terms-and-conditions');
-            }}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-        </List.Section>
-
-        {/* Logout Button */}
-        {user && (
-          <View style={styles.logoutContainer}>
-            <Button
-              mode="contained"
-              onPress={handleLogout}
-              style={[styles.logoutButton, { backgroundColor: theme.colors.error }]}
-              labelStyle={{ color: theme.colors.onError }}
-              icon="logout"
-              loading={signingOut}
-              disabled={signingOut || deletingAccount}
-            >
-              {signingOut ? 'Logging out...' : 'Logout'}
-            </Button>
-          </View>
-        )}
-
-        {/* Danger Zone - Delete Account */}
-        {user && (
-          <View style={styles.dangerZone}>
-            <Divider style={{ marginBottom: 16 }} />
-            <View style={styles.dangerHeader}>
-              <MaterialCommunityIcons
-                name="alert-circle"
-                size={20}
-                color={theme.colors.error}
-              />
-              <Text style={[styles.dangerTitle, { color: theme.colors.error }]}>
-                Danger Zone
-              </Text>
-            </View>
-            <Text style={[styles.dangerText, { color: theme.colors.onSurfaceVariant }]}>
-              Permanently delete your account and all associated data. This action cannot be undone.
+          <View style={styles.headerCenter}>
+            <Text style={[styles.headerTitle, { color: titleColor }]}>Settings</Text>
+            <Text style={[styles.headerSubtitle, { color: subtitleColor }]}>
+              Account, billing, preferences
             </Text>
-            {deletingAccount ? (
-              <View style={styles.deletingContainer}>
-                <ActivityIndicator size="small" color={theme.colors.error} />
-                <Text style={[styles.deletingText, { color: theme.colors.error }]}>
-                  Deleting account...
+          </View>
+
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <View style={styles.pagePadding}>
+          <TouchableOpacity activeOpacity={0.9} onPress={handleSubscriptionPress}>
+            <LinearGradient
+            colors={isDark ? ['#b98300', '#d8a61b', '#f0c542'] : ['#efbe34', '#f3c43f', '#f7d768']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+            >
+              <View style={styles.heroGlowOne} />
+              <View style={styles.heroGlowTwo} />
+
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroEyebrow}>{isPro ? 'PRO MEMBER' : 'SPECIAL OFFER'}</Text>
+                <Text style={styles.heroTitle}>
+                  {isPro ? 'YOU ARE\nPRO' : 'GO PRO\nTODAY'}
                 </Text>
+                {!isPro && (
+                  <View style={styles.heroBadgePill}>
+                    <Text style={styles.heroBadgePillText}>Unlock premium picks</Text>
+                  </View>
+                )}
               </View>
-            ) : (
-              <SwipeToDeleteSlider
-                key={sliderKey}
-                onSlideComplete={handleDeleteAccountSlide}
-                disabled={signingOut || deletingAccount}
+
+              <View style={styles.heroArtwork}>
+                <View style={styles.heroBadge}>
+                  <MaterialCommunityIcons name={isPro ? 'crown' : 'gift'} size={46} color="#f08b00" />
+                </View>
+                <View style={styles.heroMiniBadge}>
+                  <MaterialCommunityIcons name="star-four-points" size={18} color="#f08b00" />
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <SectionCard title="Membership">
+            {user?.email && (
+              <ActionRow
+                icon="email-outline"
+                iconColor="#eb7a00"
+                iconBackground="#fff1e3"
+                title="Email"
+                subtitle={user.email}
               />
             )}
-          </View>
-        )}
+            <ActionRow
+              icon="credit-card-outline"
+              iconColor="#2a86ff"
+              iconBackground="#edf5ff"
+              title="Manage Subscription"
+              subtitle={
+                isPro
+                  ? subscriptionType
+                    ? `Active ${subscriptionType} membership`
+                    : 'Billing, renewal, and plan details'
+                  : 'View plans, billing, and upgrade options'
+              }
+              onPress={isPro ? handleOpenCustomerCenter : handleSubscriptionPress}
+              rightContent={
+                isOpeningCustomerCenter ? (
+                  <ActivityIndicator size="small" color="#2a86ff" />
+                ) : (
+                  <MaterialCommunityIcons name="chevron-right" size={28} color="#b7b7b7" />
+                )
+              }
+              last
+            />
+          </SectionCard>
 
-        <View style={{ height: 40 }} />
+          <SectionCard title="Preferences">
+            <ActionRow
+              icon="theme-light-dark"
+              iconColor="#5f56d8"
+              iconBackground="#f1efff"
+              title="Dark Mode"
+              subtitle={isDark ? 'Dark theme enabled' : 'Light theme enabled'}
+              rightContent={
+                <Switch
+                  value={isDark}
+                  onValueChange={toggleTheme}
+                  trackColor={switchTrackColors}
+                  thumbColor={switchThumbColor}
+                />
+              }
+            />
+            <ActionRow
+              icon="robot-outline"
+              iconColor="#2b9e76"
+              iconBackground="#e9f8f2"
+              title="WagerBot Suggestions"
+              subtitle={suggestionsEnabled ? 'Proactive suggestions enabled' : 'Suggestions are off'}
+              rightContent={
+                <Switch
+                  value={suggestionsEnabled}
+                  onValueChange={setSuggestionsEnabled}
+                  trackColor={switchTrackColors}
+                  thumbColor={switchThumbColor}
+                />
+              }
+            />
+            {Platform.OS === 'ios' && (
+              <ActionRow
+                icon="widgets-outline"
+                iconColor="#f08b00"
+                iconBackground="#fff2de"
+                title="iOS Home Screen Widget"
+                subtitle="Add a quick access widget"
+                onPress={() => router.push('/(modals)/ios-widget')}
+                last
+              />
+            )}
+            {Platform.OS !== 'ios' && (
+              <ActionRow
+                icon="information-outline"
+                iconColor="#8b8b8b"
+                iconBackground="#f4f1ec"
+                title="App Version"
+                subtitle={appVersion}
+                onPress={handleVersionTap}
+                last
+              />
+            )}
+          </SectionCard>
+
+          <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/(modals)/discord')}>
+            <LinearGradient
+              colors={isDark ? ['#5865f2', '#6573ff', '#7c88ff'] : ['#5b67f3', '#6f7cff', '#8d96ff']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.discordBanner}
+            >
+              <View style={styles.discordGlowOne} />
+              <View style={styles.discordGlowTwo} />
+
+              <View style={styles.heroCopy}>
+                <Text style={styles.discordEyebrow}>COMMUNITY</Text>
+                <Text style={styles.discordTitle}>JOIN OUR{'\n'}DISCORD</Text>
+                <View style={styles.discordBadgePill}>
+                  <Text style={styles.discordBadgePillText}>Get picks, updates, and live chat</Text>
+                </View>
+              </View>
+
+              <View style={styles.heroArtwork}>
+                <View style={styles.discordBadge}>
+                  <MaterialCommunityIcons name="chat-processing-outline" size={42} color="#5865f2" />
+                </View>
+                <View style={styles.discordMiniBadge}>
+                  <MaterialCommunityIcons name="message-flash-outline" size={16} color="#5865f2" />
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <SectionCard title="Community & Support">
+            <ActionRow
+              icon="chat-processing-outline"
+              iconColor="#7289da"
+              iconBackground="#eef1ff"
+              title="Discord Channel"
+              subtitle={isPro ? 'Join our community' : 'Member community access'}
+              onPress={() => router.push('/(modals)/discord')}
+            />
+            <ActionRow
+              icon="lightbulb-on-outline"
+              iconColor="#55b13b"
+              iconBackground="#eef9eb"
+              title="Feature Requests"
+              subtitle="Suggest something we should build next"
+              onPress={() => router.push('/feature-requests')}
+            />
+            <ActionRow
+              icon="school-outline"
+              iconColor="#f08b00"
+              iconBackground="#fff3df"
+              title="Learn WagerProof"
+              subtitle="Take a guided tour of the app"
+              onPress={() => openLearnSheet()}
+            />
+            <ActionRow
+              icon="email-outline"
+              iconColor="#eb7a00"
+              iconBackground="#fff1e3"
+              title="Contact Us"
+              subtitle="Reach support directly"
+              onPress={handleContactUs}
+              last
+            />
+          </SectionCard>
+
+          <SectionCard title="Legal & Policies">
+            <ActionRow
+              icon="shield-half-full"
+              iconColor="#f4a000"
+              iconBackground="#fff6df"
+              title="Privacy Policy"
+              subtitle="How we collect and use data"
+              onPress={() => Linking.openURL('https://wagerproof.bet/privacy-policy')}
+            />
+            <ActionRow
+              icon="file-document-outline"
+              iconColor="#f4a000"
+              iconBackground="#fff6df"
+              title="Terms of Use"
+              subtitle="Service terms and billing rules"
+              onPress={() => Linking.openURL('https://wagerproof.bet/terms-and-conditions')}
+            />
+            <ActionRow
+              icon="information-outline"
+              iconColor="#8b8b8b"
+              iconBackground="#f4f1ec"
+              title="App Version"
+              subtitle={appVersion}
+              onPress={handleVersionTap}
+              last
+            />
+          </SectionCard>
+
+          {user && (
+            <>
+              <SectionCard title="Account">
+              <ActionRow
+                icon="logout"
+                iconColor="#d16a00"
+                  iconBackground="#fff0e1"
+                  title={signingOut ? 'Logging out...' : 'Log Out'}
+                  subtitle="Sign out of this device"
+                  onPress={handleLogout}
+                  rightContent={
+                    signingOut ? (
+                      <ActivityIndicator size="small" color="#d16a00" />
+                    ) : (
+                      <MaterialCommunityIcons name="chevron-right" size={28} color="#b7b7b7" />
+                    )
+                  }
+                  last
+                />
+              </SectionCard>
+              <SectionCard title="Danger Zone">
+                <ActionRow
+                  icon="alert-octagon-outline"
+                  iconColor="#dd4d3f"
+                  iconBackground="#fff0ee"
+                  title={deletingAccount ? 'Deleting account...' : 'Delete Account'}
+                  subtitle="Opens the delete-account tool with swipe confirmation"
+                  onPress={deletingAccount ? undefined : handleOpenDeleteAccountTool}
+                  destructive
+                  rightContent={
+                    deletingAccount ? (
+                      <ActivityIndicator size="small" color="#dd4d3f" />
+                    ) : (
+                      <MaterialCommunityIcons name="chevron-right" size={28} color="#b7b7b7" />
+                    )
+                  }
+                  last
+                />
+              </SectionCard>
+            </>
+          )}
+        </View>
       </ScrollView>
 
-      {/* RevenueCat Paywall Modal */}
       <RevenueCatPaywall
         visible={paywallVisible}
+        placementId={PAYWALL_PLACEMENTS.GENERIC_FEATURE}
         onClose={() => setPaywallVisible(false)}
         onPurchaseComplete={() => {
           setPaywallVisible(false);
-          Alert.alert('Success', 'Welcome to WagerProof Pro!');
+          Alert.alert('Success', 'Welcome to WagerProof Pro.');
         }}
-      />
-
-      {/* Customer Center Modal */}
-      <CustomerCenter
-        visible={customerCenterVisible}
-        onClose={() => setCustomerCenterVisible(false)}
       />
     </View>
   );
@@ -555,59 +552,264 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    elevation: 4,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  logoutContainer: {
-    padding: 16,
-    marginTop: 24,
-  },
-  logoutButton: {
-    borderRadius: 8,
-  },
-  dangerZone: {
-    padding: 16,
-    marginTop: 8,
-  },
-  dangerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  dangerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  dangerText: {
-    fontSize: 14,
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  deletingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    minHeight: 88,
     justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    paddingHorizontal: 18,
   },
-  deletingText: {
-    fontSize: 14,
+  backButton: {
+    width: 44,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 44,
+  },
+  headerTitle: {
+    fontSize: 31,
+    lineHeight: 36,
+    fontWeight: '700',
+    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
+  },
+  headerSubtitle: {
+    marginTop: 6,
+    fontSize: 13,
     fontWeight: '500',
   },
+  pagePadding: {
+    paddingHorizontal: 18,
+    gap: 22,
+  },
+  heroCard: {
+    borderRadius: 30,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    minHeight: 132,
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
+  heroGlowOne: {
+    position: 'absolute',
+    top: -18,
+    right: 44,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  heroGlowTwo: {
+    position: 'absolute',
+    bottom: -30,
+    right: -6,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.13)',
+  },
+  heroCopy: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingRight: 12,
+  },
+  heroEyebrow: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: '#1c1c1d',
+  },
+  heroTitle: {
+    marginTop: 6,
+    fontSize: 27,
+    lineHeight: 28,
+    color: '#151515',
+    fontWeight: '700',
+    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
+  },
+  heroBadgePill: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  heroBadgePillText: {
+    color: '#ea7a00',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  heroArtwork: {
+    width: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-8deg' }],
+    shadowColor: '#8f6100',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
+  },
+  heroMiniBadge: {
+    position: 'absolute',
+    top: 14,
+    right: 2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  discordBanner: {
+    borderRadius: 30,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    minHeight: 132,
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
+  discordGlowOne: {
+    position: 'absolute',
+    top: -18,
+    right: 44,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  discordGlowTwo: {
+    position: 'absolute',
+    bottom: -30,
+    right: -6,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.11)',
+  },
+  discordEyebrow: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: '#ffffff',
+  },
+  discordTitle: {
+    marginTop: 6,
+    fontSize: 27,
+    lineHeight: 28,
+    color: '#ffffff',
+    fontWeight: '700',
+    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
+  },
+  discordBadgePill: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  discordBadgePillText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  discordBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-8deg' }],
+    shadowColor: '#27318f',
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
+  },
+  discordMiniBadge: {
+    position: 'absolute',
+    top: 14,
+    right: 2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionWrap: {
+    gap: 12,
+  },
+  sectionTitle: {
+    paddingHorizontal: 6,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#6c6763',
+  },
+  sectionCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    backgroundColor: '#ffffff',
+  },
+  actionRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#ece7e1',
+  },
+  actionIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionTextWrap: {
+    flex: 1,
+    marginLeft: 14,
+    marginRight: 8,
+  },
+  actionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#232325',
+  },
+  actionSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#7d7873',
+  },
+  actionRight: {
+    minWidth: 28,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  destructiveText: {
+    color: '#dd4d3f',
+  },
 });
-

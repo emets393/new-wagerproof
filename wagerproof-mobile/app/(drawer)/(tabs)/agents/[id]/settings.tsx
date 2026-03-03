@@ -76,11 +76,12 @@ function CollapsibleSection({
         styles.section,
         {
           backgroundColor: isDark
-            ? 'rgba(255, 255, 255, 0.03)'
-            : 'rgba(0, 0, 0, 0.02)',
+            ? 'rgba(255, 255, 255, 0.06)'
+            : 'rgba(255, 255, 255, 0.82)',
           borderColor: isDark
-            ? 'rgba(255, 255, 255, 0.1)'
-            : 'rgba(0, 0, 0, 0.08)',
+            ? 'rgba(255, 255, 255, 0.12)'
+            : 'rgba(255, 255, 255, 0.72)',
+          shadowColor: '#000000',
         },
       ]}
     >
@@ -92,14 +93,30 @@ function CollapsibleSection({
         }}
         activeOpacity={0.7}
       >
-        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-          {title}
-        </Text>
-        <MaterialCommunityIcons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={24}
-          color={theme.colors.onSurfaceVariant}
-        />
+        <View style={styles.sectionTitleWrap}>
+          <Text style={[styles.sectionEyebrow, { color: theme.colors.primary }]}>
+            Settings
+          </Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+            {title}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.chevronBadge,
+            {
+              backgroundColor: isDark
+                ? 'rgba(255, 255, 255, 0.08)'
+                : 'rgba(15, 23, 42, 0.06)',
+            },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={22}
+            color={theme.colors.onSurfaceVariant}
+          />
+        </View>
       </TouchableOpacity>
       {expanded && <View style={styles.sectionContent}>{children}</View>}
     </View>
@@ -112,7 +129,7 @@ export default function AgentSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { canCreatePublicAgent } = useAgentEntitlements();
+  const { canCreatePublicAgent, canUseAutopilot } = useAgentEntitlements();
 
   // Fetch agent data
   const { data: agent, isLoading } = useAgent(id || '');
@@ -883,11 +900,17 @@ export default function AgentSettingsScreen() {
           <ToggleInput
             value={autoGenerate}
             onChange={(v) => {
+              if (!canUseAutopilot) return;
               setAutoGenerate(v);
               markChanged();
             }}
             label="Auto-Generate Picks"
-            description="Automatically generate picks daily when games are available"
+            description={
+              canUseAutopilot
+                ? "Automatically generate picks daily when games are available"
+                : "Upgrade to Pro to enable daily auto-generation"
+            }
+            disabled={!canUseAutopilot}
           />
           <Text
             style={[
@@ -895,9 +918,9 @@ export default function AgentSettingsScreen() {
               { color: theme.colors.onSurfaceVariant },
             ]}
           >
-            When enabled, your agent will automatically analyze available games
-            and generate picks each day. You can always manually generate picks
-            as well.
+            {canUseAutopilot
+              ? 'When enabled, your agent will automatically analyze available games and generate picks each day. You can always manually generate picks as well.'
+              : 'Pro subscribers get automatic daily pick generation. Free users can still generate picks manually.'}
           </Text>
         </CollapsibleSection>
 
@@ -1053,24 +1076,45 @@ const styles = StyleSheet.create({
   },
   // Section styles
   section: {
-    borderRadius: 16,
+    borderRadius: 24,
     borderWidth: 1,
     marginBottom: 16,
     overflow: 'hidden',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 4,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  sectionTitleWrap: {
+    gap: 4,
+  },
+  sectionEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
   },
+  chevronBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sectionContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
   },
   // Input styles
   inputGroup: {

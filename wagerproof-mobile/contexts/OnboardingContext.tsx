@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
 import {
+  ONBOARDING_TOTAL_STEPS,
   trackOnboardingStarted,
   trackOnboardingStepViewed,
   trackOnboardingStepCompleted,
@@ -57,7 +58,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isTransitioning, setIsTransitioning] = useState(false);
   const hasTrackedStart = useRef(false);
-  const previousStep = useRef(1);
+  const hasCompletedOnboarding = useRef(false);
+  const currentStepRef = useRef(1);
 
   // Agent builder form state
   const [agentFormState, setAgentFormState] = useState<CreateAgentFormState>({
@@ -76,16 +78,21 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
-  // Track step changes
+  // Track step views only. Step completion is emitted on successful forward progression.
   useEffect(() => {
-    if (currentStep !== previousStep.current) {
-      // Track completion of previous step
-      trackOnboardingStepCompleted(previousStep.current);
-      // Track viewing of new step
+    currentStepRef.current = currentStep;
+    if (hasTrackedStart.current && currentStep > 1) {
       trackOnboardingStepViewed(currentStep);
-      previousStep.current = currentStep;
     }
   }, [currentStep]);
+
+  useEffect(() => {
+    return () => {
+      if (!hasCompletedOnboarding.current) {
+        trackOnboardingAbandoned(currentStepRef.current);
+      }
+    };
+  }, []);
 
   const nextStep = () => {
     if (isTransitioning) {
@@ -94,6 +101,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     }
 
     console.log('nextStep called, current step:', currentStep);
+    trackOnboardingStepCompleted(currentStep, undefined, ONBOARDING_TOTAL_STEPS);
     setIsTransitioning(true);
     setDirection(1);
     setCurrentStep((prev) => {
@@ -175,6 +183,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   const resetOnboarding = useCallback(() => {
     console.log('Resetting onboarding context to step 1');
+    hasCompletedOnboarding.current = false;
     setCurrentStep(1);
     setDirection(0);
     setOnboardingData({});
@@ -220,7 +229,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         console.log('Updated data:', data);
 
         // Track onboarding completion with collected data
-        trackOnboardingStepCompleted(currentStep); // Track final step completion
+        hasCompletedOnboarding.current = true;
+        trackOnboardingStepCompleted(currentStep, undefined, ONBOARDING_TOTAL_STEPS);
         trackOnboardingCompleted({
           favoriteSports: onboardingData.favoriteSports,
           bettorType: onboardingData.bettorType,

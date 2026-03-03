@@ -17,7 +17,7 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useLeaderboardByMode } from '@/hooks/useLeaderboard';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
-import { LeaderboardEntry, LeaderboardSortMode } from '@/services/agentPerformanceService';
+import { LeaderboardEntry, LeaderboardSortMode, LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import { Sport, formatNetUnits } from '@/types/agent';
 
 function getPrimaryColor(value: string): string {
@@ -39,6 +39,12 @@ const LEADERBOARD_FILTERS: { label: string; value: LeaderboardSortMode }[] = [
   { label: 'Recent Run', value: 'recent_run' },
   { label: 'Longest Streak', value: 'longest_streak' },
   { label: 'Bottom 100', value: 'bottom_100' },
+];
+
+const LEADERBOARD_TIMEFRAMES: { label: string; value: LeaderboardTimeframe }[] = [
+  { label: 'All time', value: 'all_time' },
+  { label: '7 days', value: 'last_7_days' },
+  { label: '30 days', value: 'last_30_days' },
 ];
 
 interface AgentLeaderboardProps {
@@ -330,6 +336,7 @@ export function AgentLeaderboard({
   const { isDark } = useThemeContext();
   const { isPro, isAdmin } = useAgentEntitlements();
   const [sortMode, setSortMode] = useState<LeaderboardSortMode>('overall');
+  const [timeframe, setTimeframe] = useState<LeaderboardTimeframe>('all_time');
   const [excludeUnder10Picks, setExcludeUnder10Picks] = useState(false);
   const lockStats = !(isPro || isAdmin);
 
@@ -339,7 +346,7 @@ export function AgentLeaderboard({
     isLoading,
     isRefetching,
     refetch,
-  } = useLeaderboardByMode(sortMode, limit, undefined, excludeUnder10Picks);
+  } = useLeaderboardByMode(sortMode, limit, undefined, excludeUnder10Picks, timeframe);
 
   const displayLeaderboard = (leaderboard || []).map((entry, index) => ({ entry, rank: index + 1 }));
 
@@ -454,6 +461,43 @@ export function AgentLeaderboard({
             10+ picks only
           </Text>
         </TouchableOpacity>
+      </ScrollView>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRowSecondary}
+      >
+        {LEADERBOARD_TIMEFRAMES.map((filter) => {
+          const isActive = timeframe === filter.value;
+          return (
+            <TouchableOpacity
+              key={filter.value}
+              style={[
+                styles.filterPill,
+                {
+                  backgroundColor: isActive
+                    ? (isDark ? 'rgba(0, 230, 118, 0.16)' : 'rgba(0, 230, 118, 0.14)')
+                    : (isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)'),
+                  borderColor: isActive
+                    ? 'rgba(0, 230, 118, 0.45)'
+                    : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
+                },
+              ]}
+              activeOpacity={0.8}
+              onPress={() => setTimeframe(filter.value)}
+            >
+              <Text
+                style={[
+                  styles.filterPillText,
+                  { color: isActive ? '#00E676' : theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {/* Column Headers */}
@@ -621,6 +665,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingTop: 8,
+    paddingBottom: 10,
+    paddingHorizontal: 2,
+  },
+  filterRowSecondary: {
+    alignItems: 'center',
+    gap: 8,
     paddingBottom: 10,
     paddingHorizontal: 2,
   },

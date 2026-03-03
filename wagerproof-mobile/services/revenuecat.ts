@@ -1,4 +1,12 @@
 import { Platform, NativeModules } from 'react-native';
+import {
+  SubscriptionType,
+  trackPaywallDismissed,
+  trackPaywallViewed,
+  trackSubscriptionPurchased,
+  trackSubscriptionRestored,
+  trackTrialStarted,
+} from './analytics';
 
 // RevenueCat API Keys - Platform specific
 const REVENUECAT_API_KEY_IOS = 'appl_TFQYZRtHkCBrnaILkniTjsulyHK';
@@ -24,6 +32,109 @@ export const PRODUCT_IDENTIFIERS = {
 
 export type ProductIdentifier = typeof PRODUCT_IDENTIFIERS[keyof typeof PRODUCT_IDENTIFIERS];
 
+// These identifiers must match the placements configured in RevenueCat.
+export const PAYWALL_PLACEMENTS = {
+  ONBOARDING: 'onboarding',
+  GENERIC_FEATURE: 'generic_feature',
+  AGENT_FEATURE: 'agent_feature',
+} as const;
+
+export type PaywallPlacement = typeof PAYWALL_PLACEMENTS[keyof typeof PAYWALL_PLACEMENTS];
+
+type PaywallSource = string;
+
+const normalizePaywallResult = (result: unknown): string => {
+  return String(result || '').toUpperCase();
+};
+
+const getSubscriptionTypeFromProductId = (productId?: string): SubscriptionType | null => {
+  if (!productId) {
+    return null;
+  }
+
+  const normalizedProductId = productId.toLowerCase();
+  if (normalizedProductId.includes('lifetime')) return 'lifetime';
+  if (normalizedProductId.includes('annual') || normalizedProductId.includes('yearly')) return 'yearly';
+  if (normalizedProductId.includes('monthly')) return 'monthly';
+  return null;
+};
+
+const findPackageForProductId = (offering: any, productId?: string): any | null => {
+  if (!offering || !productId) {
+    return null;
+  }
+
+  return (
+    offering.availablePackages?.find((pkg: any) => {
+      return pkg?.product?.identifier?.toLowerCase() === productId.toLowerCase();
+    }) || null
+  );
+};
+
+const getActiveEntitlement = (customerInfo: any) => {
+  return customerInfo?.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
+};
+
+const trackPaywallResult = async (
+  paywallResult: unknown,
+  offering: any,
+  source: PaywallSource
+): Promise<void> => {
+  const normalizedResult = normalizePaywallResult(paywallResult);
+
+  if (normalizedResult.includes('CANCEL')) {
+    trackPaywallDismissed(source, normalizedResult);
+    return;
+  }
+
+  if (!normalizedResult.includes('PURCHASE') && !normalizedResult.includes('RESTORE')) {
+    return;
+  }
+
+  const PurchasesModule = getPurchasesModule();
+  if (!PurchasesModule) {
+    return;
+  }
+
+  try {
+    const customerInfo = await PurchasesModule.getCustomerInfo();
+    const entitlement = getActiveEntitlement(customerInfo);
+    const subscriptionType =
+      getActiveSubscriptionType(customerInfo) ||
+      getSubscriptionTypeFromProductId(entitlement?.productIdentifier);
+
+    if (!subscriptionType) {
+      return;
+    }
+
+    const activeOffering = offering || (await getOfferings());
+    const matchingPackage = findPackageForProductId(activeOffering, entitlement?.productIdentifier);
+    const price = matchingPackage?.product?.price;
+    const currency = matchingPackage?.product?.currencyCode || 'USD';
+    const isTrial = entitlement?.periodType === 'TRIAL';
+
+    if (normalizedResult.includes('RESTORE')) {
+      trackSubscriptionRestored(subscriptionType);
+      return;
+    }
+
+    trackSubscriptionPurchased(
+      subscriptionType,
+      price ?? 0,
+      currency,
+      undefined,
+      false,
+      isTrial
+    );
+
+    if (isTrial) {
+      trackTrialStarted(subscriptionType, source, price, currency);
+    }
+  } catch (error) {
+    console.error('Error tracking paywall result analytics:', error);
+  }
+};
+
 // Track initialization state
 let isConfigured = false;
 let Purchases: any = null;
@@ -31,6 +142,23 @@ let CustomerInfo: any = null;
 let PurchasesOffering: any = null;
 let PurchasesPackage: any = null;
 let LOG_LEVEL: any = null;
+
+function getRevenueCatUIModule() {
+  if (Platform.OS === 'web') {
+    return null;
+  }
+
+  try {
+    const purchasesUI = require('react-native-purchases-ui');
+    return {
+      RevenueCatUI: purchasesUI.default,
+      PAYWALL_RESULT: purchasesUI.PAYWALL_RESULT,
+    };
+  } catch (error: any) {
+    console.warn('Could not load react-native-purchases-ui:', error.message);
+    return null;
+  }
+}
 
 // Lazy load RevenueCat module to avoid errors if native module isn't available
 function getPurchasesModule() {
@@ -170,9 +298,30 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
       apiKey: apiKey,
       appUserID: userId || null, // Use anonymous ID if not logged in
     });
-    
+
     console.log('✅ RevenueCat configured successfully for', Platform.OS);
-    
+
+    // Collect device identifiers (IDFA on iOS, GAID on Android) for attribution
+    // This must be called after configure() so RevenueCat can pass identifiers to integrations like Meta
+    try {
+      await PurchasesModule.collectDeviceIdentifiers();
+      console.log('✅ RevenueCat device identifiers collected (IDFA/GAID)');
+    } catch (idError: any) {
+      console.warn('⚠️ Could not collect device identifiers:', idError.message);
+    }
+
+    // Set Facebook Anonymous ID for Meta attribution integration
+    try {
+      const { AppEventsLogger } = require('react-native-fbsdk-next');
+      const fbAnonId = await AppEventsLogger.getAnonymousID();
+      if (fbAnonId) {
+        await PurchasesModule.setFBAnonymousID(fbAnonId);
+        console.log('✅ RevenueCat Facebook Anonymous ID set:', fbAnonId.substring(0, 10) + '...');
+      }
+    } catch (fbError: any) {
+      console.warn('⚠️ Could not set Facebook Anonymous ID:', fbError.message);
+    }
+
     // Verify configuration by checking if we can get customer info
     try {
       const testCustomerInfo = await PurchasesModule.getCustomerInfo();
@@ -223,7 +372,7 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
  * Call this when user logs in or when user ID changes
  * Returns the CustomerInfo from the login response
  */
-export async function setRevenueCatUserId(userId: string): Promise<CustomerInfo | null> {
+export async function setRevenueCatUserId(userId: string): Promise<any | null> {
   try {
     console.log('🔑 setRevenueCatUserId called with:', userId);
     console.log('🔑 isConfigured:', isConfigured);
@@ -325,6 +474,37 @@ export async function getOfferings(): Promise<any> {
     console.error('Error fetching offerings:', error);
     return null;
   }
+}
+
+export async function getCurrentOfferingForPlacement(placementIdentifier: string): Promise<any> {
+  try {
+    const PurchasesModule = getPurchasesModule();
+    if (!isConfigured || !PurchasesModule) {
+      return null;
+    }
+
+    if (typeof PurchasesModule.getCurrentOfferingForPlacement !== 'function') {
+      throw new Error('Current RevenueCat SDK does not expose getCurrentOfferingForPlacement');
+    }
+
+    const offering = await PurchasesModule.getCurrentOfferingForPlacement(placementIdentifier);
+    console.log('📦 Placement offering fetched:', {
+      placementIdentifier,
+      offeringIdentifier: offering?.identifier ?? null,
+    });
+    return offering;
+  } catch (error) {
+    console.error('Error fetching offering for placement:', placementIdentifier, error);
+    return null;
+  }
+}
+
+export async function getPaywallOffering(placementIdentifier?: string | null): Promise<any> {
+  if (placementIdentifier) {
+    return getCurrentOfferingForPlacement(placementIdentifier);
+  }
+
+  return getOfferings();
 }
 
 /**
@@ -519,7 +699,10 @@ export async function presentCustomerCenter(): Promise<void> {
  * Paywalls V2 are fully configured in the RevenueCat dashboard.
  * The offering parameter is optional - if not provided, uses the current offering.
  */
-export async function presentPaywall(offering?: any): Promise<string> {
+export async function presentPaywall(
+  offering?: any,
+  source: PaywallSource = 'unknown'
+): Promise<string> {
   try {
     console.log('📱 presentPaywall() called - Paywalls V2');
     console.log('Platform:', Platform.OS);
@@ -535,23 +718,18 @@ export async function presentPaywall(offering?: any): Promise<string> {
       throw new Error('RevenueCat is not configured. Make sure initializeRevenueCat() was called successfully.');
     }
 
-    // Lazy load RevenueCatUI
-    let RevenueCatUI: any = null;
-    let PAYWALL_RESULT: any = null;
-    try {
-      const purchasesUI = require('react-native-purchases-ui');
-      RevenueCatUI = purchasesUI.default;
-      PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
-      console.log('✅ RevenueCatUI module loaded (V2)');
-      console.log('✅ Available PAYWALL_RESULT values:', Object.keys(PAYWALL_RESULT || {}));
-    } catch (error: any) {
-      console.error('❌ Could not load react-native-purchases-ui:', error);
+    const uiModule = getRevenueCatUIModule();
+    if (!uiModule) {
       throw new Error('RevenueCat UI module not available. Make sure the app is rebuilt after installing react-native-purchases-ui.');
     }
+
+    const { RevenueCatUI } = uiModule;
 
     if (!RevenueCatUI) {
       throw new Error('RevenueCat UI is not available');
     }
+
+    trackPaywallViewed(source);
 
     // Present paywall using V2 API
     // Note: For V2, the paywall is configured in the dashboard and attached to an offering
@@ -562,6 +740,7 @@ export async function presentPaywall(offering?: any): Promise<string> {
     });
     
     console.log('✅ Paywall V2 presented, result:', paywallResult);
+    await trackPaywallResult(paywallResult, offering, source);
     
     // Return the result as a string for easier comparison
     return paywallResult;
@@ -594,16 +773,12 @@ export async function presentPaywallIfNeeded(requiredEntitlementIdentifier: stri
       throw new Error('RevenueCat is not configured. Make sure initializeRevenueCat() was called successfully.');
     }
 
-    // Lazy load RevenueCatUI
-    let RevenueCatUI: any = null;
-    try {
-      const purchasesUI = require('react-native-purchases-ui');
-      RevenueCatUI = purchasesUI.default;
-      console.log('✅ RevenueCatUI module loaded for presentPaywallIfNeeded');
-    } catch (error: any) {
-      console.error('Could not load react-native-purchases-ui:', error);
+    const uiModule = getRevenueCatUIModule();
+    if (!uiModule) {
       throw new Error('RevenueCat UI module not available. Make sure the app is rebuilt after installing react-native-purchases-ui.');
     }
+
+    const { RevenueCatUI } = uiModule;
 
     if (!RevenueCatUI) {
       throw new Error('RevenueCat UI is not available');
@@ -641,6 +816,65 @@ export async function getAvailablePackages(): Promise<any[]> {
   }
 }
 
+export async function getAvailablePackagesForPlacement(placementIdentifier: string): Promise<any[]> {
+  try {
+    const offering = await getCurrentOfferingForPlacement(placementIdentifier);
+    return offering?.availablePackages || [];
+  } catch (error) {
+    console.error('Error fetching packages for placement:', placementIdentifier, error);
+    return [];
+  }
+}
+
+export function didPaywallGrantEntitlement(result: string | null | undefined): boolean {
+  const uiModule = getRevenueCatUIModule();
+  const paywallResult = uiModule?.PAYWALL_RESULT;
+
+  if (!paywallResult || !result) {
+    return false;
+  }
+
+  return result === paywallResult.PURCHASED || result === paywallResult.RESTORED;
+}
+
+export async function presentPaywallForPlacement(
+  placementIdentifier: string,
+  source: PaywallSource = placementIdentifier
+): Promise<string> {
+  const uiModule = getRevenueCatUIModule();
+  if (!uiModule?.RevenueCatUI) {
+    throw new Error('RevenueCat UI is not available');
+  }
+
+  const offering = await getCurrentOfferingForPlacement(placementIdentifier);
+  if (!offering) {
+    return uiModule.PAYWALL_RESULT?.NOT_PRESENTED ?? 'NOT_PRESENTED';
+  }
+
+  return presentPaywall(offering, source);
+}
+
+export async function presentPaywallForPlacementIfNeeded(
+  requiredEntitlementIdentifier: string,
+  placementIdentifier: string,
+  source: PaywallSource = placementIdentifier
+): Promise<string> {
+  const uiModule = getRevenueCatUIModule();
+  if (!uiModule?.RevenueCatUI) {
+    throw new Error('RevenueCat UI is not available');
+  }
+
+  const offering = await getCurrentOfferingForPlacement(placementIdentifier);
+  if (!offering) {
+    return uiModule.PAYWALL_RESULT?.NOT_PRESENTED ?? 'NOT_PRESENTED';
+  }
+
+  trackPaywallViewed(source);
+  const result = await presentPaywallIfNeeded(requiredEntitlementIdentifier, offering);
+  await trackPaywallResult(result, offering, source);
+  return result;
+}
+
 /**
  * Check if a specific product is purchased
  */
@@ -669,6 +903,10 @@ export function getActiveSubscriptionType(customerInfo: any): 'monthly' | 'yearl
   return null;
 }
 
+export function getEntitlementPeriodType(customerInfo: any): string | null {
+  return customerInfo?.entitlements?.active?.[ENTITLEMENT_IDENTIFIER]?.periodType || null;
+}
+
 /**
  * Check if subscription is active and not expired
  */
@@ -690,4 +928,3 @@ export function isSubscriptionActive(customerInfo: any): boolean {
 
   return entitlement.willRenew === true;
 }
-

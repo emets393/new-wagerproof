@@ -6,6 +6,8 @@ import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRevenueCat } from '../../contexts/RevenueCatContext';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { usePlacementOffering } from '@/hooks/usePlacementOffering';
+import { PAYWALL_PLACEMENTS } from '@/services/revenuecat';
 
 // Lazy load RevenueCatUI for Paywalls V2
 let RevenueCatUI: any = null;
@@ -27,20 +29,24 @@ interface PaywallBottomSheetProps {
 
 export function PaywallBottomSheet({ isOpen, onClose }: PaywallBottomSheetProps) {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const { offering, refreshOfferings, isLoading, isInitialized } = useRevenueCat();
+  const { isInitialized } = useRevenueCat();
   const { submitOnboardingData } = useOnboarding();
   const router = useRouter();
   const [isCompleting, setIsCompleting] = useState(false);
   const snapPoints = useMemo(() => ['92%'], []);
+  const { offering, isLoading, refresh } = usePlacementOffering(
+    PAYWALL_PLACEMENTS.ONBOARDING,
+    isOpen && isInitialized
+  );
 
   useEffect(() => {
     if (isOpen) {
-      refreshOfferings();
+      refresh();
       bottomSheetRef.current?.expand();
     } else {
       bottomSheetRef.current?.close();
     }
-  }, [isOpen]);
+  }, [isOpen, refresh]);
 
   const handleCompletion = async () => {
     if (isCompleting) return;
@@ -113,7 +119,7 @@ export function PaywallBottomSheet({ isOpen, onClose }: PaywallBottomSheetProps)
           <Text style={styles.errorText}>
             No subscription options available at this time.
           </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={refreshOfferings}>
+          <TouchableOpacity style={styles.retryButton} onPress={refresh}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.skipButton} onPress={handleCompletion}>
@@ -126,7 +132,7 @@ export function PaywallBottomSheet({ isOpen, onClose }: PaywallBottomSheetProps)
     return (
       <View style={styles.paywallContainer}>
         <PaywallComponent
-          options={{}}
+          options={{ offering }}
           onPurchaseStarted={({ packageBeingPurchased }: any) => {
             console.log('🛒 Purchase started:', packageBeingPurchased?.identifier);
           }}

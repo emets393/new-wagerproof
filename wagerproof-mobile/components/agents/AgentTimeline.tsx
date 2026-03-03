@@ -23,13 +23,6 @@ import { LockedGameCard } from '@/components/LockedGameCard';
 // CONSTANTS
 // ============================================================================
 
-const SPORT_LABELS: Record<Sport, string> = {
-  nfl: 'NFL',
-  cfb: 'CFB',
-  nba: 'NBA',
-  ncaab: 'NCAAB',
-};
-
 const SPORT_ICONS: Record<Sport, string> = {
   nfl: 'football',
   cfb: 'shield-half-full',
@@ -60,13 +53,18 @@ interface AgentTimelineSectionProps {
 export function AgentTimelineSection({ agent, onAgentPress }: AgentTimelineSectionProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
-  const { canViewAgentPicks } = useAgentEntitlements();
+  const { canViewAgentPicks, isLoading: isEntitlementsLoading } = useAgentEntitlements();
   const updateAgent = useUpdateAgent();
 
   const {
     data: todaysPicks,
     isLoading,
   } = useTodaysPicks(agent.id);
+  const hasPicks = Boolean(todaysPicks && todaysPicks.length > 0);
+  const visiblePicks = todaysPicks ?? [];
+  const shouldShowPicksLoading = isLoading || isEntitlementsLoading;
+  const shouldShowLockedPicks = !isEntitlementsLoading && !canViewAgentPicks;
+  const shouldShowPicksSection = shouldShowPicksLoading || shouldShowLockedPicks || hasPicks;
 
   const performance = agent.performance;
   const record = formatRecord(performance);
@@ -188,55 +186,44 @@ export function AgentTimelineSection({ agent, onAgentPress }: AgentTimelineSecti
         </View>
       </TouchableOpacity>
 
-      {/* Divider */}
-      <View
-        style={[
-          styles.divider,
-          { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' },
-        ]}
-      />
+      {shouldShowPicksSection ? (
+        <>
+          {/* Divider */}
+          <View
+            style={[
+              styles.divider,
+              { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' },
+            ]}
+          />
 
-      {/* Picks list */}
-      <View style={styles.picksContainer}>
-        {isLoading ? (
-          <>
-            <PickCardSkeleton isDark={isDark} />
-            <PickCardSkeleton isDark={isDark} />
-          </>
-        ) : !canViewAgentPicks ? (
-          todaysPicks && todaysPicks.length > 0 ? (
-            todaysPicks.map((pick) => (
-              <LockedGameCard key={pick.id}>
-                <AgentPickItem pick={pick} showReasoning="summary" onPress={onAgentPress} />
-              </LockedGameCard>
-            ))
-          ) : (
-            <>
-              <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} minHeight={96} />
-              <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} minHeight={96} />
-            </>
-          )
-        ) : todaysPicks && todaysPicks.length > 0 ? (
-          todaysPicks.map((pick) => (
-            <AgentPickItem key={pick.id} pick={pick} showReasoning="summary" onPress={onAgentPress} />
-          ))
-        ) : (
-          <TouchableOpacity
-            style={styles.noPicksRow}
-            activeOpacity={0.6}
-            onPress={onAgentPress}
-          >
-            <MaterialCommunityIcons
-              name="clock-outline"
-              size={14}
-              color={theme.colors.onSurfaceVariant}
-            />
-            <Text style={[styles.noPicksText, { color: theme.colors.onSurfaceVariant }]}>
-              No picks today — tap to generate
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+          {/* Picks list */}
+          <View style={styles.picksContainer}>
+            {shouldShowPicksLoading ? (
+              <>
+                <PickCardSkeleton isDark={isDark} />
+                <PickCardSkeleton isDark={isDark} />
+              </>
+            ) : shouldShowLockedPicks ? (
+              hasPicks ? (
+                todaysPicks.map((pick) => (
+                  <LockedGameCard key={pick.id}>
+                    <AgentPickItem pick={pick} showReasoning="summary" onPress={onAgentPress} />
+                  </LockedGameCard>
+                ))
+              ) : (
+                <>
+                  <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} minHeight={96} />
+                  <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} minHeight={96} />
+                </>
+              )
+            ) : (
+              visiblePicks.map((pick) => (
+                <AgentPickItem key={pick.id} pick={pick} showReasoning="summary" onPress={onAgentPress} />
+              ))
+            )}
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -344,18 +331,5 @@ const styles = StyleSheet.create({
   picksContainer: {
     padding: 10,
     gap: 6,
-  },
-
-  // ---- No picks row ----
-  noPicksRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    gap: 6,
-  },
-  noPicksText: {
-    fontSize: 13,
-    fontStyle: 'italic',
   },
 });

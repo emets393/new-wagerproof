@@ -9,7 +9,7 @@ import {
   updateAgent,
 } from '@/services/agentService';
 import { fetchAgentPicks, generatePicks } from '@/services/agentPicksService';
-import { fetchLeaderboard, LeaderboardSortMode } from '@/services/agentPerformanceService';
+import { fetchLeaderboard, LeaderboardSortMode, LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import type { CreateAgentInput, UpdateAgentInput, PickResult, Sport } from '@/types/agent';
 
 export function useUserAgents() {
@@ -104,10 +104,11 @@ export function useGenerateAgentPicks() {
 export function useAgentLeaderboard(
   sport?: Sport,
   sortMode: LeaderboardSortMode = 'overall',
-  excludeUnder10Picks = false
+  excludeUnder10Picks = false,
+  timeframe: LeaderboardTimeframe = 'all_time'
 ) {
   return useQuery({
-    queryKey: ['agents', 'leaderboard', sport, sortMode, excludeUnder10Picks],
-    queryFn: () => fetchLeaderboard(100, sport, sortMode, excludeUnder10Picks),
+    queryKey: ['agents', 'leaderboard', sport, sortMode, excludeUnder10Picks, timeframe],
+    queryFn: () => fetchLeaderboard(100, sport, sortMode, excludeUnder10Picks, timeframe),
   });
 }

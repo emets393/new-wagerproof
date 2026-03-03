@@ -5,7 +5,7 @@ import { useTheme, SegmentedButtons, Divider } from 'react-native-paper';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { SliderInput } from '@/components/agents/inputs/SliderInput';
 import { ToggleInput } from '@/components/agents/inputs/ToggleInput';
-import { PersonalityParams, Scale1To5, BetType, BET_TYPES } from '@/types/agent';
+import { PersonalityParams, BetType } from '@/types/agent';
 
 // ============================================================================
 // TYPES
@@ -80,11 +80,43 @@ export function Screen3_Personality({
 }: Screen3_PersonalityProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const glassSurface = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.8)';
+  const glassBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.68)';
 
   return (
     <View style={styles.container}>
+      <View
+        style={[
+          styles.introCard,
+          {
+            backgroundColor: glassSurface,
+            borderColor: glassBorder,
+          },
+        ]}
+      >
+        <Text style={[styles.eyebrow, { color: theme.colors.primary }]}>
+          Agent mindset
+        </Text>
+        <Text style={[styles.introTitle, { color: theme.colors.onSurface }]}>
+          Tune how this agent thinks before you fine-tune the data rules.
+        </Text>
+        <Text
+          style={[styles.introDescription, { color: theme.colors.onSurfaceVariant }]}
+        >
+          Start with broad instincts first. The goal is a readable personality profile, not a wall of settings.
+        </Text>
+      </View>
+
       {/* Core Personality Section */}
-      <View style={styles.section}>
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: glassSurface,
+            borderColor: glassBorder,
+          },
+        ]}
+      >
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
           Core Personality
         </Text>
@@ -137,7 +169,15 @@ export function Screen3_Personality({
       <Divider style={styles.divider} />
 
       {/* Bet Selection Section */}
-      <View style={styles.section}>
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: glassSurface,
+            borderColor: glassBorder,
+          },
+        ]}
+      >
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
           Bet Selection
         </Text>
@@ -194,8 +234,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  section: {
-    marginBottom: 24,
+  introCard: {
+    marginBottom: 18,
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+  },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+    marginBottom: 10,
+  },
+  introTitle: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '800',
+  },
+  introDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  sectionCard: {
+    marginBottom: 12,
+    padding: 18,
+    borderRadius: 24,
+    borderWidth: 1,
   },
   sectionTitle: {
     fontSize: 20,
@@ -208,10 +274,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   divider: {
-    marginVertical: 16,
+    marginVertical: 8,
+    opacity: 0,
   },
   segmentContainer: {
-    marginVertical: 12,
+    marginVertical: 8,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
   fieldLabel: {
     fontSize: 16,

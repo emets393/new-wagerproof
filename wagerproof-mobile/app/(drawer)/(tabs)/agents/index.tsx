@@ -24,7 +24,6 @@ import { trackAppOpen } from '@/services/activityService';
 import { AgentTimelineSection } from '@/components/agents/AgentTimeline';
 import { AgentLeaderboard } from '@/components/agents/AgentLeaderboard';
 import { AgentWithPerformance } from '@/types/agent';
-import { useDrawer } from '../../_layout';
 
 type AgentsTab = 'my-agents' | 'leaderboard';
 
@@ -153,7 +152,6 @@ export default function AgentsHubScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const { user } = useAuth();
-  const { open: openDrawer } = useDrawer();
   const { scrollY, scrollYClamped } = useScroll();
   const { openManualMenu } = useWagerBotSuggestion();
   const { canCreateAnotherAgent, isPro, isAdmin } = useAgentEntitlements();
@@ -284,17 +282,13 @@ export default function AgentsHubScreen() {
           <View style={styles.headerTop}>
             <TouchableOpacity
               onPress={() => {
-                try {
-                  openDrawer();
-                } catch (error) {
-                  console.error('Error opening drawer:', error);
-                }
+                router.push('/(drawer)/settings' as any);
               }}
               style={styles.menuButton}
             >
               <MaterialCommunityIcons
-                name="menu"
-                size={28}
+                name="account-circle"
+                size={31}
                 color={theme.colors.onSurface}
               />
             </TouchableOpacity>

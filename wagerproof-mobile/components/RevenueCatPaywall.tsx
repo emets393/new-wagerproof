@@ -12,6 +12,8 @@ import {
 import { useRevenueCat } from '../contexts/RevenueCatContext';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { usePlacementOffering } from '@/hooks/usePlacementOffering';
+import { PAYWALL_PLACEMENTS } from '@/services/revenuecat';
 
 // Lazy load RevenueCatUI for Paywalls V2
 let RevenueCatUI: any = null;
@@ -33,6 +35,7 @@ interface RevenueCatPaywallProps {
   onClose: () => void;
   onPurchaseComplete?: () => void;
   onRestoreComplete?: () => void;
+  placementId?: string;
 }
 
 export function RevenueCatPaywall({
@@ -40,22 +43,21 @@ export function RevenueCatPaywall({
   onClose,
   onPurchaseComplete,
   onRestoreComplete,
+  placementId = PAYWALL_PLACEMENTS.GENERIC_FEATURE,
 }: RevenueCatPaywallProps) {
   const { theme } = useThemeContext();
-  const {
-    offering,
-    isLoading,
-    error,
-    refreshOfferings,
-    refreshCustomerInfo,
-  } = useRevenueCat();
+  const { refreshCustomerInfo } = useRevenueCat();
+  const { offering, isLoading, error, refresh } = usePlacementOffering(
+    placementId,
+    visible
+  );
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (visible) {
-      refreshOfferings();
+      refresh();
     }
-  }, [visible, refreshOfferings]);
+  }, [visible, refresh]);
 
   const handlePurchaseCompleted = useCallback(async ({ customerInfo }: any) => {
     console.log('✅ Purchase completed:', customerInfo);
@@ -137,7 +139,7 @@ export function RevenueCatPaywall({
               {error}
             </Text>
             <TouchableOpacity
-              onPress={refreshOfferings}
+              onPress={refresh}
               style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
             >
               <Text style={styles.retryButtonText}>Retry</Text>
@@ -149,9 +151,7 @@ export function RevenueCatPaywall({
             {PaywallComponent ? (
               <PaywallComponent
                 options={{
-                  // Don't pass offering - let RevenueCat auto-select the current offering's V2 paywall
-                  // This fixes issues where fallback paywall shows instead of custom V2
-                  // offering: offering,
+                  offering,
                 }}
                 style={styles.paywall}
                 onPurchaseStarted={({ packageBeingPurchased }: any) => {
@@ -217,7 +217,7 @@ export function RevenueCatPaywall({
               No subscription options available at this time.
             </Text>
             <TouchableOpacity
-              onPress={refreshOfferings}
+              onPress={refresh}
               style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
             >
               <Text style={styles.retryButtonText}>Retry</Text>
@@ -306,4 +306,3 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
 });
-

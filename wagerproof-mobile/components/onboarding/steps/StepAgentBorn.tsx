@@ -4,6 +4,7 @@ import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as StoreReview from 'expo-store-review';
 import { useRouter } from 'expo-router';
 import { Button } from '../../ui/Button';
@@ -11,13 +12,25 @@ import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { Sport } from '@/types/agent';
 import { useRevenueCat } from '../../../contexts/RevenueCatContext';
-import { presentPaywall } from '../../../services/revenuecat';
+import {
+  didPaywallGrantEntitlement,
+  ENTITLEMENT_IDENTIFIER,
+  PAYWALL_PLACEMENTS,
+  presentPaywallForPlacementIfNeeded,
+} from '../../../services/revenuecat';
 
 const SPORT_ICONS: Record<Sport, string> = {
   nfl: 'football',
   cfb: 'shield-half-full',
   nba: 'basketball',
   ncaab: 'school',
+};
+
+const SPORT_COLORS: Record<Sport, string> = {
+  nfl: '#013369',
+  cfb: '#C41E3A',
+  nba: '#1D428A',
+  ncaab: '#FF6B00',
 };
 
 function getPrimaryColor(value: string): string {
@@ -40,6 +53,16 @@ export function AgentBornStep() {
   const [revealRunId, setRevealRunId] = useState(0);
   const [pulseReady, setPulseReady] = useState(false);
   const primaryColor = getPrimaryColor(agentFormState.avatar_color || '#00E676');
+  const accentColors = (
+    agentFormState.preferred_sports.length >= 2
+      ? agentFormState.preferred_sports.map((sport) => SPORT_COLORS[sport])
+      : [SPORT_COLORS[agentFormState.preferred_sports[0] || 'nba'], `${SPORT_COLORS[agentFormState.preferred_sports[0] || 'nba']}99`]
+  ) as [string, string, ...string[]];
+  const backgroundGradientColors = [
+    `${accentColors[0]}16`,
+    `${accentColors[Math.min(1, accentColors.length - 1)]}10`,
+    'rgba(255,255,255,0)',
+  ] as [string, string, string];
   const researchPulse = React.useRef(new Animated.Value(0.55)).current;
   const elementsOpacity = React.useRef(new Animated.Value(0)).current;
 
@@ -49,8 +72,13 @@ export function AgentBornStep() {
     setIsContinuing(true);
 
     try {
-      await presentPaywall();
-      await refreshCustomerInfo();
+      const result = await presentPaywallForPlacementIfNeeded(
+        ENTITLEMENT_IDENTIFIER,
+        PAYWALL_PLACEMENTS.AGENT_FEATURE
+      );
+      if (didPaywallGrantEntitlement(result)) {
+        await refreshCustomerInfo();
+      }
     } catch (error: any) {
       console.error('Error presenting paywall:', error);
       // Continue even if paywall fails/cancels; user can subscribe later.
@@ -162,12 +190,23 @@ export function AgentBornStep() {
             style={[
               styles.feedCardContainer,
               {
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.99)',
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.10)',
-                borderLeftColor: primaryColor,
+                backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)',
               },
             ]}
           >
+            <LinearGradient
+              colors={backgroundGradientColors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.backgroundGradient}
+            />
+            <LinearGradient
+              colors={accentColors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientBorder}
+            />
             <View style={styles.agentHeader}>
               <View style={[styles.agentEmojiContainer, { backgroundColor: `${primaryColor}25` }]}>
                 <Text style={styles.agentEmoji}>{agentFormState.avatar_emoji || '🤖'}</Text>
@@ -388,8 +427,17 @@ const styles = StyleSheet.create({
   feedCardContainer: {
     borderRadius: 16,
     borderWidth: 1,
-    borderLeftWidth: 4,
     overflow: 'hidden',
+  },
+  backgroundGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  gradientBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
   },
   agentHeader: {
     flexDirection: 'row',

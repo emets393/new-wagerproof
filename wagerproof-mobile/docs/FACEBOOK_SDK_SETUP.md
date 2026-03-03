@@ -6,7 +6,8 @@ This guide explains how to configure the Facebook SDK for purchase attribution e
 
 1. **Facebook Developer Account** - Create at [developers.facebook.com](https://developers.facebook.com/)
 2. **Facebook App** - Create a new app in the developer console
-3. **App ID** and **Client Token** from your Facebook App settings
+3. **App ID**: `935005752525075`
+4. **Client Token**: `bd008d0839f36a9941c0ed27d686b615`
 
 ## iOS Configuration
 
@@ -17,9 +18,9 @@ Add the following to `ios/WagerProof/Info.plist` inside the `<dict>` tag:
 ```xml
 <!-- Facebook SDK Configuration -->
 <key>FacebookAppID</key>
-<string>YOUR_FACEBOOK_APP_ID</string>
+<string>935005752525075</string>
 <key>FacebookClientToken</key>
-<string>YOUR_FACEBOOK_CLIENT_TOKEN</string>
+<string>bd008d0839f36a9941c0ed27d686b615</string>
 <key>FacebookDisplayName</key>
 <string>WagerProof</string>
 <key>FacebookAutoLogAppEventsEnabled</key>
@@ -36,7 +37,7 @@ Add to the existing `CFBundleURLTypes` array in Info.plist:
 <dict>
   <key>CFBundleURLSchemes</key>
   <array>
-    <string>fbYOUR_FACEBOOK_APP_ID</string>
+    <string>fb935005752525075</string>
   </array>
 </dict>
 ```
@@ -199,7 +200,7 @@ Add inside the `<application>` tag in `android/app/src/main/AndroidManifest.xml`
 
 <provider
     android:name="com.facebook.FacebookContentProvider"
-    android:authorities="com.facebook.app.FacebookContentProviderYOUR_APP_ID"
+    android:authorities="com.facebook.app.FacebookContentProvider935005752525075"
     android:exported="false" />
 ```
 
@@ -211,8 +212,8 @@ Create or update `android/app/src/main/res/values/strings.xml`:
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WagerProof</string>
-    <string name="facebook_app_id">YOUR_FACEBOOK_APP_ID</string>
-    <string name="facebook_client_token">YOUR_FACEBOOK_CLIENT_TOKEN</string>
+    <string name="facebook_app_id">935005752525075</string>
+    <string name="facebook_client_token">bd008d0839f36a9941c0ed27d686b615</string>
 </resources>
 ```
 

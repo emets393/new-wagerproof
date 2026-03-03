@@ -17,6 +17,7 @@ import {
   presentCustomerCenter,
   ENTITLEMENT_IDENTIFIER,
   getActiveSubscriptionType,
+  getEntitlementPeriodType,
   isRevenueCatConfigured,
 } from '../services/revenuecat';
 import { useAuth } from './AuthContext';
@@ -26,7 +27,7 @@ import {
   trackSubscriptionRestored,
   trackPurchaseFailed,
   trackPurchaseCancelled,
-  trackPaywallViewed,
+  trackTrialStarted,
   SubscriptionType,
 } from '../services/analytics';
 
@@ -299,16 +300,21 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       trackSubscriptionStarted(subscriptionType, price, currency);
 
       const info = await purchasePackage(packageToPurchase);
+      const isTrial = getEntitlementPeriodType(info) === 'TRIAL';
 
       // Track successful purchase
       trackSubscriptionPurchased(
         subscriptionType,
         price,
         currency,
-        info.originalAppUserId,
+        undefined,
         false, // isPromo
-        false  // isTrial - could check if product has trial
+        isTrial
       );
+
+      if (isTrial) {
+        trackTrialStarted(subscriptionType, 'direct_purchase', price, currency);
+      }
 
       // Refresh customer info after purchase
       await refreshCustomerInfo();
@@ -416,4 +422,3 @@ export function useRevenueCat() {
   }
   return context;
 }
-

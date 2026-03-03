@@ -384,60 +384,36 @@ if (result === 'push') return 0;
 
 ---
 
-## Phase 7.5: Automatic Pick Delivery (Daily Generation)
+## Phase 7.5: Automatic Pick Delivery (V2 Queue-Based Generation)
 
-> **Feature**: Agents automatically generate picks each day so users have fresh picks waiting when they open the app.
+> **Status**: COMPLETED. See `10_GENERATION_V2_QUEUE.md` for full architecture docs.
+>
+> V2 replaces the V1 single-cron batch approach with a durable queue system:
+> enqueue (cron or manual) → dispatch (cron, 1/min) → parallel workers (edge functions).
 
 ### 7.5.1 Database Changes
-- [ ] **Task 7.5.1.1**: Add columns to `avatar_profiles`
-  ```sql
-  ALTER TABLE avatar_profiles ADD COLUMN auto_generate boolean DEFAULT true;
-  ALTER TABLE avatar_profiles ADD COLUMN last_auto_generated_at timestamptz;
-  ALTER TABLE avatar_profiles ADD COLUMN owner_last_active_at timestamptz;
-  ```
+- [x] **Task 7.5.1.1**: V2 entitlements migration — Pro/Admin enforcement
+- [x] **Task 7.5.1.2**: V2 activity tracking — `profiles.last_seen_at` with throttled touch
+- [x] **Task 7.5.1.3**: V2 queue table — `agent_generation_runs` with full lifecycle functions
+- [x] **Task 7.5.1.4**: V2 cron jobs — enqueue (10min), dispatch (1min), recovery (10min)
+- [x] **Task 7.5.1.5**: Dispatch auth fix — `_internal_config` table for service role key
 
-- [ ] **Task 7.5.1.2**: Create activity tracking
-  - Update `owner_last_active_at` on any app open (via auth session refresh or explicit call)
-  - Track in `user_profiles` or via Supabase auth metadata
+### 7.5.2 Edge Functions
+- [x] **Task 7.5.2.1**: `request-avatar-picks-generation-v2` — Client-facing request handler
+- [x] **Task 7.5.2.2**: `process-agent-generation-job-v2` — Worker (claim, process, OpenAI, upsert)
 
-### 7.5.2 Auto-Generation Edge Function
-- [x] **Task 7.5.2.1**: Create `/supabase/functions/auto-generate-avatar-picks/index.ts`
-  - **Fetch active system prompt once** from `agent_system_prompts` (with hardcoded fallback)
-  - Fetch all eligible agents via RPC `get_eligible_avatars_for_auto_generation()`
-  - Pre-fetch games once per unique sport (deduplicated across all avatars)
-  - For each eligible agent:
-    - Filter pre-fetched games to agent's preferred_sports
-    - Check if games exist for agent's sports today
-    - Skip if weak slate AND skip_weak_slates=true
-    - Build system prompt via `buildSystemPrompt(profile, sports, remotePromptTemplate)`
-    - Call OpenAI with combined system prompt + game data
-    - Insert picks + update `last_auto_generated_at = now()`
-  - Return aggregated summary (processed, skipped, errors, total picks)
-
-- [ ] **Task 7.5.2.2**: Set up pg_cron job for auto-generation
-  - Run daily at 9am ET (before most games)
-  - Also run at 6pm ET for evening slates
-  - Call auto-generate-avatar-picks function
-
-### 7.5.3 Activity Tracking
-- [ ] **Task 7.5.3.1**: Create `/wagerproof-mobile/services/activityService.ts`
-  - `trackAppOpen()` - Called on app foreground
-  - Updates `owner_last_active_at` for user's agents
-  - Debounce to once per hour
-
-- [ ] **Task 7.5.3.2**: Wire up activity tracking
-  - Call on app state change (AppState listener)
-  - Call on successful auth
+### 7.5.3 Client Integration
+- [x] **Task 7.5.3.1**: Mobile `agentPicksService.ts` — V2 enqueue + poll pattern
+- [x] **Task 7.5.3.2**: Web `agentPicksService.ts` — V2 enqueue + poll pattern
 
 ### 7.5.4 Settings UI
 - [ ] **Task 7.5.4.1**: Add auto-generate toggle to agent settings
   - "Automatically generate picks daily"
-  - Default: ON
+  - Default: OFF (changed from ON in V2, requires Pro)
   - Explain: "Your agent will generate picks each morning. Paused if you haven't opened the app in 5 days."
 
 ### 7.5.5 Notification (Future)
 - [ ] **Task 7.5.5.1**: (Optional) Push notification when auto-picks ready
-  - "🎯 Your agent has 3 picks ready for today!"
   - Requires push notification setup
 
 ---
@@ -500,7 +476,7 @@ if (result === 'push') return 0;
 └── 08_PROMPT_MAPPING.md  (NEW)
 ```
 
-### Database (8 files)
+### Database (13 files)
 ```
 /supabase/migrations/
 ├── 20260205000001_create_avatar_tables.sql
@@ -510,18 +486,25 @@ if (result === 'push') return 0;
 ├── 20260205000005_setup_avatar_picks_cron.sql
 ├── 20260205000006_create_avatar_leaderboard_view.sql
 ├── 20260205000007_create_agent_system_prompts.sql     ← Remote prompt table
-└── 20260205000008_seed_agent_system_prompt_v1.sql     ← V1 prompt seed
+├── 20260205000008_seed_agent_system_prompt_v1.sql     ← V1 prompt seed
+├── 20260303000000_agent_generation_v2_entitlements.sql ← V2 entitlement enforcement
+├── 20260303000001_agent_generation_v2_activity_tracking.sql ← V2 activity tracking
+├── 20260303000002_agent_generation_v2_queue.sql       ← V2 queue table + lifecycle functions
+├── 20260303000003_agent_generation_v2_cron_jobs.sql   ← V2 cron jobs (enqueue/dispatch/recovery)
+└── 20260303000004_fix_dispatch_vault_auth.sql         ← V2 dispatch auth fix
 ```
 
-### Edge Functions (4 files)
+### Edge Functions (6 files)
 ```
 /supabase/functions/
 ├── generate-avatar-picks/
-│   ├── index.ts              ← Fetches remote prompt, builds AI call
-│   ├── promptBuilder.ts      ← Populates {{PLACEHOLDERS}} in remote template
-│   └── pickSchema.ts         ← Zod + OpenAI structured output schemas
-├── grade-avatar-picks/index.ts
-└── auto-generate-avatar-picks/index.ts  ← Fetches remote prompt once, processes all avatars
+│   ├── index.ts              ← V1: On-demand generation
+│   ├── promptBuilder.ts      ← Shared: Populates {{PLACEHOLDERS}} in remote template
+│   └── pickSchema.ts         ← Shared: Zod + OpenAI structured output schemas
+├── auto-generate-avatar-picks/index.ts  ← V1: Batch auto-generation
+├── grade-avatar-picks/index.ts          ← Grading (works with V1 and V2)
+├── request-avatar-picks-generation-v2/index.ts  ← V2: Client request handler (enqueue)
+└── process-agent-generation-job-v2/index.ts     ← V2: Worker (claim + process)
 ```
 
 ### Mobile Types (1 file)

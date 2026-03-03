@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import debug from '@/utils/debug';
@@ -19,11 +19,39 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Throttled activity heartbeat — writes at most once per 12 hours (server-enforced)
+// Client-side guard prevents redundant RPC calls within the same browser session
+const ACTIVITY_TOUCH_KEY = 'wagerproof_last_activity_touch';
+const ACTIVITY_TOUCH_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+function touchOwnerActivityIfDue(userId: string) {
+  try {
+    const lastTouch = localStorage.getItem(ACTIVITY_TOUCH_KEY);
+    if (lastTouch) {
+      const elapsed = Date.now() - parseInt(lastTouch, 10);
+      if (elapsed < ACTIVITY_TOUCH_INTERVAL_MS) return;
+    }
+    // Fire and forget — non-critical
+    supabase.rpc('touch_owner_activity_if_stale', { p_user_id: userId })
+      .then(({ error }) => {
+        if (error) {
+          debug.log('Activity touch error (non-critical):', error.message);
+        } else {
+          localStorage.setItem(ACTIVITY_TOUCH_KEY, Date.now().toString());
+          debug.log('Activity heartbeat sent');
+        }
+      });
+  } catch {
+    // Swallow — activity tracking must never break auth flow
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const activityTouchedRef = useRef(false);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -84,11 +112,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === 'SIGNED_OUT') {
           debug.log('User signed out, resetting Mixpanel tracking');
           resetTracking();
+          activityTouchedRef.current = false;
         }
         
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Activity heartbeat on any authenticated session
+        if (session?.user && !activityTouchedRef.current) {
+          activityTouchedRef.current = true;
+          touchOwnerActivityIfDue(session.user.id);
+        }
       }
     );
 
@@ -97,6 +132,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Activity heartbeat on session restore
+      if (session?.user && !activityTouchedRef.current) {
+        activityTouchedRef.current = true;
+        touchOwnerActivityIfDue(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();

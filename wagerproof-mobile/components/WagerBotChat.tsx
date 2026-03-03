@@ -145,6 +145,7 @@ interface WagerBotChatProps {
   userId: string;
   userEmail: string;
   gameContext?: string;
+  isContextLoading?: boolean;
   onRefresh?: () => void;
   onBack?: () => void;
   scrollY?: Animated.Value;
@@ -155,6 +156,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   userId,
   userEmail,
   gameContext = '',
+  isContextLoading = false,
   onRefresh,
   onBack,
   scrollY,
@@ -219,6 +221,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   // Animation values for message appearance
   const messageAnimations = useRef<{ [key: string]: Animated.Value }>({});
   const drawerAnimation = useRef(new Animated.Value(300)).current; // Positive for right side
+  const loadingPulse = useRef(new Animated.Value(0.45)).current;
 
   // Memoized markdown styles to prevent recreation on every render
   const markdownStyles = useMemo(() => ({
@@ -260,6 +263,29 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     }
     return messageAnimations.current[messageId];
   };
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(loadingPulse, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(loadingPulse, {
+          toValue: 0.45,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    animation.start();
+
+    return () => {
+      animation.stop();
+    };
+  }, [loadingPulse]);
 
   // Validate and clean threadId whenever it's set
   const setValidatedThreadId = (newThreadId: string | null) => {
@@ -520,21 +546,21 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   }));
 
   const handleSuggestedMessage = useCallback((message: string) => {
-    if (isLoading || isSending) return;
+    if (isLoading || isSending || isContextLoading) return;
     setInputText(message);
     // Small delay to show the text before sending
     setTimeout(() => {
       sendMessageWithText(message);
     }, 100);
-  }, [isLoading, isSending]);
+  }, [isContextLoading, isLoading, isSending]);
 
   const sendMessage = async () => {
-    if (!inputText.trim() || isLoading || isSending) return;
+    if (!inputText.trim() || isLoading || isSending || isContextLoading) return;
     await sendMessageWithText(inputText.trim());
   };
 
   const sendMessageWithText = async (messageText: string) => {
-    if (!messageText || isLoading || isSending) return;
+    if (!messageText || isLoading || isSending || isContextLoading) return;
     
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
@@ -1253,8 +1279,45 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             )}
           </View>
 
+          {isContextLoading && (
+            <View style={styles.loadingLockOverlay}>
+              <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <LinearGradient
+                colors={['rgba(10,10,10,0.92)', 'rgba(10,10,10,0.84)', 'rgba(10,10,10,0.72)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <View style={[styles.loadingShell, { paddingTop: headerHeight + 20 }]}>
+                <View style={styles.loadingHeaderCard}>
+                  <Animated.View style={[styles.loadingStatusDot, { opacity: loadingPulse }]} />
+                  <Text style={styles.loadingStatusText}>Loading live data</Text>
+                </View>
+
+                <View style={styles.loadingMessages}>
+                  <Animated.View style={[styles.loadingBubbleUser, { opacity: loadingPulse }]} />
+                  <Animated.View style={[styles.loadingBubbleAssistantLarge, { opacity: loadingPulse }]} />
+                  <Animated.View style={[styles.loadingBubbleAssistantSmall, { opacity: loadingPulse }]} />
+                </View>
+
+                <View style={styles.loadingComposerShell}>
+                  <Animated.View style={[styles.loadingComposerIcon, { opacity: loadingPulse }]} />
+                  <View style={styles.loadingComposerLines}>
+                    <Animated.View style={[styles.loadingComposerLineShort, { opacity: loadingPulse }]} />
+                    <Animated.View style={[styles.loadingComposerLineLong, { opacity: loadingPulse }]} />
+                  </View>
+                  <Animated.View style={[styles.loadingComposerSend, { opacity: loadingPulse }]} />
+                </View>
+
+                <Text style={styles.loadingHelperText}>
+                  WagerBot is syncing the latest game data before chat opens.
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Input Area - Hide when loading during initialization - Fixed at bottom */}
-          {!isLoading && (
+          {!isLoading && !isContextLoading && (
             <View style={[
               styles.inputWrapper,
               {
@@ -1275,7 +1338,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                     key={index}
                     style={styles.suggestedMessageBubble}
                     onPress={() => handleSuggestedMessage(item.message)}
-                    disabled={isLoading || isSending}
+                    disabled={isLoading || isSending || isContextLoading}
                     activeOpacity={0.7}
                   >
                     <BlurView
@@ -1306,7 +1369,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 multiline={true}
                 maxLength={500}
-                editable={!isSending}
+                editable={!isSending && !isContextLoading}
                 textAlignVertical="top"
                 onFocus={() => {
                   // Scroll to bottom when input is focused
@@ -1328,7 +1391,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                     inputText.trim() && styles.sendButtonActive,
                   ]}
                   onPress={sendMessage}
-                  disabled={!inputText.trim() || isSending}
+                  disabled={!inputText.trim() || isSending || isContextLoading}
                 >
                   {isSending ? (
                     <ActivityIndicator size="small" color="#ffffff" />
@@ -1574,6 +1637,110 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  loadingLockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+  },
+  loadingShell: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    justifyContent: 'space-between',
+  },
+  loadingHeaderCard: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  loadingStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22c55e',
+  },
+  loadingStatusText: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  loadingMessages: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 18,
+    paddingHorizontal: 4,
+  },
+  loadingBubbleUser: {
+    alignSelf: 'flex-end',
+    width: '62%',
+    height: 72,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  loadingBubbleAssistantLarge: {
+    width: '78%',
+    height: 104,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  loadingBubbleAssistantSmall: {
+    width: '54%',
+    height: 62,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  loadingComposerShell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    borderRadius: 28,
+    backgroundColor: 'rgba(26, 26, 26, 0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  loadingComposerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  loadingComposerLines: {
+    flex: 1,
+    gap: 8,
+  },
+  loadingComposerLineShort: {
+    width: '38%',
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  loadingComposerLineLong: {
+    width: '78%',
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  loadingComposerSend: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(34,197,94,0.22)',
+  },
+  loadingHelperText: {
+    marginTop: 14,
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   // Input Area Styles (Claude-like)
   inputWrapper: {

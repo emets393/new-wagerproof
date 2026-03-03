@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "source": "persisted avatar_picks rows",
+  "avatar_id": "be042477-6565-422e-83fa-0de08c95ec30",
+  "picks": [],
+  "note": "slate_note, tokens_used, and games_analyzed are edge-function response fields and are not persisted in avatar_picks"
+}

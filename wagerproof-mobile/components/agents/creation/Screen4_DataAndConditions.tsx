@@ -80,14 +80,46 @@ export function Screen4_DataAndConditions({
 }: Screen4_DataAndConditionsProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const glassSurface = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.8)';
+  const glassBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.68)';
 
   // Get conditional params based on selected sports
   const conditional = getConditionalParams(selectedSports);
 
   return (
     <View style={styles.container}>
+      <View
+        style={[
+          styles.introCard,
+          {
+            backgroundColor: glassSurface,
+            borderColor: glassBorder,
+          },
+        ]}
+      >
+        <Text style={[styles.eyebrow, { color: theme.colors.primary }]}>
+          Data controls
+        </Text>
+        <Text style={[styles.introTitle, { color: theme.colors.onSurface }]}>
+          Choose the signals this agent should trust most.
+        </Text>
+        <Text
+          style={[styles.introDescription, { color: theme.colors.onSurfaceVariant }]}
+        >
+          Keep the defaults lightweight, then layer in sport-specific rules only where they help.
+        </Text>
+      </View>
+
       {/* Data Trust Section */}
-      <View style={styles.section}>
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: glassSurface,
+            borderColor: glassBorder,
+          },
+        ]}
+      >
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
           Data Trust
         </Text>
@@ -124,7 +156,15 @@ export function Screen4_DataAndConditions({
       <Divider style={styles.divider} />
 
       {/* Odds Limits Section */}
-      <View style={styles.section}>
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: glassSurface,
+            borderColor: glassBorder,
+          },
+        ]}
+      >
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
           Odds Limits
         </Text>
@@ -153,7 +193,15 @@ export function Screen4_DataAndConditions({
       {conditional.showPublicBetting && (
         <>
           <Divider style={styles.divider} />
-          <View style={styles.section}>
+          <View
+            style={[
+              styles.sectionCard,
+              {
+                backgroundColor: glassSurface,
+                borderColor: glassBorder,
+              },
+            ]}
+          >
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
                 Football Settings
@@ -222,7 +270,15 @@ export function Screen4_DataAndConditions({
       {conditional.showTeamRatings && (
         <>
           <Divider style={styles.divider} />
-          <View style={styles.section}>
+          <View
+            style={[
+              styles.sectionCard,
+              {
+                backgroundColor: glassSurface,
+                borderColor: glassBorder,
+              },
+            ]}
+          >
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
                 Basketball Settings
@@ -277,7 +333,15 @@ export function Screen4_DataAndConditions({
       {conditional.showTrends && (
         <>
           <Divider style={styles.divider} />
-          <View style={styles.section}>
+          <View
+            style={[
+              styles.sectionCard,
+              {
+                backgroundColor: glassSurface,
+                borderColor: glassBorder,
+              },
+            ]}
+          >
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
                 NBA Trends
@@ -333,7 +397,15 @@ export function Screen4_DataAndConditions({
 
       {/* Situational Section */}
       <Divider style={styles.divider} />
-      <View style={styles.section}>
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: glassSurface,
+            borderColor: glassBorder,
+          },
+        ]}
+      >
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
           Situational Factors
         </Text>
@@ -372,8 +444,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  section: {
-    marginBottom: 24,
+  introCard: {
+    marginBottom: 18,
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+  },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+    marginBottom: 10,
+  },
+  introTitle: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '800',
+  },
+  introDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  sectionCard: {
+    marginBottom: 12,
+    padding: 18,
+    borderRadius: 24,
+    borderWidth: 1,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -405,6 +503,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   divider: {
-    marginVertical: 16,
+    marginVertical: 8,
+    opacity: 0,
   },
 });

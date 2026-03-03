@@ -19,6 +19,89 @@ export interface LeaderboardEntry {
 }
 
 export type LeaderboardSortMode = 'overall' | 'recent_run' | 'longest_streak' | 'bottom_100';
+export type LeaderboardTimeframe = 'all_time' | 'last_7_days' | 'last_30_days';
+
+interface LeaderboardPickRow {
+  avatar_id: string;
+  result: 'won' | 'lost' | 'push';
+  odds: string | null;
+  units: number;
+  created_at: string;
+}
+
+function getCutoffDate(timeframe: Exclude<LeaderboardTimeframe, 'all_time'>): string {
+  const now = new Date();
+  const days = timeframe === 'last_7_days' ? 7 : 30;
+  now.setUTCDate(now.getUTCDate() - days);
+  return now.toISOString().slice(0, 10);
+}
+
+function calculateNetUnits(result: LeaderboardPickRow['result'], odds: string | null, units: number): number {
+  if (result === 'lost') return -units;
+  if (result !== 'won') return 0;
+
+  if (odds && /^[+-]?\d+$/.test(odds)) {
+    const americanOdds = Number(odds);
+    if (americanOdds < 0) {
+      return units * (100 / Math.abs(americanOdds));
+    }
+    return units * (americanOdds / 100);
+  }
+
+  return units;
+}
+
+function calculateStreaks(picks: LeaderboardPickRow[]) {
+  let currentStreak = 0;
+  let bestStreak = 0;
+  let previousResult: 'won' | 'lost' | null = null;
+
+  [...picks]
+    .filter((pick) => pick.result === 'won' || pick.result === 'lost')
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .forEach((pick) => {
+      if (!previousResult || pick.result === previousResult) {
+        currentStreak = pick.result === 'won' ? currentStreak + 1 : currentStreak - 1;
+      } else {
+        bestStreak = Math.max(bestStreak, currentStreak);
+        currentStreak = pick.result === 'won' ? 1 : -1;
+      }
+
+      previousResult = pick.result;
+    });
+
+  bestStreak = Math.max(bestStreak, currentStreak);
+
+  return {
+    current_streak: currentStreak,
+    best_streak: bestStreak,
+  };
+}
+
+function sortLeaderboardEntries(entries: LeaderboardEntry[], sortMode: LeaderboardSortMode) {
+  return entries.sort((a, b) => {
+    if (sortMode === 'recent_run') {
+      if (b.current_streak !== a.current_streak) return b.current_streak - a.current_streak;
+      if (b.net_units !== a.net_units) return b.net_units - a.net_units;
+      return (b.win_rate || 0) - (a.win_rate || 0);
+    }
+    if (sortMode === 'longest_streak') {
+      if (b.best_streak !== a.best_streak) return b.best_streak - a.best_streak;
+      if (b.current_streak !== a.current_streak) return b.current_streak - a.current_streak;
+      if (b.net_units !== a.net_units) return b.net_units - a.net_units;
+      return (b.win_rate || 0) - (a.win_rate || 0);
+    }
+    if (sortMode === 'bottom_100') {
+      if (a.net_units !== b.net_units) return a.net_units - b.net_units;
+      if ((a.win_rate || 0) !== (b.win_rate || 0)) return (a.win_rate || 0) - (b.win_rate || 0);
+      return a.current_streak - b.current_streak;
+    }
+
+    if (b.net_units !== a.net_units) return b.net_units - a.net_units;
+    if ((b.win_rate || 0) !== (a.win_rate || 0)) return (b.win_rate || 0) - (a.win_rate || 0);
+    return b.current_streak - a.current_streak;
+  });
+}
 
 export async function fetchAgentPerformance(agentId: string): Promise<AgentPerformance | null> {
   const { data, error } = await (supabase as any)
@@ -35,7 +118,8 @@ export async function fetchLeaderboard(
   limit = 100,
   sport?: Sport,
   sortMode: LeaderboardSortMode = 'overall',
-  excludeUnder10Picks = false
+  excludeUnder10Picks = false,
+  timeframe: LeaderboardTimeframe = 'all_time'
 ): Promise<LeaderboardEntry[]> {
   const effectiveLimit = Math.min(Math.max(limit, 1), 100);
   let agentsQuery = (supabase as any)
@@ -51,59 +135,95 @@ export async function fetchLeaderboard(
   if (agentsError || !agents?.length) return [];
 
   const agentIds = agents.map((a: any) => a.id);
-  const { data: performances, error: perfError } = await (supabase as any)
-    .from('avatar_performance_cache')
-    .select('*')
-    .in('avatar_id', agentIds);
 
-  if (perfError) return [];
+  if (timeframe === 'all_time') {
+    const { data: performances, error: perfError } = await (supabase as any)
+      .from('avatar_performance_cache')
+      .select('*')
+      .in('avatar_id', agentIds);
 
-  const perfMap = new Map<string, AgentPerformance>();
-  (performances || []).forEach((p: any) => perfMap.set(p.avatar_id, p as AgentPerformance));
+    if (perfError) return [];
 
-  return agents
-    .map((agent: any) => {
-      const perf = perfMap.get(agent.id);
-      return {
-        avatar_id: agent.id,
-        name: agent.name,
-        avatar_emoji: agent.avatar_emoji,
-        avatar_color: agent.avatar_color,
-        user_id: agent.user_id,
-        preferred_sports: agent.preferred_sports,
-        total_picks: perf?.total_picks || 0,
-        wins: perf?.wins || 0,
-        losses: perf?.losses || 0,
-        pushes: perf?.pushes || 0,
-        win_rate: perf?.win_rate || null,
-        net_units: perf?.net_units || 0,
-        current_streak: perf?.current_streak || 0,
-        best_streak: perf?.best_streak || 0,
-      } satisfies LeaderboardEntry;
-    })
-    .filter((entry) => (entry.wins + entry.losses) > 0)
-    .filter((entry) => (excludeUnder10Picks ? entry.total_picks >= 10 : true))
-    .sort((a, b) => {
-      if (sortMode === 'recent_run') {
-        if (b.current_streak !== a.current_streak) return b.current_streak - a.current_streak;
-        if (b.net_units !== a.net_units) return b.net_units - a.net_units;
-        return (b.win_rate || 0) - (a.win_rate || 0);
-      }
-      if (sortMode === 'longest_streak') {
-        if (b.best_streak !== a.best_streak) return b.best_streak - a.best_streak;
-        if (b.current_streak !== a.current_streak) return b.current_streak - a.current_streak;
-        if (b.net_units !== a.net_units) return b.net_units - a.net_units;
-        return (b.win_rate || 0) - (a.win_rate || 0);
-      }
-      if (sortMode === 'bottom_100') {
-        if (a.net_units !== b.net_units) return a.net_units - b.net_units;
-        if ((a.win_rate || 0) !== (b.win_rate || 0)) return (a.win_rate || 0) - (b.win_rate || 0);
-        return a.current_streak - b.current_streak;
-      }
+    const perfMap = new Map<string, AgentPerformance>();
+    (performances || []).forEach((p: any) => perfMap.set(p.avatar_id, p as AgentPerformance));
 
-      if (b.net_units !== a.net_units) return b.net_units - a.net_units;
-      if ((b.win_rate || 0) !== (a.win_rate || 0)) return (b.win_rate || 0) - (a.win_rate || 0);
-      return b.current_streak - a.current_streak;
-    })
-    .slice(0, effectiveLimit);
+    return sortLeaderboardEntries(
+      agents
+        .map((agent: any) => {
+          const perf = perfMap.get(agent.id);
+          return {
+            avatar_id: agent.id,
+            name: agent.name,
+            avatar_emoji: agent.avatar_emoji,
+            avatar_color: agent.avatar_color,
+            user_id: agent.user_id,
+            preferred_sports: agent.preferred_sports,
+            total_picks: perf?.total_picks || 0,
+            wins: perf?.wins || 0,
+            losses: perf?.losses || 0,
+            pushes: perf?.pushes || 0,
+            win_rate: perf?.win_rate || null,
+            net_units: perf?.net_units || 0,
+            current_streak: perf?.current_streak || 0,
+            best_streak: perf?.best_streak || 0,
+          } satisfies LeaderboardEntry;
+        })
+        .filter((entry) => (entry.wins + entry.losses) > 0)
+        .filter((entry) => (excludeUnder10Picks ? entry.total_picks >= 10 : true)),
+      sortMode
+    ).slice(0, effectiveLimit);
+  }
+
+  const cutoffDate = getCutoffDate(timeframe);
+  const { data: picks, error: picksError } = await (supabase as any)
+    .from('avatar_picks')
+    .select('avatar_id, result, odds, units, created_at')
+    .in('avatar_id', agentIds)
+    .in('result', ['won', 'lost', 'push'])
+    .gte('game_date', cutoffDate);
+
+  if (picksError) return [];
+
+  const picksByAvatar = new Map<string, LeaderboardPickRow[]>();
+  (picks || []).forEach((pick: LeaderboardPickRow) => {
+    const existing = picksByAvatar.get(pick.avatar_id) || [];
+    existing.push(pick);
+    picksByAvatar.set(pick.avatar_id, existing);
+  });
+
+  return sortLeaderboardEntries(
+    agents
+      .map((agent: any) => {
+        const agentPicks = picksByAvatar.get(agent.id) || [];
+        const wins = agentPicks.filter((pick) => pick.result === 'won').length;
+        const losses = agentPicks.filter((pick) => pick.result === 'lost').length;
+        const pushes = agentPicks.filter((pick) => pick.result === 'push').length;
+        const totalPicks = agentPicks.length;
+        const settledCount = wins + losses;
+        const streaks = calculateStreaks(agentPicks);
+
+        return {
+          avatar_id: agent.id,
+          name: agent.name,
+          avatar_emoji: agent.avatar_emoji,
+          avatar_color: agent.avatar_color,
+          user_id: agent.user_id,
+          preferred_sports: agent.preferred_sports,
+          total_picks: totalPicks,
+          wins,
+          losses,
+          pushes,
+          win_rate: settledCount > 0 ? wins / settledCount : null,
+          net_units: agentPicks.reduce(
+            (sum, pick) => sum + calculateNetUnits(pick.result, pick.odds, pick.units),
+            0
+          ),
+          current_streak: streaks.current_streak,
+          best_streak: streaks.best_streak,
+        } satisfies LeaderboardEntry;
+      })
+      .filter((entry) => (entry.wins + entry.losses) > 0)
+      .filter((entry) => (excludeUnder10Picks ? entry.total_picks >= 10 : true)),
+    sortMode
+  ).slice(0, effectiveLimit);
 }

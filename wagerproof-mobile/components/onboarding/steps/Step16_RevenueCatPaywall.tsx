@@ -5,6 +5,8 @@ import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { usePlacementOffering } from '@/hooks/usePlacementOffering';
+import { PAYWALL_PLACEMENTS } from '@/services/revenuecat';
 
 // Lazy load RevenueCatUI for Paywalls V2
 let RevenueCatUI: any = null;
@@ -25,14 +27,31 @@ try {
 }
 
 export function RevenueCatPaywallStep() {
-  const { offering, refreshOfferings, refreshCustomerInfo, isLoading, isInitialized } = useRevenueCat();
+  const { refreshCustomerInfo, isInitialized } = useRevenueCat();
   const { submitOnboardingData } = useOnboarding();
   const router = useRouter();
   const [isCompleting, setIsCompleting] = useState(false);
+  const { offering, isLoading, refresh } = usePlacementOffering(
+    PAYWALL_PLACEMENTS.ONBOARDING,
+    isInitialized
+  );
 
   useEffect(() => {
-    refreshOfferings();
-  }, []);
+    refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (offering) {
+      console.log('📦 Offering for Paywall:', {
+        identifier: offering.identifier,
+        serverDescription: offering.serverDescription,
+        metadata: offering.metadata,
+        availablePackagesCount: offering.availablePackages?.length,
+        paywall: (offering as any).paywall,
+        paywallData: (offering as any).paywallData,
+      });
+    }
+  }, [offering]);
 
   const handleCompletion = async () => {
     if (isCompleting) return;
@@ -96,7 +115,7 @@ export function RevenueCatPaywallStep() {
         </Text>
         <TouchableOpacity 
           style={styles.retryButton}
-          onPress={refreshOfferings}
+          onPress={refresh}
         >
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
@@ -110,37 +129,11 @@ export function RevenueCatPaywallStep() {
     );
   }
 
-  // Log offering metadata to help debug V2 paywall issues
-  useEffect(() => {
-    if (offering) {
-      console.log('📦 Offering for Paywall:', {
-        identifier: offering.identifier,
-        serverDescription: offering.serverDescription,
-        metadata: offering.metadata,
-        availablePackagesCount: offering.availablePackages?.length,
-        // Check if paywall data is included in the offering
-        paywall: (offering as any).paywall,
-        paywallData: (offering as any).paywallData,
-      });
-    }
-  }, [offering]);
-
   return (
     <View style={styles.container}>
-      {/* 
-        NOTE: For Paywalls V2, try NOT passing the offering to let RevenueCat 
-        automatically use the paywall attached to the current offering.
-        If you have issues, check in RevenueCat Dashboard:
-        1. Paywall is PUBLISHED (not Draft/Inactive)
-        2. Paywall is attached to the offering
-        3. Paywall is NOT named "default" (naming conflict)
-        4. No legacy/V1 paywall is attached to this offering
-      */}
       <PaywallComponent
         options={{
-          // Don't pass offering - let RevenueCat auto-select the current offering's paywall
-          // This can fix issues where the fallback paywall shows
-          // offering: offering,
+          offering,
         }}
         onPurchaseStarted={({ packageBeingPurchased }: any) => {
           console.log('🛒 Purchase started:', packageBeingPurchased?.identifier);
@@ -242,4 +235,3 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
 });
-

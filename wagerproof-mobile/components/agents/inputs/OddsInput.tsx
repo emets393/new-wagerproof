@@ -126,10 +126,62 @@ export function OddsInput({ value, onChange, label, type }: OddsInputProps) {
   const isNoLimit = value === null;
 
   return (
-    <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.colors.onSurface }]}>
-        {label}
-      </Text>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: isDark
+            ? 'rgba(255, 255, 255, 0.06)'
+            : 'rgba(255, 255, 255, 0.82)',
+          borderColor: isDark
+            ? 'rgba(255, 255, 255, 0.12)'
+            : 'rgba(255, 255, 255, 0.72)',
+        },
+      ]}
+    >
+      <View style={styles.headerRow}>
+        <View style={styles.headerText}>
+          <Text style={[styles.label, { color: theme.colors.onSurface }]}>
+            {label}
+          </Text>
+          <Text
+            style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}
+          >
+            {isFavorite
+              ? 'Skip heavier favorites once the price gets too steep.'
+              : 'Only allow plus-money dogs that clear your floor.'}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.modeBadge,
+            {
+              backgroundColor: isNoLimit
+                ? isDark
+                  ? 'rgba(255, 255, 255, 0.08)'
+                  : 'rgba(15, 23, 42, 0.06)'
+                : isDark
+                ? 'rgba(59, 130, 246, 0.22)'
+                : 'rgba(59, 130, 246, 0.12)',
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.modeBadgeText,
+              {
+                color: isNoLimit
+                  ? theme.colors.onSurfaceVariant
+                  : isDark
+                  ? '#BFDBFE'
+                  : '#1D4ED8',
+              },
+            ]}
+          >
+            {isNoLimit ? 'No limit' : formatOdds(value)}
+          </Text>
+        </View>
+      </View>
 
       <View style={styles.inputRow}>
         <View
@@ -186,26 +238,30 @@ export function OddsInput({ value, onChange, label, type }: OddsInputProps) {
       </View>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
-
-      <Text
-        style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}
-      >
-        {isFavorite
-          ? 'Skip favorites with odds below this (e.g., -200 skips -250 favorites)'
-          : 'Only bet underdogs with odds above this (e.g., +150 requires +150 or better)'}
-      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 12,
+    marginVertical: 8,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  headerText: {
+    flex: 1,
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontWeight: '700',
   },
   inputRow: {
     flexDirection: 'row',
@@ -234,7 +290,18 @@ const styles = StyleSheet.create({
   },
   helperText: {
     fontSize: 12,
-    marginTop: 8,
+    marginTop: 4,
     lineHeight: 16,
+  },
+  modeBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  modeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
 });

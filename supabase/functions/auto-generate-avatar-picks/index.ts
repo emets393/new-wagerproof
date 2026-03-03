@@ -19,6 +19,17 @@ import {
   buildUserPrompt,
   getMaxPicks,
 } from '../generate-avatar-picks/promptBuilder.ts';
+import {
+  OUTPUT_RESERVE,
+  SOFT_SEND_LIMIT,
+  buildPayloadBudget,
+  countPromptTokens,
+  removeSituationalTrendsFromGames,
+  trimGamesByLatestTipoff,
+  type PayloadBudget,
+  type PayloadBudgetMode,
+  type PromptTokenCount,
+} from '../shared/tokenBudget.ts';
 
 // =============================================================================
 // Types
@@ -41,6 +52,7 @@ interface ProcessingResult {
   sports: string[];
   skipped_reason?: string;
   error?: string;
+  payload_budget?: PayloadBudget;
 }
 
 interface AutoGenerateSummary {
@@ -342,14 +354,67 @@ async function processAvatar(
     const systemPrompt = buildSystemPrompt(avatarProfile, avatar.preferred_sports, remotePromptTemplate);
 
     // Combine all formatted games with sport labels
-    const combinedGames = allGamesData.flatMap(sd =>
+    const combinedGames: Record<string, unknown>[] = allGamesData.flatMap(sd =>
       sd.formattedGames.map(game => ({
         ...game as Record<string, unknown>,
         sport: sd.sport.toUpperCase(),
       }))
     );
 
-    const userPrompt = buildUserPrompt(combinedGames, 'MULTI', targetDate);
+    const fullUserPrompt = buildUserPrompt(combinedGames, 'MULTI', targetDate);
+    const fullTokenCount = countPromptTokens(systemPrompt, fullUserPrompt, OUTPUT_RESERVE);
+
+    let selectedCombinedGames = combinedGames;
+    let selectedUserPrompt = fullUserPrompt;
+    let finalTokenCount = fullTokenCount;
+    let modeUsed: PayloadBudgetMode = 'full';
+    let removedGameIds: string[] = [];
+    let noTrendsTokenCount: PromptTokenCount | null = null;
+
+    if (fullTokenCount.total_tokens > SOFT_SEND_LIMIT) {
+      const gamesWithoutTrends = removeSituationalTrendsFromGames(combinedGames);
+      const noTrendsUserPrompt = buildUserPrompt(gamesWithoutTrends, 'MULTI', targetDate);
+      noTrendsTokenCount = countPromptTokens(systemPrompt, noTrendsUserPrompt, OUTPUT_RESERVE);
+
+      selectedCombinedGames = gamesWithoutTrends;
+      selectedUserPrompt = noTrendsUserPrompt;
+      finalTokenCount = noTrendsTokenCount;
+      modeUsed = 'no_trends';
+
+      if (noTrendsTokenCount.total_tokens > SOFT_SEND_LIMIT) {
+        const trimResult = trimGamesByLatestTipoff({
+          games: gamesWithoutTrends,
+          systemPrompt,
+          softLimit: SOFT_SEND_LIMIT,
+          outputReserve: OUTPUT_RESERVE,
+          buildUserPrompt,
+          targetDate,
+          sport: 'MULTI',
+        });
+
+        selectedCombinedGames = trimResult.trimmedGames;
+        selectedUserPrompt = buildUserPrompt(selectedCombinedGames, 'MULTI', targetDate);
+        finalTokenCount = trimResult.finalTokenCount;
+        removedGameIds = trimResult.removedGameIds;
+        modeUsed = 'no_trends_trimmed';
+      }
+    }
+
+    result.payload_budget = buildPayloadBudget(finalTokenCount, modeUsed, removedGameIds);
+
+    console.log(`[auto-generate-avatar-picks] ${avatar.name} total games before trim: ${combinedGames.length}`);
+    console.log(`[auto-generate-avatar-picks] ${avatar.name} total games after trim: ${selectedCombinedGames.length}`);
+    console.log(`[auto-generate-avatar-picks] ${avatar.name} full payload token count: ${fullTokenCount.total_tokens}`);
+    if (noTrendsTokenCount) {
+      console.log(`[auto-generate-avatar-picks] ${avatar.name} no-trends payload token count: ${noTrendsTokenCount.total_tokens}`);
+    }
+    console.log(`[auto-generate-avatar-picks] ${avatar.name} final payload token count: ${finalTokenCount.total_tokens}`);
+    console.log(`[auto-generate-avatar-picks] ${avatar.name} payload mode used: ${modeUsed}`);
+    console.log(`[auto-generate-avatar-picks] ${avatar.name} removed game ids: ${JSON.stringify(removedGameIds)}`);
+
+    if (finalTokenCount.total_tokens > SOFT_SEND_LIMIT) {
+      throw new Error('Payload exceeds token budget even after trimming');
+    }
 
     // -------------------------------------------------------------------------
     // Call OpenAI
@@ -371,7 +436,7 @@ async function processAvatar(
           },
           {
             role: 'user',
-            content: [{ type: 'input_text', text: userPrompt }],
+            content: [{ type: 'input_text', text: selectedUserPrompt }],
           },
         ],
         text: {
@@ -441,7 +506,7 @@ async function processAvatar(
       // Find the original game data for snapshot
       let gameSnapshot: Record<string, unknown> = {};
       let modelInputGamePayload: Record<string, unknown> | null =
-        combinedGames.find((g: unknown) => gameMatchesPickId(g, pick.game_id)) as Record<string, unknown> | null;
+        selectedCombinedGames.find((g: unknown) => gameMatchesPickId(g, pick.game_id)) as Record<string, unknown> | null;
       let sportType: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl';
       let matchup = '';
       let gameDate = todayDate;
@@ -1630,3 +1695,4 @@ function formatNCAABGame(
     },
   };
 }
+

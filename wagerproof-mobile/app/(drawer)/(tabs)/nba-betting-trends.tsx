@@ -5,8 +5,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import RevenueCatUI from 'react-native-purchases-ui';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useNBABettingTrends } from '@/hooks/useNBABettingTrends';
 import { useProAccess } from '@/hooks/useProAccess';
 import { BettingTrendsMatchupCard } from '@/components/nba/BettingTrendsMatchupCard';
@@ -15,6 +15,12 @@ import { BettingTrendsMatchupCardShimmer } from '@/components/BettingTrendsMatch
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useScroll } from '@/contexts/ScrollContext';
 import { NoGamesTerminal } from '@/components/NoGamesTerminal';
+import {
+  didPaywallGrantEntitlement,
+  ENTITLEMENT_IDENTIFIER,
+  PAYWALL_PLACEMENTS,
+  presentPaywallForPlacementIfNeeded,
+} from '@/services/revenuecat';
 
 /**
  * NBA Betting Trends Page
@@ -31,6 +37,7 @@ export default function NBABettingTrendsScreen() {
   const router = useRouter();
   const { games, isLoading, error, sortMode, setSortMode, refetch } = useNBABettingTrends();
   const { isPro, isLoading: isProLoading } = useProAccess();
+  const { refreshCustomerInfo } = useRevenueCat();
 
   // Use shared scroll context (same as main feed) to sync header and tab bar animations
   const { scrollY, scrollYClamped } = useScroll();
@@ -64,9 +71,20 @@ export default function NBABettingTrendsScreen() {
   // Show paywall for non-Pro users
   useEffect(() => {
     if (!isProLoading && !isPro) {
-      RevenueCatUI.presentPaywall();
+      presentPaywallForPlacementIfNeeded(
+        ENTITLEMENT_IDENTIFIER,
+        PAYWALL_PLACEMENTS.GENERIC_FEATURE
+      )
+        .then((result) => {
+          if (didPaywallGrantEntitlement(result)) {
+            return refreshCustomerInfo();
+          }
+        })
+        .catch((error) => {
+          console.error('Error presenting paywall:', error);
+        });
     }
-  }, [isPro, isProLoading]);
+  }, [isPro, isProLoading, refreshCustomerInfo]);
 
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

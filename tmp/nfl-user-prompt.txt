@@ -1,0 +1,288 @@
+{
+  "sport": "MULTI",
+  "date": "2026-02-18",
+  "games": [
+    {
+      "game_id": "New EnglandSeattle202522",
+      "matchup": "Seattle @ New England",
+      "away_team": "Seattle",
+      "home_team": "New England",
+      "game_date": "2026-02-08",
+      "game_time": "00:00:00",
+      "vegas_lines": {
+        "spread_summary": "Seattle -4.5 / New England +4.5",
+        "home_spread": 4.5,
+        "away_spread": -4.5
+      },
+      "weather": {},
+      "public_betting": {},
+      "public_betting_detailed": {},
+      "line_movement": [
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-26T14:11:03.799062+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-26T14:13:55.43015+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-26T22:03:06.14681+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-27T14:09:31.556112+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-28T13:50:54.803186+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-28T14:09:09.886185+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-29T14:12:23.607272+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-29T16:49:47.785276+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-29T22:08:46.779837+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-30T14:14:59.652803+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-01-31T14:10:37.930979+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-01T00:38:06.078748+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-01T13:16:40.613366+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-01T15:09:02.855037+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-01T16:05:44.361332+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-01T19:12:44.70983+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-01T22:05:26.982393+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-02T14:17:47.375988+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-03T14:17:24.401195+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-04T14:15:50.03845+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-05T14:14:43.738317+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-05T22:09:19.858249+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-06T14:18:28.437827+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-07T14:12:40.425887+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-08T00:42:09.887269+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-08T13:16:47.147851+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-08T15:10:02.323187+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-08T16:06:51.33602+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-08T19:13:06.541946+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        },
+        {
+          "training_key": "New EnglandSeattle202522",
+          "as_of_ts": "2026-02-08T22:06:27.88201+00:00",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "over_line": 45.5
+        }
+      ],
+      "h2h_recent": [],
+      "polymarket": {
+        "spread": {
+          "away_odds": 51,
+          "home_odds": 49,
+          "updated_at": "2026-02-07T18:18:59.273+00:00"
+        },
+        "moneyline": {
+          "away_odds": 69,
+          "home_odds": 31,
+          "updated_at": "2026-02-07T18:18:59.536+00:00"
+        },
+        "total": {
+          "over_odds": 49,
+          "under_odds": 51,
+          "updated_at": "2026-02-07T18:18:59.55+00:00"
+        }
+      },
+      "model_predictions": {
+        "spread_cover_prob": 0.9693330526,
+        "ml_prob": 0.3134224415,
+        "ou_prob": 0.52235502,
+        "predicted_team": "New England"
+      },
+      "game_data_complete": {
+        "source_table": "nfl_predictions_epa",
+        "raw_game_data": {
+          "id": 980,
+          "run_id": "2026-02-07T12:01:59-05:00",
+          "as_of_ts": "2026-02-07T17:01:59.041198+00:00",
+          "model_version": "xgb_epa_v1",
+          "training_key": "New EnglandSeattle202522",
+          "unique_id": "New EnglandSeattle202522",
+          "season": 2025,
+          "week": 22,
+          "home_team": "New England",
+          "away_team": "Seattle",
+          "home_team_id": "10000469",
+          "away_team_id": "10000476",
+          "home_spread": 4.5,
+          "away_spread": -4.5,
+          "ou_vegas_line": 45.5,
+          "game_date": "2026-02-08",
+          "game_time_et": null,
+          "home_away_ml_prob": 0.3134224415,
+          "home_away_ml_pred": 0,
+          "home_away_spread_cover_prob": 0.9693330526,
+          "home_away_spread_cover_pred": 1,
+          "ou_result_prob": 0.52235502,
+          "ou_result_pred": 1
+        }
+      },
+      "sport": "NFL"
+    }
+  ],
+  "instructions": "Analyze these games and select picks that align with your personality profile. Be selective and only pick games where you see genuine value based on your preferences."
+}

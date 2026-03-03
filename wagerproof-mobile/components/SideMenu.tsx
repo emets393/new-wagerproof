@@ -9,6 +9,7 @@ import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useProAccess } from '@/hooks/useProAccess';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { RevenueCatPaywall } from '@/components/RevenueCatPaywall';
+import { PAYWALL_PLACEMENTS } from '@/services/revenuecat';
 import { CustomerCenter } from '@/components/CustomerCenter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -405,6 +406,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
       {/* RevenueCat Paywall Modal */}
       <RevenueCatPaywall
         visible={paywallVisible}
+        placementId={PAYWALL_PLACEMENTS.GENERIC_FEATURE}
         onClose={() => setPaywallVisible(false)}
         onPurchaseComplete={() => {
           setPaywallVisible(false);
@@ -444,4 +446,3 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
 });
-

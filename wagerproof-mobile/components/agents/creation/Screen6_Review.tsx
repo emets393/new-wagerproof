@@ -175,6 +175,21 @@ export function Screen6_Review({
     (v) => v !== null && v.length > 0
   );
 
+  const parsedAvatar = parseAvatarColor(formState.avatar_color);
+  const sportGradientColors = formState.preferred_sports.length
+    ? formState.preferred_sports.map((sport) => SPORT_CONFIG[sport].color)
+    : ['#1D428A', '#22c55e'];
+  const summaryGradientColors = (
+    sportGradientColors.length >= 2
+      ? sportGradientColors
+      : [sportGradientColors[0], `${sportGradientColors[0]}99`]
+  ) as [string, string, ...string[]];
+  const backgroundGradientColors = [
+    `${summaryGradientColors[0]}22`,
+    `${summaryGradientColors[Math.min(1, summaryGradientColors.length - 1)]}16`,
+    `${theme.colors.surface}00`,
+  ] as [string, string, string];
+
   return (
     <View style={styles.container}>
       {/* Agent Preview Card */}
@@ -182,43 +197,33 @@ export function Screen6_Review({
         style={[
           styles.previewCard,
           {
-            backgroundColor: isDark
-              ? 'rgba(255, 255, 255, 0.05)'
-              : 'rgba(255, 255, 255, 0.95)',
-            borderColor: parseAvatarColor(formState.avatar_color).primary,
-            borderWidth: 2,
+            backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+            borderWidth: 1,
           },
         ]}
       >
-        {/* Color accent bar */}
-        {(() => {
-          const parsed = parseAvatarColor(formState.avatar_color);
-          if (parsed.isGradient) {
-            return (
-              <LinearGradient
-                colors={parsed.colors as [string, string]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.accentBar}
-              />
-            );
-          }
-          return (
-            <View
-              style={[styles.accentBar, { backgroundColor: formState.avatar_color }]}
-            />
-          );
-        })()}
+        <LinearGradient
+          colors={backgroundGradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.backgroundGradient}
+        />
+        <LinearGradient
+          colors={summaryGradientColors as [string, string, ...string[]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.accentBar}
+        />
 
         <Card.Content style={styles.previewContent}>
           {/* Avatar and Name */}
           <View style={styles.avatarRow}>
             {(() => {
-              const parsed = parseAvatarColor(formState.avatar_color);
-              if (parsed.isGradient) {
+              if (parsedAvatar.isGradient) {
                 return (
                   <LinearGradient
-                    colors={parsed.colors as [string, string]}
+                    colors={parsedAvatar.colors as [string, string]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.avatarContainer}
@@ -231,7 +236,7 @@ export function Screen6_Review({
                 <View
                   style={[
                     styles.avatarContainer,
-                    { backgroundColor: `${formState.avatar_color}30` },
+                    { backgroundColor: `${parsedAvatar.primary}30` },
                   ]}
                 >
                   <Text style={styles.avatarEmoji}>{formState.avatar_emoji}</Text>
@@ -415,6 +420,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     marginBottom: 24,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   accentBar: {
     height: 4,

@@ -71,7 +71,7 @@ function FloatingTabBar() {
   const { isDark } = useThemeContext();
   const { scrollYClamped } = useScroll();
   const pathname = usePathname();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { hasLiveGames } = useLiveScores();
@@ -79,17 +79,18 @@ function FloatingTabBar() {
   // Hide tab bar on chat, roast, and agent sub-screens
   const isOnChatScreen = pathname.includes('/chat') || segments.includes('chat');
   const isOnRoastScreen = pathname.includes('/roast') || segments.includes('roast');
+  const isOnSettingsScreen = pathname.includes('/settings') || segments.includes('settings');
   const isOnAgentSubScreen = pathname.includes('/agents/create')
     || pathname.includes('/agents/public')
     || (pathname.includes('/agents/') && pathname !== '/(drawer)/(tabs)/agents' && pathname !== '/(drawer)/(tabs)/agents/');
-  if (isOnChatScreen || isOnAgentSubScreen || isOnRoastScreen) {
+  if (isOnChatScreen || isOnAgentSubScreen || isOnRoastScreen || isOnSettingsScreen) {
     return null;
   }
   
   const tabs = [
     { name: 'index', path: '/(drawer)/(tabs)/', title: 'Games', icon: 'trophy' },
     { name: 'agents', path: '/(drawer)/(tabs)/agents', title: 'Agents', icon: 'brain' },
-    { name: 'outliers', path: '/(drawer)/(tabs)/outliers', title: 'Outliers', icon: 'chart-line' },
+    { name: 'outliers', path: '/(drawer)/(tabs)/outliers', title: 'Feed', icon: 'rss' },
     { name: 'scoreboard', path: '/(drawer)/(tabs)/scoreboard', title: 'Scores', icon: 'scoreboard' },
   ];
 
@@ -144,7 +145,7 @@ function FloatingTabBar() {
             
             // Determine if this tab is active using both pathname and segments for reliability
             let isActive = false;
-            if (tab.name === 'index') {
+            if (tab.path === '/(drawer)/(tabs)/') {
               // For Feed tab: check if we're on the root tabs route
               // Using segments: should be ['(drawer)', '(tabs)'] or ['(drawer)', '(tabs)', 'index']
               // Using pathname: should match /(drawer)/(tabs) (with or without trailing slash)
@@ -386,9 +387,9 @@ function TabsContent() {
       <Tabs.Screen
         name="outliers"
         options={{
-          title: 'Outliers',
+          title: 'Feed',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="chart-line" size={size} color={color} />
+            <MaterialCommunityIcons name="rss" size={size} color={color} />
           ),
         }}
       />
@@ -441,7 +442,6 @@ function TabsContent() {
           href: null, // Hide from tab bar - accessed via sidebar
         }}
       />
-      {/* Settings removed from tabs as it's now in drawer */}
     </Tabs>
     <FloatingTabBar />
     </>

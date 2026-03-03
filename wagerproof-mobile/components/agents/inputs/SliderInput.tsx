@@ -45,18 +45,42 @@ export function SliderInput({
   const fillPercentage = ((value - 1) / 4) * 100;
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: isDark
+            ? 'rgba(255, 255, 255, 0.06)'
+            : 'rgba(255, 255, 255, 0.82)',
+          borderColor: isDark
+            ? 'rgba(255, 255, 255, 0.12)'
+            : 'rgba(255, 255, 255, 0.7)',
+        },
+      ]}
+    >
       <View style={styles.headerRow}>
-        <Text style={[styles.label, { color: theme.colors.onSurface }]}>
-          {label}
-        </Text>
+        <View style={styles.headerText}>
+          <Text style={[styles.label, { color: theme.colors.onSurface }]}>
+            {label}
+          </Text>
+          {description && (
+            <Text
+              style={[
+                styles.description,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {description}
+            </Text>
+          )}
+        </View>
         <View
           style={[
             styles.valueBadge,
             {
               backgroundColor: isDark
-                ? 'rgba(255, 255, 255, 0.1)'
-                : 'rgba(0, 0, 0, 0.05)',
+                ? 'rgba(255, 255, 255, 0.12)'
+                : 'rgba(255, 255, 255, 0.9)',
             },
           ]}
         >
@@ -65,17 +89,6 @@ export function SliderInput({
           </Text>
         </View>
       </View>
-
-      {description && (
-        <Text
-          style={[
-            styles.description,
-            { color: theme.colors.onSurfaceVariant },
-          ]}
-        >
-          {description}
-        </Text>
-      )}
 
       {/* Custom Slider Track */}
       <View style={styles.sliderContainer}>
@@ -173,23 +186,29 @@ export function SliderInput({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 12,
+    marginVertical: 8,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    gap: 12,
+  },
+  headerText: {
+    flex: 1,
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
+    fontWeight: '700',
   },
   valueBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
   valueText: {
     fontSize: 13,
@@ -197,14 +216,14 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 13,
-    marginBottom: 8,
+    marginTop: 4,
     lineHeight: 18,
   },
   sliderContainer: {
     height: 48,
     justifyContent: 'center',
-    marginVertical: 8,
-    paddingHorizontal: 12,
+    marginVertical: 10,
+    paddingHorizontal: 10,
   },
   track: {
     position: 'absolute',
@@ -243,6 +262,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 4,
+    gap: 4,
   },
   labelTouchable: {
     flex: 1,
@@ -251,5 +271,6 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 10,
     textAlign: 'center',
+    lineHeight: 12,
   },
 });

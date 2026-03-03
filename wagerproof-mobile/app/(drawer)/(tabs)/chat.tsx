@@ -13,19 +13,12 @@ import { useRouter } from 'expo-router';
 import WagerBotChat from '@/components/WagerBotChat';
 import { fetchAndFormatGameContext } from '@/services/gameDataService';
 import { useProAccess } from '@/hooks/useProAccess';
-
-// Import RevenueCatUI for presenting paywalls
-let RevenueCatUI: any = null;
-let PAYWALL_RESULT: any = null;
-try {
-  if (Platform.OS !== 'web') {
-    const purchasesUI = require('react-native-purchases-ui');
-    RevenueCatUI = purchasesUI.default;
-    PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
-  }
-} catch (error: any) {
-  console.warn('Could not load react-native-purchases-ui:', error.message);
-}
+import {
+  didPaywallGrantEntitlement,
+  ENTITLEMENT_IDENTIFIER,
+  PAYWALL_PLACEMENTS,
+  presentPaywallForPlacementIfNeeded,
+} from '@/services/revenuecat';
 
 export default function ChatScreen() {
   const theme = useTheme();
@@ -103,15 +96,13 @@ export default function ChatScreen() {
   };
 
   const handleUnlockPress = async () => {
-    if (!RevenueCatUI) {
-      console.warn('RevenueCatUI not available');
-      return;
-    }
     try {
-      const result = await RevenueCatUI.presentPaywall();
+      const result = await presentPaywallForPlacementIfNeeded(
+        ENTITLEMENT_IDENTIFIER,
+        PAYWALL_PLACEMENTS.GENERIC_FEATURE
+      );
       
-      // If user made a purchase or restored, refresh entitlements
-      if (PAYWALL_RESULT && (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED)) {
+      if (didPaywallGrantEntitlement(result)) {
         console.log('🔄 Purchase/restore detected, refreshing customer info...');
         await refreshCustomerInfo();
         console.log('✅ Customer info refreshed - entitlements should now be active');
@@ -153,14 +144,12 @@ export default function ChatScreen() {
             <Text style={[styles.title, { color: '#ffffff' }]}>
               WagerBot
             </Text>
-            {!isLoadingContext && (
+            <View style={styles.statusRow}>
+              {isLoadingContext && <ActivityIndicator size="small" color="#ffffff" />}
               <Text style={styles.subtitle}>
-                {gameContext && gameContext.length > 0 ? 'Extended' : 'General'}
+                {isLoadingContext ? 'Loading live data' : 'Game data loaded'}
               </Text>
-            )}
-            {isLoadingContext && (
-              <ActivityIndicator size="small" color="#ffffff" />
-            )}
+            </View>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity 
@@ -194,6 +183,7 @@ export default function ChatScreen() {
             userId={user.id}
             userEmail={user.email || ''}
             gameContext={gameContext}
+            isContextLoading={isLoadingContext}
             onRefresh={loadGameContext}
             onBack={handleBack}
             scrollY={scrollY}
@@ -314,6 +304,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     pointerEvents: 'none',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   headerRight: {
     flexDirection: 'row',

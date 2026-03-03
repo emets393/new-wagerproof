@@ -289,6 +289,16 @@ export default function AgentDetailScreen() {
 
   const regenLockedBySubscription = !adminModeEnabled && !canViewAgentPicks;
   const canRegenerate = adminModeEnabled || (!regenLockedBySubscription && regensRemaining > 0);
+  const generationButtonLabel = canRegenerate
+    ? "Generate Today's Picks"
+    : regenLockedBySubscription
+    ? 'Generate Picks Locked'
+    : 'Daily limit reached';
+  const regenerationSummary = adminModeEnabled
+    ? 'Unlimited manual regenerations available for this agent.'
+    : regenLockedBySubscription
+    ? 'Upgrade to Pro to regenerate this agent\'s picks manually.'
+    : `${regensRemaining} of ${MAX_DAILY_GENERATIONS} manual regenerations remaining today for this agent.`;
 
   // Filter picks for history
   const filteredPicks = useMemo(() => {
@@ -370,7 +380,8 @@ export default function AgentDetailScreen() {
         refetchAllPicks();
       }
 
-      if (result.picks.length === 0) {
+      const picksGenerated = result.picks_generated ?? result.picks.length;
+      if (picksGenerated === 0) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         setNoPicksConclusion(result.slate_note || 'Conclusion: no quality picks found on this slate.');
       } else {
@@ -557,6 +568,7 @@ export default function AgentDetailScreen() {
       : theme.colors.onSurfaceVariant;
 
   const hasTodaysPicks = todaysPicks && todaysPicks.length > 0;
+  const isGeneratingPicks = generatePicksMutation.isPending;
 
   return (
     <View
@@ -859,213 +871,242 @@ export default function AgentDetailScreen() {
           </View>
         </View>
 
-        {/* Generate Picks Button */}
-        {generatePicksMutation.isPending ? (
+        {/* Generate Picks Status */}
+        {isGeneratingPicks ? (
           <ThinkingAnimation variant="generatingPicks" />
         ) : hasTodaysPicks ? (
           <View
             style={[
-              styles.generateButton,
+              styles.generateStatusCard,
               {
                 backgroundColor: isDark
                   ? 'rgba(255, 255, 255, 0.1)'
                   : 'rgba(0, 0, 0, 0.05)',
+                borderColor: isDark
+                  ? 'rgba(255, 255, 255, 0.12)'
+                  : 'rgba(0, 0, 0, 0.08)',
               },
             ]}
           >
-            <MaterialCommunityIcons
-              name="check-circle"
-              size={24}
-              color={theme.colors.onSurfaceVariant}
-            />
-            <Text
-              style={[
-                styles.generateButtonText,
-                { color: theme.colors.onSurfaceVariant, flex: 1 },
-              ]}
-            >
-              Picks Generated
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                if (regenLockedBySubscription) {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                  setErrorToastMessage('Upgrade to Pro to regenerate picks.');
-                } else if (canRegenerate) {
-                  handleGeneratePicks();
-                } else {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                  setLimitToastVisible(true);
-                }
-              }}
-              activeOpacity={0.7}
-              style={[
-                styles.regenButton,
-                {
-                  backgroundColor: regenLockedBySubscription
-                    ? isDark
-                      ? 'rgba(255, 255, 255, 0.05)'
-                      : 'rgba(0, 0, 0, 0.03)'
-                    : canRegenerate
-                    ? theme.colors.primary
-                    : isDark
-                    ? 'rgba(255, 255, 255, 0.05)'
-                    : 'rgba(0, 0, 0, 0.03)',
-                },
-              ]}
-            >
+            <View style={styles.generateStatusHeader}>
               <MaterialCommunityIcons
-                name={regenLockedBySubscription ? 'lock' : 'refresh'}
-                size={18}
-                color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
-              />
-              <Text
-                style={[
-                  styles.regenText,
-                  {
-                    color: canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant,
-                  },
-                ]}
-              >
-                {adminModeEnabled
-                  ? 'Unlimited'
-                  : regenLockedBySubscription
-                  ? 'Locked'
-                  : `${regensRemaining}/${MAX_DAILY_GENERATIONS}`}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View>
-            <TouchableOpacity
-              style={[
-                styles.generateButton,
-                {
-                  backgroundColor: canRegenerate
-                    ? theme.colors.primary
-                    : isDark
-                    ? 'rgba(255, 255, 255, 0.1)'
-                    : 'rgba(0, 0, 0, 0.05)',
-                },
-              ]}
-              onPress={() => {
-                if (regenLockedBySubscription) {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                  setErrorToastMessage('Upgrade to Pro to generate picks.');
-                } else if (canRegenerate) {
-                  handleGeneratePicks();
-                } else {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                  setLimitToastVisible(true);
-                }
-              }}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons
-                name={regenLockedBySubscription ? 'lock' : 'lightning-bolt'}
+                name="check-circle"
                 size={24}
-                color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
+                color={theme.colors.onSurfaceVariant}
               />
               <Text
                 style={[
                   styles.generateButtonText,
-                  {
-                    color: canRegenerate
-                      ? '#ffffff'
-                      : theme.colors.onSurfaceVariant,
-                  },
+                  { color: theme.colors.onSurface, flex: 1 },
                 ]}
               >
-                {canRegenerate
-                  ? "Generate Today's Picks"
-                  : regenLockedBySubscription
-                  ? 'Generate Picks Locked'
-                  : 'Daily limit reached'}
+                Today&apos;s picks are live
               </Text>
-            </TouchableOpacity>
-
-            {!!noPicksConclusion && (
-              <View style={[styles.noPicksTerminal, { borderColor: isDark ? 'rgba(0, 230, 118, 0.22)' : 'rgba(0, 186, 98, 0.22)' }]}>
-                <Text style={[styles.noPicksHeader, { color: isDark ? '#9fb3ad' : '#7f908c' }]}>
-                  terminal://generation-result
-                </Text>
-                <View style={styles.noPicksLineRow}>
-                  <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
-                  <Text style={[styles.noPicksLineText, { color: isDark ? '#00E676' : '#0f7d4f' }]}>
-                    Analysis complete: no high-confidence picks found.
-                  </Text>
-                </View>
-                <View style={styles.noPicksLineRow}>
-                  <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
-                  <Text style={[styles.noPicksLineText, { color: isDark ? '#8ca89b' : '#6b7f79' }]}>
-                    {noPicksConclusion}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Today's Picks Section */}
-        <View style={styles.section}>
-          <Text
-            style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
-          >
-            Today&apos;s Picks
-          </Text>
-
-          <View style={styles.picksList}>
-            {isLoadingTodaysPicks ? (
-              <>
-                <PickCardSkeleton isDark={isDark} />
-                <PickCardSkeleton isDark={isDark} />
-              </>
-            ) : !canViewAgentPicks ? (
-              <>
-                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
-                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
-              </>
-            ) : hasTodaysPicks ? (
-              todaysPicks.map((pick) => renderPickWithActions(pick))
-            ) : (
-              <View
+            </View>
+            <Text
+              style={[
+                styles.generateStatusSubtext,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              Agents keep studying in the background. You can regenerate picks manually, but manual regenerations are limited per agent each day.
+            </Text>
+            <View style={styles.generateStatusFooter}>
+              <Text
                 style={[
-                  styles.emptyPicksContainer,
+                  styles.regenSummaryText,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {regenerationSummary}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  if (regenLockedBySubscription) {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    setErrorToastMessage('Upgrade to Pro to regenerate picks.');
+                  } else if (canRegenerate) {
+                    handleGeneratePicks();
+                  } else {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    setLimitToastVisible(true);
+                  }
+                }}
+                activeOpacity={0.7}
+                style={[
+                  styles.regenButton,
                   {
-                    backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.03)'
-                      : 'rgba(0, 0, 0, 0.02)',
-                    borderColor: isDark
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(0, 0, 0, 0.08)',
+                    backgroundColor: regenLockedBySubscription
+                      ? isDark
+                        ? 'rgba(255, 255, 255, 0.05)'
+                        : 'rgba(0, 0, 0, 0.03)'
+                      : canRegenerate
+                      ? theme.colors.primary
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.05)'
+                      : 'rgba(0, 0, 0, 0.03)',
                   },
                 ]}
               >
                 <MaterialCommunityIcons
-                  name="calendar-blank-outline"
-                  size={40}
-                  color={theme.colors.onSurfaceVariant}
+                  name={regenLockedBySubscription ? 'lock' : 'refresh'}
+                  size={18}
+                  color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
                 />
                 <Text
                   style={[
-                    styles.emptyPicksText,
-                    { color: theme.colors.onSurfaceVariant },
+                    styles.regenText,
+                    {
+                      color: canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant,
+                    },
                   ]}
                 >
-                  No picks yet today
+                  {adminModeEnabled
+                    ? 'Unlimited'
+                    : regenLockedBySubscription
+                    ? 'Locked'
+                    : `${regensRemaining}/${MAX_DAILY_GENERATIONS}`}
                 </Text>
-                <Text
-                  style={[
-                    styles.emptyPicksSubtext,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  Tap Generate to get started
-                </Text>
-              </View>
-            )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        ) : null}
+
+        {/* Today's Picks Section */}
+        {!isGeneratingPicks && (
+          <View style={styles.section}>
+            <Text
+              style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
+            >
+              Today&apos;s Picks
+            </Text>
+
+            <View style={styles.picksList}>
+              {isLoadingTodaysPicks ? (
+                <>
+                  <PickCardSkeleton isDark={isDark} />
+                  <PickCardSkeleton isDark={isDark} />
+                </>
+              ) : !canViewAgentPicks ? (
+                <>
+                  <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                  <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                </>
+              ) : hasTodaysPicks ? (
+                todaysPicks.map((pick) => renderPickWithActions(pick))
+              ) : (
+                <>
+                  <View
+                    style={[
+                      styles.emptyPicksContainer,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.03)'
+                          : 'rgba(0, 0, 0, 0.02)',
+                        borderColor: isDark
+                          ? 'rgba(255, 255, 255, 0.1)'
+                          : 'rgba(0, 0, 0, 0.08)',
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="calendar-blank-outline"
+                      size={40}
+                      color={theme.colors.onSurfaceVariant}
+                    />
+                    <Text
+                      style={[
+                        styles.emptyPicksText,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      No picks yet today
+                    </Text>
+                    <Text
+                      style={[
+                        styles.emptyPicksSubtext,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      Agents are studying in the background all day, and picks are automatically generated overnight when they're ready.
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.generateButton,
+                        styles.emptyStateGenerateButton,
+                        {
+                          backgroundColor: canRegenerate
+                            ? theme.colors.primary
+                            : isDark
+                            ? 'rgba(255, 255, 255, 0.1)'
+                            : 'rgba(0, 0, 0, 0.05)',
+                        },
+                      ]}
+                      onPress={() => {
+                        if (regenLockedBySubscription) {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                          setErrorToastMessage('Upgrade to Pro to generate picks.');
+                        } else if (canRegenerate) {
+                          handleGeneratePicks();
+                        } else {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                          setLimitToastVisible(true);
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <MaterialCommunityIcons
+                        name={regenLockedBySubscription ? 'lock' : 'lightning-bolt'}
+                        size={24}
+                        color={canRegenerate ? '#ffffff' : theme.colors.onSurfaceVariant}
+                      />
+                      <Text
+                        style={[
+                          styles.generateButtonText,
+                          {
+                            color: canRegenerate
+                              ? '#ffffff'
+                              : theme.colors.onSurfaceVariant,
+                          },
+                        ]}
+                      >
+                        {generationButtonLabel}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.emptyPicksHint,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {regenerationSummary}
+                    </Text>
+                  </View>
+
+                  {!!noPicksConclusion && (
+                    <View style={[styles.noPicksTerminal, { borderColor: isDark ? 'rgba(0, 230, 118, 0.22)' : 'rgba(0, 186, 98, 0.22)' }]}>
+                      <Text style={[styles.noPicksHeader, { color: isDark ? '#9fb3ad' : '#7f908c' }]}>
+                        terminal://generation-result
+                      </Text>
+                      <View style={styles.noPicksLineRow}>
+                        <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
+                        <Text style={[styles.noPicksLineText, { color: isDark ? '#00E676' : '#0f7d4f' }]}>
+                          Analysis complete: no high-confidence picks found.
+                        </Text>
+                      </View>
+                      <View style={styles.noPicksLineRow}>
+                        <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
+                        <Text style={[styles.noPicksLineText, { color: isDark ? '#8ca89b' : '#6b7f79' }]}>
+                          {noPicksConclusion}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Pick History Section */}
         <View style={styles.section}>
@@ -1496,9 +1537,30 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 24,
   },
+  generateStatusCard: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 24,
+    gap: 12,
+  },
+  generateStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   generateButtonText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  generateStatusSubtext: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  generateStatusFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   regenButton: {
     flexDirection: 'row',
@@ -1511,6 +1573,11 @@ const styles = StyleSheet.create({
   regenText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  regenSummaryText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
   // Sections
   section: {
@@ -1743,6 +1810,19 @@ const styles = StyleSheet.create({
   emptyPicksSubtext: {
     fontSize: 14,
     marginTop: 4,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  emptyStateGenerateButton: {
+    width: '100%',
+    marginTop: 20,
+    marginBottom: 0,
+  },
+  emptyPicksHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 12,
+    textAlign: 'center',
   },
   // Filter Chips
   filterChips: {

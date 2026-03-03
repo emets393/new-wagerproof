@@ -26,6 +26,7 @@ export function useAgentEntitlements() {
 
   const canViewAgentPicks = isPro || isAdmin;
   const canCreatePublicAgent = isPro || isAdmin;
+  const canUseAutopilot = isPro || isAdmin;
 
   const canViewLeaderboardRank = useCallback(
     (rank: number): boolean => {
@@ -41,6 +42,7 @@ export function useAgentEntitlements() {
     isAdmin,
     canViewAgentPicks,
     canCreatePublicAgent,
+    canUseAutopilot,
     canCreateAnotherAgent,
     canViewLeaderboardRank,
     freeAgentLimit: FREE_AGENT_LIMIT,

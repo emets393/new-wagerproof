@@ -259,9 +259,9 @@ Add these keys to `ios/Runner/Info.plist`:
 ```xml
 <!-- Meta SDK Configuration -->
 <key>FacebookAppID</key>
-<string>YOUR_FACEBOOK_APP_ID</string>
+<string>935005752525075</string>
 <key>FacebookClientToken</key>
-<string>YOUR_FACEBOOK_CLIENT_TOKEN</string>
+<string>bd008d0839f36a9941c0ed27d686b615</string>
 <key>FacebookDisplayName</key>
 <string>Your App Name</string>
 <key>FacebookAutoLogAppEventsEnabled</key>
@@ -275,7 +275,7 @@ Add these keys to `ios/Runner/Info.plist`:
   <dict>
     <key>CFBundleURLSchemes</key>
     <array>
-      <string>fbYOUR_FACEBOOK_APP_ID</string>
+      <string>fb935005752525075</string>
     </array>
   </dict>
 </array>
@@ -415,8 +415,8 @@ Add Facebook meta-data inside `<application>` tag:
 ```xml
 <!-- android/app/src/main/res/values/strings.xml -->
 <resources>
-    <string name="facebook_app_id">YOUR_FACEBOOK_APP_ID</string>
-    <string name="facebook_client_token">YOUR_FACEBOOK_CLIENT_TOKEN</string>
+    <string name="facebook_app_id">935005752525075</string>
+    <string name="facebook_client_token">bd008d0839f36a9941c0ed27d686b615</string>
 </resources>
 ```
 

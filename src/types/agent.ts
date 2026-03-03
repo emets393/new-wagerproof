@@ -265,6 +265,7 @@ export interface GeneratedPick {
 export interface GeneratePicksResponse {
   picks: GeneratedPick[];
   slate_note?: string;
+  picks_generated: number;
 }
 
 export const DEFAULT_PERSONALITY_PARAMS: PersonalityParams = {

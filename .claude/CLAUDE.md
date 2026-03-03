@@ -114,6 +114,7 @@ wagerproof-mobile/
   - `04_SCREENS.md` - Screen-by-screen specifications
   - `05_COMPONENTS.md` - Component list and props
   - `06_IMPLEMENTATION.md` - Implementation phases and file list
+  - `10_GENERATION_V2_QUEUE.md` - V2 queue-based generation architecture (enqueue/dispatch/worker)
 
 ## Data Sources & APIs
 

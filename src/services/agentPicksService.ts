@@ -22,35 +22,80 @@ export async function fetchAgentPicks(agentId: string, filters?: AgentPicksFilte
   return (data || []) as AgentPick[];
 }
 
-export async function generatePicks(agentId: string, isAdmin = false): Promise<GeneratePicksResponse> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
+export async function generatePicks(agentId: string, _isAdmin = false): Promise<GeneratePicksResponse> {
+  // Get current session (no refresh – avoids triggering onAuthStateChange)
+  const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('User not authenticated');
 
-  const functionUrl = 'https://gnjrklxotmbvnxbnnqgq.supabase.co/functions/v1/generate-avatar-picks';
-  const response = await fetch(functionUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({
-      avatar_id: agentId,
-      user_id: session.user.id,
-      is_admin: isAdmin,
-    }),
-  });
+  // V2: Enqueue via request endpoint (JWT verified by Edge Function gateway)
+  const { data, error } = await (supabase as any).functions.invoke(
+    'request-avatar-picks-generation-v2',
+    { body: { avatar_id: agentId } }
+  );
 
-  const responseBody = await response.json();
+  if (error) {
+    // Extract actual error body from FunctionsHttpError context
+    let detail = '';
+    try {
+      const ctx = (error as any).context;
+      if (ctx && typeof ctx.json === 'function') {
+        const body = await ctx.json();
+        detail = body?.error || body?.message || '';
+      }
+    } catch (_e) { /* ignore parse failure */ }
+    throw new Error(detail || error.message || 'Failed to request pick generation');
+  }
+  if (!data?.success) throw new Error(data?.error || 'Failed to enqueue generation');
 
-  if (!response.ok || !responseBody?.success) {
-    throw new Error(responseBody?.error || `Pick generation failed (${response.status})`);
+  const runId = data.run_id;
+  if (!runId) throw new Error('No run_id returned from generation request');
+
+  // Poll for completion (worker processes asynchronously)
+  const result = await pollGenerationRun(runId);
+  return {
+    picks: [],
+    picks_generated: result.picksGenerated,
+    slate_note: result.picksGenerated === 0 ? 'No games available for today' : undefined,
+  };
+}
+
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 300_000; // 5 minutes
+const MAX_CONSECUTIVE_ERRORS = 5;
+
+async function pollGenerationRun(runId: string): Promise<{ status: string; picksGenerated: number }> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  let consecutiveErrors = 0;
+
+  while (Date.now() < deadline) {
+    const { data: run, error } = await (supabase as any)
+      .from('agent_generation_runs')
+      .select('status, picks_generated, error_message')
+      .eq('id', runId)
+      .single();
+
+    if (error) {
+      consecutiveErrors++;
+      console.warn(`[generatePicks] Poll error (${consecutiveErrors}):`, error.message);
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        throw new Error('Unable to check generation status — please try again');
+      }
+    } else if (run) {
+      consecutiveErrors = 0;
+      if (run.status === 'succeeded') {
+        return { status: 'succeeded', picksGenerated: run.picks_generated || 0 };
+      }
+      if (run.status === 'failed_terminal') {
+        throw new Error(run.error_message || 'Pick generation failed permanently');
+      }
+      if (run.status === 'canceled') {
+        throw new Error('Pick generation was canceled');
+      }
+      // Still processing: queued, leased, processing, failed_retryable
+    }
+
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
   }
 
-  return {
-    picks: responseBody.picks || [],
-    slate_note: responseBody.slate_note,
-  };
+  throw new Error('Pick generation timed out — check back in a few minutes');
 }

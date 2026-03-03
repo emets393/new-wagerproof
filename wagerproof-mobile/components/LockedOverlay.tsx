@@ -4,19 +4,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
-
-// Import RevenueCatUI for presenting paywalls
-let RevenueCatUI: any = null;
-let PAYWALL_RESULT: any = null;
-try {
-  if (Platform.OS !== 'web') {
-    const purchasesUI = require('react-native-purchases-ui');
-    RevenueCatUI = purchasesUI.default;
-    PAYWALL_RESULT = purchasesUI.PAYWALL_RESULT;
-  }
-} catch (error: any) {
-  console.warn('Could not load react-native-purchases-ui:', error.message);
-}
+import {
+  didPaywallGrantEntitlement,
+  ENTITLEMENT_IDENTIFIER,
+  PAYWALL_PLACEMENTS,
+  presentPaywallForPlacementIfNeeded,
+} from '@/services/revenuecat';
 
 interface LockedOverlayProps {
   message?: string;
@@ -24,6 +17,7 @@ interface LockedOverlayProps {
   onPress?: () => void;
   children?: React.ReactNode;
   blurIntensity?: number;
+  placementId?: string;
 }
 
 /**
@@ -35,7 +29,8 @@ export function LockedOverlay({
   style,
   onPress,
   children,
-  blurIntensity = 15
+  blurIntensity = 15,
+  placementId = PAYWALL_PLACEMENTS.GENERIC_FEATURE,
 }: LockedOverlayProps) {
   const { isDark } = useThemeContext();
   const { refreshCustomerInfo } = useRevenueCat();
@@ -48,17 +43,14 @@ export function LockedOverlay({
     }
 
     // Default behavior: open paywall
-    if (!RevenueCatUI) {
-      console.warn('RevenueCatUI not available');
-      return;
-    }
-
     try {
       setIsLoading(true);
-      const result = await RevenueCatUI.presentPaywall();
+      const result = await presentPaywallForPlacementIfNeeded(
+        ENTITLEMENT_IDENTIFIER,
+        placementId
+      );
       
-      // If user made a purchase or restored, refresh entitlements
-      if (PAYWALL_RESULT && (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED)) {
+      if (didPaywallGrantEntitlement(result)) {
         console.log('🔄 Purchase/restore detected, refreshing customer info...');
         await refreshCustomerInfo();
         console.log('✅ Customer info refreshed - entitlements should now be active');

@@ -6,7 +6,12 @@ import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useRevenueCat } from '../../../contexts/RevenueCatContext';
-import { presentPaywall } from '../../../services/revenuecat';
+import {
+  didPaywallGrantEntitlement,
+  ENTITLEMENT_IDENTIFIER,
+  PAYWALL_PLACEMENTS,
+  presentPaywallForPlacementIfNeeded,
+} from '../../../services/revenuecat';
 
 export function AgentAccessScreen() {
   const { nextStep, agentFormState, onboardingData } = useOnboarding();
@@ -23,10 +28,15 @@ export function AgentAccessScreen() {
     setIsLoading(true);
 
     try {
-      const result = await presentPaywall();
+      const result = await presentPaywallForPlacementIfNeeded(
+        ENTITLEMENT_IDENTIFIER,
+        PAYWALL_PLACEMENTS.AGENT_FEATURE
+      );
       console.log('Paywall result:', result);
 
-      await refreshCustomerInfo();
+      if (didPaywallGrantEntitlement(result)) {
+        await refreshCustomerInfo();
+      }
       nextStep();
     } catch (error: any) {
       console.error('Error presenting paywall:', error);

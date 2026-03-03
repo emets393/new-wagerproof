@@ -40,7 +40,7 @@ export default function AgentSettings() {
   const { data: agent, isLoading } = useAgent(id);
   const updateMutation = useUpdateAgent();
   const deleteMutation = useDeleteAgent();
-  const { isAdmin, isPro } = useAgentEntitlements();
+  const { isAdmin, isPro, canUseAutopilot } = useAgentEntitlements();
 
   const [form, setForm] = useState<AgentSettingsForm | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -255,12 +255,16 @@ export default function AgentSettings() {
           <div className="flex items-center justify-between rounded-md border p-3">
             <div>
               <Label htmlFor="agent-auto-generate" className="font-medium">Autopilot / Auto-generate</Label>
-              <p className="text-xs text-muted-foreground mt-1">Generate picks daily when games are available.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {canUseAutopilot
+                  ? 'Generate picks daily when games are available.'
+                  : 'Upgrade to Pro to enable daily auto-generation.'}
+              </p>
             </div>
             <Switch
               id="agent-auto-generate"
               checked={form.auto_generate}
-              disabled={!form.is_active}
+              disabled={!form.is_active || !canUseAutopilot}
               onCheckedChange={(checked) => setForm({ ...form, auto_generate: checked })}
             />
           </div>
