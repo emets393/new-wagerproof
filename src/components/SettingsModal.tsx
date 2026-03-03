@@ -136,10 +136,15 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   };
 
   const handleManageBilling = () => {
-    // RevenueCat Web Billing automatically sends email with customer portal link
-    setSuccess(
-      'Subscription management links are sent to your email with every confirmation and renewal. Check your email for the link to manage your subscription.'
-    );
+    // Use RevenueCat's managementURL to open the customer portal directly
+    if (customerInfo?.managementURL) {
+      window.open(customerInfo.managementURL, '_blank', 'noopener,noreferrer');
+    } else {
+      // Fallback if managementURL is not available (e.g. mobile-originating subscription)
+      setSuccess(
+        'Subscription management links are sent to your email with every confirmation and renewal. Check your email for the link to manage your subscription.'
+      );
+    }
   };
 
   return (
@@ -552,62 +557,81 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     </div>
 
                     <div className="pt-4 space-y-4">
-                      <Button 
-                        onClick={handleManageBilling}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        <Mail className="h-4 w-4 mr-2" />
-                        Manage Subscription
-                      </Button>
-                      
-                      <div className="space-y-3">
-                        <div className="space-y-2 text-xs text-muted-foreground text-center">
-                          <p className="font-medium text-foreground">
-                            Look for this email in your inbox:
-                          </p>
-                        </div>
-                        
-                        <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
-                          <img 
-                            src="/revcatemailsubs.png" 
-                            alt="Subscription confirmation email example"
+                      {customerInfo?.managementURL ? (
+                        <>
+                          <Button
+                            onClick={handleManageBilling}
                             className="w-full"
-                            onError={(e) => {
-                              // Fallback if image doesn't load
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `
-                                  <div class="p-4 text-center">
-                                    <div class="space-y-2 text-sm text-muted-foreground">
-                                      <p class="font-semibold text-foreground">📧 Your subscription confirmation email</p>
-                                      <p>Subject: "Your subscription started"</p>
-                                      <p>From: WagerProof</p>
-                                      <p>Contains a blue "Click here" link to manage your subscription</p>
-                                    </div>
-                                  </div>
-                                `;
-                              }
-                            }}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2 text-xs text-muted-foreground text-center">
-                          <p>
-                            Click the link in your confirmation email to update or cancel your subscription.
+                          >
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            Manage Subscription
+                          </Button>
+                          <p className="text-xs text-muted-foreground text-center">
+                            Update payment method, change plan, or cancel your subscription.
                           </p>
-                          <p>
-                            Have questions? Email us at{' '}
-                            <a 
-                              href="mailto:admin@wagerproof.bet" 
-                              className="text-primary hover:underline font-medium"
-                            >
-                              admin@wagerproof.bet
-                            </a>
-                          </p>
-                        </div>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            onClick={handleManageBilling}
+                            className="w-full"
+                            variant="outline"
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            Manage Subscription
+                          </Button>
+
+                          <div className="space-y-3">
+                            <div className="space-y-2 text-xs text-muted-foreground text-center">
+                              <p className="font-medium text-foreground">
+                                Look for this email in your inbox:
+                              </p>
+                            </div>
+
+                            <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
+                              <img
+                                src="/revcatemailsubs.png"
+                                alt="Subscription confirmation email example"
+                                className="w-full"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = `
+                                      <div class="p-4 text-center">
+                                        <div class="space-y-2 text-sm text-muted-foreground">
+                                          <p class="font-semibold text-foreground">Your subscription confirmation email</p>
+                                          <p>Subject: "Your subscription started"</p>
+                                          <p>From: WagerProof</p>
+                                          <p>Contains a link to manage your subscription</p>
+                                        </div>
+                                      </div>
+                                    `;
+                                  }
+                                }}
+                              />
+                            </div>
+
+                            <div className="space-y-2 text-xs text-muted-foreground text-center">
+                              <p>
+                                Click the link in your confirmation email to update or cancel your subscription.
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      <div className="text-xs text-muted-foreground text-center">
+                        <p>
+                          Need help? Email us at{' '}
+                          <a
+                            href="mailto:admin@wagerproof.bet"
+                            className="text-primary hover:underline font-medium"
+                          >
+                            admin@wagerproof.bet
+                          </a>
+                        </p>
                       </div>
                     </div>
                   </CardContent>

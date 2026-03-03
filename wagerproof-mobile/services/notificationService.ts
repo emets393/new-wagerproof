@@ -19,8 +19,14 @@ let isInitialized = false;
  * Call once at app start.
  */
 export async function initializeNotifications(): Promise<void> {
-  if (isInitialized) return;
+  if (isInitialized) {
+    console.log('🔔 Already initialized, skipping');
+    return;
+  }
   isInitialized = true;
+  console.log('🔔 Initializing notifications...');
+  console.log('🔔 Device.isDevice:', Device.isDevice);
+  console.log('🔔 Platform:', Platform.OS);
 
   // Set foreground notification handler
   Notifications.setNotificationHandler({
@@ -187,10 +193,16 @@ export async function syncTokenIfPermitted(userId: string): Promise<void> {
  * Non-blocking — never prevents the auto-gen toggle from proceeding.
  */
 export async function ensureAutoPickNotificationPermission(userId: string): Promise<void> {
-  if (!Device.isDevice) return;
+  console.log('🔔 ensureAutoPickNotificationPermission called, userId:', userId);
+  console.log('🔔 Device.isDevice:', Device.isDevice);
+  if (!Device.isDevice) {
+    console.log('🔔 Not a physical device, returning early');
+    return;
+  }
 
   try {
     const status = await getNotificationPermissionStatus();
+    console.log('🔔 Current permission status:', status);
 
     if (status === 'granted') {
       await registerPushToken(userId);

@@ -919,6 +919,7 @@ export default function AgentSettingsScreen() {
               if (!canUseAutopilot) return;
               setAutoGenerate(v);
               markChanged();
+              console.log('🔔 Auto-gen toggled:', v, 'user?.id:', user?.id);
               if (v && user?.id) {
                 ensureAutoPickNotificationPermission(user.id);
               }

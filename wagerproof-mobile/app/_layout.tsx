@@ -271,11 +271,13 @@ function NotificationHandler() {
 
   // 1. Initialize on mount (one-time)
   useEffect(() => {
+    console.log('🔔 NotificationHandler mounted');
     initializeNotifications();
   }, []);
 
   // 2. Silent token sync when user authenticates
   useEffect(() => {
+    console.log('🔔 NotificationHandler: user?.id =', user?.id);
     if (!user?.id) return;
     syncTokenIfPermitted(user.id);
   }, [user?.id]);

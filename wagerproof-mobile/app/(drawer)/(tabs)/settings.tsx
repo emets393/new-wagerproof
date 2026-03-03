@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,12 @@ import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { RevenueCatPaywall } from '@/components/RevenueCatPaywall';
 import { PAYWALL_PLACEMENTS } from '@/services/revenuecat';
 import { useLearnWagerProof } from '@/contexts/LearnWagerProofContext';
+import {
+  getNotificationPermissionStatus,
+  requestNotificationPermission,
+  registerPushToken,
+  deactivatePushTokens,
+} from '@/services/notificationService';
 
 type ActionRowProps = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -118,6 +124,46 @@ export default function SettingsScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [tapCount, setTapCount] = useState(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+
+  // Check notification permission status on mount
+  useEffect(() => {
+    getNotificationPermissionStatus().then((status) => {
+      setNotificationsEnabled(status === 'granted');
+      setNotificationsLoading(false);
+    }).catch(() => setNotificationsLoading(false));
+  }, []);
+
+  const handleNotificationToggle = useCallback(async (value: boolean) => {
+    if (value) {
+      const status = await getNotificationPermissionStatus();
+      if (status === 'granted') {
+        setNotificationsEnabled(true);
+        if (user?.id) await registerPushToken(user.id);
+      } else if (status === 'undetermined') {
+        const result = await requestNotificationPermission();
+        if (result === 'granted') {
+          setNotificationsEnabled(true);
+          if (user?.id) await registerPushToken(user.id);
+        }
+      } else {
+        // denied — open system settings
+        Alert.alert(
+          'Notifications Disabled',
+          'Push notifications are blocked by your device. Open Settings to enable them.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+      }
+    } else {
+      // User wants to disable — deactivate tokens so they stop receiving
+      setNotificationsEnabled(false);
+      if (user?.id) await deactivatePushTokens(user.id);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (isDetached) {
@@ -371,6 +417,25 @@ export default function SettingsScreen() {
                   trackColor={switchTrackColors}
                   thumbColor={switchThumbColor}
                 />
+              }
+            />
+            <ActionRow
+              icon="bell-outline"
+              iconColor="#e65100"
+              iconBackground="#fff3e0"
+              title="Push Notifications"
+              subtitle={notificationsEnabled ? 'Get notified when agent picks are ready' : 'Notifications are off'}
+              rightContent={
+                notificationsLoading ? (
+                  <ActivityIndicator size="small" color="#e65100" />
+                ) : (
+                  <Switch
+                    value={notificationsEnabled}
+                    onValueChange={handleNotificationToggle}
+                    trackColor={switchTrackColors}
+                    thumbColor={switchThumbColor}
+                  />
+                )
               }
             />
             {Platform.OS === 'ios' && (

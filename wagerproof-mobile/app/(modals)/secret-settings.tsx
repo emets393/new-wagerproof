@@ -19,6 +19,15 @@ import {
   presentPaywallForPlacement,
   syncPurchases,
 } from '@/services/revenuecat';
+import {
+  initializeNotifications,
+  getNotificationPermissionStatus,
+  requestNotificationPermission,
+  getExpoPushToken,
+  registerPushToken,
+} from '@/services/notificationService';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 
 export default function SecretSettingsScreen() {
   const theme = useTheme();
@@ -30,6 +39,103 @@ export default function SecretSettingsScreen() {
   const { openSheet: openMetaTestSheet } = useMetaTestSheet();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  const handleTestPushDiagnostics = async () => {
+    const lines: string[] = [];
+    lines.push(`Platform: ${Platform.OS}`);
+    lines.push(`Device.isDevice: ${Device.isDevice}`);
+    lines.push(`Device.modelName: ${Device.modelName}`);
+
+    try {
+      await initializeNotifications();
+      lines.push(`Init: OK`);
+    } catch (e: any) {
+      lines.push(`Init error: ${e.message}`);
+    }
+
+    try {
+      const status = await getNotificationPermissionStatus();
+      lines.push(`Permission: ${status}`);
+    } catch (e: any) {
+      lines.push(`Permission error: ${e.message}`);
+    }
+
+    try {
+      const token = await getExpoPushToken();
+      lines.push(`Token: ${token ? token.slice(0, 30) + '...' : 'null'}`);
+    } catch (e: any) {
+      lines.push(`Token error: ${e.message}`);
+    }
+
+    if (user?.id) {
+      try {
+        const { data, error } = await supabase
+          .from('user_push_tokens')
+          .select('expo_push_token, is_active')
+          .eq('user_id', user.id);
+        lines.push(`DB tokens: ${data?.length ?? 0} (error: ${error?.message ?? 'none'})`);
+        data?.forEach((t: any, i: number) => {
+          lines.push(`  [${i}] active=${t.is_active} ${t.expo_push_token.slice(0, 30)}...`);
+        });
+      } catch (e: any) {
+        lines.push(`DB query error: ${e.message}`);
+      }
+    } else {
+      lines.push(`User: not logged in`);
+    }
+
+    const report = lines.join('\n');
+    console.log('🔔 Push Diagnostics:\n' + report);
+    Alert.alert('Push Notification Diagnostics', report);
+  };
+
+  const handleRegisterAndTestPush = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'Must be logged in');
+      return;
+    }
+
+    try {
+      // 1. Request permission if needed
+      let status = await getNotificationPermissionStatus();
+      if (status !== 'granted') {
+        status = await requestNotificationPermission();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', `Status: ${status}. Cannot send push without permission.`);
+          return;
+        }
+      }
+
+      // 2. Register token
+      await registerPushToken(user.id);
+
+      // 3. Get token to show
+      const token = await getExpoPushToken();
+      if (!token) {
+        Alert.alert('Error', 'Could not get push token even after registration');
+        return;
+      }
+
+      // 4. Send a local test notification
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🎯 Test Agent Picks Ready!',
+          body: '3 new picks just dropped. Tap to view.',
+          sound: 'default',
+          data: { type: 'auto_pick_ready', agent_id: 'test', run_id: 'test' },
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 2 },
+      });
+
+      Alert.alert(
+        'Success',
+        `Token registered and local test notification scheduled (2s).\n\nToken: ${token.slice(0, 40)}...`
+      );
+    } catch (e: any) {
+      console.error('🔔 Test push error:', e);
+      Alert.alert('Error', e.message);
+    }
+  };
 
   const handleResetOnboarding = async () => {
     if (!user) {
@@ -342,12 +448,38 @@ export default function SecretSettingsScreen() {
         </List.Section>
         <Divider />
 
+        {/* Push Notification Testing */}
+        <List.Section>
+          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
+            Push Notification Testing
+          </List.Subheader>
+
+          <List.Item
+            title="Push Diagnostics"
+            description="Check device, permission, token, and DB status"
+            left={props => <List.Icon {...props} icon="stethoscope" color="#f59e0b" />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={handleTestPushDiagnostics}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+
+          <List.Item
+            title="Register & Send Test Push"
+            description="Request permission, register token, send local notification"
+            left={props => <List.Icon {...props} icon="bell-ring-outline" color="#22c55e" />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={handleRegisterAndTestPush}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+        </List.Section>
+        <Divider />
+
         {/* Testing Section */}
         <List.Section>
           <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
             Testing Tools
           </List.Subheader>
-          
+
           <List.Item
             title="Reset Onboarding"
             description="Go through onboarding flow again"
