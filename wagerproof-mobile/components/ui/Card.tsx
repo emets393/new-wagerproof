@@ -17,16 +17,16 @@ export function Card({ children, onPress, selected = false, style }: CardProps) 
     styles.card,
     {
       backgroundColor: selected
-        ? 'rgba(255, 255, 255, 0.25)' // Brighter glassmorphism when selected
-        : 'rgba(255, 255, 255, 0.1)',
+        ? 'rgba(34, 197, 94, 0.15)'
+        : 'rgba(255, 255, 255, 0.06)',
       borderColor: selected
-        ? 'rgba(255, 255, 255, 0.5)' // Brighter border when selected
-        : 'rgba(255, 255, 255, 0.2)',
+        ? '#22c55e'
+        : 'rgba(255, 255, 255, 0.1)',
       // Only apply shadows on iOS - Android renders square artifacts with transparent backgrounds
       ...(isAndroid ? {} : {
-        shadowColor: selected ? '#fff' : 'transparent',
+        shadowColor: selected ? '#22c55e' : 'transparent',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: selected ? 0.3 : 0,
+        shadowOpacity: selected ? 0.2 : 0,
         shadowRadius: selected ? 8 : 0,
         elevation: selected ? 4 : 0,
       }),

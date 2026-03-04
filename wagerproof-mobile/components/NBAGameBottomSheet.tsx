@@ -21,7 +21,7 @@ import { useNBAMatchupOverview } from '@/hooks/useNBAMatchupOverview';
 import { InjuryReportWidget } from './nba/InjuryReportWidget';
 import { RecentTrendsWidget } from './nba/RecentTrendsWidget';
 import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
-import { AgentPickPayloadAuditWidget } from '@/components/agents/AgentPickPayloadAuditWidget';
+import { AgentPickRationaleWidget } from '@/components/agents/AgentPickRationaleWidget';
 
 export function NBAGameBottomSheet() {
   const theme = useTheme();
@@ -231,7 +231,7 @@ export function NBAGameBottomSheet() {
       >
         {game ? (
           <>
-          <AgentPickPayloadAuditWidget
+          <AgentPickRationaleWidget
             gameKeys={[game.game_id, game.training_key, game.unique_id]}
           />
           {/* Header with Teams */}

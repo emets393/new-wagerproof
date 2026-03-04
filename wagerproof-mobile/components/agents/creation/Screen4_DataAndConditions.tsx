@@ -208,13 +208,13 @@ export function Screen4_DataAndConditions({
               </Text>
               <View style={styles.sportBadges}>
                 {selectedSports.includes('nfl') && (
-                  <View style={[styles.badge, { backgroundColor: '#013369' }]}>
-                    <Text style={styles.badgeText}>NFL</Text>
+                  <View style={[styles.badge, { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }]}>
+                    <Text style={[styles.badgeText, { color: '#93bbfd' }]}>NFL</Text>
                   </View>
                 )}
                 {selectedSports.includes('cfb') && (
-                  <View style={[styles.badge, { backgroundColor: '#C41E3A' }]}>
-                    <Text style={styles.badgeText}>CFB</Text>
+                  <View style={[styles.badge, { backgroundColor: 'rgba(239, 68, 68, 0.2)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.4)' }]}>
+                    <Text style={[styles.badgeText, { color: '#fca5a5' }]}>CFB</Text>
                   </View>
                 )}
               </View>
@@ -285,13 +285,13 @@ export function Screen4_DataAndConditions({
               </Text>
               <View style={styles.sportBadges}>
                 {selectedSports.includes('nba') && (
-                  <View style={[styles.badge, { backgroundColor: '#1D428A' }]}>
-                    <Text style={styles.badgeText}>NBA</Text>
+                  <View style={[styles.badge, { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }]}>
+                    <Text style={[styles.badgeText, { color: '#93bbfd' }]}>NBA</Text>
                   </View>
                 )}
                 {selectedSports.includes('ncaab') && (
-                  <View style={[styles.badge, { backgroundColor: '#FF6B00' }]}>
-                    <Text style={styles.badgeText}>NCAAB</Text>
+                  <View style={[styles.badge, { backgroundColor: 'rgba(249, 115, 22, 0.2)', borderWidth: 1, borderColor: 'rgba(249, 115, 22, 0.4)' }]}>
+                    <Text style={[styles.badgeText, { color: '#fdba74' }]}>NCAAB</Text>
                   </View>
                 )}
               </View>
@@ -346,8 +346,8 @@ export function Screen4_DataAndConditions({
               <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
                 NBA Trends
               </Text>
-              <View style={[styles.badge, { backgroundColor: '#1D428A' }]}>
-                <Text style={styles.badgeText}>NBA</Text>
+              <View style={[styles.badge, { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }]}>
+                <Text style={[styles.badgeText, { color: '#93bbfd' }]}>NBA</Text>
               </View>
             </View>
             <Text

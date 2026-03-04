@@ -22,11 +22,11 @@ const ONBOARDING_SCREENS = [
   },
   {
     type: 'image',
-    title: 'Live Public Betting Data',
-    subtitle: 'Track where the public is leaning and make your own decisions.',
+    title: 'Create Agent Bots',
+    subtitle: 'Build multiple bots that research picks for you 24/7.',
     media: null, // Placeholder
     color: '#00BFA5', // Teal
-    visual: 'screen-1', 
+    visual: 'screen-3',
   },
   {
     type: 'image',
@@ -38,11 +38,11 @@ const ONBOARDING_SCREENS = [
   },
   {
     type: 'image',
-    title: 'Create Agent Bots',
-    subtitle: 'Build multiple bots that research picks for you 24/7.',
+    title: 'Live Public Betting Data',
+    subtitle: 'Track where the public is leaning and make your own decisions.',
     media: null, // Placeholder
     color: '#00BFA5', // Teal
-    visual: 'screen-3',
+    visual: 'screen-1',
   },
   {
     type: 'image',
@@ -517,14 +517,14 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
-  // Show learn bottom sheet after 2 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      openLearnSheet();
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [openLearnSheet]);
+  // Show learn bottom sheet after 2 seconds (disabled for now)
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     openLearnSheet();
+  //   }, 2000);
+  //
+  //   return () => clearTimeout(timer);
+  // }, [openLearnSheet]);
   
   // Auto-advance with Pause support
   useEffect(() => {

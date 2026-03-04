@@ -19,7 +19,7 @@ import { FadeAlertTooltip } from './FadeAlertTooltip';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
-import { AgentPickPayloadAuditWidget } from '@/components/agents/AgentPickPayloadAuditWidget';
+import { AgentPickRationaleWidget } from '@/components/agents/AgentPickRationaleWidget';
 
 export function NCAABGameBottomSheet() {
   const theme = useTheme();
@@ -228,7 +228,7 @@ export function NCAABGameBottomSheet() {
       >
         {game ? (
           <>
-          <AgentPickPayloadAuditWidget
+          <AgentPickRationaleWidget
             gameKeys={[game.game_id, game.training_key, game.unique_id]}
           />
           {/* Header with Teams */}

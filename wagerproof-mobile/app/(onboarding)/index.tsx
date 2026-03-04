@@ -1,10 +1,11 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { View, StyleSheet, Animated, Dimensions, ScrollView, StatusBar } from 'react-native';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { View, StyleSheet, Animated, StatusBar } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { PaperProvider, MD3DarkTheme } from 'react-native-paper';
 import { OnboardingProvider, useOnboarding } from '../../contexts/OnboardingContext';
+import { ThemeContext } from '../../contexts/ThemeContext';
+import { darkTheme } from '@/constants/theme';
 import { ProgressIndicator } from '../../components/onboarding/ProgressIndicator';
-import { AnimatedGradientBackground } from '../../components/onboarding/AnimatedGradientBackground';
-import { stepGradients, StepNumber } from '../../components/onboarding/onboardingGradients';
 import { PersonalizationIntro } from '../../components/onboarding/steps/Step1_PersonalizationIntro';
 import { TermsAcceptance } from '../../components/onboarding/steps/Step1b_TermsAcceptance';
 import { SportsSelection } from '../../components/onboarding/steps/Step2_SportsSelection';
@@ -23,8 +24,7 @@ import { AgentBornStep } from '../../components/onboarding/steps/StepAgentBorn';
 import { OnboardingAgentBuilder } from '../../components/onboarding/steps/OnboardingAgentBuilder';
 import { DataTransparency } from '../../components/onboarding/steps/Step14_DataTransparency';
 
-const { width } = Dimensions.get('window');
-const TOTAL_STEPS = 22;
+const TOTAL_STEPS = 21;
 
 const stepComponents: Record<number, React.ComponentType> = {
   1: PersonalizationIntro,
@@ -46,9 +46,8 @@ const stepComponents: Record<number, React.ComponentType> = {
   17: OnboardingAgentBuilder,
   18: OnboardingAgentBuilder,
   19: OnboardingAgentBuilder,
-  20: OnboardingAgentBuilder,
-  21: AgentGenerationStep,
-  22: AgentBornStep,
+  20: AgentGenerationStep,
+  21: AgentBornStep,
 };
 
 function OnboardingContent() {
@@ -56,23 +55,24 @@ function OnboardingContent() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const [displayStep, setDisplayStep] = useState(currentStep);
-  const [gradientStep, setGradientStep] = useState(currentStep);
   const isFirstMount = useRef(true);
-
-  // Get gradient for current step - updates immediately for smooth transition
-  const currentGradient = stepGradients[gradientStep as StepNumber] || stepGradients[1];
 
   useEffect(() => {
     // Skip animation on first mount
     if (isFirstMount.current) {
       isFirstMount.current = false;
       setDisplayStep(currentStep);
-      setGradientStep(currentStep);
       return;
     }
 
-    // Start gradient transition immediately
-    setGradientStep(currentStep);
+    // If the component is the same (e.g. agent builder internal navigation),
+    // skip parent animation — the component handles its own transitions
+    const prevComponent = stepComponents[displayStep];
+    const nextComponent = stepComponents[currentStep];
+    if (prevComponent === nextComponent) {
+      setDisplayStep(currentStep);
+      return;
+    }
 
     // Fade out current content
     Animated.parallel([
@@ -116,26 +116,19 @@ function OnboardingContent() {
   }, [currentStep, direction, fadeAnim, translateX]);
 
   const CurrentStepComponent = stepComponents[displayStep] || PersonalizationIntro;
-  const isCinematicStep = displayStep === 21 || displayStep === 22;
-
-  // Steps that handle their own scrolling:
-  // 9 = FeatureSpotlight, 15-20 = Agent Builder screens, 21-22 = cinematic screens
-  const selfScrollingStep =
-    displayStep === 9 ||
-    (displayStep >= 15 && displayStep <= 22);
+  const isCinematicStep = displayStep === 20 || displayStep === 21;
 
   return (
     <View style={styles.container}>
-      {/* Animated Gradient Background */}
+      {/* Subtle green glow background */}
       {!isCinematicStep && (
-        <AnimatedGradientBackground
-          colorScheme={currentGradient}
-          duration={8000}
+        <LinearGradient
+          colors={['transparent', 'rgba(34, 197, 94, 0.14)']}
+          start={{ x: 0.5, y: 0.3 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
         />
       )}
-
-      {/* Dark overlay for better text readability */}
-      {!isCinematicStep && <View style={styles.darkOverlay} />}
 
       {/* Force dark status bar */}
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
@@ -143,7 +136,7 @@ function OnboardingContent() {
       {/* Progress Indicator with Back Button */}
       {!isCinematicStep && (
         <ProgressIndicator
-          currentStep={gradientStep}
+          currentStep={currentStep}
           totalSteps={TOTAL_STEPS}
           onBack={prevStep}
         />
@@ -159,17 +152,7 @@ function OnboardingContent() {
           },
         ]}
       >
-        {selfScrollingStep ? (
-          <CurrentStepComponent />
-        ) : (
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-          >
-            <CurrentStepComponent />
-          </ScrollView>
-        )}
+        <CurrentStepComponent />
       </Animated.View>
     </View>
   );
@@ -181,37 +164,46 @@ const onboardingDarkTheme = {
   colors: {
     ...MD3DarkTheme.colors,
     primary: '#22c55e', // Green primary color
-    background: '#121212',
-    surface: '#1e1e1e',
+    primaryContainer: 'rgba(34, 197, 94, 0.2)',
+    onPrimaryContainer: '#86efac',
+    background: '#0f1117',
+    surface: '#1a1d27',
     onBackground: '#ffffff',
     onSurface: '#ffffff',
+    onSurfaceVariant: 'rgba(255, 255, 255, 0.6)',
   },
 };
 
+// Force isDark=true so all child components using useThemeContext() render dark
+const noopSetTheme = async () => {};
+const noopToggle = async () => {};
+
 export default function OnboardingPage() {
+  const forcedDarkContext = useMemo(() => ({
+    theme: darkTheme,
+    themeMode: 'dark' as const,
+    isDark: true,
+    setThemeMode: noopSetTheme,
+    toggleTheme: noopToggle,
+  }), []);
+
   return (
-    <PaperProvider theme={onboardingDarkTheme}>
-      <OnboardingProvider>
-        <OnboardingContent />
-      </OnboardingProvider>
-    </PaperProvider>
+    <ThemeContext.Provider value={forcedDarkContext}>
+      <PaperProvider theme={onboardingDarkTheme}>
+        <OnboardingProvider>
+          <OnboardingContent />
+        </OnboardingProvider>
+      </PaperProvider>
+    </ThemeContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000', // Fallback color
-  },
-  darkOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Dark overlay for better text readability
+    backgroundColor: '#0f1117',
   },
   content: {
     flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    minHeight: '100%',
   },
 });

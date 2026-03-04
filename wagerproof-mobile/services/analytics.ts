@@ -279,35 +279,9 @@ const trackFacebookPurchase = (
   }
 };
 
-/**
- * Track Facebook Subscribe event
- * Alternative event for subscription-specific tracking
- */
-const trackFacebookSubscribe = (
-  price: number,
-  currency: string,
-  subscriptionType: string
-): void => {
-  if (!isFacebookInitialized) {
-    console.log('📊 Analytics: Facebook SDK not initialized, skipping Subscribe');
-    return;
-  }
-
-  try {
-    AppEventsLogger.logEvent('Subscribe', price, {
-      fb_currency: currency,
-      fb_content_type: 'subscription',
-      fb_content_id: `${subscriptionType}_subscription`,
-    });
-    console.log('📊 Analytics: Facebook Subscribe event logged:', { price, subscriptionType });
-  } catch (error) {
-    console.error('📊 Analytics: Error logging Facebook Subscribe:', error);
-  }
-};
-
 // ===== Onboarding Events =====
 
-export const ONBOARDING_TOTAL_STEPS = 22;
+export const ONBOARDING_TOTAL_STEPS = 21;
 
 const ONBOARDING_STEP_NAMES: Record<number, string> = {
   1: 'PersonalizationIntro',
@@ -329,9 +303,8 @@ const ONBOARDING_STEP_NAMES: Record<number, string> = {
   17: 'AgentBuilderPersonality',
   18: 'AgentBuilderDataConditions',
   19: 'AgentBuilderCustomInsights',
-  20: 'AgentBuilderReview',
-  21: 'AgentGeneration',
-  22: 'AgentBorn',
+  20: 'AgentGeneration',
+  21: 'AgentBorn',
 };
 
 /**
@@ -492,7 +465,7 @@ export const trackSubscriptionStarted = (
 
 /**
  * Track subscription purchased (successful purchase)
- * Sends events to both Mixpanel and Facebook for attribution
+ * Sends Mixpanel analytics plus the Meta purchase event for attribution
  */
 export const trackSubscriptionPurchased = (
   subscriptionType: SubscriptionType,
@@ -544,9 +517,6 @@ export const trackSubscriptionPurchased = (
   // ===== Facebook/Meta Events =====
   // fb_mobile_purchase - KEY event for ad attribution
   trackFacebookPurchase(price, currency, contentId, predictedLtv, transactionId);
-
-  // Also log Subscribe event for additional tracking
-  trackFacebookSubscribe(price, currency, subscriptionType);
 
   // Flush immediately - critical for attribution
   flushAnalytics();

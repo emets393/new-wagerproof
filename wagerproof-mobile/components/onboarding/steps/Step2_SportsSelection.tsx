@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
+import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 const sportsOptions = [
@@ -36,49 +37,58 @@ export function SportsSelection() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-        Which sports do you follow most?
-      </Text>
-      
-      <View style={styles.grid}>
-        {sportsOptions.map((sport) => (
-          <Button
-            key={sport}
-            onPress={() => handleToggleSport(sport)}
-            variant="glass"
-            forceDarkMode
-            selected={selectedSports.includes(sport)}
-            style={styles.sportButton}
-          >
-            {sport}
-          </Button>
-        ))}
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+        <Text style={[styles.title, { color: theme.colors.onBackground }]}>
+          Which sports do you follow most?
+        </Text>
+
+        <View style={styles.grid}>
+          {sportsOptions.map((sport) => (
+            <Button
+              key={sport}
+              onPress={() => handleToggleSport(sport)}
+              variant="glass"
+              forceDarkMode
+              selected={selectedSports.includes(sport)}
+              style={styles.sportButton}
+            >
+              {sport}
+            </Button>
+          ))}
+        </View>
+
+        <Text style={styles.hint}>
+          You can change this later in Settings.
+        </Text>
+      </ScrollView>
+
+      <View style={onboardingCta.fixedBottom}>
+        <Button onPress={handleNext} fullWidth variant="glass" forceDarkMode style={onboardingCta.button}>
+          Continue
+        </Button>
       </View>
-      
-      <Text style={[styles.hint, { color: 'rgba(255, 255, 255, 0.7)' }]}>
-        You can change this later in Settings.
-      </Text>
-      
-      <Button onPress={handleNext} fullWidth variant="glass" forceDarkMode>
-        Next
-      </Button>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 24,
+    paddingTop: 40,
+    paddingBottom: 100,
     alignItems: 'center',
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: 24,
     textAlign: 'center',
+    lineHeight: 36,
   },
   grid: {
     flexDirection: 'row',
@@ -95,6 +105,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 24,
     textAlign: 'center',
+    color: 'rgba(255, 255, 255, 0.5)',
   },
 });
-

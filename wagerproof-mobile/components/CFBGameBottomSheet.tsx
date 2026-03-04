@@ -19,7 +19,7 @@ import { FadeAlertTooltip } from './FadeAlertTooltip';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
-import { AgentPickPayloadAuditWidget } from '@/components/agents/AgentPickPayloadAuditWidget';
+import { AgentPickRationaleWidget } from '@/components/agents/AgentPickRationaleWidget';
 
 export function CFBGameBottomSheet() {
   const theme = useTheme();
@@ -217,7 +217,7 @@ export function CFBGameBottomSheet() {
       >
         {game ? (
           <>
-          <AgentPickPayloadAuditWidget
+          <AgentPickRationaleWidget
             gameKeys={[game.training_key, game.unique_id, `${game.away_team}_${game.home_team}`]}
           />
           {/* Header with Teams */}

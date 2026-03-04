@@ -3,13 +3,11 @@ import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from 'react-n
 import { useTheme } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
+import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { NFLGameCard } from '../../NFLGameCard';
 import { NFLPrediction } from '@/types/nfl';
 
-// Dummy game data for onboarding display
-// Note: Use city names (e.g., "Kansas City") not full names ("Kansas City Chiefs")
-// as the game card components expect city names for proper initials and team parts
 const DUMMY_GAMES: NFLPrediction[] = [
   {
     id: 'onboarding-1',
@@ -68,8 +66,6 @@ export function FeatureSpotlight() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
 
-  // Calculate card width for side-by-side layout
-  // Account for container padding (16 * 2) and gap between cards (8)
   const cardWidth = (width - 32 - 8) / 2;
 
   const handleContinue = () => {
@@ -78,52 +74,61 @@ export function FeatureSpotlight() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-        AI-Powered Predictions
-      </Text>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+        <Text style={[styles.title, { color: theme.colors.onBackground }]}>
+          AI-Powered Predictions
+        </Text>
 
-      <Text style={[styles.description, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-        Get model-driven picks with confidence scores for every game. Our AI analyzes thousands of data points to find value.
-      </Text>
+        <Text style={styles.description}>
+          Get model-driven picks with confidence scores for every game. Our AI analyzes thousands of data points to find value.
+        </Text>
 
-      {/* Game Cards - Side by Side */}
-      <View style={styles.cardsContainer}>
-        {DUMMY_GAMES.map((game) => (
-          <NFLGameCard
-            key={game.id}
-            game={game}
-            onPress={() => {}}
-            cardWidth={cardWidth}
-            forceDarkMode
-          />
-        ))}
+        <View style={styles.cardsContainer}>
+          {DUMMY_GAMES.map((game) => (
+            <NFLGameCard
+              key={game.id}
+              game={game}
+              onPress={() => {}}
+              cardWidth={cardWidth}
+              forceDarkMode
+            />
+          ))}
+        </View>
+      </ScrollView>
+
+      <View style={onboardingCta.fixedBottom}>
+        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button}>
+          Continue
+        </Button>
       </View>
-
-      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
-        Continue
-      </Button>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 24,
+    paddingTop: 40,
+    paddingBottom: 100,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: 12,
     textAlign: 'center',
+    lineHeight: 36,
   },
   description: {
-    fontSize: 14,
+    fontSize: 16,
     marginBottom: 20,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 24,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   cardsContainer: {
     flexDirection: 'row',
@@ -132,4 +137,3 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 });
-

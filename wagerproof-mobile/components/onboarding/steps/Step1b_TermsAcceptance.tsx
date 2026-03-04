@@ -5,6 +5,7 @@ import Checkbox from 'expo-checkbox';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../ui/Button';
+import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 const isAndroid = Platform.OS === 'android';
@@ -252,6 +253,7 @@ export function TermsAcceptance() {
             forceDarkMode
             disabled={!isChecked}
             style={[
+              onboardingCta.button,
               styles.continueButton,
               isChecked && styles.buttonActive,
             ]}
@@ -268,19 +270,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 24,
+    paddingTop: 40,
+    paddingBottom: 0,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
     marginBottom: 12,
     textAlign: 'center',
+    lineHeight: 36,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     marginBottom: 16,
     textAlign: 'center',
+    lineHeight: 24,
   },
   scrollIndicator: {
     flexDirection: 'row',
@@ -335,7 +339,7 @@ const styles = StyleSheet.create({
   },
   bottomContainer: {
     paddingTop: 16,
-    paddingBottom: 60,
+    paddingBottom: 40,
   },
   checkboxContainer: {
     flexDirection: 'row',

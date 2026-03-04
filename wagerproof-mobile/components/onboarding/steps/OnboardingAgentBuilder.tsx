@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,9 +6,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
+import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useCreateAgent } from '@/hooks/useAgents';
 import { Sport } from '@/types/agent';
@@ -19,7 +22,6 @@ import { Screen2_Identity } from '@/components/agents/creation/Screen2_Identity'
 import { Screen3_Personality } from '@/components/agents/creation/Screen3_Personality';
 import { Screen4_DataAndConditions } from '@/components/agents/creation/Screen4_DataAndConditions';
 import { Screen5_CustomInsights } from '@/components/agents/creation/Screen5_CustomInsights';
-import { Screen6_Review } from '@/components/agents/creation/Screen6_Review';
 
 // Agent builder screens span onboarding steps 15-20 (0-indexed: screens 0-5)
 const AGENT_BUILDER_START_STEP = 15;
@@ -60,6 +62,53 @@ export function OnboardingAgentBuilder() {
   // Compute which agent builder screen we're on (0-5)
   const agentScreenIndex = currentStep - AGENT_BUILDER_START_STEP;
 
+  // Internal transition animation for switching between agent builder screens
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const [displayIndex, setDisplayIndex] = useState(agentScreenIndex);
+  const prevIndexRef = useRef(agentScreenIndex);
+
+  useEffect(() => {
+    if (agentScreenIndex === prevIndexRef.current) return;
+
+    const goingForward = agentScreenIndex > prevIndexRef.current;
+    prevIndexRef.current = agentScreenIndex;
+
+    // Fade out current screen
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: goingForward ? -20 : 20,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Set up for incoming screen
+      fadeAnim.setValue(0);
+      slideAnim.setValue(goingForward ? 20 : -20);
+      setDisplayIndex(agentScreenIndex);
+
+      requestAnimationFrame(() => {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    });
+  }, [agentScreenIndex, fadeAnim, slideAnim]);
+
   // Validation for each agent builder screen
   const validateScreen = useCallback(
     (screen: number): boolean => {
@@ -78,8 +127,6 @@ export function OnboardingAgentBuilder() {
         case 3: // Data & Conditions - always valid (has defaults)
           return true;
         case 4: // Custom Insights - always valid (optional)
-          return true;
-        case 5: // Review - always valid
           return true;
         default:
           return false;
@@ -114,27 +161,7 @@ export function OnboardingAgentBuilder() {
     [agentFormState]
   );
 
-  const handleNext = useCallback(() => {
-    if (!validateScreen(agentScreenIndex)) {
-      const error = getValidationError(agentScreenIndex);
-      if (error) {
-        Alert.alert('Required', error);
-      }
-      return;
-    }
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    nextStep();
-  }, [agentScreenIndex, validateScreen, getValidationError, nextStep]);
-
-  const handleBack = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    prevStep();
-  }, [prevStep]);
-
-  // Handle agent creation on the Review screen
+  // Handle agent creation (called on last screen's Continue)
   const handleCreate = useCallback(async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -162,9 +189,36 @@ export function OnboardingAgentBuilder() {
     }
   }, [agentFormState, createMutation, setCreatedAgentId, nextStep]);
 
-  // Render the appropriate agent builder screen
+  const handleNext = useCallback(() => {
+    if (!validateScreen(agentScreenIndex)) {
+      const error = getValidationError(agentScreenIndex);
+      if (error) {
+        Alert.alert('Required', error);
+      }
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+
+    // On the last agent builder screen, create the agent and go to generation animation
+    if (agentScreenIndex === 4) {
+      handleCreate();
+      return;
+    }
+
+    nextStep();
+  }, [agentScreenIndex, validateScreen, getValidationError, nextStep, handleCreate]);
+
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    prevStep();
+  }, [prevStep]);
+
+  // Render the appropriate agent builder screen based on displayIndex (for smooth transitions)
   const renderScreenContent = () => {
-    switch (agentScreenIndex) {
+    switch (displayIndex) {
       case 0:
         return (
           <Screen1_SportArchetype
@@ -208,29 +262,12 @@ export function OnboardingAgentBuilder() {
             onInsightChange={updateAgentCustomInsight}
           />
         );
-      case 5:
-        return (
-          <Screen6_Review
-            formState={agentFormState}
-            autoGenerate={agentFormState.auto_generate}
-            liveAutoAgentsCount={0}
-            maxLiveAutoAgents={null}
-            autoModeForcedOff={false}
-            onAutoGenerateChange={(value) => updateAgentFormState('auto_generate', value)}
-            autoGenerateTime={agentFormState.auto_generate_time}
-            onAutoGenerateTimeChange={(value) => updateAgentFormState('auto_generate_time', value)}
-            autoGenerateTimezone={agentFormState.auto_generate_timezone}
-            onAutoGenerateTimezoneChange={(value) => updateAgentFormState('auto_generate_timezone', value)}
-            onCreate={handleCreate}
-            isCreating={createMutation.isPending}
-          />
-        );
       default:
         return null;
     }
   };
 
-  const isLastAgentScreen = agentScreenIndex === 5;
+  const isLastAgentScreen = false; // All screens now show nav buttons (Continue triggers creation on screen 4)
   const canProceed = validateScreen(agentScreenIndex);
 
   return (
@@ -245,32 +282,41 @@ export function OnboardingAgentBuilder() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {renderScreenContent()}
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
+          {renderScreenContent()}
+        </Animated.View>
+      </ScrollView>
 
-        {/* Navigation buttons (except for Review screen which has its own Create button) */}
-        {!isLastAgentScreen && (
-          <View style={styles.navigationButtons}>
-            <View style={styles.buttonRow}>
-              <View style={styles.backButtonContainer}>
-                <Button onPress={handleBack} fullWidth variant="glass" forceDarkMode>
-                  Back
-                </Button>
-              </View>
-              <View style={styles.nextButtonContainer}>
-                <Button
-                  onPress={handleNext}
-                  fullWidth
-                  variant="glass"
-                  forceDarkMode
-                  disabled={!canProceed}
-                >
-                  Next
-                </Button>
-              </View>
+      {/* Navigation buttons (except for Review screen which has its own Create button) */}
+      {!isLastAgentScreen && (
+        <View style={styles.fixedBottom}>
+          <LinearGradient
+            colors={['transparent', 'rgba(15, 17, 23, 0.85)', '#0f1117']}
+            locations={[0, 0.4, 1]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={styles.buttonRow}>
+            <View style={styles.backButtonContainer}>
+              <Button onPress={handleBack} fullWidth variant="glass" forceDarkMode>
+                Back
+              </Button>
+            </View>
+            <View style={styles.nextButtonContainer}>
+              <Button
+                onPress={handleNext}
+                fullWidth
+                variant="glass"
+                forceDarkMode
+                style={onboardingCta.button}
+                disabled={!canProceed || createMutation.isPending}
+              >
+                Continue
+              </Button>
             </View>
           </View>
-        )}
-      </ScrollView>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -285,12 +331,17 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 24,
-    paddingBottom: 24,
+    paddingBottom: 100,
     flexGrow: 1,
   },
-  navigationButtons: {
-    marginTop: 24,
-    paddingHorizontal: 8,
+  fixedBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 32,
   },
   buttonRow: {
     flexDirection: 'row',

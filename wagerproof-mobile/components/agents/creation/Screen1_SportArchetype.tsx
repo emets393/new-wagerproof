@@ -49,9 +49,9 @@ const SPORT_CONFIG: Record<
 };
 
 const PERFORMANCE_ROWS = [
-  { label: 'Our Agents', value: '9-12%', direction: 'positive', barWidth: 120, color: '#ff6a00' },
-  { label: 'Pro Bettor', value: '2-5%', direction: 'positive', barWidth: 62, color: '#bdbdbd' },
-  { label: 'Casual Bettor', value: '-5%', direction: 'negative', barWidth: 38, color: '#8d8d8d' },
+  { label: 'Our Agents', value: '9-12%', direction: 'positive', barWidth: 120, color: '#22c55e' },
+  { label: 'Pro Bettor', value: '2-5%', direction: 'positive', barWidth: 62, color: 'rgba(255,255,255,0.3)' },
+  { label: 'Casual Bettor', value: '-5%', direction: 'negative', barWidth: 38, color: 'rgba(255,255,255,0.15)' },
 ] as const;
 
 const ROW_LABEL_WIDTH = 82;
@@ -193,10 +193,10 @@ export function Screen1_SportArchetype({
           <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />
         </TouchableOpacity>
 
-        <View style={[styles.performanceCard, { backgroundColor: isDark ? '#141414' : '#f5f5f5' }]}>
+        <View style={[styles.performanceCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f5f5f5' }]}>
           <View style={styles.performanceHeader}>
             <View style={styles.performanceBadge}>
-              <MaterialCommunityIcons name="chart-bar" size={14} color="#111" />
+              <MaterialCommunityIcons name="chart-bar" size={14} color="#fff" />
             </View>
             <Text style={[styles.performanceTitle, { color: theme.colors.onSurface }]}>
               This Model Wins Across the Board
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.1)',
     marginTop: 2,
   },
   performanceHeader: {
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 6,
-    backgroundColor: '#ff7a1a',
+    backgroundColor: '#22c55e',
     alignItems: 'center',
     justifyContent: 'center',
   },

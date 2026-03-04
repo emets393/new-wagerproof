@@ -54,12 +54,12 @@ export function ProgressIndicator({ currentStep, totalSteps, onBack }: ProgressI
 
         {/* Progress Bar */}
         <View style={styles.trackContainer}>
-          <View style={[styles.track, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}>
+          <View style={[styles.track, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
             <Animated.View
               style={[
                 styles.progress,
                 {
-                  backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                  backgroundColor: '#22c55e',
                 },
                 animatedProgressStyle,
               ]}
@@ -103,13 +103,13 @@ const styles = StyleSheet.create({
     minWidth: 0, // Prevents flex overflow
   },
   track: {
-    height: 10,
-    borderRadius: 5,
+    height: 4,
+    borderRadius: 2,
     overflow: 'hidden',
   },
   progress: {
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 2,
   },
 });
 

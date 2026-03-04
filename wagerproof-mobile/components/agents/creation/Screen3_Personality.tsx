@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     padding: 16,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   fieldLabel: {
     fontSize: 16,

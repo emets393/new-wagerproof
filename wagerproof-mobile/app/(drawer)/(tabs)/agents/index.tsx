@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  Animated,
+  Platform,
   RefreshControl,
   ScrollView,
   TouchableOpacity,
@@ -153,7 +153,7 @@ export default function AgentsHubScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const { user } = useAuth();
-  const { scrollY, scrollYClamped } = useScroll();
+  const { scrollY } = useScroll();
   const { openManualMenu } = useWagerBotSuggestion();
   const { canCreateAnotherAgent, isPro, isAdmin } = useAgentEntitlements();
   const [activeTab, setActiveTab] = useState<AgentsTab>('my-agents');
@@ -167,28 +167,10 @@ export default function AgentsHubScreen() {
     error,
   } = useUserAgents();
 
-  // Header Animation Constants (match games page for consistent header/footer hide)
+  // Header layout constants
   const HEADER_TOP_HEIGHT = 56;
   const TAB_BAR_ROW_HEIGHT = 48;
   const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT + TAB_BAR_ROW_HEIGHT;
-  const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
-
-  const headerTranslate = scrollYClamped.interpolate({
-    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [0, -TOTAL_COLLAPSIBLE_HEIGHT],
-    extrapolate: 'clamp',
-  });
-
-  const headerOpacity = scrollYClamped.interpolate({
-    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-
-  const handleScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: true }
-  );
 
   // Track activity on mount
   useEffect(() => {
@@ -196,6 +178,10 @@ export default function AgentsHubScreen() {
       trackAppOpen(user.id);
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    scrollY.setValue(0);
+  }, [scrollY, activeTab]);
 
   // Handle navigation to create screen
   const handleCreateAgent = useCallback(() => {
@@ -231,9 +217,11 @@ export default function AgentsHubScreen() {
     <RefreshControl
       refreshing={isRefetching && !isLoading}
       onRefresh={handleRefresh}
-      colors={[theme.colors.primary]}
-      tintColor={theme.colors.primary}
-      progressViewOffset={TOTAL_HEADER_HEIGHT}
+      colors={[isDark ? '#ffffff' : theme.colors.primary]}
+      tintColor={isDark ? '#ffffff' : theme.colors.primary}
+      progressViewOffset={TOTAL_HEADER_HEIGHT + 8}
+      title={Platform.OS === 'ios' ? 'Refreshing...' : undefined}
+      titleColor={Platform.OS === 'ios' ? (isDark ? '#ffffff' : theme.colors.primary) : undefined}
     />
   );
 
@@ -243,12 +231,6 @@ export default function AgentsHubScreen() {
       <AgentTimelineSection agent={item} onAgentPress={() => handleAgentPress(item)} />
     ),
     [handleAgentPress]
-  );
-
-  // Key extractor
-  const keyExtractor = useCallback(
-    (item: AgentWithPerformance) => item.id,
-    []
   );
 
   // Render loading skeletons
@@ -276,15 +258,7 @@ export default function AgentsHubScreen() {
       ]}
     >
       {/* Fixed Header with Frosted Glass Effect */}
-      <Animated.View
-        style={[
-          styles.fixedHeaderContainer,
-          {
-            transform: [{ translateY: headerTranslate }],
-            opacity: headerOpacity,
-          },
-        ]}
-      >
+      <View style={styles.fixedHeaderContainer}>
         <AndroidBlurView
           intensity={80}
           tint={isDark ? 'dark' : 'light'}
@@ -362,7 +336,7 @@ export default function AgentsHubScreen() {
             </TouchableOpacity>
           </View>
         </AndroidBlurView>
-      </Animated.View>
+      </View>
 
       {/* Content */}
       {activeTab === 'leaderboard' ? (
@@ -371,8 +345,6 @@ export default function AgentsHubScreen() {
             limit={50}
             showViewAll={false}
             embedded={true}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
             contentContainerStyle={{
               paddingTop: TOTAL_HEADER_HEIGHT,
               paddingBottom: TAB_BAR_HEIGHT + 80,
@@ -429,24 +401,23 @@ export default function AgentsHubScreen() {
           <EmptyState onCreatePress={handleCreateAgent} isDark={isDark} />
         </ScrollView>
       ) : (
-        <Animated.FlatList
-          data={agents}
-          renderItem={renderAgentSection}
-          keyExtractor={keyExtractor}
+        <ScrollView
           contentContainerStyle={[
             styles.listContent,
             {
-              paddingTop: TOTAL_HEADER_HEIGHT + 10 ,
+              paddingTop: TOTAL_HEADER_HEIGHT + 10,
               paddingBottom: TAB_BAR_HEIGHT + 80,
             },
           ]}
           showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          bounces
-          alwaysBounceVertical
           refreshControl={refreshControl}
-        />
+        >
+          {agents.map((agent) => (
+            <View key={agent.id}>
+              {renderAgentSection({ item: agent })}
+            </View>
+          ))}
+        </ScrollView>
       )}
 
       {/* FAB for creating new agent - only on My Agents tab */}

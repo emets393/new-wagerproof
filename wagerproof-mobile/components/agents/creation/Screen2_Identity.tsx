@@ -324,7 +324,7 @@ export function Screen2_Identity({
               >
                 {isSelected && (
                   <View style={styles.colorCheckmark}>
-                    <MaterialCommunityIcons name="check" size={14} color="#000000" />
+                    <MaterialCommunityIcons name="check" size={14} color="#ffffff" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -358,7 +358,7 @@ export function Screen2_Identity({
                 >
                   {isSelected && (
                     <View style={styles.colorCheckmark}>
-                      <MaterialCommunityIcons name="check" size={14} color="#000000" />
+                      <MaterialCommunityIcons name="check" size={14} color="#ffffff" />
                     </View>
                   )}
                 </LinearGradient>

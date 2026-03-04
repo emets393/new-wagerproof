@@ -5,7 +5,6 @@ import {
   trackPaywallViewed,
   trackSubscriptionPurchased,
   trackSubscriptionRestored,
-  trackTrialStarted,
 } from './analytics';
 
 // RevenueCat API Keys - Platform specific
@@ -127,9 +126,6 @@ const trackPaywallResult = async (
       isTrial
     );
 
-    if (isTrial) {
-      trackTrialStarted(subscriptionType, source, price, currency);
-    }
   } catch (error) {
     console.error('Error tracking paywall result analytics:', error);
   }

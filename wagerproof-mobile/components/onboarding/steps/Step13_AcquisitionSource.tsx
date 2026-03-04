@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
+import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 const sources = [
@@ -33,51 +34,60 @@ export function AcquisitionSource() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-        Where did you hear about us?
-      </Text>
-      
-      <View style={styles.grid}>
-        {sources.map((source) => (
-          <Button
-            key={source}
-            onPress={() => handleSelect(source)}
-            variant="glass"
-            forceDarkMode
-            selected={selectedSource === source}
-            style={styles.sourceButton}
-          >
-            {source}
-          </Button>
-        ))}
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+        <Text style={[styles.title, { color: theme.colors.onBackground }]}>
+          Where did you hear about us?
+        </Text>
+
+        <View style={styles.grid}>
+          {sources.map((source) => (
+            <Button
+              key={source}
+              onPress={() => handleSelect(source)}
+              variant="glass"
+              forceDarkMode
+              selected={selectedSource === source}
+              style={styles.sourceButton}
+            >
+              {source}
+            </Button>
+          ))}
+        </View>
+      </ScrollView>
+
+      <View style={onboardingCta.fixedBottom}>
+        <Button
+          onPress={handleNext}
+          disabled={!selectedSource}
+          fullWidth
+          variant="glass"
+          forceDarkMode
+          style={onboardingCta.button}
+        >
+          Continue
+        </Button>
       </View>
-      
-      <Button
-        onPress={handleNext}
-        disabled={!selectedSource}
-        fullWidth
-        variant="glass"
-        forceDarkMode
-      >
-        Continue
-      </Button>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 24,
+    paddingTop: 40,
+    paddingBottom: 100,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 32,
+    fontWeight: '700',
+    marginBottom: 24,
     textAlign: 'center',
+    lineHeight: 36,
   },
   grid: {
     flexDirection: 'row',
@@ -91,4 +101,3 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
 });
-

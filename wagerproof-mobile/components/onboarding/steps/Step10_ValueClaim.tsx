@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
+import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 let LottieView: any = null;
@@ -16,7 +17,6 @@ try {
 export function ValueClaim() {
   const { nextStep } = useOnboarding();
   const theme = useTheme();
-  // Initialize directly - LottieView is loaded synchronously at module level
   const useLottie = !!LottieView;
 
   const handleContinue = () => {
@@ -26,50 +26,52 @@ export function ValueClaim() {
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-        Stop guessing.
-      </Text>
-      
-      <Text style={[styles.description, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-        Users report cutting research time and "wasting less on dumb bets." (their words not ours)
-      </Text>
-      
-      {/* Animation or Fallback */}
-      <View style={styles.animationContainer}>
-        {useLottie && LottieView ? (
-          <LottieView
-            source={require('../../../assets/statistics-animation.json')}
-            autoPlay
-            loop={false}
-            style={styles.animation}
-          />
-        ) : (
-          // Fallback Stats
-          <View style={[styles.statsContainer, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
-            <View style={styles.statBox}>
-              <MaterialCommunityIcons name="clock-fast" size={40} color={theme.colors.primary} />
-              <Text style={[styles.statValue, { color: theme.colors.onBackground }]}>5x</Text>
-              <Text style={styles.statLabel}>Faster Research</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+        <Text style={[styles.title, { color: theme.colors.onBackground }]}>
+          Stop guessing.
+        </Text>
+
+        <Text style={styles.description}>
+          Users report cutting research time and "wasting less on dumb bets." (their words not ours)
+        </Text>
+
+        <View style={styles.animationContainer}>
+          {useLottie && LottieView ? (
+            <LottieView
+              source={require('../../../assets/statistics-animation.json')}
+              autoPlay
+              loop={false}
+              style={styles.animation}
+            />
+          ) : (
+            <View style={[styles.statsContainer, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
+              <View style={styles.statBox}>
+                <MaterialCommunityIcons name="clock-fast" size={40} color={theme.colors.primary} />
+                <Text style={[styles.statValue, { color: theme.colors.onBackground }]}>5x</Text>
+                <Text style={styles.statLabel}>Faster Research</Text>
+              </View>
+
+              <View style={styles.statBox}>
+                <MaterialCommunityIcons name="chart-line" size={40} color={theme.colors.primary} />
+                <Text style={[styles.statValue, { color: theme.colors.onBackground }]}>68%</Text>
+                <Text style={styles.statLabel}>Win Rate</Text>
+              </View>
+
+              <View style={styles.statBox}>
+                <MaterialCommunityIcons name="target" size={40} color={theme.colors.primary} />
+                <Text style={[styles.statValue, { color: theme.colors.onBackground }]}>12+</Text>
+                <Text style={styles.statLabel}>Value Edges/Week</Text>
+              </View>
             </View>
-            
-            <View style={styles.statBox}>
-              <MaterialCommunityIcons name="chart-line" size={40} color={theme.colors.primary} />
-              <Text style={[styles.statValue, { color: theme.colors.onBackground }]}>68%</Text>
-              <Text style={styles.statLabel}>Win Rate</Text>
-            </View>
-            
-            <View style={styles.statBox}>
-              <MaterialCommunityIcons name="target" size={40} color={theme.colors.primary} />
-              <Text style={[styles.statValue, { color: theme.colors.onBackground }]}>12+</Text>
-              <Text style={styles.statLabel}>Value Edges/Week</Text>
-            </View>
-          </View>
-        )}
+          )}
+        </View>
+      </ScrollView>
+
+      <View style={onboardingCta.fixedBottom}>
+        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button}>
+          Continue
+        </Button>
       </View>
-      
-      <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode>
-        Continue
-      </Button>
     </View>
   );
 }
@@ -77,21 +79,26 @@ export function ValueClaim() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 34,
-    paddingBottom: 24,
+    paddingTop: 40,
+    paddingBottom: 100,
   },
   title: {
-    fontSize: 34,
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 12,
     textAlign: 'center',
+    lineHeight: 36,
   },
   description: {
-    fontSize: 14,
+    fontSize: 16,
     marginBottom: 18,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 24,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   animationContainer: {
     width: '100%',
@@ -126,4 +133,3 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
   },
 });
-

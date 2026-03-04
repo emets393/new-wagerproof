@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Switch, Modal, TouchableOpacity, Animated } from 'react-native';
 import LottieView from 'lottie-react-native';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
@@ -8,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as StoreReview from 'expo-store-review';
 import { useRouter } from 'expo-router';
 import { Button } from '../../ui/Button';
+import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { Sport } from '@/types/agent';
@@ -32,6 +34,8 @@ const SPORT_COLORS: Record<Sport, string> = {
   nba: '#1D428A',
   ncaab: '#FF6B00',
 };
+
+const onboardingCtaButton = onboardingCta.button;
 
 function getPrimaryColor(value: string): string {
   if (value.startsWith('gradient:')) {
@@ -95,7 +99,7 @@ export function AgentBornStep() {
 
   // Replay green intro whenever user lands on Agent Born.
   useEffect(() => {
-    if (currentStep !== 22) return;
+    if (currentStep !== 21) return;
     setIsRevealComplete(false);
     setShowFeedbackModal(false);
     setRating(0);
@@ -180,33 +184,30 @@ export function AgentBornStep() {
         loop
         style={styles.backgroundLottie}
       />
+      <LinearGradient
+        colors={['transparent', 'rgba(34, 197, 94, 0.14)']}
+        start={{ x: 0.5, y: 0.3 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
 
       <Animated.View style={[styles.content, { opacity: elementsOpacity }]}>
-        <Text style={styles.title}>Agent is Born!</Text>
-        <Text style={styles.subtitle}>Your AI bettor is live and ready to cook.</Text>
+        <View style={styles.centeredSection}>
+          <Text style={styles.title}>Agent is Born!</Text>
+          <Text style={styles.subtitle}>Your AI bettor is live and ready to cook.</Text>
 
-        <View style={styles.feedCardWrap}>
-          <View
+          <View style={styles.feedCardWrap}>
+            <View
             style={[
               styles.feedCardContainer,
               {
-                backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
-                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)',
+                backgroundColor: 'rgba(255, 255, 255, 0.14)',
+                borderColor: 'rgba(255, 255, 255, 0.2)',
               },
             ]}
           >
-            <LinearGradient
-              colors={backgroundGradientColors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.backgroundGradient}
-            />
-            <LinearGradient
-              colors={accentColors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientBorder}
-            />
+            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
             <View style={styles.agentHeader}>
               <View style={[styles.agentEmojiContainer, { backgroundColor: `${primaryColor}25` }]}>
                 <Text style={styles.agentEmoji}>{agentFormState.avatar_emoji || '🤖'}</Text>
@@ -292,21 +293,23 @@ export function AgentBornStep() {
                 </Animated.Text>
               </View>
             </View>
+            </View>
           </View>
         </View>
+      </Animated.View>
 
-        <View style={styles.buttonWrap}>
-          <Button
-            onPress={handleContinue}
-            fullWidth
-            variant="glass"
-            forceDarkMode
-            disabled={isContinuing}
-            loading={isContinuing}
-          >
-            Continue
-          </Button>
-        </View>
+      <Animated.View style={[styles.fixedBottom, { opacity: elementsOpacity }]}>
+        <Button
+          onPress={handleContinue}
+          fullWidth
+          variant="glass"
+          forceDarkMode
+          style={onboardingCtaButton}
+          disabled={isContinuing}
+          loading={isContinuing}
+        >
+          Let's see the picks!
+        </Button>
       </Animated.View>
 
       {isRevealComplete && (
@@ -357,9 +360,9 @@ export function AgentBornStep() {
               <Button onPress={handleSubmitFeedback} fullWidth variant="glass" forceDarkMode>
                 Submit
               </Button>
-              <Button onPress={handleSkipFeedback} fullWidth variant="outline" forceDarkMode>
-                Skip for now
-              </Button>
+              <TouchableOpacity onPress={handleSkipFeedback} style={styles.skipLink}>
+                <Text style={styles.skipLinkText}>Skip for now</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -403,8 +406,20 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 88,
-    paddingBottom: 24,
+    justifyContent: 'center',
+    paddingBottom: 100,
+  },
+  centeredSection: {
+    alignItems: 'center',
+  },
+  fixedBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 16,
   },
   title: {
     fontSize: 34,
@@ -422,6 +437,7 @@ const styles = StyleSheet.create({
   },
   feedCardWrap: {
     marginTop: 8,
+    width: '100%',
   },
   // ---- Feed card styles (mirrors AgentTimeline header/panel) ----
   feedCardContainer: {
@@ -535,9 +551,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
   },
-  buttonWrap: {
-    marginTop: 'auto',
-  },
   // Feedback modal
   modalOverlay: {
     flex: 1,
@@ -578,5 +591,13 @@ const styles = StyleSheet.create({
   },
   modalButtons: {
     gap: 10,
+    alignItems: 'center',
+  },
+  skipLink: {
+    paddingVertical: 8,
+  },
+  skipLinkText: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.45)',
   },
 });

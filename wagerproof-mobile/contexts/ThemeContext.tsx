@@ -13,7 +13,7 @@ interface ThemeContextType {
   toggleTheme: () => Promise<void>;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = '@wagerproof_theme_mode';
 

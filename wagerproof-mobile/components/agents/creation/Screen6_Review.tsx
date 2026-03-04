@@ -40,11 +40,11 @@ interface Screen6_ReviewProps {
 // CONSTANTS
 // ============================================================================
 
-const SPORT_CONFIG: Record<Sport, { label: string; color: string }> = {
-  nfl: { label: 'NFL', color: '#013369' },
-  cfb: { label: 'CFB', color: '#C41E3A' },
-  nba: { label: 'NBA', color: '#1D428A' },
-  ncaab: { label: 'NCAAB', color: '#FF6B00' },
+const SPORT_CONFIG: Record<Sport, { label: string; color: string; badgeBg: string; badgeBorder: string; badgeText: string }> = {
+  nfl: { label: 'NFL', color: '#3b82f6', badgeBg: 'rgba(59, 130, 246, 0.2)', badgeBorder: 'rgba(59, 130, 246, 0.4)', badgeText: '#93bbfd' },
+  cfb: { label: 'CFB', color: '#ef4444', badgeBg: 'rgba(239, 68, 68, 0.2)', badgeBorder: 'rgba(239, 68, 68, 0.4)', badgeText: '#fca5a5' },
+  nba: { label: 'NBA', color: '#3b82f6', badgeBg: 'rgba(59, 130, 246, 0.2)', badgeBorder: 'rgba(59, 130, 246, 0.4)', badgeText: '#93bbfd' },
+  ncaab: { label: 'NCAAB', color: '#f97316', badgeBg: 'rgba(249, 115, 22, 0.2)', badgeBorder: 'rgba(249, 115, 22, 0.4)', badgeText: '#fdba74' },
 };
 
 // ============================================================================
@@ -224,8 +224,8 @@ export function Screen6_Review({
         style={[
           styles.previewCard,
           {
-            backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
-            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#ffffff',
+            borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)',
             borderWidth: 1,
           },
         ]}
@@ -291,10 +291,10 @@ export function Screen6_Review({
                 key={sport}
                 style={[
                   styles.sportBadge,
-                  { backgroundColor: SPORT_CONFIG[sport].color },
+                  { backgroundColor: SPORT_CONFIG[sport].badgeBg, borderWidth: 1, borderColor: SPORT_CONFIG[sport].badgeBorder },
                 ]}
               >
-                <Text style={styles.sportBadgeText}>
+                <Text style={[styles.sportBadgeText, { color: SPORT_CONFIG[sport].badgeText }]}>
                   {SPORT_CONFIG[sport].label}
                 </Text>
               </View>

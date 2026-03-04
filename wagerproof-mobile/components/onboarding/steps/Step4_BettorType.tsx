@@ -4,6 +4,7 @@ import { useTheme } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
+import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 type BettorType = 'casual' | 'serious' | 'professional';
@@ -33,54 +34,64 @@ export function BettorTypeSelection() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-        What kind of bettor are you?
-      </Text>
-      
-      <View style={styles.cardsContainer}>
-        {bettorTypes.map(({ type, title, description }) => (
-          <Card
-            key={type}
-            onPress={() => handleSelect(type)}
-            selected={selectedType === type}
-            style={styles.card}
-          >
-            <Text style={[styles.cardTitle, { color: theme.colors.onBackground }]}>
-              {title}
-            </Text>
-            <Text style={[styles.cardDescription, { color: 'rgba(255, 255, 255, 0.7)' }]}>
-              {description}
-            </Text>
-          </Card>
-        ))}
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+        <Text style={[styles.title, { color: theme.colors.onBackground }]}>
+          What kind of bettor are you?
+        </Text>
+
+        <View style={styles.cardsContainer}>
+          {bettorTypes.map(({ type, title, description }) => (
+            <Card
+              key={type}
+              onPress={() => handleSelect(type)}
+              selected={selectedType === type}
+              style={styles.card}
+            >
+              <Text style={[styles.cardTitle, { color: theme.colors.onBackground }]}>
+                {title}
+              </Text>
+              <Text style={styles.cardDescription}>
+                {description}
+              </Text>
+            </Card>
+          ))}
+        </View>
+      </ScrollView>
+
+      <View style={onboardingCta.fixedBottom}>
+        <Button
+          onPress={handleNext}
+          disabled={!selectedType}
+          fullWidth
+          variant="glass"
+          forceDarkMode
+          style={onboardingCta.button}
+        >
+          Continue
+        </Button>
       </View>
-      
-      <Button
-        onPress={handleNext}
-        disabled={!selectedType}
-        fullWidth
-        variant="glass"
-        forceDarkMode
-      >
-        Next
-      </Button>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 24,
+    paddingTop: 40,
+    paddingBottom: 100,
     alignItems: 'center',
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 32,
+    fontWeight: '700',
+    marginBottom: 24,
     textAlign: 'center',
+    lineHeight: 36,
   },
   cardsContainer: {
     width: '100%',
@@ -91,7 +102,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
     textAlign: 'center',
@@ -99,6 +110,6 @@ const styles = StyleSheet.create({
   cardDescription: {
     fontSize: 14,
     textAlign: 'center',
+    color: 'rgba(255, 255, 255, 0.6)',
   },
 });
-

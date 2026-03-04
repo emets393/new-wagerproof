@@ -27,7 +27,6 @@ import {
   trackSubscriptionRestored,
   trackPurchaseFailed,
   trackPurchaseCancelled,
-  trackTrialStarted,
   SubscriptionType,
 } from '../services/analytics';
 
@@ -311,10 +310,6 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         false, // isPromo
         isTrial
       );
-
-      if (isTrial) {
-        trackTrialStarted(subscriptionType, 'direct_purchase', price, currency);
-      }
 
       // Refresh customer info after purchase
       await refreshCustomerInfo();

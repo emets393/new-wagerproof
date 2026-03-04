@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
+import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 const goals = [
@@ -33,59 +34,69 @@ export function PrimaryGoalSelection() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-        What's your main goal?
-      </Text>
-      
-      <View style={styles.cardsContainer}>
-        {goals.map((goal) => (
-          <Card
-            key={goal.text}
-            onPress={() => handleSelect(goal.text)}
-            selected={selectedGoal === goal.text}
-            style={styles.card}
-          >
-            <View style={styles.cardContent}>
-              <MaterialCommunityIcons
-                name={goal.icon as any}
-                size={24}
-                color={selectedGoal === goal.text ? '#22c55e' : theme.colors.onBackground}
-                style={styles.icon}
-              />
-              <Text style={[styles.cardText, { color: theme.colors.onBackground }]}>
-                {goal.text}
-              </Text>
-            </View>
-          </Card>
-        ))}
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+        <Text style={[styles.title, { color: theme.colors.onBackground }]}>
+          What's your main goal?
+        </Text>
+
+        <View style={styles.cardsContainer}>
+          {goals.map((goal) => (
+            <Card
+              key={goal.text}
+              onPress={() => handleSelect(goal.text)}
+              selected={selectedGoal === goal.text}
+              style={styles.card}
+            >
+              <View style={styles.cardContent}>
+                <MaterialCommunityIcons
+                  name={goal.icon as any}
+                  size={24}
+                  color={selectedGoal === goal.text ? '#22c55e' : theme.colors.onBackground}
+                  style={styles.icon}
+                />
+                <Text style={[styles.cardText, { color: theme.colors.onBackground }]}>
+                  {goal.text}
+                </Text>
+              </View>
+            </Card>
+          ))}
+        </View>
+      </ScrollView>
+
+      <View style={onboardingCta.fixedBottom}>
+        <Button
+          onPress={handleNext}
+          disabled={!selectedGoal}
+          fullWidth
+          variant="glass"
+          forceDarkMode
+          style={onboardingCta.button}
+        >
+          Continue
+        </Button>
       </View>
-      
-      <Button
-        onPress={handleNext}
-        disabled={!selectedGoal}
-        fullWidth
-        variant="glass"
-        forceDarkMode
-      >
-        Next
-      </Button>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 24,
+    paddingTop: 40,
+    paddingBottom: 100,
     alignItems: 'center',
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 32,
+    fontWeight: '700',
+    marginBottom: 24,
     textAlign: 'center',
+    lineHeight: 36,
   },
   cardsContainer: {
     width: '100%',
@@ -111,4 +122,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-

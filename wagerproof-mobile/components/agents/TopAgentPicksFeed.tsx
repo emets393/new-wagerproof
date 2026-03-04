@@ -20,6 +20,7 @@ import { useProAccess } from '@/hooks/useProAccess';
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { LockedOverlay } from '@/components/LockedOverlay';
 import { formatNetUnits } from '@/types/agent';
+import { useGameLookup } from '@/hooks/useGameLookup';
 
 const FILTERS: { label: string; value: FeedFilter }[] = [
   { label: 'Top', value: 'top10' },
@@ -141,6 +142,7 @@ export function TopAgentPicksFeed({
   const router = useRouter();
   const { isDark } = useThemeContext();
   const { isPro } = useProAccess();
+  const { openGameForPick } = useGameLookup();
   const [filter, setFilter] = useState<FeedFilter>('top10');
   const [searchText, setSearchText] = useState('');
 
@@ -222,11 +224,19 @@ export function TopAgentPicksFeed({
 
       return (
         <View style={styles.pickContainer}>
-          <AgentPickItem pick={item.pick} showReasoning="summary" />
+          <AgentPickItem
+            pick={item.pick}
+            showReasoning="summary"
+            onPress={() => {
+              if (item.pick.game_id) {
+                openGameForPick(item.pick.sport, item.pick.game_id, item.pick);
+              }
+            }}
+          />
         </View>
       );
     },
-    [handleAgentPress, isDark],
+    [handleAgentPress, isDark, openGameForPick],
   );
 
   const renderHeader = () => (
