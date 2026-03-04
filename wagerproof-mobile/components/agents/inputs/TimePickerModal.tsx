@@ -9,14 +9,17 @@ import {
   Pressable,
 } from 'react-native';
 import { useTheme, Button } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { US_TIMEZONES, getTimezoneAbbr } from '@/types/agent';
 
 interface TimePickerModalProps {
   visible: boolean;
   onDismiss: () => void;
-  onConfirm: (hours: number, minutes: number) => void;
+  onConfirm: (hours: number, minutes: number, timezone: string) => void;
   hours?: number;
   minutes?: number;
+  timezone?: string;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -28,19 +31,22 @@ export function TimePickerModal({
   onConfirm,
   hours: initialHours = 9,
   minutes: initialMinutes = 0,
+  timezone: initialTimezone = 'America/New_York',
 }: TimePickerModalProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const [selectedHour, setSelectedHour] = useState(initialHours);
   const [selectedMinute, setSelectedMinute] = useState(initialMinutes);
+  const [selectedTimezone, setSelectedTimezone] = useState(initialTimezone);
 
   useEffect(() => {
     if (visible) {
       setSelectedHour(initialHours);
       // Snap to nearest 5-min increment
       setSelectedMinute(Math.round(initialMinutes / 5) * 5);
+      setSelectedTimezone(initialTimezone);
     }
-  }, [visible, initialHours, initialMinutes]);
+  }, [visible, initialHours, initialMinutes, initialTimezone]);
 
   const formatHour = (h: number) => {
     const period = h >= 12 ? 'PM' : 'AM';
@@ -49,6 +55,8 @@ export function TimePickerModal({
   };
 
   const formatMinute = (m: number) => String(m).padStart(2, '0');
+
+  const tzAbbr = getTimezoneAbbr(selectedTimezone);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
@@ -63,7 +71,7 @@ export function TimePickerModal({
           onPress={(e) => e.stopPropagation()}
         >
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            Select Time (ET)
+            Select Time & Timezone
           </Text>
 
           <View style={styles.pickerRow}>
@@ -148,10 +156,61 @@ export function TimePickerModal({
             </View>
           </View>
 
+          {/* Timezone selector */}
+          <View style={styles.timezoneSection}>
+            <Text style={[styles.columnLabel, { color: theme.colors.onSurfaceVariant }]}>
+              Timezone
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.timezoneRow}
+            >
+              {US_TIMEZONES.map((tz) => {
+                const isSelected = selectedTimezone === tz.value;
+                return (
+                  <TouchableOpacity
+                    key={tz.value}
+                    style={[
+                      styles.timezoneChip,
+                      {
+                        backgroundColor: isSelected
+                          ? `${theme.colors.primary}20`
+                          : isDark
+                            ? 'rgba(255, 255, 255, 0.06)'
+                            : 'rgba(0, 0, 0, 0.04)',
+                        borderColor: isSelected
+                          ? theme.colors.primary
+                          : isDark
+                            ? 'rgba(255, 255, 255, 0.1)'
+                            : 'rgba(0, 0, 0, 0.08)',
+                      },
+                    ]}
+                    onPress={() => setSelectedTimezone(tz.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.timezoneChipText,
+                        {
+                          color: isSelected
+                            ? theme.colors.primary
+                            : theme.colors.onSurface,
+                          fontWeight: isSelected ? '700' : '400',
+                        },
+                      ]}
+                    >
+                      {tz.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
           <View style={styles.preview}>
             <Text style={[styles.previewText, { color: theme.colors.onSurface }]}>
               {formatHour(selectedHour).replace(' ', '')} : {formatMinute(selectedMinute)}{' '}
-              {selectedHour >= 12 ? 'PM' : 'AM'} ET
+              {selectedHour >= 12 ? 'PM' : 'AM'} {tzAbbr}
             </Text>
           </View>
 
@@ -161,7 +220,7 @@ export function TimePickerModal({
             </Button>
             <Button
               mode="contained"
-              onPress={() => onConfirm(selectedHour, selectedMinute)}
+              onPress={() => onConfirm(selectedHour, selectedMinute, selectedTimezone)}
               style={styles.confirmButton}
             >
               Confirm
@@ -225,6 +284,22 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 16,
+  },
+  timezoneSection: {
+    marginTop: 16,
+  },
+  timezoneRow: {
+    gap: 6,
+    paddingVertical: 4,
+  },
+  timezoneChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  timezoneChipText: {
+    fontSize: 13,
   },
   preview: {
     alignItems: 'center',

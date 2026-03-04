@@ -131,6 +131,19 @@ export interface AgentPickOverlap {
   agents: OverlapAgentSummary[];
 }
 
+export interface AgentGenerationRunSummary {
+  id: string;
+  avatar_id: string;
+  generation_type: 'auto' | 'manual';
+  target_date: string;
+  status: 'queued' | 'leased' | 'processing' | 'succeeded' | 'failed_retryable' | 'failed_terminal' | 'canceled';
+  weak_slate: boolean | null;
+  no_games: boolean | null;
+  picks_generated: number | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
 export interface AgentPick {
   id: string;
   avatar_id: string;

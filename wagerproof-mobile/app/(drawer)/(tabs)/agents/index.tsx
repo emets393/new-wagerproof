@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   RefreshControl,
+  ScrollView,
   TouchableOpacity,
   Alert,
 } from 'react-native';
@@ -223,8 +224,18 @@ export default function AgentsHubScreen() {
 
   // Handle refresh
   const handleRefresh = useCallback(() => {
-    refetch();
+    return refetch();
   }, [refetch]);
+
+  const refreshControl = (
+    <RefreshControl
+      refreshing={isRefetching && !isLoading}
+      onRefresh={handleRefresh}
+      colors={[theme.colors.primary]}
+      tintColor={theme.colors.primary}
+      progressViewOffset={TOTAL_HEADER_HEIGHT}
+    />
+  );
 
   // Render agent timeline section
   const renderAgentSection = useCallback(
@@ -374,31 +385,49 @@ export default function AgentsHubScreen() {
           {renderLoadingSkeletons()}
         </View>
       ) : error ? (
-        <View style={[styles.errorContainer, { paddingTop: TOTAL_HEADER_HEIGHT }]}>
-          <MaterialCommunityIcons
-            name="alert-circle-outline"
-            size={48}
-            color={theme.colors.error}
-          />
-          <Text style={[styles.errorText, { color: theme.colors.error }]}>
-            Failed to load agents
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.retryButton,
-              { borderColor: theme.colors.primary },
-            ]}
-            onPress={() => refetch()}
-          >
-            <Text
-              style={[styles.retryButtonText, { color: theme.colors.primary }]}
-            >
-              Retry
+        <ScrollView
+          contentContainerStyle={[
+            styles.stateScrollContent,
+            { paddingTop: TOTAL_HEADER_HEIGHT },
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
+        >
+          <View style={styles.errorContainer}>
+            <MaterialCommunityIcons
+              name="alert-circle-outline"
+              size={48}
+              color={theme.colors.error}
+            />
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>
+              Failed to load agents
             </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[
+                styles.retryButton,
+                { borderColor: theme.colors.primary },
+              ]}
+              onPress={() => refetch()}
+            >
+              <Text
+                style={[styles.retryButtonText, { color: theme.colors.primary }]}
+              >
+                Retry
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       ) : !hasAgents ? (
-        <EmptyState onCreatePress={handleCreateAgent} isDark={isDark} />
+        <ScrollView
+          contentContainerStyle={[
+            styles.stateScrollContent,
+            { paddingTop: TOTAL_HEADER_HEIGHT },
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
+        >
+          <EmptyState onCreatePress={handleCreateAgent} isDark={isDark} />
+        </ScrollView>
       ) : (
         <Animated.FlatList
           data={agents}
@@ -414,17 +443,9 @@ export default function AgentsHubScreen() {
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          bounces={false}
-          overScrollMode="never"
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={handleRefresh}
-              colors={[theme.colors.primary]}
-              tintColor={theme.colors.primary}
-              progressViewOffset={TOTAL_HEADER_HEIGHT}
-            />
-          }
+          bounces
+          alwaysBounceVertical
+          refreshControl={refreshControl}
         />
       )}
 
@@ -560,6 +581,9 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
+  },
+  stateScrollContent: {
+    flexGrow: 1,
   },
   // Empty state styles
   emptyContainer: {

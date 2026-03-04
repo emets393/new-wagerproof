@@ -15,8 +15,7 @@ import {
 } from '@/types/agent';
 import { CreateAgentFormState } from '@/types/agent';
 import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
-import { TimezonePickerModal } from '@/components/agents/inputs/TimezonePickerModal';
-import { getTimezoneLabel } from '@/types/agent';
+import { getTimezoneAbbr } from '@/types/agent';
 
 // ============================================================================
 // TYPES
@@ -170,7 +169,6 @@ export function Screen6_Review({
   const { isDark } = useThemeContext();
   const { user } = useAuth();
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
 
   const handleAutoGenerateToggle = useCallback((value: boolean) => {
     onAutoGenerateChange(value);
@@ -433,38 +431,7 @@ export function Screen6_Review({
                 color={theme.colors.primary}
               />
               <Text style={[styles.timePickerText, { color: theme.colors.onSurface }]}>
-                {autoGenerateTime}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {autoGenerate && !autoModeForcedOff && (
-          <View style={styles.timePickerRow}>
-            <Text style={[styles.timePickerLabel, { color: theme.colors.onSurface }]}>
-              Timezone
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowTimezonePicker(true)}
-              style={[
-                styles.timePickerButton,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.08)'
-                    : 'rgba(0, 0, 0, 0.05)',
-                  borderColor: isDark
-                    ? 'rgba(255, 255, 255, 0.15)'
-                    : 'rgba(0, 0, 0, 0.1)',
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="earth"
-                size={18}
-                color={theme.colors.primary}
-              />
-              <Text style={[styles.timePickerText, { color: theme.colors.onSurface }]}>
-                {getTimezoneLabel(autoGenerateTimezone)}
+                {autoGenerateTime} {getTimezoneAbbr(autoGenerateTimezone)}
               </Text>
             </TouchableOpacity>
           </View>
@@ -473,20 +440,16 @@ export function Screen6_Review({
         <TimePickerModal
           visible={showTimePicker}
           onDismiss={() => setShowTimePicker(false)}
-          onConfirm={(hours, minutes) => {
+          onConfirm={(hours, minutes, timezone) => {
             const h = String(hours).padStart(2, '0');
             const m = String(minutes).padStart(2, '0');
             onAutoGenerateTimeChange(`${h}:${m}`);
+            onAutoGenerateTimezoneChange(timezone);
             setShowTimePicker(false);
           }}
           hours={parseInt(autoGenerateTime.split(':')[0], 10)}
           minutes={parseInt(autoGenerateTime.split(':')[1], 10)}
-        />
-        <TimezonePickerModal
-          visible={showTimezonePicker}
-          onDismiss={() => setShowTimezonePicker(false)}
-          onSelect={onAutoGenerateTimezoneChange}
-          selected={autoGenerateTimezone}
+          timezone={autoGenerateTimezone}
         />
       </View>
 

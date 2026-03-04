@@ -22,7 +22,6 @@ import { SliderInput } from '@/components/agents/inputs/SliderInput';
 import { ToggleInput } from '@/components/agents/inputs/ToggleInput';
 import { OddsInput } from '@/components/agents/inputs/OddsInput';
 import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
-import { TimezonePickerModal } from '@/components/agents/inputs/TimezonePickerModal';
 import {
   Sport,
   SPORTS,
@@ -34,7 +33,7 @@ import {
   getConditionalParams,
   DEFAULT_PERSONALITY_PARAMS,
   DEFAULT_CUSTOM_INSIGHTS,
-  getTimezoneLabel,
+  getTimezoneAbbr,
 } from '@/types/agent';
 import { useAuth } from '@/contexts/AuthContext';
 import { ensureAutoPickNotificationPermission } from '@/services/notificationService';
@@ -159,7 +158,6 @@ export default function AgentSettingsScreen() {
   const [autoGenerateTime, setAutoGenerateTime] = useState('09:00');
   const [autoGenerateTimezone, setAutoGenerateTimezone] = useState('America/New_York');
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -947,7 +945,7 @@ export default function AgentSettingsScreen() {
             <>
               <View style={styles.timePickerRow}>
                 <Text style={[styles.inputLabel, { color: theme.colors.onSurface, marginBottom: 0 }]}>
-                  Preferred Time (ET)
+                  Preferred Time
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowTimePicker(true)}
@@ -969,60 +967,24 @@ export default function AgentSettingsScreen() {
                     color={theme.colors.primary}
                   />
                   <Text style={[styles.timePickerText, { color: theme.colors.onSurface }]}>
-                    {autoGenerateTime}
+                    {autoGenerateTime} {getTimezoneAbbr(autoGenerateTimezone)}
                   </Text>
                 </TouchableOpacity>
               </View>
               <TimePickerModal
                 visible={showTimePicker}
                 onDismiss={() => setShowTimePicker(false)}
-                onConfirm={(hours, minutes) => {
+                onConfirm={(hours, minutes, timezone) => {
                   const h = String(hours).padStart(2, '0');
                   const m = String(minutes).padStart(2, '0');
                   setAutoGenerateTime(`${h}:${m}`);
+                  setAutoGenerateTimezone(timezone);
                   setShowTimePicker(false);
                   markChanged();
                 }}
                 hours={parseInt(autoGenerateTime.split(':')[0], 10)}
                 minutes={parseInt(autoGenerateTime.split(':')[1], 10)}
-              />
-
-              <View style={styles.timePickerRow}>
-                <Text style={[styles.inputLabel, { color: theme.colors.onSurface, marginBottom: 0 }]}>
-                  Timezone
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowTimezonePicker(true)}
-                  style={[
-                    styles.timePickerButton,
-                    {
-                      backgroundColor: isDark
-                        ? 'rgba(255, 255, 255, 0.08)'
-                        : 'rgba(0, 0, 0, 0.05)',
-                      borderColor: isDark
-                        ? 'rgba(255, 255, 255, 0.15)'
-                        : 'rgba(0, 0, 0, 0.1)',
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name="earth"
-                    size={18}
-                    color={theme.colors.primary}
-                  />
-                  <Text style={[styles.timePickerText, { color: theme.colors.onSurface }]}>
-                    {getTimezoneLabel(autoGenerateTimezone)}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <TimezonePickerModal
-                visible={showTimezonePicker}
-                onDismiss={() => setShowTimezonePicker(false)}
-                onSelect={(tz) => {
-                  setAutoGenerateTimezone(tz);
-                  markChanged();
-                }}
-                selected={autoGenerateTimezone}
+                timezone={autoGenerateTimezone}
               />
             </>
           )}

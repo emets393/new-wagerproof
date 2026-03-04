@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -64,12 +65,14 @@ function LeaderboardRow({
   onPress,
   isDark,
   lockStats,
+  isEntitlementsLoading,
 }: {
   entry: LeaderboardEntry;
   rank: number;
   onPress: () => void;
   isDark: boolean;
   lockStats: boolean;
+  isEntitlementsLoading: boolean;
 }) {
   const theme = useTheme();
 
@@ -168,15 +171,22 @@ function LeaderboardRow({
           {record}
         </Text>
         <View style={styles.unitsMaskContainer}>
-          <Text
-            style={[
-              styles.unitsText,
-              { color: isPositive ? '#10b981' : '#ef4444' },
-            ]}
-          >
-            {netUnits}
-          </Text>
-          {lockStats && (
+          {isEntitlementsLoading ? (
+            <ActivityIndicator
+              size="small"
+              color={theme.colors.onSurfaceVariant}
+            />
+          ) : (
+            <Text
+              style={[
+                styles.unitsText,
+                { color: isPositive ? '#10b981' : '#ef4444' },
+              ]}
+            >
+              {netUnits}
+            </Text>
+          )}
+          {!isEntitlementsLoading && lockStats && (
             <>
               <AndroidBlurView
                 intensity={18}
@@ -334,7 +344,7 @@ export function AgentLeaderboard({
   const theme = useTheme();
   const router = useRouter();
   const { isDark } = useThemeContext();
-  const { isPro, isAdmin } = useAgentEntitlements();
+  const { isPro, isAdmin, isLoading: isEntitlementsLoading } = useAgentEntitlements();
   const [sortMode, setSortMode] = useState<LeaderboardSortMode>('overall');
   const [timeframe, setTimeframe] = useState<LeaderboardTimeframe>('all_time');
   const [excludeUnder10Picks, setExcludeUnder10Picks] = useState(false);
@@ -373,9 +383,10 @@ export function AgentLeaderboard({
         onPress={() => handleRowPress(item.entry)}
         isDark={isDark}
         lockStats={lockStats}
+        isEntitlementsLoading={isEntitlementsLoading}
       />
     ),
-    [handleRowPress, isDark, lockStats]
+    [handleRowPress, isDark, lockStats, isEntitlementsLoading]
   );
 
   // Key extractor

@@ -3,12 +3,13 @@ import {
   fetchAgentPicks,
   fetchPendingPicks,
   fetchTodaysPicks,
+  fetchTodaysGenerationRun,
   generatePicks,
   enrichPicksWithOverlap,
   AgentPicksFilters,
 } from '@/services/agentPicksService';
 import { forceTrackActivity } from '@/services/activityService';
-import { AgentPick, GeneratePicksResponse } from '@/types/agent';
+import { AgentGenerationRunSummary, AgentPick } from '@/types/agent';
 import { useAuth } from '@/contexts/AuthContext';
 import { agentKeys } from './useAgents';
 
@@ -23,6 +24,7 @@ export const pickKeys = {
     [...pickKeys.lists(), agentId, filters] as const,
   pending: (agentId: string) => [...pickKeys.all, 'pending', agentId] as const,
   today: (agentId: string) => [...pickKeys.all, 'today', agentId] as const,
+  todayRun: (agentId: string) => [...pickKeys.all, 'today-run', agentId] as const,
 };
 
 interface PickQueryOptions {
@@ -81,6 +83,16 @@ export function useTodaysPicks(agentId: string, options?: PickQueryOptions) {
   });
 }
 
+export function useTodaysGenerationRun(agentId: string, options?: PickQueryOptions) {
+  return useQuery<AgentGenerationRunSummary | null>({
+    queryKey: pickKeys.todayRun(agentId),
+    queryFn: () => fetchTodaysGenerationRun(agentId),
+    enabled: !!agentId && (options?.enabled ?? true),
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
 /**
  * Hook to generate picks for an agent
  */
@@ -104,6 +116,7 @@ export function useGeneratePicks() {
       queryClient.invalidateQueries({ queryKey: pickKeys.list(agentId) });
       queryClient.invalidateQueries({ queryKey: pickKeys.pending(agentId) });
       queryClient.invalidateQueries({ queryKey: pickKeys.today(agentId) });
+      queryClient.invalidateQueries({ queryKey: pickKeys.todayRun(agentId) });
 
       // Also invalidate performance since it may have changed
       queryClient.invalidateQueries({
@@ -126,6 +139,7 @@ export function useInvalidateAgentPicks(agentId: string) {
     queryClient.invalidateQueries({ queryKey: pickKeys.list(agentId) });
     queryClient.invalidateQueries({ queryKey: pickKeys.pending(agentId) });
     queryClient.invalidateQueries({ queryKey: pickKeys.today(agentId) });
+    queryClient.invalidateQueries({ queryKey: pickKeys.todayRun(agentId) });
   };
 }
 

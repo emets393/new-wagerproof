@@ -32,6 +32,7 @@ import { useAgent, useUpdateAgent, useUserAgents } from '@/hooks/useAgents';
 import { syncTopAgentsWidgetData } from '@/hooks/useTopAgentsWidgetSync';
 import {
   useTodaysPicks,
+  useTodaysGenerationRun,
   useAgentPicks,
   useGeneratePicks,
 } from '@/hooks/useAgentPicks';
@@ -41,7 +42,6 @@ import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
 import { LockedPickCard } from '@/components/LockedPickCard';
 import { useGameLookup } from '@/hooks/useGameLookup';
 import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
-import { TimezonePickerModal } from '@/components/agents/inputs/TimezonePickerModal';
 import {
   AgentPick,
   Sport,
@@ -242,7 +242,6 @@ export default function AgentDetailScreen() {
   const [selectedAuditPick, setSelectedAuditPick] = useState<AgentPick | null>(null);
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
   const isGeneratingRef = useRef(false);
   const auditSheetRef = useRef<BottomSheet>(null);
 
@@ -260,6 +259,12 @@ export default function AgentDetailScreen() {
     isLoading: isLoadingTodaysPicks,
     refetch: refetchTodaysPicks,
   } = useTodaysPicks(id || '', { enabled: canViewAgentPicks });
+
+  const {
+    data: todaysGenerationRun,
+    isLoading: isLoadingTodaysGenerationRun,
+    refetch: refetchTodaysGenerationRun,
+  } = useTodaysGenerationRun(id || '', { enabled: canViewAgentPicks });
 
   // Fetch pick history
   const {
@@ -363,8 +368,8 @@ export default function AgentDetailScreen() {
     refetchAgent,
   ]);
 
-  // Handle auto-generate time change
-  const handleAutoGenerateTimeChange = useCallback(async (hours: number, minutes: number) => {
+  // Handle auto-generate time & timezone change (saved together)
+  const handleAutoGenerateTimeChange = useCallback(async (hours: number, minutes: number, timezone: string) => {
     if (!id) return;
     const h = String(hours).padStart(2, '0');
     const m = String(minutes).padStart(2, '0');
@@ -372,22 +377,7 @@ export default function AgentDetailScreen() {
     try {
       await updateAgentMutation.mutateAsync({
         agentId: id,
-        data: { auto_generate_time: newTime },
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      refetchAgent();
-    } catch {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [id, updateAgentMutation, refetchAgent]);
-
-  // Handle auto-generate timezone change
-  const handleAutoGenerateTimezoneChange = useCallback(async (timezone: string) => {
-    if (!id) return;
-    try {
-      await updateAgentMutation.mutateAsync({
-        agentId: id,
-        data: { auto_generate_timezone: timezone },
+        data: { auto_generate_time: newTime, auto_generate_timezone: timezone },
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       refetchAgent();
@@ -415,6 +405,7 @@ export default function AgentDetailScreen() {
       refetchAgent();
       if (canViewAgentPicks) {
         refetchTodaysPicks();
+        refetchTodaysGenerationRun();
         refetchAllPicks();
       }
 
@@ -441,6 +432,7 @@ export default function AgentDetailScreen() {
     generatePicksMutation,
     refetchAgent,
     refetchTodaysPicks,
+    refetchTodaysGenerationRun,
     refetchAllPicks,
     canViewAgentPicks,
   ]);
@@ -456,9 +448,10 @@ export default function AgentDetailScreen() {
     refetchAgent();
     if (canViewAgentPicks) {
       refetchTodaysPicks();
+      refetchTodaysGenerationRun();
       refetchAllPicks();
     }
-  }, [refetchAgent, refetchTodaysPicks, refetchAllPicks, canViewAgentPicks]);
+  }, [refetchAgent, refetchTodaysPicks, refetchTodaysGenerationRun, refetchAllPicks, canViewAgentPicks]);
 
   const auditSnapPoints = useMemo(() => ['85%', '95%'], []);
 
@@ -559,6 +552,21 @@ export default function AgentDetailScreen() {
     (Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'vegas_lines') ||
       Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'model_predictions') ||
       Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'game_data_complete'));
+  const hasTodaysPicks = todaysPicks && todaysPicks.length > 0;
+  const isGeneratingPicks = generatePicksMutation.isPending;
+  const persistedNoPicksConclusion = useMemo(() => {
+    if (!todaysGenerationRun || todaysGenerationRun.picks_generated !== 0) return null;
+    if (todaysGenerationRun.no_games) {
+      return 'No games were available in this agent\'s preferred sports today.';
+    }
+    if (todaysGenerationRun.weak_slate) {
+      return 'This agent skipped today because the slate was too weak for its settings.';
+    }
+    return 'The agent completed its analysis and passed on the slate.';
+  }, [todaysGenerationRun]);
+  const effectiveNoPicksConclusion = noPicksConclusion || persistedNoPicksConclusion;
+  const hasCompletedNoPickRun = !hasTodaysPicks && !!persistedNoPicksConclusion;
+  const isLoadingTodaySection = isLoadingTodaysPicks || isLoadingTodaysGenerationRun;
 
   // Render loading state
   if (isLoadingAgent && !agent) {
@@ -604,9 +612,6 @@ export default function AgentDetailScreen() {
       : performance && performance.current_streak < 0
       ? '#ef4444'
       : theme.colors.onSurfaceVariant;
-
-  const hasTodaysPicks = todaysPicks && todaysPicks.length > 0;
-  const isGeneratingPicks = generatePicksMutation.isPending;
 
   return (
     <View
@@ -934,37 +939,24 @@ export default function AgentDetailScreen() {
                 Auto-generates daily at
               </Text>
             </View>
-            <View style={styles.autoGenTimeRight}>
-              <TouchableOpacity onPress={() => setShowTimePicker(true)} activeOpacity={0.7}>
-                <Text style={[styles.autoGenTimeValue, { color: theme.colors.primary }]}>
-                  {(agent.auto_generate_time || '09:00').slice(0, 5)}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowTimezonePicker(true)} activeOpacity={0.7}>
-                <Text style={[styles.autoGenTimezoneValue, { color: theme.colors.primary }]}>
-                  {getTimezoneAbbr(agent.auto_generate_timezone || 'America/New_York')}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity onPress={() => setShowTimePicker(true)} activeOpacity={0.7} style={styles.autoGenTimeRight}>
+              <Text style={[styles.autoGenTimeValue, { color: theme.colors.primary }]}>
+                {(agent.auto_generate_time || '09:00').slice(0, 5)} {getTimezoneAbbr(agent.auto_generate_timezone || 'America/New_York')}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
         <TimePickerModal
           visible={showTimePicker}
           onDismiss={() => setShowTimePicker(false)}
-          onConfirm={(hours, minutes) => {
+          onConfirm={(hours, minutes, timezone) => {
             setShowTimePicker(false);
-            handleAutoGenerateTimeChange(hours, minutes);
+            handleAutoGenerateTimeChange(hours, minutes, timezone);
           }}
           hours={parseInt((agent.auto_generate_time || '09:00').split(':')[0], 10)}
           minutes={parseInt((agent.auto_generate_time || '09:00').split(':')[1], 10)}
-        />
-
-        <TimezonePickerModal
-          visible={showTimezonePicker}
-          onDismiss={() => setShowTimezonePicker(false)}
-          onSelect={(tz) => handleAutoGenerateTimezoneChange(tz)}
-          selected={agent.auto_generate_timezone || 'America/New_York'}
+          timezone={agent.auto_generate_timezone || 'America/New_York'}
         />
 
         {/* Generate Picks Status */}
@@ -1071,6 +1063,26 @@ export default function AgentDetailScreen() {
         {/* Today's Picks Section */}
         {!isGeneratingPicks && (
           <View style={styles.section}>
+            {!!effectiveNoPicksConclusion && (
+              <View style={[styles.noPicksTerminal, { borderColor: isDark ? 'rgba(0, 230, 118, 0.22)' : 'rgba(0, 186, 98, 0.22)' }]}>
+                <Text style={[styles.noPicksHeader, { color: isDark ? '#9fb3ad' : '#7f908c' }]}>
+                  terminal://generation-result
+                </Text>
+                <View style={styles.noPicksLineRow}>
+                  <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
+                  <Text style={[styles.noPicksLineText, { color: isDark ? '#00E676' : '#0f7d4f' }]}>
+                    Analysis complete: no high-confidence picks found.
+                  </Text>
+                </View>
+                <View style={styles.noPicksLineRow}>
+                  <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
+                  <Text style={[styles.noPicksLineText, { color: isDark ? '#8ca89b' : '#6b7f79' }]}>
+                    {effectiveNoPicksConclusion}
+                  </Text>
+                </View>
+              </View>
+            )}
+
             <Text
               style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
             >
@@ -1078,7 +1090,7 @@ export default function AgentDetailScreen() {
             </Text>
 
             <View style={styles.picksList}>
-              {isLoadingTodaysPicks ? (
+              {isLoadingTodaySection ? (
                 <>
                   <PickCardSkeleton isDark={isDark} />
                   <PickCardSkeleton isDark={isDark} />
@@ -1116,7 +1128,7 @@ export default function AgentDetailScreen() {
                         { color: theme.colors.onSurface },
                       ]}
                     >
-                      No picks yet today
+                      {hasCompletedNoPickRun ? 'No picks for today' : 'No picks yet today'}
                     </Text>
                     <Text
                       style={[
@@ -1124,7 +1136,9 @@ export default function AgentDetailScreen() {
                         { color: theme.colors.onSurfaceVariant },
                       ]}
                     >
-                      Agents are studying in the background all day, and picks are automatically generated overnight when they're ready.
+                      {hasCompletedNoPickRun
+                        ? 'This agent already finished today\'s run and chose not to publish any picks.'
+                        : 'Agents are studying in the background all day, and picks are automatically generated overnight when they\'re ready.'}
                     </Text>
                     <TouchableOpacity
                       style={[
@@ -1178,26 +1192,6 @@ export default function AgentDetailScreen() {
                       {regenerationSummary}
                     </Text>
                   </View>
-
-                  {!!noPicksConclusion && (
-                    <View style={[styles.noPicksTerminal, { borderColor: isDark ? 'rgba(0, 230, 118, 0.22)' : 'rgba(0, 186, 98, 0.22)' }]}>
-                      <Text style={[styles.noPicksHeader, { color: isDark ? '#9fb3ad' : '#7f908c' }]}>
-                        terminal://generation-result
-                      </Text>
-                      <View style={styles.noPicksLineRow}>
-                        <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
-                        <Text style={[styles.noPicksLineText, { color: isDark ? '#00E676' : '#0f7d4f' }]}>
-                          Analysis complete: no high-confidence picks found.
-                        </Text>
-                      </View>
-                      <View style={styles.noPicksLineRow}>
-                        <Text style={[styles.noPicksPrefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
-                        <Text style={[styles.noPicksLineText, { color: isDark ? '#8ca89b' : '#6b7f79' }]}>
-                          {noPicksConclusion}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
                 </>
               )}
             </View>

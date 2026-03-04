@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import {
   AgentPick,
+  AgentGenerationRunSummary,
   PickResult,
   Sport,
   GeneratePicksResponse,
@@ -15,6 +16,10 @@ import {
 export interface AgentPicksFilters {
   sport?: Sport;
   result?: PickResult;
+}
+
+function getLocalDateString(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 // ============================================================================
@@ -91,9 +96,7 @@ export async function fetchPendingPicks(agentId: string): Promise<AgentPick[]> {
  */
 export async function fetchTodaysPicks(agentId: string): Promise<AgentPick[]> {
   try {
-    // Get today's date in YYYY-MM-DD format using local time (not UTC)
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayStr = getLocalDateString(new Date());
 
     const { data, error } = await supabase
       .from('avatar_picks')
@@ -111,6 +114,37 @@ export async function fetchTodaysPicks(agentId: string): Promise<AgentPick[]> {
     return (data as AgentPick[]) || [];
   } catch (error) {
     console.error('Error in fetchTodaysPicks:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch the latest successful generation run for today for an agent.
+ * Used to distinguish "hasn't run yet" from "ran and found no picks".
+ */
+export async function fetchTodaysGenerationRun(agentId: string): Promise<AgentGenerationRunSummary | null> {
+  try {
+    const todayStr = getLocalDateString(new Date());
+
+    const { data, error } = await supabase
+      .from('agent_generation_runs')
+      .select('id, avatar_id, generation_type, target_date, status, weak_slate, no_games, picks_generated, completed_at, created_at')
+      .eq('avatar_id', agentId)
+      .eq('target_date', todayStr)
+      .eq('status', 'succeeded')
+      .order('completed_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching today\'s generation run:', error);
+      throw error;
+    }
+
+    return (data as AgentGenerationRunSummary | null) || null;
+  } catch (error) {
+    console.error('Error in fetchTodaysGenerationRun:', error);
     throw error;
   }
 }
@@ -161,7 +195,13 @@ export async function generatePicks(agentId: string, _isAdmin: boolean = false):
     return {
       picks: [],
       picks_generated: result.picksGenerated,
-      slate_note: result.picksGenerated === 0 ? 'No games available for today' : undefined,
+      slate_note: result.picksGenerated === 0
+        ? result.noGames
+          ? 'No games available for today.'
+          : result.weakSlate
+          ? 'This agent skipped today because the slate was too weak for its settings.'
+          : 'No high-confidence picks met this agent\'s standards today.'
+        : undefined,
     };
   } catch (error) {
     console.error('Error in generatePicks:', error);
@@ -173,14 +213,14 @@ const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 300_000; // 5 minutes
 const MAX_CONSECUTIVE_ERRORS = 5;
 
-async function pollGenerationRun(runId: string): Promise<{ status: string; picksGenerated: number }> {
+async function pollGenerationRun(runId: string): Promise<{ status: string; picksGenerated: number; weakSlate: boolean; noGames: boolean }> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let consecutiveErrors = 0;
 
   while (Date.now() < deadline) {
     const { data: run, error } = await (supabase as any)
       .from('agent_generation_runs')
-      .select('status, picks_generated, error_message')
+      .select('status, picks_generated, error_message, weak_slate, no_games')
       .eq('id', runId)
       .single();
 
@@ -193,7 +233,12 @@ async function pollGenerationRun(runId: string): Promise<{ status: string; picks
     } else if (run) {
       consecutiveErrors = 0;
       if (run.status === 'succeeded') {
-        return { status: 'succeeded', picksGenerated: run.picks_generated || 0 };
+        return {
+          status: 'succeeded',
+          picksGenerated: run.picks_generated || 0,
+          weakSlate: !!run.weak_slate,
+          noGames: !!run.no_games,
+        };
       }
       if (run.status === 'failed_terminal') {
         throw new Error(run.error_message || 'Pick generation failed permanently');
