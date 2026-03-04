@@ -1177,7 +1177,7 @@ export default function FeedScreen() {
               }} 
               style={styles.menuButton}
             >
-              <MaterialCommunityIcons name="account-circle" size={31} color={theme.colors.onSurface} />
+              <MaterialCommunityIcons name="cog" size={31} color={theme.colors.onSurface} />
             </TouchableOpacity>
             
             <View style={styles.titleContainer}>

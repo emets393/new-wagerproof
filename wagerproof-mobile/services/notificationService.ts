@@ -90,16 +90,20 @@ export async function getExpoPushToken(): Promise<string | null> {
   }
 
   try {
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) {
-      console.warn('🔔 No EAS projectId found in app config');
-      return null;
-    }
+    // Try multiple paths — Constants.expoConfig is null in standalone/TestFlight builds
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      (Constants as any).manifest?.extra?.eas?.projectId ??
+      (Constants as any).manifest2?.extra?.expoClient?.extra?.eas?.projectId ??
+      'e00a12fb-670d-4d36-87f4-ae8c63d715d5'; // hardcoded fallback from app.json
+
+    console.log('🔔 Using projectId:', projectId);
 
     const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
+    console.log('🔔 Got push token:', data?.slice(0, 30));
     return data;
   } catch (err) {
-    console.warn('🔔 Failed to get push token:', (err as Error).message);
+    console.error('🔔 Failed to get push token:', (err as Error).message, err);
     return null;
   }
 }

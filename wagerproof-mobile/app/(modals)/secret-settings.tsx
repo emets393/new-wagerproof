@@ -60,11 +60,27 @@ export default function SecretSettingsScreen() {
       lines.push(`Permission error: ${e.message}`);
     }
 
+    // Show projectId resolution
+    const Constants = require('expo-constants').default;
+    const pid1 = Constants.expoConfig?.extra?.eas?.projectId;
+    const pid2 = (Constants as any).manifest?.extra?.eas?.projectId;
+    const pid3 = (Constants as any).manifest2?.extra?.expoClient?.extra?.eas?.projectId;
+    lines.push(`projectId (expoConfig): ${pid1 ?? 'null'}`);
+    lines.push(`projectId (manifest): ${pid2 ?? 'null'}`);
+    lines.push(`projectId (manifest2): ${pid3 ?? 'null'}`);
+
+    // Call getExpoPushTokenAsync directly to surface the real error
     try {
-      const token = await getExpoPushToken();
-      lines.push(`Token: ${token ? token.slice(0, 30) + '...' : 'null'}`);
+      const Constants = require('expo-constants').default;
+      const projectId =
+        Constants.expoConfig?.extra?.eas?.projectId ??
+        (Constants as any).manifest?.extra?.eas?.projectId ??
+        'e00a12fb-670d-4d36-87f4-ae8c63d715d5';
+      const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
+      lines.push(`Token: ${tokenResult.data?.slice(0, 30)}...`);
     } catch (e: any) {
-      lines.push(`Token error: ${e.message}`);
+      lines.push(`Token ERROR: ${e.message}`);
+      lines.push(`Error code: ${e.code ?? 'none'}`);
     }
 
     if (user?.id) {
@@ -106,30 +122,53 @@ export default function SecretSettingsScreen() {
         }
       }
 
-      // 2. Register token
-      await registerPushToken(user.id);
+      // 2. Ensure notification handler is set
+      await initializeNotifications();
 
-      // 3. Get token to show
+      // 3. Register token
+      await registerPushToken(user.id);
       const token = await getExpoPushToken();
+
       if (!token) {
-        Alert.alert('Error', 'Could not get push token even after registration');
+        // Fallback to local notification on simulator
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '🎯 Test Agent Picks Ready!',
+            body: '3 new picks just dropped. Tap to view.',
+            sound: 'default',
+            data: { type: 'auto_pick_ready', agent_id: 'test', run_id: 'test' },
+          },
+          trigger: null,
+        });
+        Alert.alert('Local Only', 'No push token available (simulator). Sent a local notification instead.');
         return;
       }
 
-      // 4. Send a local test notification
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '🎯 Test Agent Picks Ready!',
-          body: '3 new picks just dropped. Tap to view.',
-          sound: 'default',
-          data: { type: 'auto_pick_ready', agent_id: 'test', run_id: 'test' },
-        },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 2 },
+      // 4. Send a REAL push via Expo Push API
+      const message = {
+        to: token,
+        sound: 'default',
+        title: "🎯 Test Agent's picks are ready!",
+        body: '3 new picks just dropped. Tap to view.',
+        channelId: 'agent-picks',
+        data: { type: 'auto_pick_ready', agent_id: 'test', run_id: 'test' },
+      };
+
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(message),
       });
 
+      const result = await response.json();
+      console.log('🔔 Expo push response:', JSON.stringify(result));
+
+      const ticket = result.data?.[0] || result.data || result;
+      const ticketStatus = ticket.status || 'unknown';
+
       Alert.alert(
-        'Success',
-        `Token registered and local test notification scheduled (2s).\n\nToken: ${token.slice(0, 40)}...`
+        'Real Push Sent',
+        `Sent via Expo Push API.\n\nStatus: ${ticketStatus}\nToken: ${token.slice(0, 35)}...\n\n${ticketStatus === 'ok' ? 'You should receive the push notification momentarily.' : `Error: ${JSON.stringify(ticket.details || ticket.message || 'unknown')}`}`
       );
     } catch (e: any) {
       console.error('🔔 Test push error:', e);
