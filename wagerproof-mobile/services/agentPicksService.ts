@@ -8,6 +8,7 @@ import {
   OverlapAgentSummary,
   AgentPickOverlap,
 } from '@/types/agent';
+import { trackAgentTiming } from '@/services/agentPerformanceMetrics';
 
 // ============================================================================
 // FILTER TYPES
@@ -16,6 +17,34 @@ import {
 export interface AgentPicksFilters {
   sport?: Sport;
   result?: PickResult;
+}
+
+export interface TopAgentPickFeedV2Row extends AgentPick {
+  api_version: string;
+  agent_name: string;
+  agent_avatar_emoji: string;
+  agent_avatar_color: string;
+  agent_wins: number;
+  agent_losses: number;
+  agent_pushes: number;
+  agent_net_units: number;
+  agent_rank: number | null;
+}
+
+export interface AgentDetailSnapshotV2 {
+  api_version: 'v2';
+  agent: any;
+  performance: any | null;
+  todays_picks: AgentPick[];
+  todays_generation_run: AgentGenerationRunSummary | null;
+  can_view_agent_picks: boolean;
+}
+
+export interface AgentPicksPageV2 {
+  api_version: 'v2';
+  picks: AgentPick[];
+  next_cursor: string | null;
+  has_more: boolean;
 }
 
 function getLocalDateString(date: Date): string {
@@ -295,6 +324,98 @@ export async function fetchTopAgentPicksFeed(
     console.error('Error in fetchTopAgentPicksFeed:', error);
     throw error;
   }
+}
+
+export async function fetchTopAgentPicksFeedV2(
+  filterMode: 'top10' | 'following' | 'favorites',
+  viewerUserId?: string,
+  searchText?: string,
+  limit: number = 50,
+  cursor?: string | null
+): Promise<TopAgentPickFeedV2Row[]> {
+  const startedAt = Date.now();
+  const { data, error } = await (supabase as any).rpc('get_top_agent_picks_feed_v2', {
+    p_filter_mode: filterMode,
+    p_viewer_user_id: viewerUserId ?? null,
+    p_search_text: searchText ?? null,
+    p_limit: limit,
+    p_cursor: cursor ?? null,
+  });
+
+  trackAgentTiming('top_picks_time_to_content_ms', Date.now() - startedAt, {
+    source: 'v2',
+    filter_mode: filterMode,
+    limit,
+    success: !error,
+  });
+
+  if (error) throw error;
+  return ((data || []) as TopAgentPickFeedV2Row[]).map((row) => ({
+    ...row,
+    units: Number((row as any).units ?? 0),
+  }));
+}
+
+export async function fetchAgentDetailSnapshotV2(
+  agentId: string,
+  viewerUserId?: string
+): Promise<AgentDetailSnapshotV2> {
+  const startedAt = Date.now();
+  const { data, error } = await (supabase as any).rpc('get_agent_detail_snapshot_v2', {
+    p_agent_id: agentId,
+    p_viewer_user_id: viewerUserId ?? null,
+  });
+
+  trackAgentTiming('agent_detail_time_to_content_ms', Date.now() - startedAt, {
+    source: 'v2',
+    success: !error,
+  });
+
+  if (error) throw error;
+  return (data || {
+    api_version: 'v2',
+    agent: null,
+    performance: null,
+    todays_picks: [],
+    todays_generation_run: null,
+    can_view_agent_picks: false,
+  }) as AgentDetailSnapshotV2;
+}
+
+export async function fetchAgentPicksPageV2(
+  agentId: string,
+  viewerUserId: string | undefined,
+  filter: 'all' | 'won' | 'lost' | 'pending' | 'push' = 'all',
+  pageSize: number = 20,
+  cursor?: string | null,
+  includeOverlap: boolean = false
+): Promise<AgentPicksPageV2> {
+  const startedAt = Date.now();
+  const { data, error } = await (supabase as any).rpc('get_agent_picks_page_v2', {
+    p_agent_id: agentId,
+    p_viewer_user_id: viewerUserId ?? null,
+    p_filter: filter,
+    p_page_size: pageSize,
+    p_cursor: cursor ?? null,
+    p_include_overlap: includeOverlap,
+  });
+
+  trackAgentTiming('agent_history_page_load_ms', Date.now() - startedAt, {
+    source: 'v2',
+    filter,
+    page_size: pageSize,
+    include_overlap: includeOverlap,
+    success: !error,
+  });
+
+  if (error) throw error;
+  const payload = (data || {}) as AgentPicksPageV2;
+  return {
+    api_version: 'v2',
+    picks: (payload.picks || []) as AgentPick[],
+    next_cursor: payload.next_cursor || null,
+    has_more: !!payload.has_more,
+  };
 }
 
 /**

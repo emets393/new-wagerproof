@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,14 @@ import {
   Animated,
   ActivityIndicator,
 } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { Portal, Snackbar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useLeaderboardByMode } from '@/hooks/useLeaderboard';
+import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { LeaderboardEntry, LeaderboardSortMode, LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import { Sport, formatNetUnits } from '@/types/agent';
@@ -258,6 +259,28 @@ function EmptyState({ isDark }: { isDark: boolean }) {
 
 // Skeleton Row component
 function SkeletonRow({ isDark }: { isDark: boolean }) {
+  const shimmerOpacity = useRef(new Animated.Value(0.45)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerOpacity, {
+          toValue: 0.9,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerOpacity, {
+          toValue: 0.45,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [shimmerOpacity]);
+
   return (
     <View
       style={[
@@ -272,9 +295,10 @@ function SkeletonRow({ isDark }: { isDark: boolean }) {
         },
       ]}
     >
-      <View
+      <Animated.View
         style={[
           styles.skeletonRank,
+          { opacity: shimmerOpacity },
           {
             backgroundColor: isDark
               ? 'rgba(255, 255, 255, 0.1)'
@@ -283,9 +307,10 @@ function SkeletonRow({ isDark }: { isDark: boolean }) {
         ]}
       />
       <View style={styles.agentInfo}>
-        <View
+        <Animated.View
           style={[
             styles.avatarSmall,
+            { opacity: shimmerOpacity },
             {
               backgroundColor: isDark
                 ? 'rgba(255, 255, 255, 0.1)'
@@ -294,9 +319,10 @@ function SkeletonRow({ isDark }: { isDark: boolean }) {
           ]}
         />
         <View style={styles.nameContainer}>
-          <View
+          <Animated.View
             style={[
               styles.skeletonName,
+              { opacity: shimmerOpacity },
               {
                 backgroundColor: isDark
                   ? 'rgba(255, 255, 255, 0.1)'
@@ -304,9 +330,10 @@ function SkeletonRow({ isDark }: { isDark: boolean }) {
               },
             ]}
           />
-          <View
+          <Animated.View
             style={[
               styles.skeletonSports,
+              { opacity: shimmerOpacity },
               {
                 backgroundColor: isDark
                   ? 'rgba(255, 255, 255, 0.1)'
@@ -317,9 +344,10 @@ function SkeletonRow({ isDark }: { isDark: boolean }) {
         </View>
       </View>
       <View style={styles.statsContainer}>
-        <View
+        <Animated.View
           style={[
             styles.skeletonStat,
+            { opacity: shimmerOpacity },
             {
               backgroundColor: isDark
                 ? 'rgba(255, 255, 255, 0.1)'
@@ -345,9 +373,11 @@ export function AgentLeaderboard({
   const router = useRouter();
   const { isDark } = useThemeContext();
   const { isPro, isAdmin, isLoading: isEntitlementsLoading } = useAgentEntitlements();
+  const { forceV2Only } = useAgentV2DebugSettings();
   const [sortMode, setSortMode] = useState<LeaderboardSortMode>('overall');
   const [timeframe, setTimeframe] = useState<LeaderboardTimeframe>('all_time');
   const [excludeUnder10Picks, setExcludeUnder10Picks] = useState(false);
+  const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
   const lockStats = !(isPro || isAdmin);
 
   // Fetch leaderboard
@@ -355,8 +385,18 @@ export function AgentLeaderboard({
     data: leaderboard,
     isLoading,
     isRefetching,
+    error,
     refetch,
   } = useLeaderboardByMode(sortMode, limit, undefined, excludeUnder10Picks, timeframe);
+
+  useEffect(() => {
+    if (!forceV2Only || !error) return;
+    const nextMessage =
+      error instanceof Error
+        ? error.message
+        : 'Forced V2 leaderboard request failed.';
+    setErrorToastMessage(nextMessage);
+  }, [forceV2Only, error]);
 
   const displayLeaderboard = (leaderboard || []).map((entry, index) => ({ entry, rank: index + 1 }));
 
@@ -643,6 +683,16 @@ export function AgentLeaderboard({
           />
         </TouchableOpacity>
       )}
+
+      <Portal>
+        <Snackbar
+          visible={!!errorToastMessage}
+          onDismiss={() => setErrorToastMessage(null)}
+          duration={5000}
+        >
+          {errorToastMessage || ''}
+        </Snackbar>
+      </Portal>
     </View>
   );
 }

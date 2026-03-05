@@ -1,5 +1,16 @@
 # Virtual Picks Expert (Agents) - Overview
 
+## March 2026 Update (V2 Performance Paths)
+
+- Added server-driven V2 read paths for `Leaderboard`, `Top Picks`, and `Agent Detail` behind remote flags in `app_settings`.
+- Added a local debug override in Secret Settings: `Force Agents V2 Only`.
+- When force mode is on, the app does not fall back to legacy and surfaces V2 failures via toast/Snackbar for debugging.
+- V2 flags currently used:
+  - `agents_v2_leaderboard_enabled`
+  - `agents_v2_top_picks_enabled`
+  - `agents_v2_agent_detail_enabled`
+  - `agents_v2_shadow_compare_enabled`
+
 ## What Is It?
 
 A feature where users build up to 5 AI-powered "Virtual Picks Experts" (Agents) through conversational onboarding. Each agent analyzes WagerProof's prediction data and autonomously generates picks based on its configured personality, risk tolerance, and betting style. Performance is tracked independently like editor picks.

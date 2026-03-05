@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { useTheme, Button, Chip } from 'react-native-paper';
+import { Portal, useTheme, Button, Chip, Snackbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +19,7 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAgent } from '@/hooks/useAgents';
 import { useAgentPicks } from '@/hooks/useAgentPicks';
+import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
@@ -94,11 +95,13 @@ export default function PublicAgentViewScreen() {
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { canViewAgentPicks } = useAgentEntitlements();
+  const { forceV2Only } = useAgentV2DebugSettings();
 
   // Local state
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
 
   // Fetch agent data
   const {
@@ -112,8 +115,18 @@ export default function PublicAgentViewScreen() {
   const {
     data: allPicks,
     isLoading: isLoadingAllPicks,
+    error: allPicksError,
     refetch: refetchAllPicks,
   } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks });
+
+  useEffect(() => {
+    if (!forceV2Only || !allPicksError) return;
+    setErrorToastMessage(
+      allPicksError instanceof Error
+        ? allPicksError.message
+        : 'Forced V2 agent detail request failed.'
+    );
+  }, [forceV2Only, allPicksError]);
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -751,6 +764,15 @@ export default function PublicAgentViewScreen() {
           </LockedOverlay>
         )}
       </ScrollView>
+      <Portal>
+        <Snackbar
+          visible={!!errorToastMessage}
+          onDismiss={() => setErrorToastMessage(null)}
+          duration={5000}
+        >
+          {errorToastMessage || ''}
+        </Snackbar>
+      </Portal>
     </View>
   );
 }

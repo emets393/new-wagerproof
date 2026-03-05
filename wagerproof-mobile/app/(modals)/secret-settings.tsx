@@ -11,6 +11,7 @@ import { useProAccess } from '@/hooks/useProAccess';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useMetaTestSheet } from '@/contexts/MetaTestSheetContext';
+import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
 import {
   didPaywallGrantEntitlement,
   getOfferingById,
@@ -37,6 +38,7 @@ export default function SecretSettingsScreen() {
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
   const { refreshCustomerInfo } = useRevenueCat();
   const { openSheet: openMetaTestSheet } = useMetaTestSheet();
+  const { forceV2Only, setForceV2Only, isUpdating: isUpdatingV2DebugSetting } = useAgentV2DebugSettings();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -481,6 +483,33 @@ export default function SecretSettingsScreen() {
             left={props => <List.Icon {...props} icon="fire" color="#f97316" />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => router.push('/roast' as any)}
+            style={{ backgroundColor: theme.colors.surface }}
+          />
+
+          <List.Item
+            title="Force Agents V2 Only"
+            description={forceV2Only
+              ? 'Enabled: uses V2 endpoints only and shows failure toasts'
+              : 'Disabled: uses normal flags and legacy fallback'}
+            left={props => (
+              <List.Icon
+                {...props}
+                icon="rocket-launch-outline"
+                color={forceV2Only ? '#f59e0b' : theme.colors.primary}
+              />
+            )}
+            right={() => (
+              <Switch
+                value={forceV2Only}
+                disabled={isUpdatingV2DebugSetting}
+                onValueChange={(value) => {
+                  setForceV2Only(value).catch((error: any) => {
+                    Alert.alert('Error', error?.message || 'Failed to update V2 debug setting.');
+                  });
+                }}
+                color="#f59e0b"
+              />
+            )}
             style={{ backgroundColor: theme.colors.surface }}
           />
 

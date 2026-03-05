@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { AgentPerformance, AgentWithPerformance, Sport } from '@/types/agent';
+import { trackAgentTiming } from '@/services/agentPerformanceMetrics';
 
 // ============================================================================
 // LEADERBOARD ENTRY TYPE
@@ -172,6 +173,52 @@ export async function fetchLeaderboard(
 ): Promise<LeaderboardEntry[]> {
   // Always use the manual query so we control the filters directly
   return await fetchLeaderboardFallback(limit, sport, sortMode, excludeUnder10Picks, timeframe);
+}
+
+export async function fetchLeaderboardV2(
+  limit: number = 100,
+  sport?: Sport,
+  sortMode: LeaderboardSortMode = 'overall',
+  excludeUnder10Picks: boolean = false,
+  timeframe: LeaderboardTimeframe = 'all_time'
+): Promise<LeaderboardEntry[]> {
+  const startedAt = Date.now();
+  const { data, error } = await (supabase as any).rpc('get_leaderboard_v2', {
+    p_limit: limit,
+    p_sport: sport ?? null,
+    p_sort_mode: sortMode,
+    p_timeframe: timeframe,
+    p_exclude_under_10_picks: excludeUnder10Picks,
+    p_viewer_user_id: null,
+  });
+
+  trackAgentTiming('leaderboard_time_to_content_ms', Date.now() - startedAt, {
+    source: 'v2',
+    sort_mode: sortMode,
+    timeframe,
+    limit,
+    sport: sport ?? 'all',
+    success: !error,
+  });
+
+  if (error) throw error;
+
+  return ((data || []) as any[]).map((row) => ({
+    avatar_id: row.avatar_id,
+    name: row.name,
+    avatar_emoji: row.avatar_emoji,
+    avatar_color: row.avatar_color,
+    user_id: row.user_id,
+    preferred_sports: row.preferred_sports,
+    total_picks: row.total_picks || 0,
+    wins: row.wins || 0,
+    losses: row.losses || 0,
+    pushes: row.pushes || 0,
+    win_rate: row.win_rate ?? null,
+    net_units: Number(row.net_units || 0),
+    current_streak: row.current_streak || 0,
+    best_streak: row.best_streak || 0,
+  })) as LeaderboardEntry[];
 }
 
 /**

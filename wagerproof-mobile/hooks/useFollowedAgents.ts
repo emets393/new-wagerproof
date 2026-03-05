@@ -10,10 +10,14 @@ export interface FollowedAgent {
   is_favorite: boolean;
 }
 
+interface FollowedAgentOptions {
+  enabled?: boolean;
+}
+
 /**
  * Hook to fetch agents the current user follows, with basic profile info.
  */
-export function useFollowedAgents() {
+export function useFollowedAgents(options?: FollowedAgentOptions) {
   const { user } = useAuth();
 
   return useQuery({
@@ -39,7 +43,7 @@ export function useFollowedAgents() {
         is_favorite: row.is_favorite ?? false,
       }));
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && (options?.enabled ?? true),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -47,7 +51,7 @@ export function useFollowedAgents() {
 /**
  * Hook to get favorite agent IDs (own widget favorites + followed favorites).
  */
-export function useFavoriteAgentIds() {
+export function useFavoriteAgentIds(options?: FollowedAgentOptions) {
   const { user } = useAuth();
 
   return useQuery({
@@ -83,7 +87,7 @@ export function useFavoriteAgentIds() {
 
       return [...new Set([...ownIds, ...followedIds])];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && (options?.enabled ?? true),
     staleTime: 5 * 60 * 1000,
   });
 }

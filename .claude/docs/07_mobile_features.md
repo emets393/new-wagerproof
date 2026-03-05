@@ -177,6 +177,21 @@ await Purchases.presentCustomerCenter();
 - Onboarding reset
 - Debug tools
 - Test features
+- `Force Agents V2 Only` toggle (March 2026):
+  - Forces leaderboard/top-picks/agent-detail to use V2 APIs only
+  - Disables legacy fallback for debugging
+  - Works with debug toast surfacing on failure
+
+---
+
+## Agents V2 Performance Notes (March 2026)
+
+- Agents mobile data layer now supports remote-flagged V2 routes for:
+  - Leaderboard
+  - Top Picks feed
+  - Agent detail snapshot/history
+- Debug snackbars for forced-V2 failures render via `Portal` so they appear above all UI.
+- Leaderboard and pick-card skeleton states include animated motion to make loading state explicit.
 
 ---
 

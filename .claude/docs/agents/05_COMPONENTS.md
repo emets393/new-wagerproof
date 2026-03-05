@@ -1,5 +1,14 @@
 # Components List
 
+## March 2026 Additions
+
+- New debug settings hook/service:
+  - `wagerproof-mobile/services/agentV2DebugSettings.ts`
+  - `wagerproof-mobile/hooks/useAgentV2DebugSettings.ts`
+- Secret Settings adds `Force Agents V2 Only` toggle for runtime debugging.
+- `AgentLeaderboard`, `TopAgentPicksFeed`, and agent detail screens now render debug error snackbars in `Portal` to ensure they appear above all UI layers.
+- Loading skeletons in leaderboard and pick cards now animate (pulse) to clearly indicate active loading.
+
 ## File Structure
 
 ```

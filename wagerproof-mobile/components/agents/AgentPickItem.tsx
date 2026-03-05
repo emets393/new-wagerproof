@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -301,24 +301,47 @@ export function PickCardSkeleton({ isDark }: { isDark: boolean }) {
   const shimmer = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
   const cardBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.02)';
   const borderColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)';
+  const shimmerOpacity = useRef(new Animated.Value(0.45)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerOpacity, {
+          toValue: 0.9,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerOpacity, {
+          toValue: 0.45,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [shimmerOpacity]);
 
   return (
     <View style={[styles.pickCard, { backgroundColor: cardBg, borderColor }]}>
-      <View style={[styles.pickCardTopBorder, { backgroundColor: shimmer }]} />
-      <View style={styles.pickCardContent}>
-        <View style={styles.skeletonRow}>
-          <View style={[styles.skeletonCircle, { backgroundColor: shimmer }]} />
-          <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
-          <View style={[styles.skeletonBarSmall, { backgroundColor: shimmer }]} />
-          <View style={[styles.skeletonCircle, { backgroundColor: shimmer }]} />
-          <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
+      <Animated.View style={{ opacity: shimmerOpacity }}>
+        <View style={[styles.pickCardTopBorder, { backgroundColor: shimmer }]} />
+        <View style={styles.pickCardContent}>
+          <View style={styles.skeletonRow}>
+            <View style={[styles.skeletonCircle, { backgroundColor: shimmer }]} />
+            <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
+            <View style={[styles.skeletonBarSmall, { backgroundColor: shimmer }]} />
+            <View style={[styles.skeletonCircle, { backgroundColor: shimmer }]} />
+            <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
+          </View>
+          <View style={[styles.skeletonRow, { marginTop: 6 }]}>
+            <View style={[styles.skeletonBar, { width: '55%' as any, backgroundColor: shimmer }]} />
+            <View style={{ flex: 1 }} />
+            <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
+          </View>
         </View>
-        <View style={[styles.skeletonRow, { marginTop: 6 }]}>
-          <View style={[styles.skeletonBar, { width: '55%' as any, backgroundColor: shimmer }]} />
-          <View style={{ flex: 1 }} />
-          <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
-        </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }

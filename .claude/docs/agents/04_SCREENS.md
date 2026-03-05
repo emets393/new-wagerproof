@@ -4,6 +4,11 @@
 
 **Purpose:** Main entry point for the Agents feature. Shows user's agents and public leaderboard.
 
+### March 2026 Behavior Notes
+- Leaderboard in this screen now supports V2 server-ranked data path.
+- In Secret Settings, `Force Agents V2 Only` disables legacy fallback for leaderboard and shows error toast if V2 fails.
+- Leaderboard/My Agents skeleton states now include animated motion (pulse) so loading is visibly active.
+
 ### Layout
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -141,6 +146,11 @@ After Step 6: Show **[Create Agent]** or **[Customize More →]**
 ## Screen 3: Agent Detail (`/agents/[id].tsx`)
 
 **Purpose:** View agent's picks, history, and stats. Entry point for pick generation.
+
+### March 2026 Behavior Notes
+- Agent detail supports V2 snapshot + V2 history path behind flags.
+- With force mode enabled, detail uses V2 only and shows error toast on failure.
+- Initial load is optimized to avoid eager full-history fetch until history section is opened (V2 path).
 
 ### Layout
 ```

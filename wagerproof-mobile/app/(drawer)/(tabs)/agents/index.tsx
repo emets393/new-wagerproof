@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
+  Animated,
   View,
   Text,
   StyleSheet,
@@ -34,32 +35,53 @@ function AgentTimelineSkeleton({ isDark }: { isDark: boolean }) {
   const headerBg = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)';
   const cardBg = isDark ? 'rgba(30, 30, 30, 0.6)' : 'rgba(255, 255, 255, 0.9)';
   const borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)';
+  const shimmerOpacity = useRef(new Animated.Value(0.45)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerOpacity, {
+          toValue: 0.9,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerOpacity, {
+          toValue: 0.45,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [shimmerOpacity]);
 
   return (
     <View style={styles.skeletonSection}>
       {/* Compact header skeleton */}
       <View style={[styles.skeletonHeader, { backgroundColor: headerBg }]}>
-        <View style={[styles.skeletonEmoji, { backgroundColor: shimmer }]} />
-        <View style={[styles.skeletonName, { backgroundColor: shimmer }]} />
+        <Animated.View style={[styles.skeletonEmoji, { backgroundColor: shimmer, opacity: shimmerOpacity }]} />
+        <Animated.View style={[styles.skeletonName, { backgroundColor: shimmer, opacity: shimmerOpacity }]} />
         <View style={{ flex: 1 }} />
-        <View style={[styles.skeletonStat, { backgroundColor: shimmer }]} />
+        <Animated.View style={[styles.skeletonStat, { backgroundColor: shimmer, opacity: shimmerOpacity }]} />
       </View>
       {/* CompactPickCard-shaped skeletons */}
       {[1, 2].map((i) => (
         <View key={i} style={[styles.skeletonCard, { backgroundColor: cardBg, borderColor }]}>
-          <View style={[styles.skeletonAccent, { backgroundColor: shimmer }]} />
+          <Animated.View style={[styles.skeletonAccent, { backgroundColor: shimmer, opacity: shimmerOpacity }]} />
           <View style={styles.skeletonCardContent}>
             <View style={styles.skeletonCardRow}>
-              <View style={[styles.skeletonCircle, { backgroundColor: shimmer }]} />
-              <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
-              <View style={[styles.skeletonBarSmall, { backgroundColor: shimmer }]} />
-              <View style={[styles.skeletonCircle, { backgroundColor: shimmer }]} />
-              <View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer }]} />
+              <Animated.View style={[styles.skeletonCircle, { backgroundColor: shimmer, opacity: shimmerOpacity }]} />
+              <Animated.View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer, opacity: shimmerOpacity }]} />
+              <Animated.View style={[styles.skeletonBarSmall, { backgroundColor: shimmer, opacity: shimmerOpacity }]} />
+              <Animated.View style={[styles.skeletonCircle, { backgroundColor: shimmer, opacity: shimmerOpacity }]} />
+              <Animated.View style={[styles.skeletonBar, { width: 30, backgroundColor: shimmer, opacity: shimmerOpacity }]} />
             </View>
             <View style={[styles.skeletonCardRow, { marginTop: 8 }]}>
-              <View style={[styles.skeletonBar, { width: '60%', backgroundColor: shimmer }]} />
+              <Animated.View style={[styles.skeletonBar, { width: '60%', backgroundColor: shimmer, opacity: shimmerOpacity }]} />
               <View style={{ flex: 1 }} />
-              <View style={[styles.skeletonBar, { width: 50, backgroundColor: shimmer }]} />
+              <Animated.View style={[styles.skeletonBar, { width: 50, backgroundColor: shimmer, opacity: shimmerOpacity }]} />
             </View>
           </View>
         </View>

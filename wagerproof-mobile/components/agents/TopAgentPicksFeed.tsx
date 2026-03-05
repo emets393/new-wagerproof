@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Animated,
   TextInput,
 } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { Portal, Snackbar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +21,7 @@ import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickIt
 import { LockedOverlay } from '@/components/LockedOverlay';
 import { formatNetUnits } from '@/types/agent';
 import { useGameLookup } from '@/hooks/useGameLookup';
+import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
 
 const FILTERS: { label: string; value: FeedFilter }[] = [
   { label: 'Top', value: 'top10' },
@@ -142,11 +143,22 @@ export function TopAgentPicksFeed({
   const router = useRouter();
   const { isDark } = useThemeContext();
   const { isPro } = useProAccess();
+  const { forceV2Only } = useAgentV2DebugSettings();
   const { openGameForPick } = useGameLookup();
   const [filter, setFilter] = useState<FeedFilter>('top10');
   const [searchText, setSearchText] = useState('');
+  const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
 
-  const { picks, isLoading, isRefetching, refetch } = useTopAgentPicksFeed(filter);
+  const { picks, isLoading, isRefetching, error, refetch } = useTopAgentPicksFeed(filter);
+
+  useEffect(() => {
+    if (!forceV2Only || !error) return;
+    const nextMessage =
+      error instanceof Error
+        ? error.message
+        : 'Forced V2 top picks request failed.';
+    setErrorToastMessage(nextMessage);
+  }, [forceV2Only, error]);
 
   // Filter picks by search text (agent name or team matchup)
   const filteredPicks = useMemo(() => {
@@ -390,34 +402,48 @@ export function TopAgentPicksFeed({
   };
 
   return (
-    <Animated.FlatList
-      data={visibleItems}
-      renderItem={renderItem}
-      keyExtractor={(item: any) => item.key}
-      ListHeaderComponent={renderHeader}
-      ListFooterComponent={renderFooter}
-      ListEmptyComponent={renderEmpty}
-      contentContainerStyle={[styles.listContent, contentContainerStyle]}
-      showsVerticalScrollIndicator={false}
-      onScroll={onScroll}
-      scrollEventThrottle={scrollEventThrottle}
-      bounces={false}
-      overScrollMode="never"
-      keyboardShouldPersistTaps="handled"
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefetching}
-          onRefresh={() => refetch()}
-          colors={[theme.colors.primary]}
-          tintColor={theme.colors.primary}
-          progressViewOffset={progressViewOffset}
-        />
-      }
-    />
+    <View style={styles.container}>
+      <Animated.FlatList
+        data={visibleItems}
+        renderItem={renderItem}
+        keyExtractor={(item: any) => item.key}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={renderEmpty}
+        contentContainerStyle={[styles.listContent, contentContainerStyle]}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={scrollEventThrottle}
+        bounces={false}
+        overScrollMode="never"
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => refetch()}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressViewOffset={progressViewOffset}
+          />
+        }
+      />
+      <Portal>
+        <Snackbar
+          visible={!!errorToastMessage}
+          onDismiss={() => setErrorToastMessage(null)}
+          duration={5000}
+        >
+          {errorToastMessage || ''}
+        </Snackbar>
+      </Portal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   listContent: {
     paddingBottom: 16,
   },

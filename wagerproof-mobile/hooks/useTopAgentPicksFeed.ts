@@ -2,9 +2,13 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLeaderboard } from './useLeaderboard';
 import { useFollowedAgents, useFavoriteAgentIds } from './useFollowedAgents';
-import { fetchTopAgentPicksFeed, enrichPicksWithOverlap } from '@/services/agentPicksService';
+import { fetchTopAgentPicksFeed, fetchTopAgentPicksFeedV2, enrichPicksWithOverlap } from '@/services/agentPicksService';
 import { AgentPick } from '@/types/agent';
 import { LeaderboardEntry } from '@/services/agentPerformanceService';
+import { useAgentV2Flags } from '@/hooks/useAgentV2Flags';
+import { useAuth } from '@/contexts/AuthContext';
+import { trackAgentParity } from '@/services/agentPerformanceMetrics';
+import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
 
 export type FeedFilter = 'top10' | 'following' | 'favorites';
 
@@ -33,9 +37,21 @@ export interface FeedPickWithAgent extends AgentPick {
  * TARGET_PICK_COUNT picks are found. Sorted by rank descending (#1 first).
  */
 export function useTopAgentPicksFeed(filter: FeedFilter) {
-  const { data: leaderboard, isLoading: leaderboardLoading } = useLeaderboard(100);
-  const { data: followedAgents, isLoading: followedLoading } = useFollowedAgents();
-  const { data: favoriteIds, isLoading: favoritesLoading } = useFavoriteAgentIds();
+  const { user } = useAuth();
+  const { data: flags } = useAgentV2Flags();
+  const { forceV2Only } = useAgentV2DebugSettings();
+  const useV2 = forceV2Only || !!flags?.agents_v2_top_picks_enabled;
+  const shadowCompare = !!flags?.agents_v2_shadow_compare_enabled;
+
+  const { data: leaderboard, isLoading: leaderboardLoading } = useLeaderboard(100, undefined, {
+    enabled: !useV2 || filter === 'top10',
+  });
+  const { data: followedAgents, isLoading: followedLoading } = useFollowedAgents({
+    enabled: filter === 'following' || (!useV2 && filter !== 'top10'),
+  });
+  const { data: favoriteIds, isLoading: favoritesLoading } = useFavoriteAgentIds({
+    enabled: filter === 'favorites',
+  });
 
   // Build rank + meta maps from the full leaderboard (stable via useMemo)
   const { rankMap, agentMetaMap } = useMemo(() => {
@@ -96,16 +112,48 @@ export function useTopAgentPicksFeed(filter: FeedFilter) {
     queryDep = `favorites-${favoriteIds?.join(',') ?? ''}`;
   }
 
+  if (useV2) {
+    queryDep = `v2-${filter}-${user?.id || 'anon'}-${forceV2Only ? 'force' : 'normal'}`;
+    isResolvingIds = false;
+  }
+
   const hasData = filter === 'top10'
     ? (leaderboard?.length ?? 0) > 0
     : filter === 'following'
     ? (followedAgents?.length ?? 0) > 0
     : (favoriteIds?.length ?? 0) > 0;
 
+  const effectiveHasData = useV2 ? true : hasData;
+
   // Query fetches RAW picks only (no meta attachment — that happens in useMemo below)
   const query = useQuery({
     queryKey: ['top-agent-picks-feed', queryDep],
     queryFn: async (): Promise<AgentPick[]> => {
+      if (useV2) {
+        try {
+          const rows = await fetchTopAgentPicksFeedV2(filter, user?.id);
+          if (shadowCompare && filter === 'top10' && leaderboard?.length) {
+            Promise.allSettled([
+              fetchTop10Cascading(leaderboard || []),
+              Promise.resolve(rows as unknown as AgentPick[]),
+            ]).then(([legacyResult, v2Result]) => {
+              if (legacyResult.status !== 'fulfilled' || v2Result.status !== 'fulfilled') return;
+              if (legacyResult.value.length !== v2Result.value.length) {
+                trackAgentParity('top_picks', 'row_count', {
+                  legacy_count: legacyResult.value.length,
+                  v2_count: v2Result.value.length,
+                  filter,
+                });
+              }
+            });
+          }
+          return rows as unknown as AgentPick[];
+        } catch (err) {
+          if (forceV2Only) throw err;
+          // Fallback to legacy below
+        }
+      }
+
       let rawPicks: AgentPick[];
 
       if (filter === 'top10') {
@@ -122,7 +170,7 @@ export function useTopAgentPicksFeed(filter: FeedFilter) {
 
       return enrichPicksWithOverlap(rawPicks);
     },
-    enabled: !isResolvingIds && hasData,
+    enabled: !isResolvingIds && effectiveHasData,
     staleTime: 2 * 60 * 1000,
   });
 
@@ -135,14 +183,14 @@ export function useTopAgentPicksFeed(filter: FeedFilter) {
       ...pick,
       agent: agentMetaMap.get(pick.avatar_id) || {
         avatar_id: pick.avatar_id,
-        name: 'Unknown Agent',
-        avatar_emoji: '',
-        avatar_color: '#666666',
-        wins: 0,
-        losses: 0,
-        pushes: 0,
-        net_units: 0,
-        rank: rankMap.get(pick.avatar_id) ?? null,
+        name: (pick as any).agent_name || 'Unknown Agent',
+        avatar_emoji: (pick as any).agent_avatar_emoji || '',
+        avatar_color: (pick as any).agent_avatar_color || '#666666',
+        wins: (pick as any).agent_wins || 0,
+        losses: (pick as any).agent_losses || 0,
+        pushes: (pick as any).agent_pushes || 0,
+        net_units: Number((pick as any).agent_net_units || 0),
+        rank: (pick as any).agent_rank ?? rankMap.get(pick.avatar_id) ?? null,
       },
     }));
 
@@ -161,6 +209,7 @@ export function useTopAgentPicksFeed(filter: FeedFilter) {
 
   return {
     picks,
+    error: query.error,
     isLoading: isResolvingIds || query.isLoading,
     isRefetching: query.isRefetching,
     refetch: query.refetch,

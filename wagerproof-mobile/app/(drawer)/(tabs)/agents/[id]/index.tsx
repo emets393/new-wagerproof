@@ -9,7 +9,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { useTheme, Button, Chip, Snackbar } from 'react-native-paper';
+import { Portal, useTheme, Button, Chip, Snackbar } from 'react-native-paper';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -34,8 +34,11 @@ import {
   useTodaysPicks,
   useTodaysGenerationRun,
   useAgentPicks,
+  useAgentDetailSnapshot,
   useGeneratePicks,
 } from '@/hooks/useAgentPicks';
+import { useAgentV2Flags } from '@/hooks/useAgentV2Flags';
+import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
 import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
@@ -229,6 +232,9 @@ export default function AgentDetailScreen() {
   const { adminModeEnabled } = useAdminMode();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { canViewAgentPicks } = useAgentEntitlements();
+  const { data: v2Flags } = useAgentV2Flags();
+  const { forceV2Only } = useAgentV2DebugSettings();
+  const useV2Detail = forceV2Only || !!v2Flags?.agents_v2_agent_detail_enabled;
   const updateAgentMutation = useUpdateAgent();
   const { data: userAgents } = useUserAgents();
 
@@ -266,12 +272,20 @@ export default function AgentDetailScreen() {
     refetch: refetchTodaysGenerationRun,
   } = useTodaysGenerationRun(id || '', { enabled: canViewAgentPicks });
 
+  const {
+    data: detailSnapshotV2,
+    isLoading: isLoadingDetailSnapshotV2,
+    error: detailSnapshotV2Error,
+    refetch: refetchDetailSnapshotV2,
+  } = useAgentDetailSnapshot(id || '', { enabled: canViewAgentPicks && useV2Detail });
+
   // Fetch pick history
   const {
     data: allPicks,
     isLoading: isLoadingAllPicks,
+    error: allPicksError,
     refetch: refetchAllPicks,
-  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks });
+  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks && (!useV2Detail || showHistory) });
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -309,6 +323,17 @@ export default function AgentDetailScreen() {
     : regenLockedBySubscription
     ? 'Upgrade to Pro to regenerate this agent\'s picks manually.'
     : `${regensRemaining} of ${MAX_DAILY_GENERATIONS} manual regenerations remaining today for this agent.`;
+
+  useEffect(() => {
+    if (!forceV2Only) return;
+    const failure = detailSnapshotV2Error || allPicksError;
+    if (!failure) return;
+    setErrorToastMessage(
+      failure instanceof Error
+        ? failure.message
+        : 'Forced V2 agent detail request failed.'
+    );
+  }, [forceV2Only, detailSnapshotV2Error, allPicksError]);
 
   // Filter picks for history
   const filteredPicks = useMemo(() => {
@@ -404,8 +429,12 @@ export default function AgentDetailScreen() {
       // Refetch data after generation
       refetchAgent();
       if (canViewAgentPicks) {
-        refetchTodaysPicks();
-        refetchTodaysGenerationRun();
+        if (useV2Detail) {
+          refetchDetailSnapshotV2();
+        } else {
+          refetchTodaysPicks();
+          refetchTodaysGenerationRun();
+        }
         refetchAllPicks();
       }
 
@@ -433,8 +462,10 @@ export default function AgentDetailScreen() {
     refetchAgent,
     refetchTodaysPicks,
     refetchTodaysGenerationRun,
+    refetchDetailSnapshotV2,
     refetchAllPicks,
     canViewAgentPicks,
+    useV2Detail,
   ]);
 
   // Handle navigation to settings
@@ -447,11 +478,23 @@ export default function AgentDetailScreen() {
   const handleRefresh = useCallback(() => {
     refetchAgent();
     if (canViewAgentPicks) {
-      refetchTodaysPicks();
-      refetchTodaysGenerationRun();
+      if (useV2Detail) {
+        refetchDetailSnapshotV2();
+      } else {
+        refetchTodaysPicks();
+        refetchTodaysGenerationRun();
+      }
       refetchAllPicks();
     }
-  }, [refetchAgent, refetchTodaysPicks, refetchTodaysGenerationRun, refetchAllPicks, canViewAgentPicks]);
+  }, [
+    refetchAgent,
+    refetchTodaysPicks,
+    refetchTodaysGenerationRun,
+    refetchDetailSnapshotV2,
+    refetchAllPicks,
+    canViewAgentPicks,
+    useV2Detail,
+  ]);
 
   const auditSnapPoints = useMemo(() => ['85%', '95%'], []);
 
@@ -552,21 +595,27 @@ export default function AgentDetailScreen() {
     (Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'vegas_lines') ||
       Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'model_predictions') ||
       Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'game_data_complete'));
-  const hasTodaysPicks = todaysPicks && todaysPicks.length > 0;
+  const effectiveTodaysPicks = useV2Detail ? (detailSnapshotV2?.todays_picks || todaysPicks) : todaysPicks;
+  const effectiveTodaysGenerationRun = useV2Detail
+    ? (detailSnapshotV2?.todays_generation_run || todaysGenerationRun)
+    : todaysGenerationRun;
+  const hasTodaysPicks = effectiveTodaysPicks && effectiveTodaysPicks.length > 0;
   const isGeneratingPicks = generatePicksMutation.isPending;
   const persistedNoPicksConclusion = useMemo(() => {
-    if (!todaysGenerationRun || todaysGenerationRun.picks_generated !== 0) return null;
-    if (todaysGenerationRun.no_games) {
+    if (!effectiveTodaysGenerationRun || effectiveTodaysGenerationRun.picks_generated !== 0) return null;
+    if (effectiveTodaysGenerationRun.no_games) {
       return 'No games were available in this agent\'s preferred sports today.';
     }
-    if (todaysGenerationRun.weak_slate) {
+    if (effectiveTodaysGenerationRun.weak_slate) {
       return 'This agent skipped today because the slate was too weak for its settings.';
     }
     return 'The agent completed its analysis and passed on the slate.';
-  }, [todaysGenerationRun]);
+  }, [effectiveTodaysGenerationRun]);
   const effectiveNoPicksConclusion = noPicksConclusion || persistedNoPicksConclusion;
   const hasCompletedNoPickRun = !hasTodaysPicks && !!persistedNoPicksConclusion;
-  const isLoadingTodaySection = isLoadingTodaysPicks || isLoadingTodaysGenerationRun;
+  const isLoadingTodaySection = useV2Detail
+    ? isLoadingDetailSnapshotV2
+    : (isLoadingTodaysPicks || isLoadingTodaysGenerationRun);
 
   // Render loading state
   if (isLoadingAgent && !agent) {
@@ -1101,7 +1150,7 @@ export default function AgentDetailScreen() {
                   <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
                 </>
               ) : hasTodaysPicks ? (
-                todaysPicks.map((pick) => renderPickWithActions(pick))
+                effectiveTodaysPicks?.map((pick) => renderPickWithActions(pick))
               ) : (
                 <>
                   <View
@@ -1333,30 +1382,32 @@ export default function AgentDetailScreen() {
         )}
       </ScrollView>
 
-      <Snackbar
-        visible={limitToastVisible}
-        onDismiss={() => setLimitToastVisible(false)}
-        duration={3000}
-        style={{ backgroundColor: isDark ? '#333' : '#323232' }}
-      >
-        Today's limit exceeded
-      </Snackbar>
-      <Snackbar
-        visible={!!errorToastMessage}
-        onDismiss={() => setErrorToastMessage(null)}
-        duration={4000}
-        style={{ backgroundColor: isDark ? '#333' : '#323232' }}
-      >
-        {errorToastMessage || ''}
-      </Snackbar>
-      <Snackbar
-        visible={generatingToastVisible}
-        onDismiss={() => setGeneratingToastVisible(false)}
-        duration={2500}
-        style={{ backgroundColor: isDark ? '#333' : '#323232' }}
-      >
-        Already generating picks...
-      </Snackbar>
+      <Portal>
+        <Snackbar
+          visible={limitToastVisible}
+          onDismiss={() => setLimitToastVisible(false)}
+          duration={3000}
+          style={{ backgroundColor: isDark ? '#333' : '#323232' }}
+        >
+          Today's limit exceeded
+        </Snackbar>
+        <Snackbar
+          visible={!!errorToastMessage}
+          onDismiss={() => setErrorToastMessage(null)}
+          duration={4000}
+          style={{ backgroundColor: isDark ? '#333' : '#323232' }}
+        >
+          {errorToastMessage || ''}
+        </Snackbar>
+        <Snackbar
+          visible={generatingToastVisible}
+          onDismiss={() => setGeneratingToastVisible(false)}
+          duration={2500}
+          style={{ backgroundColor: isDark ? '#333' : '#323232' }}
+        >
+          Already generating picks...
+        </Snackbar>
+      </Portal>
 
       <BottomSheet
         ref={auditSheetRef}

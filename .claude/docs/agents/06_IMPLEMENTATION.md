@@ -1,5 +1,26 @@
 # Agent Implementation Plan
 
+## March 2026 Shipped Changes (Performance + Debug)
+
+- Added V2 RPC read-path migration set for agents performance:
+  - `20260305000002_agent_performance_v2_rpc.sql`
+  - `20260305000003_enable_agent_performance_v2_flags.sql`
+  - `20260305000004_fix_get_leaderboard_v2_ambiguous_columns.sql`
+  - `20260305000005_fix_get_leaderboard_v2_total_picks_ambiguity.sql`
+  - `20260305000006_rebuild_get_leaderboard_v2_stable.sql`
+- Added mobile V2 flag readers and timing/parity instrumentation:
+  - `useAgentV2Flags`, `agentV2Flags`, `agentPerformanceMetrics`
+- Added dual-path hooks with legacy fallback (unless force mode is enabled):
+  - leaderboard, top picks, and agent detail/historical picks
+- Added secret debug override:
+  - `Force Agents V2 Only` in Secret Settings (persisted locally)
+  - disables fallback and surfaces V2 errors via toast for direct QA
+- Updated loading UX:
+  - animated shimmer/pulse on leaderboard and picks skeleton states
+- Current expected testing mode:
+  - enable `Force Agents V2 Only` to validate V2-only behavior on-device
+  - if V2 fails, toast should expose the backend error immediately
+
 ## Master To-Do List
 
 Ordered implementation checklist. Each task should be completable independently.

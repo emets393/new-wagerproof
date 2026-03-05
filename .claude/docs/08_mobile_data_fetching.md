@@ -2,6 +2,32 @@
 
 This document describes how the mobile app fetches game and prediction data for each sport. Each sport has slightly different table structures and join patterns.
 
+## Agents Data Fetching (March 2026)
+
+Agents now use dual-path reads:
+
+- Legacy path:
+  - existing client aggregation/fetch behavior
+- V2 path (remote flags):
+  - `get_leaderboard_v2`
+  - `get_top_agent_picks_feed_v2`
+  - `get_agent_detail_snapshot_v2`
+  - `get_agent_picks_page_v2`
+
+Control behavior:
+
+- Remote flags from `app_settings` determine default route.
+- Secret Settings `Force Agents V2 Only` locally overrides flags and disables fallback.
+- In force mode, V2 failures are surfaced via toast to aid QA.
+
+Recent backend stabilization:
+
+- `get_leaderboard_v2` had runtime SQL errors during rollout (ambiguity + invalid query structure).
+- Fixed by migrations:
+  - `20260305000004_fix_get_leaderboard_v2_ambiguous_columns.sql`
+  - `20260305000005_fix_get_leaderboard_v2_total_picks_ambiguity.sql`
+  - `20260305000006_rebuild_get_leaderboard_v2_stable.sql`
+
 ## Overview
 
 The mobile app's main feed (`app/(drawer)/(tabs)/index.tsx`) fetches data for all four sports. The general pattern is:
