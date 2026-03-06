@@ -1,0 +1,44 @@
+{
+  "slug": "app-not-loading",
+  "title": "App not loading or showing errors",
+  "description": "Troubleshooting steps when WagerProof isn't loading properly or showing error messages.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["not loading", "error", "crash", "blank screen", "not working", "broken"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "If WagerProof isn't loading correctly, try these steps in order."
+    },
+    {
+      "type": "steps",
+      "steps": [
+        {
+          "title": "Check your internet connection",
+          "description": "WagerProof requires an active internet connection to load game data and predictions. Try opening another app or website to confirm your connection is working."
+        },
+        {
+          "title": "Force close and reopen",
+          "description": "Close the app completely (swipe it away from your recent apps) and reopen it."
+        },
+        {
+          "title": "Clear cache (mobile)",
+          "description": "On Android, go to Settings > Apps > WagerProof > Storage > Clear Cache. On iOS, uninstalling and reinstalling the app clears the cache."
+        },
+        {
+          "title": "Update the app",
+          "description": "Make sure you're running the latest version. Check the App Store or Play Store for updates."
+        },
+        {
+          "title": "Try the web app",
+          "description": "If the mobile app isn't working, try accessing wagerproof.bet in your browser to see if the issue is device-specific."
+        }
+      ]
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "text": "If none of these steps work, contact support@wagerproof.bet with details about the error you're seeing."
+    }
+  ],
+  "relatedArticles": ["contact-support", "report-a-bug"]
+}

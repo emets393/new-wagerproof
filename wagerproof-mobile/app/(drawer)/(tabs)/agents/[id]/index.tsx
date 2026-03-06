@@ -37,8 +37,6 @@ import {
   useAgentDetailSnapshot,
   useGeneratePicks,
 } from '@/hooks/useAgentPicks';
-import { useAgentV2Flags } from '@/hooks/useAgentV2Flags';
-import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
 import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
@@ -232,9 +230,6 @@ export default function AgentDetailScreen() {
   const { adminModeEnabled } = useAdminMode();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { canViewAgentPicks } = useAgentEntitlements();
-  const { data: v2Flags } = useAgentV2Flags();
-  const { forceV2Only } = useAgentV2DebugSettings();
-  const useV2Detail = forceV2Only || !!v2Flags?.agents_v2_agent_detail_enabled;
   const updateAgentMutation = useUpdateAgent();
   const { data: userAgents } = useUserAgents();
 
@@ -259,25 +254,15 @@ export default function AgentDetailScreen() {
     refetch: refetchAgent,
   } = useAgent(id || '');
 
-  // Fetch today's picks
-  const {
-    data: todaysPicks,
-    isLoading: isLoadingTodaysPicks,
-    refetch: refetchTodaysPicks,
-  } = useTodaysPicks(id || '', { enabled: canViewAgentPicks });
-
-  const {
-    data: todaysGenerationRun,
-    isLoading: isLoadingTodaysGenerationRun,
-    refetch: refetchTodaysGenerationRun,
-  } = useTodaysGenerationRun(id || '', { enabled: canViewAgentPicks });
+  // Fetch today's picks (fallback for when V2 snapshot hasn't loaded yet)
+  const { data: todaysPicks } = useTodaysPicks(id || '', { enabled: canViewAgentPicks });
+  const { data: todaysGenerationRun } = useTodaysGenerationRun(id || '', { enabled: canViewAgentPicks });
 
   const {
     data: detailSnapshotV2,
     isLoading: isLoadingDetailSnapshotV2,
-    error: detailSnapshotV2Error,
     refetch: refetchDetailSnapshotV2,
-  } = useAgentDetailSnapshot(id || '', { enabled: canViewAgentPicks && useV2Detail });
+  } = useAgentDetailSnapshot(id || '', { enabled: canViewAgentPicks });
 
   // Fetch pick history
   const {
@@ -285,7 +270,7 @@ export default function AgentDetailScreen() {
     isLoading: isLoadingAllPicks,
     error: allPicksError,
     refetch: refetchAllPicks,
-  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks && (!useV2Detail || showHistory) });
+  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks && showHistory });
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -324,16 +309,6 @@ export default function AgentDetailScreen() {
     ? 'Upgrade to Pro to regenerate this agent\'s picks manually.'
     : `${regensRemaining} of ${MAX_DAILY_GENERATIONS} manual regenerations remaining today for this agent.`;
 
-  useEffect(() => {
-    if (!forceV2Only) return;
-    const failure = detailSnapshotV2Error || allPicksError;
-    if (!failure) return;
-    setErrorToastMessage(
-      failure instanceof Error
-        ? failure.message
-        : 'Forced V2 agent detail request failed.'
-    );
-  }, [forceV2Only, detailSnapshotV2Error, allPicksError]);
 
   // Filter picks for history
   const filteredPicks = useMemo(() => {
@@ -429,12 +404,7 @@ export default function AgentDetailScreen() {
       // Refetch data after generation
       refetchAgent();
       if (canViewAgentPicks) {
-        if (useV2Detail) {
-          refetchDetailSnapshotV2();
-        } else {
-          refetchTodaysPicks();
-          refetchTodaysGenerationRun();
-        }
+        refetchDetailSnapshotV2();
         refetchAllPicks();
       }
 
@@ -460,12 +430,9 @@ export default function AgentDetailScreen() {
     adminModeEnabled,
     generatePicksMutation,
     refetchAgent,
-    refetchTodaysPicks,
-    refetchTodaysGenerationRun,
     refetchDetailSnapshotV2,
     refetchAllPicks,
     canViewAgentPicks,
-    useV2Detail,
   ]);
 
   // Handle navigation to settings
@@ -478,22 +445,14 @@ export default function AgentDetailScreen() {
   const handleRefresh = useCallback(() => {
     refetchAgent();
     if (canViewAgentPicks) {
-      if (useV2Detail) {
-        refetchDetailSnapshotV2();
-      } else {
-        refetchTodaysPicks();
-        refetchTodaysGenerationRun();
-      }
+      refetchDetailSnapshotV2();
       refetchAllPicks();
     }
   }, [
     refetchAgent,
-    refetchTodaysPicks,
-    refetchTodaysGenerationRun,
     refetchDetailSnapshotV2,
     refetchAllPicks,
     canViewAgentPicks,
-    useV2Detail,
   ]);
 
   const auditSnapPoints = useMemo(() => ['85%', '95%'], []);
@@ -595,10 +554,8 @@ export default function AgentDetailScreen() {
     (Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'vegas_lines') ||
       Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'model_predictions') ||
       Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'game_data_complete'));
-  const effectiveTodaysPicks = useV2Detail ? (detailSnapshotV2?.todays_picks || todaysPicks) : todaysPicks;
-  const effectiveTodaysGenerationRun = useV2Detail
-    ? (detailSnapshotV2?.todays_generation_run || todaysGenerationRun)
-    : todaysGenerationRun;
+  const effectiveTodaysPicks = detailSnapshotV2?.todays_picks || todaysPicks;
+  const effectiveTodaysGenerationRun = detailSnapshotV2?.todays_generation_run || todaysGenerationRun;
   const hasTodaysPicks = effectiveTodaysPicks && effectiveTodaysPicks.length > 0;
   const isGeneratingPicks = generatePicksMutation.isPending;
   const persistedNoPicksConclusion = useMemo(() => {
@@ -613,9 +570,7 @@ export default function AgentDetailScreen() {
   }, [effectiveTodaysGenerationRun]);
   const effectiveNoPicksConclusion = noPicksConclusion || persistedNoPicksConclusion;
   const hasCompletedNoPickRun = !hasTodaysPicks && !!persistedNoPicksConclusion;
-  const isLoadingTodaySection = useV2Detail
-    ? isLoadingDetailSnapshotV2
-    : (isLoadingTodaysPicks || isLoadingTodaysGenerationRun);
+  const isLoadingTodaySection = isLoadingDetailSnapshotV2;
 
   // Render loading state
   if (isLoadingAgent && !agent) {

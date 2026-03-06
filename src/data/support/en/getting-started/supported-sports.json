@@ -1,0 +1,55 @@
+{
+  "slug": "supported-sports",
+  "title": "Which sports does WagerProof cover?",
+  "description": "A breakdown of the sports leagues and bet types WagerProof currently supports.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["sports", "NFL", "NBA", "NCAAB", "CFB", "college football", "college basketball", "leagues"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "WagerProof currently covers four major sports leagues with model-generated predictions and analytics."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "NFL (National Football League)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Full game predictions with spread, moneyline, and totals. Includes EPA-based model inputs, weather data for outdoor games, and public betting labels. Season runs September through February."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "CFB (College Football)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Model predictions for FBS college football matchups. Includes spread, moneyline, and totals predictions with weekly model updates. Season runs August through January."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "NBA (National Basketball Association)"
+    },
+    {
+      "type": "paragraph",
+      "text": "The richest data set -- includes team ratings, last-3 and last-5 game trends, win streaks, ATS performance, consistency scores, and luck metrics. Predictions available for spread, moneyline, and totals. Season runs October through June."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "NCAAB (College Basketball)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Model predictions for college basketball with team ratings, rankings, and context flags. Predictions for spread, moneyline, and totals. Season runs November through April."
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "text": "More sports may be added in the future. Visit our Feature Requests page to suggest a sport you'd like to see covered."
+    }
+  ],
+  "relatedArticles": ["how-predictions-work", "what-is-wagerproof"]
+}

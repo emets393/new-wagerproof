@@ -16,6 +16,7 @@ import {
 } from '@/utils/teamColors';
 import { AgentPick, Sport } from '@/types/agent';
 import { AgentOverlapFooter } from './AgentOverlapFooter';
+import { useNCAABTeamMapping, lookupNCAABTeam } from '@/hooks/useNCAABTeamMapping';
 
 // ============================================================================
 // HELPERS
@@ -118,10 +119,20 @@ interface AgentPickItemProps {
 export function AgentPickItem({ pick, onPress, showReasoning = false }: AgentPickItemProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const { teamMap } = useNCAABTeamMapping();
 
   const { away, home } = parseMatchup(pick.matchup);
-  const awayAbbr = getTeamAbbr(away, pick.sport);
-  const homeAbbr = getTeamAbbr(home, pick.sport);
+
+  // For NCAAB, use the team mapping table for correct logos and abbreviations
+  const isNCAAB = pick.sport === 'ncaab';
+  const awayMapping = isNCAAB ? lookupNCAABTeam(away, teamMap) : null;
+  const homeMapping = isNCAAB ? lookupNCAABTeam(home, teamMap) : null;
+
+  const awayAbbr = (isNCAAB && awayMapping?.abbrev) ? awayMapping.abbrev : getTeamAbbr(away, pick.sport);
+  const homeAbbr = (isNCAAB && homeMapping?.abbrev) ? homeMapping.abbrev : getTeamAbbr(home, pick.sport);
+  const awayLogoUrl = isNCAAB ? (awayMapping?.logoUrl ?? undefined) : undefined;
+  const homeLogoUrl = isNCAAB ? (homeMapping?.logoUrl ?? undefined) : undefined;
+
   const awayColors = getTeamColors(away, pick.sport);
   const homeColors = getTeamColors(home, pick.sport);
   const pickIcon = getPickTypeIcon(pick.bet_type);
@@ -169,12 +180,12 @@ export function AgentPickItem({ pick, onPress, showReasoning = false }: AgentPic
           {/* Row 1: Teams + result badge */}
           <View style={styles.pickTeamsRow}>
             <View style={styles.pickTeamsInfo}>
-              <TeamAvatar teamName={away} sport={pick.sport} size={22} />
+              <TeamAvatar teamName={away} sport={pick.sport} size={22} teamAbbr={awayAbbr} logoUrl={awayLogoUrl} />
               <Text style={[styles.pickTeamAbbr, { color: theme.colors.onSurface }]}>
                 {awayAbbr}
               </Text>
               <Text style={[styles.pickAtSymbol, { color: theme.colors.outline }]}>@</Text>
-              <TeamAvatar teamName={home} sport={pick.sport} size={22} />
+              <TeamAvatar teamName={home} sport={pick.sport} size={22} teamAbbr={homeAbbr} logoUrl={homeLogoUrl} />
               <Text style={[styles.pickTeamAbbr, { color: theme.colors.onSurface }]}>
                 {homeAbbr}
               </Text>

@@ -17,7 +17,26 @@
   status = 200
   force = true
 
-# SPA fallback - must come AFTER blog redirects
+# Serve static support files before SPA routing
+[[redirects]]
+  from = "/support"
+  to = "/support/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/support/:col"
+  to = "/support/:col/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/support/:col/:article"
+  to = "/support/:col/:article/index.html"
+  status = 200
+  force = true
+
+# SPA fallback - must come AFTER blog and support redirects
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -43,6 +62,13 @@
 # Blog-specific caching headers
 [[headers]]
   for = "/blog/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, s-maxage=300, stale-while-revalidate=600"
+    Vary = "Accept-Encoding"
+
+# Support-specific caching headers
+[[headers]]
+  for = "/support/*"
   [headers.values]
     Cache-Control = "public, max-age=0, s-maxage=300, stale-while-revalidate=600"
     Vary = "Accept-Encoding"

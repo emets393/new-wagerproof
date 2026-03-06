@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import {
-  fetchLeaderboard,
   fetchLeaderboardV2,
   fetchAgentPerformance,
   LeaderboardEntry,
@@ -8,9 +7,6 @@ import {
   LeaderboardTimeframe,
 } from '@/services/agentPerformanceService';
 import { AgentPerformance, Sport } from '@/types/agent';
-import { useAgentV2Flags } from '@/hooks/useAgentV2Flags';
-import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
-import { trackAgentParity } from '@/services/agentPerformanceMetrics';
 
 // ============================================================================
 // QUERY KEYS
@@ -42,48 +38,12 @@ interface LeaderboardQueryOptions {
  * Hook to fetch the leaderboard of top public agents
  */
 export function useLeaderboard(limit: number = 100, sport?: Sport, options?: LeaderboardQueryOptions) {
-  const { data: flags } = useAgentV2Flags();
-  const { forceV2Only } = useAgentV2DebugSettings();
   const sortMode: LeaderboardSortMode = 'overall';
   const excludeUnder10Picks = false;
   const timeframe: LeaderboardTimeframe = 'all_time';
   return useQuery({
-    queryKey: [
-      ...leaderboardKeys.list(limit, sport, sortMode, excludeUnder10Picks, timeframe),
-      !!flags?.agents_v2_leaderboard_enabled,
-      !!flags?.agents_v2_shadow_compare_enabled,
-      forceV2Only,
-    ],
-    queryFn: async () => {
-      const useV2 = forceV2Only || !!flags?.agents_v2_leaderboard_enabled;
-      const shadowCompare = !!flags?.agents_v2_shadow_compare_enabled;
-
-      if (useV2) {
-        try {
-          return await fetchLeaderboardV2(limit, sport, sortMode, excludeUnder10Picks, timeframe);
-        } catch (err) {
-          if (forceV2Only) throw err;
-          return fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks, timeframe);
-        }
-      }
-
-      if (shadowCompare) {
-        Promise.allSettled([
-          fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks, timeframe),
-          fetchLeaderboardV2(limit, sport, sortMode, excludeUnder10Picks, timeframe),
-        ]).then(([legacyResult, v2Result]) => {
-          if (legacyResult.status !== 'fulfilled' || v2Result.status !== 'fulfilled') return;
-          if (legacyResult.value.length !== v2Result.value.length) {
-            trackAgentParity('leaderboard', 'row_count', {
-              legacy_count: legacyResult.value.length,
-              v2_count: v2Result.value.length,
-            });
-          }
-        });
-      }
-
-      return fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks, timeframe);
-    },
+    queryKey: leaderboardKeys.list(limit, sport, sortMode, excludeUnder10Picks, timeframe),
+    queryFn: () => fetchLeaderboardV2(limit, sport, sortMode, excludeUnder10Picks, timeframe),
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -97,45 +57,9 @@ export function useLeaderboardByMode(
   timeframe: LeaderboardTimeframe = 'all_time',
   options?: LeaderboardQueryOptions
 ) {
-  const { data: flags } = useAgentV2Flags();
-  const { forceV2Only } = useAgentV2DebugSettings();
   return useQuery({
-    queryKey: [
-      ...leaderboardKeys.list(limit, sport, sortMode, excludeUnder10Picks, timeframe),
-      !!flags?.agents_v2_leaderboard_enabled,
-      !!flags?.agents_v2_shadow_compare_enabled,
-      forceV2Only,
-    ],
-    queryFn: async () => {
-      const useV2 = forceV2Only || !!flags?.agents_v2_leaderboard_enabled;
-      const shadowCompare = !!flags?.agents_v2_shadow_compare_enabled;
-
-      if (useV2) {
-        try {
-          return await fetchLeaderboardV2(limit, sport, sortMode, excludeUnder10Picks, timeframe);
-        } catch (err) {
-          if (forceV2Only) throw err;
-          return fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks, timeframe);
-        }
-      }
-
-      if (shadowCompare) {
-        Promise.allSettled([
-          fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks, timeframe),
-          fetchLeaderboardV2(limit, sport, sortMode, excludeUnder10Picks, timeframe),
-        ]).then(([legacyResult, v2Result]) => {
-          if (legacyResult.status !== 'fulfilled' || v2Result.status !== 'fulfilled') return;
-          if (legacyResult.value.length !== v2Result.value.length) {
-            trackAgentParity('leaderboard', 'row_count', {
-              legacy_count: legacyResult.value.length,
-              v2_count: v2Result.value.length,
-            });
-          }
-        });
-      }
-
-      return fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks, timeframe);
-    },
+    queryKey: leaderboardKeys.list(limit, sport, sortMode, excludeUnder10Picks, timeframe),
+    queryFn: () => fetchLeaderboardV2(limit, sport, sortMode, excludeUnder10Picks, timeframe),
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -162,7 +86,7 @@ export function useTopPerformersBySport(sport: Sport, limit: number = 10) {
   const timeframe: LeaderboardTimeframe = 'all_time';
   return useQuery({
     queryKey: leaderboardKeys.list(limit, sport, sortMode, excludeUnder10Picks, timeframe),
-    queryFn: () => fetchLeaderboard(limit, sport, sortMode, excludeUnder10Picks, timeframe),
+    queryFn: () => fetchLeaderboardV2(limit, sport, sortMode, excludeUnder10Picks, timeframe),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

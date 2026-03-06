@@ -1,0 +1,59 @@
+{
+  "slug": "how-to-subscribe",
+  "title": "How to subscribe to WagerProof Pro",
+  "description": "Step-by-step instructions for subscribing to WagerProof Pro on iOS, Android, or the web.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["subscribe", "pro", "purchase", "sign up", "payment", "upgrade"],
+  "content": [
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "On iOS"
+    },
+    {
+      "type": "steps",
+      "steps": [
+        {
+          "title": "Open the WagerProof app",
+          "description": "Launch the app and sign in to your account."
+        },
+        {
+          "title": "Navigate to a Pro feature",
+          "description": "Try to access any Pro feature (e.g. full predictions, AI Agents) -- you'll see a paywall screen."
+        },
+        {
+          "title": "Choose your plan",
+          "description": "Select monthly or annual billing. The annual plan offers a significant discount."
+        },
+        {
+          "title": "Confirm with Apple",
+          "description": "Complete the purchase through Apple's in-app purchase system using Face ID, Touch ID, or your Apple ID password."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "On Android"
+    },
+    {
+      "type": "paragraph",
+      "text": "The process is similar on Android. Navigate to a Pro feature, choose your plan, and confirm the purchase through Google Play."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "On the web"
+    },
+    {
+      "type": "paragraph",
+      "text": "Web subscriptions are processed through Stripe. Navigate to Account settings and click 'Upgrade to Pro' to enter your payment details."
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "text": "Your Pro subscription syncs across all platforms. Subscribe once and access Pro features on web, iOS, and Android."
+    }
+  ],
+  "relatedArticles": ["free-vs-pro", "how-to-cancel"]
+}

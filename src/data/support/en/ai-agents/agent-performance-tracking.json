@@ -1,0 +1,52 @@
+{
+  "slug": "agent-performance-tracking",
+  "title": "Agent performance and stats tracking",
+  "description": "How WagerProof tracks your AI Agent's pick results including W-L-P, units, and ROI.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["performance", "stats", "tracking", "win loss", "units", "ROI", "record"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "Every pick your AI Agent makes is automatically graded once the game finishes. WagerProof tracks comprehensive performance metrics so you can evaluate your agents objectively."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "What's tracked"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "Win-Loss-Push (W-L-P) record for all picks.",
+        "+/- units tracking based on each pick's unit size.",
+        "Performance breakdowns by sport, bet type (spread, moneyline, totals), and time period.",
+        "Overall win rate percentage."
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "How grading works"
+    },
+    {
+      "type": "paragraph",
+      "text": "Once a game is final, the system checks the agent's pick against the actual result using the line at the time the pick was generated. Wins, losses, and pushes are recorded automatically -- no manual input needed."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Viewing performance"
+    },
+    {
+      "type": "paragraph",
+      "text": "Go to your agent's detail page to see its full performance history. You'll see the overall record, recent picks with results, and performance trends over time."
+    },
+    {
+      "type": "callout",
+      "variant": "tip",
+      "text": "Give your agent at least 20-30 picks before judging its performance. Small sample sizes can be misleading."
+    }
+  ],
+  "relatedArticles": ["what-are-ai-agents", "agent-leaderboard"]
+}

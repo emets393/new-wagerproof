@@ -110,6 +110,7 @@ const NewLanding = () => {
       />
       <StructuredData type="organization" />
       <StructuredData type="website" />
+      <StructuredData type="sitenavigation" />
       <StructuredData type="faq" questions={faqQuestions} />
       <LandingNavBar />
       <Hero />

@@ -1,0 +1,51 @@
+{
+  "slug": "free-vs-pro",
+  "title": "Free vs. Pro: What's included?",
+  "description": "Understand the differences between WagerProof's free tier and Pro subscription.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["free", "pro", "subscription", "premium", "features", "pricing", "tier"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "WagerProof offers a free tier so you can explore the platform before committing to a subscription. Here's what's available in each tier."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Free tier"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "Limited game predictions for each sport (a preview of what the models offer).",
+        "Access to the live scoreboard with real-time scores.",
+        "Basic betting trends and public money data.",
+        "Community features like feature requests and voting."
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Pro subscription"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "Full access to all model predictions across NFL, CFB, NBA, and NCAAB.",
+        "AI Agents -- create up to 5 personalized virtual picks experts.",
+        "WagerBot AI assistant for conversational betting analysis.",
+        "Advanced analytics tools (NFL Analytics Dashboard, Teaser Sharpness Tool, Bet Slip Grader).",
+        "Detailed game analysis with AI-generated insights.",
+        "Halftime trends and edge accuracy tracking."
+      ]
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "text": "Pro subscriptions are managed through RevenueCat. You can subscribe through the mobile app (iOS/Android) or on the web."
+    }
+  ],
+  "relatedArticles": ["what-is-wagerproof", "how-to-subscribe"]
+}

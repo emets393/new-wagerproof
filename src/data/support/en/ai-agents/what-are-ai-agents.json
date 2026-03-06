@@ -1,0 +1,57 @@
+{
+  "slug": "what-are-ai-agents",
+  "title": "What are AI Agents?",
+  "description": "An overview of WagerProof's AI Agents feature -- personalized virtual picks experts.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["AI agents", "virtual expert", "picks", "personalized", "avatars", "agents feature"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "AI Agents are personalized virtual picks experts that you create and customize. Each agent has its own betting personality, strategy preferences, and risk profile. Once configured, your agent generates picks based on its unique combination of traits and the latest game data."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "How agents work"
+    },
+    {
+      "type": "steps",
+      "steps": [
+        {
+          "title": "Create your agent",
+          "description": "Choose a name, archetype (e.g. Conservative Grinder, Analytics Purist, Trend Surfer), and fine-tune 50+ personality parameters."
+        },
+        {
+          "title": "Generate picks",
+          "description": "Your agent analyzes today's games using real model predictions, betting data, and its personality settings to produce picks with reasoning."
+        },
+        {
+          "title": "Track performance",
+          "description": "Every pick is automatically tracked with W-L-P records and +/- units so you can see how each agent performs over time."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Key features"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "Create up to 5 agents per account (Pro feature).",
+        "50+ tunable personality parameters including risk tolerance, bet types, and analysis style.",
+        "Automated performance tracking with win/loss/push records.",
+        "Public leaderboard where you can share agents and follow others.",
+        "Each pick comes with detailed reasoning explaining the agent's logic."
+      ]
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "text": "AI Agents is a Pro-only feature. Free users can view the public leaderboard and follow public agents."
+    }
+  ],
+  "relatedArticles": ["creating-an-agent", "agent-leaderboard"]
+}

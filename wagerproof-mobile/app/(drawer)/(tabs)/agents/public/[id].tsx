@@ -19,7 +19,6 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAgent } from '@/hooks/useAgents';
 import { useAgentPicks } from '@/hooks/useAgentPicks';
-import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
@@ -95,7 +94,6 @@ export default function PublicAgentViewScreen() {
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { canViewAgentPicks } = useAgentEntitlements();
-  const { forceV2Only } = useAgentV2DebugSettings();
 
   // Local state
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
@@ -119,14 +117,6 @@ export default function PublicAgentViewScreen() {
     refetch: refetchAllPicks,
   } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks });
 
-  useEffect(() => {
-    if (!forceV2Only || !allPicksError) return;
-    setErrorToastMessage(
-      allPicksError instanceof Error
-        ? allPicksError.message
-        : 'Forced V2 agent detail request failed.'
-    );
-  }, [forceV2Only, allPicksError]);
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();

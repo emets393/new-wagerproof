@@ -1,0 +1,42 @@
+{
+  "slug": "navigating-the-app",
+  "title": "Navigating the app",
+  "description": "Learn how to find your way around WagerProof on web and mobile.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["navigation", "app", "menu", "sidebar", "tabs", "mobile", "web"],
+  "content": [
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Web app"
+    },
+    {
+      "type": "paragraph",
+      "text": "The web app uses a sidebar navigation on the left. Click any sport name (NFL, CFB, NBA, NCAAB) to view that league's predictions. The sidebar also gives you quick access to the Scoreboard, AI Agents, WagerBot, and analytics tools."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Mobile app"
+    },
+    {
+      "type": "paragraph",
+      "text": "The mobile app uses a tab bar at the bottom for primary navigation (Games, Agents, Outliers, Scoreboard). A drawer menu, accessible from the top-left, gives you access to additional features like settings and account management."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Game details"
+    },
+    {
+      "type": "paragraph",
+      "text": "Tap or click any game card to open the game details. On mobile, this opens a bottom sheet with predictions, betting trends, and AI analysis. On the web, a modal displays the same information in a wider layout."
+    },
+    {
+      "type": "callout",
+      "variant": "tip",
+      "text": "Use the live score ticker at the top of the app to quickly see scores for games in progress."
+    }
+  ],
+  "relatedArticles": ["what-is-wagerproof", "supported-sports"]
+}

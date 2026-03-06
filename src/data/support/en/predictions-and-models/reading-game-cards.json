@@ -1,0 +1,64 @@
+{
+  "slug": "reading-game-cards",
+  "title": "How to read a game card",
+  "description": "A guide to understanding all the data shown on WagerProof game prediction cards.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["game card", "reading", "predictions", "spread", "moneyline", "totals", "odds", "interface"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "Each game on WagerProof is displayed as a card that packs a lot of useful information into a compact view. Here's how to read it."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Team matchup"
+    },
+    {
+      "type": "paragraph",
+      "text": "The top of the card shows the two teams with their logos and records. The visiting team is listed first (left/top) and the home team second (right/bottom)."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Prediction rows"
+    },
+    {
+      "type": "paragraph",
+      "text": "Below the matchup, you'll see rows for Spread, Moneyline, and Totals. Each row shows:"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "The current Vegas line (what sportsbooks are offering).",
+        "The model's predicted number or probability.",
+        "A value indicator showing the gap between model and market."
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Value indicators"
+    },
+    {
+      "type": "paragraph",
+      "text": "When the model sees a significant difference between its prediction and the Vegas line, a value tag appears. This means the model thinks the market may be mispricing that particular line. Green indicators suggest potential value bets."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Game details"
+    },
+    {
+      "type": "paragraph",
+      "text": "Tap or click a game card to open the full game details. Here you'll find deeper analysis, betting trends, public money percentages, AI-generated insights, and more."
+    },
+    {
+      "type": "callout",
+      "variant": "tip",
+      "text": "Pay attention to games where the model and Vegas differ significantly -- these are where the most potential value lies."
+    }
+  ],
+  "relatedArticles": ["how-predictions-work", "betting-trends-explained"]
+}

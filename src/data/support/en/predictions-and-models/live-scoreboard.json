@@ -1,0 +1,43 @@
+{
+  "slug": "live-scoreboard",
+  "title": "Using the live scoreboard",
+  "description": "How to track live games, scores, and prediction performance on the WagerProof scoreboard.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["live scores", "scoreboard", "real-time", "tracking", "games", "in-progress"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "The WagerProof scoreboard gives you real-time scores for games across all supported sports. It updates automatically so you can track the action without refreshing."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Features"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "Real-time score updates for all active games.",
+        "Prediction overlays showing how the model's picks are performing.",
+        "Quick filtering by sport (NFL, CFB, NBA, NCAAB).",
+        "Live score ticker at the top of the app for at-a-glance updates."
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Score ticker"
+    },
+    {
+      "type": "paragraph",
+      "text": "The scrolling score ticker at the top of the app shows currently active games. Tap any game in the ticker to jump directly to the full scoreboard with detailed stats."
+    },
+    {
+      "type": "callout",
+      "variant": "tip",
+      "text": "The scoreboard is available to both free and Pro users."
+    }
+  ],
+  "relatedArticles": ["navigating-the-app", "reading-game-cards"]
+}

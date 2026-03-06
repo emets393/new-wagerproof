@@ -20,6 +20,10 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
 import { AgentPickRationaleWidget } from '@/components/agents/AgentPickRationaleWidget';
+import { useNCAABBettingTrendsForGame } from '@/hooks/useBettingTrendsForGame';
+import { useNCAABModelAccuracyForGame } from '@/hooks/useModelAccuracyForGame';
+import { BettingTrendsWidget } from './BettingTrendsWidget';
+import { ModelAccuracyWidget } from './ModelAccuracyWidget';
 
 export function NCAABGameBottomSheet() {
   const theme = useTheme();
@@ -77,6 +81,10 @@ export function NCAABGameBottomSheet() {
     cfbAwayFallback,
     cfbHomeFallback,
   );
+
+  // Fetch betting trends and model accuracy for this game
+  const { trends: gameTrends, isLoading: trendsLoading } = useNCAABBettingTrendsForGame(game?.game_id);
+  const { accuracy: gameAccuracy, isLoading: accuracyLoading } = useNCAABModelAccuracyForGame(game?.game_id);
 
   // Calculate edge values for spread (like CFB)
   const spreadPrediction = useMemo(() => {
@@ -372,7 +380,7 @@ export function NCAABGameBottomSheet() {
                     <View style={styles.edgeRow}>
                       <View style={styles.edgeSection}>
                         <Text style={[styles.edgeLabel, { color: theme.colors.onSurfaceVariant }]}>
-                          Edge to {getNCAABTeamInitials(spreadPrediction.predictedTeam)}
+                          Edge to {(spreadPrediction.isHome ? game.home_team_abbrev : game.away_team_abbrev) || getNCAABTeamInitials(spreadPrediction.predictedTeam)}
                         </Text>
                         <Text style={[styles.edgeValue, { color: '#22c55e' }]}>
                           {spreadPrediction.edge.toFixed(1)}
@@ -558,6 +566,26 @@ export function NCAABGameBottomSheet() {
             </View>
           )}
 
+          {/* Betting Trends Widget */}
+          {gameTrends && (
+            <BettingTrendsWidget
+              awayAbbr={game.away_team_abbrev || getNCAABTeamInitials(game.away_team)}
+              homeAbbr={game.home_team_abbrev || getNCAABTeamInitials(game.home_team)}
+              awayTeam={gameTrends.awayTeam}
+              homeTeam={gameTrends.homeTeam}
+              sport="ncaab"
+            />
+          )}
+
+          {/* Model Accuracy Widget */}
+          {gameAccuracy && (
+            <ModelAccuracyWidget
+              data={gameAccuracy}
+              awayAbbr={game.away_team_abbrev || getNCAABTeamInitials(game.away_team)}
+              homeAbbr={game.home_team_abbrev || getNCAABTeamInitials(game.home_team)}
+            />
+          )}
+
           {/* Team Stats Section */}
           {(game.home_adj_offense !== null || game.away_adj_offense !== null) && (
             <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
@@ -569,8 +597,8 @@ export function NCAABGameBottomSheet() {
               <View style={[styles.statsContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
                 <View style={styles.statsHeaderRow}>
                   <Text style={[styles.statsHeaderLabel, { color: theme.colors.onSurfaceVariant }]}></Text>
-                  <Text style={[styles.statsHeaderValue, { color: theme.colors.onSurfaceVariant }]}>{getNCAABTeamInitials(game.away_team)}</Text>
-                  <Text style={[styles.statsHeaderValue, { color: theme.colors.onSurfaceVariant }]}>{getNCAABTeamInitials(game.home_team)}</Text>
+                  <Text style={[styles.statsHeaderValue, { color: theme.colors.onSurfaceVariant }]}>{game.away_team_abbrev || getNCAABTeamInitials(game.away_team)}</Text>
+                  <Text style={[styles.statsHeaderValue, { color: theme.colors.onSurfaceVariant }]}>{game.home_team_abbrev || getNCAABTeamInitials(game.home_team)}</Text>
                 </View>
                 <View style={styles.statsRow}>
                   <Text style={[styles.statsLabel, { color: theme.colors.onSurfaceVariant }]}>Adj. Offense</Text>

@@ -1,0 +1,54 @@
+{
+  "slug": "creating-an-account",
+  "title": "Creating a WagerProof account",
+  "description": "How to sign up for WagerProof using email or Google Sign-In.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["sign up", "create account", "register", "new account", "Google sign in", "email"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "You can create a WagerProof account in two ways: with your email address or through Google Sign-In."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Sign up with email"
+    },
+    {
+      "type": "steps",
+      "steps": [
+        {
+          "title": "Open WagerProof",
+          "description": "Launch the app or go to wagerproof.bet."
+        },
+        {
+          "title": "Tap 'Sign Up'",
+          "description": "Enter your email address and choose a password."
+        },
+        {
+          "title": "Verify your email",
+          "description": "Check your inbox for a verification email and click the confirmation link."
+        },
+        {
+          "title": "Complete onboarding",
+          "description": "Follow the brief onboarding flow to set your preferences."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Sign up with Google"
+    },
+    {
+      "type": "paragraph",
+      "text": "Tap 'Continue with Google' on the sign-in screen. Select your Google account and you'll be signed in immediately -- no password needed."
+    },
+    {
+      "type": "callout",
+      "variant": "tip",
+      "text": "Google Sign-In is the fastest way to get started and avoids having to remember another password."
+    }
+  ],
+  "relatedArticles": ["forgot-password", "delete-account"]
+}

@@ -1,0 +1,60 @@
+{
+  "slug": "how-predictions-work",
+  "title": "How do WagerProof predictions work?",
+  "description": "Understand how our machine learning models generate game predictions and probabilities.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["predictions", "model", "machine learning", "probabilities", "spread", "moneyline", "totals", "how it works"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "WagerProof uses machine learning models trained on historical game data to generate win probabilities and predicted outcomes for each game. These models take into account a wide range of factors specific to each sport."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "What the models predict"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "Spread -- the model's predicted point differential and the probability of each team covering.",
+        "Moneyline -- the model's win probability for each team, converted to implied odds.",
+        "Totals -- the model's predicted combined score and the probability of going over or under."
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Model inputs by sport"
+    },
+    {
+      "type": "paragraph",
+      "text": "Each sport uses different data inputs tuned to what matters most for that league:"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "NFL/CFB: EPA-based metrics, weather conditions, public betting labels.",
+        "NBA: Team ratings, recent trends (last 3/5 games), win streaks, ATS records, consistency, and luck metrics.",
+        "NCAAB: Team ratings, national rankings, and context flags."
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Finding value"
+    },
+    {
+      "type": "paragraph",
+      "text": "The key insight WagerProof provides is the comparison between model-generated odds and current Vegas lines. When the model sees a significant difference, it may indicate a value opportunity. The bigger the gap, the more potential value there is."
+    },
+    {
+      "type": "callout",
+      "variant": "warning",
+      "text": "Predictions are data-driven estimates, not guarantees. No model is right 100% of the time. Always bet responsibly and within your means."
+    }
+  ],
+  "relatedArticles": ["reading-game-cards", "supported-sports"]
+}

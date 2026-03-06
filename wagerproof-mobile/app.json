@@ -56,6 +56,13 @@
         }
       ],
       "expo-apple-authentication",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": false,
+          "microphonePermission": "WagerProof needs microphone access for WagerBot voice chat."
+        }
+      ],
       "@bacons/apple-targets",
       "./plugins/withWidgetDataBridge",
       [

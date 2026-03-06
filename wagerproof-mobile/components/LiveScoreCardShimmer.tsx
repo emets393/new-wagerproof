@@ -42,7 +42,7 @@ export function LiveScoreCardShimmer() {
   const highlightColor = theme.dark ? '#1a1a1a' : '#ffffff';
 
   return (
-    <View style={[styles.card, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.dark ? '#000000' : '#ffffff' }]}>
+    <View style={[styles.card, { backgroundColor: theme.dark ? '#000000' : '#ffffff' }]}>
       <View style={styles.content}>
         {/* Top Row: Teams/Scores */}
         <View style={styles.mainRow}>
@@ -149,7 +149,7 @@ export function LiveScoreCardShimmer() {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: 0,
     paddingVertical: 6,
     paddingHorizontal: 10,
     overflow: 'hidden',

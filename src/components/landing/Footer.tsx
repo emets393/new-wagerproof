@@ -123,6 +123,11 @@ const Footer = () => {
                   Pricing
                 </button>
               </li>
+              <li>
+                <Link to="/support" className="text-gray-400 hover:text-honeydew-400 transition-colors">
+                  Support
+                </Link>
+              </li>
             </ul>
           </div>
 

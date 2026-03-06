@@ -28,8 +28,12 @@ import { useNBABettingTrendsSheet } from '@/contexts/NBABettingTrendsSheetContex
 import { useNCAABBettingTrendsSheet } from '@/contexts/NCAABBettingTrendsSheetContext';
 import { useNBABettingTrends } from '@/hooks/useNBABettingTrends';
 import { useNCAABBettingTrends } from '@/hooks/useNCAABBettingTrends';
+import { useNBAModelAccuracy } from '@/hooks/useNBAModelAccuracy';
+import { useNCAABModelAccuracy } from '@/hooks/useNCAABModelAccuracy';
 import { NBAGameTrendsData, SituationalTrendRow, parseRecord, formatSituation } from '@/types/nbaBettingTrends';
 import { NCAABGameTrendsData, NCAABSituationalTrendRow, parseNCAABRecord, formatNCAABSituation } from '@/types/ncaabBettingTrends';
+import { GameAccuracyData } from '@/types/modelAccuracy';
+import { lookupNBAFullGame, lookupNCAABFullGame } from '@/hooks/useFullGameLookup';
 
 // Helper to filter by sport
 const filterBySport = <T extends { sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' }>(
@@ -367,6 +371,132 @@ const buildNCAABTrendOutliers = (games: NCAABGameTrendsData[]): TrendOutlier[] =
   return outliers.sort((a, b) => sortTrendCandidates(a.candidate, b.candidate));
 };
 
+// ── Model Accuracy Outliers ────────────────────────────────
+// NBA: lower thresholds to capture more outliers
+const NBA_ACCURACY_MIN_GAMES = 5;
+const NBA_ACCURACY_HIGH_THRESHOLD = 65;
+const NBA_ACCURACY_LOW_THRESHOLD = 35;
+// NCAAB: stricter thresholds, no ML (heavily skewed toward favorites)
+const NCAAB_ACCURACY_MIN_GAMES = 10;
+const NCAAB_ACCURACY_HIGH_THRESHOLD = 70;
+const NCAAB_ACCURACY_LOW_THRESHOLD = 30;
+
+type AccuracyPickType = 'Spread' | 'ML' | 'O/U';
+
+interface AccuracyOutlier {
+  gameId: number;
+  sport: 'nba' | 'ncaab';
+  awayTeam: string;
+  homeTeam: string;
+  awayAbbr: string;
+  homeAbbr: string;
+  pickType: AccuracyPickType;
+  pick: string;
+  edge: string;
+  accuracyPct: number;
+  sampleSize: number;
+  isHigh: boolean;
+}
+
+function buildAccuracyOutliers(games: GameAccuracyData[], sport: 'nba' | 'ncaab'): AccuracyOutlier[] {
+  const outliers: AccuracyOutlier[] = [];
+  const minGames = sport === 'nba' ? NBA_ACCURACY_MIN_GAMES : NCAAB_ACCURACY_MIN_GAMES;
+  const highThreshold = sport === 'nba' ? NBA_ACCURACY_HIGH_THRESHOLD : NCAAB_ACCURACY_HIGH_THRESHOLD;
+  const lowThreshold = sport === 'nba' ? NBA_ACCURACY_LOW_THRESHOLD : NCAAB_ACCURACY_LOW_THRESHOLD;
+
+  for (const game of games) {
+    // Spread
+    if (
+      game.spreadAccuracy &&
+      game.spreadAccuracy.games >= minGames &&
+      (game.spreadAccuracy.accuracy_pct >= highThreshold ||
+        game.spreadAccuracy.accuracy_pct <= lowThreshold)
+    ) {
+      const pickTeam = game.homeSpreadDiff !== null
+        ? (game.homeSpreadDiff > 0 ? game.homeAbbr : game.awayAbbr)
+        : '-';
+      outliers.push({
+        gameId: game.gameId,
+        sport,
+        awayTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        awayAbbr: game.awayAbbr,
+        homeAbbr: game.homeAbbr,
+        pickType: 'Spread',
+        pick: pickTeam,
+        edge: game.homeSpreadDiff !== null ? `${Math.abs(game.homeSpreadDiff).toFixed(1)} pts` : '-',
+        accuracyPct: game.spreadAccuracy.accuracy_pct,
+        sampleSize: game.spreadAccuracy.games,
+        isHigh: game.spreadAccuracy.accuracy_pct >= highThreshold,
+      });
+    }
+
+    // Moneyline — skip for NCAAB (heavily skewed toward favorites)
+    if (
+      sport !== 'ncaab' &&
+      game.mlAccuracy &&
+      game.mlAccuracy.games >= minGames &&
+      (game.mlAccuracy.accuracy_pct >= highThreshold ||
+        game.mlAccuracy.accuracy_pct <= lowThreshold)
+    ) {
+      const pickTeam = game.mlPickIsHome !== null
+        ? (game.mlPickIsHome ? game.homeAbbr : game.awayAbbr)
+        : '-';
+      const prob = game.mlPickIsHome !== null
+        ? ((game.mlPickIsHome ? (game.homeWinProb ?? 0) : (game.awayWinProb ?? 0)) * 100).toFixed(0) + '%'
+        : '-';
+      outliers.push({
+        gameId: game.gameId,
+        sport,
+        awayTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        awayAbbr: game.awayAbbr,
+        homeAbbr: game.homeAbbr,
+        pickType: 'ML',
+        pick: pickTeam,
+        edge: prob,
+        accuracyPct: game.mlAccuracy.accuracy_pct,
+        sampleSize: game.mlAccuracy.games,
+        isHigh: game.mlAccuracy.accuracy_pct >= highThreshold,
+      });
+    }
+
+    // Over/Under
+    if (
+      game.ouAccuracy &&
+      game.ouAccuracy.games >= minGames &&
+      (game.ouAccuracy.accuracy_pct >= highThreshold ||
+        game.ouAccuracy.accuracy_pct <= lowThreshold)
+    ) {
+      const pick = game.overLineDiff !== null
+        ? (game.overLineDiff > 0 ? 'Over' : 'Under')
+        : '-';
+      outliers.push({
+        gameId: game.gameId,
+        sport,
+        awayTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        awayAbbr: game.awayAbbr,
+        homeAbbr: game.homeAbbr,
+        pickType: 'O/U',
+        pick,
+        edge: game.overLineDiff !== null ? `${Math.abs(game.overLineDiff).toFixed(1)} pts` : '-',
+        accuracyPct: game.ouAccuracy.accuracy_pct,
+        sampleSize: game.ouAccuracy.games,
+        isHigh: game.ouAccuracy.accuracy_pct >= highThreshold,
+      });
+    }
+  }
+
+  // Sort by accuracy descending for high, ascending for low, interleaved by extremity
+  return outliers.sort((a, b) => {
+    const aExtreme = a.isHigh ? a.accuracyPct : 100 - a.accuracyPct;
+    const bExtreme = b.isHigh ? b.accuracyPct : 100 - b.accuracyPct;
+    if (bExtreme !== aExtreme) return bExtreme - aExtreme;
+    return b.sampleSize - a.sampleSize;
+  });
+}
+
 export default function OutliersScreen() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
@@ -399,6 +529,8 @@ export default function OutliersScreen() {
   const { onPageChange, onOutliersPageWithData, isDetached, openManualMenu, setOutliersData } = useWagerBotSuggestion();
   const { games: nbaTrendsGames, isLoading: nbaTrendsLoading, refetch: refetchNbaTrends } = useNBABettingTrends();
   const { games: ncaabTrendsGames, isLoading: ncaabTrendsLoading, refetch: refetchNcaabTrends } = useNCAABBettingTrends();
+  const { games: nbaAccuracyGames, isLoading: nbaAccuracyLoading, refetch: refetchNbaAccuracy } = useNBAModelAccuracy();
+  const { games: ncaabAccuracyGames, isLoading: ncaabAccuracyLoading, refetch: refetchNcaabAccuracy } = useNCAABModelAccuracy();
   const { openTrendsSheet: openNBATrendsSheet } = useNBABettingTrendsSheet();
   const { openTrendsSheet: openNCAABTrendsSheet } = useNCAABBettingTrendsSheet();
 
@@ -521,9 +653,11 @@ export default function OutliersScreen() {
       queryClient.invalidateQueries({ queryKey: ['fade-alerts'] }),
       refetchNbaTrends(),
       refetchNcaabTrends(),
+      refetchNbaAccuracy(),
+      refetchNcaabAccuracy(),
     ]);
     setRefreshing(false);
-  }, [queryClient, refetchNbaTrends, refetchNcaabTrends]);
+  }, [queryClient, refetchNbaTrends, refetchNcaabTrends, refetchNbaAccuracy, refetchNcaabAccuracy]);
 
   const handleGamePress = useCallback((gameSummary: GameSummary) => {
       if (!gameSummary.originalData) return;
@@ -833,6 +967,8 @@ export default function OutliersScreen() {
   const filteredFadeAlerts = filterBySport(fadeAlerts || [], fadeAlertsFilter);
   const nbaTrendOutliers = useMemo(() => buildNBATrendOutliers(nbaTrendsGames), [nbaTrendsGames]);
   const ncaabTrendOutliers = useMemo(() => buildNCAABTrendOutliers(ncaabTrendsGames), [ncaabTrendsGames]);
+  const nbaAccuracyOutliers = useMemo(() => buildAccuracyOutliers(nbaAccuracyGames, 'nba'), [nbaAccuracyGames]);
+  const ncaabAccuracyOutliers = useMemo(() => buildAccuracyOutliers(ncaabAccuracyGames, 'ncaab'), [ncaabAccuracyGames]);
 
   // For non-pro users (when loading is complete), only show 2 alerts; for pro users show 5
   const shouldShowLocks = !isProLoading && !isPro;
@@ -964,6 +1100,73 @@ export default function OutliersScreen() {
           </Text>
           <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
             Situation: {trend.candidate.situationLabel}
+          </Text>
+        </View>
+      </Card>
+    );
+  };
+
+  const renderAccuracyOutlierCard = (outlier: AccuracyOutlier, index: number) => {
+    const accentColor = outlier.isHigh ? '#14b8a6' : '#ef4444';
+    const bgColor = outlier.isHigh ? 'rgba(20, 184, 166, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+    const borderColor = outlier.isHigh ? 'rgba(20, 184, 166, 0.35)' : 'rgba(239, 68, 68, 0.35)';
+
+    const handleAccuracyPress = async () => {
+      if (outlier.sport === 'nba') {
+        const fullGame = await lookupNBAFullGame(outlier.gameId);
+        if (fullGame) {
+          openNBASheet(fullGame);
+        }
+      } else {
+        const fullGame = await lookupNCAABFullGame(outlier.gameId);
+        if (fullGame) {
+          openNCAABSheet(fullGame);
+        }
+      }
+    };
+
+    return (
+      <Card
+        key={`acc-${outlier.sport}-${outlier.gameId}-${outlier.pickType}-${index}`}
+        style={{
+          ...styles.alertCard,
+          backgroundColor: isDark ? bgColor : bgColor,
+          borderColor,
+        }}
+        onPress={handleAccuracyPress}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.pillsContainer}>
+            <View style={[styles.pill, { backgroundColor: getSportColor(outlier.sport) + '20' }]}>
+              <MaterialCommunityIcons name={getSportIconName(outlier.sport) as any} size={12} color={getSportColor(outlier.sport)} />
+              <Text style={[styles.pillText, { color: getSportColor(outlier.sport) }]}>{outlier.sport.toUpperCase()}</Text>
+            </View>
+
+            <View style={[styles.pill, { backgroundColor: accentColor + '30' }]}>
+              <Text style={[styles.pillText, { color: accentColor }]}>{outlier.pickType}</Text>
+            </View>
+
+            <View style={[styles.pill, { backgroundColor: accentColor }]}>
+              <MaterialCommunityIcons name="bullseye-arrow" size={10} color="#fff" />
+              <Text style={[styles.pillText, { color: '#fff' }]}>{outlier.accuracyPct.toFixed(0)}%</Text>
+            </View>
+
+            <View style={[styles.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+              <Text style={[styles.pillText, { color: theme.colors.onSurfaceVariant }]}>{outlier.sampleSize}g sample</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.cardContent}>
+          <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
+            {outlier.awayTeam} @ {outlier.homeTeam}
+          </Text>
+          <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
+            <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{outlier.pick}</Text>
+            {` ${outlier.pickType} pick (${outlier.edge} edge) — `}
+            <Text style={{ fontWeight: 'bold', color: accentColor }}>
+              {outlier.isHigh ? `${outlier.accuracyPct.toFixed(0)}% historically accurate` : `only ${outlier.accuracyPct.toFixed(0)}% accurate (fade)`}
+            </Text>
           </Text>
         </View>
       </Card>
@@ -1311,6 +1514,100 @@ export default function OutliersScreen() {
                 <View style={styles.emptyState}>
                      <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
                         No NCAAB ATS/O-U trend outliers at {BETTING_TRENDS_THRESHOLD}%+ right now.
+                     </Text>
+                </View>
+            )}
+        </View>
+
+        {/* Section 5: NBA Model Accuracy Outliers */}
+        <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+                <View style={styles.titleRow}>
+                    <MaterialCommunityIcons name="bullseye-arrow" size={20} color="#14b8a6" />
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>NBA Model Accuracy Outliers</Text>
+                </View>
+                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+                    Spread, ML, and O/U predictions with notable historical accuracy ({'>'}={NBA_ACCURACY_HIGH_THRESHOLD}% or {'<'}={NBA_ACCURACY_LOW_THRESHOLD}%) on {NBA_ACCURACY_MIN_GAMES}+ game samples.
+                </Text>
+            </View>
+
+            {nbaAccuracyLoading ? (
+                <View>
+                    {[1, 2, 3].map((i) => (
+                        <AlertCardShimmer key={`nba-acc-${i}`} />
+                    ))}
+                </View>
+            ) : nbaAccuracyOutliers.length > 0 ? (
+                <View style={styles.cardsGrid}>
+                    {nbaAccuracyOutliers.slice(0, visibleAlertCount).map(renderAccuracyOutlierCard)}
+
+                    {shouldShowLocks && Math.min(3, Math.max(0, nbaAccuracyOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, nbaAccuracyOutliers.length - 2)) }).map((_, index) => (
+                      <LockedOverlay
+                        key={`locked-nba-acc-${index}`}
+                        message="Unlock all alerts with Pro"
+                        style={styles.lockedAlertCard}
+                      />
+                    ))}
+
+                    <PaperButton
+                      mode="outlined"
+                      onPress={() => router.push('/(drawer)/(tabs)/nba-model-accuracy')}
+                      style={styles.showMoreButton}
+                    >
+                      Open NBA Model Accuracy
+                    </PaperButton>
+                </View>
+            ) : (
+                <View style={styles.emptyState}>
+                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                        No NBA model accuracy outliers at {NBA_ACCURACY_HIGH_THRESHOLD}%+ or {NBA_ACCURACY_LOW_THRESHOLD}%- right now.
+                     </Text>
+                </View>
+            )}
+        </View>
+
+        {/* Section 6: NCAAB Model Accuracy Outliers */}
+        <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+                <View style={styles.titleRow}>
+                    <MaterialCommunityIcons name="bullseye-arrow" size={20} color="#f59e0b" />
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>NCAAB Model Accuracy Outliers</Text>
+                </View>
+                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
+                    Spread and O/U predictions with extreme historical accuracy ({'>'}={NCAAB_ACCURACY_HIGH_THRESHOLD}% or {'<'}={NCAAB_ACCURACY_LOW_THRESHOLD}%) on {NCAAB_ACCURACY_MIN_GAMES}+ game samples.
+                </Text>
+            </View>
+
+            {ncaabAccuracyLoading ? (
+                <View>
+                    {[1, 2, 3].map((i) => (
+                        <AlertCardShimmer key={`ncaab-acc-${i}`} />
+                    ))}
+                </View>
+            ) : ncaabAccuracyOutliers.length > 0 ? (
+                <View style={styles.cardsGrid}>
+                    {ncaabAccuracyOutliers.slice(0, visibleAlertCount).map(renderAccuracyOutlierCard)}
+
+                    {shouldShowLocks && Math.min(3, Math.max(0, ncaabAccuracyOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, ncaabAccuracyOutliers.length - 2)) }).map((_, index) => (
+                      <LockedOverlay
+                        key={`locked-ncaab-acc-${index}`}
+                        message="Unlock all alerts with Pro"
+                        style={styles.lockedAlertCard}
+                      />
+                    ))}
+
+                    <PaperButton
+                      mode="outlined"
+                      onPress={() => router.push('/(drawer)/(tabs)/ncaab-model-accuracy')}
+                      style={styles.showMoreButton}
+                    >
+                      Open NCAAB Model Accuracy
+                    </PaperButton>
+                </View>
+            ) : (
+                <View style={styles.emptyState}>
+                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                        No NCAAB model accuracy outliers at {NCAAB_ACCURACY_HIGH_THRESHOLD}%+ or {NCAAB_ACCURACY_LOW_THRESHOLD}%- right now.
                      </Text>
                 </View>
             )}

@@ -22,6 +22,10 @@ import { InjuryReportWidget } from './nba/InjuryReportWidget';
 import { RecentTrendsWidget } from './nba/RecentTrendsWidget';
 import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
 import { AgentPickRationaleWidget } from '@/components/agents/AgentPickRationaleWidget';
+import { useNBABettingTrendsForGame } from '@/hooks/useBettingTrendsForGame';
+import { useNBAModelAccuracyForGame } from '@/hooks/useModelAccuracyForGame';
+import { BettingTrendsWidget } from './BettingTrendsWidget';
+import { ModelAccuracyWidget } from './ModelAccuracyWidget';
 
 export function NBAGameBottomSheet() {
   const theme = useTheme();
@@ -51,6 +55,10 @@ export function NBAGameBottomSheet() {
     gameDate: game?.game_date,
     isOpen: !!game,
   });
+
+  // Fetch betting trends and model accuracy for this game
+  const { trends: gameTrends, isLoading: trendsLoading } = useNBABettingTrendsForGame(game?.game_id);
+  const { accuracy: gameAccuracy, isLoading: accuracyLoading } = useNBAModelAccuracyForGame(game?.game_id);
 
   // Reset simulation state when game changes
   useEffect(() => {
@@ -567,6 +575,26 @@ export function NBAGameBottomSheet() {
               isLoading={isLoadingTrends}
             />
           </ProContentSection>
+
+          {/* Betting Trends Widget */}
+          {gameTrends && (
+            <BettingTrendsWidget
+              awayAbbr={getNBATeamInitials(game.away_team)}
+              homeAbbr={getNBATeamInitials(game.home_team)}
+              awayTeam={gameTrends.awayTeam}
+              homeTeam={gameTrends.homeTeam}
+              sport="nba"
+            />
+          )}
+
+          {/* Model Accuracy Widget */}
+          {gameAccuracy && (
+            <ModelAccuracyWidget
+              data={gameAccuracy}
+              awayAbbr={getNBATeamInitials(game.away_team)}
+              homeAbbr={getNBATeamInitials(game.home_team)}
+            />
+          )}
 
           {/* Team Stats Section */}
           {(game.home_adj_offense !== null || game.away_adj_offense !== null) && (

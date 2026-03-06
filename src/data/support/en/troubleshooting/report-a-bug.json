@@ -1,0 +1,39 @@
+{
+  "slug": "report-a-bug",
+  "title": "Reporting a bug",
+  "description": "How to report a bug or technical issue with WagerProof.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["bug", "report", "issue", "glitch", "problem", "technical"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "Found something that doesn't look right? We appreciate bug reports -- they help us improve the app for everyone."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "How to report a bug"
+    },
+    {
+      "type": "paragraph",
+      "text": "Send an email to support@wagerproof.bet with the following information:"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "A description of what happened and what you expected to happen.",
+        "Steps to reproduce the issue (if possible).",
+        "Your device type and OS version (e.g. iPhone 15, iOS 18.2).",
+        "Screenshots or screen recordings showing the issue.",
+        "The WagerProof app version (found in Account settings)."
+      ]
+    },
+    {
+      "type": "callout",
+      "variant": "tip",
+      "text": "The more detail you include, the faster we can identify and fix the issue."
+    }
+  ],
+  "relatedArticles": ["contact-support", "app-not-loading"]
+}

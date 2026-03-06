@@ -1,0 +1,43 @@
+{
+  "slug": "predictions-not-showing",
+  "title": "Predictions not showing up",
+  "description": "What to do when game predictions aren't appearing on WagerProof.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["predictions missing", "no predictions", "empty", "games not showing", "no data"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "There are a few reasons predictions might not be visible for certain games."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Common reasons"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "Off-season: Each sport has a specific season. No predictions are generated during the off-season.",
+        "Free tier limits: Free users see a limited number of predictions. Upgrade to Pro for full access.",
+        "Early in the week: Some predictions (especially NFL/CFB) may not be available until a few days before game day.",
+        "Data delays: Occasionally, model runs may be delayed. Predictions typically refresh daily."
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Check your subscription"
+    },
+    {
+      "type": "paragraph",
+      "text": "If you're a Pro subscriber and predictions aren't showing, try restoring your purchase from Account settings. If that doesn't work, sign out and sign back in."
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "text": "If predictions are missing for specific games, it may mean the model didn't have enough data to generate a confident prediction for that matchup."
+    }
+  ],
+  "relatedArticles": ["how-predictions-work", "restore-purchase"]
+}

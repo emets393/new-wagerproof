@@ -1,0 +1,32 @@
+{
+  "slug": "managing-notifications",
+  "title": "Managing notifications",
+  "description": "How to control push notifications and email alerts from WagerProof.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["notifications", "alerts", "push notifications", "email", "settings"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "WagerProof may send notifications for important updates like new picks from your AI Agents, game alerts, or product announcements."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Push notifications (mobile)"
+    },
+    {
+      "type": "paragraph",
+      "text": "You can manage push notification permissions in your device settings. On iOS, go to Settings > Notifications > WagerProof. On Android, go to Settings > Apps > WagerProof > Notifications."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Email notifications"
+    },
+    {
+      "type": "paragraph",
+      "text": "Email preferences can be managed from your Account settings within the app. You can opt out of marketing emails while still receiving essential account-related communications."
+    }
+  ],
+  "relatedArticles": ["creating-an-account", "navigating-the-app"]
+}

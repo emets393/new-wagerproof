@@ -1,0 +1,42 @@
+{
+  "slug": "delete-account",
+  "title": "Deleting your account",
+  "description": "How to permanently delete your WagerProof account and all associated data.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["delete account", "remove account", "close account", "data deletion", "privacy"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "You can request to delete your WagerProof account at any time. This permanently removes your profile, AI Agents, pick history, and all associated data."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Before you delete"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "Cancel any active subscription first to avoid further charges.",
+        "Account deletion is permanent and cannot be undone.",
+        "All AI Agents, picks, and performance data will be permanently removed."
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "How to delete"
+    },
+    {
+      "type": "paragraph",
+      "text": "Go to Account settings and scroll to the bottom. Tap 'Delete Account' and confirm. Your account will be scheduled for deletion and all data will be removed within 30 days."
+    },
+    {
+      "type": "callout",
+      "variant": "warning",
+      "text": "This action is permanent. Once your account is deleted, it cannot be recovered."
+    }
+  ],
+  "relatedArticles": ["how-to-cancel", "contact-support"]
+}

@@ -1,0 +1,54 @@
+{
+  "slug": "what-is-wagerproof",
+  "title": "What is WagerProof?",
+  "description": "An overview of WagerProof's data-driven sports betting analytics platform and what it offers.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["what is wagerproof", "overview", "sports betting", "analytics", "predictions", "features"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "WagerProof is a data-driven sports betting analytics platform that uses machine learning models to generate predictions for NFL, College Football (CFB), NBA, and College Basketball (NCAAB) games. Instead of relying on gut feelings or media narratives, WagerProof gives you model-generated probabilities, line comparisons, and value indicators to make more informed betting decisions."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Core features"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "Model-generated predictions for spread, moneyline, and totals across NFL, CFB, NBA, and NCAAB.",
+        "Side-by-side comparison of model odds vs. Vegas lines to identify value opportunities.",
+        "Live scoreboard with real-time game updates and prediction overlays.",
+        "AI Agents -- create personalized virtual picks experts with customizable betting styles.",
+        "WagerBot -- an AI-powered conversational assistant for quick betting insights.",
+        "Betting trends, public money splits, and halftime analysis tools."
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Where can I use WagerProof?"
+    },
+    {
+      "type": "paragraph",
+      "text": "WagerProof is available as a web app at wagerproof.bet and as a mobile app on iOS and Android. Your account syncs across all platforms, so your AI Agents, settings, and preferences are always with you."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Who is WagerProof for?"
+    },
+    {
+      "type": "paragraph",
+      "text": "WagerProof is built for sports bettors who want a data-first approach. Whether you're a casual bettor looking for an edge, a serious handicapper who wants model-generated numbers to supplement your own analysis, or someone exploring sports betting for the first time, WagerProof provides the tools and data to bet smarter."
+    },
+    {
+      "type": "callout",
+      "variant": "tip",
+      "text": "New to WagerProof? Start by checking today's games on the NBA or NFL page to see how our model predictions compare to the current Vegas lines."
+    }
+  ],
+  "relatedArticles": ["free-vs-pro", "how-predictions-work"]
+}

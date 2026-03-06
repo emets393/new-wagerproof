@@ -1,0 +1,72 @@
+{
+  "slug": "how-to-cancel",
+  "title": "How to cancel your subscription",
+  "description": "Instructions for canceling your WagerProof Pro subscription on each platform.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["cancel", "unsubscribe", "stop", "end subscription", "billing"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "You can cancel your WagerProof Pro subscription at any time. Your access continues until the end of your current billing period."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Cancel on iOS"
+    },
+    {
+      "type": "steps",
+      "steps": [
+        {
+          "title": "Open Settings on your iPhone",
+          "description": "Go to Settings > [Your Name] > Subscriptions."
+        },
+        {
+          "title": "Find WagerProof",
+          "description": "Tap WagerProof in your active subscriptions list."
+        },
+        {
+          "title": "Cancel subscription",
+          "description": "Tap 'Cancel Subscription' and confirm."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Cancel on Android"
+    },
+    {
+      "type": "steps",
+      "steps": [
+        {
+          "title": "Open Google Play Store",
+          "description": "Go to Google Play Store > Menu > Subscriptions."
+        },
+        {
+          "title": "Find WagerProof",
+          "description": "Tap WagerProof in your subscriptions."
+        },
+        {
+          "title": "Cancel subscription",
+          "description": "Tap 'Cancel subscription' and follow the prompts."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Cancel web subscription"
+    },
+    {
+      "type": "paragraph",
+      "text": "If you subscribed on the web via Stripe, go to Account settings and click 'Manage Subscription' to cancel."
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "text": "After canceling, you'll retain Pro access until the end of your current billing cycle. No partial refunds are issued for the remaining period."
+    }
+  ],
+  "relatedArticles": ["how-to-subscribe", "refund-request"]
+}

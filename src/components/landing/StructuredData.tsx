@@ -37,13 +37,18 @@ interface FAQDataProps {
   questions: Array<{ question: string; answer: string }>;
 }
 
-type StructuredDataProps = 
-  | OrganizationDataProps 
-  | ArticleDataProps 
-  | WebsiteDataProps 
-  | WebPageDataProps 
-  | BreadcrumbDataProps 
-  | FAQDataProps;
+interface SiteNavigationDataProps {
+  type: 'sitenavigation';
+}
+
+type StructuredDataProps =
+  | OrganizationDataProps
+  | ArticleDataProps
+  | WebsiteDataProps
+  | WebPageDataProps
+  | BreadcrumbDataProps
+  | FAQDataProps
+  | SiteNavigationDataProps;
 
 export const StructuredData: React.FC<StructuredDataProps> = (props) => {
   const getStructuredData = () => {
@@ -150,6 +155,57 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
             text: q.answer,
           },
         })),
+      };
+    }
+
+    if (props.type === 'sitenavigation') {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        itemListElement: [
+          {
+            '@type': 'SiteNavigationElement',
+            position: 1,
+            name: 'NBA Predictions',
+            description: 'Data-driven NBA game predictions with spread, moneyline, and totals analysis.',
+            url: `${baseUrl}/nba`,
+          },
+          {
+            '@type': 'SiteNavigationElement',
+            position: 2,
+            name: 'NFL Predictions',
+            description: 'Machine learning NFL predictions with EPA-based models and weather data.',
+            url: `${baseUrl}/nfl`,
+          },
+          {
+            '@type': 'SiteNavigationElement',
+            position: 3,
+            name: 'AI Agents',
+            description: 'Create personalized AI betting agents with customizable strategies.',
+            url: `${baseUrl}/ai-agents`,
+          },
+          {
+            '@type': 'SiteNavigationElement',
+            position: 4,
+            name: 'Blog',
+            description: 'Sports betting insights, strategy guides, and analytics breakdowns.',
+            url: `${baseUrl}/blog`,
+          },
+          {
+            '@type': 'SiteNavigationElement',
+            position: 5,
+            name: 'Support',
+            description: 'Get help with WagerProof predictions, AI Agents, and account management.',
+            url: `${baseUrl}/support`,
+          },
+          {
+            '@type': 'SiteNavigationElement',
+            position: 6,
+            name: 'Free Picks',
+            description: 'Free daily sports betting picks powered by WagerProof models.',
+            url: `${baseUrl}/free-picks`,
+          },
+        ],
       };
     }
 

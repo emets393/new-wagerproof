@@ -1,0 +1,46 @@
+{
+  "slug": "contact-support",
+  "title": "Contact WagerProof support",
+  "description": "How to reach the WagerProof support team for help with your account or the app.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["contact", "support", "help", "email", "reach out", "customer service"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "If you can't find an answer in this support center, you can reach our team directly."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Email support"
+    },
+    {
+      "type": "paragraph",
+      "text": "Send an email to support@wagerproof.bet with a description of your issue. Include your account email and any relevant screenshots. We aim to respond within 24-48 hours."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Discord community"
+    },
+    {
+      "type": "paragraph",
+      "text": "Join the WagerProof Discord for community support, strategy discussions, and quick questions. You can access Discord from the sidebar in the app."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Feature requests"
+    },
+    {
+      "type": "paragraph",
+      "text": "Have an idea for a new feature? Visit the Feature Requests page in the app to submit and vote on ideas from the community."
+    },
+    {
+      "type": "callout",
+      "variant": "tip",
+      "text": "When contacting support, include as much detail as possible: your device type, app version, and steps to reproduce any issues. This helps us resolve things faster."
+    }
+  ],
+  "relatedArticles": ["report-a-bug", "app-not-loading"]
+}

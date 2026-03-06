@@ -78,12 +78,13 @@ function FloatingTabBar() {
   
   // Hide tab bar on chat, roast, and agent sub-screens
   const isOnChatScreen = pathname.includes('/chat') || segments.includes('chat');
+  const isOnVoiceChatScreen = pathname.includes('/voice-chat') || segments.includes('voice-chat');
   const isOnRoastScreen = pathname.includes('/roast') || segments.includes('roast');
   const isOnSettingsScreen = pathname.includes('/settings') || segments.includes('settings');
   const isOnAgentSubScreen = pathname.includes('/agents/create')
     || pathname.includes('/agents/public')
     || (pathname.includes('/agents/') && pathname !== '/(drawer)/(tabs)/agents' && pathname !== '/(drawer)/(tabs)/agents/');
-  if (isOnChatScreen || isOnAgentSubScreen || isOnRoastScreen || isOnSettingsScreen) {
+  if (isOnChatScreen || isOnVoiceChatScreen || isOnAgentSubScreen || isOnRoastScreen || isOnSettingsScreen) {
     return null;
   }
   
@@ -166,7 +167,8 @@ function FloatingTabBar() {
                 && !normalizedPathname.includes('/scoreboard')
                 && !normalizedPathname.includes('/agents')
                 && !normalizedPathname.includes('/learn')
-                && !normalizedPathname.includes('/roast');
+                && !normalizedPathname.includes('/roast')
+                && !normalizedPathname.includes('/voice-chat');
               isActive = (isRootTabsRoute || segmentsMatch) && isNotOtherTab;
             } else {
               // For other tabs: check if pathname matches or segments include the tab name
@@ -440,6 +442,16 @@ function TabsContent() {
             <MaterialCommunityIcons name="fire" size={size} color={color} />
           ),
           href: null, // Hide from tab bar - accessed via sidebar
+        }}
+      />
+      <Tabs.Screen
+        name="voice-chat"
+        options={{
+          title: 'Voice Chat',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="phone" size={size} color={color} />
+          ),
+          href: null, // Hide from tab bar - accessed via navigation
         }}
       />
     </Tabs>

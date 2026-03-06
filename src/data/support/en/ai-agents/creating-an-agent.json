@@ -1,0 +1,62 @@
+{
+  "slug": "creating-an-agent",
+  "title": "How to create an AI Agent",
+  "description": "Step-by-step guide to creating your first personalized AI betting agent on WagerProof.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["create agent", "new agent", "setup", "configure", "archetype", "personality"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "Creating an agent takes just a few minutes. Here's how to get started."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Steps to create an agent"
+    },
+    {
+      "type": "steps",
+      "steps": [
+        {
+          "title": "Go to the Agents tab",
+          "description": "Navigate to the Agents section from the sidebar (web) or bottom tab bar (mobile)."
+        },
+        {
+          "title": "Tap 'Create Agent'",
+          "description": "Click the create button to start the agent creation flow."
+        },
+        {
+          "title": "Choose a name and avatar",
+          "description": "Give your agent a unique name and select a visual style."
+        },
+        {
+          "title": "Select an archetype",
+          "description": "Pick a starting personality template. Options include Conservative Grinder, Analytics Purist, Trend Surfer, and more. This sets sensible defaults for all parameters."
+        },
+        {
+          "title": "Fine-tune parameters",
+          "description": "Optionally adjust individual personality settings like risk tolerance, preferred bet types, unit sizing, and analysis priorities."
+        },
+        {
+          "title": "Save and generate",
+          "description": "Save your agent and generate its first set of picks for today's games."
+        }
+      ]
+    },
+    {
+      "type": "callout",
+      "variant": "tip",
+      "text": "Start with an archetype that matches your betting style, then tweak parameters over time as you see how the agent performs."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Agent limits"
+    },
+    {
+      "type": "paragraph",
+      "text": "Pro subscribers can create up to 5 agents. If you want to try a new strategy, you can deactivate or delete an existing agent to free up a slot."
+    }
+  ],
+  "relatedArticles": ["what-are-ai-agents", "agent-performance-tracking"]
+}

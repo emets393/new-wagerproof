@@ -1,0 +1,46 @@
+{
+  "slug": "betting-trends-explained",
+  "title": "Understanding betting trends and public money",
+  "description": "Learn how to interpret betting trends, public money percentages, and line movements on WagerProof.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["betting trends", "public money", "line movement", "sharp money", "percentages", "splits"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "WagerProof shows you where the public and sharp money is flowing for each game. Understanding these trends can add another layer to your analysis."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Public money splits"
+    },
+    {
+      "type": "paragraph",
+      "text": "The percentage of bets on each side of a game. For example, if 72% of bets are on Team A, the public is heavily favoring that side. This doesn't mean Team A will win -- it tells you where the crowd is leaning."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Line movement"
+    },
+    {
+      "type": "paragraph",
+      "text": "When lines move, it can indicate sharp (professional) action. If the line moves against the public, it often means sharp bettors are on the other side. WagerProof tracks these movements and highlights significant shifts."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "How to use this data"
+    },
+    {
+      "type": "paragraph",
+      "text": "Combine betting trends with model predictions for a more complete picture. If the model likes a side AND sharp money is flowing that direction while the public is on the other side, that can be a strong confluence signal."
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "text": "Betting trends data is updated throughout the day as lines move and more bets come in."
+    }
+  ],
+  "relatedArticles": ["how-predictions-work", "reading-game-cards"]
+}

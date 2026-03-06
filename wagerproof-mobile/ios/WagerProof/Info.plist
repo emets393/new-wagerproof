@@ -21,7 +21,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>3.3.1</string>
+    <string>3.3.2</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -54,7 +54,7 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>25</string>
+    <string>28</string>
     <key>FacebookAdvertiserIDCollectionEnabled</key>
     <true/>
     <key>FacebookAppID</key>
@@ -90,7 +90,7 @@
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>WagerProof needs microphone access for voice-powered Roast Mode.</string>
+    <string>WagerProof needs microphone access for WagerBot voice chat.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your photos</string>
     <key>NSSpeechRecognitionUsageDescription</key>

@@ -1,0 +1,53 @@
+{
+  "slug": "using-wagerbot",
+  "title": "Using WagerBot",
+  "description": "How to use WagerBot, WagerProof's AI-powered conversational betting assistant.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["wagerbot", "chatbot", "AI assistant", "chat", "conversational", "ask questions"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "WagerBot is WagerProof's AI-powered conversational assistant. You can ask it questions about games, odds, predictions, and betting strategy in natural language."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "What you can ask"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "\"What does the model think about tonight's Lakers game?\"",
+        "\"Which NBA games have the most value today?\"",
+        "\"Show me the best spread bets for college football this week.\"",
+        "\"What's the public money split on the Chiefs game?\"",
+        "\"Explain the model's prediction for Duke vs. UNC.\""
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "How to access WagerBot"
+    },
+    {
+      "type": "paragraph",
+      "text": "Navigate to WagerBot from the sidebar (web) or drawer menu (mobile). Type your question in the chat input and WagerBot will respond with relevant data and analysis."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Limitations"
+    },
+    {
+      "type": "paragraph",
+      "text": "WagerBot uses your account's game data and predictions to answer questions. It works best with specific questions about current or upcoming games. It cannot place bets for you or access external sportsbook accounts."
+    },
+    {
+      "type": "callout",
+      "variant": "info",
+      "text": "WagerBot is a Pro-only feature."
+    }
+  ],
+  "relatedArticles": ["what-is-wagerproof", "how-predictions-work"]
+}

@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  fetchAgentPicks,
   fetchPendingPicks,
   fetchTodaysPicks,
   fetchTodaysGenerationRun,
@@ -16,8 +15,6 @@ import { forceTrackActivity } from '@/services/activityService';
 import { AgentGenerationRunSummary, AgentPick } from '@/types/agent';
 import { useAuth } from '@/contexts/AuthContext';
 import { agentKeys } from './useAgents';
-import { useAgentV2Flags } from './useAgentV2Flags';
-import { useAgentV2DebugSettings } from './useAgentV2DebugSettings';
 
 // ============================================================================
 // QUERY KEYS
@@ -49,32 +46,20 @@ export function useAgentPicks(
   filters?: AgentPicksFilters,
   options?: PickQueryOptions
 ) {
-  const { data: flags } = useAgentV2Flags();
-  const { forceV2Only } = useAgentV2DebugSettings();
   const { user } = useAuth();
-  const useV2Detail = forceV2Only || !!flags?.agents_v2_agent_detail_enabled;
 
   return useQuery({
-    queryKey: [...pickKeys.list(agentId, filters), useV2Detail, forceV2Only, user?.id],
+    queryKey: [...pickKeys.list(agentId, filters), user?.id],
     queryFn: async () => {
-      if (useV2Detail) {
-        try {
-          const result = await fetchAgentPicksPageV2(
-            agentId,
-            user?.id,
-            (filters?.result || 'all') as 'all' | 'won' | 'lost' | 'pending' | 'push',
-            50,
-            null,
-            true
-          );
-          return result.picks;
-        } catch (err) {
-          if (forceV2Only) throw err;
-          // Fall back to legacy path below
-        }
-      }
-      const picks = await fetchAgentPicks(agentId, filters);
-      return enrichPicksWithOverlap(picks);
+      const result = await fetchAgentPicksPageV2(
+        agentId,
+        user?.id,
+        (filters?.result || 'all') as 'all' | 'won' | 'lost' | 'pending' | 'push',
+        50,
+        null,
+        true
+      );
+      return result.picks;
     },
     enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -83,15 +68,11 @@ export function useAgentPicks(
 
 export function useAgentDetailSnapshot(agentId: string, options?: PickQueryOptions) {
   const { user } = useAuth();
-  const { data: flags } = useAgentV2Flags();
-  const { forceV2Only } = useAgentV2DebugSettings();
-  const useV2Detail = forceV2Only || !!flags?.agents_v2_agent_detail_enabled;
-  const enabled = !!agentId && useV2Detail && (options?.enabled ?? true);
 
   return useQuery<AgentDetailSnapshotV2>({
-    queryKey: ['agent-detail-snapshot-v2', agentId, user?.id, forceV2Only],
+    queryKey: ['agent-detail-snapshot-v2', agentId, user?.id],
     queryFn: () => fetchAgentDetailSnapshotV2(agentId, user?.id),
-    enabled,
+    enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -105,15 +86,11 @@ export function useAgentPicksPage(
   options?: PickQueryOptions
 ) {
   const { user } = useAuth();
-  const { data: flags } = useAgentV2Flags();
-  const { forceV2Only } = useAgentV2DebugSettings();
-  const useV2Detail = forceV2Only || !!flags?.agents_v2_agent_detail_enabled;
-  const enabled = !!agentId && useV2Detail && (options?.enabled ?? true);
 
   return useQuery<AgentPicksPageV2>({
-    queryKey: ['agent-picks-page-v2', agentId, filter, pageSize, cursor, includeOverlap, user?.id, forceV2Only],
+    queryKey: ['agent-picks-page-v2', agentId, filter, pageSize, cursor, includeOverlap, user?.id],
     queryFn: () => fetchAgentPicksPageV2(agentId, user?.id, filter, pageSize, cursor, includeOverlap),
-    enabled,
+    enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -216,7 +193,17 @@ export function usePrefetchAgentPicks() {
   return (agentId: string, filters?: AgentPicksFilters) => {
     queryClient.prefetchQuery({
       queryKey: pickKeys.list(agentId, filters),
-      queryFn: () => fetchAgentPicks(agentId, filters),
+      queryFn: async () => {
+        const result = await fetchAgentPicksPageV2(
+          agentId,
+          undefined,
+          (filters?.result || 'all') as 'all' | 'won' | 'lost' | 'pending' | 'push',
+          50,
+          null,
+          true
+        );
+        return result.picks;
+      },
       staleTime: 2 * 60 * 1000,
     });
   };

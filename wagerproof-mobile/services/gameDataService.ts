@@ -605,10 +605,30 @@ export async function fetchNCAABPredictions(): Promise<NCAABGame[]> {
       });
     }
 
-    // Merge input values with predictions
+    // Fetch team mappings for logos and abbreviations
+    const { data: teamMappings } = await collegeFootballSupabase
+      .from('ncaab_team_mapping')
+      .select('api_team_id, espn_team_id, team_abbrev');
+
+    const teamMappingMap = new Map<string, { logo: string | null; abbrev: string | null }>();
+    if (teamMappings) {
+      teamMappings.forEach((mapping: any) => {
+        const key = String(mapping.api_team_id);
+        let logoUrl: string | null = null;
+        if (mapping.espn_team_id != null) {
+          logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${mapping.espn_team_id}.png`;
+        }
+        teamMappingMap.set(key, { logo: logoUrl, abbrev: mapping.team_abbrev || null });
+      });
+    }
+
+    // Merge input values with predictions and team mappings
     const games: NCAABGame[] = inputValues.map((input: any) => {
       const prediction = predictionMap.get(input.game_id);
       const gameIdStr = String(input.game_id);
+
+      const homeMapping = input.home_team_id != null ? teamMappingMap.get(String(input.home_team_id)) : undefined;
+      const awayMapping = input.away_team_id != null ? teamMappingMap.get(String(input.away_team_id)) : undefined;
 
       return {
         id: gameIdStr,
@@ -645,6 +665,10 @@ export async function fetchNCAABPredictions(): Promise<NCAABGame[]> {
         home_score_pred: prediction?.home_score_pred || null,
         away_score_pred: prediction?.away_score_pred || null,
         model_fair_home_spread: prediction?.model_fair_home_spread || null,
+        home_team_logo: homeMapping?.logo || null,
+        away_team_logo: awayMapping?.logo || null,
+        home_team_abbrev: homeMapping?.abbrev || null,
+        away_team_abbrev: awayMapping?.abbrev || null,
       };
     });
 

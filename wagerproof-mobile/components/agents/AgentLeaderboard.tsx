@@ -10,14 +10,13 @@ import {
   Animated,
   ActivityIndicator,
 } from 'react-native';
-import { Portal, Snackbar, useTheme } from 'react-native-paper';
+import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useLeaderboardByMode } from '@/hooks/useLeaderboard';
-import { useAgentV2DebugSettings } from '@/hooks/useAgentV2DebugSettings';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { LeaderboardEntry, LeaderboardSortMode, LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import { Sport, formatNetUnits } from '@/types/agent';
@@ -373,11 +372,9 @@ export function AgentLeaderboard({
   const router = useRouter();
   const { isDark } = useThemeContext();
   const { isPro, isAdmin, isLoading: isEntitlementsLoading } = useAgentEntitlements();
-  const { forceV2Only } = useAgentV2DebugSettings();
   const [sortMode, setSortMode] = useState<LeaderboardSortMode>('overall');
   const [timeframe, setTimeframe] = useState<LeaderboardTimeframe>('all_time');
   const [excludeUnder10Picks, setExcludeUnder10Picks] = useState(false);
-  const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
   const lockStats = !(isPro || isAdmin);
 
   // Fetch leaderboard
@@ -385,18 +382,8 @@ export function AgentLeaderboard({
     data: leaderboard,
     isLoading,
     isRefetching,
-    error,
     refetch,
   } = useLeaderboardByMode(sortMode, limit, undefined, excludeUnder10Picks, timeframe);
-
-  useEffect(() => {
-    if (!forceV2Only || !error) return;
-    const nextMessage =
-      error instanceof Error
-        ? error.message
-        : 'Forced V2 leaderboard request failed.';
-    setErrorToastMessage(nextMessage);
-  }, [forceV2Only, error]);
 
   const displayLeaderboard = (leaderboard || []).map((entry, index) => ({ entry, rank: index + 1 }));
 
@@ -684,15 +671,6 @@ export function AgentLeaderboard({
         </TouchableOpacity>
       )}
 
-      <Portal>
-        <Snackbar
-          visible={!!errorToastMessage}
-          onDismiss={() => setErrorToastMessage(null)}
-          duration={5000}
-        >
-          {errorToastMessage || ''}
-        </Snackbar>
-      </Portal>
     </View>
   );
 }

@@ -152,14 +152,14 @@ export default function ChatScreen() {
             </View>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => chatRef.current?.toggleHistoryDrawer?.()}
               style={styles.sideButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <MaterialCommunityIcons name="history" size={21} color="#ffffff" />
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => chatRef.current?.clearChat?.()}
               style={styles.sideButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

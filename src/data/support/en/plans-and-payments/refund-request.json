@@ -1,0 +1,46 @@
+{
+  "slug": "refund-request",
+  "title": "Requesting a refund",
+  "description": "How to request a refund for your WagerProof Pro subscription.",
+  "lastUpdated": "2026-03-01",
+  "keywords": ["refund", "money back", "charge", "billing issue", "dispute"],
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "Refund policies depend on the platform where you purchased your subscription."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "iOS purchases"
+    },
+    {
+      "type": "paragraph",
+      "text": "Apple handles all refunds for iOS in-app purchases. Visit reportaproblem.apple.com, sign in with your Apple ID, find the WagerProof charge, and request a refund."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Android purchases"
+    },
+    {
+      "type": "paragraph",
+      "text": "Google handles refunds for Android purchases. Open Google Play, go to your purchase history, find WagerProof, and request a refund."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Web purchases"
+    },
+    {
+      "type": "paragraph",
+      "text": "For web subscriptions, contact us at support@wagerproof.bet with your account email and the reason for your refund request. We'll review it and respond within 48 hours."
+    },
+    {
+      "type": "callout",
+      "variant": "warning",
+      "text": "Refunds are generally processed within 5-10 business days depending on your payment provider."
+    }
+  ],
+  "relatedArticles": ["how-to-cancel", "contact-support"]
+}

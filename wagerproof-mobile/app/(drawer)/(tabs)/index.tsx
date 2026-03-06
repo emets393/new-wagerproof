@@ -13,6 +13,8 @@ import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import { LockedGameCard } from '@/components/LockedGameCard';
 import { BettingTrendsBanner } from '@/components/nba/BettingTrendsBanner';
 import { NCAABBettingTrendsBanner } from '@/components/ncaab/BettingTrendsBanner';
+import { NBAModelAccuracyBanner } from '@/components/nba/ModelAccuracyBanner';
+import { NCAABModelAccuracyBanner } from '@/components/ncaab/ModelAccuracyBanner';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
@@ -994,8 +996,14 @@ export default function FeedScreen() {
       {/* NBA Betting Trends Banner - only show when on NBA tab and not searching */}
       {sport === 'nba' && !searchTexts.nba && <BettingTrendsBanner />}
 
+      {/* NBA Model Accuracy Banner */}
+      {sport === 'nba' && !searchTexts.nba && <NBAModelAccuracyBanner />}
+
       {/* NCAAB Betting Trends Banner - only show when on NCAAB tab and not searching */}
       {sport === 'ncaab' && !searchTexts.ncaab && <NCAABBettingTrendsBanner />}
+
+      {/* NCAAB Model Accuracy Banner */}
+      {sport === 'ncaab' && !searchTexts.ncaab && <NCAABModelAccuracyBanner />}
     </View>
   );
 
