@@ -52,7 +52,8 @@ const BET_TYPE_LABELS: Record<BetType, string> = {
   any: 'Any',
 };
 
-const EMOJI_OPTIONS = ['🤖', '🧠', '🎯', '🔥', '💎', '🦅', '🐺', '🦁', '🐉', '⚡', '🌟', '🏆'];
+// Emoji picker is now a shared swipeable component
+import { SwipeableEmojiPicker } from '@/components/agents/inputs/SwipeableEmojiPicker';
 
 const COLOR_OPTIONS = [
   '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b',
@@ -62,11 +63,15 @@ const COLOR_OPTIONS = [
 // Collapsible Section component
 function CollapsibleSection({
   title,
+  icon,
+  iconColor = '#6366f1',
   children,
   defaultExpanded = false,
   isDark,
 }: {
   title: string;
+  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
+  iconColor?: string;
   children: React.ReactNode;
   defaultExpanded?: boolean;
   isDark: boolean;
@@ -97,13 +102,20 @@ function CollapsibleSection({
         }}
         activeOpacity={0.7}
       >
-        <View style={styles.sectionTitleWrap}>
-          <Text style={[styles.sectionEyebrow, { color: theme.colors.primary }]}>
-            Settings
+        <View style={styles.sectionHeaderLeft}>
+          {icon && (
+            <View style={[styles.sectionIcon, { backgroundColor: `${iconColor}20` }]}>
+              <MaterialCommunityIcons name={icon} size={20} color={iconColor} />
+            </View>
+          )}
+          <View style={styles.sectionTitleWrap}>
+            <Text style={[styles.sectionEyebrow, { color: theme.colors.primary }]}>
+              Settings
+            </Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              {title}
           </Text>
-          <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-            {title}
-          </Text>
+        </View>
         </View>
         <View
           style={[
@@ -379,7 +391,7 @@ export default function AgentSettingsScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Identity Section */}
-        <CollapsibleSection title="Identity" defaultExpanded isDark={isDark}>
+        <CollapsibleSection title="Identity" icon="card-account-details-outline" iconColor="#6366f1" defaultExpanded isDark={isDark}>
           {/* Name Input */}
           <View style={styles.inputGroup}>
             <Text
@@ -418,37 +430,14 @@ export default function AgentSettingsScreen() {
             >
               Emoji
             </Text>
-            <View style={styles.optionGrid}>
-              {EMOJI_OPTIONS.map((e) => (
-                <TouchableOpacity
-                  key={e}
-                  style={[
-                    styles.emojiOption,
-                    {
-                      backgroundColor:
-                        emoji === e
-                          ? `${color}30`
-                          : isDark
-                          ? 'rgba(255, 255, 255, 0.05)'
-                          : 'rgba(0, 0, 0, 0.03)',
-                      borderColor:
-                        emoji === e
-                          ? color
-                          : isDark
-                          ? 'rgba(255, 255, 255, 0.1)'
-                          : 'rgba(0, 0, 0, 0.08)',
-                    },
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setEmoji(e);
-                    markChanged();
-                  }}
-                >
-                  <Text style={styles.emojiOptionText}>{e}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <SwipeableEmojiPicker
+              selectedEmoji={emoji}
+              selectedColor={color}
+              onEmojiSelect={(e) => {
+                setEmoji(e);
+                markChanged();
+              }}
+            />
           </View>
 
           {/* Color Picker */}
@@ -490,7 +479,7 @@ export default function AgentSettingsScreen() {
         </CollapsibleSection>
 
         {/* Sports Section */}
-        <CollapsibleSection title="Sports" defaultExpanded isDark={isDark}>
+        <CollapsibleSection title="Sports" icon="basketball" iconColor="#ef4444" defaultExpanded isDark={isDark}>
           <View style={styles.chipGrid}>
             {SPORTS.map((sport) => (
               <Chip
@@ -517,7 +506,7 @@ export default function AgentSettingsScreen() {
         </CollapsibleSection>
 
         {/* Core Personality Section */}
-        <CollapsibleSection title="Core Personality" isDark={isDark}>
+        <CollapsibleSection title="Core Personality" icon="head-cog-outline" iconColor="#8b5cf6" isDark={isDark}>
           <SliderInput
             value={personality.risk_tolerance}
             onChange={(v) => handlePersonalityChange('risk_tolerance', v)}
@@ -559,7 +548,7 @@ export default function AgentSettingsScreen() {
         </CollapsibleSection>
 
         {/* Bet Selection Section */}
-        <CollapsibleSection title="Bet Selection" isDark={isDark}>
+        <CollapsibleSection title="Bet Selection" icon="target" iconColor="#f59e0b" isDark={isDark}>
           <View style={styles.inputGroup}>
             <Text
               style={[styles.inputLabel, { color: theme.colors.onSurface }]}
@@ -623,7 +612,7 @@ export default function AgentSettingsScreen() {
         </CollapsibleSection>
 
         {/* Data Trust Section */}
-        <CollapsibleSection title="Data Trust" isDark={isDark}>
+        <CollapsibleSection title="Data Trust" icon="database-check-outline" iconColor="#06b6d4" isDark={isDark}>
           <SliderInput
             value={personality.trust_model}
             onChange={(v) => handlePersonalityChange('trust_model', v)}
@@ -755,7 +744,7 @@ export default function AgentSettingsScreen() {
         </CollapsibleSection>
 
         {/* Custom Insights Section */}
-        <CollapsibleSection title="Custom Insights" isDark={isDark}>
+        <CollapsibleSection title="Custom Insights" icon="lightbulb-on-outline" iconColor="#10b981" isDark={isDark}>
           <View style={styles.inputGroup}>
             <Text
               style={[styles.inputLabel, { color: theme.colors.onSurface }]}
@@ -910,7 +899,7 @@ export default function AgentSettingsScreen() {
         </CollapsibleSection>
 
         {/* Auto-Generation Section */}
-        <CollapsibleSection title="Auto-Generation" isDark={isDark}>
+        <CollapsibleSection title="Auto-Generation" icon="robot-outline" iconColor="#3b82f6" isDark={isDark}>
           <ToggleInput
             value={autoGenerate}
             onChange={(v) => {
@@ -929,6 +918,7 @@ export default function AgentSettingsScreen() {
                 : "Upgrade to Pro to enable daily auto-generation"
             }
             disabled={!canUseAutopilot}
+            variant="autopilot"
           />
           <Text
             style={[
@@ -1158,8 +1148,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
   },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  sectionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   sectionTitleWrap: {
     gap: 4,
+    flex: 1,
   },
   sectionEyebrow: {
     fontSize: 11,
@@ -1209,23 +1213,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 100,
     textAlignVertical: 'top',
-  },
-  // Option grids
-  optionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  emojiOption: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-  },
-  emojiOptionText: {
-    fontSize: 24,
   },
   colorGrid: {
     flexDirection: 'row',

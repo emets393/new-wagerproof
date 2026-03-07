@@ -6,6 +6,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { SwipeableEmojiPicker } from '@/components/agents/inputs/SwipeableEmojiPicker';
+import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 
 // ============================================================================
 // TYPES
@@ -19,50 +21,6 @@ interface Screen2_IdentityProps {
   onEmojiChange: (emoji: string) => void;
   onColorChange: (color: string) => void;
 }
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-// 32 popular emojis for agents (4x8 grid)
-const EMOJI_OPTIONS = [
-  // Row 1 - Animals
-  '\uD83E\uDD16', // Robot
-  '\uD83E\uDDEB', // Sloth
-  '\uD83E\uDD8A', // Fox
-  '\uD83D\uDC3A', // Wolf
-  '\uD83E\uDD81', // Lion
-  '\uD83D\uDC2F', // Tiger
-  '\uD83E\uDD85', // Eagle
-  '\uD83E\uDD89', // Owl
-  // Row 2 - More Animals
-  '\uD83D\uDC32', // Dragon
-  '\uD83E\uDD88', // Shark
-  '\uD83D\uDC0D', // Snake
-  '\uD83E\uDD9C', // Parrot
-  '\uD83D\uDC3B', // Bear
-  '\uD83E\uDDA2', // Swan
-  '\uD83E\uDD8D', // Gorilla
-  '\uD83D\uDC1D', // Bee
-  // Row 3 - Objects/Symbols
-  '\uD83D\uDD25', // Fire
-  '\uD83D\uDCAF', // 100
-  '\uD83D\uDCA5', // Collision
-  '\u26A1',       // Lightning
-  '\uD83C\uDFAF', // Target
-  '\uD83D\uDC8E', // Gem
-  '\uD83D\uDC51', // Crown
-  '\uD83C\uDFC6', // Trophy
-  // Row 4 - More Objects
-  '\uD83D\uDE80', // Rocket
-  '\uD83D\uDCC8', // Chart Up
-  '\uD83C\uDFB0', // Slot Machine
-  '\uD83C\uDFB2', // Dice
-  '\u265F\uFE0F', // Chess Pawn
-  '\uD83E\uDDE0', // Brain
-  '\uD83D\uDCA1', // Light Bulb
-  '\uD83D\uDD2E', // Crystal Ball
-];
 
 // Solid colors
 const SOLID_COLORS = [
@@ -154,29 +112,31 @@ export function Screen2_Identity({
             },
           ]}
         >
-          {parsed.isGradient ? (
-            <LinearGradient
-              colors={parsed.colors as [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.avatarPreview, { borderColor: primaryColor }]}
-            >
-              <Text style={styles.avatarEmoji}>
-                {emoji || '\u2753'}
-              </Text>
-            </LinearGradient>
-          ) : (
-            <View
-              style={[
-                styles.avatarPreview,
-                { backgroundColor: `${color}30`, borderColor: color },
-              ]}
-            >
-              <Text style={styles.avatarEmoji}>
-                {emoji || '\u2753'}
-              </Text>
-            </View>
-          )}
+          <GlowingCardWrapper color={parsed.colors[0]} borderRadius={24}>
+            {parsed.isGradient ? (
+              <LinearGradient
+                colors={parsed.colors as [string, string]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.avatarPreview, { borderColor: primaryColor }]}
+              >
+                <Text style={styles.avatarEmoji}>
+                  {emoji || '\u2753'}
+                </Text>
+              </LinearGradient>
+            ) : (
+              <View
+                style={[
+                  styles.avatarPreview,
+                  { backgroundColor: `${color}30`, borderColor: color },
+                ]}
+              >
+                <Text style={styles.avatarEmoji}>
+                  {emoji || '\u2753'}
+                </Text>
+              </View>
+            )}
+          </GlowingCardWrapper>
           <Text
             style={[
               styles.previewName,
@@ -255,36 +215,11 @@ export function Screen2_Identity({
           Select an emoji to represent your agent (required)
         </Text>
 
-        <View style={styles.emojiGrid}>
-          {EMOJI_OPTIONS.map((emojiOption, index) => {
-            const isSelected = emoji === emojiOption;
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.emojiButton,
-                  {
-                    backgroundColor: isSelected
-                      ? `${color}30`
-                      : isDark
-                      ? 'rgba(255, 255, 255, 0.05)'
-                      : 'rgba(0, 0, 0, 0.03)',
-                    borderColor: isSelected
-                      ? color
-                      : isDark
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(0, 0, 0, 0.05)',
-                    borderWidth: isSelected ? 2 : 1,
-                  },
-                ]}
-                onPress={() => handleEmojiSelect(emojiOption)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.emojiText}>{emojiOption}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <SwipeableEmojiPicker
+          selectedEmoji={emoji}
+          selectedColor={parsed.colors[0]}
+          onEmojiSelect={handleEmojiSelect}
+        />
 
         {!emoji && (
           <Text style={[styles.helperText, { color: theme.colors.error }]}>
@@ -437,22 +372,6 @@ const styles = StyleSheet.create({
   },
   charCount: {
     fontSize: 12,
-  },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    gap: 8,
-  },
-  emojiButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emojiText: {
-    fontSize: 24,
   },
   helperText: {
     fontSize: 13,

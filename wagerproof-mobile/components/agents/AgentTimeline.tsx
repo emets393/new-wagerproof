@@ -164,10 +164,10 @@ export function AgentTimelineSection({ agent, onAgentPress }: AgentTimelineSecti
             value={agent.is_active}
             onValueChange={handleToggleActive}
             trackColor={{
-              false: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
-              true: getPrimaryColor(agent.avatar_color) + '80',
+              false: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)',
+              true: '#10b981',
             }}
-            thumbColor={agent.is_active ? getPrimaryColor(agent.avatar_color) : isDark ? '#666' : '#ccc'}
+            thumbColor={agent.is_active ? '#ffffff' : isDark ? '#9ca3af' : '#6b7280'}
             style={styles.activeToggle}
           />
           {agent.is_active && (

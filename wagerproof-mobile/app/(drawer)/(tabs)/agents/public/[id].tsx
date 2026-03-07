@@ -18,12 +18,13 @@ import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAgent } from '@/hooks/useAgents';
-import { useAgentPicks } from '@/hooks/useAgentPicks';
+import { useAgentPicks, useAgentDetailSnapshot } from '@/hooks/useAgentPicks';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
 import { LockedPickCard } from '@/components/LockedPickCard';
 import { LockedOverlay } from '@/components/LockedOverlay';
+import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 import { useGameLookup } from '@/hooks/useGameLookup';
 import {
   Sport,
@@ -97,6 +98,7 @@ export default function PublicAgentViewScreen() {
 
   // Local state
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
+  const [showHistory, setShowHistory] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
@@ -109,6 +111,13 @@ export default function PublicAgentViewScreen() {
     refetch: refetchAgent,
   } = useAgent(id || '');
 
+  // Fetch today's picks snapshot
+  const {
+    data: detailSnapshot,
+    isLoading: isLoadingDetailSnapshot,
+    refetch: refetchDetailSnapshot,
+  } = useAgentDetailSnapshot(id || '', { enabled: canViewAgentPicks });
+
   // Fetch pick history
   const {
     data: allPicks,
@@ -116,7 +125,6 @@ export default function PublicAgentViewScreen() {
     error: allPicksError,
     refetch: refetchAllPicks,
   } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks });
-
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -144,6 +152,10 @@ export default function PublicAgentViewScreen() {
 
     checkFollowStatus();
   }, [user?.id, id]);
+
+  // Today's picks from snapshot
+  const todaysPicks = detailSnapshot?.todays_picks;
+  const hasTodaysPicks = todaysPicks && todaysPicks.length > 0;
 
   // Filter picks for history
   const filteredPicks = useMemo(() => {
@@ -200,9 +212,10 @@ export default function PublicAgentViewScreen() {
   const handleRefresh = useCallback(() => {
     refetchAgent();
     if (canViewAgentPicks) {
+      refetchDetailSnapshot();
       refetchAllPicks();
     }
-  }, [refetchAgent, refetchAllPicks, canViewAgentPicks]);
+  }, [refetchAgent, refetchDetailSnapshot, refetchAllPicks, canViewAgentPicks]);
 
   // Render loading state
   if (isLoadingAgent && !agent) {
@@ -322,14 +335,7 @@ export default function PublicAgentViewScreen() {
             />
           </TouchableOpacity>
 
-          <View style={styles.headerTitleSection}>
-            <Text
-              style={[styles.headerTitle, { color: theme.colors.onSurface }]}
-              numberOfLines={1}
-            >
-              {agent.name}
-            </Text>
-          </View>
+          <View style={styles.headerTitleSection} />
 
           <View style={styles.headerSpacer} />
         </View>
@@ -338,7 +344,7 @@ export default function PublicAgentViewScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 56, paddingBottom: insets.bottom + 20 },
+          { paddingTop: insets.top + 56 + 16, paddingBottom: insets.bottom + 20 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -366,6 +372,8 @@ export default function PublicAgentViewScreen() {
         >
           {/* Avatar and Info */}
           <View style={styles.profileHeader}>
+            <View style={{ marginRight: 16 }}>
+            <GlowingCardWrapper color={getPrimaryColor(agent.avatar_color)} borderRadius={20}>
             {(() => {
               const parsed = parseAvatarColor(agent.avatar_color);
               if (parsed.isGradient) {
@@ -391,6 +399,8 @@ export default function PublicAgentViewScreen() {
                 </View>
               );
             })()}
+            </GlowingCardWrapper>
+            </View>
             <View style={styles.profileInfo}>
               <Text
                 style={[styles.agentName, { color: theme.colors.onSurface }]}
@@ -623,64 +633,27 @@ export default function PublicAgentViewScreen() {
           </View>
         )}
 
-        {/* Pick History Section */}
+        {/* Today's Picks Section */}
         <View style={styles.section}>
           <Text
             style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
           >
-            Pick History
+            Today&apos;s Picks
           </Text>
 
-          {canViewAgentPicks && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterChips}
-            >
-              {(['all', 'won', 'lost', 'pending'] as PickFilter[]).map(
-                (filter) => (
-                  <Chip
-                    key={filter}
-                    mode={pickFilter === filter ? 'flat' : 'outlined'}
-                    selected={pickFilter === filter}
-                    onPress={() => setPickFilter(filter)}
-                    style={[
-                      styles.filterChip,
-                      pickFilter === filter && {
-                        backgroundColor: theme.colors.primaryContainer,
-                      },
-                    ]}
-                    textStyle={{
-                      color:
-                        pickFilter === filter
-                          ? theme.colors.onPrimaryContainer
-                          : theme.colors.onSurfaceVariant,
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {filter}
-                  </Chip>
-                )
-              )}
-            </ScrollView>
-          )}
-
-          {/* Pick List */}
           <View style={styles.picksList}>
-            {!canViewAgentPicks ? (
-              <>
-                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
-                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
-                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
-              </>
-            ) : isLoadingAllPicks ? (
+            {isLoadingDetailSnapshot ? (
               <>
                 <PickCardSkeleton isDark={isDark} />
                 <PickCardSkeleton isDark={isDark} />
-                <PickCardSkeleton isDark={isDark} />
               </>
-            ) : filteredPicks.length > 0 ? (
-              filteredPicks.slice(0, 20).map((pick) => (
+            ) : !canViewAgentPicks ? (
+              <>
+                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+              </>
+            ) : hasTodaysPicks ? (
+              todaysPicks?.map((pick) => (
                 <AgentPickItem
                   key={pick.id}
                   pick={pick}
@@ -703,7 +676,7 @@ export default function PublicAgentViewScreen() {
                 ]}
               >
                 <MaterialCommunityIcons
-                  name="clipboard-text-outline"
+                  name="calendar-blank-outline"
                   size={40}
                   color={theme.colors.onSurfaceVariant}
                 />
@@ -713,13 +686,125 @@ export default function PublicAgentViewScreen() {
                     { color: theme.colors.onSurfaceVariant },
                   ]}
                 >
-                  {pickFilter === 'all'
-                    ? 'No picks yet'
-                    : `No ${pickFilter} picks`}
+                  No picks yet today
                 </Text>
               </View>
             )}
           </View>
+        </View>
+
+        {/* Pick History Section (collapsed by default) */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.collapsibleHeader}
+            onPress={() => setShowHistory(!showHistory)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[styles.sectionTitle, { color: theme.colors.onSurface, marginBottom: 0 }]}
+            >
+              Pick History
+            </Text>
+            <MaterialCommunityIcons
+              name={showHistory ? 'chevron-up' : 'chevron-down'}
+              size={24}
+              color={theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+
+          {showHistory && (
+            <>
+              {canViewAgentPicks && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.filterChips}
+                >
+                  {(['all', 'won', 'lost', 'pending'] as PickFilter[]).map(
+                    (filter) => (
+                      <Chip
+                        key={filter}
+                        mode={pickFilter === filter ? 'flat' : 'outlined'}
+                        selected={pickFilter === filter}
+                        onPress={() => setPickFilter(filter)}
+                        style={[
+                          styles.filterChip,
+                          pickFilter === filter && {
+                            backgroundColor: theme.colors.primaryContainer,
+                          },
+                        ]}
+                        textStyle={{
+                          color:
+                            pickFilter === filter
+                              ? theme.colors.onPrimaryContainer
+                              : theme.colors.onSurfaceVariant,
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {filter}
+                      </Chip>
+                    )
+                  )}
+                </ScrollView>
+              )}
+
+              {/* Pick List */}
+              <View style={styles.picksList}>
+                {!canViewAgentPicks ? (
+                  <>
+                    <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                    <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                    <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
+                  </>
+                ) : isLoadingAllPicks ? (
+                  <>
+                    <PickCardSkeleton isDark={isDark} />
+                    <PickCardSkeleton isDark={isDark} />
+                    <PickCardSkeleton isDark={isDark} />
+                  </>
+                ) : filteredPicks.length > 0 ? (
+                  filteredPicks.slice(0, 20).map((pick) => (
+                    <AgentPickItem
+                      key={pick.id}
+                      pick={pick}
+                      showReasoning="full"
+                      onPress={() => pick.game_id ? openGameForPick(pick.sport, pick.game_id, pick) : undefined}
+                    />
+                  ))
+                ) : (
+                  <View
+                    style={[
+                      styles.emptyPicksContainer,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.03)'
+                          : 'rgba(0, 0, 0, 0.02)',
+                        borderColor: isDark
+                          ? 'rgba(255, 255, 255, 0.1)'
+                          : 'rgba(0, 0, 0, 0.08)',
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="clipboard-text-outline"
+                      size={40}
+                      color={theme.colors.onSurfaceVariant}
+                    />
+                    <Text
+                      style={[
+                        styles.emptyPicksText,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                    >
+                      {pickFilter === 'all'
+                        ? 'No picks yet'
+                        : `No ${pickFilter} picks`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </>
+          )}
         </View>
 
         {/* Performance Charts */}
@@ -825,7 +910,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
   avatarEmojiLarge: {
     fontSize: 36,
@@ -976,6 +1060,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
+    marginBottom: 16,
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
   picksList: {

@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 import * as StoreReview from 'expo-store-review';
 import { useRouter } from 'expo-router';
 import { Button } from '../../ui/Button';
@@ -209,9 +210,11 @@ export function AgentBornStep() {
           >
             <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
             <View style={styles.agentHeader}>
-              <View style={[styles.agentEmojiContainer, { backgroundColor: `${primaryColor}25` }]}>
-                <Text style={styles.agentEmoji}>{agentFormState.avatar_emoji || '🤖'}</Text>
-              </View>
+              <GlowingCardWrapper color={primaryColor} borderRadius={16}>
+                <View style={[styles.agentEmojiContainer, { backgroundColor: `${primaryColor}25` }]}>
+                  <Text style={styles.agentEmoji}>{agentFormState.avatar_emoji || '🤖'}</Text>
+                </View>
+              </GlowingCardWrapper>
               <View style={styles.agentInfo}>
                 <View style={styles.agentTitleRow}>
                   <Text
@@ -254,10 +257,10 @@ export function AgentBornStep() {
                   value
                   disabled
                   trackColor={{
-                    false: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
-                    true: `${primaryColor}80`,
+                    false: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)',
+                    true: '#10b981',
                   }}
-                  thumbColor={primaryColor}
+                  thumbColor="#ffffff"
                   style={styles.activeToggle}
                 />
                 <View style={styles.autopilotRow}>

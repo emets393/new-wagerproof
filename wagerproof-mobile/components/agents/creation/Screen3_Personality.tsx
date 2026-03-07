@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme, SegmentedButtons, Divider } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { SliderInput } from '@/components/agents/inputs/SliderInput';
@@ -117,14 +118,21 @@ export function Screen3_Personality({
           },
         ]}
       >
-        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-          Core Personality
-        </Text>
-        <Text
-          style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}
-        >
-          Define how your agent approaches betting decisions
-        </Text>
+        <View style={styles.sectionHeaderRow}>
+          <View style={[styles.sectionIconBox, { backgroundColor: '#8b5cf620' }]}>
+            <MaterialCommunityIcons name="head-cog-outline" size={20} color="#8b5cf6" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              Core Personality
+            </Text>
+            <Text
+              style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 0 }]}
+            >
+              Define how your agent approaches betting decisions
+            </Text>
+          </View>
+        </View>
 
         <SliderInput
           value={params.risk_tolerance}
@@ -178,14 +186,21 @@ export function Screen3_Personality({
           },
         ]}
       >
-        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-          Bet Selection
-        </Text>
-        <Text
-          style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}
-        >
-          Control what types of bets your agent makes
-        </Text>
+        <View style={styles.sectionHeaderRow}>
+          <View style={[styles.sectionIconBox, { backgroundColor: '#f59e0b20' }]}>
+            <MaterialCommunityIcons name="target" size={20} color="#f59e0b" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              Bet Selection
+            </Text>
+            <Text
+              style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 0 }]}
+            >
+              Control what types of bets your agent makes
+            </Text>
+          </View>
+        </View>
 
         {/* Preferred Bet Type */}
         <View style={styles.segmentContainer}>
@@ -263,10 +278,23 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  sectionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   sectionDescription: {
     fontSize: 14,

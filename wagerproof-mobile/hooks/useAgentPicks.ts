@@ -71,7 +71,13 @@ export function useAgentDetailSnapshot(agentId: string, options?: PickQueryOptio
 
   return useQuery<AgentDetailSnapshotV2>({
     queryKey: ['agent-detail-snapshot-v2', agentId, user?.id],
-    queryFn: () => fetchAgentDetailSnapshotV2(agentId, user?.id),
+    queryFn: async () => {
+      const snapshot = await fetchAgentDetailSnapshotV2(agentId, user?.id);
+      if (snapshot.todays_picks && snapshot.todays_picks.length > 0) {
+        snapshot.todays_picks = await enrichPicksWithOverlap(snapshot.todays_picks);
+      }
+      return snapshot;
+    },
     enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000,
   });

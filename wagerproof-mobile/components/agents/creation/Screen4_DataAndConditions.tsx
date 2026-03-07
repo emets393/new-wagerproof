@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme, Divider } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { SliderInput } from '@/components/agents/inputs/SliderInput';
@@ -120,14 +121,21 @@ export function Screen4_DataAndConditions({
           },
         ]}
       >
-        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-          Data Trust
-        </Text>
-        <Text
-          style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}
-        >
-          How much should your agent trust different data sources?
-        </Text>
+        <View style={styles.sectionHeaderRow}>
+          <View style={[styles.sectionIconBox, { backgroundColor: '#06b6d420' }]}>
+            <MaterialCommunityIcons name="database-check-outline" size={20} color="#06b6d4" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              Data Trust
+            </Text>
+            <Text
+              style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 0 }]}
+            >
+              How much should your agent trust different data sources?
+            </Text>
+          </View>
+        </View>
 
         <SliderInput
           value={params.trust_model}
@@ -165,14 +173,21 @@ export function Screen4_DataAndConditions({
           },
         ]}
       >
-        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-          Odds Limits
-        </Text>
-        <Text
-          style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}
-        >
-          Set boundaries on the odds your agent will bet
-        </Text>
+        <View style={styles.sectionHeaderRow}>
+          <View style={[styles.sectionIconBox, { backgroundColor: '#f59e0b20' }]}>
+            <MaterialCommunityIcons name="cash-lock" size={20} color="#f59e0b" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              Odds Limits
+            </Text>
+            <Text
+              style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 0 }]}
+            >
+              Set boundaries on the odds your agent will bet
+            </Text>
+          </View>
+        </View>
 
         <OddsInput
           value={params.max_favorite_odds}
@@ -203,7 +218,10 @@ export function Screen4_DataAndConditions({
             ]}
           >
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              <View style={[styles.sectionIconBox, { backgroundColor: '#22c55e20' }]}>
+                <MaterialCommunityIcons name="football" size={20} color="#22c55e" />
+              </View>
+              <Text style={[styles.sectionTitle, { color: theme.colors.onSurface, flex: 1 }]}>
                 Football Settings
               </Text>
               <View style={styles.sportBadges}>
@@ -280,7 +298,10 @@ export function Screen4_DataAndConditions({
             ]}
           >
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              <View style={[styles.sectionIconBox, { backgroundColor: '#f9731620' }]}>
+                <MaterialCommunityIcons name="basketball" size={20} color="#f97316" />
+              </View>
+              <Text style={[styles.sectionTitle, { color: theme.colors.onSurface, flex: 1 }]}>
                 Basketball Settings
               </Text>
               <View style={styles.sportBadges}>
@@ -343,7 +364,10 @@ export function Screen4_DataAndConditions({
             ]}
           >
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              <View style={[styles.sectionIconBox, { backgroundColor: '#3b82f620' }]}>
+                <MaterialCommunityIcons name="trending-up" size={20} color="#3b82f6" />
+              </View>
+              <Text style={[styles.sectionTitle, { color: theme.colors.onSurface, flex: 1 }]}>
                 NBA Trends
               </Text>
               <View style={[styles.badge, { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }]}>
@@ -406,14 +430,21 @@ export function Screen4_DataAndConditions({
           },
         ]}
       >
-        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-          Situational Factors
-        </Text>
-        <Text
-          style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}
-        >
-          Game situation adjustments
-        </Text>
+        <View style={styles.sectionHeaderRow}>
+          <View style={[styles.sectionIconBox, { backgroundColor: '#ec489920' }]}>
+            <MaterialCommunityIcons name="map-marker-radius-outline" size={20} color="#ec4899" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              Situational Factors
+            </Text>
+            <Text
+              style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 0 }]}
+            >
+              Game situation adjustments
+            </Text>
+          </View>
+        </View>
 
         <SliderInput
           value={params.home_court_boost}
@@ -473,10 +504,24 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  sectionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
     marginBottom: 8,
   },
   sectionTitle: {

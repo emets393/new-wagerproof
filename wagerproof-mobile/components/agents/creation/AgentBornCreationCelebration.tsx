@@ -6,6 +6,7 @@ import LottieView from 'lottie-react-native';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { Sport } from '@/types/agent';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 
 const SPORT_ICONS: Record<Sport, string> = {
   nfl: 'football',
@@ -147,9 +148,11 @@ export function AgentBornCreationCelebration({
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientBorder}
               />
-              <View style={[styles.avatar, { backgroundColor: `${primaryColor}25` }]}>
-                <Text style={styles.avatarEmoji}>{agent.avatar_emoji || '🤖'}</Text>
-              </View>
+              <GlowingCardWrapper color={primaryColor} borderRadius={20}>
+                <View style={[styles.avatar, { backgroundColor: `${primaryColor}25` }]}>
+                  <Text style={styles.avatarEmoji}>{agent.avatar_emoji || '🤖'}</Text>
+                </View>
+              </GlowingCardWrapper>
               <View style={styles.agentInfo}>
                 <Text style={[styles.agentName, { color: theme.colors.onSurface }]} numberOfLines={1}>
                   {agent.name || 'Your Agent'}
@@ -181,10 +184,10 @@ export function AgentBornCreationCelebration({
                     value={agent.is_active}
                     disabled
                     trackColor={{
-                      false: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
-                      true: `${primaryColor}80`,
+                      false: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)',
+                      true: '#10b981',
                     }}
-                    thumbColor={agent.is_active ? primaryColor : isDark ? '#7f8c8d' : '#9ca3af'}
+                    thumbColor={agent.is_active ? '#ffffff' : isDark ? '#9ca3af' : '#6b7280'}
                     style={styles.activeToggle}
                   />
                   <Text style={[styles.autopilotText, !agent.is_active && styles.manualModeText]}>

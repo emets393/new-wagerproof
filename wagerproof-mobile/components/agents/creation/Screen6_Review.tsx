@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { useTheme, Button, Card, Switch } from 'react-native-paper';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Switch } from 'react-native';
+import { useTheme, Button, Card } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 import { useAuth } from '@/contexts/AuthContext';
 import { useArchetypeById } from '@/hooks/usePresetArchetypes';
 import { ensureAutoPickNotificationPermission } from '@/services/notificationService';
@@ -246,6 +247,7 @@ export function Screen6_Review({
         <Card.Content style={styles.previewContent}>
           {/* Avatar and Name */}
           <View style={styles.avatarRow}>
+            <GlowingCardWrapper color={parsedAvatar.primary} borderRadius={20}>
             {(() => {
               if (parsedAvatar.isGradient) {
                 return (
@@ -270,6 +272,7 @@ export function Screen6_Review({
                 </View>
               );
             })()}
+            </GlowingCardWrapper>
             <View style={styles.nameContainer}>
               <Text style={[styles.agentName, { color: theme.colors.onSurface }]}>
                 {formState.name}
@@ -401,8 +404,12 @@ export function Screen6_Review({
           <Switch
             value={autoGenerate}
             onValueChange={handleAutoGenerateToggle}
-            color={theme.colors.primary}
             disabled={autoModeForcedOff}
+            trackColor={{
+              false: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.12)',
+              true: '#10b981',
+            }}
+            thumbColor={autoGenerate ? '#ffffff' : isDark ? '#9ca3af' : '#6b7280'}
           />
         </View>
 

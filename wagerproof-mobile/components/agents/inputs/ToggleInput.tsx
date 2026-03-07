@@ -1,8 +1,10 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme, Switch } from 'react-native-paper';
+import { View, Text, StyleSheet, TouchableOpacity, Switch as NativeSwitch } from 'react-native';
+import { useTheme, Switch as PaperSwitch } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
+
+const AUTOPILOT_GREEN = '#10b981';
 
 interface ToggleInputProps {
   value: boolean;
@@ -10,6 +12,8 @@ interface ToggleInputProps {
   label: string;
   description?: string;
   disabled?: boolean;
+  /** When true, uses white thumb + green track when on (autopilot style) */
+  variant?: 'default' | 'autopilot';
 }
 
 export function ToggleInput({
@@ -18,6 +22,7 @@ export function ToggleInput({
   label,
   description,
   disabled = false,
+  variant = 'default',
 }: ToggleInputProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
@@ -107,12 +112,25 @@ export function ToggleInput({
             },
           ]}
         >
-          <Switch
-            value={value}
-            onValueChange={handleToggle}
-            color={theme.colors.primary}
-            disabled={disabled}
-          />
+          {variant === 'autopilot' ? (
+            <NativeSwitch
+              value={value}
+              onValueChange={handleToggle}
+              disabled={disabled}
+              trackColor={{
+                false: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.12)',
+                true: AUTOPILOT_GREEN,
+              }}
+              thumbColor={value ? '#ffffff' : isDark ? '#9ca3af' : '#6b7280'}
+            />
+          ) : (
+            <PaperSwitch
+              value={value}
+              onValueChange={handleToggle}
+              color={theme.colors.primary}
+              disabled={disabled}
+            />
+          )}
         </View>
       </View>
     </TouchableOpacity>

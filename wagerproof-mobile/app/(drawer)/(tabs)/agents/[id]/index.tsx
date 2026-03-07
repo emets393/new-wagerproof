@@ -40,6 +40,7 @@ import {
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
 import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
+import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 import { LockedPickCard } from '@/components/LockedPickCard';
 import { useGameLookup } from '@/hooks/useGameLookup';
 import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
@@ -270,7 +271,7 @@ export default function AgentDetailScreen() {
     isLoading: isLoadingAllPicks,
     error: allPicksError,
     refetch: refetchAllPicks,
-  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks && showHistory });
+  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks });
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -648,14 +649,7 @@ export default function AgentDetailScreen() {
             />
           </TouchableOpacity>
 
-          <View style={styles.headerTitleSection}>
-            <Text
-              style={[styles.headerTitle, { color: theme.colors.onSurface }]}
-              numberOfLines={1}
-            >
-              {agent.name}
-            </Text>
-          </View>
+          <View style={styles.headerTitleSection} />
 
           <TouchableOpacity
             onPress={handleOpenSettings}
@@ -673,7 +667,7 @@ export default function AgentDetailScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 56, paddingBottom: insets.bottom + 20 },
+          { paddingTop: insets.top + 56 + 16, paddingBottom: insets.bottom + 20 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -701,6 +695,8 @@ export default function AgentDetailScreen() {
         >
           {/* Avatar and Info */}
           <View style={styles.profileHeader}>
+            <View style={{ marginRight: 16 }}>
+            <GlowingCardWrapper color={getPrimaryColor(agent.avatar_color)} borderRadius={20}>
             {(() => {
               const parsed = parseAvatarColor(agent.avatar_color);
               if (parsed.isGradient) {
@@ -726,6 +722,8 @@ export default function AgentDetailScreen() {
                 </View>
               );
             })()}
+            </GlowingCardWrapper>
+            </View>
             <View style={styles.profileInfo}>
               <Text
                 style={[styles.agentName, { color: theme.colors.onSurface }]}
@@ -1521,7 +1519,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
   avatarEmojiLarge: {
     fontSize: 36,

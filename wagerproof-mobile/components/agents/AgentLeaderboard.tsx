@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
+import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 import { useLeaderboardByMode } from '@/hooks/useLeaderboard';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { LeaderboardEntry, LeaderboardSortMode, LeaderboardTimeframe } from '@/services/agentPerformanceService';
@@ -124,14 +125,29 @@ function LeaderboardRow({
 
       {/* Avatar and Name */}
       <View style={styles.agentInfo}>
-        <View
-          style={[
-            styles.avatarSmall,
-            { backgroundColor: `${getPrimaryColor(entry.avatar_color)}25` },
-          ]}
-        >
-          <Text style={styles.avatarEmoji}>{entry.avatar_emoji}</Text>
-        </View>
+        {rank <= 3 ? (
+          <View style={{ marginRight: 10 }}>
+            <GlowingCardWrapper color={getPrimaryColor(entry.avatar_color)} borderRadius={14}>
+              <View
+                style={[
+                  styles.avatarTop3,
+                  { backgroundColor: `${getPrimaryColor(entry.avatar_color)}25` },
+                ]}
+              >
+                <Text style={styles.avatarEmojiTop3}>{entry.avatar_emoji}</Text>
+              </View>
+            </GlowingCardWrapper>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.avatarSmall,
+              { backgroundColor: `${getPrimaryColor(entry.avatar_color)}25` },
+            ]}
+          >
+            <Text style={styles.avatarEmoji}>{entry.avatar_emoji}</Text>
+          </View>
+        )}
         <View style={styles.nameContainer}>
           <Text
             style={[styles.agentName, { color: theme.colors.onSurface }]}
@@ -784,6 +800,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+  },
+  avatarTop3: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarEmojiTop3: {
+    fontSize: 24,
   },
   avatarEmoji: {
     fontSize: 20,

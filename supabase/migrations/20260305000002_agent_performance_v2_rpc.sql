@@ -143,8 +143,8 @@ BEGIN
   END IF;
 
   v_cutoff := CASE
-    WHEN v_timeframe = 'last_7_days' THEN (CURRENT_DATE - INTERVAL '7 days')::date
-    ELSE (CURRENT_DATE - INTERVAL '30 days')::date
+    WHEN v_timeframe = 'last_7_days' THEN ((now() AT TIME ZONE 'America/New_York')::date - INTERVAL '7 days')::date
+    ELSE ((now() AT TIME ZONE 'America/New_York')::date - INTERVAL '30 days')::date
   END;
 
   RETURN QUERY
@@ -437,7 +437,7 @@ BEGIN
   FROM public.avatar_picks p
   INNER JOIN candidate_agents ca ON ca.avatar_id = p.avatar_id
   INNER JOIN ranked_public rp ON rp.avatar_id = p.avatar_id
-  WHERE p.game_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '3 days')::date
+  WHERE p.game_date BETWEEN (now() AT TIME ZONE 'America/New_York')::date AND ((now() AT TIME ZONE 'America/New_York')::date + INTERVAL '3 days')::date
     AND (p_cursor IS NULL OR p.created_at < p_cursor)
     AND (
       p_search_text IS NULL
@@ -506,7 +506,7 @@ BEGIN
       SELECT *
       FROM public.avatar_picks
       WHERE avatar_id = p_agent_id
-        AND game_date = CURRENT_DATE
+        AND game_date = (now() AT TIME ZONE 'America/New_York')::date
       ORDER BY created_at DESC
       LIMIT 25
     ) p;
@@ -527,7 +527,7 @@ BEGIN
         created_at
       FROM public.agent_generation_runs
       WHERE avatar_id = p_agent_id
-        AND target_date = CURRENT_DATE
+        AND target_date = (now() AT TIME ZONE 'America/New_York')::date
         AND status = 'succeeded'
       ORDER BY completed_at DESC NULLS LAST, created_at DESC
       LIMIT 1
