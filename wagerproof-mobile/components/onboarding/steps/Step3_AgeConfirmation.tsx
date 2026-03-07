@@ -8,7 +8,7 @@ import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 export function AgeConfirmation() {
-  const { nextStep, updateOnboardingData } = useOnboarding();
+  const { nextStep, isTransitioning, updateOnboardingData } = useOnboarding();
   const theme = useTheme();
   const [age, setAge] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +57,7 @@ export function AgeConfirmation() {
           fullWidth
           variant="glass"
           forceDarkMode
+          loading={isTransitioning}
           style={onboardingCta.button}
         >
           Continue

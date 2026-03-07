@@ -16,7 +16,7 @@ const goals = [
 ];
 
 export function PrimaryGoalSelection() {
-  const { nextStep, updateOnboardingData } = useOnboarding();
+  const { nextStep, isTransitioning, updateOnboardingData } = useOnboarding();
   const theme = useTheme();
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
 
@@ -71,6 +71,7 @@ export function PrimaryGoalSelection() {
           fullWidth
           variant="glass"
           forceDarkMode
+          loading={isTransitioning}
           style={onboardingCta.button}
         >
           Continue

@@ -74,23 +74,23 @@ function OnboardingContent() {
       return;
     }
 
-    // Fade out current content
+    // Fade out current content (reduced from 200ms for snappier feel)
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 200,
+        duration: 120,
         useNativeDriver: true,
       }),
       Animated.timing(translateX, {
-        toValue: direction > 0 ? -30 : 30,
-        duration: 200,
+        toValue: direction > 0 ? -20 : 20,
+        duration: 120,
         useNativeDriver: true,
       }),
     ]).start(() => {
       // IMPORTANT: Set initial position for new content BEFORE updating displayStep
       // This prevents the flicker where new content briefly appears at wrong position
       fadeAnim.setValue(0);
-      translateX.setValue(direction > 0 ? 30 : -30);
+      translateX.setValue(direction > 0 ? 20 : -20);
 
       // Now update the display step (content) - component will mount already hidden
       setDisplayStep(currentStep);
@@ -98,16 +98,16 @@ function OnboardingContent() {
       // Use requestAnimationFrame to ensure the new component has mounted
       // before starting the fade-in animation
       requestAnimationFrame(() => {
-        // Fade in new content
+        // Fade in new content (reduced from 300ms for snappier feel)
         Animated.parallel([
           Animated.timing(fadeAnim, {
             toValue: 1,
-            duration: 300,
+            duration: 200,
             useNativeDriver: true,
           }),
           Animated.timing(translateX, {
             toValue: 0,
-            duration: 300,
+            duration: 200,
             useNativeDriver: true,
           }),
         ]).start();
