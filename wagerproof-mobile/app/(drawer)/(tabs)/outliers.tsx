@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Modal, TextInput, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Modal, TextInput, Animated, Platform, ActivityIndicator } from 'react-native';
 import { useTheme, Button as PaperButton } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,6 +11,12 @@ import { fetchWeekGames, fetchValueAlerts, fetchFadeAlerts, ValueAlert, FadeAler
 import { syncWidgetData, getWidgetData } from '@/modules/widget-data-bridge';
 import { Card } from '@/components/ui/Card';
 import { AlertCardShimmer } from '@/components/AlertCardShimmer';
+import { TeamAvatar, SportType } from '@/components/TeamAvatar';
+import {
+  getTeamInitials,
+  getNBATeamInitials,
+  getCFBTeamInitials,
+} from '@/utils/teamColors';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScroll } from '@/contexts/ScrollContext';
@@ -117,6 +123,8 @@ interface TrendOutlier {
   awayTeam: string;
   homeTeam: string;
   gameTime: string | null;
+  awayTeamLogo?: string | null;
+  homeTeamLogo?: string | null;
   candidate: TrendCandidate;
 }
 
@@ -364,6 +372,8 @@ const buildNCAABTrendOutliers = (games: NCAABGameTrendsData[]): TrendOutlier[] =
       awayTeam: game.awayTeam.team_name,
       homeTeam: game.homeTeam.team_name,
       gameTime: game.tipoffTime,
+      awayTeamLogo: game.awayTeamLogo,
+      homeTeamLogo: game.homeTeamLogo,
       candidate: candidates[0],
     });
   }
@@ -390,6 +400,8 @@ interface AccuracyOutlier {
   homeTeam: string;
   awayAbbr: string;
   homeAbbr: string;
+  awayTeamLogo?: string | null;
+  homeTeamLogo?: string | null;
   pickType: AccuracyPickType;
   pick: string;
   edge: string;
@@ -422,6 +434,8 @@ function buildAccuracyOutliers(games: GameAccuracyData[], sport: 'nba' | 'ncaab'
         homeTeam: game.homeTeam,
         awayAbbr: game.awayAbbr,
         homeAbbr: game.homeAbbr,
+        awayTeamLogo: game.awayTeamLogo,
+        homeTeamLogo: game.homeTeamLogo,
         pickType: 'Spread',
         pick: pickTeam,
         edge: game.homeSpreadDiff !== null ? `${Math.abs(game.homeSpreadDiff).toFixed(1)} pts` : '-',
@@ -452,6 +466,8 @@ function buildAccuracyOutliers(games: GameAccuracyData[], sport: 'nba' | 'ncaab'
         homeTeam: game.homeTeam,
         awayAbbr: game.awayAbbr,
         homeAbbr: game.homeAbbr,
+        awayTeamLogo: game.awayTeamLogo,
+        homeTeamLogo: game.homeTeamLogo,
         pickType: 'ML',
         pick: pickTeam,
         edge: prob,
@@ -478,6 +494,8 @@ function buildAccuracyOutliers(games: GameAccuracyData[], sport: 'nba' | 'ncaab'
         homeTeam: game.homeTeam,
         awayAbbr: game.awayAbbr,
         homeAbbr: game.homeAbbr,
+        awayTeamLogo: game.awayTeamLogo,
+        homeTeamLogo: game.homeTeamLogo,
         pickType: 'O/U',
         pick,
         edge: game.overLineDiff !== null ? `${Math.abs(game.overLineDiff).toFixed(1)} pts` : '-',
@@ -514,6 +532,58 @@ export default function OutliersScreen() {
   const [showAllValueAlerts, setShowAllValueAlerts] = useState(false);
   const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [loadingGameId, setLoadingGameId] = useState<string | null>(null);
+
+  // Helper to get team abbreviation based on sport
+  const getTeamAbbr = (teamName: string, sport: string): string => {
+    switch (sport) {
+      case 'nba': return getNBATeamInitials(teamName);
+      case 'ncaab':
+      case 'cfb': return getCFBTeamInitials(teamName);
+      case 'nfl': return getTeamInitials(teamName);
+      default: return teamName.substring(0, 3).toUpperCase();
+    }
+  };
+
+  // Reusable matchup row with logos and abbreviations
+  const renderMatchupRow = (
+    awayTeam: string,
+    homeTeam: string,
+    sport: string,
+    isLoading?: boolean,
+    game?: GameSummary
+  ) => (
+    <View style={styles.matchupRow}>
+      <View style={styles.teamInfo}>
+        <TeamAvatar
+          teamName={awayTeam}
+          sport={sport as SportType}
+          size={28}
+          logoUrl={game?.awayTeamLogo}
+          teamAbbr={game?.awayTeamAbbrev || undefined}
+        />
+        <Text style={[styles.teamAbbr, { color: theme.colors.onSurface }]}>
+          {game?.awayTeamAbbrev || getTeamAbbr(awayTeam, sport)}
+        </Text>
+      </View>
+      <Text style={[styles.atSymbol, { color: theme.colors.onSurfaceVariant }]}>@</Text>
+      <View style={styles.teamInfo}>
+        <TeamAvatar
+          teamName={homeTeam}
+          sport={sport as SportType}
+          size={28}
+          logoUrl={game?.homeTeamLogo}
+          teamAbbr={game?.homeTeamAbbrev || undefined}
+        />
+        <Text style={[styles.teamAbbr, { color: theme.colors.onSurface }]}>
+          {game?.homeTeamAbbrev || getTeamAbbr(homeTeam, sport)}
+        </Text>
+      </View>
+      {isLoading && (
+        <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginLeft: 'auto' }} />
+      )}
+    </View>
+  );
 
   // Game Sheets
   const { openGameSheet: openNFLSheet } = useNFLGameSheet();
@@ -662,38 +732,34 @@ export default function OutliersScreen() {
   const handleGamePress = useCallback((gameSummary: GameSummary) => {
       if (!gameSummary.originalData) return;
 
+      setLoadingGameId(gameSummary.gameId);
+
       const data = gameSummary.originalData;
-      
+
       // Map data based on sport to what the sheets expect
-      // This is a simplified mapping. In a real app, better to share the mapping logic from FeedScreen.
       if (gameSummary.sport === 'nfl') {
-          // NFL sheet expects NFLPrediction
           const nflGame = {
               ...data,
               id: data.id || gameSummary.gameId,
               away_team: gameSummary.awayTeam,
               home_team: gameSummary.homeTeam,
               game_time: gameSummary.gameTime || data.game_time,
-              // Add default values for missing fields to prevent crashes
               home_away_ml_prob: data.home_away_ml_prob || null,
               home_away_spread_cover_prob: data.home_away_spread_cover_prob || null,
               ou_result_prob: data.ou_result_prob || null,
           };
           openNFLSheet(nflGame);
       } else if (gameSummary.sport === 'cfb') {
-          // CFB sheet expects CFBPrediction
            const cfbGame = {
               ...data,
               id: data.id || gameSummary.cfbId,
               away_team: gameSummary.awayTeam,
               home_team: gameSummary.homeTeam,
-              // CFB sheet needs specific fields
               api_spread: gameSummary.homeSpread,
               api_over_line: gameSummary.totalLine,
            };
           openCFBSheet(cfbGame);
       } else if (gameSummary.sport === 'nba') {
-          // NBA sheet expects NBAGame
           const nbaGame = {
               ...data,
               id: String(data.game_id),
@@ -703,7 +769,6 @@ export default function OutliersScreen() {
           };
           openNBASheet(nbaGame);
       } else if (gameSummary.sport === 'ncaab') {
-          // NCAAB sheet expects NCAABGame
           const ncaabGame = {
               ...data,
               id: String(data.game_id),
@@ -713,6 +778,9 @@ export default function OutliersScreen() {
           };
           openNCAABSheet(ncaabGame);
       }
+
+      // Clear loading after a brief delay (sheet opens synchronously)
+      setTimeout(() => setLoadingGameId(null), 500);
   }, [openNFLSheet, openCFBSheet, openNBASheet, openNCAABSheet]);
 
 
@@ -784,9 +852,7 @@ export default function OutliersScreen() {
         </View>
 
         <View style={styles.cardContent}>
-          <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
-              {alert.awayTeam} @ {alert.homeTeam}
-          </Text>
+          {renderMatchupRow(alert.awayTeam, alert.homeTeam, alert.sport, loadingGameId === alert.gameId, alert.game)}
           <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
               <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{alert.side}</Text>
               {alert.marketType === 'Moneyline'
@@ -881,9 +947,7 @@ export default function OutliersScreen() {
         </View>
 
         <View style={styles.cardContent}>
-          <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
-              {alert.awayTeam} @ {alert.homeTeam}
-          </Text>
+          {renderMatchupRow(alert.awayTeam, alert.homeTeam, alert.sport, loadingGameId === alert.gameId, alert.game)}
 
           {/* Fade suggestion box */}
           <View style={[styles.fadeSuggestionBox, { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)' }]}>
@@ -1041,18 +1105,19 @@ export default function OutliersScreen() {
   const renderTrendOutlierCard = (trend: TrendOutlier, index: number) => {
     const gameTime = formatGameTime(trend.gameTime || undefined);
     const handleTrendPress = () => {
+      setLoadingGameId(String(trend.gameId));
       if (trend.sport === 'nba') {
         const game = nbaTrendsGames.find((g) => g.gameId === trend.gameId);
         if (game) {
           openNBATrendsSheet(game);
         }
-        return;
+      } else {
+        const game = ncaabTrendsGames.find((g) => g.gameId === trend.gameId);
+        if (game) {
+          openNCAABTrendsSheet(game);
+        }
       }
-
-      const game = ncaabTrendsGames.find((g) => g.gameId === trend.gameId);
-      if (game) {
-        openNCAABTrendsSheet(game);
-      }
+      setTimeout(() => setLoadingGameId(null), 500);
     };
 
     return (
@@ -1091,9 +1156,14 @@ export default function OutliersScreen() {
         </View>
 
         <View style={styles.cardContent}>
-          <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
-            {trend.awayTeam} @ {trend.homeTeam}
-          </Text>
+          {renderMatchupRow(trend.awayTeam, trend.homeTeam, trend.sport, loadingGameId === String(trend.gameId), {
+            gameId: String(trend.gameId),
+            sport: trend.sport,
+            awayTeam: trend.awayTeam,
+            homeTeam: trend.homeTeam,
+            awayTeamLogo: trend.awayTeamLogo,
+            homeTeamLogo: trend.homeTeamLogo,
+          })}
           <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
             <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{trend.candidate.teamName}</Text>
             {` ${trend.candidate.marketType} ${trend.candidate.percentage.toFixed(0)}% (${trend.candidate.record})`}
@@ -1112,16 +1182,21 @@ export default function OutliersScreen() {
     const borderColor = outlier.isHigh ? 'rgba(20, 184, 166, 0.35)' : 'rgba(239, 68, 68, 0.35)';
 
     const handleAccuracyPress = async () => {
-      if (outlier.sport === 'nba') {
-        const fullGame = await lookupNBAFullGame(outlier.gameId);
-        if (fullGame) {
-          openNBASheet(fullGame);
+      setLoadingGameId(String(outlier.gameId));
+      try {
+        if (outlier.sport === 'nba') {
+          const fullGame = await lookupNBAFullGame(outlier.gameId);
+          if (fullGame) {
+            openNBASheet(fullGame);
+          }
+        } else {
+          const fullGame = await lookupNCAABFullGame(outlier.gameId);
+          if (fullGame) {
+            openNCAABSheet(fullGame);
+          }
         }
-      } else {
-        const fullGame = await lookupNCAABFullGame(outlier.gameId);
-        if (fullGame) {
-          openNCAABSheet(fullGame);
-        }
+      } finally {
+        setLoadingGameId(null);
       }
     };
 
@@ -1158,9 +1233,16 @@ export default function OutliersScreen() {
         </View>
 
         <View style={styles.cardContent}>
-          <Text style={[styles.matchupText, { color: theme.colors.onSurface }]}>
-            {outlier.awayTeam} @ {outlier.homeTeam}
-          </Text>
+          {renderMatchupRow(outlier.awayTeam, outlier.homeTeam, outlier.sport, loadingGameId === String(outlier.gameId), {
+            gameId: String(outlier.gameId),
+            sport: outlier.sport,
+            awayTeam: outlier.awayTeam,
+            homeTeam: outlier.homeTeam,
+            awayTeamLogo: outlier.awayTeamLogo,
+            homeTeamLogo: outlier.homeTeamLogo,
+            awayTeamAbbrev: outlier.awayAbbr,
+            homeTeamAbbrev: outlier.homeAbbr,
+          })}
           <Text style={[styles.descriptionText, { color: theme.colors.onSurfaceVariant }]}>
             <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{outlier.pick}</Text>
             {` ${outlier.pickType} pick (${outlier.edge} edge) — `}
@@ -1789,11 +1871,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   cardContent: {
-    gap: 4,
+    gap: 8,
   },
-  matchupText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  matchupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  teamInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  teamAbbr: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  atSymbol: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginHorizontal: 4,
   },
   descriptionText: {
     fontSize: 12,

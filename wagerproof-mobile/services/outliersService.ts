@@ -17,6 +17,12 @@ export interface GameSummary {
   awayMl?: number | null;
   homeMl?: number | null;
 
+  // Team logos and abbreviations (from database mappings)
+  awayTeamLogo?: string | null;
+  homeTeamLogo?: string | null;
+  awayTeamAbbrev?: string | null;
+  homeTeamAbbrev?: string | null;
+
   // Original data object for passing to game sheets
   originalData?: any;
 }
@@ -291,12 +297,30 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
     console.error('Error fetching NBA games:', e);
   }
 
-  // 4. Fetch NCAAB Games
+  // 4. Fetch NCAAB Games (with team mapping for logos/abbreviations)
   try {
-    const { data: ncaabGames } = await collegeFootballSupabase
-      .from('v_cbb_input_values')
-      .select('*')
-      .order('game_date_et', { ascending: true });
+    const [{ data: ncaabGames }, { data: teamMappings }] = await Promise.all([
+      collegeFootballSupabase
+        .from('v_cbb_input_values')
+        .select('*')
+        .order('game_date_et', { ascending: true }),
+      collegeFootballSupabase
+        .from('ncaab_team_mapping')
+        .select('api_team_id, espn_team_id, team_abbrev'),
+    ]);
+
+    // Build team mapping for logos and abbreviations
+    const teamMappingMap = new Map<string, { logo: string | null; abbrev: string | null }>();
+    if (teamMappings) {
+      for (const mapping of teamMappings) {
+        const key = String(mapping.api_team_id);
+        let logoUrl: string | null = null;
+        if (mapping.espn_team_id != null) {
+          logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${mapping.espn_team_id}.png`;
+        }
+        teamMappingMap.set(key, { logo: logoUrl, abbrev: mapping.team_abbrev || null });
+      }
+    }
 
     if (ncaabGames) {
       for (const game of ncaabGames) {
@@ -323,7 +347,11 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
 
         if (gameDate && gameDate >= today && gameDate <= weekFromNow) {
           const gameIdStr = game.training_key || game.unique_id || String(game.game_id);
-          
+
+          // Look up team logos and abbreviations
+          const homeMapping = game.home_team_id != null ? teamMappingMap.get(String(game.home_team_id)) : undefined;
+          const awayMapping = game.away_team_id != null ? teamMappingMap.get(String(game.away_team_id)) : undefined;
+
           gameSummaries.push({
             gameId: gameIdStr,
             sport: 'ncaab',
@@ -336,6 +364,10 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
             totalLine: game.over_under,
             homeMl: game.homeMoneyline,
             awayMl: game.awayMoneyline,
+            awayTeamLogo: awayMapping?.logo || null,
+            homeTeamLogo: homeMapping?.logo || null,
+            awayTeamAbbrev: awayMapping?.abbrev || null,
+            homeTeamAbbrev: homeMapping?.abbrev || null,
             originalData: {
                 ...game,
                 id: gameIdStr,
@@ -346,6 +378,10 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
                 away_ml: game.awayMoneyline,
                 home_spread: game.spread,
                 over_line: game.over_under,
+                home_team_logo: homeMapping?.logo || null,
+                away_team_logo: awayMapping?.logo || null,
+                home_team_abbrev: homeMapping?.abbrev || null,
+                away_team_abbrev: awayMapping?.abbrev || null,
             }
           });
         }
@@ -355,7 +391,132 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
     console.error('Error fetching NCAAB games:', e);
   }
 
+  // --- Hydrate all games with prediction data so bottom sheets show model details ---
+  await hydratePredictions(gameSummaries);
+
   return gameSummaries;
+};
+
+/**
+ * Fetch prediction data for all sports and merge into each game's originalData.
+ * This ensures bottom sheets opened from outlier cards have full model details.
+ */
+const hydratePredictions = async (games: GameSummary[]) => {
+  const nflGames = games.filter(g => g.sport === 'nfl');
+  const cfbGames = games.filter(g => g.sport === 'cfb');
+  const nbaGames = games.filter(g => g.sport === 'nba');
+  const ncaabGames = games.filter(g => g.sport === 'ncaab');
+
+  // NFL predictions
+  if (nflGames.length > 0) {
+    try {
+      const { data: latestRun } = await collegeFootballSupabase
+        .from('nfl_predictions_epa')
+        .select('run_id')
+        .order('run_id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestRun) {
+        const gameIds = nflGames.map(g => g.gameId);
+        const { data: predictions } = await collegeFootballSupabase
+          .from('nfl_predictions_epa')
+          .select('*')
+          .eq('run_id', latestRun.run_id)
+          .in('training_key', gameIds);
+
+        const predMap = new Map((predictions || []).map(p => [p.training_key, p]));
+        for (const game of nflGames) {
+          const pred = predMap.get(game.gameId);
+          if (pred && game.originalData) {
+            game.originalData.home_away_spread_cover_prob = pred.home_away_spread_cover_prob;
+            game.originalData.ou_result_prob = pred.ou_result_prob;
+            game.originalData.home_away_ml_prob = pred.home_away_ml_prob;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error hydrating NFL predictions:', e);
+    }
+  }
+
+  // CFB predictions
+  if (cfbGames.length > 0) {
+    try {
+      const { data: predictions } = await collegeFootballSupabase
+        .from('cfb_api_predictions')
+        .select('*');
+
+      const predMap = new Map((predictions || []).map(p => [p.id, p]));
+      for (const game of cfbGames) {
+        if (!game.cfbId) continue;
+        const pred = predMap.get(game.cfbId);
+        if (pred && game.originalData) {
+          Object.assign(game.originalData, pred);
+          game.originalData.id = game.cfbId;
+        }
+      }
+    } catch (e) {
+      console.error('Error hydrating CFB predictions:', e);
+    }
+  }
+
+  // NBA predictions
+  if (nbaGames.length > 0) {
+    try {
+      const { data: predictions } = await collegeFootballSupabase
+        .from('nba_predictions')
+        .select('*');
+
+      const predMap = new Map((predictions || []).map(p => [String(p.game_id), p]));
+      for (const game of nbaGames) {
+        if (!game.nbaId) continue;
+        const pred = predMap.get(game.nbaId);
+        if (pred && game.originalData) {
+          game.originalData.home_win_prob = pred.home_win_prob;
+          game.originalData.model_fair_total = pred.model_fair_total;
+          game.originalData.model_fair_home_spread = pred.model_fair_home_spread;
+          game.originalData.home_away_spread_cover_prob = pred.home_away_spread_cover_prob;
+          game.originalData.ou_result_prob = pred.ou_result_prob;
+          game.originalData.home_score_pred = pred.home_score_pred;
+          game.originalData.away_score_pred = pred.away_score_pred;
+          game.originalData.home_spread_diff = pred.home_spread_diff;
+          game.originalData.over_line_diff = pred.over_line_diff;
+        }
+      }
+    } catch (e) {
+      console.error('Error hydrating NBA predictions:', e);
+    }
+  }
+
+  // NCAAB predictions
+  if (ncaabGames.length > 0) {
+    try {
+      const { data: predictions } = await collegeFootballSupabase
+        .from('ncaab_predictions')
+        .select('*');
+
+      const predMap = new Map((predictions || []).map(p => [String(p.game_id), p]));
+      for (const game of ncaabGames) {
+        if (!game.ncaabId) continue;
+        const pred = predMap.get(game.ncaabId);
+        if (pred && game.originalData) {
+          game.originalData.home_win_prob = pred.home_win_prob;
+          game.originalData.pred_total_points = pred.pred_total_points;
+          game.originalData.model_fair_home_spread = pred.model_fair_home_spread;
+          game.originalData.home_away_spread_cover_prob = pred.home_away_spread_cover_prob;
+          game.originalData.ou_result_prob = pred.ou_result_prob;
+          game.originalData.home_score_pred = pred.home_score_pred;
+          game.originalData.away_score_pred = pred.away_score_pred;
+          game.originalData.pred_home_margin = pred.pred_home_margin;
+          game.originalData.home_spread_diff = pred.home_spread_diff;
+          game.originalData.over_line_diff = pred.over_line_diff;
+        }
+      }
+    } catch (e) {
+      console.error('Error hydrating NCAAB predictions:', e);
+    }
+  }
 };
 
 export const fetchValueAlerts = async (weekGames: GameSummary[]): Promise<ValueAlert[]> => {
@@ -412,6 +573,15 @@ export const fetchValueAlerts = async (weekGames: GameSummary[]): Promise<ValueA
     if (!markets) continue;
 
     for (const market of markets) {
+      // Skip stale/invalid markets (resolved, no liquidity, or nonsensical odds)
+      const awayOdds = market.current_away_odds ?? 0;
+      const homeOdds = market.current_home_odds ?? 0;
+      if (awayOdds >= 95 || homeOdds >= 95 ||
+          awayOdds <= 5 || homeOdds <= 5 ||
+          awayOdds + homeOdds < 80) {
+        continue;
+      }
+
       // Spread
       if (market.market_type === 'spread') {
         if (market.current_away_odds > 57) {
@@ -515,222 +685,130 @@ export const fetchFadeAlerts = async (weekGames: GameSummary[]): Promise<FadeAle
   const nbaGames = weekGames.filter(g => g.sport === 'nba');
   const ncaabGames = weekGames.filter(g => g.sport === 'ncaab');
 
-  // NFL
-  if (nflGames.length > 0) {
-    try {
-      const { data: latestRun } = await collegeFootballSupabase
-        .from('nfl_predictions_epa')
-        .select('run_id')
-        .order('run_id', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+  // NFL - predictions already hydrated by fetchWeekGames
+  for (const game of nflGames) {
+    const data = game.originalData;
+    if (!data) continue;
 
-      if (latestRun) {
-        const gameIds = nflGames.map(g => g.gameId);
-        const { data: nflPredictions } = await collegeFootballSupabase
-          .from('nfl_predictions_epa')
-          .select('home_away_spread_cover_prob, ou_result_prob, training_key')
-          .eq('run_id', latestRun.run_id)
-          .in('training_key', gameIds);
-
-        const predictionMap = new Map((nflPredictions || []).map(p => [p.training_key, p]));
-
-        for (const game of nflGames) {
-          const prediction = predictionMap.get(game.gameId);
-          if (prediction) {
-            // Attach prediction to game's original data if possible
-            if (game.originalData) {
-                game.originalData.home_away_spread_cover_prob = prediction.home_away_spread_cover_prob;
-                game.originalData.ou_result_prob = prediction.ou_result_prob;
-            }
-
-            if (prediction.home_away_spread_cover_prob !== null) {
-              const isHome = prediction.home_away_spread_cover_prob > 0.5;
-              const confidence = Math.round((isHome ? prediction.home_away_spread_cover_prob : 1 - prediction.home_away_spread_cover_prob) * 100);
-              if (confidence >= 80) {
-                alerts.push({
-                  gameId: game.gameId,
-                  sport: 'nfl',
-                  awayTeam: game.awayTeam,
-                  homeTeam: game.homeTeam,
-                  pickType: 'Spread',
-                  predictedTeam: isHome ? game.homeTeam : game.awayTeam,
-                  confidence,
-                  game
-                });
-              }
-            }
-            if (prediction.ou_result_prob !== null) {
-              const isOver = prediction.ou_result_prob > 0.5;
-              const confidence = Math.round((isOver ? prediction.ou_result_prob : 1 - prediction.ou_result_prob) * 100);
-              if (confidence >= 80) {
-                alerts.push({
-                  gameId: game.gameId,
-                  sport: 'nfl',
-                  awayTeam: game.awayTeam,
-                  homeTeam: game.homeTeam,
-                  pickType: 'Total',
-                  predictedTeam: isOver ? 'Over' : 'Under',
-                  confidence,
-                  game
-                });
-              }
-            }
-          }
-        }
+    if (data.home_away_spread_cover_prob !== null && data.home_away_spread_cover_prob !== undefined) {
+      const isHome = data.home_away_spread_cover_prob > 0.5;
+      const confidence = Math.round((isHome ? data.home_away_spread_cover_prob : 1 - data.home_away_spread_cover_prob) * 100);
+      if (confidence >= 80) {
+        alerts.push({
+          gameId: game.gameId,
+          sport: 'nfl',
+          awayTeam: game.awayTeam,
+          homeTeam: game.homeTeam,
+          pickType: 'Spread',
+          predictedTeam: isHome ? game.homeTeam : game.awayTeam,
+          confidence,
+          game
+        });
       }
-    } catch (e) {
-      console.error('Error fetching NFL predictions:', e);
+    }
+    if (data.ou_result_prob !== null && data.ou_result_prob !== undefined) {
+      const isOver = data.ou_result_prob > 0.5;
+      const confidence = Math.round((isOver ? data.ou_result_prob : 1 - data.ou_result_prob) * 100);
+      if (confidence >= 80) {
+        alerts.push({
+          gameId: game.gameId,
+          sport: 'nfl',
+          awayTeam: game.awayTeam,
+          homeTeam: game.homeTeam,
+          pickType: 'Total',
+          predictedTeam: isOver ? 'Over' : 'Under',
+          confidence,
+          game
+        });
+      }
     }
   }
 
-  // CFB
-  if (cfbGames.length > 0) {
-    try {
-      const { data: allCfbPredictions } = await collegeFootballSupabase
-        .from('cfb_api_predictions')
-        .select('*'); // Fetch all fields to hydrate game object
+  // CFB - predictions already hydrated by fetchWeekGames
+  for (const game of cfbGames) {
+    const data = game.originalData;
+    if (!data) continue;
 
-      const cfbPredictionMap = new Map((allCfbPredictions || []).map(p => [p.id, p]));
+    const spreadEdge = data.home_spread_diff;
+    if (spreadEdge !== null && spreadEdge !== undefined && Math.abs(spreadEdge) > 10) {
+      alerts.push({
+        gameId: game.gameId,
+        sport: 'cfb',
+        awayTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        pickType: 'Spread',
+        predictedTeam: spreadEdge > 0 ? game.homeTeam : game.awayTeam,
+        confidence: Math.round(Math.abs(spreadEdge)),
+        game
+      });
+    }
 
-      for (const game of cfbGames) {
-        if (!game.cfbId) continue;
-        const prediction = cfbPredictionMap.get(game.cfbId);
-        if (prediction) {
-           // Hydrate original data with prediction data
-           if (game.originalData) {
-               // Merge important fields from prediction to originalData
-               Object.assign(game.originalData, prediction);
-               // Ensure id matches
-               game.originalData.id = game.cfbId;
-           }
-           
-          const spreadEdge = prediction.home_spread_diff;
-          if (spreadEdge !== null && Math.abs(spreadEdge) > 10) {
-             alerts.push({
-                gameId: game.gameId,
-                sport: 'cfb',
-                awayTeam: game.awayTeam,
-                homeTeam: game.homeTeam,
-                pickType: 'Spread',
-                predictedTeam: spreadEdge > 0 ? game.homeTeam : game.awayTeam,
-                confidence: Math.round(Math.abs(spreadEdge)),
-                game
-             });
-          }
-          
-          const totalEdge = prediction.over_line_diff;
-          if (totalEdge !== null && Math.abs(totalEdge) > 10) {
-            alerts.push({
-              gameId: game.gameId,
-              sport: 'cfb',
-              awayTeam: game.awayTeam,
-              homeTeam: game.homeTeam,
-              pickType: 'Total',
-              predictedTeam: totalEdge > 0 ? 'Over' : 'Under',
-              confidence: Math.round(Math.abs(totalEdge)),
-              game
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Error fetching CFB predictions:', e);
+    const totalEdge = data.over_line_diff;
+    if (totalEdge !== null && totalEdge !== undefined && Math.abs(totalEdge) > 10) {
+      alerts.push({
+        gameId: game.gameId,
+        sport: 'cfb',
+        awayTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        pickType: 'Total',
+        predictedTeam: totalEdge > 0 ? 'Over' : 'Under',
+        confidence: Math.round(Math.abs(totalEdge)),
+        game
+      });
     }
   }
 
-  // NBA - Only spread fade alerts (no O/U), threshold 9.5
-  if (nbaGames.length > 0) {
-    try {
-      const { data: allNbaPredictions } = await collegeFootballSupabase
-        .from('nba_predictions')
-        .select('*');
+  // NBA - Only spread fade alerts (no O/U), threshold 9.5. Predictions already hydrated.
+  for (const game of nbaGames) {
+    const data = game.originalData;
+    if (!data) continue;
 
-      const nbaPredictionMap = new Map((allNbaPredictions || []).map(p => [String(p.game_id), p]));
-
-      for (const game of nbaGames) {
-        if (!game.nbaId) continue;
-        const prediction = nbaPredictionMap.get(game.nbaId);
-        if (prediction) {
-          if (game.originalData) {
-              // Merge prediction data
-              game.originalData.home_win_prob = prediction.home_win_prob;
-              game.originalData.model_fair_total = prediction.model_fair_total;
-              game.originalData.model_fair_home_spread = prediction.model_fair_home_spread;
-          }
-
-          // Only spread fade alerts for NBA, threshold 9.5
-          const spreadEdge = prediction.home_spread_diff;
-          if (spreadEdge !== null && Math.abs(spreadEdge) >= 9.5) {
-            alerts.push({
-              gameId: game.gameId,
-              sport: 'nba',
-              awayTeam: game.awayTeam,
-              homeTeam: game.homeTeam,
-              pickType: 'Spread',
-              predictedTeam: spreadEdge > 0 ? game.homeTeam : game.awayTeam,
-              confidence: Math.round(Math.abs(spreadEdge)),
-              game
-            });
-          }
-          // No O/U fade alerts for NBA
-        }
-      }
-    } catch (e) {
-      console.error('Error fetching NBA predictions:', e);
+    const spreadEdge = data.home_spread_diff;
+    if (spreadEdge !== null && spreadEdge !== undefined && Math.abs(spreadEdge) >= 9.5) {
+      alerts.push({
+        gameId: game.gameId,
+        sport: 'nba',
+        awayTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        pickType: 'Spread',
+        predictedTeam: spreadEdge > 0 ? game.homeTeam : game.awayTeam,
+        confidence: Math.round(Math.abs(spreadEdge)),
+        game
+      });
     }
   }
 
-  // NCAAB
-  if (ncaabGames.length > 0) {
-    try {
-      const { data: allNcaabPredictions } = await collegeFootballSupabase
-        .from('ncaab_predictions')
-        .select('*');
+  // NCAAB - predictions already hydrated by fetchWeekGames
+  for (const game of ncaabGames) {
+    const data = game.originalData;
+    if (!data) continue;
 
-      const ncaabPredictionMap = new Map((allNcaabPredictions || []).map(p => [String(p.game_id), p]));
+    const spreadEdge = data.home_spread_diff;
+    if (spreadEdge !== null && spreadEdge !== undefined && Math.abs(spreadEdge) > 5) {
+      alerts.push({
+        gameId: game.gameId,
+        sport: 'ncaab',
+        awayTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        pickType: 'Spread',
+        predictedTeam: spreadEdge > 0 ? game.homeTeam : game.awayTeam,
+        confidence: Math.round(Math.abs(spreadEdge)),
+        game
+      });
+    }
 
-      for (const game of ncaabGames) {
-        if (!game.ncaabId) continue;
-        const prediction = ncaabPredictionMap.get(game.ncaabId);
-        if (prediction) {
-          if (game.originalData) {
-             // Merge prediction data
-             game.originalData.home_win_prob = prediction.home_win_prob;
-             game.originalData.pred_total_points = prediction.pred_total_points;
-             game.originalData.model_fair_home_spread = prediction.model_fair_home_spread;
-          }
-          
-          const spreadEdge = prediction.home_spread_diff;
-          if (spreadEdge !== null && Math.abs(spreadEdge) > 5) {
-             alerts.push({
-              gameId: game.gameId,
-              sport: 'ncaab',
-              awayTeam: game.awayTeam,
-              homeTeam: game.homeTeam,
-              pickType: 'Spread',
-              predictedTeam: spreadEdge > 0 ? game.homeTeam : game.awayTeam,
-              confidence: Math.round(Math.abs(spreadEdge)),
-              game
-            });
-          }
-          const totalEdge = prediction.over_line_diff;
-          if (totalEdge !== null && Math.abs(totalEdge) > 5) {
-            alerts.push({
-              gameId: game.gameId,
-              sport: 'ncaab',
-              awayTeam: game.awayTeam,
-              homeTeam: game.homeTeam,
-              pickType: 'Total',
-              predictedTeam: totalEdge > 0 ? 'Over' : 'Under',
-              confidence: Math.round(Math.abs(totalEdge)),
-              game
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Error fetching NCAAB predictions:', e);
+    const totalEdge = data.over_line_diff;
+    if (totalEdge !== null && totalEdge !== undefined && Math.abs(totalEdge) > 5) {
+      alerts.push({
+        gameId: game.gameId,
+        sport: 'ncaab',
+        awayTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        pickType: 'Total',
+        predictedTeam: totalEdge > 0 ? 'Over' : 'Under',
+        confidence: Math.round(Math.abs(totalEdge)),
+        game
+      });
     }
   }
 
