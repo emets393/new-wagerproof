@@ -11,7 +11,7 @@ import { useOnboarding } from '../../../contexts/OnboardingContext';
 const isAndroid = Platform.OS === 'android';
 
 export function TermsAcceptance() {
-  const { nextStep, updateOnboardingData } = useOnboarding();
+  const { nextStep, isTransitioning, updateOnboardingData } = useOnboarding();
   const theme = useTheme();
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
@@ -252,6 +252,7 @@ export function TermsAcceptance() {
             variant="glass"
             forceDarkMode
             disabled={!isChecked}
+            loading={isTransitioning}
             style={[
               onboardingCta.button,
               styles.continueButton,

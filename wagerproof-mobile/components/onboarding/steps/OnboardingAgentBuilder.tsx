@@ -37,6 +37,7 @@ export function OnboardingAgentBuilder() {
   const {
     currentStep,
     nextStep,
+    isTransitioning,
     prevStep,
     onboardingData,
     agentFormState,
@@ -310,6 +311,7 @@ export function OnboardingAgentBuilder() {
                 forceDarkMode
                 style={onboardingCta.button}
                 disabled={!canProceed || createMutation.isPending}
+                loading={isTransitioning || createMutation.isPending}
               >
                 Continue
               </Button>

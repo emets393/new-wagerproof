@@ -62,7 +62,7 @@ const DUMMY_GAMES: NFLPrediction[] = [
 ];
 
 export function FeatureSpotlight() {
-  const { nextStep } = useOnboarding();
+  const { nextStep, isTransitioning } = useOnboarding();
   const theme = useTheme();
   const { width } = useWindowDimensions();
 
@@ -98,7 +98,7 @@ export function FeatureSpotlight() {
       </ScrollView>
 
       <View style={onboardingCta.fixedBottom}>
-        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button}>
+        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button} loading={isTransitioning}>
           Continue
         </Button>
       </View>

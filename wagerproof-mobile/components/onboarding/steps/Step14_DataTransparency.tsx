@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
@@ -10,8 +10,7 @@ import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 export function DataTransparency() {
   const theme = useTheme();
-  const { nextStep } = useOnboarding();
-  const [isLoading, setIsLoading] = useState(false);
+  const { nextStep, isTransitioning } = useOnboarding();
 
   useEffect(() => {
     const requestATT = async () => {
@@ -35,18 +34,9 @@ export function DataTransparency() {
     requestATT();
   }, []);
 
-  const handleContinue = async () => {
-    if (isLoading) return;
-
+  const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setIsLoading(true);
-
-    try {
-      nextStep();
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
-      setIsLoading(false);
-    }
+    nextStep();
   };
 
   return (
@@ -98,8 +88,8 @@ export function DataTransparency() {
       </ScrollView>
 
       <View style={onboardingCta.fixedBottom}>
-        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button} disabled={isLoading}>
-          {isLoading ? 'Loading...' : 'Continue'}
+        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button} loading={isTransitioning}>
+          Continue
         </Button>
       </View>
     </View>

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { InteractionManager } from 'react-native';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
 import {
@@ -35,6 +36,7 @@ export interface OnboardingData {
 interface OnboardingContextType {
   currentStep: number;
   direction: number;
+  isTransitioning: boolean;
   onboardingData: OnboardingData;
   nextStep: () => void;
   prevStep: () => void;
@@ -79,10 +81,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   // Track step views only. Step completion is emitted on successful forward progression.
+  // Deferred to avoid blocking the transition animation.
   useEffect(() => {
     currentStepRef.current = currentStep;
     if (hasTrackedStart.current && currentStep > 1) {
-      trackOnboardingStepViewed(currentStep);
+      const handle = InteractionManager.runAfterInteractions(() => {
+        trackOnboardingStepViewed(currentStep);
+      });
+      return () => handle.cancel();
     }
   }, [currentStep]);
 
@@ -101,7 +107,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     }
 
     console.log('nextStep called, current step:', currentStep);
-    trackOnboardingStepCompleted(currentStep, undefined, ONBOARDING_TOTAL_STEPS);
+
+    // Start transition immediately - defer analytics to after animation
     setIsTransitioning(true);
     setDirection(1);
     setCurrentStep((prev) => {
@@ -109,8 +116,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       return prev + 1;
     });
 
-    // Reset transition flag after animation completes
-    setTimeout(() => setIsTransitioning(false), 300);
+    // Defer analytics tracking to after animations complete
+    const completedStep = currentStep;
+    InteractionManager.runAfterInteractions(() => {
+      trackOnboardingStepCompleted(completedStep, undefined, ONBOARDING_TOTAL_STEPS);
+    });
+
+    // Reset transition flag after animation completes (match total animation duration)
+    setTimeout(() => setIsTransitioning(false), 400);
   };
 
   const prevStep = () => {
@@ -249,6 +262,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       value={{
         currentStep,
         direction,
+        isTransitioning,
         onboardingData,
         nextStep,
         prevStep,
