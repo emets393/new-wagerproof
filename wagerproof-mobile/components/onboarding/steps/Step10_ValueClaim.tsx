@@ -15,7 +15,7 @@ try {
 }
 
 export function ValueClaim() {
-  const { nextStep } = useOnboarding();
+  const { nextStep, isTransitioning } = useOnboarding();
   const theme = useTheme();
   const useLottie = !!LottieView;
 
@@ -68,7 +68,7 @@ export function ValueClaim() {
       </ScrollView>
 
       <View style={onboardingCta.fixedBottom}>
-        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button}>
+        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button} loading={isTransitioning}>
           Continue
         </Button>
       </View>

@@ -8,7 +8,7 @@ import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 export function PersonalizationIntro() {
-  const { nextStep } = useOnboarding();
+  const { nextStep, isTransitioning } = useOnboarding();
   const theme = useTheme();
 
   const handleContinue = () => {
@@ -40,7 +40,7 @@ export function PersonalizationIntro() {
       </ScrollView>
 
       <View style={onboardingCta.fixedBottom}>
-        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button}>
+        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button} loading={isTransitioning}>
           Continue
         </Button>
       </View>

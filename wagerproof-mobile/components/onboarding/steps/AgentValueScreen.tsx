@@ -34,7 +34,7 @@ export function AgentValueScreen({
   subtitle,
   bullets,
 }: AgentValueScreenProps) {
-  const { nextStep } = useOnboarding();
+  const { nextStep, isTransitioning } = useOnboarding();
   const theme = useTheme();
 
   const handleContinue = () => {
@@ -84,7 +84,7 @@ export function AgentValueScreen({
       </ScrollView>
 
       <View style={onboardingCta.fixedBottom}>
-        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button}>
+        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button} loading={isTransitioning}>
           Continue
         </Button>
       </View>

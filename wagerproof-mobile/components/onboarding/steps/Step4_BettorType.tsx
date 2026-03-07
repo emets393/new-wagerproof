@@ -16,7 +16,7 @@ const bettorTypes: { type: BettorType; title: string; description: string }[] = 
 ];
 
 export function BettorTypeSelection() {
-  const { nextStep, updateOnboardingData } = useOnboarding();
+  const { nextStep, isTransitioning, updateOnboardingData } = useOnboarding();
   const theme = useTheme();
   const [selectedType, setSelectedType] = useState<BettorType | null>(null);
 
@@ -66,6 +66,7 @@ export function BettorTypeSelection() {
           fullWidth
           variant="glass"
           forceDarkMode
+          loading={isTransitioning}
           style={onboardingCta.button}
         >
           Continue

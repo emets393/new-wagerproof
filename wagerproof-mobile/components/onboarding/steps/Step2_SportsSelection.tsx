@@ -17,7 +17,7 @@ const sportsOptions = [
 ];
 
 export function SportsSelection() {
-  const { nextStep, updateOnboardingData } = useOnboarding();
+  const { nextStep, isTransitioning, updateOnboardingData } = useOnboarding();
   const theme = useTheme();
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
 
@@ -64,7 +64,7 @@ export function SportsSelection() {
       </ScrollView>
 
       <View style={onboardingCta.fixedBottom}>
-        <Button onPress={handleNext} fullWidth variant="glass" forceDarkMode style={onboardingCta.button}>
+        <Button onPress={handleNext} fullWidth variant="glass" forceDarkMode style={onboardingCta.button} loading={isTransitioning}>
           Continue
         </Button>
       </View>

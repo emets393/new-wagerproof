@@ -16,7 +16,7 @@ const sources = [
 ];
 
 export function AcquisitionSource() {
-  const { nextStep, updateOnboardingData } = useOnboarding();
+  const { nextStep, isTransitioning, updateOnboardingData } = useOnboarding();
   const theme = useTheme();
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
 
@@ -63,6 +63,7 @@ export function AcquisitionSource() {
           fullWidth
           variant="glass"
           forceDarkMode
+          loading={isTransitioning}
           style={onboardingCta.button}
         >
           Continue
