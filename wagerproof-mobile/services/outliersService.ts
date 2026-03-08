@@ -285,9 +285,14 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
                 game_id: game.game_id,
                 training_key: gameIdStr,
                 unique_id: gameIdStr,
+                away_abbr: (game.away_abbr && game.away_abbr.trim()) || game.away_team || 'AWAY',
+                home_abbr: (game.home_abbr && game.home_abbr.trim()) || game.home_team || 'HOME',
+                home_spread: game.home_spread,
+                away_spread: game.home_spread ? -game.home_spread : null,
                 over_line: game.total_line,
                 home_ml: homeML,
                 away_ml: awayML,
+                game_time: game.tipoff_time_et,
             }
           });
         }
@@ -377,7 +382,10 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
                 home_ml: game.homeMoneyline,
                 away_ml: game.awayMoneyline,
                 home_spread: game.spread,
+                away_spread: game.spread ? -game.spread : null,
                 over_line: game.over_under,
+                game_date: game.game_date_et,
+                game_time: game.start_utc || game.tipoff_time_et,
                 home_team_logo: homeMapping?.logo || null,
                 away_team_logo: awayMapping?.logo || null,
                 home_team_abbrev: homeMapping?.abbrev || null,
@@ -461,27 +469,72 @@ const hydratePredictions = async (games: GameSummary[]) => {
     }
   }
 
-  // NBA predictions
+  // NBA predictions — match main games page approach: fetch all, keep latest per game by as_of_ts_utc
   if (nbaGames.length > 0) {
     try {
-      const { data: predictions } = await collegeFootballSupabase
+      const gameIds = nbaGames.map(g => Number(g.nbaId));
+      const { data: allPredictions } = await collegeFootballSupabase
         .from('nba_predictions')
-        .select('*');
+        .select('game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc');
 
-      const predMap = new Map((predictions || []).map(p => [String(p.game_id), p]));
+      // Keep latest prediction per game_id (by as_of_ts_utc)
+      const predMap = new Map<string, any>();
+      if (allPredictions) {
+        for (const pred of allPredictions) {
+          if (!gameIds.includes(pred.game_id)) continue;
+          const key = String(pred.game_id);
+          const existing = predMap.get(key);
+          if (!existing || (pred.as_of_ts_utc && (!existing.as_of_ts_utc || pred.as_of_ts_utc > existing.as_of_ts_utc))) {
+            predMap.set(key, pred);
+          }
+        }
+      }
+
+      console.log(`🏀 Outliers NBA hydration: predictions=${allPredictions?.length || 0}, matched=${predMap.size}/${nbaGames.length}`);
+
       for (const game of nbaGames) {
         if (!game.nbaId) continue;
         const pred = predMap.get(game.nbaId);
         if (pred && game.originalData) {
           game.originalData.home_win_prob = pred.home_win_prob;
+          game.originalData.home_away_ml_prob = pred.home_win_prob || null;
           game.originalData.model_fair_total = pred.model_fair_total;
           game.originalData.model_fair_home_spread = pred.model_fair_home_spread;
-          game.originalData.home_away_spread_cover_prob = pred.home_away_spread_cover_prob;
-          game.originalData.ou_result_prob = pred.ou_result_prob;
           game.originalData.home_score_pred = pred.home_score_pred;
           game.originalData.away_score_pred = pred.away_score_pred;
-          game.originalData.home_spread_diff = pred.home_spread_diff;
-          game.originalData.over_line_diff = pred.over_line_diff;
+          game.originalData.run_id = pred.run_id;
+
+          // Calculate spread cover prob (matches main games page logic)
+          const homeSpread = game.originalData.home_spread;
+          if (pred.model_fair_home_spread !== null && homeSpread !== null) {
+            const spreadDiff = Math.abs(pred.model_fair_home_spread - homeSpread);
+            if (pred.model_fair_home_spread < homeSpread) {
+              game.originalData.home_away_spread_cover_prob = 0.5 + Math.min(spreadDiff * 0.05, 0.35);
+            } else {
+              game.originalData.home_away_spread_cover_prob = 0.5 - Math.min(spreadDiff * 0.05, 0.35);
+            }
+          } else if (pred.home_win_prob) {
+            game.originalData.home_away_spread_cover_prob = pred.home_win_prob;
+          }
+
+          // Calculate O/U prob (matches main games page logic)
+          const totalLine = game.originalData.over_line;
+          if (pred.model_fair_total !== null && totalLine !== null) {
+            const totalDiff = pred.model_fair_total - totalLine;
+            if (totalDiff > 0) {
+              game.originalData.ou_result_prob = 0.5 + Math.min(Math.abs(totalDiff) * 0.02, 0.35);
+            } else {
+              game.originalData.ou_result_prob = 0.5 - Math.min(Math.abs(totalDiff) * 0.02, 0.35);
+            }
+          }
+
+          // Calculate diffs for fade alerts
+          if (pred.model_fair_home_spread !== null && homeSpread !== null) {
+            game.originalData.home_spread_diff = pred.model_fair_home_spread - homeSpread;
+          }
+          if (pred.model_fair_total !== null && totalLine !== null) {
+            game.originalData.over_line_diff = pred.model_fair_total - totalLine;
+          }
         }
       }
     } catch (e) {
@@ -492,27 +545,63 @@ const hydratePredictions = async (games: GameSummary[]) => {
   // NCAAB predictions
   if (ncaabGames.length > 0) {
     try {
-      const { data: predictions } = await collegeFootballSupabase
+      const { data: latestRun } = await collegeFootballSupabase
         .from('ncaab_predictions')
-        .select('*');
+        .select('run_id')
+        .order('as_of_ts_utc', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
+      const gameIds = ncaabGames.map(g => Number(g.ncaabId));
+      let predictions: any[] | null = null;
+      if (latestRun?.run_id) {
+        const { data } = await collegeFootballSupabase
+          .from('ncaab_predictions')
+          .select('*')
+          .eq('run_id', latestRun.run_id)
+          .in('game_id', gameIds);
+        predictions = data;
+      }
+
+      console.log(`🏀 Outliers NCAAB hydration: run_id=${latestRun?.run_id}, gameIds=${gameIds.length}, predictions=${predictions?.length || 0}`);
       const predMap = new Map((predictions || []).map(p => [String(p.game_id), p]));
+      let matched = 0;
       for (const game of ncaabGames) {
         if (!game.ncaabId) continue;
         const pred = predMap.get(game.ncaabId);
         if (pred && game.originalData) {
+          matched++;
           game.originalData.home_win_prob = pred.home_win_prob;
+          game.originalData.home_away_ml_prob = pred.home_win_prob || null;
           game.originalData.pred_total_points = pred.pred_total_points;
           game.originalData.model_fair_home_spread = pred.model_fair_home_spread;
-          game.originalData.home_away_spread_cover_prob = pred.home_away_spread_cover_prob;
-          game.originalData.ou_result_prob = pred.ou_result_prob;
+          // NCAAB: use home_win_prob as spread cover proxy (matches main games page)
+          game.originalData.home_away_spread_cover_prob = pred.home_away_spread_cover_prob || pred.home_win_prob || null;
+          // NCAAB: calculate ou_result_prob from pred_total_points vs vegas line (matches main games page)
+          const vegasTotal = pred.vegas_total || game.originalData.over_line;
+          game.originalData.ou_result_prob = pred.ou_result_prob ||
+            (pred.pred_total_points && vegasTotal
+              ? (pred.pred_total_points > vegasTotal ? 0.6 : 0.4)
+              : null);
           game.originalData.home_score_pred = pred.home_score_pred;
           game.originalData.away_score_pred = pred.away_score_pred;
           game.originalData.pred_home_margin = pred.pred_home_margin;
           game.originalData.home_spread_diff = pred.home_spread_diff;
           game.originalData.over_line_diff = pred.over_line_diff;
+          game.originalData.run_id = pred.run_id;
+          // Update vegas lines from predictions if available (more recent)
+          if (pred.vegas_home_spread) {
+            game.originalData.home_spread = pred.vegas_home_spread;
+            game.originalData.away_spread = -pred.vegas_home_spread;
+          }
+          if (pred.vegas_total) {
+            game.originalData.over_line = pred.vegas_total;
+          }
+          if (pred.vegas_home_moneyline) game.originalData.home_ml = pred.vegas_home_moneyline;
+          if (pred.vegas_away_moneyline) game.originalData.away_ml = pred.vegas_away_moneyline;
         }
       }
+      console.log(`🏀 Outliers NCAAB hydration matched: ${matched}/${ncaabGames.length} games`);
     } catch (e) {
       console.error('Error hydrating NCAAB predictions:', e);
     }

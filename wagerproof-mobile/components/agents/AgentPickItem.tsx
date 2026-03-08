@@ -116,7 +116,7 @@ interface AgentPickItemProps {
   showReasoning?: 'full' | 'summary' | false;
 }
 
-export function AgentPickItem({ pick, onPress, showReasoning = false }: AgentPickItemProps) {
+export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, showReasoning = false }: AgentPickItemProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { teamMap } = useNCAABTeamMapping();
@@ -302,7 +302,7 @@ export function AgentPickItem({ pick, onPress, showReasoning = false }: AgentPic
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 // ============================================================================
 // PICK CARD SKELETON

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Animated,
 } from 'react-native';
 import { Portal, useTheme, Button, Chip, Snackbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -103,20 +104,26 @@ export default function PublicAgentViewScreen() {
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
 
-  // Fetch agent data
+  // Fetch agent data — only needed when snapshot is disabled (non-premium users)
   const {
-    data: agent,
-    isLoading: isLoadingAgent,
-    isRefetching: isRefetchingAgent,
-    refetch: refetchAgent,
-  } = useAgent(id || '');
+    data: agentDirect,
+    isLoading: isLoadingAgentDirect,
+    isRefetching: isRefetchingAgentDirect,
+    refetch: refetchAgentDirect,
+  } = useAgent(id || '', { enabled: !canViewAgentPicks });
 
-  // Fetch today's picks snapshot
+  // Fetch today's picks snapshot (includes agent + performance for premium users)
   const {
     data: detailSnapshot,
     isLoading: isLoadingDetailSnapshot,
+    isRefetching: isRefetchingDetailSnapshot,
     refetch: refetchDetailSnapshot,
   } = useAgentDetailSnapshot(id || '', { enabled: canViewAgentPicks });
+
+  // Use agent from snapshot when available, fall back to direct fetch
+  const agent = detailSnapshot?.agent || agentDirect;
+  const isLoadingAgent = canViewAgentPicks ? isLoadingDetailSnapshot : isLoadingAgentDirect;
+  const isRefetchingAgent = canViewAgentPicks ? isRefetchingDetailSnapshot : isRefetchingAgentDirect;
 
   // Fetch pick history
   const {
@@ -129,29 +136,31 @@ export default function PublicAgentViewScreen() {
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
 
-  // Check if user is following this agent
+  // Use follow status from snapshot RPC (eliminates separate API call)
   React.useEffect(() => {
-    const checkFollowStatus = async () => {
-      if (!user?.id || !id) return;
+    if (detailSnapshot?.is_following !== undefined) {
+      setIsFollowing(detailSnapshot.is_following);
+    } else if (user?.id && id && !canViewAgentPicks) {
+      // Fallback for non-premium users who don't get the snapshot
+      const checkFollowStatus = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('user_avatar_follows')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('avatar_id', id)
+            .maybeSingle();
 
-      try {
-        const { data, error } = await supabase
-          .from('user_avatar_follows')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('avatar_id', id)
-          .maybeSingle();
-
-        if (!error && data) {
-          setIsFollowing(true);
+          if (!error && data) {
+            setIsFollowing(true);
+          }
+        } catch (error) {
+          console.error('Error checking follow status:', error);
         }
-      } catch (error) {
-        console.error('Error checking follow status:', error);
-      }
-    };
-
-    checkFollowStatus();
-  }, [user?.id, id]);
+      };
+      checkFollowStatus();
+    }
+  }, [detailSnapshot?.is_following, user?.id, id, canViewAgentPicks]);
 
   // Today's picks from snapshot
   const todaysPicks = detailSnapshot?.todays_picks;
@@ -208,28 +217,98 @@ export default function PublicAgentViewScreen() {
     }
   }, [user?.id, id, isFollowing]);
 
-  // Handle refresh
+  // Handle refresh - parallel refetch for faster pull-to-refresh
   const handleRefresh = useCallback(() => {
-    refetchAgent();
     if (canViewAgentPicks) {
-      refetchDetailSnapshot();
-      refetchAllPicks();
+      // Premium: snapshot already includes agent data
+      Promise.all([refetchDetailSnapshot(), refetchAllPicks()]);
+    } else {
+      refetchAgentDirect();
     }
-  }, [refetchAgent, refetchDetailSnapshot, refetchAllPicks, canViewAgentPicks]);
+  }, [refetchAgentDirect, refetchDetailSnapshot, refetchAllPicks, canViewAgentPicks]);
 
-  // Render loading state
+  // Shimmer loading skeleton
+  const shimmerOpacity = useRef(new Animated.Value(0.45)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerOpacity, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(shimmerOpacity, { toValue: 0.45, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [shimmerOpacity]);
+
   if (isLoadingAgent && !agent) {
+    const shimmer = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
     return (
-      <View
-        style={[
-          styles.container,
-          styles.centerContent,
-          { backgroundColor: isDark ? '#000000' : '#ffffff' },
-        ]}
-      >
-        <Text style={{ color: theme.colors.onSurfaceVariant }}>
-          Loading agent...
-        </Text>
+      <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
+        {/* Header skeleton */}
+        <AndroidBlurView
+          intensity={80}
+          tint={isDark ? 'dark' : 'light'}
+          style={[styles.header, { paddingTop: insets.top, borderBottomColor: 'rgba(150,150,150,0.1)' }]}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleSection} />
+            <View style={styles.headerSpacer} />
+          </View>
+        </AndroidBlurView>
+
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 56 + 16 }]}>
+          <Animated.View style={{ opacity: shimmerOpacity }}>
+            {/* Profile card skeleton */}
+            <View style={[styles.profileCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+              <View style={styles.profileHeader}>
+                <View style={[{ width: 72, height: 72, borderRadius: 20, marginRight: 16, backgroundColor: shimmer }]} />
+                <View style={{ flex: 1, gap: 10 }}>
+                  <View style={{ width: '65%', height: 22, borderRadius: 8, backgroundColor: shimmer }} />
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <View style={{ width: 42, height: 22, borderRadius: 8, backgroundColor: shimmer }} />
+                    <View style={{ width: 50, height: 22, borderRadius: 8, backgroundColor: shimmer }} />
+                  </View>
+                </View>
+              </View>
+              {/* Personality pills skeleton */}
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                <View style={{ width: 80, height: 24, borderRadius: 10, backgroundColor: shimmer }} />
+                <View style={{ width: 65, height: 24, borderRadius: 10, backgroundColor: shimmer }} />
+                <View style={{ width: 90, height: 24, borderRadius: 10, backgroundColor: shimmer }} />
+              </View>
+              {/* Stats row skeleton */}
+              <View style={[styles.statsRow, { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                {[1, 2, 3, 4].map(i => (
+                  <View key={i} style={[styles.statItem, { gap: 6 }]}>
+                    <View style={{ width: 40, height: 10, borderRadius: 5, backgroundColor: shimmer }} />
+                    <View style={{ width: 48, height: 20, borderRadius: 6, backgroundColor: shimmer }} />
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Follow button skeleton */}
+            <View style={{ height: 50, borderRadius: 14, marginBottom: 24, backgroundColor: shimmer }} />
+
+            {/* Today's Picks skeleton */}
+            <View style={{ marginBottom: 24 }}>
+              <View style={{ width: 120, height: 20, borderRadius: 8, marginBottom: 16, backgroundColor: shimmer }} />
+              {[1, 2].map(i => (
+                <View key={i} style={{ height: 88, borderRadius: 14, marginBottom: 6, backgroundColor: shimmer }} />
+              ))}
+            </View>
+
+            {/* Pick History skeleton */}
+            <View style={{ marginBottom: 24 }}>
+              <View style={{ width: 100, height: 20, borderRadius: 8, marginBottom: 16, backgroundColor: shimmer }} />
+              <View style={{ height: 88, borderRadius: 14, backgroundColor: shimmer }} />
+            </View>
+          </Animated.View>
+        </ScrollView>
       </View>
     );
   }

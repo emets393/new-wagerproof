@@ -49,11 +49,11 @@ export function useUserAgents() {
 /**
  * Hook to fetch a single agent by ID
  */
-export function useAgent(agentId: string) {
+export function useAgent(agentId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: agentKeys.detail(agentId),
     queryFn: () => fetchAgentById(agentId),
-    enabled: !!agentId,
+    enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

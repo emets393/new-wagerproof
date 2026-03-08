@@ -210,7 +210,7 @@ export function AgentBornStep() {
           >
             <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
             <View style={styles.agentHeader}>
-              <GlowingCardWrapper color={primaryColor} borderRadius={16}>
+              <GlowingCardWrapper color={primaryColor} borderRadius={12}>
                 <View style={[styles.agentEmojiContainer, { backgroundColor: `${primaryColor}25` }]}>
                   <Text style={styles.agentEmoji}>{agentFormState.avatar_emoji || '🤖'}</Text>
                 </View>

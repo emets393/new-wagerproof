@@ -1,10 +1,8 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useLeaderboard } from './useLeaderboard';
 import { useFollowedAgents, useFavoriteAgentIds } from './useFollowedAgents';
 import { fetchTopAgentPicksFeedV2 } from '@/services/agentPicksService';
 import { AgentPick } from '@/types/agent';
-import { LeaderboardEntry } from '@/services/agentPerformanceService';
 import { useAuth } from '@/contexts/AuthContext';
 
 export type FeedFilter = 'top10' | 'following' | 'favorites';
@@ -34,9 +32,7 @@ export interface FeedPickWithAgent extends AgentPick {
 export function useTopAgentPicksFeed(filter: FeedFilter) {
   const { user } = useAuth();
 
-  const { data: leaderboard } = useLeaderboard(100, undefined, {
-    enabled: filter === 'top10',
-  });
+  // Only fetch supplementary data when needed — the RPC already returns agent metadata
   const { data: followedAgents } = useFollowedAgents({
     enabled: filter === 'following',
   });
@@ -44,28 +40,10 @@ export function useTopAgentPicksFeed(filter: FeedFilter) {
     enabled: filter === 'favorites',
   });
 
-  // Build rank + meta maps from the full leaderboard (stable via useMemo)
+  // Build rank + meta maps from followed agents (leaderboard metadata comes from RPC)
   const { rankMap, agentMetaMap } = useMemo(() => {
     const rMap = new Map<string, number>();
     const mMap = new Map<string, AgentMeta>();
-
-    if (leaderboard) {
-      leaderboard.forEach((entry: LeaderboardEntry, index: number) => {
-        const rank = index + 1;
-        rMap.set(entry.avatar_id, rank);
-        mMap.set(entry.avatar_id, {
-          avatar_id: entry.avatar_id,
-          name: entry.name,
-          avatar_emoji: entry.avatar_emoji,
-          avatar_color: entry.avatar_color,
-          wins: entry.wins,
-          losses: entry.losses,
-          pushes: entry.pushes,
-          net_units: entry.net_units,
-          rank,
-        });
-      });
-    }
 
     if (followedAgents) {
       followedAgents.forEach((agent) => {
@@ -79,14 +57,14 @@ export function useTopAgentPicksFeed(filter: FeedFilter) {
             losses: 0,
             pushes: 0,
             net_units: 0,
-            rank: rMap.get(agent.avatar_id) ?? null,
+            rank: null,
           });
         }
       });
     }
 
     return { rankMap: rMap, agentMetaMap: mMap };
-  }, [leaderboard, followedAgents]);
+  }, [followedAgents]);
 
   const queryDep = `v2-${filter}-${user?.id || 'anon'}`;
 

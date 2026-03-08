@@ -442,13 +442,13 @@ export default function AgentDetailScreen() {
     router.push(`/agents/${id}/settings` as any);
   }, [router, id]);
 
-  // Handle refresh
+  // Handle refresh - parallel refetch for faster pull-to-refresh
   const handleRefresh = useCallback(() => {
-    refetchAgent();
+    const promises: Promise<any>[] = [refetchAgent()];
     if (canViewAgentPicks) {
-      refetchDetailSnapshotV2();
-      refetchAllPicks();
+      promises.push(refetchDetailSnapshotV2(), refetchAllPicks());
     }
+    Promise.all(promises);
   }, [
     refetchAgent,
     refetchDetailSnapshotV2,
@@ -514,47 +514,78 @@ export default function AgentDetailScreen() {
     />
   );
 
-  const auditTrace = (selectedAuditPick?.ai_decision_trace as any) || {};
-  const leanedMetrics = Array.isArray(auditTrace.leaned_metrics) && auditTrace.leaned_metrics.length > 0
-    ? auditTrace.leaned_metrics
-    : (selectedAuditPick?.key_factors || []).map((factor, idx) => ({
-        metric_key: `key_factor_${idx + 1}`,
-        metric_value: factor,
-        why_it_mattered: factor,
-        personality_trait: 'fallback_from_key_factors',
-      }));
-  const rationaleText =
-    auditTrace.rationale_summary ||
-    selectedAuditPick?.reasoning_text ||
-    'No rationale text available.';
-  const personalityAlignmentText =
-    auditTrace.personality_alignment ||
-    buildPersonalityAlignmentFallback(selectedAuditPick?.archived_personality);
-  const auditPayload = (selectedAuditPick?.ai_audit_payload as any) || {};
-  const modelInputGamePayload =
-    auditPayload.model_input_game_payload ||
-    selectedAuditPick?.archived_game_data ||
-    {};
-  const modelInputPersonalityPayload =
-    auditPayload.model_input_personality_payload ||
-    selectedAuditPick?.archived_personality ||
-    {};
-  const modelResponsePayload =
-    auditPayload.model_response_payload || {
-      game_id: selectedAuditPick?.game_id,
-      bet_type: selectedAuditPick?.bet_type,
-      selection: selectedAuditPick?.pick_selection,
-      odds: selectedAuditPick?.odds,
-      confidence: selectedAuditPick?.confidence,
-      reasoning: selectedAuditPick?.reasoning_text,
-      key_factors: selectedAuditPick?.key_factors,
-      decision_trace: selectedAuditPick?.ai_decision_trace,
+  // Memoize audit computations - only recompute when a pick is selected for audit
+  const {
+    leanedMetrics,
+    rationaleText,
+    personalityAlignmentText,
+    modelInputGamePayload,
+    modelInputPersonalityPayload,
+    modelResponsePayload,
+    payloadIsFormatted,
+  } = useMemo(() => {
+    if (!selectedAuditPick) {
+      return {
+        leanedMetrics: [],
+        rationaleText: '',
+        personalityAlignmentText: '',
+        modelInputGamePayload: {},
+        modelInputPersonalityPayload: {},
+        modelResponsePayload: {},
+        payloadIsFormatted: false,
+      };
+    }
+    const trace = (selectedAuditPick.ai_decision_trace as any) || {};
+    const metrics = Array.isArray(trace.leaned_metrics) && trace.leaned_metrics.length > 0
+      ? trace.leaned_metrics
+      : (selectedAuditPick.key_factors || []).map((factor: string, idx: number) => ({
+          metric_key: `key_factor_${idx + 1}`,
+          metric_value: factor,
+          why_it_mattered: factor,
+          personality_trait: 'fallback_from_key_factors',
+        }));
+    const rationale =
+      trace.rationale_summary ||
+      selectedAuditPick.reasoning_text ||
+      'No rationale text available.';
+    const alignment =
+      trace.personality_alignment ||
+      buildPersonalityAlignmentFallback(selectedAuditPick.archived_personality);
+    const payload = (selectedAuditPick.ai_audit_payload as any) || {};
+    const gamePayload =
+      payload.model_input_game_payload ||
+      selectedAuditPick.archived_game_data ||
+      {};
+    const personalityPayload =
+      payload.model_input_personality_payload ||
+      selectedAuditPick.archived_personality ||
+      {};
+    const responsePayload =
+      payload.model_response_payload || {
+        game_id: selectedAuditPick.game_id,
+        bet_type: selectedAuditPick.bet_type,
+        selection: selectedAuditPick.pick_selection,
+        odds: selectedAuditPick.odds,
+        confidence: selectedAuditPick.confidence,
+        reasoning: selectedAuditPick.reasoning_text,
+        key_factors: selectedAuditPick.key_factors,
+        decision_trace: selectedAuditPick.ai_decision_trace,
+      };
+    const isFormatted =
+      !!gamePayload &&
+      (Object.prototype.hasOwnProperty.call(gamePayload, 'vegas_lines') ||
+        Object.prototype.hasOwnProperty.call(gamePayload, 'model_predictions') ||
+        Object.prototype.hasOwnProperty.call(gamePayload, 'game_data_complete'));
+    return {
+      leanedMetrics: metrics,
+      rationaleText: rationale,
+      personalityAlignmentText: alignment,
+      modelInputGamePayload: gamePayload,
+      modelInputPersonalityPayload: personalityPayload,
+      modelResponsePayload: responsePayload,
+      payloadIsFormatted: isFormatted,
     };
-  const payloadIsFormatted =
-    !!modelInputGamePayload &&
-    (Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'vegas_lines') ||
-      Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'model_predictions') ||
-      Object.prototype.hasOwnProperty.call(modelInputGamePayload, 'game_data_complete'));
+  }, [selectedAuditPick]);
   const effectiveTodaysPicks = detailSnapshotV2?.todays_picks || todaysPicks;
   const effectiveTodaysGenerationRun = detailSnapshotV2?.todays_generation_run || todaysGenerationRun;
   const hasTodaysPicks = effectiveTodaysPicks && effectiveTodaysPicks.length > 0;

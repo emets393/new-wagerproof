@@ -38,6 +38,7 @@ export interface AgentDetailSnapshotV2 {
   todays_picks: AgentPick[];
   todays_generation_run: AgentGenerationRunSummary | null;
   can_view_agent_picks: boolean;
+  is_following?: boolean;
 }
 
 export interface AgentPicksPageV2 {

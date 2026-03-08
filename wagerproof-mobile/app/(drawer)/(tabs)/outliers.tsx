@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Modal, TextInput, Animated, Platform, ActivityIndicator } from 'react-native';
-import { useTheme, Button as PaperButton } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -528,6 +529,10 @@ export default function OutliersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'outliers' | 'agentPicks'>('outliers');
 
+  // Hub navigation
+  type OutlierCategory = 'value' | 'fade' | 'nba-trends' | 'ncaab-trends' | 'nba-accuracy' | 'ncaab-accuracy';
+  const [selectedCategory, setSelectedCategory] = useState<OutlierCategory | null>(null);
+
   // Modals for "Show More"
   const [showAllValueAlerts, setShowAllValueAlerts] = useState(false);
   const [showAllFadeAlerts, setShowAllFadeAlerts] = useState(false);
@@ -1027,8 +1032,14 @@ export default function OutliersScreen() {
       );
   };
 
-  const filteredValueAlerts = filterBySport(valueAlerts || [], valueAlertsFilter);
-  const filteredFadeAlerts = filterBySport(fadeAlerts || [], fadeAlertsFilter);
+  const now = Date.now();
+  const isGameUpcoming = (gameTime?: string) => {
+    if (!gameTime) return true; // Keep games with no time info
+    const start = new Date(gameTime).getTime();
+    return isNaN(start) || start > now;
+  };
+  const filteredValueAlerts = filterBySport(valueAlerts || [], valueAlertsFilter).filter(a => isGameUpcoming(a.game.gameTime));
+  const filteredFadeAlerts = filterBySport(fadeAlerts || [], fadeAlertsFilter).filter(a => isGameUpcoming(a.game.gameTime));
   const nbaTrendOutliers = useMemo(() => buildNBATrendOutliers(nbaTrendsGames), [nbaTrendsGames]);
   const ncaabTrendOutliers = useMemo(() => buildNCAABTrendOutliers(ncaabTrendsGames), [ncaabTrendsGames]);
   const nbaAccuracyOutliers = useMemo(() => buildAccuracyOutliers(nbaAccuracyGames, 'nba'), [nbaAccuracyGames]);
@@ -1292,7 +1303,8 @@ export default function OutliersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
-       {/* Fixed Header with Inner Tabs - Animated */}
+       {/* Fixed Header with Inner Tabs - Animated (hidden in detail view) */}
+       {!(activeTab === 'outliers' && selectedCategory !== null) && (
        <Animated.View
          style={[
            styles.fixedHeaderContainer,
@@ -1362,6 +1374,7 @@ export default function OutliersScreen() {
           </View>
         </AndroidBlurView>
        </Animated.View>
+       )}
 
        {/* Agent Picks Tab */}
        {activeTab === 'agentPicks' && (
@@ -1376,13 +1389,13 @@ export default function OutliersScreen() {
          />
        )}
 
-       {/* Outliers Tab */}
-       {activeTab === 'outliers' && (
+       {/* Outliers Tab — Hub View */}
+       {activeTab === 'outliers' && selectedCategory === null && (
        <Animated.ScrollView
          contentContainerStyle={[
            styles.scrollContent,
            {
-             paddingTop: TOTAL_HEADER_HEIGHT + 20,
+             paddingTop: TOTAL_HEADER_HEIGHT + 16,
              paddingBottom: TAB_BAR_HEIGHT + 20
            }
          ]}
@@ -1400,302 +1413,674 @@ export default function OutliersScreen() {
            />
          }
        >
+        {/* Category Cards */}
+        <View style={styles.hubGrid}>
+          {/* Prediction Market Alerts */}
+          {(() => {
+            const count = filteredValueAlerts.length;
+            const loading = valueAlertsLoading || gamesLoading;
+            const preview = topValueAlerts.slice(0, 2);
+            return (
+              <TouchableOpacity
+                style={[styles.hubCard, { borderColor: 'rgba(34, 197, 94, 0.3)' }]}
+                activeOpacity={0.7}
+                onPress={() => setSelectedCategory('value')}
+              >
+                <LinearGradient
+                  colors={isDark ? ['rgba(34, 197, 94, 0.12)', 'rgba(34, 197, 94, 0.03)'] : ['rgba(34, 197, 94, 0.08)', 'rgba(34, 197, 94, 0.01)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.hubCardGradient}
+                >
+                  <View style={styles.hubCardHeader}>
+                    <View style={styles.hubCardIconRow}>
+                      <View style={[styles.hubCardIconCircle, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+                        <MaterialCommunityIcons name="trending-up" size={20} color="#22c55e" />
+                      </View>
+                      {!loading && count > 0 && (
+                        <View style={[styles.hubCountBadge, { backgroundColor: '#22c55e' }]}>
+                          <Text style={styles.hubCountText}>{count}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
+                  </View>
+                  <Text style={[styles.hubCardTitle, { color: theme.colors.onSurface }]}>Prediction Market Alerts</Text>
+                  <Text style={[styles.hubCardDesc, { color: theme.colors.onSurfaceVariant }]}>
+                    Where prediction market odds diverge from sportsbook lines
+                  </Text>
+                  {loading ? (
+                    <View style={styles.hubCardPreview}>
+                      <View style={[styles.hubPreviewShimmer, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+                    </View>
+                  ) : preview.length > 0 ? (
+                    <View style={styles.hubCardPreview}>
+                      {preview.map((a, i) => (
+                        <View key={i} style={styles.hubPreviewItem}>
+                          <View style={styles.hubPreviewLogos}>
+                            <TeamAvatar teamName={a.game.awayTeam} sport={a.sport as SportType} size={20} logoUrl={a.game.awayTeamLogo} />
+                            <Text style={[styles.hubPreviewVs, { color: theme.colors.onSurfaceVariant }]}>@</Text>
+                            <TeamAvatar teamName={a.game.homeTeam} sport={a.sport as SportType} size={20} logoUrl={a.game.homeTeamLogo} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.hubPreviewMain, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                              {a.side} {a.marketType}
+                            </Text>
+                            <Text style={[styles.hubPreviewSub, { color: '#22c55e' }]}>{a.percentage.toFixed(0)}% market consensus</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={[styles.hubCardEmpty, { color: theme.colors.onSurfaceVariant }]}>No alerts this week</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })()}
 
-     
+          {/* Model Fade Alerts */}
+          {(() => {
+            const count = filteredFadeAlerts.length;
+            const loading = fadeAlertsLoading || gamesLoading;
+            const preview = topFadeAlerts.slice(0, 2);
+            return (
+              <TouchableOpacity
+                style={[styles.hubCard, { borderColor: 'rgba(245, 158, 11, 0.3)' }]}
+                activeOpacity={0.7}
+                onPress={() => setSelectedCategory('fade')}
+              >
+                <LinearGradient
+                  colors={isDark ? ['rgba(245, 158, 11, 0.12)', 'rgba(245, 158, 11, 0.03)'] : ['rgba(245, 158, 11, 0.08)', 'rgba(245, 158, 11, 0.01)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.hubCardGradient}
+                >
+                  <View style={styles.hubCardHeader}>
+                    <View style={styles.hubCardIconRow}>
+                      <View style={[styles.hubCardIconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                        <MaterialCommunityIcons name="lightning-bolt" size={20} color="#f59e0b" />
+                      </View>
+                      {!loading && count > 0 && (
+                        <View style={[styles.hubCountBadge, { backgroundColor: '#f59e0b' }]}>
+                          <Text style={styles.hubCountText}>{count}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
+                  </View>
+                  <Text style={[styles.hubCardTitle, { color: theme.colors.onSurface }]}>Model Fade Alerts</Text>
+                  <Text style={[styles.hubCardDesc, { color: theme.colors.onSurfaceVariant }]}>
+                    Extreme model confidence — historically profitable to fade
+                  </Text>
+                  {loading ? (
+                    <View style={styles.hubCardPreview}>
+                      <View style={[styles.hubPreviewShimmer, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+                    </View>
+                  ) : preview.length > 0 ? (
+                    <View style={styles.hubCardPreview}>
+                      {preview.map((a, i) => (
+                        <View key={i} style={styles.hubPreviewItem}>
+                          <View style={styles.hubPreviewLogos}>
+                            <TeamAvatar teamName={a.game.awayTeam} sport={a.sport as SportType} size={20} logoUrl={a.game.awayTeamLogo} />
+                            <Text style={[styles.hubPreviewVs, { color: theme.colors.onSurfaceVariant }]}>@</Text>
+                            <TeamAvatar teamName={a.game.homeTeam} sport={a.sport as SportType} size={20} logoUrl={a.game.homeTeamLogo} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.hubPreviewMain, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                              Fade {a.predictedTeam} {a.pickType}
+                            </Text>
+                            <Text style={[styles.hubPreviewSub, { color: '#f59e0b' }]}>{a.confidence}{a.sport === 'nfl' ? '%' : 'pt'} model confidence</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={[styles.hubCardEmpty, { color: theme.colors.onSurfaceVariant }]}>No fade alerts today</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })()}
 
-        {/* Section 1: Polymarket Value Alerts */}
-        <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-                <View style={styles.titleRow}>
-                    <MaterialCommunityIcons name="trending-up" size={20} color={theme.colors.onSurface} />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Prediction Market Alerts</Text>
-                </View>
-                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-                    Markets where prediction markets odds show disagreement with lines or strong consensus.
-                </Text>
-            </View>
+          {/* NBA Betting Trends */}
+          {(() => {
+            const count = nbaTrendOutliers.length;
+            const preview = nbaTrendOutliers.slice(0, 2);
+            return (
+              <TouchableOpacity
+                style={[styles.hubCard, { borderColor: 'rgba(14, 165, 233, 0.3)' }]}
+                activeOpacity={0.7}
+                onPress={() => setSelectedCategory('nba-trends')}
+              >
+                <LinearGradient
+                  colors={isDark ? ['rgba(14, 165, 233, 0.12)', 'rgba(14, 165, 233, 0.03)'] : ['rgba(14, 165, 233, 0.08)', 'rgba(14, 165, 233, 0.01)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.hubCardGradient}
+                >
+                  <View style={styles.hubCardHeader}>
+                    <View style={styles.hubCardIconRow}>
+                      <View style={[styles.hubCardIconCircle, { backgroundColor: 'rgba(14, 165, 233, 0.15)' }]}>
+                        <MaterialCommunityIcons name="basketball" size={20} color="#0ea5e9" />
+                      </View>
+                      {count > 0 && (
+                        <View style={[styles.hubCountBadge, { backgroundColor: '#0ea5e9' }]}>
+                          <Text style={styles.hubCountText}>{count}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
+                  </View>
+                  <Text style={[styles.hubCardTitle, { color: theme.colors.onSurface }]}>NBA Betting Trends</Text>
+                  <Text style={[styles.hubCardDesc, { color: theme.colors.onSurfaceVariant }]}>
+                    ATS and O/U trends at {BETTING_TRENDS_THRESHOLD}%+ win rates
+                  </Text>
+                  {nbaTrendsLoading ? (
+                    <View style={styles.hubCardPreview}>
+                      <View style={[styles.hubPreviewShimmer, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+                    </View>
+                  ) : preview.length > 0 ? (
+                    <View style={styles.hubCardPreview}>
+                      {preview.map((t, i) => (
+                        <View key={i} style={styles.hubPreviewItem}>
+                          <View style={styles.hubPreviewLogos}>
+                            <TeamAvatar teamName={t.awayTeam} sport="nba" size={20} />
+                            <Text style={[styles.hubPreviewVs, { color: theme.colors.onSurfaceVariant }]}>@</Text>
+                            <TeamAvatar teamName={t.homeTeam} sport="nba" size={20} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.hubPreviewMain, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                              {t.candidate.teamName} {t.candidate.marketType}
+                            </Text>
+                            <Text style={[styles.hubPreviewSub, { color: '#0ea5e9' }]}>{t.candidate.percentage.toFixed(0)}% ({t.candidate.record})</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={[styles.hubCardEmpty, { color: theme.colors.onSurfaceVariant }]}>No NBA trend outliers today</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })()}
 
-            {renderSportFilter(valueAlerts || [], valueAlertsFilter, setValueAlertsFilter)}
+          {/* NCAAB Betting Trends */}
+          {(() => {
+            const count = ncaabTrendOutliers.length;
+            const preview = ncaabTrendOutliers.slice(0, 2);
+            return (
+              <TouchableOpacity
+                style={[styles.hubCard, { borderColor: 'rgba(14, 165, 233, 0.3)' }]}
+                activeOpacity={0.7}
+                onPress={() => setSelectedCategory('ncaab-trends')}
+              >
+                <LinearGradient
+                  colors={isDark ? ['rgba(99, 102, 241, 0.12)', 'rgba(99, 102, 241, 0.03)'] : ['rgba(99, 102, 241, 0.08)', 'rgba(99, 102, 241, 0.01)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.hubCardGradient}
+                >
+                  <View style={styles.hubCardHeader}>
+                    <View style={styles.hubCardIconRow}>
+                      <View style={[styles.hubCardIconCircle, { backgroundColor: 'rgba(99, 102, 241, 0.15)' }]}>
+                        <MaterialCommunityIcons name="basketball" size={20} color="#6366f1" />
+                      </View>
+                      {count > 0 && (
+                        <View style={[styles.hubCountBadge, { backgroundColor: '#6366f1' }]}>
+                          <Text style={styles.hubCountText}>{count}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
+                  </View>
+                  <Text style={[styles.hubCardTitle, { color: theme.colors.onSurface }]}>NCAAB Betting Trends</Text>
+                  <Text style={[styles.hubCardDesc, { color: theme.colors.onSurfaceVariant }]}>
+                    College basketball ATS and O/U situational trends
+                  </Text>
+                  {ncaabTrendsLoading ? (
+                    <View style={styles.hubCardPreview}>
+                      <View style={[styles.hubPreviewShimmer, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+                    </View>
+                  ) : preview.length > 0 ? (
+                    <View style={styles.hubCardPreview}>
+                      {preview.map((t, i) => (
+                        <View key={i} style={styles.hubPreviewItem}>
+                          <View style={styles.hubPreviewLogos}>
+                            <TeamAvatar teamName={t.awayTeam} sport="ncaab" size={20} logoUrl={t.awayTeamLogo} />
+                            <Text style={[styles.hubPreviewVs, { color: theme.colors.onSurfaceVariant }]}>@</Text>
+                            <TeamAvatar teamName={t.homeTeam} sport="ncaab" size={20} logoUrl={t.homeTeamLogo} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.hubPreviewMain, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                              {t.candidate.teamName} {t.candidate.marketType}
+                            </Text>
+                            <Text style={[styles.hubPreviewSub, { color: '#6366f1' }]}>{t.candidate.percentage.toFixed(0)}% ({t.candidate.record})</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={[styles.hubCardEmpty, { color: theme.colors.onSurfaceVariant }]}>No NCAAB trend outliers today</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })()}
 
-            {valueAlertsLoading || gamesLoading ? (
-                <View>
-                    {[1, 2, 3].map((i) => (
-                        <AlertCardShimmer key={i} />
-                    ))}
-                </View>
-            ) : filteredValueAlerts.length > 0 ? (
-                <View style={styles.cardsGrid}>
-                    {topValueAlerts.map(renderValueAlertCard)}
+          {/* NBA Model Accuracy */}
+          {(() => {
+            const count = nbaAccuracyOutliers.length;
+            const preview = nbaAccuracyOutliers.slice(0, 2);
+            return (
+              <TouchableOpacity
+                style={[styles.hubCard, { borderColor: 'rgba(20, 184, 166, 0.3)' }]}
+                activeOpacity={0.7}
+                onPress={() => setSelectedCategory('nba-accuracy')}
+              >
+                <LinearGradient
+                  colors={isDark ? ['rgba(20, 184, 166, 0.12)', 'rgba(20, 184, 166, 0.03)'] : ['rgba(20, 184, 166, 0.08)', 'rgba(20, 184, 166, 0.01)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.hubCardGradient}
+                >
+                  <View style={styles.hubCardHeader}>
+                    <View style={styles.hubCardIconRow}>
+                      <View style={[styles.hubCardIconCircle, { backgroundColor: 'rgba(20, 184, 166, 0.15)' }]}>
+                        <MaterialCommunityIcons name="bullseye-arrow" size={20} color="#14b8a6" />
+                      </View>
+                      {count > 0 && (
+                        <View style={[styles.hubCountBadge, { backgroundColor: '#14b8a6' }]}>
+                          <Text style={styles.hubCountText}>{count}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
+                  </View>
+                  <Text style={[styles.hubCardTitle, { color: theme.colors.onSurface }]}>NBA Model Accuracy</Text>
+                  <Text style={[styles.hubCardDesc, { color: theme.colors.onSurfaceVariant }]}>
+                    Predictions with extreme historical accuracy
+                  </Text>
+                  {nbaAccuracyLoading ? (
+                    <View style={styles.hubCardPreview}>
+                      <View style={[styles.hubPreviewShimmer, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+                    </View>
+                  ) : preview.length > 0 ? (
+                    <View style={styles.hubCardPreview}>
+                      {preview.map((o, i) => (
+                        <View key={i} style={styles.hubPreviewItem}>
+                          <View style={styles.hubPreviewLogos}>
+                            <TeamAvatar teamName={o.awayTeam} sport="nba" size={20} />
+                            <Text style={[styles.hubPreviewVs, { color: theme.colors.onSurfaceVariant }]}>@</Text>
+                            <TeamAvatar teamName={o.homeTeam} sport="nba" size={20} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.hubPreviewMain, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                              {o.pick} {o.pickType} ({o.sampleSize}g)
+                            </Text>
+                            <Text style={[styles.hubPreviewSub, { color: o.isHigh ? '#14b8a6' : '#ef4444' }]}>
+                              {o.isHigh ? `${o.accuracyPct.toFixed(0)}% accurate` : `Only ${o.accuracyPct.toFixed(0)}% — fade`}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={[styles.hubCardEmpty, { color: theme.colors.onSurfaceVariant }]}>No accuracy outliers today</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })()}
 
-                    {/* Locked placeholder cards for non-pro users */}
-                    {lockedValueAlertsCount > 0 && Array.from({ length: lockedValueAlertsCount }).map((_, index) => (
-                      <LockedOverlay
-                        key={`locked-value-${index}`}
-                        message="Unlock all alerts with Pro"
-                        style={styles.lockedAlertCard}
-                      />
-                    ))}
-
-                    {!shouldShowLocks && filteredValueAlerts.length > 5 && (
-                        <PaperButton
-                            mode="outlined"
-                            onPress={() => { setSearchText(''); setShowAllValueAlerts(true); }}
-                            style={styles.showMoreButton}
-                        >
-                            Show More ({filteredValueAlerts.length - 5})
-                        </PaperButton>
-                    )}
-                </View>
-            ) : (
-                <View style={styles.emptyState}>
-                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
-                        No {valueAlertsFilter ? valueAlertsFilter.toUpperCase() : ''} value alerts found for this week.
-                     </Text>
-                </View>
-            )}
+          {/* NCAAB Model Accuracy */}
+          {(() => {
+            const count = ncaabAccuracyOutliers.length;
+            const preview = ncaabAccuracyOutliers.slice(0, 2);
+            return (
+              <TouchableOpacity
+                style={[styles.hubCard, { borderColor: 'rgba(249, 115, 22, 0.3)' }]}
+                activeOpacity={0.7}
+                onPress={() => setSelectedCategory('ncaab-accuracy')}
+              >
+                <LinearGradient
+                  colors={isDark ? ['rgba(249, 115, 22, 0.12)', 'rgba(249, 115, 22, 0.03)'] : ['rgba(249, 115, 22, 0.08)', 'rgba(249, 115, 22, 0.01)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.hubCardGradient}
+                >
+                  <View style={styles.hubCardHeader}>
+                    <View style={styles.hubCardIconRow}>
+                      <View style={[styles.hubCardIconCircle, { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+                        <MaterialCommunityIcons name="bullseye-arrow" size={20} color="#f97316" />
+                      </View>
+                      {count > 0 && (
+                        <View style={[styles.hubCountBadge, { backgroundColor: '#f97316' }]}>
+                          <Text style={styles.hubCountText}>{count}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
+                  </View>
+                  <Text style={[styles.hubCardTitle, { color: theme.colors.onSurface }]}>NCAAB Model Accuracy</Text>
+                  <Text style={[styles.hubCardDesc, { color: theme.colors.onSurfaceVariant }]}>
+                    College basketball predictions with extreme accuracy
+                  </Text>
+                  {ncaabAccuracyLoading ? (
+                    <View style={styles.hubCardPreview}>
+                      <View style={[styles.hubPreviewShimmer, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+                    </View>
+                  ) : preview.length > 0 ? (
+                    <View style={styles.hubCardPreview}>
+                      {preview.map((o, i) => (
+                        <View key={i} style={styles.hubPreviewItem}>
+                          <View style={styles.hubPreviewLogos}>
+                            <TeamAvatar teamName={o.awayTeam} sport="ncaab" size={20} logoUrl={o.awayTeamLogo} />
+                            <Text style={[styles.hubPreviewVs, { color: theme.colors.onSurfaceVariant }]}>@</Text>
+                            <TeamAvatar teamName={o.homeTeam} sport="ncaab" size={20} logoUrl={o.homeTeamLogo} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.hubPreviewMain, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                              {o.pick} {o.pickType} ({o.sampleSize}g)
+                            </Text>
+                            <Text style={[styles.hubPreviewSub, { color: o.isHigh ? '#14b8a6' : '#ef4444' }]}>
+                              {o.isHigh ? `${o.accuracyPct.toFixed(0)}% accurate` : `Only ${o.accuracyPct.toFixed(0)}% — fade`}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={[styles.hubCardEmpty, { color: theme.colors.onSurfaceVariant }]}>No accuracy outliers today</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })()}
         </View>
 
-        {/* Section 2: Model Prediction Fade Alerts */}
-        <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-                <View style={styles.titleRow}>
-                    <MaterialCommunityIcons name="lightning-bolt" size={20} color="#f59e0b" />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Model Fade Alerts</Text>
-                </View>
-                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-                    When our model shows extreme confidence, historical backtesting reveals that betting the opposite direction has been more profitable. Consider fading these overconfident picks.
+        {/* How Outliers Work — Explainer */}
+        <View style={[styles.explainerContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+          <View style={styles.explainerHeader}>
+            <MaterialCommunityIcons name="information-outline" size={20} color={theme.colors.primary} />
+            <Text style={[styles.explainerTitle, { color: theme.colors.onSurface }]}>How Outliers Work</Text>
+          </View>
+
+          <View style={styles.explainerSection}>
+            <Text style={[styles.explainerSubtitle, { color: theme.colors.onSurface }]}>What are Outliers?</Text>
+            <Text style={[styles.explainerBody, { color: theme.colors.onSurfaceVariant }]}>
+              Outliers are games where our data signals diverge significantly from the market. These statistical edges represent situations where the numbers suggest the lines may be off — giving you an informational advantage.
+            </Text>
+          </View>
+
+          <View style={styles.explainerSection}>
+            <View style={styles.explainerItem}>
+              <View style={[styles.explainerIconSmall, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
+                <MaterialCommunityIcons name="trending-up" size={14} color="#22c55e" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.explainerItemTitle, { color: theme.colors.onSurface }]}>Prediction Market Alerts</Text>
+                <Text style={[styles.explainerItemDesc, { color: theme.colors.onSurfaceVariant }]}>
+                  When Polymarket odds ({'>'}57% spread/total, {'>'}85% ML) diverge from sportsbook lines, it signals the line may not have fully adjusted.
                 </Text>
+              </View>
             </View>
 
-            {renderSportFilter(fadeAlerts || [], fadeAlertsFilter, setFadeAlertsFilter)}
-
-            {fadeAlertsLoading || gamesLoading ? (
-                <View>
-                    {[1, 2, 3].map((i) => (
-                        <AlertCardShimmer key={i} />
-                    ))}
-                </View>
-            ) : filteredFadeAlerts.length > 0 ? (
-                <View style={styles.cardsGrid}>
-                    {topFadeAlerts.map(renderFadeAlertCard)}
-
-                    {/* Locked placeholder cards for non-pro users */}
-                    {lockedFadeAlertsCount > 0 && Array.from({ length: lockedFadeAlertsCount }).map((_, index) => (
-                      <LockedOverlay
-                        key={`locked-fade-${index}`}
-                        message="Unlock all alerts with Pro"
-                        style={styles.lockedAlertCard}
-                      />
-                    ))}
-
-                    {!shouldShowLocks && filteredFadeAlerts.length > 5 && (
-                        <PaperButton
-                            mode="outlined"
-                            onPress={() => { setSearchText(''); setShowAllFadeAlerts(true); }}
-                            style={styles.showMoreButton}
-                        >
-                            Show More ({filteredFadeAlerts.length - 5})
-                        </PaperButton>
-                    )}
-                </View>
-            ) : (
-                <View style={styles.emptyState}>
-                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
-                        No {fadeAlertsFilter ? fadeAlertsFilter.toUpperCase() : ''} model alerts found for today.
-                     </Text>
-                </View>
-            )}
-        </View>
-
-        {/* Section 3: NBA Betting Trends Outliers */}
-        <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-                <View style={styles.titleRow}>
-                    <MaterialCommunityIcons name="basketball" size={20} color={theme.colors.onSurface} />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>NBA Betting Trends Outliers</Text>
-                </View>
-                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-                    Highest ATS and O/U trend widgets at {BETTING_TRENDS_THRESHOLD}%+ win rates.
+            <View style={styles.explainerItem}>
+              <View style={[styles.explainerIconSmall, { backgroundColor: 'rgba(245, 158, 11, 0.12)' }]}>
+                <MaterialCommunityIcons name="lightning-bolt" size={14} color="#f59e0b" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.explainerItemTitle, { color: theme.colors.onSurface }]}>Model Fade Alerts</Text>
+                <Text style={[styles.explainerItemDesc, { color: theme.colors.onSurfaceVariant }]}>
+                  When our model shows extreme confidence (80%+ NFL, 10+ pt edge NBA/NCAAB), backtesting shows fading these picks has been more profitable historically.
                 </Text>
+              </View>
             </View>
 
-            {nbaTrendsLoading ? (
-                <View>
-                    {[1, 2, 3].map((i) => (
-                        <AlertCardShimmer key={`nba-trends-${i}`} />
-                    ))}
-                </View>
-            ) : nbaTrendOutliers.length > 0 ? (
-                <View style={styles.cardsGrid}>
-                    {nbaTrendOutliers.slice(0, visibleAlertCount).map(renderTrendOutlierCard)}
-
-                    {shouldShowLocks && Math.min(3, Math.max(0, nbaTrendOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, nbaTrendOutliers.length - 2)) }).map((_, index) => (
-                      <LockedOverlay
-                        key={`locked-nba-trends-${index}`}
-                        message="Unlock all alerts with Pro"
-                        style={styles.lockedAlertCard}
-                      />
-                    ))}
-
-                    <PaperButton
-                      mode="outlined"
-                      onPress={() => router.push('/(drawer)/(tabs)/nba-betting-trends')}
-                      style={styles.showMoreButton}
-                    >
-                      Open NBA Betting Trends
-                    </PaperButton>
-                </View>
-            ) : (
-                <View style={styles.emptyState}>
-                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
-                        No NBA ATS/O-U trend outliers at {BETTING_TRENDS_THRESHOLD}%+ right now.
-                     </Text>
-                </View>
-            )}
-        </View>
-
-        {/* Section 4: NCAAB Betting Trends Outliers */}
-        <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-                <View style={styles.titleRow}>
-                    <MaterialCommunityIcons name="basketball-hoop" size={20} color={theme.colors.onSurface} />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>NCAAB Betting Trends Outliers</Text>
-                </View>
-                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-                    Highest ATS and O/U trend widgets at {BETTING_TRENDS_THRESHOLD}%+ win rates.
+            <View style={styles.explainerItem}>
+              <View style={[styles.explainerIconSmall, { backgroundColor: 'rgba(14, 165, 233, 0.12)' }]}>
+                <MaterialCommunityIcons name="basketball" size={14} color="#0ea5e9" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.explainerItemTitle, { color: theme.colors.onSurface }]}>Betting Trends</Text>
+                <Text style={[styles.explainerItemDesc, { color: theme.colors.onSurfaceVariant }]}>
+                  Situational ATS and O/U trends with {BETTING_TRENDS_THRESHOLD}%+ win rates over meaningful sample sizes. Based on recent form, rest, and matchup context.
                 </Text>
+              </View>
             </View>
 
-            {ncaabTrendsLoading ? (
-                <View>
-                    {[1, 2, 3].map((i) => (
-                        <AlertCardShimmer key={`ncaab-trends-${i}`} />
-                    ))}
-                </View>
-            ) : ncaabTrendOutliers.length > 0 ? (
-                <View style={styles.cardsGrid}>
-                    {ncaabTrendOutliers.slice(0, visibleAlertCount).map(renderTrendOutlierCard)}
-
-                    {shouldShowLocks && Math.min(3, Math.max(0, ncaabTrendOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, ncaabTrendOutliers.length - 2)) }).map((_, index) => (
-                      <LockedOverlay
-                        key={`locked-ncaab-trends-${index}`}
-                        message="Unlock all alerts with Pro"
-                        style={styles.lockedAlertCard}
-                      />
-                    ))}
-
-                    <PaperButton
-                      mode="outlined"
-                      onPress={() => router.push('/(drawer)/(tabs)/ncaab-betting-trends')}
-                      style={styles.showMoreButton}
-                    >
-                      Open NCAAB Betting Trends
-                    </PaperButton>
-                </View>
-            ) : (
-                <View style={styles.emptyState}>
-                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
-                        No NCAAB ATS/O-U trend outliers at {BETTING_TRENDS_THRESHOLD}%+ right now.
-                     </Text>
-                </View>
-            )}
-        </View>
-
-        {/* Section 5: NBA Model Accuracy Outliers */}
-        <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-                <View style={styles.titleRow}>
-                    <MaterialCommunityIcons name="bullseye-arrow" size={20} color="#14b8a6" />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>NBA Model Accuracy Outliers</Text>
-                </View>
-                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-                    Spread, ML, and O/U predictions with notable historical accuracy ({'>'}={NBA_ACCURACY_HIGH_THRESHOLD}% or {'<'}={NBA_ACCURACY_LOW_THRESHOLD}%) on {NBA_ACCURACY_MIN_GAMES}+ game samples.
+            <View style={styles.explainerItem}>
+              <View style={[styles.explainerIconSmall, { backgroundColor: 'rgba(20, 184, 166, 0.12)' }]}>
+                <MaterialCommunityIcons name="bullseye-arrow" size={14} color="#14b8a6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.explainerItemTitle, { color: theme.colors.onSurface }]}>Model Accuracy</Text>
+                <Text style={[styles.explainerItemDesc, { color: theme.colors.onSurfaceVariant }]}>
+                  Historical accuracy of our model in similar edge situations. High accuracy ({'>'}65%) suggests reliable signal; low accuracy ({'<'}35%) suggests a profitable fade opportunity.
                 </Text>
+              </View>
             </View>
+          </View>
 
-            {nbaAccuracyLoading ? (
-                <View>
-                    {[1, 2, 3].map((i) => (
-                        <AlertCardShimmer key={`nba-acc-${i}`} />
-                    ))}
-                </View>
-            ) : nbaAccuracyOutliers.length > 0 ? (
-                <View style={styles.cardsGrid}>
-                    {nbaAccuracyOutliers.slice(0, visibleAlertCount).map(renderAccuracyOutlierCard)}
-
-                    {shouldShowLocks && Math.min(3, Math.max(0, nbaAccuracyOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, nbaAccuracyOutliers.length - 2)) }).map((_, index) => (
-                      <LockedOverlay
-                        key={`locked-nba-acc-${index}`}
-                        message="Unlock all alerts with Pro"
-                        style={styles.lockedAlertCard}
-                      />
-                    ))}
-
-                    <PaperButton
-                      mode="outlined"
-                      onPress={() => router.push('/(drawer)/(tabs)/nba-model-accuracy')}
-                      style={styles.showMoreButton}
-                    >
-                      Open NBA Model Accuracy
-                    </PaperButton>
-                </View>
-            ) : (
-                <View style={styles.emptyState}>
-                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
-                        No NBA model accuracy outliers at {NBA_ACCURACY_HIGH_THRESHOLD}%+ or {NBA_ACCURACY_LOW_THRESHOLD}%- right now.
-                     </Text>
-                </View>
-            )}
-        </View>
-
-        {/* Section 6: NCAAB Model Accuracy Outliers */}
-        <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-                <View style={styles.titleRow}>
-                    <MaterialCommunityIcons name="bullseye-arrow" size={20} color="#f59e0b" />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>NCAAB Model Accuracy Outliers</Text>
-                </View>
-                <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}>
-                    Spread and O/U predictions with extreme historical accuracy ({'>'}={NCAAB_ACCURACY_HIGH_THRESHOLD}% or {'<'}={NCAAB_ACCURACY_LOW_THRESHOLD}%) on {NCAAB_ACCURACY_MIN_GAMES}+ game samples.
-                </Text>
-            </View>
-
-            {ncaabAccuracyLoading ? (
-                <View>
-                    {[1, 2, 3].map((i) => (
-                        <AlertCardShimmer key={`ncaab-acc-${i}`} />
-                    ))}
-                </View>
-            ) : ncaabAccuracyOutliers.length > 0 ? (
-                <View style={styles.cardsGrid}>
-                    {ncaabAccuracyOutliers.slice(0, visibleAlertCount).map(renderAccuracyOutlierCard)}
-
-                    {shouldShowLocks && Math.min(3, Math.max(0, ncaabAccuracyOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, ncaabAccuracyOutliers.length - 2)) }).map((_, index) => (
-                      <LockedOverlay
-                        key={`locked-ncaab-acc-${index}`}
-                        message="Unlock all alerts with Pro"
-                        style={styles.lockedAlertCard}
-                      />
-                    ))}
-
-                    <PaperButton
-                      mode="outlined"
-                      onPress={() => router.push('/(drawer)/(tabs)/ncaab-model-accuracy')}
-                      style={styles.showMoreButton}
-                    >
-                      Open NCAAB Model Accuracy
-                    </PaperButton>
-                </View>
-            ) : (
-                <View style={styles.emptyState}>
-                     <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
-                        No NCAAB model accuracy outliers at {NCAAB_ACCURACY_HIGH_THRESHOLD}%+ or {NCAAB_ACCURACY_LOW_THRESHOLD}%- right now.
-                     </Text>
-                </View>
-            )}
+          <View style={[styles.explainerDisclaimer, { borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}>
+            <Text style={[styles.explainerDisclaimerText, { color: theme.colors.onSurfaceVariant }]}>
+              Outliers are statistical edges, not guarantees. Use them as one factor in your analysis alongside your own research. Past performance does not guarantee future results.
+            </Text>
+          </View>
         </View>
 
       </Animated.ScrollView>
+       )}
+
+       {/* Outliers Tab — Detail View */}
+       {activeTab === 'outliers' && selectedCategory !== null && (
+       <View style={{ flex: 1 }}>
+         {/* Frosted Glass Header */}
+         <View style={[styles.fixedHeaderContainer, { height: insets.top + 56 }]}>
+           <AndroidBlurView
+             intensity={80}
+             tint={isDark ? 'dark' : 'light'}
+             style={[styles.fixedHeader, { paddingTop: insets.top }]}
+           >
+             <View style={styles.headerTop}>
+               <TouchableOpacity onPress={() => setSelectedCategory(null)} style={styles.detailBackButton}>
+                 <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
+               </TouchableOpacity>
+
+               <View style={styles.detailTitleContainer}>
+                 <MaterialCommunityIcons
+                   name={
+                     selectedCategory === 'value' ? 'trending-up' :
+                     selectedCategory === 'fade' ? 'lightning-bolt' :
+                     selectedCategory === 'nba-trends' || selectedCategory === 'ncaab-trends' ? 'basketball' :
+                     'bullseye-arrow'
+                   }
+                   size={22}
+                   color="#00E676"
+                 />
+                 <Text style={[styles.detailTitle, { color: theme.colors.onSurface }]}>
+                   {selectedCategory === 'value' && 'Prediction Market Alerts'}
+                   {selectedCategory === 'fade' && 'Model Fade Alerts'}
+                   {selectedCategory === 'nba-trends' && 'NBA Betting Trends'}
+                   {selectedCategory === 'ncaab-trends' && 'NCAAB Betting Trends'}
+                   {selectedCategory === 'nba-accuracy' && 'NBA Model Accuracy'}
+                   {selectedCategory === 'ncaab-accuracy' && 'NCAAB Model Accuracy'}
+                 </Text>
+               </View>
+
+               <TouchableOpacity onPress={onRefresh} style={styles.detailRefreshButton} disabled={refreshing}>
+                 {refreshing ? (
+                   <ActivityIndicator size="small" color="#00E676" />
+                 ) : (
+                   <MaterialCommunityIcons name="refresh" size={22} color={theme.colors.onSurface} />
+                 )}
+               </TouchableOpacity>
+             </View>
+           </AndroidBlurView>
+         </View>
+
+         <ScrollView
+           contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 56 + 16, paddingBottom: TAB_BAR_HEIGHT + 20 }]}
+           showsVerticalScrollIndicator={true}
+           refreshControl={
+             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} progressViewOffset={insets.top + 56} />
+           }
+         >
+           {/* Value Alerts Detail */}
+           {selectedCategory === 'value' && (
+             <>
+               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
+                 Markets where prediction market odds show disagreement with lines or strong consensus.
+               </Text>
+               {renderSportFilter(valueAlerts || [], valueAlertsFilter, setValueAlertsFilter)}
+               {valueAlertsLoading || gamesLoading ? (
+                 <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={i} />)}</View>
+               ) : filteredValueAlerts.length > 0 ? (
+                 <View style={styles.cardsGrid}>
+                   {filteredValueAlerts.slice(0, shouldShowLocks ? 2 : undefined).map(renderValueAlertCard)}
+                   {lockedValueAlertsCount > 0 && Array.from({ length: lockedValueAlertsCount }).map((_, index) => (
+                     <LockedOverlay key={`locked-value-${index}`} message="Unlock all alerts with Pro" style={styles.lockedAlertCard} />
+                   ))}
+                 </View>
+               ) : (
+                 <View style={styles.emptyState}>
+                   <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                     No {valueAlertsFilter ? valueAlertsFilter.toUpperCase() : ''} value alerts found for this week.
+                   </Text>
+                 </View>
+               )}
+             </>
+           )}
+
+           {/* Fade Alerts Detail */}
+           {selectedCategory === 'fade' && (
+             <>
+               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
+                 When our model shows extreme confidence, historical backtesting reveals fading has been more profitable.
+               </Text>
+               {renderSportFilter(fadeAlerts || [], fadeAlertsFilter, setFadeAlertsFilter)}
+               {fadeAlertsLoading || gamesLoading ? (
+                 <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={i} />)}</View>
+               ) : filteredFadeAlerts.length > 0 ? (
+                 <View style={styles.cardsGrid}>
+                   {filteredFadeAlerts.slice(0, shouldShowLocks ? 2 : undefined).map(renderFadeAlertCard)}
+                   {lockedFadeAlertsCount > 0 && Array.from({ length: lockedFadeAlertsCount }).map((_, index) => (
+                     <LockedOverlay key={`locked-fade-${index}`} message="Unlock all alerts with Pro" style={styles.lockedAlertCard} />
+                   ))}
+                 </View>
+               ) : (
+                 <View style={styles.emptyState}>
+                   <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                     No {fadeAlertsFilter ? fadeAlertsFilter.toUpperCase() : ''} model alerts found for today.
+                   </Text>
+                 </View>
+               )}
+             </>
+           )}
+
+           {/* NBA Trends Detail */}
+           {selectedCategory === 'nba-trends' && (
+             <>
+               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
+                 Highest ATS and O/U trends at {BETTING_TRENDS_THRESHOLD}%+ win rates.
+               </Text>
+               {nbaTrendsLoading ? (
+                 <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={`nba-trends-${i}`} />)}</View>
+               ) : nbaTrendOutliers.length > 0 ? (
+                 <View style={styles.cardsGrid}>
+                   {nbaTrendOutliers.slice(0, shouldShowLocks ? 2 : undefined).map(renderTrendOutlierCard)}
+                   {shouldShowLocks && Math.min(3, Math.max(0, nbaTrendOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, nbaTrendOutliers.length - 2)) }).map((_, index) => (
+                     <LockedOverlay key={`locked-nba-trends-${index}`} message="Unlock all alerts with Pro" style={styles.lockedAlertCard} />
+                   ))}
+                 </View>
+               ) : (
+                 <View style={styles.emptyState}>
+                   <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                     No NBA ATS/O-U trend outliers at {BETTING_TRENDS_THRESHOLD}%+ right now.
+                   </Text>
+                 </View>
+               )}
+             </>
+           )}
+
+           {/* NCAAB Trends Detail */}
+           {selectedCategory === 'ncaab-trends' && (
+             <>
+               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
+                 Highest ATS and O/U trends at {BETTING_TRENDS_THRESHOLD}%+ win rates.
+               </Text>
+               {ncaabTrendsLoading ? (
+                 <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={`ncaab-trends-${i}`} />)}</View>
+               ) : ncaabTrendOutliers.length > 0 ? (
+                 <View style={styles.cardsGrid}>
+                   {ncaabTrendOutliers.slice(0, shouldShowLocks ? 2 : undefined).map(renderTrendOutlierCard)}
+                   {shouldShowLocks && Math.min(3, Math.max(0, ncaabTrendOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, ncaabTrendOutliers.length - 2)) }).map((_, index) => (
+                     <LockedOverlay key={`locked-ncaab-trends-${index}`} message="Unlock all alerts with Pro" style={styles.lockedAlertCard} />
+                   ))}
+                 </View>
+               ) : (
+                 <View style={styles.emptyState}>
+                   <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                     No NCAAB ATS/O-U trend outliers at {BETTING_TRENDS_THRESHOLD}%+ right now.
+                   </Text>
+                 </View>
+               )}
+             </>
+           )}
+
+           {/* NBA Accuracy Detail */}
+           {selectedCategory === 'nba-accuracy' && (
+             <>
+               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
+                 Spread, ML, and O/U predictions with notable historical accuracy ({'>'}={NBA_ACCURACY_HIGH_THRESHOLD}% or {'<'}={NBA_ACCURACY_LOW_THRESHOLD}%) on {NBA_ACCURACY_MIN_GAMES}+ game samples.
+               </Text>
+               {nbaAccuracyLoading ? (
+                 <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={`nba-acc-${i}`} />)}</View>
+               ) : nbaAccuracyOutliers.length > 0 ? (
+                 <View style={styles.cardsGrid}>
+                   {nbaAccuracyOutliers.slice(0, shouldShowLocks ? 2 : undefined).map(renderAccuracyOutlierCard)}
+                   {shouldShowLocks && Math.min(3, Math.max(0, nbaAccuracyOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, nbaAccuracyOutliers.length - 2)) }).map((_, index) => (
+                     <LockedOverlay key={`locked-nba-acc-${index}`} message="Unlock all alerts with Pro" style={styles.lockedAlertCard} />
+                   ))}
+                 </View>
+               ) : (
+                 <View style={styles.emptyState}>
+                   <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                     No NBA model accuracy outliers at {NBA_ACCURACY_HIGH_THRESHOLD}%+ or {NBA_ACCURACY_LOW_THRESHOLD}%- right now.
+                   </Text>
+                 </View>
+               )}
+             </>
+           )}
+
+           {/* NCAAB Accuracy Detail */}
+           {selectedCategory === 'ncaab-accuracy' && (
+             <>
+               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
+                 Spread and O/U predictions with extreme historical accuracy ({'>'}={NCAAB_ACCURACY_HIGH_THRESHOLD}% or {'<'}={NCAAB_ACCURACY_LOW_THRESHOLD}%) on {NCAAB_ACCURACY_MIN_GAMES}+ game samples.
+               </Text>
+               {ncaabAccuracyLoading ? (
+                 <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={`ncaab-acc-${i}`} />)}</View>
+               ) : ncaabAccuracyOutliers.length > 0 ? (
+                 <View style={styles.cardsGrid}>
+                   {ncaabAccuracyOutliers.slice(0, shouldShowLocks ? 2 : undefined).map(renderAccuracyOutlierCard)}
+                   {shouldShowLocks && Math.min(3, Math.max(0, ncaabAccuracyOutliers.length - 2)) > 0 && Array.from({ length: Math.min(3, Math.max(0, ncaabAccuracyOutliers.length - 2)) }).map((_, index) => (
+                     <LockedOverlay key={`locked-ncaab-acc-${index}`} message="Unlock all alerts with Pro" style={styles.lockedAlertCard} />
+                   ))}
+                 </View>
+               ) : (
+                 <View style={styles.emptyState}>
+                   <Text style={[styles.emptyStateText, { color: theme.colors.onSurfaceVariant }]}>
+                     No NCAAB model accuracy outliers at {NCAAB_ACCURACY_HIGH_THRESHOLD}%+ or {NCAAB_ACCURACY_LOW_THRESHOLD}%- right now.
+                   </Text>
+                 </View>
+               )}
+             </>
+           )}
+         </ScrollView>
+       </View>
        )}
 
       {/* Modals */}
@@ -1983,5 +2368,174 @@ const styles = StyleSheet.create({
   fadeReasonText: {
     fontSize: 11,
     fontStyle: 'italic',
+  },
+  // Hub styles
+  hubGrid: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  hubCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  hubCardGradient: {
+    padding: 16,
+  },
+  hubCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  hubCardIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  hubCardIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hubCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  hubCountText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  hubCardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  hubCardDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  hubCardPreview: {
+    gap: 4,
+  },
+  hubPreviewItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  hubPreviewLogos: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  hubPreviewVs: {
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  hubPreviewMain: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  hubPreviewSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  hubPreviewShimmer: {
+    height: 14,
+    borderRadius: 7,
+    width: '70%',
+  },
+  hubCardEmpty: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  // Detail view styles
+  detailBackButton: {
+    padding: 8,
+    marginRight: 4,
+  },
+  detailTitleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  detailRefreshButton: {
+    padding: 8,
+  },
+  // Explainer styles
+  explainerContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+  },
+  explainerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  explainerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  explainerSection: {
+    gap: 12,
+    marginBottom: 12,
+  },
+  explainerSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  explainerBody: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  explainerItem: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  explainerIconSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  explainerItemTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  explainerItemDesc: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  explainerDisclaimer: {
+    borderTopWidth: 1,
+    paddingTop: 12,
+    marginTop: 4,
+  },
+  explainerDisclaimerText: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

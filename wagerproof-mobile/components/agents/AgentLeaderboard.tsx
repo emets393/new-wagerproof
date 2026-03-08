@@ -19,6 +19,7 @@ import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 import { useLeaderboardByMode } from '@/hooks/useLeaderboard';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
+import { usePrefetchAgentPicks } from '@/hooks/useAgentPicks';
 import { LeaderboardEntry, LeaderboardSortMode, LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import { Sport, formatNetUnits } from '@/types/agent';
 
@@ -60,7 +61,7 @@ interface AgentLeaderboardProps {
 }
 
 // Leaderboard Row component
-function LeaderboardRow({
+const LeaderboardRow = React.memo(function LeaderboardRow({
   entry,
   rank,
   onPress,
@@ -236,7 +237,7 @@ function LeaderboardRow({
       />
     </TouchableOpacity>
   );
-}
+});
 
 // Empty State component
 function EmptyState({ isDark }: { isDark: boolean }) {
@@ -393,6 +394,9 @@ export function AgentLeaderboard({
   const [excludeUnder10Picks, setExcludeUnder10Picks] = useState(false);
   const lockStats = !(isPro || isAdmin);
 
+  // Prefetch agent picks on press for faster detail screen load
+  const prefetchPicks = usePrefetchAgentPicks();
+
   // Fetch leaderboard
   const {
     data: leaderboard,
@@ -403,13 +407,14 @@ export function AgentLeaderboard({
 
   const displayLeaderboard = (leaderboard || []).map((entry, index) => ({ entry, rank: index + 1 }));
 
-  // Handle row press
+  // Handle row press - prefetch picks data before navigating for faster load
   const handleRowPress = useCallback(
     (entry: LeaderboardEntry) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      prefetchPicks(entry.avatar_id);
       router.push(`/agents/public/${entry.avatar_id}` as any);
     },
-    [router]
+    [router, prefetchPicks]
   );
 
   // Handle refresh
@@ -640,6 +645,10 @@ export function AgentLeaderboard({
           scrollEventThrottle={scrollEventThrottle}
           bounces={false}
           overScrollMode="never"
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={15}
+          windowSize={7}
+          initialNumToRender={10}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}

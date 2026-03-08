@@ -32,7 +32,7 @@ function parseAvatarColor(value: string): { isGradient: boolean; colors: string[
   return { isGradient: false, colors: [value] };
 }
 
-export function AgentCard({ agent, onPress }: AgentCardProps) {
+export const AgentCard = React.memo(function AgentCard({ agent, onPress }: AgentCardProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
 
@@ -215,7 +215,7 @@ export function AgentCard({ agent, onPress }: AgentCardProps) {
       </Card>
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

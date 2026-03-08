@@ -254,6 +254,7 @@ async function fetchLeaderboardFallback(
     let leaderboard: LeaderboardEntry[];
 
     if (timeframe === 'all_time') {
+      // Fetch performance data (agents already loaded above)
       const { data: performances, error: perfError } = await supabase
         .from('avatar_performance_cache')
         .select('*')

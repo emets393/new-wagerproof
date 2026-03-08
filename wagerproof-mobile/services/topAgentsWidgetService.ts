@@ -131,7 +131,8 @@ export async function fetchTopAgentsForWidget(userId: string): Promise<TopAgentW
     .from('avatar_picks')
     .select('*')
     .in('avatar_id', selectedIds)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(MAX_WIDGET_AGENTS * PICKS_PER_AGENT * 5);
 
   if (picksError) {
     console.error('Error fetching agent picks for widget:', picksError);

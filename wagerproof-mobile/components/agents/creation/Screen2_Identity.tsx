@@ -112,31 +112,33 @@ export function Screen2_Identity({
             },
           ]}
         >
-          <GlowingCardWrapper color={parsed.colors[0]} borderRadius={24}>
-            {parsed.isGradient ? (
-              <LinearGradient
-                colors={parsed.colors as [string, string]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.avatarPreview, { borderColor: primaryColor }]}
-              >
-                <Text style={styles.avatarEmoji}>
-                  {emoji || '\u2753'}
-                </Text>
-              </LinearGradient>
-            ) : (
-              <View
-                style={[
-                  styles.avatarPreview,
-                  { backgroundColor: `${color}30`, borderColor: color },
-                ]}
-              >
-                <Text style={styles.avatarEmoji}>
-                  {emoji || '\u2753'}
-                </Text>
-              </View>
-            )}
-          </GlowingCardWrapper>
+          <View style={{ marginBottom: 12 }}>
+            <GlowingCardWrapper color={parsed.colors[0]} borderRadius={24}>
+              {parsed.isGradient ? (
+                <LinearGradient
+                  colors={parsed.colors as [string, string]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.avatarPreview, { borderColor: primaryColor }]}
+                >
+                  <Text style={styles.avatarEmoji}>
+                    {emoji || '\u2753'}
+                  </Text>
+                </LinearGradient>
+              ) : (
+                <View
+                  style={[
+                    styles.avatarPreview,
+                    { backgroundColor: `${color}30`, borderColor: color },
+                  ]}
+                >
+                  <Text style={styles.avatarEmoji}>
+                    {emoji || '\u2753'}
+                  </Text>
+                </View>
+              )}
+            </GlowingCardWrapper>
+          </View>
           <Text
             style={[
               styles.previewName,
@@ -333,7 +335,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    marginBottom: 12,
   },
   avatarEmoji: {
     fontSize: 40,

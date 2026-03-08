@@ -44,7 +44,7 @@ interface SwipeableEmojiPickerProps {
 // COMPONENT
 // ============================================================================
 
-const EMOJIS_PER_PAGE = 8; // 2 rows x 4 columns
+const EMOJIS_PER_PAGE = 10; // 2 rows x 5 columns
 const PAGE_COUNT = Math.ceil(AGENT_EMOJIS.length / EMOJIS_PER_PAGE);
 
 export function SwipeableEmojiPicker({
@@ -86,8 +86,8 @@ export function SwipeableEmojiPicker({
       i * EMOJIS_PER_PAGE,
       (i + 1) * EMOJIS_PER_PAGE
     );
-    const row1 = pageEmojis.slice(0, 4);
-    const row2 = pageEmojis.slice(4, 8);
+    const row1 = pageEmojis.slice(0, 5);
+    const row2 = pageEmojis.slice(5, 10);
     pages.push({ row1, row2 });
   }
 
@@ -197,23 +197,23 @@ export function SwipeableEmojiPicker({
 
 const styles = StyleSheet.create({
   page: {
-    gap: 8,
+    gap: 6,
     paddingVertical: 4,
   },
   emojiRow: {
     flexDirection: 'row',
     justifyContent: 'space-evenly',
-    gap: 8,
+    gap: 6,
   },
   emojiButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   emojiText: {
-    fontSize: 26,
+    fontSize: 22,
   },
   dotsContainer: {
     flexDirection: 'row',

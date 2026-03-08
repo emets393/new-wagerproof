@@ -32,6 +32,8 @@ export const pickKeys = {
 
 interface PickQueryOptions {
   enabled?: boolean;
+  /** When false, disables refetchInterval to save battery when screen not visible */
+  focused?: boolean;
 }
 
 // ============================================================================
@@ -57,7 +59,7 @@ export function useAgentPicks(
         (filters?.result || 'all') as 'all' | 'won' | 'lost' | 'pending' | 'push',
         50,
         null,
-        true
+        false // skip expensive LATERAL overlap subqueries for pick history
       );
       return result.picks;
     },
@@ -125,8 +127,8 @@ export function useTodaysPicks(agentId: string, options?: PickQueryOptions) {
     },
     enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000, // 2 minutes
-    // Refetch more frequently for today's picks
-    refetchInterval: 5 * 60 * 1000, // 5 minutes
+    // Only poll when screen is focused to save battery
+    refetchInterval: (options?.focused ?? true) ? 5 * 60 * 1000 : false,
   });
 }
 
@@ -136,7 +138,8 @@ export function useTodaysGenerationRun(agentId: string, options?: PickQueryOptio
     queryFn: () => fetchTodaysGenerationRun(agentId),
     enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
+    // Only poll when screen is focused to save battery
+    refetchInterval: (options?.focused ?? true) ? 5 * 60 * 1000 : false,
   });
 }
 
@@ -159,16 +162,15 @@ export function useGeneratePicks() {
       return { agentId, result };
     },
     onSuccess: ({ agentId, result }) => {
-      // Invalidate all pick-related queries for this agent
+      // Invalidate pick queries scoped to this agent only
       queryClient.invalidateQueries({ queryKey: pickKeys.list(agentId) });
       queryClient.invalidateQueries({ queryKey: pickKeys.pending(agentId) });
       queryClient.invalidateQueries({ queryKey: pickKeys.today(agentId) });
       queryClient.invalidateQueries({ queryKey: pickKeys.todayRun(agentId) });
-
-      // Also invalidate performance since it may have changed
-      queryClient.invalidateQueries({
-        queryKey: agentKeys.detail(agentId),
-      });
+      // Invalidate the detail snapshot (includes today's picks)
+      queryClient.invalidateQueries({ queryKey: ['agent-detail-snapshot-v2', agentId] });
+      // Also invalidate agent detail for performance stats
+      queryClient.invalidateQueries({ queryKey: agentKeys.detail(agentId) });
     },
     onError: (error) => {
       console.error('Error generating picks:', error);
@@ -195,21 +197,30 @@ export function useInvalidateAgentPicks(agentId: string) {
  */
 export function usePrefetchAgentPicks() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return (agentId: string, filters?: AgentPicksFilters) => {
+    // Prefetch picks data
     queryClient.prefetchQuery({
-      queryKey: pickKeys.list(agentId, filters),
+      // Match the same query key used by useAgentPicks (includes user?.id)
+      queryKey: [...pickKeys.list(agentId, filters), user?.id],
       queryFn: async () => {
         const result = await fetchAgentPicksPageV2(
           agentId,
-          undefined,
+          user?.id,
           (filters?.result || 'all') as 'all' | 'won' | 'lost' | 'pending' | 'push',
           50,
           null,
-          true
+          false // skip expensive overlap subqueries for prefetch
         );
         return result.picks;
       },
+      staleTime: 2 * 60 * 1000,
+    });
+    // Also prefetch the detail snapshot (agent profile + today's picks)
+    queryClient.prefetchQuery({
+      queryKey: ['agent-detail-snapshot-v2', agentId, user?.id],
+      queryFn: () => fetchAgentDetailSnapshotV2(agentId, user?.id),
       staleTime: 2 * 60 * 1000,
     });
   };
