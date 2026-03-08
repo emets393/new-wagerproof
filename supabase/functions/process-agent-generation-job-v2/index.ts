@@ -357,20 +357,68 @@ serve(async (req) => {
       return workerResponse(run.id, 'failed_retryable', 0, startTime);
     }
 
-    const validationResult = AIResponseSchema.safeParse(aiResponse);
-    if (!validationResult.success && (!aiResponse.picks || !Array.isArray(aiResponse.picks))) {
+    // ── Structural validation (hard block) ─────────────────────────────
+    // Must have a picks array at minimum
+    if (!aiResponse.picks || !Array.isArray(aiResponse.picks) || aiResponse.picks.length === 0) {
       await markFailed(supabaseClient, run.id, 'VALIDATION_ERROR', 'AI response missing picks array', false);
       return workerResponse(run.id, 'failed_terminal', 0, startTime);
     }
 
-    const picks = aiResponse.picks as GeneratedPick[];
+    // Validate each pick individually — keep structurally valid ones, drop bad ones
+    const validatedPicks: GeneratedPick[] = [];
+    const droppedPicks: { index: number; reason: string }[] = [];
+
+    for (let i = 0; i < aiResponse.picks.length; i++) {
+      const rawPick = aiResponse.picks[i];
+
+      // Structural checks (hard requirements — must have correct types & required fields)
+      const hasGameId = typeof rawPick?.game_id === 'string' && rawPick.game_id.length > 0;
+      const hasBetType = ['spread', 'moneyline', 'total'].includes(rawPick?.bet_type);
+      const hasSelection = typeof rawPick?.selection === 'string' && rawPick.selection.length > 0;
+      const hasOdds = typeof rawPick?.odds === 'string' && /^[+-]?\d+$/.test(rawPick.odds);
+      const oddsValue = hasOdds ? parseInt(rawPick.odds, 10) : 0;
+      const oddsNonZero = oddsValue !== 0;
+      const oddsInRange = Math.abs(oddsValue) >= 100 && Math.abs(oddsValue) <= 5000;
+      const hasConfidence = typeof rawPick?.confidence === 'number' && rawPick.confidence >= 1 && rawPick.confidence <= 5;
+
+      if (!hasGameId) { droppedPicks.push({ index: i, reason: 'missing_game_id' }); continue; }
+      if (!hasBetType) { droppedPicks.push({ index: i, reason: 'invalid_bet_type' }); continue; }
+      if (!hasSelection) { droppedPicks.push({ index: i, reason: 'missing_selection' }); continue; }
+      if (!hasOdds || !oddsNonZero) { droppedPicks.push({ index: i, reason: 'invalid_odds_format' }); continue; }
+      if (!oddsInRange) { droppedPicks.push({ index: i, reason: `odds_out_of_range:${rawPick.odds}` }); continue; }
+      if (!hasConfidence) { droppedPicks.push({ index: i, reason: 'invalid_confidence' }); continue; }
+
+      // Quality checks (warn + log, but don't drop)
+      const reasoning = typeof rawPick.reasoning === 'string' ? rawPick.reasoning : '';
+      const keyFactors = Array.isArray(rawPick.key_factors) ? rawPick.key_factors : [];
+      if (reasoning.length < 50) {
+        console.warn(`[Validator] Pick ${i} has short reasoning (${reasoning.length} chars)`);
+      }
+      if (keyFactors.length < 3) {
+        console.warn(`[Validator] Pick ${i} has few key_factors (${keyFactors.length})`);
+      }
+
+      validatedPicks.push(rawPick as GeneratedPick);
+    }
+
+    if (droppedPicks.length > 0) {
+      console.warn(`[Validator] Dropped ${droppedPicks.length} picks:`, JSON.stringify(droppedPicks));
+    }
+
+    if (validatedPicks.length === 0) {
+      await markFailed(supabaseClient, run.id, 'VALIDATION_ERROR', `All ${aiResponse.picks.length} picks failed validation: ${JSON.stringify(droppedPicks)}`, false);
+      return workerResponse(run.id, 'failed_terminal', 0, startTime);
+    }
+
     const maxPicks = getMaxPicks(avatarProfile.personality_params?.max_picks_per_day);
-    const limitedPicks = picks.slice(0, maxPicks);
+    const limitedPicks = validatedPicks.slice(0, maxPicks);
 
     // -------------------------------------------------------------------------
-    // 12. Build and Insert Picks
+    // 12. Match Picks to Games + Deterministic Validation (Layer A)
     // -------------------------------------------------------------------------
     const picksToInsert: Record<string, unknown>[] = [];
+    const validatorDrops: { game_id: string; reason: string }[] = [];
+    const seenGameBetTypes = new Set<string>();
 
     for (const pick of limitedPicks) {
       let gameSnapshot: Record<string, unknown> = {};
@@ -379,6 +427,7 @@ serve(async (req) => {
       let sportType: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl';
       let matchup = '';
       let gameDate = targetDate;
+      let gameMatched = false;
 
       for (const sd of allGamesData) {
         const foundFormatted = sd.formattedGames.find((g: unknown) => gameMatchesPickId(g, pick.game_id));
@@ -389,6 +438,7 @@ serve(async (req) => {
           matchup = String(game.matchup || `${game.away_team || ''} @ ${game.home_team || ''}` || `Game ${pick.game_id}`);
           gameDate = String(game.game_date || game.game_date_et || game.start_date || targetDate);
           if (!modelInputGamePayload) modelInputGamePayload = game;
+          gameMatched = true;
           break;
         }
 
@@ -402,9 +452,70 @@ serve(async (req) => {
           matchup = `${game.away_team} @ ${game.home_team}`;
           gameDate = String(game.game_date || game.game_date_et || game.start_date || targetDate);
           if (!modelInputGamePayload && matchedFormatted) modelInputGamePayload = matchedFormatted as Record<string, unknown>;
+          gameMatched = true;
           break;
         }
       }
+
+      // ── Deterministic validator checks ────────────────────────────────
+
+      // Check 1: game_id must match a real input game
+      if (!gameMatched) {
+        validatorDrops.push({ game_id: pick.game_id, reason: 'no_game_match' });
+        console.warn(`[Validator] DROP: game_id "${pick.game_id}" not found in input games`);
+        continue;
+      }
+
+      // Check 2: Duplicate game+bet_type in this batch (keep last)
+      const dedupKey = `${pick.game_id}::${pick.bet_type}`;
+      if (seenGameBetTypes.has(dedupKey)) {
+        // Remove the earlier pick for this game+bet_type, keep this one
+        const existingIdx = picksToInsert.findIndex(
+          (p) => p.game_id === pick.game_id && p.bet_type === pick.bet_type
+        );
+        if (existingIdx >= 0) {
+          picksToInsert.splice(existingIdx, 1);
+          console.warn(`[Validator] Replacing duplicate pick for ${dedupKey}`);
+        }
+      }
+      seenGameBetTypes.add(dedupKey);
+
+      // Check 3: Team in selection should reference a team in the matched game
+      const awayTeam = String(gameSnapshot.away_team || '').toLowerCase().trim();
+      const homeTeam = String(gameSnapshot.home_team || '').toLowerCase().trim();
+      const selectionLower = pick.selection.toLowerCase().trim();
+
+      if (pick.bet_type !== 'total' && awayTeam && homeTeam) {
+        // For spread/moneyline, selection must reference one of the teams
+        const awayWords = awayTeam.split(/\s+/);
+        const homeWords = homeTeam.split(/\s+/);
+        const awayLastWord = awayWords[awayWords.length - 1] || '';
+        const homeLastWord = homeWords[homeWords.length - 1] || '';
+
+        const matchesAway = selectionLower.includes(awayTeam) ||
+          selectionLower.includes(awayLastWord) ||
+          awayTeam.includes(selectionLower.split(/\s+/)[0] || '___');
+        const matchesHome = selectionLower.includes(homeTeam) ||
+          selectionLower.includes(homeLastWord) ||
+          homeTeam.includes(selectionLower.split(/\s+/)[0] || '___');
+
+        if (!matchesAway && !matchesHome) {
+          validatorDrops.push({ game_id: pick.game_id, reason: `team_not_in_matchup: "${pick.selection}" vs ${awayTeam}/${homeTeam}` });
+          console.warn(`[Validator] DROP: selection "${pick.selection}" doesn't match teams ${awayTeam} / ${homeTeam}`);
+          continue;
+        }
+      }
+
+      // Check 4: For spread/total bets, the relevant line should exist in game data
+      if (pick.bet_type === 'spread') {
+        const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
+        const spreadSummary = gameSnapshot.spread_summary as string | undefined;
+        if (!vegasLines && !spreadSummary && !gameSnapshot.spread) {
+          console.warn(`[Validator] FLAG: No spread data found for game ${pick.game_id} — pick may have fabricated line`);
+        }
+      }
+
+      // ── Pick passed validation, build record ─────────────────────────
 
       const formattedSnapshot = ensureFormattedGameSnapshot(gameSnapshot, sportType, pick.game_id);
 
@@ -427,12 +538,17 @@ serve(async (req) => {
           model_input_game_payload: modelInputGamePayload || formattedSnapshot,
           model_input_personality_payload: avatarProfile.personality_params,
           model_response_payload: pick,
+          validator_drops: validatorDrops.length > 0 ? validatorDrops : undefined,
         },
         archived_game_data: formattedSnapshot,
         archived_personality: avatarProfile.personality_params,
         result: 'pending',
         is_auto_generated: run.generation_type === 'auto',
       });
+    }
+
+    if (validatorDrops.length > 0) {
+      console.warn(`[Validator] Total deterministic drops: ${validatorDrops.length}`, JSON.stringify(validatorDrops));
     }
 
     // For manual generation: delete existing picks for same game date, then insert

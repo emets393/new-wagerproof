@@ -1,17 +1,18 @@
 /**
- * Calculate units won or lost based on bet result and odds
- * 
- * For negative odds (favorite, e.g., -120):
- * - Risk = (|odds|/100) * units
- * - Win = +units
- * - Loss = -risk
- * 
- * For positive odds (underdog, e.g., +180):
- * - Risk = units
- * - Win = +(odds/100) * units
- * - Loss = -units
- * 
- * Push: 0 units
+ * Canonical unit math — matches SQL recalculate_avatar_performance() and
+ * agentPerformanceService.calculateNetUnits().
+ *
+ * The bettor always risks `units` (1.0 for agents).
+ *
+ * Negative odds (favorite, e.g. -110):
+ *   Win  → +units * (100 / |odds|)   (you win LESS than you risk)
+ *   Loss → -units
+ *
+ * Positive odds (underdog, e.g. +150):
+ *   Win  → +units * (odds / 100)     (you win MORE than you risk)
+ *   Loss → -units
+ *
+ * Push / Pending → 0
  */
 
 export interface UnitsCalculationResult {
@@ -21,72 +22,68 @@ export interface UnitsCalculationResult {
 }
 
 /**
- * Parse odds string to number
- * Handles formats like "-110", "+180", "110" (assumed negative)
+ * Parse odds string to number.
+ * Handles "-110", "+180". Unsigned integers (e.g. "110") are treated as
+ * positive per standard American odds convention. Returns null for
+ * unparseable input, zero, or decimal values.
  */
 function parseOdds(oddsString: string | null | undefined): number | null {
   if (!oddsString) return null;
-  
-  const trimmed = oddsString.trim();
-  if (trimmed.startsWith('+')) {
-    return parseInt(trimmed.substring(1), 10);
-  } else if (trimmed.startsWith('-')) {
-    return parseInt(trimmed, 10);
-  } else {
-    // If no sign, assume negative (American odds convention)
-    const num = parseInt(trimmed, 10);
-    return num > 0 ? -num : num;
-  }
+
+  const trimmed = String(oddsString).trim();
+  // Reject decimal odds — American odds are always integers
+  if (!/^[+-]?\d+$/.test(trimmed)) return null;
+
+  const num = parseInt(trimmed, 10);
+  // odds = 0 is invalid (would cause division by zero)
+  if (!Number.isFinite(num) || num === 0) return null;
+
+  return num;
 }
 
 /**
- * Calculate units for a pick result
- * 
- * @param result - 'won', 'lost', 'push', or null/undefined
- * @param odds - The betting odds (e.g., "-110", "+180")
- * @param units - The number of units wagered
- * @returns UnitsCalculationResult with unitsWon, unitsLost, and netUnits
+ * Calculate units for a pick result.
+ *
+ * This is the CANONICAL implementation used across web, mobile, and charts.
+ * It matches the SQL function `recalculate_avatar_performance()` exactly:
+ *   WON + neg odds → units * (100 / |odds|)
+ *   WON + pos odds → units * (odds / 100)
+ *   LOST           → -units
  */
 export function calculateUnits(
   result: 'won' | 'lost' | 'push' | 'pending' | null | undefined,
   odds: string | number | null | undefined,
   units: number | null | undefined
 ): UnitsCalculationResult {
-  // Default to 0 if no result or pending
-  if (!result || result === 'pending' || !units || units === 0) {
+  if (!result || result === 'pending' || !units || units === 0 || !Number.isFinite(units)) {
     return { unitsWon: 0, unitsLost: 0, netUnits: 0 };
   }
 
-  // Push always returns 0
   if (result === 'push') {
     return { unitsWon: 0, unitsLost: 0, netUnits: 0 };
   }
 
-  // Parse odds
-  const oddsNum = typeof odds === 'number' ? odds : parseOdds(odds as string);
+  const oddsNum = typeof odds === 'number'
+    ? (odds === 0 ? null : odds)
+    : parseOdds(odds as string);
+
   if (oddsNum === null) {
-    // If no odds, can't calculate - return 0
     return { unitsWon: 0, unitsLost: 0, netUnits: 0 };
   }
 
   if (result === 'won') {
     if (oddsNum < 0) {
-      // Negative odds: win = +units
-      return { unitsWon: units, unitsLost: 0, netUnits: units };
+      // Negative odds: payout = units * (100 / |odds|)
+      const unitsWon = units * (100 / Math.abs(oddsNum));
+      return { unitsWon, unitsLost: 0, netUnits: unitsWon };
     } else {
-      // Positive odds: win = +(odds/100) * units
-      const unitsWon = (oddsNum / 100) * units;
+      // Positive odds: payout = units * (odds / 100)
+      const unitsWon = units * (oddsNum / 100);
       return { unitsWon, unitsLost: 0, netUnits: unitsWon };
     }
   } else if (result === 'lost') {
-    if (oddsNum < 0) {
-      // Negative odds: loss = -risk, where risk = (|odds|/100) * units
-      const risk = (Math.abs(oddsNum) / 100) * units;
-      return { unitsWon: 0, unitsLost: risk, netUnits: -risk };
-    } else {
-      // Positive odds: loss = -units
-      return { unitsWon: 0, unitsLost: units, netUnits: -units };
-    }
+    // Loss is always -units (the amount risked)
+    return { unitsWon: 0, unitsLost: units, netUnits: -units };
   }
 
   return { unitsWon: 0, unitsLost: 0, netUnits: 0 };

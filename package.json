@@ -16,6 +16,8 @@
     "test:avatar-game-data-payloads": "node scripts/test-avatar-game-data-payloads.mjs",
     "test:avatar-pick-audit-flow": "node scripts/test-avatar-pick-audit-flow.mjs",
     "postbuild": "node scripts/prerender.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -116,6 +118,7 @@
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
-    "vite": "^5.4.1"
+    "vite": "^5.4.1",
+    "vitest": "^3.2.4"
   }
 }

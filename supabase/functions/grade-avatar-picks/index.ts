@@ -574,6 +574,12 @@ serve(async (req) => {
         if (!gameResult) {
           summary.skipped++;
           incrementSkipReason(summary, 'game_not_found');
+          // Persist skip reason so it's not lost to ephemeral logs
+          if (!dryRun) {
+            await supabase.from('avatar_picks')
+              .update({ grading_skip_reason: 'no_game_result_found' })
+              .eq('id', pick.id);
+          }
           continue;
         }
 
@@ -582,6 +588,11 @@ serve(async (req) => {
           console.log(`[grade-avatar-picks] Skipping pick ${pick.id} — game not final or parse error`);
           summary.skipped++;
           incrementSkipReason(summary, 'not_final_or_parse_or_ambiguous');
+          if (!dryRun) {
+            await supabase.from('avatar_picks')
+              .update({ grading_skip_reason: 'not_final_or_parse_error' })
+              .eq('id', pick.id);
+          }
           continue;
         }
 
@@ -593,6 +604,7 @@ serve(async (req) => {
               result: grading.result,
               actual_result: grading.actual_result,
               graded_at: new Date().toISOString(),
+              grading_skip_reason: null, // Clear any previous skip reason on successful grade
             })
             .eq('id', pick.id);
 

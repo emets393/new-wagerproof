@@ -23,7 +23,7 @@ export const GeneratedPickSchema = z.object({
   game_id: z.string().min(1, 'game_id is required'),
   bet_type: z.enum(['spread', 'moneyline', 'total']),
   selection: z.string().min(1, 'selection is required'),
-  odds: z.string().regex(/^[+-]?\d+$/, 'odds must be in format like -110 or +150'),
+  odds: z.string().regex(/^[+-]\d+$/, 'odds must have explicit sign, e.g. -110 or +150'),
   confidence: z.number().int().min(1).max(5),
   reasoning: z.string().min(50).max(600),
   key_factors: z.array(z.string().min(10).max(200)).min(3).max(5),
