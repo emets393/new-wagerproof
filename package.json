@@ -16,6 +16,11 @@
     "test:avatar-game-data-payloads": "node scripts/test-avatar-game-data-payloads.mjs",
     "test:avatar-pick-audit-flow": "node scripts/test-avatar-pick-audit-flow.mjs",
     "postbuild": "node scripts/prerender.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:daily": "node scripts/run-daily-tests.mjs",
+    "test:daily:web": "vitest run --reporter=verbose",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -100,6 +105,9 @@
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "@tailwindcss/typography": "^0.5.15",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.5.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -109,6 +117,7 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
     "globals": "^15.9.0",
+    "jsdom": "^28.1.0",
     "lovable-tagger": "^1.1.7",
     "node-vibrant": "^4.0.4",
     "postcss": "^8.4.47",
@@ -116,6 +125,7 @@
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
-    "vite": "^5.4.1"
+    "vite": "^5.4.1",
+    "vitest": "^4.0.18"
   }
 }
