@@ -1,0 +1,54 @@
+name: Daily Tests
+
+# Runs every day at 8am ET (1pm UTC)
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  # Also runs on every push and PR so you catch issues immediately
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  # Lets you manually trigger it from the GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  web-tests:
+    name: Web App Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: true
+
+      - name: Run web tests
+        run: npm test
+
+  mobile-tests:
+    name: Mobile App Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wagerproof-mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: wagerproof-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run mobile tests
+        run: npm test
