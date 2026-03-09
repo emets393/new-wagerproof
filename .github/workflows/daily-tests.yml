@@ -52,3 +52,35 @@ jobs:
 
       - name: Run mobile tests
         run: npm test
+
+  # Send email notification with test results
+  notify:
+    name: Email Results
+    runs-on: ubuntu-latest
+    needs: [web-tests, mobile-tests]
+    if: always()
+    steps:
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: >-
+            WagerProof Tests ${{ (needs.web-tests.result == 'success' && needs.mobile-tests.result == 'success') && '✅ ALL PASSED' || '❌ FAILED' }} — ${{ github.event_name == 'schedule' && 'Daily Run' || github.event_name }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: WagerProof Tests <${{ secrets.EMAIL_USERNAME }}>
+          body: |
+            WagerProof Daily Test Report
+            ============================
+
+            Web Tests:    ${{ needs.web-tests.result == 'success' && '✅ Passed' || '❌ Failed' }}
+            Mobile Tests: ${{ needs.mobile-tests.result == 'success' && '✅ Passed' || '❌ Failed' }}
+
+            Trigger: ${{ github.event_name }}
+            Branch:  ${{ github.ref_name }}
+            Commit:  ${{ github.sha }}
+
+            View full results: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
