@@ -30,6 +30,7 @@ export interface NavItem {
   requiresAdmin?: boolean;
   comingSoon?: boolean;
   wip?: boolean;
+  hidden?: boolean;
   isHeader?: boolean;
   subItems?: Array<{
     title: string;
@@ -53,15 +54,15 @@ export const navItems: NavItem[] = [
     isHeader: true,
   },
   {
-    title: "Today in Sports",
-    to: "/today-in-sports",
-    icon: <Newspaper className="h-4 w-4" />,
-  },
-  {
     title: "Agents",
     to: "/agents",
     icon: <Users className="h-4 w-4" />,
     page: <Agents />,
+  },
+  {
+    title: "Todays Outliers",
+    to: "/today-in-sports",
+    icon: <Newspaper className="h-4 w-4" />,
   },
   // {
   //   title: "Editors Picks",
@@ -166,6 +167,7 @@ export const navItems: NavItem[] = [
     to: "/curling",
     icon: <Goal className="h-4 w-4" />,
     comingSoon: true,
+    hidden: true,
   },
   {
     title: "COMMUNITY",
@@ -182,6 +184,7 @@ export const navItems: NavItem[] = [
     to: "/community-voting",
     icon: <Users className="h-4 w-4" />,
     page: <CommunityVoting />,
+    hidden: true,
   },
   {
     title: "Share Win",
@@ -210,6 +213,7 @@ export const navItems: NavItem[] = [
     to: "/bet-slip-grader",
     icon: <FileImage className="h-4 w-4" />,
     page: <BetSlipGrader />,
+    hidden: true,
   },
   {
     title: "Learn WagerProof",

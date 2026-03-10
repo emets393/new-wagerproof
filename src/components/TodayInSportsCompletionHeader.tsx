@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import { CalendarDays, Sparkles } from 'lucide-react';
 import { getTodayInSportsCompletion } from '@/services/aiCompletionService';
 import { format } from 'date-fns';
@@ -47,15 +46,12 @@ export function TodayInSportsCompletionHeader() {
           <CalendarDays className="h-6 w-6 text-green-600 dark:text-green-400" />
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Today in Sports
+              Todays Outliers
             </h2>
-            <Badge variant="secondary" className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs font-semibold">
-              BETA
-            </Badge>
           </div>
         </div>
         <p className="text-gray-600 dark:text-gray-400">
-          No briefing available yet. Check back soon!
+          Todays Outliers highlights the most notable sports angles, and trends.
         </p>
       </div>
     );
@@ -90,11 +86,8 @@ export function TodayInSportsCompletionHeader() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white break-words">
-                Today in Sports
+                Todays Outliers
               </h2>
-              <Badge variant="secondary" className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs font-semibold">
-                BETA
-              </Badge>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mt-1">
               <CalendarDays className="h-3 w-3 shrink-0" />

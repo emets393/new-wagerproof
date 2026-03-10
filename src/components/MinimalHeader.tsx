@@ -10,10 +10,16 @@ interface MinimalHeaderProps {
 export function MinimalHeader({ rightContent }: MinimalHeaderProps) {
   const location = useLocation();
 
-  // Find the current page title from navItems
-  const currentNavItem = navItems.find(item => 
+  // Find current page title from top-level nav items first.
+  const currentNavItem = navItems.find(item =>
     location.pathname === item.to || location.pathname.startsWith(item.to + '/')
   );
+  // If not found, resolve against sub-items (e.g. "Todays Outliers" under Agents).
+  const currentSubNavItem = currentNavItem
+    ? null
+    : navItems.flatMap((item) => item.subItems ?? []).find((subItem) =>
+        location.pathname === subItem.to || location.pathname.startsWith(subItem.to + '/')
+      );
 
   // Build breadcrumb path
   const getBreadcrumbs = () => {
@@ -26,6 +32,9 @@ export function MinimalHeader({ rightContent }: MinimalHeaderProps) {
     // If we have a current nav item, use it as the main breadcrumb
     if (currentNavItem) {
       return [{ label: currentNavItem.title, path: currentNavItem.to }];
+    }
+    if (currentSubNavItem) {
+      return [{ label: currentSubNavItem.title, path: currentSubNavItem.to }];
     }
 
     // Otherwise, build from path segments

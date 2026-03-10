@@ -80,6 +80,10 @@ export function AppLayout() {
     if (item.to === '/home' || item.to === '/account') {
       return false;
     }
+    // Keep features in code but hide from sidebar access.
+    if (item.hidden) {
+      return false;
+    }
     // Filter admin-only items - only show when admin mode is enabled
     if (item.requiresAdmin) {
       return adminModeEnabled;

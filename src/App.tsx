@@ -70,6 +70,10 @@ import { LiveScoreTicker } from "./components/LiveScoreTicker";
 import { AnnouncementsBanner } from "./components/AnnouncementsBanner";
 import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
 
+// Feature access toggles: keep code in place while hiding features.
+const ENABLE_COMMUNITY_PICKS = false;
+const ENABLE_BET_SLIP_GRADER = false;
+
 // Configure React Query with optimized caching
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -215,7 +219,14 @@ function AppRoutes() {
           <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
           <Route path="/scoreboard/diagnostics" element={<ProtectedRoute><LiveScoreDiagnostics /></ProtectedRoute>} />
           <Route path="/today-in-sports" element={<ProtectedRoute allowFreemium={true}><TodayInSports /></ProtectedRoute>} />
-          <Route path="/bet-slip-grader" element={<ProtectedRoute><BetSlipGrader /></ProtectedRoute>} />
+          <Route
+            path="/bet-slip-grader"
+            element={
+              <ProtectedRoute>
+                {ENABLE_BET_SLIP_GRADER ? <BetSlipGrader /> : <AccessDenied />}
+              </ProtectedRoute>
+            }
+          />
           <Route path="/share-win" element={<ProtectedRoute><ShareWin /></ProtectedRoute>} />
           <Route path="/tip-jar" element={<ProtectedRoute><TipJar /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
@@ -225,7 +236,14 @@ function AppRoutes() {
           <Route path="/agents/:id" element={<ProtectedRoute><AgentDetail /></ProtectedRoute>} />
           <Route path="/agents/:id/settings" element={<ProtectedRoute><AgentSettings /></ProtectedRoute>} />
           {/* <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} /> */}
-          <Route path="/community-voting" element={<ProtectedRoute><CommunityVoting /></ProtectedRoute>} />
+          <Route
+            path="/community-voting"
+            element={
+              <ProtectedRoute>
+                {ENABLE_COMMUNITY_PICKS ? <CommunityVoting /> : <AccessDenied />}
+              </ProtectedRoute>
+            }
+          />
           <Route path="/discord" element={<ProtectedRoute><Discord /></ProtectedRoute>} />
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
           <Route path="/mobile-app" element={<MobileApp />} />
