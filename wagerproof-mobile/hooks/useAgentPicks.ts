@@ -220,7 +220,13 @@ export function usePrefetchAgentPicks() {
     // Also prefetch the detail snapshot (agent profile + today's picks)
     queryClient.prefetchQuery({
       queryKey: ['agent-detail-snapshot-v2', agentId, user?.id],
-      queryFn: () => fetchAgentDetailSnapshotV2(agentId, user?.id),
+      queryFn: async () => {
+        const snapshot = await fetchAgentDetailSnapshotV2(agentId, user?.id);
+        if (snapshot.todays_picks && snapshot.todays_picks.length > 0) {
+          snapshot.todays_picks = await enrichPicksWithOverlap(snapshot.todays_picks);
+        }
+        return snapshot;
+      },
       staleTime: 2 * 60 * 1000,
     });
   };

@@ -227,7 +227,7 @@ export function NCAABGameBottomSheet() {
       enablePanDownToClose
       onClose={handleCloseSheet}
       backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: isDark ? '#000000' : '#ffffff' }}
+      backgroundStyle={{ backgroundColor: isDark ? '#000000' : '#ffffff', borderTopLeftRadius: 28, borderTopRightRadius: 28 }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.onSurfaceVariant }}
     >
       <BottomSheetScrollView 
@@ -239,6 +239,8 @@ export function NCAABGameBottomSheet() {
           <AgentPickRationaleWidget
             gameKeys={[game.game_id, game.training_key, game.unique_id]}
           />
+          {/* WagerBot Insight Pill */}
+          <WagerBotInsightPill game={game} sport="ncaab" />
           {/* Header with Teams */}
           <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
             <LinearGradient
@@ -247,8 +249,6 @@ export function NCAABGameBottomSheet() {
               end={{ x: 1, y: 0 }}
               style={styles.headerGradient}
             />
-            {/* WagerBot Insight Pill */}
-            <WagerBotInsightPill game={game} sport="ncaab" />
             <View style={styles.headerContent}>
               <View style={styles.dateTimeRow}>
               <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>

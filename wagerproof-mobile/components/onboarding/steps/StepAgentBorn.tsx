@@ -179,12 +179,14 @@ export function AgentBornStep() {
 
   return (
     <View style={styles.container}>
-      <LottieView
-        source={require('@/assets/WaveLinesAnimation.json')}
-        autoPlay
-        loop
-        style={styles.backgroundLottie}
-      />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <LottieView
+          source={require('@/assets/WaveLinesAnimation.json')}
+          autoPlay
+          loop
+          style={styles.backgroundLottie}
+        />
+      </View>
       <LinearGradient
         colors={['transparent', 'rgba(34, 197, 94, 0.14)']}
         start={{ x: 0.5, y: 0.3 }}
@@ -316,12 +318,14 @@ export function AgentBornStep() {
       </Animated.View>
 
       {isRevealComplete && (
-        <LottieView
-          source={require('@/assets/confetti.json')}
-          autoPlay
-          loop={false}
-          style={styles.confetti}
-        />
+        <View style={styles.confetti} pointerEvents="none">
+          <LottieView
+            source={require('@/assets/confetti.json')}
+            autoPlay
+            loop={false}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
       )}
 
       <Modal
@@ -404,7 +408,6 @@ const styles = StyleSheet.create({
   },
   confetti: {
     ...StyleSheet.absoluteFillObject,
-    pointerEvents: 'none',
   },
   content: {
     flex: 1,

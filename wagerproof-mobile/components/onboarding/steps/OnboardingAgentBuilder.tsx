@@ -46,6 +46,7 @@ export function OnboardingAgentBuilder() {
     updateAgentCustomInsight,
     applyArchetypePreset,
     setCreatedAgentId,
+    markOnboardingCompleted,
   } = useOnboarding();
 
   const scrollRef = useRef<ScrollView>(null);
@@ -181,6 +182,13 @@ export function OnboardingAgentBuilder() {
       });
 
       setCreatedAgentId(newAgent.id);
+      try {
+        // Mark onboarding complete as soon as agent creation finishes so end-of-flow crashes
+        // won't send users back into onboarding.
+        await markOnboardingCompleted(newAgent.id);
+      } catch (completionError) {
+        console.error('Failed to persist onboarding completion early:', completionError);
+      }
       nextStep();
     } catch (error: any) {
       Alert.alert(
@@ -188,7 +196,7 @@ export function OnboardingAgentBuilder() {
         error?.message || 'Failed to create agent. Please try again.'
       );
     }
-  }, [agentFormState, createMutation, setCreatedAgentId, nextStep]);
+  }, [agentFormState, createMutation, setCreatedAgentId, markOnboardingCompleted, nextStep]);
 
   const handleNext = useCallback(() => {
     if (!validateScreen(agentScreenIndex)) {

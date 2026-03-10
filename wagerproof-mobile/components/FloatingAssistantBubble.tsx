@@ -467,7 +467,7 @@ export function FloatingAssistantBubble({
                 disabled={isTyping}
               >
                 <Text style={[styles.actionButtonText, isTyping && styles.actionButtonTextDisabled]}>
-                  Tell me more
+                  Dig deeper
                 </Text>
               </TouchableOpacity>
 
@@ -478,7 +478,7 @@ export function FloatingAssistantBubble({
                 disabled={isTyping}
               >
                 <Text style={[styles.actionButtonText, isTyping && styles.actionButtonTextDisabled]}>
-                  Another insight
+                  New angle
                 </Text>
               </TouchableOpacity>
             </View>
@@ -554,21 +554,21 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    paddingTop: 10,
     marginTop: 8,
   },
   actionButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 10,
+    backgroundColor: 'rgba(0, 230, 118, 0.12)',
+    paddingVertical: 8,
     paddingHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 230, 118, 0.25)',
     alignItems: 'center',
   },
   actionButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   actionButtonText: {
     color: WAGERPROOF_GREEN,

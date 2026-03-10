@@ -1139,7 +1139,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
     shadowRadius: 24,
-    elevation: 4,
+    elevation: Platform.OS === 'android' ? 0 : 4,
   },
   sectionHeader: {
     flexDirection: 'row',

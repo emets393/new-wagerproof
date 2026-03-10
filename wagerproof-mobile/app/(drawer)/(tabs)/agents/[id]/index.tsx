@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  ActivityIndicator,
   Platform,
   Alert,
 } from 'react-native';
@@ -237,6 +238,7 @@ export default function AgentDetailScreen() {
   // Local state
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
   const [showHistory, setShowHistory] = useState(false);
+  const [loadingPickId, setLoadingPickId] = useState<string | null>(null);
   const [limitToastVisible, setLimitToastVisible] = useState(false);
   const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
   const [noPicksConclusion, setNoPicksConclusion] = useState<string | null>(null);
@@ -473,16 +475,25 @@ export default function AgentDetailScreen() {
       <AgentPickItem
         pick={pick}
         showReasoning="full"
+        loading={loadingPickId === pick.id}
       />
       <View style={styles.pickActionsRow}>
         <TouchableOpacity
           style={[styles.pickActionButton, { backgroundColor: theme.colors.primary }]}
+          disabled={loadingPickId === pick.id}
           onPress={() => {
-            if (pick.game_id) openGameForPick(pick.sport, pick.game_id, pick);
+            if (pick.game_id) {
+              setLoadingPickId(pick.id);
+              openGameForPick(pick.sport, pick.game_id, pick).finally(() => setLoadingPickId(null));
+            }
           }}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="cards-outline" size={14} color="#ffffff" />
+          {loadingPickId === pick.id ? (
+            <ActivityIndicator size={14} color="#ffffff" />
+          ) : (
+            <MaterialCommunityIcons name="cards-outline" size={14} color="#ffffff" />
+          )}
           <Text style={styles.pickActionButtonText}>Open Game Card</Text>
         </TouchableOpacity>
 
@@ -1289,11 +1300,9 @@ export default function AgentDetailScreen() {
               {/* Pick List */}
               <View style={styles.picksList}>
                 {isLoadingAllPicks ? (
-                  <>
-                    <PickCardSkeleton isDark={isDark} />
-                    <PickCardSkeleton isDark={isDark} />
-                    <PickCardSkeleton isDark={isDark} />
-                  </>
+                  <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                  </View>
                 ) : !canViewAgentPicks ? (
                   <>
                     <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
@@ -1364,6 +1373,19 @@ export default function AgentDetailScreen() {
             </Text>
           </View>
         )}
+
+        {/* Disclaimer */}
+        <View style={styles.disclaimerContainer}>
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={14}
+            color={theme.colors.onSurfaceVariant}
+            style={{ marginRight: 6, marginTop: 1 }}
+          />
+          <Text style={[styles.disclaimerText, { color: theme.colors.onSurfaceVariant }]}>
+            AI agents analyze data and perform research — they do not constitute betting advice. Always verify information independently and wager responsibly. Errors may occur.
+          </Text>
+        </View>
       </ScrollView>
 
       <Portal>
@@ -2000,5 +2022,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 20,
     textAlign: 'center',
+  },
+  disclaimerContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginTop: 8,
+    marginBottom: 24,
+    opacity: 0.6,
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 15,
   },
 });

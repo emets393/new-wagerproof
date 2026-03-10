@@ -42,6 +42,7 @@ interface OnboardingContextType {
   prevStep: () => void;
   updateOnboardingData: (data: Partial<OnboardingData>) => void;
   submitOnboardingData: () => Promise<void>;
+  markOnboardingCompleted: (createdAgentId?: string) => Promise<void>;
   resetOnboarding: () => void;
   agentFormState: CreateAgentFormState;
   updateAgentFormState: <K extends keyof CreateAgentFormState>(key: K, value: CreateAgentFormState[K]) => void;
@@ -194,6 +195,56 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setOnboardingData((prev) => ({ ...prev, createdAgentId: id }));
   }, []);
 
+  const markOnboardingCompleted = useCallback(
+    async (createdAgentId?: string) => {
+      if (!user) {
+        console.error('User not authenticated');
+        throw new Error('User not authenticated');
+      }
+
+      if (hasCompletedOnboarding.current) {
+        return;
+      }
+
+      const payloadOnboardingData = createdAgentId
+        ? { ...onboardingData, createdAgentId }
+        : onboardingData;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          onboarding_data: payloadOnboardingData,
+          onboarding_completed: true,
+        })
+        .eq('user_id', user.id)
+        .select();
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
+      }
+
+      console.log('Profile updated successfully!');
+      console.log('Updated data:', data);
+
+      hasCompletedOnboarding.current = true;
+      trackOnboardingStepCompleted(currentStepRef.current, undefined, ONBOARDING_TOTAL_STEPS);
+      trackOnboardingCompleted({
+        favoriteSports: payloadOnboardingData.favoriteSports,
+        bettorType: payloadOnboardingData.bettorType,
+        mainGoal: payloadOnboardingData.mainGoal,
+        acquisitionSource: payloadOnboardingData.acquisitionSource,
+      });
+    },
+    [onboardingData, user]
+  );
+
   const resetOnboarding = useCallback(() => {
     console.log('Resetting onboarding context to step 1');
     hasCompletedOnboarding.current = false;
@@ -211,46 +262,15 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   const submitOnboardingData = async () => {
     if (!user) {
-      console.error("User not authenticated");
-      throw new Error("User not authenticated");
+      console.error('User not authenticated');
+      throw new Error('User not authenticated');
     }
 
     console.log('Submitting onboarding data for user:', user.id);
     console.log('Onboarding data:', onboardingData);
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          onboarding_data: onboardingData,
-          onboarding_completed: true,
-        })
-        .eq('user_id', user.id)
-        .select();
-
-      if (error) {
-        console.error('Error updating profile:', error);
-        console.error('Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
-      } else {
-        console.log('Profile updated successfully!');
-        console.log('Updated data:', data);
-
-        // Track onboarding completion with collected data
-        hasCompletedOnboarding.current = true;
-        trackOnboardingStepCompleted(currentStep, undefined, ONBOARDING_TOTAL_STEPS);
-        trackOnboardingCompleted({
-          favoriteSports: onboardingData.favoriteSports,
-          bettorType: onboardingData.bettorType,
-          mainGoal: onboardingData.mainGoal,
-          acquisitionSource: onboardingData.acquisitionSource,
-        });
-      }
+      await markOnboardingCompleted();
     } catch (err) {
       console.error('Unexpected error during onboarding submission:', err);
       throw err;
@@ -268,6 +288,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         prevStep,
         updateOnboardingData,
         submitOnboardingData,
+        markOnboardingCompleted,
         resetOnboarding,
         agentFormState,
         updateAgentFormState,

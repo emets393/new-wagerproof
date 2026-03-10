@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { Animated, View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -114,9 +114,11 @@ interface AgentPickItemProps {
   onPress?: () => void;
   /** 'full' shows complete reasoning + key factors, 'summary' truncates to 2 lines */
   showReasoning?: 'full' | 'summary' | false;
+  /** Show a loading spinner overlay on the card */
+  loading?: boolean;
 }
 
-export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, showReasoning = false }: AgentPickItemProps) {
+export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, showReasoning = false, loading = false }: AgentPickItemProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { teamMap } = useNCAABTeamMapping();
@@ -149,8 +151,13 @@ export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, 
   const borderColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)';
 
   return (
-    <TouchableOpacity activeOpacity={0.7} onPress={handlePress} disabled={!onPress}>
+    <TouchableOpacity activeOpacity={0.7} onPress={handlePress} disabled={!onPress || loading}>
       <View style={[styles.pickCard, { backgroundColor: cardBg, borderColor }]}>
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="small" color="#ffffff" />
+          </View>
+        )}
         {/* Team color gradient top border */}
         <LinearGradient
           colors={[
@@ -366,6 +373,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    borderRadius: 10,
   },
   pickCardTopBorder: {
     position: 'absolute',

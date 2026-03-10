@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch as NativeSwitch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch as NativeSwitch, Platform } from 'react-native';
 import { useTheme, Switch as PaperSwitch } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
@@ -40,6 +40,7 @@ export function ToggleInput({
       disabled={disabled}
       style={[
         styles.container,
+        Platform.OS === 'android' && styles.androidContainer,
         {
           backgroundColor: isDark
             ? 'rgba(255, 255, 255, 0.07)'
@@ -148,6 +149,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 22,
     elevation: 4,
+  },
+  androidContainer: {
+    // Android uses elevation for shadows, so flatten these cards to avoid the old glow look.
+    elevation: 0,
   },
   contentRow: {
     flexDirection: 'row',

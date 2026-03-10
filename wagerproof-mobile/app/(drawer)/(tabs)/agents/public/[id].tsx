@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  ActivityIndicator,
   Alert,
   Animated,
 } from 'react-native';
@@ -100,6 +101,7 @@ export default function PublicAgentViewScreen() {
   // Local state
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
   const [showHistory, setShowHistory] = useState(false);
+  const [loadingPickId, setLoadingPickId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
@@ -120,8 +122,18 @@ export default function PublicAgentViewScreen() {
     refetch: refetchDetailSnapshot,
   } = useAgentDetailSnapshot(id || '', { enabled: canViewAgentPicks });
 
-  // Use agent from snapshot when available, fall back to direct fetch
-  const agent = detailSnapshot?.agent || agentDirect;
+  // Use agent from snapshot when available, fall back to direct fetch.
+  // The snapshot RPC returns agent and performance as separate fields,
+  // so we merge performance into the agent object for consistent access.
+  const agent = useMemo(() => {
+    if (detailSnapshot?.agent) {
+      return {
+        ...detailSnapshot.agent,
+        performance: detailSnapshot.performance ?? detailSnapshot.agent.performance ?? null,
+      };
+    }
+    return agentDirect ?? null;
+  }, [detailSnapshot, agentDirect]);
   const isLoadingAgent = canViewAgentPicks ? isLoadingDetailSnapshot : isLoadingAgentDirect;
   const isRefetchingAgent = canViewAgentPicks ? isRefetchingDetailSnapshot : isRefetchingAgentDirect;
 
@@ -737,7 +749,13 @@ export default function PublicAgentViewScreen() {
                   key={pick.id}
                   pick={pick}
                   showReasoning="full"
-                  onPress={() => pick.game_id ? openGameForPick(pick.sport, pick.game_id, pick) : undefined}
+                  loading={loadingPickId === pick.id}
+                  onPress={() => {
+                    if (pick.game_id) {
+                      setLoadingPickId(pick.id);
+                      openGameForPick(pick.sport, pick.game_id, pick).finally(() => setLoadingPickId(null));
+                    }
+                  }}
                 />
               ))
             ) : (
@@ -836,18 +854,22 @@ export default function PublicAgentViewScreen() {
                     <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
                   </>
                 ) : isLoadingAllPicks ? (
-                  <>
-                    <PickCardSkeleton isDark={isDark} />
-                    <PickCardSkeleton isDark={isDark} />
-                    <PickCardSkeleton isDark={isDark} />
-                  </>
+                  <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                  </View>
                 ) : filteredPicks.length > 0 ? (
                   filteredPicks.slice(0, 20).map((pick) => (
                     <AgentPickItem
                       key={pick.id}
                       pick={pick}
                       showReasoning="full"
-                      onPress={() => pick.game_id ? openGameForPick(pick.sport, pick.game_id, pick) : undefined}
+                      loading={loadingPickId === pick.id}
+                      onPress={() => {
+                        if (pick.game_id) {
+                          setLoadingPickId(pick.id);
+                          openGameForPick(pick.sport, pick.game_id, pick).finally(() => setLoadingPickId(null));
+                        }
+                      }}
                     />
                   ))
                 ) : (
@@ -917,6 +939,19 @@ export default function PublicAgentViewScreen() {
             </View>
           </LockedOverlay>
         )}
+
+        {/* Disclaimer */}
+        <View style={styles.disclaimerContainer}>
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={14}
+            color={theme.colors.onSurfaceVariant}
+            style={{ marginRight: 6, marginTop: 1 }}
+          />
+          <Text style={[styles.disclaimerText, { color: theme.colors.onSurfaceVariant }]}>
+            AI agents analyze data and perform research — they do not constitute betting advice. Always verify information independently and wager responsibly. Errors may occur.
+          </Text>
+        </View>
       </ScrollView>
       <Portal>
         <Snackbar
@@ -1177,5 +1212,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 20,
     textAlign: 'center',
+  },
+  disclaimerContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginTop: 8,
+    marginBottom: 24,
+    opacity: 0.6,
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 15,
   },
 });

@@ -6,14 +6,15 @@ import { CartesianChart, Line } from 'victory-native';
 import { useQuery } from '@tanstack/react-query';
 import { getAllMarketsData } from '@/services/polymarketService';
 import { MarketType, TimeRange } from '@/types/polymarket';
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withRepeat, 
-  withTiming, 
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
   Easing,
   interpolate,
 } from 'react-native-reanimated';
+import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 
 interface PolymarketWidgetProps {
   awayTeam: string;
@@ -58,8 +59,6 @@ const adjustColorForDarkMode = (color: string | undefined, isDark: boolean): str
 // Honeydew green color for value alerts (matching website)
 const HONEYDEW_COLOR = '#73b69e';
 
-// Animated glow component for odds cards
-const AnimatedOddsCard = Animated.createAnimatedComponent(View);
 
 export function PolymarketWidget({
   awayTeam,
@@ -255,35 +254,8 @@ export function PolymarketWidget({
     y2: point.homeTeamOdds,
   }));
 
-  // Animation values for glow effects on odds cards - MUST be before any early returns
-  const awayGlowAnimation = useSharedValue(0);
-  const homeGlowAnimation = useSharedValue(0);
+  // Animation value for badge pulse - MUST be before any early returns
   const badgeAnimation = useSharedValue(0);
-
-  // Start animations when value is detected
-  useEffect(() => {
-    if (hasAwayValue) {
-      awayGlowAnimation.value = withRepeat(
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-    } else {
-      awayGlowAnimation.value = withTiming(0, { duration: 200 });
-    }
-  }, [hasAwayValue]);
-
-  useEffect(() => {
-    if (hasHomeValue) {
-      homeGlowAnimation.value = withRepeat(
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-    } else {
-      homeGlowAnimation.value = withTiming(0, { duration: 200 });
-    }
-  }, [hasHomeValue]);
 
   useEffect(() => {
     if (hasValueAlert) {
@@ -297,42 +269,11 @@ export function PolymarketWidget({
     }
   }, [hasValueAlert]);
 
-  // Animated styles for glow effects on odds cards
-  const awayGlowStyle = useAnimatedStyle(() => {
-    if (!hasAwayValue) return {};
-    
-    const opacity = interpolate(awayGlowAnimation.value, [0, 1], [0.4, 0.8]);
-    const shadowRadius = interpolate(awayGlowAnimation.value, [0, 1], [10, 20]);
-    
-    return {
-      shadowColor: HONEYDEW_COLOR,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: opacity,
-      shadowRadius: shadowRadius,
-      elevation: shadowRadius, // Android shadow
-    };
-  });
-
-  const homeGlowStyle = useAnimatedStyle(() => {
-    if (!hasHomeValue) return {};
-    
-    const opacity = interpolate(homeGlowAnimation.value, [0, 1], [0.4, 0.8]);
-    const shadowRadius = interpolate(homeGlowAnimation.value, [0, 1], [10, 20]);
-    
-    return {
-      shadowColor: HONEYDEW_COLOR,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: opacity,
-      shadowRadius: shadowRadius,
-      elevation: shadowRadius, // Android shadow
-    };
-  });
-
   const badgePulseStyle = useAnimatedStyle(() => {
     if (!hasValueAlert) return {};
-    
+
     const opacity = interpolate(badgeAnimation.value, [0, 1], [0.7, 1]);
-    
+
     return {
       opacity,
     };
@@ -520,83 +461,157 @@ export function PolymarketWidget({
 
       {/* Current Odds */}
       <View style={styles.oddsRow}>
-        <AnimatedOddsCard
-          style={[
-            styles.oddsCard,
-            {
-              backgroundColor: selectedMarket === 'total'
-                ? hexToRgba(theme.colors.surfaceVariant, 0.3)
-                : hexToRgba(awayColor, 0.15),
-              borderColor: hasAwayValue
-                ? HONEYDEW_COLOR
-                : selectedMarket === 'total'
-                ? theme.colors.outline
-                : awayColor,
-              borderWidth: hasAwayValue ? 2 : 1,
-            },
-            awayGlowStyle,
-          ]}
-        >
-          <Text style={[styles.oddsLabel, { color: theme.colors.onSurfaceVariant }]}>
-            {selectedMarket === 'total' ? 'Over' : awayTeam}
-          </Text>
-          <View style={styles.oddsValueRow}>
-            <Text style={[styles.oddsValue, { color: theme.colors.onSurface }]}>
-              {data.currentAwayOdds}%
-            </Text>
-            {awayChange !== 0 && (
-              <View style={styles.changeContainer}>
-                {awayChange > 0 ? (
-                  <MaterialCommunityIcons name="trending-up" size={12} color="#22c55e" />
-                ) : (
-                  <MaterialCommunityIcons name="trending-down" size={12} color="#ef4444" />
-                )}
-                <Text style={[styles.changeText, { color: awayChange > 0 ? '#22c55e' : '#ef4444' }]}>
-                  {awayChange > 0 ? '+' : ''}{awayChange}%
+        {hasAwayValue ? (
+          <View style={{ flex: 1 }}>
+            <GlowingCardWrapper color={HONEYDEW_COLOR} borderRadius={10}>
+              <View
+                style={[
+                  styles.oddsCard,
+                  {
+                    backgroundColor: selectedMarket === 'total'
+                      ? hexToRgba(theme.colors.surfaceVariant, 0.3)
+                      : hexToRgba(awayColor, 0.15),
+                    borderColor: HONEYDEW_COLOR,
+                    borderWidth: 2,
+                  },
+                ]}
+              >
+                <Text style={[styles.oddsLabel, { color: theme.colors.onSurfaceVariant }]}>
+                  {selectedMarket === 'total' ? 'Over' : awayTeam}
                 </Text>
+                <View style={styles.oddsValueRow}>
+                  <Text style={[styles.oddsValue, { color: theme.colors.onSurface }]}>
+                    {data.currentAwayOdds}%
+                  </Text>
+                  {awayChange !== 0 && (
+                    <View style={styles.changeContainer}>
+                      {awayChange > 0 ? (
+                        <MaterialCommunityIcons name="trending-up" size={12} color="#22c55e" />
+                      ) : (
+                        <MaterialCommunityIcons name="trending-down" size={12} color="#ef4444" />
+                      )}
+                      <Text style={[styles.changeText, { color: awayChange > 0 ? '#22c55e' : '#ef4444' }]}>
+                        {awayChange > 0 ? '+' : ''}{awayChange}%
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            )}
+            </GlowingCardWrapper>
           </View>
-        </AnimatedOddsCard>
+        ) : (
+          <View
+            style={[
+              styles.oddsCard,
+              {
+                backgroundColor: selectedMarket === 'total'
+                  ? hexToRgba(theme.colors.surfaceVariant, 0.3)
+                  : hexToRgba(awayColor, 0.15),
+                borderColor: selectedMarket === 'total'
+                  ? theme.colors.outline
+                  : awayColor,
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <Text style={[styles.oddsLabel, { color: theme.colors.onSurfaceVariant }]}>
+              {selectedMarket === 'total' ? 'Over' : awayTeam}
+            </Text>
+            <View style={styles.oddsValueRow}>
+              <Text style={[styles.oddsValue, { color: theme.colors.onSurface }]}>
+                {data.currentAwayOdds}%
+              </Text>
+              {awayChange !== 0 && (
+                <View style={styles.changeContainer}>
+                  {awayChange > 0 ? (
+                    <MaterialCommunityIcons name="trending-up" size={12} color="#22c55e" />
+                  ) : (
+                    <MaterialCommunityIcons name="trending-down" size={12} color="#ef4444" />
+                  )}
+                  <Text style={[styles.changeText, { color: awayChange > 0 ? '#22c55e' : '#ef4444' }]}>
+                    {awayChange > 0 ? '+' : ''}{awayChange}%
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
-        <AnimatedOddsCard
-          style={[
-            styles.oddsCard,
-            {
-              backgroundColor: selectedMarket === 'total'
-                ? hexToRgba(theme.colors.surfaceVariant, 0.3)
-                : hexToRgba(homeColor, 0.15),
-              borderColor: hasHomeValue
-                ? HONEYDEW_COLOR
-                : selectedMarket === 'total'
-                ? theme.colors.outline
-                : homeColor,
-              borderWidth: hasHomeValue ? 2 : 1,
-            },
-            homeGlowStyle,
-          ]}
-        >
-          <Text style={[styles.oddsLabel, { color: theme.colors.onSurfaceVariant }]}>
-            {selectedMarket === 'total' ? 'Under' : homeTeam}
-          </Text>
-          <View style={styles.oddsValueRow}>
-            <Text style={[styles.oddsValue, { color: theme.colors.onSurface }]}>
-              {data.currentHomeOdds}%
-            </Text>
-            {homeChange !== 0 && (
-              <View style={styles.changeContainer}>
-                {homeChange > 0 ? (
-                  <MaterialCommunityIcons name="trending-up" size={12} color="#22c55e" />
-                ) : (
-                  <MaterialCommunityIcons name="trending-down" size={12} color="#ef4444" />
-                )}
-                <Text style={[styles.changeText, { color: homeChange > 0 ? '#22c55e' : '#ef4444' }]}>
-                  {homeChange > 0 ? '+' : ''}{homeChange}%
+        {hasHomeValue ? (
+          <View style={{ flex: 1 }}>
+            <GlowingCardWrapper color={HONEYDEW_COLOR} borderRadius={10}>
+              <View
+                style={[
+                  styles.oddsCard,
+                  {
+                    backgroundColor: selectedMarket === 'total'
+                      ? hexToRgba(theme.colors.surfaceVariant, 0.3)
+                      : hexToRgba(homeColor, 0.15),
+                    borderColor: HONEYDEW_COLOR,
+                    borderWidth: 2,
+                  },
+                ]}
+              >
+                <Text style={[styles.oddsLabel, { color: theme.colors.onSurfaceVariant }]}>
+                  {selectedMarket === 'total' ? 'Under' : homeTeam}
                 </Text>
+                <View style={styles.oddsValueRow}>
+                  <Text style={[styles.oddsValue, { color: theme.colors.onSurface }]}>
+                    {data.currentHomeOdds}%
+                  </Text>
+                  {homeChange !== 0 && (
+                    <View style={styles.changeContainer}>
+                      {homeChange > 0 ? (
+                        <MaterialCommunityIcons name="trending-up" size={12} color="#22c55e" />
+                      ) : (
+                        <MaterialCommunityIcons name="trending-down" size={12} color="#ef4444" />
+                      )}
+                      <Text style={[styles.changeText, { color: homeChange > 0 ? '#22c55e' : '#ef4444' }]}>
+                        {homeChange > 0 ? '+' : ''}{homeChange}%
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            )}
+            </GlowingCardWrapper>
           </View>
-        </AnimatedOddsCard>
+        ) : (
+          <View
+            style={[
+              styles.oddsCard,
+              {
+                backgroundColor: selectedMarket === 'total'
+                  ? hexToRgba(theme.colors.surfaceVariant, 0.3)
+                  : hexToRgba(homeColor, 0.15),
+                borderColor: selectedMarket === 'total'
+                  ? theme.colors.outline
+                  : homeColor,
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <Text style={[styles.oddsLabel, { color: theme.colors.onSurfaceVariant }]}>
+              {selectedMarket === 'total' ? 'Under' : homeTeam}
+            </Text>
+            <View style={styles.oddsValueRow}>
+              <Text style={[styles.oddsValue, { color: theme.colors.onSurface }]}>
+                {data.currentHomeOdds}%
+              </Text>
+              {homeChange !== 0 && (
+                <View style={styles.changeContainer}>
+                  {homeChange > 0 ? (
+                    <MaterialCommunityIcons name="trending-up" size={12} color="#22c55e" />
+                  ) : (
+                    <MaterialCommunityIcons name="trending-down" size={12} color="#ef4444" />
+                  )}
+                  <Text style={[styles.changeText, { color: homeChange > 0 ? '#22c55e' : '#ef4444' }]}>
+                    {homeChange > 0 ? '+' : ''}{homeChange}%
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Chart */}

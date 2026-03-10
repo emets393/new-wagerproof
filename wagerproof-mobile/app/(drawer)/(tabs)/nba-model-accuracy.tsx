@@ -188,6 +188,32 @@ export default function NBAModelAccuracyScreen() {
     </View>
   );
 
+  const renderHowToUseTool = () => (
+    <View
+      style={[
+        styles.howToUseCard,
+        {
+          backgroundColor: isDark ? '#111111' : '#f7f7f7',
+          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+        },
+      ]}
+    >
+      <View style={styles.howToUseHeader}>
+        <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={WAGERPROOF_GREEN} />
+        <Text style={[styles.howToUseTitle, { color: theme.colors.onSurface }]}>How to use this tool</Text>
+      </View>
+      <Text style={[styles.howToUseText, { color: theme.colors.onSurfaceVariant }]}>
+        1. Sort by Spread, ML, or O/U to find where the model has been strongest.
+      </Text>
+      <Text style={[styles.howToUseText, { color: theme.colors.onSurfaceVariant }]}>
+        2. Prioritize matchups where model confidence and historical hit rate agree.
+      </Text>
+      <Text style={[styles.howToUseText, { color: theme.colors.onSurfaceVariant }]}>
+        3. Use this as a signal-check tool, then confirm with injuries, line movement, and your own read.
+      </Text>
+    </View>
+  );
+
   if (isLoading && games.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
@@ -240,6 +266,7 @@ export default function NBAModelAccuracyScreen() {
         bounces={false}
         overScrollMode="never"
         ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderHowToUseTool}
       />
     </View>
   );
@@ -336,5 +363,27 @@ const styles = StyleSheet.create({
   },
   shimmerContainer: {
     paddingTop: 8,
+  },
+  howToUseCard: {
+    marginTop: 8,
+    marginHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+  },
+  howToUseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  howToUseTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  howToUseText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
 });

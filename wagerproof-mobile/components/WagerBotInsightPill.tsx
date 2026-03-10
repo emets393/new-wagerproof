@@ -12,6 +12,8 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  UIManager,
+  findNodeHandle,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -49,18 +51,26 @@ export function WagerBotInsightPill({ game, sport, style }: WagerBotInsightPillP
     // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Measure pill position on screen
-    pillRef.current?.measureInWindow((x, y) => {
-      console.log('🤖 Pill measured at:', x, y);
+    // Measure pill position on screen using UIManager.measure which is more
+    // reliable inside @gorhom/bottom-sheet than measureInWindow
+    const node = findNodeHandle(pillRef.current);
+    if (node) {
+      UIManager.measure(node, (_x, _y, _width, _height, pageX, pageY) => {
+        console.log('🤖 Pill measured at:', pageX, pageY);
 
-      // Safety check - if measureInWindow fails, use default position
-      const safeX = typeof x === 'number' && !isNaN(x) ? x : 200;
-      const safeY = typeof y === 'number' && !isNaN(y) ? y : 100;
+        const safeX = typeof pageX === 'number' && !isNaN(pageX) ? pageX : 200;
+        const safeY = typeof pageY === 'number' && !isNaN(pageY) ? pageY : 100;
 
-      // Trigger floating bubble at pill position with pill dimensions
-      // Pass game and sport so it immediately fetches insights for this game
-      detachBubbleFromPill(safeX, safeY, PILL_WIDTH, PILL_HEIGHT, game, sport);
-    });
+        detachBubbleFromPill(safeX, safeY, PILL_WIDTH, PILL_HEIGHT, game, sport);
+      });
+    } else {
+      // Fallback - use measureInWindow
+      pillRef.current?.measureInWindow((x, y) => {
+        const safeX = typeof x === 'number' && !isNaN(x) ? x : 200;
+        const safeY = typeof y === 'number' && !isNaN(y) ? y : 100;
+        detachBubbleFromPill(safeX, safeY, PILL_WIDTH, PILL_HEIGHT, game, sport);
+      });
+    }
   }, [game, sport, detachBubbleFromPill]);
 
   // Don't show if already in detached/floating mode
@@ -71,6 +81,7 @@ export function WagerBotInsightPill({ game, sport, style }: WagerBotInsightPillP
   return (
     <View
       ref={pillRef}
+      collapsable={false}
       style={[styles.container, style]}
     >
       <TouchableOpacity
@@ -95,9 +106,7 @@ export function WagerBotInsightPill({ game, sport, style }: WagerBotInsightPillP
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
+    alignSelf: 'flex-end',
     zIndex: 100,
     width: PILL_WIDTH,
     height: PILL_HEIGHT,
@@ -111,6 +120,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    marginBottom: 8,
+    marginRight: 12,
   },
   pill: {
     flex: 1,

@@ -22,13 +22,16 @@ serve(async (req: Request) => {
   const startTime = Date.now();
 
   try {
-    // Auth: require internal secret
+    // Auth: require internal secret or service_role JWT
     const internalSecret = Deno.env.get('INTERNAL_FUNCTION_SECRET');
     const providedSecret = req.headers.get('x-internal-secret');
-    const authHeader = req.headers.get('authorization');
+    const authHeader = req.headers.get('authorization') || '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
-    // Allow either internal secret or service role key
-    if (internalSecret && providedSecret !== internalSecret && !authHeader?.includes('service_role')) {
+    const hasInternalSecret = internalSecret && providedSecret === internalSecret;
+    const hasServiceRole = serviceRoleKey && authHeader.includes(serviceRoleKey);
+
+    if (!hasInternalSecret && !hasServiceRole) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
