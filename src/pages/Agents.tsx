@@ -11,6 +11,7 @@ import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgentLeaderboard, useUpdateAgent, useUserAgents } from '@/hooks/useAgents';
 import { LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import { Sport, SPORTS } from '@/types/agent';
+import { AnnouncementsBanner } from '@/components/AnnouncementsBanner';
 
 const LEADERBOARD_TIMEFRAMES: { label: string; value: LeaderboardTimeframe }[] = [
   { label: 'All time', value: 'all_time' },
@@ -63,6 +64,8 @@ export default function Agents() {
 
   return (
     <div className="space-y-6">
+      <AnnouncementsBanner />
+
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Agents</h1>
