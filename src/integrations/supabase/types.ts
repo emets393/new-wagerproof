@@ -2757,8 +2757,12 @@ export type Database = {
       site_settings: {
         Row: {
           access_restricted: boolean | null
+          announcement_image_url: string | null
+          announcement_link_text: string | null
+          announcement_link_url: string | null
           announcement_message: string | null
           announcement_published: boolean | null
+          announcement_title: string | null
           announcement_updated_at: string | null
           announcement_updated_by: string | null
           id: string
@@ -2769,8 +2773,12 @@ export type Database = {
         }
         Insert: {
           access_restricted?: boolean | null
+          announcement_image_url?: string | null
+          announcement_link_text?: string | null
+          announcement_link_url?: string | null
           announcement_message?: string | null
           announcement_published?: boolean | null
+          announcement_title?: string | null
           announcement_updated_at?: string | null
           announcement_updated_by?: string | null
           id?: string
@@ -2781,8 +2789,12 @@ export type Database = {
         }
         Update: {
           access_restricted?: boolean | null
+          announcement_image_url?: string | null
+          announcement_link_text?: string | null
+          announcement_link_url?: string | null
           announcement_message?: string | null
           announcement_published?: boolean | null
+          announcement_title?: string | null
           announcement_updated_at?: string | null
           announcement_updated_by?: string | null
           id?: string
