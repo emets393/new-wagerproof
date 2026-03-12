@@ -17,9 +17,8 @@ import { Sport } from '@/types/agent';
 import { useRevenueCat } from '../../../contexts/RevenueCatContext';
 import {
   didPaywallGrantEntitlement,
-  ENTITLEMENT_IDENTIFIER,
   PAYWALL_PLACEMENTS,
-  presentPaywallForPlacementIfNeeded,
+  presentPaywallForPlacement,
 } from '../../../services/revenuecat';
 
 const SPORT_ICONS: Record<Sport, string> = {
@@ -77,9 +76,9 @@ export function AgentBornStep() {
     setIsContinuing(true);
 
     try {
-      const result = await presentPaywallForPlacementIfNeeded(
-        ENTITLEMENT_IDENTIFIER,
-        PAYWALL_PLACEMENTS.AGENT_FEATURE
+      const result = await presentPaywallForPlacement(
+        PAYWALL_PLACEMENTS.ONBOARDING,
+        'onboarding_agent_born'
       );
       if (didPaywallGrantEntitlement(result)) {
         await refreshCustomerInfo();
