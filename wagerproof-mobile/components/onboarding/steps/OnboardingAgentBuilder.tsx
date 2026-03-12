@@ -183,11 +183,14 @@ export function OnboardingAgentBuilder() {
 
       setCreatedAgentId(newAgent.id);
       try {
-        // Mark onboarding complete as soon as agent creation finishes so end-of-flow crashes
-        // won't send users back into onboarding.
-        await markOnboardingCompleted(newAgent.id);
+        // Persist onboarding_completed=true to the DB as a crash-safety measure so
+        // that if the app crashes during the generation/agent-born steps the user
+        // won't be sent back into onboarding.  We pass persistOnly=true so that the
+        // UserProfileContext state is NOT updated here — the guard should only
+        // navigate when the user explicitly finishes the final step.
+        await markOnboardingCompleted(newAgent.id, true);
       } catch (completionError) {
-        console.error('Failed to persist onboarding completion early:', completionError);
+        console.error('[AgentBuilder] Failed to persist onboarding completion early:', completionError);
       }
       nextStep();
     } catch (error: any) {

@@ -1,7 +1,6 @@
 import React, { useState, createContext, useContext, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, Dimensions, TouchableOpacity, Platform } from 'react-native';
 import { useTheme, ActivityIndicator, Switch } from 'react-native-paper';
-import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -52,7 +51,6 @@ const testimonial = {
 // Shared state hook for Paywall and CTA
 function usePaywallState() {
   const { submitOnboardingData } = useOnboarding();
-  const router = useRouter();
   const { packages, refreshOfferings, isLoading: rcLoading } = useRevenueCat();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
@@ -136,15 +134,11 @@ function usePaywallState() {
       console.log('Starting onboarding completion...');
       await submitOnboardingData();
       console.log('Onboarding data submitted successfully!');
-      
-      setTimeout(() => {
-        console.log('Navigating to main app...');
-        router.replace('/(tabs)');
-      }, 300);
+      // Navigation is handled by OnboardingGuard reacting to UserProfileContext
     } catch (error) {
       console.error('Error completing onboarding:', error);
       setIsSubmitting(false);
-      
+
       Alert.alert(
         'Oops!',
         'There was an issue completing your onboarding. Please try again.',
@@ -155,7 +149,7 @@ function usePaywallState() {
           },
           {
             text: 'Skip for now',
-            onPress: () => router.replace('/(tabs)'),
+            onPress: handleContinue,
             style: 'cancel',
           },
         ]

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { InteractionManager } from 'react-native';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
+import { useUserProfile } from './UserProfileContext';
 import {
   ONBOARDING_TOTAL_STEPS,
   trackOnboardingStarted,
@@ -42,7 +43,7 @@ interface OnboardingContextType {
   prevStep: () => void;
   updateOnboardingData: (data: Partial<OnboardingData>) => void;
   submitOnboardingData: () => Promise<void>;
-  markOnboardingCompleted: (createdAgentId?: string) => Promise<void>;
+  markOnboardingCompleted: (createdAgentId?: string, persistOnly?: boolean) => Promise<void>;
   resetOnboarding: () => void;
   agentFormState: CreateAgentFormState;
   updateAgentFormState: <K extends keyof CreateAgentFormState>(key: K, value: CreateAgentFormState[K]) => void;
@@ -56,12 +57,18 @@ const OnboardingContext = createContext<OnboardingContextType | undefined>(undef
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { setOnboardingCompleted } = useUserProfile();
   const [currentStep, setCurrentStep] = useState(1);
   const [direction, setDirection] = useState(0);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isTransitioning, setIsTransitioning] = useState(false);
   const hasTrackedStart = useRef(false);
-  const hasCompletedOnboarding = useRef(false);
+  // Tracks whether we have already persisted onboarding_completed=true to the DB.
+  // Separate from the navigation trigger so that the AgentBuilder's early
+  // crash-safety write doesn't accidentally skip the final steps.
+  const hasPersistedToDb = useRef(false);
+  // Tracks whether we have already signalled the guard to navigate away.
+  const hasTriggeredNavigation = useRef(false);
   const currentStepRef = useRef(1);
 
   // Agent builder form state
@@ -195,14 +202,38 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setOnboardingData((prev) => ({ ...prev, createdAgentId: id }));
   }, []);
 
+  /**
+   * Persist onboarding completion to the database and, optionally, signal the
+   * OnboardingGuard to navigate the user to the main app.
+   *
+   * @param createdAgentId  The agent ID returned from the agent-creation step.
+   * @param persistOnly     When `true`, only writes to the DB without updating
+   *                        the shared UserProfileContext state.  Use this for
+   *                        the early "crash-safety" write in AgentBuilder so that
+   *                        a crash after agent creation doesn't send the user back
+   *                        through onboarding — but without prematurely navigating
+   *                        away from the generation / agent-born steps.
+   *                        Defaults to `false` (i.e. the final completion call).
+   */
   const markOnboardingCompleted = useCallback(
-    async (createdAgentId?: string) => {
+    async (createdAgentId?: string, persistOnly = false) => {
       if (!user) {
-        console.error('User not authenticated');
+        console.error('[OnboardingContext] User not authenticated');
         throw new Error('User not authenticated');
       }
 
-      if (hasCompletedOnboarding.current) {
+      // Optimistically signal the guard to navigate right away (for the final
+      // completion call).  We do this BEFORE the async Supabase write so the UI
+      // transition starts immediately.
+      if (!persistOnly && !hasTriggeredNavigation.current) {
+        hasTriggeredNavigation.current = true;
+        setOnboardingCompleted(true);
+      }
+
+      // Skip the DB write if we already persisted (idempotent — handles the
+      // case where AgentBuilder's early write ran first).
+      if (hasPersistedToDb.current) {
+        console.log('[OnboardingContext] Already persisted — skipping DB write');
         return;
       }
 
@@ -210,44 +241,52 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         ? { ...onboardingData, createdAgentId }
         : onboardingData;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          onboarding_data: payloadOnboardingData,
-          onboarding_completed: true,
-        })
-        .eq('user_id', user.id)
-        .select();
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .update({
+            onboarding_data: payloadOnboardingData,
+            onboarding_completed: true,
+          })
+          .eq('user_id', user.id)
+          .select();
 
-      if (error) {
-        console.error('Error updating profile:', error);
-        console.error('Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
+        if (error) {
+          console.error('[OnboardingContext] Error updating profile:', error);
+          // Rollback the optimistic navigation signal on failure
+          if (!persistOnly) {
+            hasTriggeredNavigation.current = false;
+            setOnboardingCompleted(false);
+          }
+          throw error;
+        }
+
+        console.log('[OnboardingContext] Profile updated successfully:', data);
+        hasPersistedToDb.current = true;
+
+        trackOnboardingStepCompleted(currentStepRef.current, undefined, ONBOARDING_TOTAL_STEPS);
+        trackOnboardingCompleted({
+          favoriteSports: payloadOnboardingData.favoriteSports,
+          bettorType: payloadOnboardingData.bettorType,
+          mainGoal: payloadOnboardingData.mainGoal,
+          acquisitionSource: payloadOnboardingData.acquisitionSource,
         });
-        throw error;
+      } catch (err) {
+        // Ensure rollback happened if we threw above
+        if (!persistOnly && hasTriggeredNavigation.current) {
+          hasTriggeredNavigation.current = false;
+          setOnboardingCompleted(false);
+        }
+        throw err;
       }
-
-      console.log('Profile updated successfully!');
-      console.log('Updated data:', data);
-
-      hasCompletedOnboarding.current = true;
-      trackOnboardingStepCompleted(currentStepRef.current, undefined, ONBOARDING_TOTAL_STEPS);
-      trackOnboardingCompleted({
-        favoriteSports: payloadOnboardingData.favoriteSports,
-        bettorType: payloadOnboardingData.bettorType,
-        mainGoal: payloadOnboardingData.mainGoal,
-        acquisitionSource: payloadOnboardingData.acquisitionSource,
-      });
     },
-    [onboardingData, user]
+    [onboardingData, user, setOnboardingCompleted]
   );
 
   const resetOnboarding = useCallback(() => {
-    console.log('Resetting onboarding context to step 1');
-    hasCompletedOnboarding.current = false;
+    console.log('[OnboardingContext] Resetting onboarding context to step 1');
+    hasPersistedToDb.current = false;
+    hasTriggeredNavigation.current = false;
     setCurrentStep(1);
     setDirection(0);
     setOnboardingData({});
@@ -262,17 +301,18 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   const submitOnboardingData = async () => {
     if (!user) {
-      console.error('User not authenticated');
+      console.error('[OnboardingContext] User not authenticated');
       throw new Error('User not authenticated');
     }
 
-    console.log('Submitting onboarding data for user:', user.id);
-    console.log('Onboarding data:', onboardingData);
+    console.log('[OnboardingContext] Submitting onboarding data for user:', user.id);
 
     try {
-      await markOnboardingCompleted();
+      // persistOnly=false → optimistically update UserProfileContext so the guard
+      // navigates immediately, then persist to DB in the background.
+      await markOnboardingCompleted(undefined, false);
     } catch (err) {
-      console.error('Unexpected error during onboarding submission:', err);
+      console.error('[OnboardingContext] Unexpected error during onboarding submission:', err);
       throw err;
     }
   };

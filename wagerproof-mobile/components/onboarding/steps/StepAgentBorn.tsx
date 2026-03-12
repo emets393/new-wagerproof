@@ -8,7 +8,6 @@ import { useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 import * as StoreReview from 'expo-store-review';
-import { useRouter } from 'expo-router';
 import { Button } from '../../ui/Button';
 import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -48,7 +47,6 @@ export function AgentBornStep() {
   const { currentStep, agentFormState, submitOnboardingData } = useOnboarding();
   const theme = useTheme();
   const { isDark } = useThemeContext();
-  const router = useRouter();
   const { refreshCustomerInfo } = useRevenueCat();
   const [isRevealComplete, setIsRevealComplete] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -89,10 +87,15 @@ export function AgentBornStep() {
     }
 
     try {
+      // submitOnboardingData() calls markOnboardingCompleted(persistOnly=false)
+      // which optimistically updates UserProfileContext.onboardingCompleted → true.
+      // OnboardingGuard reacts to that state change and fires router.replace to the
+      // main app.  We don't need (and should not have) a router.replace here —
+      // having two competing navigation calls was the root cause of the
+      // "flash back to onboarding step 1" jank.
       await submitOnboardingData();
-      router.replace('/(tabs)' as any);
     } catch (error) {
-      console.error('Error completing onboarding:', error);
+      console.error('[AgentBorn] Error completing onboarding:', error);
       setIsContinuing(false);
     }
   };

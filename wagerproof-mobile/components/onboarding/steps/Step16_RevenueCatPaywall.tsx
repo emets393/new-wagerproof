@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Platform, Alert, TouchableOpacity } from 'react-native';
 import { useRevenueCat } from '../../../contexts/RevenueCatContext';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
-import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { usePlacementOffering } from '@/hooks/usePlacementOffering';
@@ -29,7 +28,6 @@ try {
 export function RevenueCatPaywallStep() {
   const { refreshCustomerInfo, isInitialized } = useRevenueCat();
   const { submitOnboardingData } = useOnboarding();
-  const router = useRouter();
   const [isCompleting, setIsCompleting] = useState(false);
   const { offering, isLoading, refresh } = usePlacementOffering(
     PAYWALL_PLACEMENTS.ONBOARDING,
@@ -68,11 +66,7 @@ export function RevenueCatPaywallStep() {
       console.log('Starting onboarding completion from Paywall...');
       await submitOnboardingData();
       console.log('Onboarding data submitted successfully!');
-      
-      // Short delay to ensure UX feels right
-      setTimeout(() => {
-        router.replace('/(tabs)');
-      }, 300);
+      // Navigation is handled by OnboardingGuard reacting to UserProfileContext
     } catch (error) {
       console.error('Error completing onboarding:', error);
       setIsCompleting(false);

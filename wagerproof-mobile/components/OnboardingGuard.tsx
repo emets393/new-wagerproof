@@ -1,9 +1,34 @@
-import React, { useEffect, useState, useRef } from 'react';
+/**
+ * OnboardingGuard
+ *
+ * Route guard that controls whether an authenticated user sees the onboarding
+ * flow or the main app.
+ *
+ * Previously this component maintained its own Supabase query to determine
+ * onboarding status, and also ran a second "refetch on exit" query whenever
+ * the user navigated away from the onboarding route group. This created a
+ * race condition:
+ *
+ *   1. OnboardingContext.markOnboardingCompleted() updated Supabase but
+ *      NOT this component's local state.
+ *   2. StepAgentBorn then called router.replace() to navigate to the main app.
+ *   3. This component's useEffect fired, saw onboardingCompleted === false
+ *      (stale), and immediately redirected the user BACK to onboarding step 1.
+ *   4. The refetch-on-exit query eventually returned true, triggering a third
+ *      navigation to the main app — producing the visible "flash to step 1" jank.
+ *
+ * The fix is to read onboarding status from UserProfileContext, a single
+ * shared source of truth. OnboardingContext now updates that context
+ * optimistically when marking completion, so this guard reacts instantly
+ * with the correct state and fires exactly one navigation.
+ */
+
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ActivityIndicator, useTheme } from 'react-native-paper';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../services/supabase';
+import { useUserProfile } from '../contexts/UserProfileContext';
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
@@ -11,109 +36,38 @@ interface OnboardingGuardProps {
 
 export function OnboardingGuard({ children }: OnboardingGuardProps) {
   const { user, loading: authLoading } = useAuth();
+  const { onboardingCompleted, profileLoading } = useUserProfile();
   const router = useRouter();
   const segments = useSegments();
   const theme = useTheme();
-  const [onboardingStatus, setOnboardingStatus] = useState<{
-    completed: boolean | null;
-    loading: boolean;
-  }>({ completed: null, loading: true });
-  const previousSegmentRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      if (!user) {
-        setOnboardingStatus({ completed: null, loading: false });
-        return;
-      }
-
-      console.log('Checking onboarding status for user:', user.id);
-      setOnboardingStatus((prev) => ({ ...prev, loading: true }));
-
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('onboarding_completed')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching user profile:', error);
-          console.error('Error details:', error);
-          // If there's an error, assume onboarding is not completed to be safe
-          setOnboardingStatus({ completed: false, loading: false });
-          return;
-        }
-
-        console.log('Onboarding status from database:', profile?.onboarding_completed);
-        setOnboardingStatus({
-          completed: profile?.onboarding_completed ?? false,
-          loading: false,
-        });
-      } catch (error) {
-        console.error('Unexpected error checking onboarding status:', error);
-        setOnboardingStatus({ completed: false, loading: false });
-      }
-    };
-
-    checkOnboardingStatus();
-  }, [user]); // Only check when user changes
-
-  // Refetch when leaving onboarding route
-  useEffect(() => {
-    const currentSegment = segments[0];
-    const wasInOnboarding = previousSegmentRef.current === '(onboarding)';
-    const notInOnboardingAnymore = currentSegment !== '(onboarding)';
-    
-    // If we just left the onboarding screen, refetch the status
-    if (wasInOnboarding && notInOnboardingAnymore && user) {
-      console.log('Just left onboarding, refetching status...');
-      const refetchStatus = async () => {
-        try {
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('onboarding_completed')
-            .eq('user_id', user.id)
-            .single();
-
-          if (!error && profile) {
-            console.log('Refetched onboarding status:', profile.onboarding_completed);
-            setOnboardingStatus({
-              completed: profile.onboarding_completed ?? false,
-              loading: false,
-            });
-          }
-        } catch (error) {
-          console.error('Error refetching onboarding status:', error);
-        }
-      };
-      refetchStatus();
-    }
-    
-    previousSegmentRef.current = currentSegment;
-  }, [segments, user]);
-
-  useEffect(() => {
-    if (authLoading || onboardingStatus.loading) return;
+    // Wait until both auth and profile status are resolved before making
+    // any routing decisions — this prevents flickering navigations.
+    if (authLoading || profileLoading) return;
 
     const inOnboardingGroup = segments[0] === '(onboarding)';
-    const inAuthGroup = segments[0] === '(auth)';
 
-    // If user is authenticated and hasn't completed onboarding, redirect to onboarding
-    if (user && onboardingStatus.completed === false && !inOnboardingGroup) {
-      console.log('Redirecting to onboarding...');
+    // Authenticated user who has not completed onboarding → show onboarding
+    if (user && onboardingCompleted === false && !inOnboardingGroup) {
+      console.log('[OnboardingGuard] Redirecting to onboarding...');
       router.replace('/(onboarding)');
+      return;
     }
 
-    // If user is authenticated and has completed onboarding, redirect to main app
-    if (user && onboardingStatus.completed === true && inOnboardingGroup) {
-      console.log('Onboarding already completed, redirecting to main app...');
+    // Authenticated user who HAS completed onboarding but is still on an
+    // onboarding route (e.g. deep-linked or stale navigation stack) → main app
+    if (user && onboardingCompleted === true && inOnboardingGroup) {
+      console.log('[OnboardingGuard] Onboarding complete — redirecting to main app...');
       router.replace('/(drawer)/(tabs)');
     }
-  }, [user, authLoading, onboardingStatus, segments]);
+  }, [user, authLoading, onboardingCompleted, profileLoading, segments]);
 
-  // Show loading while checking auth or onboarding status
-  if (authLoading || onboardingStatus.loading) {
+  // Show a full-screen spinner while we're resolving auth or profile state.
+  // This is the only "loading" gate; once resolved the guard never re-enters
+  // this state (onboardingCompleted comes from an in-memory context, not a
+  // fresh DB query).
+  if (authLoading || profileLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -131,4 +85,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-

@@ -23,6 +23,7 @@ import { AgentPickAuditProvider } from '../contexts/AgentPickAuditContext';
 import { MetaTestSheetProvider } from '../contexts/MetaTestSheetContext';
 
 import { OnboardingGuard } from '../components/OnboardingGuard';
+import { UserProfileProvider } from '../contexts/UserProfileContext';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
 import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
@@ -473,7 +474,9 @@ export default function RootLayout() {
         <AuthProvider>
           <AnalyticsProvider>
             <RevenueCatProvider>
-              <RootLayoutContent />
+              <UserProfileProvider>
+                <RootLayoutContent />
+              </UserProfileProvider>
             </RevenueCatProvider>
           </AnalyticsProvider>
         </AuthProvider>
