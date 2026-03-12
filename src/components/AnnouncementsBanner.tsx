@@ -48,7 +48,7 @@ export function AnnouncementsBanner() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="w-full px-4 pt-4 pb-1"
+        className="w-full"
       >
         <div
           className={`relative overflow-hidden rounded-2xl ${
