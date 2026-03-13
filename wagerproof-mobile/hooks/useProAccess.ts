@@ -12,14 +12,30 @@ import { useIsAdmin } from './useIsAdmin';
  * 3. Otherwise, check RevenueCat subscription status
  */
 export function useProAccess() {
-  const { isPro: isRevenueCatPro, isLoading: isRevenueCatLoading, checkEntitlement, customerInfo, forceFreemiumMode, setForceFreemiumMode, subscriptionType: revenueCatSubscriptionType } = useRevenueCat();
+  const {
+    isPro: isRevenueCatPro,
+    isLoading: isRevenueCatLoading,
+    entitlementStatus,
+    isEntitlementResolved,
+    checkEntitlement,
+    customerInfo,
+    forceFreemiumMode,
+    setForceFreemiumMode,
+    subscriptionType: revenueCatSubscriptionType,
+  } = useRevenueCat();
   const { isAdmin, isLoading: isAdminLoading } = useIsAdmin();
 
-  // Combined loading state
-  const isLoading = isRevenueCatLoading || isAdminLoading;
+  // Combined loading state:
+  // Never allow lock rendering while entitlement state is still unknown.
+  const isLoading = isRevenueCatLoading || isAdminLoading || (!isAdmin && !isEntitlementResolved);
 
   // Effective isPro: forceFreemiumMode overrides everything, then admin check, then RevenueCat
   const isPro = forceFreemiumMode ? false : (isAdmin || isRevenueCatPro);
+  const accessState = forceFreemiumMode
+    ? 'denied'
+    : isAdmin
+    ? 'granted'
+    : entitlementStatus;
 
   // Subscription type - show admin's type as null (they have free access)
   const subscriptionType = useMemo(() => {
@@ -98,6 +114,8 @@ export function useProAccess() {
     isPro,
     isAdmin,
     isLoading,
+    accessState,
+    isResolved: accessState !== 'unknown',
     subscriptionType,
     hasProAccess,
     refreshAccess,

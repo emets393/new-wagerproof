@@ -9,11 +9,17 @@ interface Props {
   onNameChange: (v: string) => void;
   onEmojiChange: (v: string) => void;
   onColorChange: (v: string) => void;
+  existingNames?: string[];
 }
 
 const QUICK_EMOJIS = ['🤖', '🧠', '📈', '⚡', '🎯', '🦾', '🔥', '💎'];
 
-export function Screen2_Identity({ name, emoji, color, onNameChange, onEmojiChange, onColorChange }: Props) {
+export function Screen2_Identity({ name, emoji, color, onNameChange, onEmojiChange, onColorChange, existingNames }: Props) {
+  const nameIsDuplicate = !!(
+    name.trim() &&
+    existingNames?.some((n) => n.toLowerCase() === name.trim().toLowerCase())
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -22,7 +28,10 @@ export function Screen2_Identity({ name, emoji, color, onNameChange, onEmojiChan
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label>Agent Name</Label>
-          <Input value={name} onChange={(e) => onNameChange(e.target.value)} placeholder="SharpValue AI" maxLength={50} />
+          <Input value={name} onChange={(e) => onNameChange(e.target.value)} placeholder="SharpValue AI" maxLength={50} className={nameIsDuplicate ? 'border-red-500' : ''} />
+          {nameIsDuplicate && (
+            <p className="text-sm text-red-500">You already have an agent with this name</p>
+          )}
         </div>
 
         <div className="space-y-2">

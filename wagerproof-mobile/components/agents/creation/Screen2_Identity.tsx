@@ -20,6 +20,8 @@ interface Screen2_IdentityProps {
   onNameChange: (name: string) => void;
   onEmojiChange: (emoji: string) => void;
   onColorChange: (color: string) => void;
+  /** Existing agent names for the current user (used for duplicate detection) */
+  existingNames?: string[];
 }
 
 // Solid colors
@@ -66,6 +68,7 @@ export function Screen2_Identity({
   onNameChange,
   onEmojiChange,
   onColorChange,
+  existingNames,
 }: Screen2_IdentityProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
@@ -90,6 +93,10 @@ export function Screen2_Identity({
 
   const nameLength = name.length;
   const nameOverLimit = nameLength > 50;
+  const nameIsDuplicate = !!(
+    name.trim() &&
+    existingNames?.some((n) => n.toLowerCase() === name.trim().toLowerCase())
+  );
 
   const parsed = parseColor(color);
   // For border/tint use first color of gradient or the solid color
@@ -170,7 +177,7 @@ export function Screen2_Identity({
               backgroundColor: isDark
                 ? 'rgba(255, 255, 255, 0.05)'
                 : 'rgba(0, 0, 0, 0.03)',
-              borderColor: nameOverLimit
+              borderColor: nameOverLimit || nameIsDuplicate
                 ? theme.colors.error
                 : isDark
                 ? 'rgba(255, 255, 255, 0.15)'
@@ -204,6 +211,11 @@ export function Screen2_Identity({
             {nameLength}/50
           </Text>
         </View>
+        {nameIsDuplicate && (
+          <Text style={[styles.helperText, { color: theme.colors.error }]}>
+            You already have an agent with this name
+          </Text>
+        )}
       </View>
 
       {/* Emoji Picker */}

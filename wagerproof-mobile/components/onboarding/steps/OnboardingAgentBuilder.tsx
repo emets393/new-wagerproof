@@ -14,6 +14,8 @@ import { Button } from '../../ui/Button';
 import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useCreateAgent } from '@/hooks/useAgents';
+import { fetchUserAgents } from '@/services/agentService';
+import { useAuth } from '@/contexts/AuthContext';
 import { Sport } from '@/types/agent';
 
 // Import agent builder screen components
@@ -49,6 +51,7 @@ export function OnboardingAgentBuilder() {
     markOnboardingCompleted,
   } = useOnboarding();
 
+  const { user } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
   const createMutation = useCreateAgent();
 
@@ -168,35 +171,59 @@ export function OnboardingAgentBuilder() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
-      const newAgent = await createMutation.mutateAsync({
-        name: agentFormState.name.trim(),
-        avatar_emoji: agentFormState.avatar_emoji,
-        avatar_color: agentFormState.avatar_color,
-        preferred_sports: agentFormState.preferred_sports,
-        archetype: agentFormState.archetype,
-        personality_params: agentFormState.personality_params,
-        custom_insights: agentFormState.custom_insights,
-        auto_generate: agentFormState.auto_generate,
-        auto_generate_time: agentFormState.auto_generate_time,
-        auto_generate_timezone: agentFormState.auto_generate_timezone,
-      });
+      // Race the mutation against a timeout so the user never stares at a spinner forever
+      const CREATION_TIMEOUT_MS = 12000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Agent creation is taking too long. Please check your connection and try again.')), CREATION_TIMEOUT_MS)
+      );
+
+      const newAgent = await Promise.race([
+        createMutation.mutateAsync({
+          name: agentFormState.name.trim(),
+          avatar_emoji: agentFormState.avatar_emoji,
+          avatar_color: agentFormState.avatar_color,
+          preferred_sports: agentFormState.preferred_sports,
+          archetype: agentFormState.archetype,
+          personality_params: agentFormState.personality_params,
+          custom_insights: agentFormState.custom_insights,
+          auto_generate: agentFormState.auto_generate,
+          auto_generate_time: agentFormState.auto_generate_time,
+          auto_generate_timezone: agentFormState.auto_generate_timezone,
+        }),
+        timeoutPromise,
+      ]);
 
       setCreatedAgentId(newAgent.id);
-      try {
-        // Mark onboarding complete as soon as agent creation finishes so end-of-flow crashes
-        // won't send users back into onboarding.
-        await markOnboardingCompleted(newAgent.id);
-      } catch (completionError) {
-        console.error('Failed to persist onboarding completion early:', completionError);
-      }
+      markOnboardingCompleted(newAgent.id).catch(() => {});
       nextStep();
     } catch (error: any) {
+      // If agent limit was hit (user retrying onboarding), use their existing agent instead
+      if (
+        error?.message?.includes('Agent limit reached') ||
+        error?.message?.includes('row-level security') ||
+        error?.message?.includes('permission denied')
+      ) {
+        try {
+          if (user?.id) {
+            const existingAgents = await fetchUserAgents(user.id);
+            if (existingAgents.length > 0) {
+              setCreatedAgentId(existingAgents[0].id);
+              markOnboardingCompleted(existingAgents[0].id).catch(() => {});
+              nextStep();
+              return;
+            }
+          }
+        } catch {
+          // Fall through to error alert
+        }
+      }
+
       Alert.alert(
         'Error',
         error?.message || 'Failed to create agent. Please try again.'
       );
     }
-  }, [agentFormState, createMutation, setCreatedAgentId, markOnboardingCompleted, nextStep]);
+  }, [agentFormState, createMutation, setCreatedAgentId, markOnboardingCompleted, nextStep, user?.id]);
 
   const handleNext = useCallback(() => {
     if (!validateScreen(agentScreenIndex)) {

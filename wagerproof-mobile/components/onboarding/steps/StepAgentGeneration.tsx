@@ -10,6 +10,13 @@ import {
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { useRevenueCat } from '../../../contexts/RevenueCatContext';
+import {
+  didPaywallGrantEntitlement,
+  ENTITLEMENT_IDENTIFIER,
+  PAYWALL_PLACEMENTS,
+  presentPaywallForPlacementIfNeeded,
+} from '../../../services/revenuecat';
 
 const STAGE_1_LINES = [
   'Hacking Vegas computers...',
@@ -24,19 +31,47 @@ const STAGE_2_LINES = [
 ];
 
 export function AgentGenerationStep() {
-  const { nextStep } = useOnboarding();
+  const { nextStep, submitOnboardingData } = useOnboarding();
+  const { refreshCustomerInfo } = useRevenueCat();
   const [stage, setStage] = useState<1 | 2>(1);
   const [lineIndex, setLineIndex] = useState(0);
   const [lineHistory, setLineHistory] = useState<string[]>([]);
 
   const stageScale = useRef(new Animated.Value(0.7)).current;
   const newLineAnim = useRef(new Animated.Value(0)).current;
+  const deferredTasksStarted = useRef(false);
 
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
+
+  // Run deferred onboarding tasks during animation so AgentBorn button is instant
+  useEffect(() => {
+    if (deferredTasksStarted.current) return;
+    deferredTasksStarted.current = true;
+
+    // 1. Persist onboarding completion (fire-and-forget; already called once from agent creation)
+    submitOnboardingData().catch(() => {});
+
+    // 2. Present paywall ~1s in so it overlays on the animation wait time
+    const paywallTimeout = setTimeout(async () => {
+      try {
+        const result = await presentPaywallForPlacementIfNeeded(
+          ENTITLEMENT_IDENTIFIER,
+          PAYWALL_PLACEMENTS.AGENT_FEATURE
+        );
+        if (didPaywallGrantEntitlement(result)) {
+          refreshCustomerInfo().catch(() => {});
+        }
+      } catch {
+        // Paywall dismissed or errored — continue silently
+      }
+    }, 1000);
+
+    return () => clearTimeout(paywallTimeout);
+  }, [submitOnboardingData, refreshCustomerInfo]);
 
   useEffect(() => {
     const timeouts: NodeJS.Timeout[] = [];

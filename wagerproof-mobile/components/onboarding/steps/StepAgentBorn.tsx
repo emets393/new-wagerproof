@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Switch, Modal, TouchableOpacity, Animated } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { BlurView } from 'expo-blur';
@@ -14,13 +14,6 @@ import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { Sport } from '@/types/agent';
-import { useRevenueCat } from '../../../contexts/RevenueCatContext';
-import {
-  didPaywallGrantEntitlement,
-  ENTITLEMENT_IDENTIFIER,
-  PAYWALL_PLACEMENTS,
-  presentPaywallForPlacementIfNeeded,
-} from '../../../services/revenuecat';
 
 const SPORT_ICONS: Record<Sport, string> = {
   nfl: 'football',
@@ -50,7 +43,6 @@ export function AgentBornStep() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const router = useRouter();
-  const { refreshCustomerInfo } = useRevenueCat();
   const [isRevealComplete, setIsRevealComplete] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [rating, setRating] = useState(0);
@@ -71,31 +63,15 @@ export function AgentBornStep() {
   const researchPulse = React.useRef(new Animated.Value(0.55)).current;
   const elementsOpacity = React.useRef(new Animated.Value(0)).current;
 
-  const handleContinue = async () => {
+  const handleContinue = () => {
     if (isContinuing) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsContinuing(true);
 
-    try {
-      const result = await presentPaywallForPlacementIfNeeded(
-        ENTITLEMENT_IDENTIFIER,
-        PAYWALL_PLACEMENTS.AGENT_FEATURE
-      );
-      if (didPaywallGrantEntitlement(result)) {
-        await refreshCustomerInfo();
-      }
-    } catch (error: any) {
-      console.error('Error presenting paywall:', error);
-      // Continue even if paywall fails/cancels; user can subscribe later.
-    }
-
-    try {
-      await submitOnboardingData();
-      router.replace('/(tabs)' as any);
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
-      setIsContinuing(false);
-    }
+    // Paywall + onboarding persistence already ran during the generation animation.
+    // Fire-and-forget a safety retry in case it failed, then navigate immediately.
+    submitOnboardingData().catch(() => {});
+    router.replace('/(tabs)' as any);
   };
 
   // Replay green intro whenever user lands on Agent Born.

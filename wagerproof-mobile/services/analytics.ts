@@ -11,6 +11,11 @@ import { Mixpanel } from 'mixpanel-react-native';
 import { Platform } from 'react-native';
 import { AppEventsLogger, Settings as FBSettings } from 'react-native-fbsdk-next';
 
+// In React Native, console.log crosses the JS-native bridge and blocks the thread.
+// Only log in development to avoid jank in production.
+const analyticsLog = __DEV__ ? console.log : () => {};
+const analyticsWarn = __DEV__ ? console.warn : () => {};
+
 // Mixpanel project token (same as web app)
 const MIXPANEL_TOKEN = '1346df53bbd034722047aa8a96d5321e';
 
@@ -25,7 +30,7 @@ let isFacebookInitialized = false;
  */
 export const initializeAnalytics = async (): Promise<void> => {
   if (isInitialized) {
-    console.log('📊 Analytics: Already initialized');
+    analyticsLog('📊 Analytics: Already initialized');
     return;
   }
 
@@ -42,18 +47,20 @@ export const initializeAnalytics = async (): Promise<void> => {
     });
 
     isInitialized = true;
-    console.log('📊 Analytics: Mixpanel initialized successfully');
+    analyticsLog('📊 Analytics: Mixpanel initialized successfully');
   } catch (error) {
     console.error('📊 Analytics: Failed to initialize Mixpanel:', error);
   }
 
   // Initialize Facebook SDK
   try {
-    // Enable auto-logging of app events
-    FBSettings.setAutoLogAppEventsEnabled(true);
+    // Disable auto-logging of app events — it logs every tap/gesture through
+    // the RN bridge, causing jank during interaction-heavy flows like onboarding.
+    // We track key events (purchases, registration) explicitly instead.
+    FBSettings.setAutoLogAppEventsEnabled(false);
     FBSettings.setAdvertiserIDCollectionEnabled(true);
     isFacebookInitialized = true;
-    console.log('📊 Analytics: Facebook SDK initialized successfully');
+    analyticsLog('📊 Analytics: Facebook SDK initialized successfully');
   } catch (error) {
     console.error('📊 Analytics: Failed to initialize Facebook SDK:', error);
   }
@@ -72,7 +79,7 @@ export const identifyUser = async (
   properties?: Record<string, any>
 ): Promise<void> => {
   if (!mixpanelInstance || !isInitialized) {
-    console.warn('📊 Analytics: Not initialized, skipping identify');
+    analyticsWarn('📊 Analytics: Not initialized, skipping identify');
     return;
   }
 
@@ -83,7 +90,7 @@ export const identifyUser = async (
       mixpanelInstance.getPeople().set(properties);
     }
 
-    console.log('📊 Analytics: User identified:', userId);
+    analyticsLog('📊 Analytics: User identified:', userId);
   } catch (error) {
     console.error('📊 Analytics: Error identifying user:', error);
   }
@@ -93,34 +100,30 @@ export const identifyUser = async (
  * Set user properties (people profile)
  */
 export const setUserProperties = (properties: Record<string, any>): void => {
-  if (!mixpanelInstance || !isInitialized) {
-    console.warn('📊 Analytics: Not initialized, skipping user properties');
-    return;
-  }
+  if (!mixpanelInstance || !isInitialized) return;
 
-  try {
-    mixpanelInstance.getPeople().set(properties);
-    console.log('📊 Analytics: User properties set:', Object.keys(properties));
-  } catch (error) {
-    console.error('📊 Analytics: Error setting user properties:', error);
-  }
+  setTimeout(() => {
+    try {
+      mixpanelInstance!.getPeople().set(properties);
+    } catch (error) {
+      console.error('📊 Analytics: Error setting user properties:', error);
+    }
+  }, 0);
 };
 
 /**
  * Set user properties only once (won't overwrite)
  */
 export const setUserPropertiesOnce = (properties: Record<string, any>): void => {
-  if (!mixpanelInstance || !isInitialized) {
-    console.warn('📊 Analytics: Not initialized, skipping user properties once');
-    return;
-  }
+  if (!mixpanelInstance || !isInitialized) return;
 
-  try {
-    mixpanelInstance.getPeople().setOnce(properties);
-    console.log('📊 Analytics: User properties set once:', Object.keys(properties));
-  } catch (error) {
-    console.error('📊 Analytics: Error setting user properties once:', error);
-  }
+  setTimeout(() => {
+    try {
+      mixpanelInstance!.getPeople().setOnce(properties);
+    } catch (error) {
+      console.error('📊 Analytics: Error setting user properties once:', error);
+    }
+  }, 0);
 };
 
 /**
@@ -130,37 +133,35 @@ export const trackEvent = (
   eventName: string,
   properties?: Record<string, any>
 ): void => {
-  if (!mixpanelInstance || !isInitialized) {
-    console.warn(`📊 Analytics: Not initialized, skipping event: ${eventName}`);
-    return;
-  }
+  if (!mixpanelInstance || !isInitialized) return;
 
-  try {
-    mixpanelInstance.track(eventName, {
-      ...properties,
-      timestamp: new Date().toISOString(),
-    });
-    console.log('📊 Analytics: Event tracked:', eventName);
-  } catch (error) {
-    console.error('📊 Analytics: Error tracking event:', error);
-  }
+  // Defer the Mixpanel bridge call to the next tick so it never blocks
+  // the current JS frame (tap handler, animation, etc.).
+  setTimeout(() => {
+    try {
+      mixpanelInstance!.track(eventName, {
+        ...properties,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('📊 Analytics: Error tracking event:', error);
+    }
+  }, 0);
 };
 
 /**
  * Increment a numeric user property
  */
 export const incrementUserProperty = (property: string, value: number = 1): void => {
-  if (!mixpanelInstance || !isInitialized) {
-    console.warn('📊 Analytics: Not initialized, skipping increment');
-    return;
-  }
+  if (!mixpanelInstance || !isInitialized) return;
 
-  try {
-    mixpanelInstance.getPeople().increment(property, value);
-    console.log(`📊 Analytics: Incremented ${property} by ${value}`);
-  } catch (error) {
-    console.error('📊 Analytics: Error incrementing property:', error);
-  }
+  setTimeout(() => {
+    try {
+      mixpanelInstance!.getPeople().increment(property, value);
+    } catch (error) {
+      console.error('📊 Analytics: Error incrementing property:', error);
+    }
+  }, 0);
 };
 
 /**
@@ -168,13 +169,13 @@ export const incrementUserProperty = (property: string, value: number = 1): void
  */
 export const resetAnalytics = (): void => {
   if (!mixpanelInstance || !isInitialized) {
-    console.warn('📊 Analytics: Not initialized, skipping reset');
+    analyticsWarn('📊 Analytics: Not initialized, skipping reset');
     return;
   }
 
   try {
     mixpanelInstance.reset();
-    console.log('📊 Analytics: Tracking reset');
+    analyticsLog('📊 Analytics: Tracking reset');
   } catch (error) {
     console.error('📊 Analytics: Error resetting:', error);
   }
@@ -190,7 +191,7 @@ export const flushAnalytics = (): void => {
 
   try {
     mixpanelInstance.flush();
-    console.log('📊 Analytics: Events flushed');
+    analyticsLog('📊 Analytics: Events flushed');
   } catch (error) {
     console.error('📊 Analytics: Error flushing:', error);
   }
@@ -232,7 +233,7 @@ export const trackSignOut = (): void => {
  */
 const trackFacebookCompleteRegistration = (registrationMethod: string): void => {
   if (!isFacebookInitialized) {
-    console.log('📊 Analytics: Facebook SDK not initialized, skipping CompleteRegistration');
+    analyticsLog('📊 Analytics: Facebook SDK not initialized, skipping CompleteRegistration');
     return;
   }
 
@@ -242,7 +243,7 @@ const trackFacebookCompleteRegistration = (registrationMethod: string): void => 
       fb_content_name: 'WagerProof Onboarding',
       fb_success: '1',
     });
-    console.log('📊 Analytics: Facebook CompleteRegistration event logged');
+    analyticsLog('📊 Analytics: Facebook CompleteRegistration event logged');
   } catch (error) {
     console.error('📊 Analytics: Error logging Facebook CompleteRegistration:', error);
   }
@@ -260,7 +261,7 @@ const trackFacebookPurchase = (
   transactionId?: string
 ): void => {
   if (!isFacebookInitialized) {
-    console.log('📊 Analytics: Facebook SDK not initialized, skipping Purchase');
+    analyticsLog('📊 Analytics: Facebook SDK not initialized, skipping Purchase');
     return;
   }
 
@@ -273,7 +274,7 @@ const trackFacebookPurchase = (
       fb_success: '1',
       fb_payment_info_available: '1',
     });
-    console.log('📊 Analytics: Facebook Purchase event logged:', { price, currency, contentId });
+    analyticsLog('📊 Analytics: Facebook Purchase event logged:', { price, currency, contentId });
   } catch (error) {
     console.error('📊 Analytics: Error logging Facebook Purchase:', error);
   }
@@ -340,6 +341,11 @@ export const trackOnboardingStepViewed = (
 /**
  * Track onboarding step completed
  */
+// Track the highest step seen so far; the people-profile update is deferred
+// to the final trackOnboardingCompleted() call to avoid 2 extra network/bridge
+// round-trips on every single step tap.
+let _highestCompletedStep = 0;
+
 export const trackOnboardingStepCompleted = (
   stepNumber: number,
   additionalData?: Record<string, any>,
@@ -355,11 +361,10 @@ export const trackOnboardingStepCompleted = (
     ...additionalData,
   });
 
-  // Update user profile with highest completed step
-  setUserProperties({
-    onboarding_last_step: stepNumber,
-    onboarding_last_step_name: stepName,
-  });
+  // Track locally — bulk-update the people profile at onboarding completion
+  if (stepNumber > _highestCompletedStep) {
+    _highestCompletedStep = stepNumber;
+  }
 };
 
 /**
@@ -382,10 +387,13 @@ export const trackOnboardingCompleted = (onboardingData?: {
     acquisition_source: onboardingData?.acquisitionSource || 'unknown',
   });
 
-  // Set user properties
+  // Set user properties (includes deferred step tracking from step-by-step events)
+  const stepName = ONBOARDING_STEP_NAMES[_highestCompletedStep] || `Step${_highestCompletedStep}`;
   setUserProperties({
     onboarding_completed: true,
     onboarding_completion_date: new Date().toISOString(),
+    onboarding_last_step: _highestCompletedStep,
+    onboarding_last_step_name: stepName,
     favorite_sports: onboardingData?.favoriteSports || [],
     bettor_type: onboardingData?.bettorType || 'unknown',
     main_goal: onboardingData?.mainGoal || 'unknown',
@@ -674,7 +682,7 @@ export const flushFacebookEvents = async (): Promise<{ success: boolean; message
   try {
     // react-native-fbsdk-next uses AppEventsLogger.flush()
     await AppEventsLogger.flush();
-    console.log('📊 Analytics: Facebook events flushed');
+    analyticsLog('📊 Analytics: Facebook events flushed');
     return {
       success: true,
       message: 'Events flushed successfully',

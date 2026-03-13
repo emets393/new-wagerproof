@@ -62,12 +62,7 @@ export async function fetchAgentById(agentId: string): Promise<AgentWithPerforma
 export async function createAgent(userId: string, data: CreateAgentInput): Promise<AgentProfile> {
   const validated = CreateAgentSchema.parse(data);
 
-  let canCreatePublicAgent = false;
-  const { data: canAccessPicks } = await (supabase as any).rpc('can_access_agent_picks', {
-    p_user_id: userId,
-  });
-  canCreatePublicAgent = Boolean(canAccessPicks);
-
+  // Insert immediately with is_public=false; check entitlement in the background.
   const insertData = {
     user_id: userId,
     name: validated.name,
@@ -81,7 +76,7 @@ export async function createAgent(userId: string, data: CreateAgentInput): Promi
     auto_generate_time: validated.auto_generate_time,
     auto_generate_timezone: validated.auto_generate_timezone,
     is_widget_favorite: validated.is_widget_favorite,
-    is_public: canCreatePublicAgent,
+    is_public: false,
     is_active: validated.auto_generate,
   };
 
@@ -93,6 +88,13 @@ export async function createAgent(userId: string, data: CreateAgentInput): Promi
 
   if (error) {
     if (
+      error.code === '23505' ||
+      error.message?.toLowerCase().includes('unique_avatar_name_per_user') ||
+      error.message?.toLowerCase().includes('duplicate key')
+    ) {
+      throw new Error(`You already have an agent named "${validated.name}". Please choose a different name.`);
+    }
+    if (
       error.code === '42501' ||
       error.message?.toLowerCase().includes('row-level security') ||
       error.message?.toLowerCase().includes('permission denied')
@@ -101,6 +103,13 @@ export async function createAgent(userId: string, data: CreateAgentInput): Promi
     }
     throw error;
   }
+
+  // Fire-and-forget: flip is_public if the user has entitlement
+  (supabase as any).rpc('can_access_agent_picks', { p_user_id: userId }).then(({ data: canAccess }: any) => {
+    if (canAccess) {
+      (supabase as any).from('avatar_profiles').update({ is_public: true }).eq('id', agent.id);
+    }
+  }).catch(() => {});
 
   return agent as AgentProfile;
 }

@@ -276,10 +276,15 @@ function NotificationHandler() {
   }, []);
 
   // 2. Silent token sync when user authenticates
+  // Deferred by 15s to avoid competing with onboarding network calls
+  // (auth, RevenueCat, OnboardingGuard, analytics all fire at the same time)
   useEffect(() => {
     console.log('🔔 NotificationHandler: user?.id =', user?.id);
     if (!user?.id) return;
-    syncTokenIfPermitted(user.id);
+    const timeout = setTimeout(() => {
+      syncTokenIfPermitted(user.id);
+    }, 15000);
+    return () => clearTimeout(timeout);
   }, [user?.id]);
 
   // 3. Push token change listener (handles mid-session token rotation)
@@ -329,9 +334,11 @@ function RootNavigator() {
       // Redirect to login if not authenticated
       router.replace('/(auth)/login');
     } else if (user && inAuthGroup) {
-      // Don't redirect immediately - let OnboardingGuard handle it
-      // This allows checking onboarding status first
-      return;
+      // User just authenticated — move them out of the auth group immediately.
+      // OnboardingGuard will then redirect to (onboarding) or (drawer) as needed.
+      // Using (drawer)/(tabs) as the default destination avoids leaving the user
+      // stuck on the login screen while OnboardingGuard fetches profile data.
+      router.replace('/(drawer)/(tabs)');
     }
   }, [user, loading, segments]);
 

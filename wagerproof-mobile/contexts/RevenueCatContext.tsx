@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, AppStateStatus } from 'react-native';
 import {
   CustomerInfo,
   PurchasesOffering,
@@ -30,6 +32,22 @@ import {
   SubscriptionType,
 } from '../services/analytics';
 
+export type EntitlementStatus = 'unknown' | 'granted' | 'denied';
+
+interface CachedEntitlementState {
+  userId: string;
+  status: Exclude<EntitlementStatus, 'unknown'>;
+  subscriptionType: 'monthly' | 'yearly' | 'lifetime' | null;
+  checkedAt: number;
+  expiresAt: number;
+}
+
+const ENTITLEMENT_CACHE_KEY_PREFIX = '@wagerproof/entitlement-state/v1/';
+const GRANTED_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DENIED_CACHE_TTL_MS = 5 * 60 * 1000;
+
+const getEntitlementCacheKey = (userId: string) => `${ENTITLEMENT_CACHE_KEY_PREFIX}${userId}`;
+
 interface RevenueCatContextType {
   // State
   isInitialized: boolean;
@@ -38,6 +56,8 @@ interface RevenueCatContextType {
   offering: PurchasesOffering | null;
   packages: PurchasesPackage[];
   isPro: boolean;
+  entitlementStatus: EntitlementStatus;
+  isEntitlementResolved: boolean;
   subscriptionType: 'monthly' | 'yearly' | 'lifetime' | null;
   error: string | null;
   forceFreemiumMode: boolean;
@@ -62,27 +82,100 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [isProInternal, setIsProInternal] = useState(false);
+  const [entitlementStatus, setEntitlementStatus] = useState<EntitlementStatus>('unknown');
   const [subscriptionType, setSubscriptionType] = useState<'monthly' | 'yearly' | 'lifetime' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [forceFreemiumMode, setForceFreemiumMode] = useState(false);
+  const isEntitlementResolved = entitlementStatus !== 'unknown';
 
   // Effective isPro - false if forceFreemiumMode is enabled (for admin testing)
   const isPro = forceFreemiumMode ? false : isProInternal;
 
+  const persistEntitlementState = useCallback(async (
+    userId: string,
+    status: Exclude<EntitlementStatus, 'unknown'>,
+    nextSubscriptionType: 'monthly' | 'yearly' | 'lifetime' | null
+  ) => {
+    try {
+      const now = Date.now();
+      const ttl = status === 'granted' ? GRANTED_CACHE_TTL_MS : DENIED_CACHE_TTL_MS;
+      const cacheValue: CachedEntitlementState = {
+        userId,
+        status,
+        subscriptionType: nextSubscriptionType,
+        checkedAt: now,
+        expiresAt: now + ttl,
+      };
+      await AsyncStorage.setItem(getEntitlementCacheKey(userId), JSON.stringify(cacheValue));
+    } catch (cacheError) {
+      console.warn('📱 RevenueCat: Failed to persist entitlement cache:', cacheError);
+    }
+  }, []);
+
+  const hydrateEntitlementState = useCallback(async (userId: string): Promise<boolean> => {
+    try {
+      const rawCache = await AsyncStorage.getItem(getEntitlementCacheKey(userId));
+      if (!rawCache) {
+        return false;
+      }
+
+      const parsed = JSON.parse(rawCache) as CachedEntitlementState;
+      if (parsed.userId !== userId || parsed.expiresAt <= Date.now()) {
+        await AsyncStorage.removeItem(getEntitlementCacheKey(userId));
+        return false;
+      }
+
+      setEntitlementStatus(parsed.status);
+      setIsProInternal(parsed.status === 'granted');
+      setSubscriptionType(parsed.subscriptionType ?? null);
+      setIsLoading(false);
+      console.log('📱 RevenueCat: Hydrated entitlement state from cache:', parsed.status);
+      return true;
+    } catch (cacheError) {
+      console.warn('📱 RevenueCat: Failed to hydrate entitlement cache:', cacheError);
+      return false;
+    }
+  }, []);
+
+  const applyCustomerInfoState = useCallback(async (
+    info: CustomerInfo,
+    source: string,
+    userId?: string
+  ) => {
+    setCustomerInfo(info);
+    const activeEntitlement = info.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
+    const hasEntitlement = activeEntitlement !== undefined;
+    const nextStatus: Exclude<EntitlementStatus, 'unknown'> = hasEntitlement ? 'granted' : 'denied';
+    const nextSubscriptionType = getActiveSubscriptionType(info);
+
+    setEntitlementStatus(nextStatus);
+    setIsProInternal(hasEntitlement);
+    setSubscriptionType(nextSubscriptionType);
+    console.log(`📱 RevenueCat: Entitlement resolved from ${source}:`, nextStatus);
+
+    if (userId) {
+      await persistEntitlementState(userId, nextStatus, nextSubscriptionType);
+    }
+  }, [persistEntitlementState]);
+
   // Safety timeout: if loading takes more than 10 seconds, force it to complete
-  // This prevents the app from getting stuck if RevenueCat fails silently
+  // Resolve unknown -> denied on timeout so lock UI can make a deterministic decision.
   useEffect(() => {
     if (!isLoading) return;
 
     const timeout = setTimeout(() => {
       if (isLoading) {
         console.warn('📱 RevenueCat: Loading timeout reached (10s), forcing isLoading = false');
+        setEntitlementStatus((prev) => (prev === 'unknown' ? 'denied' : prev));
+        if (entitlementStatus === 'unknown') {
+          setIsProInternal(false);
+        }
         setIsLoading(false);
       }
     }, 10000);
 
     return () => clearTimeout(timeout);
-  }, [isLoading]);
+  }, [isLoading, entitlementStatus]);
 
   // Initialize RevenueCat
   useEffect(() => {
@@ -106,6 +199,8 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           if (!actuallyConfigured) {
             console.warn('📱 RevenueCat: SDK initialized but not properly configured (web or native module unavailable)');
             // Only set loading false if not configured (no entitlements to fetch)
+            setEntitlementStatus('denied');
+            setIsProInternal(false);
             setIsLoading(false);
           }
         }
@@ -116,9 +211,11 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           if (err?.message?.includes('native')) {
             console.warn('📱 RevenueCat: Native module not available. Continuing without RevenueCat.');
             setIsInitialized(false);
+            setEntitlementStatus('denied');
           } else {
             setError(err.message || 'Failed to initialize RevenueCat');
             setIsInitialized(false);
+            setEntitlementStatus('denied');
           }
           setIsLoading(false);
         }
@@ -151,6 +248,9 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     const setUserId = async () => {
       try {
         if (user?.id) {
+          // Hydrate local entitlement cache first to avoid lock flashes for paid users.
+          await hydrateEntitlementState(user.id);
+
           console.log('📱 RevenueCat: Setting user ID for:', user.id);
           console.log('📱 RevenueCat: User email:', user.email);
 
@@ -160,20 +260,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           if (loginCustomerInfo) {
             console.log('📱 RevenueCat: Using customer info from login response');
             console.log('📱 RevenueCat: Active entitlements from login:', Object.keys(loginCustomerInfo.entitlements?.active || {}));
-
-            // Use the customer info directly from login - this is the most reliable
-            setCustomerInfo(loginCustomerInfo);
-
-            // Check entitlement from login response
-            const activeEntitlement = loginCustomerInfo.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
-            const hasEntitlement = activeEntitlement !== undefined;
-            console.log('📱 RevenueCat: Has Pro entitlement from login:', hasEntitlement);
-            setIsProInternal(hasEntitlement);
-
-            // Get subscription type
-            const type = getActiveSubscriptionType(loginCustomerInfo);
-            setSubscriptionType(type);
-            console.log('📱 RevenueCat: Subscription type:', type);
+            await applyCustomerInfoState(loginCustomerInfo, 'login', user.id);
 
             // NOW we can set loading to false - entitlements are loaded
             console.log('📱 RevenueCat: Entitlements loaded, setting isLoading = false');
@@ -184,15 +271,19 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
             // refreshCustomerInfo already sets isLoading = false in its finally block
           }
 
-          // Refresh offerings (don't block on this)
-          refreshOfferings().catch(err => console.warn('📱 RevenueCat: Error refreshing offerings:', err));
-          console.log('📱 RevenueCat: Offerings refresh started');
+          // Defer offerings refresh to avoid competing with onboarding network calls.
+          // Offerings are only needed when the paywall is shown (end of onboarding or later).
+          setTimeout(() => {
+            refreshOfferings().catch(err => console.warn('📱 RevenueCat: Error refreshing offerings:', err));
+            console.log('📱 RevenueCat: Offerings refresh started (deferred)');
+          }, 10000);
         } else {
           console.log('📱 RevenueCat: No user (auth loaded, user is null), logging out from RevenueCat');
           // Log out if no user
           await logOutRevenueCat();
           setCustomerInfo(null);
           setIsProInternal(false);
+          setEntitlementStatus('denied');
           setSubscriptionType(null);
           // No user means no entitlements to check - loading is done
           setIsLoading(false);
@@ -200,13 +291,15 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       } catch (err: any) {
         console.error('📱 RevenueCat: Error setting user ID:', err);
         setError(err.message || 'Failed to set user ID');
+        // Keep optimistic grant if we have it, otherwise resolve to denied.
+        setEntitlementStatus((prev) => (prev === 'granted' ? 'granted' : 'denied'));
         // On error, still set loading to false to unblock the UI
         setIsLoading(false);
       }
     };
 
     setUserId();
-  }, [user?.id, isInitialized, authLoading]);
+  }, [user?.id, isInitialized, authLoading, hydrateEntitlementState, applyCustomerInfoState]);
 
   // Refresh customer info
   const refreshCustomerInfo = useCallback(async () => {
@@ -217,7 +310,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     try {
       setError(null);
       const info = await getCustomerInfo();
-      setCustomerInfo(info);
+      await applyCustomerInfoState(info, 'refresh', user?.id);
 
       // Check entitlement - if it exists in .active, the user has access
       // RevenueCat only puts entitlements in .active if they're currently valid
@@ -232,21 +325,17 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         allEntitlements: Object.keys(info.entitlements.all || {}),
       });
 
-      setIsProInternal(hasEntitlement);
-
-      // Get subscription type
-      const type = getActiveSubscriptionType(info);
-      setSubscriptionType(type);
     } catch (err: any) {
       console.error('Error refreshing customer info:', err);
       // Don't set error if RevenueCat is not configured (expected on web)
       if (!err?.message?.includes('not configured')) {
         setError(err.message || 'Failed to refresh customer info');
       }
+      setEntitlementStatus((prev) => (prev === 'granted' ? 'granted' : 'denied'));
     } finally {
       setIsLoading(false);
     }
-  }, [isInitialized]);
+  }, [isInitialized, applyCustomerInfoState, user?.id]);
 
   // Refresh offerings
   const refreshOfferings = useCallback(async () => {
@@ -363,13 +452,22 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     try {
       const hasEntitlement = await hasActiveEntitlement();
       setIsProInternal(hasEntitlement);
+      setEntitlementStatus(hasEntitlement ? 'granted' : 'denied');
+      if (user?.id) {
+        await persistEntitlementState(
+          user.id,
+          hasEntitlement ? 'granted' : 'denied',
+          hasEntitlement ? subscriptionType : null
+        );
+      }
       return hasEntitlement;
     } catch (err: any) {
       console.error('Error checking entitlement:', err);
       setError(err.message || 'Failed to check entitlement');
+      setEntitlementStatus((prev) => (prev === 'granted' ? 'granted' : 'denied'));
       return false;
     }
-  }, []);
+  }, [user?.id, persistEntitlementState, subscriptionType]);
 
   // Open Customer Center
   const openCustomerCenter = useCallback(async (): Promise<void> => {
@@ -384,6 +482,22 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     }
   }, [refreshCustomerInfo]);
 
+  // Revalidate in the background when app returns to foreground.
+  useEffect(() => {
+    if (!user?.id || !isInitialized) return;
+
+    const onAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        refreshCustomerInfo().catch((err) => {
+          console.warn('📱 RevenueCat: Foreground entitlement refresh failed:', err);
+        });
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', onAppStateChange);
+    return () => subscription.remove();
+  }, [user?.id, isInitialized, refreshCustomerInfo]);
+
   const value: RevenueCatContextType = {
     isInitialized,
     isLoading,
@@ -391,6 +505,8 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     offering,
     packages,
     isPro,
+    entitlementStatus,
+    isEntitlementResolved,
     subscriptionType,
     error,
     forceFreemiumMode,

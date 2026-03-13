@@ -140,17 +140,9 @@ export async function createAgent(
     // Validate input
     const validated = CreateAgentSchema.parse(data);
 
-    let canCreatePublicAgent = false;
-    const { data: canAccessPicks, error: entitlementError } = await supabase.rpc(
-      'can_access_agent_picks',
-      { p_user_id: userId }
-    );
-    if (entitlementError) {
-      console.warn('Could not resolve public-agent entitlement, defaulting to private:', entitlementError);
-    } else {
-      canCreatePublicAgent = Boolean(canAccessPicks);
-    }
-
+    // Insert the agent immediately with is_public=false (safe default).
+    // Check entitlement in parallel and update is_public afterwards if needed.
+    // This avoids blocking the UI with a sequential RPC call.
     const insertData = {
       user_id: userId,
       name: validated.name,
@@ -164,7 +156,7 @@ export async function createAgent(
       auto_generate_time: validated.auto_generate_time,
       auto_generate_timezone: validated.auto_generate_timezone,
       is_widget_favorite: validated.is_widget_favorite,
-      is_public: canCreatePublicAgent,
+      is_public: false,
       // Manual-mode agents are created inactive so they do not count as live autopilot agents.
       is_active: validated.auto_generate,
     };
@@ -176,7 +168,13 @@ export async function createAgent(
       .single();
 
     if (error) {
-      console.error('Error creating agent:', error);
+      if (
+        error.code === '23505' ||
+        error.message?.toLowerCase().includes('unique_avatar_name_per_user') ||
+        error.message?.toLowerCase().includes('duplicate key')
+      ) {
+        throw new Error(`You already have an agent named "${validated.name}". Please choose a different name.`);
+      }
       if (
         error.code === '42501' ||
         error.message?.toLowerCase().includes('row-level security') ||
@@ -187,7 +185,16 @@ export async function createAgent(
       throw error;
     }
 
-    console.log(`Created agent: ${agent.name} (${agent.id})`);
+    // Fire-and-forget: check entitlement and flip is_public if the user qualifies.
+    // This doesn't block the UI — the agent is already created and usable.
+    Promise.resolve(supabase.rpc('can_access_agent_picks', { p_user_id: userId }))
+      .then(({ data: canAccess }) => {
+        if (canAccess) {
+          supabase.from('avatar_profiles').update({ is_public: true }).eq('id', agent.id);
+        }
+      })
+      .catch(() => {});
+
     return agent as AgentProfile;
   } catch (error) {
     console.error('Error in createAgent:', error);

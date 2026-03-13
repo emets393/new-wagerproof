@@ -158,13 +158,18 @@ export default function CreateAgentScreen() {
       switch (screen) {
         case 0: // Sport & Archetype
           return formState.preferred_sports.length > 0;
-        case 1: // Identity
+        case 1: { // Identity
+          const nameTaken = agents?.some(
+            (a) => a.name.toLowerCase() === formState.name.trim().toLowerCase()
+          );
           return (
             formState.name.trim().length > 0 &&
             formState.name.trim().length <= 50 &&
+            !nameTaken &&
             formState.avatar_emoji.length > 0 &&
             formState.avatar_color.length > 0
           );
+        }
         case 2: // Personality - always valid (has defaults)
           return true;
         case 3: // Data & Conditions - always valid (has defaults)
@@ -189,17 +194,24 @@ export default function CreateAgentScreen() {
             return 'Please select at least one sport';
           }
           return null;
-        case 1:
+        case 1: {
           if (formState.name.trim().length === 0) {
             return 'Please enter a name for your agent';
           }
           if (formState.name.trim().length > 50) {
             return 'Name must be 50 characters or less';
           }
+          const nameTaken = agents?.some(
+            (a) => a.name.toLowerCase() === formState.name.trim().toLowerCase()
+          );
+          if (nameTaken) {
+            return `You already have an agent named "${formState.name.trim()}". Please choose a different name.`;
+          }
           if (formState.avatar_emoji.length === 0) {
             return 'Please select an emoji';
           }
           return null;
+        }
         default:
           return null;
       }
@@ -318,6 +330,7 @@ export default function CreateAgentScreen() {
             onNameChange={(name) => updateFormState('name', name)}
             onEmojiChange={(emoji) => updateFormState('avatar_emoji', emoji)}
             onColorChange={(color) => updateFormState('avatar_color', color)}
+            existingNames={agents?.map((a) => a.name)}
           />
         );
       case 2:

@@ -137,6 +137,7 @@ export default function AgentCreate() {
           onNameChange={(v) => updateForm('name', v)}
           onEmojiChange={(v) => updateForm('avatar_emoji', v)}
           onColorChange={(v) => updateForm('avatar_color', v)}
+          existingNames={agents?.map((a) => a.name)}
         />
       )}
       {step === 2 && <Screen3_Personality params={form.personality_params} onParamChange={updatePersonality} />}

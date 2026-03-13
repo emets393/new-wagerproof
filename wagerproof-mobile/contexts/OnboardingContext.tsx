@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { InteractionManager } from 'react-native';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
@@ -102,20 +102,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const nextStep = () => {
-    if (isTransitioning) {
-      console.log('Ignoring nextStep - already transitioning');
-      return;
-    }
-
-    console.log('nextStep called, current step:', currentStep);
+    if (isTransitioning) return;
 
     // Start transition immediately - defer analytics to after animation
     setIsTransitioning(true);
     setDirection(1);
-    setCurrentStep((prev) => {
-      console.log('Setting step from', prev, 'to', prev + 1);
-      return prev + 1;
-    });
+    setCurrentStep((prev) => prev + 1);
 
     // Defer analytics tracking to after animations complete
     const completedStep = currentStep;
@@ -230,9 +222,6 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         throw error;
       }
 
-      console.log('Profile updated successfully!');
-      console.log('Updated data:', data);
-
       hasCompletedOnboarding.current = true;
       trackOnboardingStepCompleted(currentStepRef.current, undefined, ONBOARDING_TOTAL_STEPS);
       trackOnboardingCompleted({
@@ -246,7 +235,6 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   );
 
   const resetOnboarding = useCallback(() => {
-    console.log('Resetting onboarding context to step 1');
     hasCompletedOnboarding.current = false;
     setCurrentStep(1);
     setDirection(0);
@@ -266,9 +254,6 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       throw new Error('User not authenticated');
     }
 
-    console.log('Submitting onboarding data for user:', user.id);
-    console.log('Onboarding data:', onboardingData);
-
     try {
       await markOnboardingCompleted();
     } catch (err) {
@@ -277,27 +262,47 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     }
   };
 
+  const contextValue = useMemo(
+    () => ({
+      currentStep,
+      direction,
+      isTransitioning,
+      onboardingData,
+      nextStep,
+      prevStep,
+      updateOnboardingData,
+      submitOnboardingData,
+      markOnboardingCompleted,
+      resetOnboarding,
+      agentFormState,
+      updateAgentFormState,
+      updateAgentPersonalityParam,
+      updateAgentCustomInsight,
+      applyArchetypePreset,
+      setCreatedAgentId,
+    }),
+    [
+      currentStep,
+      direction,
+      isTransitioning,
+      onboardingData,
+      agentFormState,
+      nextStep,
+      prevStep,
+      updateOnboardingData,
+      submitOnboardingData,
+      markOnboardingCompleted,
+      resetOnboarding,
+      updateAgentFormState,
+      updateAgentPersonalityParam,
+      updateAgentCustomInsight,
+      applyArchetypePreset,
+      setCreatedAgentId,
+    ]
+  );
+
   return (
-    <OnboardingContext.Provider
-      value={{
-        currentStep,
-        direction,
-        isTransitioning,
-        onboardingData,
-        nextStep,
-        prevStep,
-        updateOnboardingData,
-        submitOnboardingData,
-        markOnboardingCompleted,
-        resetOnboarding,
-        agentFormState,
-        updateAgentFormState,
-        updateAgentPersonalityParam,
-        updateAgentCustomInsight,
-        applyArchetypePreset,
-        setCreatedAgentId,
-      }}
-    >
+    <OnboardingContext.Provider value={contextValue}>
       {children}
     </OnboardingContext.Provider>
   );

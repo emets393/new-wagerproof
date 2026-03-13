@@ -19,6 +19,9 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     loading: boolean;
   }>({ completed: null, loading: true });
   const previousSegmentRef = useRef<string | null>(null);
+  // Track whether we've ever successfully fetched onboarding status.
+  // After the first fetch, we render children optimistically instead of showing a spinner.
+  const hasEverFetched = useRef(false);
 
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -27,8 +30,12 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
         return;
       }
 
-      console.log('Checking onboarding status for user:', user.id);
-      setOnboardingStatus((prev) => ({ ...prev, loading: true }));
+      // Check onboarding status silently (no console.log — it crosses the RN bridge)
+      // Only show loading spinner on the very first check.
+      // Subsequent checks (e.g. user object reference changes) run silently in the background.
+      if (!hasEverFetched.current) {
+        setOnboardingStatus((prev) => ({ ...prev, loading: true }));
+      }
 
       try {
         const { data: profile, error } = await supabase
@@ -39,35 +46,35 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
 
         if (error) {
           console.error('Error fetching user profile:', error);
-          console.error('Error details:', error);
           // If there's an error, assume onboarding is not completed to be safe
           setOnboardingStatus({ completed: false, loading: false });
+          hasEverFetched.current = true;
           return;
         }
 
-        console.log('Onboarding status from database:', profile?.onboarding_completed);
         setOnboardingStatus({
           completed: profile?.onboarding_completed ?? false,
           loading: false,
         });
+        hasEverFetched.current = true;
       } catch (error) {
         console.error('Unexpected error checking onboarding status:', error);
         setOnboardingStatus({ completed: false, loading: false });
+        hasEverFetched.current = true;
       }
     };
 
     checkOnboardingStatus();
-  }, [user]); // Only check when user changes
+  }, [user?.id]); // Only re-check when the user ID actually changes, not on every user object reference change
 
   // Refetch when leaving onboarding route
   useEffect(() => {
     const currentSegment = segments[0];
     const wasInOnboarding = previousSegmentRef.current === '(onboarding)';
     const notInOnboardingAnymore = currentSegment !== '(onboarding)';
-    
+
     // If we just left the onboarding screen, refetch the status
     if (wasInOnboarding && notInOnboardingAnymore && user) {
-      console.log('Just left onboarding, refetching status...');
       const refetchStatus = async () => {
         try {
           const { data: profile, error } = await supabase
@@ -77,7 +84,6 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
             .single();
 
           if (!error && profile) {
-            console.log('Refetched onboarding status:', profile.onboarding_completed);
             setOnboardingStatus({
               completed: profile.onboarding_completed ?? false,
               loading: false,
@@ -89,7 +95,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
       };
       refetchStatus();
     }
-    
+
     previousSegmentRef.current = currentSegment;
   }, [segments, user]);
 
@@ -101,19 +107,18 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
 
     // If user is authenticated and hasn't completed onboarding, redirect to onboarding
     if (user && onboardingStatus.completed === false && !inOnboardingGroup) {
-      console.log('Redirecting to onboarding...');
       router.replace('/(onboarding)');
     }
 
     // If user is authenticated and has completed onboarding, redirect to main app
     if (user && onboardingStatus.completed === true && inOnboardingGroup) {
-      console.log('Onboarding already completed, redirecting to main app...');
       router.replace('/(drawer)/(tabs)');
     }
   }, [user, authLoading, onboardingStatus, segments]);
 
-  // Show loading while checking auth or onboarding status
-  if (authLoading || onboardingStatus.loading) {
+  // Only show full-screen loading spinner on initial auth load + first onboarding check.
+  // After the first successful fetch, always render children (navigation useEffect handles routing).
+  if (authLoading || (onboardingStatus.loading && !hasEverFetched.current)) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -131,4 +136,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-

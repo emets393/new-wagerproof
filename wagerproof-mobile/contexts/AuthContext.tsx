@@ -93,24 +93,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     configureGoogleSignIn();
 
     // Track if initial session check is complete
-    // This prevents race conditions on iPad where multitasking can cause rapid lifecycle changes
     let initialSessionChecked = false;
 
-    // Set up auth state listener
+    // Set up auth state listener FIRST, then check for existing session.
+    // The listener must handle two scenarios:
+    //   1. Initial app load: wait for getSession() to complete first (avoid premature routing)
+    //   2. Active sign-in: unblock immediately on SIGNED_IN/TOKEN_REFRESHED events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('=== AUTH STATE CHANGE ===');
-        console.log('Event:', event);
-        console.log('User:', session?.user?.email || 'no user');
-        console.log('Session exists:', !!session);
-        console.log('Initial session checked:', initialSessionChecked);
-
         setSession(session);
         setUser(session?.user ?? null);
 
-        // Only set loading to false after initial session check is complete
-        // This ensures navigation decisions wait for full session restoration
-        if (initialSessionChecked) {
+        // Unblock loading if:
+        // - Initial session check already completed (normal flow), OR
+        // - This is an active sign-in/token refresh (user just authenticated — don't wait for getSession)
+        const isActiveAuth = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED';
+        if (initialSessionChecked || isActiveAuth) {
+          if (isActiveAuth) {
+            initialSessionChecked = true; // Prevent getSession from running stale update
+          }
           setLoading(false);
         }
       }
@@ -118,17 +119,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Check for existing session - this is the primary session restoration path
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('=== INITIAL SESSION CHECK ===');
-      console.log('Session exists:', !!session);
-      console.log('User:', session?.user?.email || 'no user');
-
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      // Mark initial check as complete, then set loading to false
-      // This ensures user state is populated BEFORE navigation decisions are made
-      initialSessionChecked = true;
-      setLoading(false);
+      // Only apply if an active auth event hasn't already resolved loading
+      if (!initialSessionChecked) {
+        setSession(session);
+        setUser(session?.user ?? null);
+        initialSessionChecked = true;
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
