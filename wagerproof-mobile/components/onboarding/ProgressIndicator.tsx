@@ -11,7 +11,7 @@ interface ProgressIndicatorProps {
   onBack?: () => void;
 }
 
-export function ProgressIndicator({ currentStep, totalSteps, onBack }: ProgressIndicatorProps) {
+export const ProgressIndicator = React.memo(function ProgressIndicator({ currentStep, totalSteps, onBack }: ProgressIndicatorProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const progressPercentage = (currentStep / totalSteps) * 100;
@@ -37,15 +37,15 @@ export function ProgressIndicator({ currentStep, totalSteps, onBack }: ProgressI
       <View style={styles.contentRow}>
         {/* Back Button */}
         {showBackButton ? (
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={onBack}
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialCommunityIcons 
-              name="chevron-left" 
-              size={28} 
-              color="rgba(255, 255, 255, 0.9)" 
+            <MaterialCommunityIcons
+              name="chevron-left"
+              size={28}
+              color="rgba(255, 255, 255, 0.9)"
             />
           </TouchableOpacity>
         ) : (
@@ -66,13 +66,13 @@ export function ProgressIndicator({ currentStep, totalSteps, onBack }: ProgressI
             />
           </View>
         </View>
-        
+
         {/* Right spacer for symmetry */}
         <View style={styles.backButtonSpacer} />
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

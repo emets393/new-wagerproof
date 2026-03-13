@@ -14,6 +14,12 @@ import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { Sport } from '@/types/agent';
+import { useRevenueCat } from '../../../contexts/RevenueCatContext';
+import {
+  didPaywallGrantEntitlement,
+  PAYWALL_PLACEMENTS,
+  presentPaywallForPlacement,
+} from '../../../services/revenuecat';
 
 const SPORT_ICONS: Record<Sport, string> = {
   nfl: 'football',
@@ -40,6 +46,7 @@ function getPrimaryColor(value: string): string {
 
 export function AgentBornStep() {
   const { currentStep, agentFormState, submitOnboardingData } = useOnboarding();
+  const { refreshCustomerInfo } = useRevenueCat();
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const router = useRouter();
@@ -63,15 +70,30 @@ export function AgentBornStep() {
   const researchPulse = React.useRef(new Animated.Value(0.55)).current;
   const elementsOpacity = React.useRef(new Animated.Value(0)).current;
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (isContinuing) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsContinuing(true);
 
-    // Paywall + onboarding persistence already ran during the generation animation.
-    // Fire-and-forget a safety retry in case it failed, then navigate immediately.
-    submitOnboardingData().catch(() => {});
-    router.replace('/(tabs)' as any);
+    try {
+      const result = await presentPaywallForPlacement(
+        PAYWALL_PLACEMENTS.ONBOARDING,
+        'onboarding_agent_born'
+      );
+      if (didPaywallGrantEntitlement(result)) {
+        await refreshCustomerInfo();
+      }
+    } catch (error: any) {
+      console.error('Error presenting paywall:', error);
+    }
+
+    try {
+      await submitOnboardingData();
+      router.replace('/(tabs)' as any);
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      setIsContinuing(false);
+    }
   };
 
   // Replay green intro whenever user lands on Agent Born.

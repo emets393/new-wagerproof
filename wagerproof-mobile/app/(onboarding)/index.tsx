@@ -113,7 +113,9 @@ function OnboardingContent() {
         ]).start();
       });
     });
-  }, [currentStep, direction, fadeAnim, translateX]);
+  // fadeAnim and translateX are stable refs — only react to step/direction changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, direction]);
 
   const CurrentStepComponent = stepComponents[displayStep] || PersonalizationIntro;
   const isCinematicStep = displayStep === 20 || displayStep === 21;

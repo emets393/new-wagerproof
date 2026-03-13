@@ -101,32 +101,32 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     };
   }, []);
 
-  const nextStep = () => {
+  const nextStep = useCallback(() => {
     if (isTransitioning) return;
 
-    // Start transition immediately - defer analytics to after animation
+    // Batch all state updates together to minimize re-render cascades
     setIsTransitioning(true);
     setDirection(1);
     setCurrentStep((prev) => prev + 1);
 
     // Defer analytics tracking to after animations complete
-    const completedStep = currentStep;
+    const completedStep = currentStepRef.current;
     InteractionManager.runAfterInteractions(() => {
       trackOnboardingStepCompleted(completedStep, undefined, ONBOARDING_TOTAL_STEPS);
     });
 
     // Reset transition flag after animation completes (match total animation duration)
     setTimeout(() => setIsTransitioning(false), 400);
-  };
+  }, [isTransitioning]);
 
-  const prevStep = () => {
+  const prevStep = useCallback(() => {
     setDirection(-1);
     setCurrentStep((prev) => prev - 1);
-  };
+  }, []);
 
-  const updateOnboardingData = (data: Partial<OnboardingData>) => {
+  const updateOnboardingData = useCallback((data: Partial<OnboardingData>) => {
     setOnboardingData((prev) => ({ ...prev, ...data }));
-  };
+  }, []);
 
   // Agent form state helpers
   const updateAgentFormState = useCallback(
@@ -262,44 +262,41 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     }
   };
 
-  const contextValue = useMemo(
-    () => ({
-      currentStep,
-      direction,
-      isTransitioning,
-      onboardingData,
-      nextStep,
-      prevStep,
-      updateOnboardingData,
-      submitOnboardingData,
-      markOnboardingCompleted,
-      resetOnboarding,
-      agentFormState,
-      updateAgentFormState,
-      updateAgentPersonalityParam,
-      updateAgentCustomInsight,
-      applyArchetypePreset,
-      setCreatedAgentId,
-    }),
-    [
-      currentStep,
-      direction,
-      isTransitioning,
-      onboardingData,
-      agentFormState,
-      nextStep,
-      prevStep,
-      updateOnboardingData,
-      submitOnboardingData,
-      markOnboardingCompleted,
-      resetOnboarding,
-      updateAgentFormState,
-      updateAgentPersonalityParam,
-      updateAgentCustomInsight,
-      applyArchetypePreset,
-      setCreatedAgentId,
-    ]
-  );
+  const contextValue = useMemo(() => ({
+    currentStep,
+    direction,
+    isTransitioning,
+    onboardingData,
+    nextStep,
+    prevStep,
+    updateOnboardingData,
+    submitOnboardingData,
+    markOnboardingCompleted,
+    resetOnboarding,
+    agentFormState,
+    updateAgentFormState,
+    updateAgentPersonalityParam,
+    updateAgentCustomInsight,
+    applyArchetypePreset,
+    setCreatedAgentId,
+  }), [
+    currentStep,
+    direction,
+    isTransitioning,
+    onboardingData,
+    nextStep,
+    prevStep,
+    updateOnboardingData,
+    submitOnboardingData,
+    markOnboardingCompleted,
+    resetOnboarding,
+    agentFormState,
+    updateAgentFormState,
+    updateAgentPersonalityParam,
+    updateAgentCustomInsight,
+    applyArchetypePreset,
+    setCreatedAgentId,
+  ]);
 
   return (
     <OnboardingContext.Provider value={contextValue}>
