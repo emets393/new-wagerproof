@@ -688,102 +688,56 @@ export default function LoginScreen() {
           </View>
         </AnimatedSlideContent>
 
-        {/* Auth Buttons - Using View instead of Pressable to not intercept child touches on Android */}
+        {/* Auth Buttons */}
         <View style={styles.authContainer}>
-          {isIOS ? (
-            // iOS Layout: Apple main, Google secondary, Email icon
-            <>
-              {/* Main Button - Apple on iOS */}
-              <TouchableOpacity 
-                style={styles.mainButton}
-                onPress={handleAppleSignIn}
-                activeOpacity={0.8}
-                disabled={loading}
-              >
-                <MaterialCommunityIcons 
-                  name="apple" 
-                  size={20} 
-                  color="white" 
-                  style={{ marginRight: 8 }} 
-                />
-                <Text style={styles.mainButtonText}>
-                  Continue with Apple
-                </Text>
-              </TouchableOpacity>
-
-              {/* Secondary Buttons Row */}
-              <View style={styles.secondaryButtonsRow}>
-                <TouchableOpacity 
-                  style={styles.iconButton} 
-                  onPress={handleEmailSignIn}
-                  activeOpacity={0.8}
-                >
-                  <MaterialCommunityIcons name="email-outline" size={24} color="white" />
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.iconButton}
-                  onPress={handleGoogleSignIn}
-                  activeOpacity={0.8}
-                  disabled={loading}
-                >
-                  <MaterialCommunityIcons 
-                    name="google" 
-                    size={24} 
-                    color="white" 
-                  />
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            // Android Layout: Google main, Email button below
-            <>
-              {/* Main Button - Google on Android */}
-              <TouchableOpacity 
-                style={styles.mainButton}
-                onPress={handleGoogleSignIn}
-                onPressIn={() => {
-                  // #region agent log
-                  debugLog('login.tsx:googleButton', 'Google button onPressIn (Android)', {}, 'H1');
-                  // #endregion
-                }}
-                activeOpacity={0.8}
-                disabled={loading}
-              >
-                <MaterialCommunityIcons 
-                  name="google" 
-                  size={20} 
-                  color="white" 
-                  style={{ marginRight: 8 }} 
-                />
-                <Text style={styles.mainButtonText}>
-                  Continue with Google
-                </Text>
-              </TouchableOpacity>
-
-              {/* Email Button - Below Google on Android */}
-              <TouchableOpacity 
-                style={styles.secondaryButton}
-                onPress={handleEmailSignIn}
-                onPressIn={() => {
-                  // #region agent log
-                  debugLog('login.tsx:emailButton', 'Email button onPressIn (Android)', {}, 'H1');
-                  // #endregion
-                }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons 
-                  name="email-outline" 
-                  size={20} 
-                  color="white" 
-                  style={{ marginRight: 8 }} 
-                />
-                <Text style={styles.secondaryButtonText}>
-                  Continue with Email
-                </Text>
-              </TouchableOpacity>
-            </>
+          {/* Continue with Apple */}
+          {isIOS && (
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={handleAppleSignIn}
+              activeOpacity={0.8}
+              disabled={loading}
+            >
+              <MaterialCommunityIcons
+                name="apple"
+                size={20}
+                color="#000"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.socialButtonText}>
+                Continue with Apple
+              </Text>
+            </TouchableOpacity>
           )}
+
+          {/* Continue with Google */}
+          <TouchableOpacity
+            style={styles.socialButton}
+            onPress={handleGoogleSignIn}
+            activeOpacity={0.8}
+            disabled={loading}
+          >
+            <MaterialCommunityIcons
+              name="google"
+              size={20}
+              color="#000"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.socialButtonText}>
+              Continue with Google
+            </Text>
+          </TouchableOpacity>
+
+          {/* Other Sign In (Email) */}
+          <TouchableOpacity
+            style={styles.otherSignInButton}
+            onPress={handleEmailSignIn}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.otherSignInText}>
+              Other Sign In
+            </Text>
+          </TouchableOpacity>
 
           <Text style={styles.termsText}>
             By continuing, you agree to our{'\n'}
@@ -1062,48 +1016,29 @@ const styles = StyleSheet.create({
   authContainer: {
     gap: 16,
   },
-  mainButton: {
-    backgroundColor: '#111',
+  socialButton: {
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
     borderRadius: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
-  mainButtonText: {
-    color: '#fff',
+  socialButtonText: {
+    color: '#000',
     fontSize: 16,
     fontWeight: '600',
   },
-  secondaryButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  iconButton: {
-    width: 80,
-    backgroundColor: '#2C2C2E',
+  otherSignInButton: {
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 24,
+    paddingVertical: 12,
   },
-  secondaryButton: {
-    backgroundColor: '#2C2C2E',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  secondaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  otherSignInText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+    fontWeight: '500',
   },
   termsText: {
     textAlign: 'center',

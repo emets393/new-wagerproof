@@ -8,6 +8,7 @@ import { formatNetUnits, Sport } from '@/types/agent';
 interface AgentLeaderboardProps {
   rows: LeaderboardEntry[];
   onRowClick?: (avatarId: string) => void;
+  isBottomMode?: boolean;
 }
 
 const SPORT_LABELS: Record<Sport, string> = {
@@ -22,7 +23,7 @@ function getPrimaryColor(value: string): string {
   return value;
 }
 
-export function AgentLeaderboard({ rows, onRowClick }: AgentLeaderboardProps) {
+export function AgentLeaderboard({ rows, onRowClick, isBottomMode = false }: AgentLeaderboardProps) {
   if (!rows.length) {
     return (
       <Card>
@@ -94,7 +95,7 @@ export function AgentLeaderboard({ rows, onRowClick }: AgentLeaderboardProps) {
                   </div>
 
                   <div className="text-right min-w-[52px]">
-                    <p className="text-xs text-primary font-semibold">{winRate}</p>
+                    <p className={`text-xs font-semibold ${isBottomMode ? (entry.win_rate !== null && entry.win_rate < 0.35 ? 'text-red-500' : 'text-orange-500') : 'text-primary'}`}>{winRate}</p>
                     <p className="text-[11px] text-muted-foreground">WR</p>
                   </div>
 

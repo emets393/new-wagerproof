@@ -68,6 +68,7 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
   isDark,
   lockStats,
   isEntitlementsLoading,
+  isBottomMode,
 }: {
   entry: LeaderboardEntry;
   rank: number;
@@ -75,6 +76,7 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
   isDark: boolean;
   lockStats: boolean;
   isEntitlementsLoading: boolean;
+  isBottomMode: boolean;
 }) {
   const theme = useTheme();
 
@@ -224,7 +226,7 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
 
       {/* Win Rate */}
       <View style={styles.winRateContainer}>
-        <Text style={[styles.winRateText, { color: theme.colors.primary }]}>
+        <Text style={[styles.winRateText, { color: isBottomMode ? (entry.win_rate !== null && entry.win_rate < 0.35 ? '#ef4444' : '#f97316') : theme.colors.primary }]}>
           {winRate}
         </Text>
       </View>
@@ -423,6 +425,8 @@ export function AgentLeaderboard({
   }, [refetch]);
 
   // Render row
+  const isBottomMode = sortMode === 'bottom_100';
+
   const renderRow = useCallback(
     ({ item }: { item: { entry: LeaderboardEntry; rank: number } }) => (
       <LeaderboardRow
@@ -432,9 +436,10 @@ export function AgentLeaderboard({
         isDark={isDark}
         lockStats={lockStats}
         isEntitlementsLoading={isEntitlementsLoading}
+        isBottomMode={isBottomMode}
       />
     ),
-    [handleRowPress, isDark, lockStats, isEntitlementsLoading]
+    [handleRowPress, isDark, lockStats, isEntitlementsLoading, isBottomMode]
   );
 
   // Key extractor

@@ -183,7 +183,7 @@ export default function Agents() {
             </CardContent>
           </Card>
           {leaderboardLoading ? <Card><CardContent className="py-10 text-center">Loading leaderboard...</CardContent></Card> : null}
-          {!leaderboardLoading ? <AgentLeaderboard rows={leaderboard || []} onRowClick={(id) => navigate(`/agents/public/${id}`)} /> : null}
+          {!leaderboardLoading ? <AgentLeaderboard rows={leaderboard || []} onRowClick={(id) => navigate(`/agents/public/${id}`)} isBottomMode={sortMode === 'bottom_100'} /> : null}
         </aside>
       </div>
     </div>
