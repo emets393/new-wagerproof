@@ -1,22 +1,33 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  Image,
+  TextInput as RNTextInput,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { AuthContainer } from '@/components/ui/AuthContainer';
-import { Button } from '@/components/ui/Button';
-import { TextInput } from '@/components/ui/TextInput';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function EmailLoginScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const { signIn } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -36,7 +47,7 @@ export default function EmailLoginScreen() {
 
   const handleSignIn = async () => {
     setError('');
-    
+
     if (!validateForm()) {
       return;
     }
@@ -44,7 +55,7 @@ export default function EmailLoginScreen() {
     try {
       setLoading(true);
       const { error: signInError } = await signIn(email.trim(), password);
-      
+
       if (signInError) {
         if (signInError.message.includes('Invalid login credentials')) {
           setError('Invalid email or password');
@@ -55,8 +66,6 @@ export default function EmailLoginScreen() {
         }
         return;
       }
-
-      // Navigation will be handled by route protection in _layout.tsx
     } catch (err: any) {
       console.error('Sign in error:', err);
       setError('An unexpected error occurred. Please try again.');
@@ -66,151 +75,294 @@ export default function EmailLoginScreen() {
   };
 
   return (
-    <AuthContainer>
-      <TouchableOpacity 
-        onPress={() => router.back()}
-        style={styles.backButton}
-        disabled={loading}
+    <View style={styles.container}>
+      <StatusBar style="light" />
+
+      {/* Background gradient to match login page */}
+      <LinearGradient
+        colors={['rgba(0,191,165,0.15)', 'rgba(0,0,0,0.95)', '#000000']}
+        locations={[0, 0.4, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <MaterialCommunityIcons
-          name="arrow-left"
-          size={24}
-          color={theme.colors.primary}
-        />
-      </TouchableOpacity>
-
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-          Welcome Back
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-          Sign in to access your account
-        </Text>
-      </View>
-
-      <View style={styles.form}>
-        <TextInput
-          label="Email"
-          value={email}
-          onChangeText={(text) => {
-            setEmail(text);
-            setError('');
-          }}
-          placeholder="you@example.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          icon="email"
-          editable={!loading}
-        />
-
-        <TextInput
-          label="Password"
-          value={password}
-          onChangeText={(text) => {
-            setPassword(text);
-            setError('');
-          }}
-          placeholder="Enter your password"
-          secureTextEntry
-          icon="lock"
-          editable={!loading}
-        />
-
-        <TouchableOpacity
-          onPress={() => router.push('/(auth)/forgot-password')}
-          style={styles.forgotPassword}
-          disabled={loading}
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: insets.top + 16,
+              paddingBottom: insets.bottom + 24,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={[styles.forgotPasswordText, { color: theme.colors.primary }]}>
-            Forgot Password?
-          </Text>
-        </TouchableOpacity>
+          {/* Back Button */}
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+            disabled={loading}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+          </TouchableOpacity>
 
-        {error && (
-          <View style={[styles.errorContainer, { backgroundColor: theme.colors.errorContainer }]}>
-            <MaterialCommunityIcons
-              name="alert-circle"
-              size={20}
-              color={theme.colors.error}
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/wagerproofGreenDark.png')}
+              style={styles.logo}
+              resizeMode="contain"
             />
-            <Text style={[styles.errorText, { color: theme.colors.error }]}>
-              {error}
-            </Text>
           </View>
-        )}
 
-        <Button
-          onPress={handleSignIn}
-          loading={loading}
-          disabled={loading}
-          fullWidth
-        >
-          Sign In
-        </Button>
-      </View>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in with your email</Text>
+          </View>
 
-      <View style={styles.footer}>
-        <Text style={[styles.footerText, { color: theme.colors.onSurfaceVariant }]}>
-          Don't have an account?{' '}
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.push('/(auth)/signup')}
-          disabled={loading}
-        >
-          <Text style={[styles.footerLink, { color: theme.colors.primary }]}>
-            Sign Up
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </AuthContainer>
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Email Input */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <View style={[styles.inputContainer, error && !password && !email ? styles.inputError : null]}>
+                <MaterialCommunityIcons
+                  name="email-outline"
+                  size={20}
+                  color="rgba(255,255,255,0.4)"
+                  style={styles.inputIcon}
+                />
+                <RNTextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    setError('');
+                  }}
+                  placeholder="you@example.com"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </View>
+            </View>
+
+            {/* Password Input */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.inputContainer}>
+                <MaterialCommunityIcons
+                  name="lock-outline"
+                  size={20}
+                  color="rgba(255,255,255,0.4)"
+                  style={styles.inputIcon}
+                />
+                <RNTextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    setError('');
+                  }}
+                  placeholder="Enter your password"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  secureTextEntry={!isPasswordVisible}
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                  style={styles.eyeButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons
+                    name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color="rgba(255,255,255,0.4)"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Forgot Password */}
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/forgot-password')}
+              style={styles.forgotPassword}
+              disabled={loading}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            {/* Error Message */}
+            {error ? (
+              <View style={styles.errorContainer}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#ff6b6b" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            {/* Sign In Button */}
+            <TouchableOpacity
+              style={[styles.signInButton, (loading || !email || !password) && styles.signInButtonDisabled]}
+              onPress={handleSignIn}
+              activeOpacity={0.8}
+              disabled={loading || !email || !password}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text style={styles.signInButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Don't have an account? </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/signup')}
+              disabled={loading}
+            >
+              <Text style={styles.footerLink}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+  },
   backButton: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    zIndex: 1,
+    alignSelf: 'flex-start',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  logo: {
+    width: 140,
+    height: 50,
   },
   header: {
-    marginBottom: 32,
-    alignItems: 'center',
+    marginBottom: 36,
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    color: '#fff',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center',
+    color: 'rgba(255,255,255,0.5)',
   },
   form: {
     width: '100%',
-    marginBottom: 24,
+    marginBottom: 32,
+  },
+  inputWrapper: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 8,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 16,
+    minHeight: 52,
+  },
+  inputError: {
+    borderColor: '#ff6b6b',
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: '#fff',
+    paddingVertical: 14,
+  },
+  eyeButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginBottom: 24,
     marginTop: -8,
+    marginBottom: 24,
   },
   forgotPasswordText: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#00BFA5',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
+    backgroundColor: 'rgba(255,107,107,0.12)',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 20,
+    gap: 10,
   },
   errorText: {
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
+    color: '#ff6b6b',
+  },
+  signInButton: {
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 30,
+    minHeight: 54,
+  },
+  signInButtonDisabled: {
+    opacity: 0.4,
+  },
+  signInButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
   },
   footer: {
     flexDirection: 'row',
@@ -219,9 +371,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
+    color: 'rgba(255,255,255,0.4)',
   },
   footerLink: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#00BFA5',
   },
 });

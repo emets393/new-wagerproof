@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  Image,
+  TextInput as RNTextInput,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { AuthContainer } from '@/components/ui/AuthContainer';
-import { Button } from '@/components/ui/Button';
-import { TextInput } from '@/components/ui/TextInput';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function SignUpScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const { signUp, signInWithProvider } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +30,8 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmVisible, setIsConfirmVisible] = useState(false);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -66,26 +78,18 @@ export default function SignUpScreen() {
         return;
       }
 
-      // Check if user was auto-signed in (happens when email confirmation is disabled)
-      // If so, the OnboardingGuard will handle navigation - don't redirect to login
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session) {
-        // User is already signed in - OnboardingGuard will redirect to onboarding
         setSuccess('Account created! Setting up your profile...');
-        // Don't navigate - let OnboardingGuard handle it
         return;
       }
 
-      // Email confirmation required - show message and redirect to login
       setSuccess('Account created! Please check your email to verify your account.');
-
-      // Clear form
       setEmail('');
       setPassword('');
       setConfirmPassword('');
 
-      // Navigate to login after 3 seconds
       setTimeout(() => {
         router.replace('/(auth)/login');
       }, 3000);
@@ -102,7 +106,6 @@ export default function SignUpScreen() {
       setLoading(true);
       setError('');
       const { error: oauthError } = await signInWithProvider('google');
-      
       if (oauthError) {
         setError(oauthError.message);
       }
@@ -115,16 +118,10 @@ export default function SignUpScreen() {
   };
 
   const handleAppleSignIn = async () => {
-    if (Platform.OS !== 'ios') {
-      Alert.alert('Not Available', 'Apple Sign In is only available on iOS devices');
-      return;
-    }
-
     try {
       setLoading(true);
       setError('');
       const { error: oauthError } = await signInWithProvider('apple');
-      
       if (oauthError) {
         setError(oauthError.message);
       }
@@ -136,212 +133,377 @@ export default function SignUpScreen() {
     }
   };
 
+  const isFormComplete = email && password && confirmPassword;
+
   return (
-    <AuthContainer>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-          Create Account
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-          Get started with professional sports analytics
-        </Text>
-      </View>
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
-      <View style={styles.form}>
-        <TextInput
-          label="Email"
-          value={email}
-          onChangeText={(text) => {
-            setEmail(text);
-            setError('');
-            setSuccess('');
-          }}
-          placeholder="you@example.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          icon="email"
-          editable={!loading}
-        />
+      <LinearGradient
+        colors={['rgba(0,191,165,0.15)', 'rgba(0,0,0,0.95)', '#000000']}
+        locations={[0, 0.4, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
-        <TextInput
-          label="Password"
-          value={password}
-          onChangeText={(text) => {
-            setPassword(text);
-            setError('');
-            setSuccess('');
-          }}
-          placeholder="At least 8 characters"
-          secureTextEntry
-          icon="lock"
-          editable={!loading}
-        />
-
-        <TextInput
-          label="Confirm Password"
-          value={confirmPassword}
-          onChangeText={(text) => {
-            setConfirmPassword(text);
-            setError('');
-            setSuccess('');
-          }}
-          placeholder="Re-enter your password"
-          secureTextEntry
-          icon="lock-check"
-          editable={!loading}
-        />
-
-        {error && (
-          <View style={[styles.errorContainer, { backgroundColor: theme.colors.errorContainer }]}>
-            <MaterialCommunityIcons
-              name="alert-circle"
-              size={20}
-              color={theme.colors.error}
-            />
-            <Text style={[styles.errorText, { color: theme.colors.error }]}>
-              {error}
-            </Text>
-          </View>
-        )}
-
-        {success && (
-          <View style={[styles.successContainer, { backgroundColor: theme.colors.primaryContainer }]}>
-            <MaterialCommunityIcons
-              name="check-circle"
-              size={20}
-              color={theme.colors.primary}
-            />
-            <Text style={[styles.successText, { color: theme.colors.primary }]}>
-              {success}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.disclaimer}>
-          <MaterialCommunityIcons
-            name="information"
-            size={16}
-            color={theme.colors.onSurfaceVariant}
-          />
-          <Text style={[styles.disclaimerText, { color: theme.colors.onSurfaceVariant }]}>
-            By signing up, you confirm that you are 18+ and understand this platform is for analytics only.
-          </Text>
-        </View>
-
-        <Button
-          onPress={handleSignUp}
-          loading={loading}
-          disabled={loading || !!success}
-          fullWidth
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: insets.top + 16,
+              paddingBottom: insets.bottom + 24,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
         >
-          Create Account
-        </Button>
-
-        <View style={styles.divider}>
-          <View style={[styles.dividerLine, { backgroundColor: theme.colors.outline }]} />
-          <Text style={[styles.dividerText, { color: theme.colors.onSurfaceVariant }]}>
-            or continue with
-          </Text>
-          <View style={[styles.dividerLine, { backgroundColor: theme.colors.outline }]} />
-        </View>
-
-        <View style={styles.socialButtons}>
-          <Button
-            onPress={handleGoogleSignIn}
-            variant="social"
-            icon="google"
-            disabled={loading || !!success}
-            fullWidth
+          {/* Back Button */}
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+            disabled={loading}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            Google
-          </Button>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+          </TouchableOpacity>
 
-          {Platform.OS === 'ios' && (
-            <Button
-              onPress={handleAppleSignIn}
-              variant="social"
-              icon="apple"
-              disabled={loading || !!success}
-              fullWidth
-              style={styles.socialButton}
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/wagerproofGreenDark.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Get started with professional sports analytics</Text>
+          </View>
+
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Email */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <View style={styles.inputContainer}>
+                <MaterialCommunityIcons
+                  name="email-outline"
+                  size={20}
+                  color="rgba(255,255,255,0.4)"
+                  style={styles.inputIcon}
+                />
+                <RNTextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={(text) => { setEmail(text); setError(''); setSuccess(''); }}
+                  placeholder="you@example.com"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </View>
+            </View>
+
+            {/* Password */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.inputContainer}>
+                <MaterialCommunityIcons
+                  name="lock-outline"
+                  size={20}
+                  color="rgba(255,255,255,0.4)"
+                  style={styles.inputIcon}
+                />
+                <RNTextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={(text) => { setPassword(text); setError(''); setSuccess(''); }}
+                  placeholder="At least 8 characters"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  secureTextEntry={!isPasswordVisible}
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                  style={styles.eyeButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons
+                    name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color="rgba(255,255,255,0.4)"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Confirm Password */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Confirm Password</Text>
+              <View style={styles.inputContainer}>
+                <MaterialCommunityIcons
+                  name="lock-check-outline"
+                  size={20}
+                  color="rgba(255,255,255,0.4)"
+                  style={styles.inputIcon}
+                />
+                <RNTextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={(text) => { setConfirmPassword(text); setError(''); setSuccess(''); }}
+                  placeholder="Re-enter your password"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  secureTextEntry={!isConfirmVisible}
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  onPress={() => setIsConfirmVisible(!isConfirmVisible)}
+                  style={styles.eyeButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons
+                    name={isConfirmVisible ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color="rgba(255,255,255,0.4)"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Disclaimer */}
+            <View style={styles.disclaimer}>
+              <MaterialCommunityIcons name="information-outline" size={16} color="rgba(255,255,255,0.4)" />
+              <Text style={styles.disclaimerText}>
+                By signing up, you confirm that you are 18+ and understand this platform is for analytics only.
+              </Text>
+            </View>
+
+            {/* Error */}
+            {error ? (
+              <View style={styles.errorContainer}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#ff6b6b" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            {/* Success */}
+            {success ? (
+              <View style={styles.successContainer}>
+                <MaterialCommunityIcons name="check-circle-outline" size={18} color="#00BFA5" />
+                <Text style={styles.successText}>{success}</Text>
+              </View>
+            ) : null}
+
+            {/* Create Account Button */}
+            <TouchableOpacity
+              style={[styles.primaryButton, (loading || !isFormComplete || !!success) && styles.buttonDisabled]}
+              onPress={handleSignUp}
+              activeOpacity={0.8}
+              disabled={loading || !isFormComplete || !!success}
             >
-              Apple
-            </Button>
-          )}
-        </View>
-      </View>
+              {loading ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Create Account</Text>
+              )}
+            </TouchableOpacity>
 
-      <View style={styles.footer}>
-        <Text style={[styles.footerText, { color: theme.colors.onSurfaceVariant }]}>
-          Already have an account?{' '}
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.push('/(auth)/login')}
-          disabled={loading}
-        >
-          <Text style={[styles.footerLink, { color: theme.colors.primary }]}>
-            Sign In
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </AuthContainer>
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Social Buttons */}
+            <View style={styles.socialButtons}>
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={handleAppleSignIn}
+                  activeOpacity={0.8}
+                  disabled={loading || !!success}
+                >
+                  <MaterialCommunityIcons name="apple" size={20} color="#000" style={{ marginRight: 8 }} />
+                  <Text style={styles.socialButtonText}>Apple</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.socialButton}
+                onPress={handleGoogleSignIn}
+                activeOpacity={0.8}
+                disabled={loading || !!success}
+              >
+                <MaterialCommunityIcons name="google" size={20} color="#000" style={{ marginRight: 8 }} />
+                <Text style={styles.socialButtonText}>Google</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/login')}
+              disabled={loading}
+            >
+              <Text style={styles.footerLink}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    marginBottom: 32,
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  logo: {
+    width: 140,
+    height: 50,
+  },
+  header: {
+    marginBottom: 36,
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    color: '#fff',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center',
+    color: 'rgba(255,255,255,0.5)',
   },
   form: {
     width: '100%',
+    marginBottom: 32,
   },
-  errorContainer: {
+  inputWrapper: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 8,
+  },
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 16,
+    minHeight: 52,
   },
-  errorText: {
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
+    color: '#fff',
+    paddingVertical: 14,
   },
-  successContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
-  },
-  successText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
+  eyeButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   disclaimer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 12,
-    marginBottom: 16,
     gap: 8,
+    marginBottom: 20,
   },
   disclaimerText: {
     flex: 1,
     fontSize: 12,
     lineHeight: 18,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,107,107,0.12)',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 20,
+    gap: 10,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#ff6b6b',
+  },
+  successContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,191,165,0.12)',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 20,
+    gap: 10,
+  },
+  successText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#00BFA5',
+  },
+  primaryButton: {
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 30,
+    minHeight: 54,
+  },
+  buttonDisabled: {
+    opacity: 0.4,
+  },
+  primaryButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
   },
   divider: {
     flexDirection: 'row',
@@ -351,29 +513,41 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   dividerText: {
     paddingHorizontal: 12,
     fontSize: 14,
+    color: 'rgba(255,255,255,0.4)',
   },
   socialButtons: {
     gap: 12,
   },
   socialButton: {
-    marginTop: 0,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 30,
+  },
+  socialButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
   },
   footerText: {
     fontSize: 14,
+    color: 'rgba(255,255,255,0.4)',
   },
   footerLink: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#00BFA5',
   },
 });
-
