@@ -1,3 +1,6 @@
+# Agent run logs (daily outputs are committed via git, raw logs are not)
+.claude/agent-outputs/run-*.log
+
 # Logs
 logs
 *.log

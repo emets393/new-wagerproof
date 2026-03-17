@@ -1,0 +1,121 @@
+name: WagerProof Daily Agent Run
+
+# Runs every day at 06:00 UTC (1 AM EST / 10 PM PST)
+# You wake up to a fresh PR ready to review.
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  # Allow manual trigger from the GitHub UI (Actions tab → Run workflow)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (analyst + researcher only, no commits)"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  daily-agent-run:
+    name: Run Daily Agent Pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    permissions:
+      contents: write        # push branches
+      pull-requests: write   # create PRs
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup git identity
+        run: |
+          git config user.name "WagerProof Agent"
+          git config user.email "agent@wagerproof.bet"
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Create daily branch
+        id: branch
+        run: |
+          TODAY=$(date +%Y-%m-%d)
+          BRANCH="agent/daily-improvements-${TODAY}"
+          git checkout -b "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "today=$TODAY" >> "$GITHUB_OUTPUT"
+
+      - name: Create agent-outputs directory
+        run: mkdir -p .claude/agent-outputs
+
+      - name: Run Orchestrator agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          TODAY: ${{ steps.branch.outputs.today }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          # Build the full orchestrator prompt with injected context
+          claude --headless --agent orchestrator \
+            "Run the full daily improvement pipeline for WagerProof.
+             Today's date: ${TODAY}
+             Branch: ${BRANCH}
+             Dry run: ${DRY_RUN}
+
+             After completing all steps, ensure the PR is created using:
+             gh pr create --base main --head ${BRANCH}
+
+             All steps including pushing the branch should be completed
+             as described in the orchestrator agent instructions."
+
+      - name: Verify PR was created
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TODAY=${{ steps.branch.outputs.today }}
+          BRANCH=${{ steps.branch.outputs.branch }}
+
+          # Check if PR exists for today's branch
+          PR_URL=$(gh pr list --head "$BRANCH" --json url --jq '.[0].url' 2>/dev/null || echo "")
+
+          if [ -z "$PR_URL" ]; then
+            echo "⚠️  No PR found — agent may have encountered an error"
+            echo "Check the logs above for details"
+            # Don't fail the workflow — push the branch anyway so work isn't lost
+            git push -u origin "$BRANCH" 2>/dev/null || true
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "[Agent] Daily improvements ${TODAY} (fallback PR)" \
+              --body "The agent completed but did not create a PR automatically. Check the Actions run log for details." \
+              2>/dev/null || true
+          else
+            echo "✅ PR created: $PR_URL"
+          fi
+
+      - name: Upload agent outputs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-outputs-${{ steps.branch.outputs.today }}
+          path: .claude/agent-outputs/
+          retention-days: 30
