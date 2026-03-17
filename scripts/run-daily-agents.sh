@@ -62,16 +62,22 @@ fi
 # ── Run the Orchestrator ──────────────────────────────────────────────────────
 log "Launching Orchestrator agent..."
 
-claude --headless --agent orchestrator \
-  "Run the full daily improvement pipeline for WagerProof.
-   Today's date: ${TODAY}
-   Branch: ${BRANCH}
-   Dry run: false
+# claude -p runs a full agentic session non-interactively.
+# --dangerously-skip-permissions skips the per-tool approval prompts
+# that normally require a human — safe here since this is a trusted,
+# isolated repo environment running on your own machine.
+claude -p \
+  "Read the file .claude/agents/orchestrator.md and execute every
+   step described in it exactly as written.
 
-   After completing all steps, ensure the PR is created using:
-   gh pr create --base main --head ${BRANCH}
+   Injected context:
+   - TODAY: ${TODAY}
+   - BRANCH: ${BRANCH}
+   - DRY_RUN: false
 
-   Complete all steps including pushing the branch." \
+   The branch has already been created and checked out locally.
+   After all steps complete, push the branch and open the PR." \
+  --dangerously-skip-permissions \
   2>&1 | tee -a "$LOG_FILE"
 
 log "=== Agent run complete ==="

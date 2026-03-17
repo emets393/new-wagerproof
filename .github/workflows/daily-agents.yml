@@ -74,18 +74,23 @@ jobs:
           TODAY: ${{ steps.branch.outputs.today }}
           BRANCH: ${{ steps.branch.outputs.branch }}
         run: |
-          # Build the full orchestrator prompt with injected context
-          claude --headless --agent orchestrator \
-            "Run the full daily improvement pipeline for WagerProof.
-             Today's date: ${TODAY}
-             Branch: ${BRANCH}
-             Dry run: ${DRY_RUN}
+          # claude -p runs a full agentic headless session on this server.
+          # --dangerously-skip-permissions is required in CI because there is
+          # no human present to approve tool calls (file reads/writes, bash,
+          # web fetch, etc.).  The agent reads .claude/agents/orchestrator.md
+          # and sub-agents read their own files — all defined in this repo.
+          claude -p \
+            "Read the file .claude/agents/orchestrator.md and execute every
+             step described in it exactly as written.
 
-             After completing all steps, ensure the PR is created using:
-             gh pr create --base main --head ${BRANCH}
+             Injected context:
+             - TODAY: ${TODAY}
+             - BRANCH: ${BRANCH}
+             - DRY_RUN: ${DRY_RUN}
 
-             All steps including pushing the branch should be completed
-             as described in the orchestrator agent instructions."
+             The branch has already been created and checked out locally.
+             After all steps complete, push the branch and open the PR." \
+            --dangerously-skip-permissions
 
       - name: Verify PR was created
         env:
