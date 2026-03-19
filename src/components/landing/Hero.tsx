@@ -59,22 +59,44 @@ const Hero = () => {
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight font-extrabold leading-tight text-gray-900 dark:text-gray-100 mb-6" style={{
             fontFamily: "Inter, sans-serif"
           }}>
-            Bots that find{" "}
             <GradientText
-              text="plays"
+              text="Build bots"
               gradient={gradientToUse}
               transition={slowTransition}
               className="font-bold"
             />{" "}
-            for you
+            that find plays for you
           </h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
-            Tap into the live odds, splits, and model signals that sharp bettors use—presented in plain language, not spreadsheets. Bots and automations watch the action around the clock so you spend less time grinding data and more time on the picks that matter.
+           AI bots watch the action around the clock so you spend less time grinding data and more time on the picks that matter. Get access to professional-grade predictions & data for NFL, College Football, and more.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex items-center justify-center gap-4 mb-4">
-            {/* Try on Web Button */}
+          {/* CTA: App Store → Play Store → Try on Web (stacked mobile, row desktop) */}
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-4">
+            <a
+              href="https://apps.apple.com/us/app/wagerproof-sports-picks-ai/id6757089957"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center"
+            >
+              <img
+                src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
+                alt="Download on the App Store"
+                className="w-[120px] h-[40px] md:w-[160px] md:h-[54px] object-contain"
+              />
+            </a>
+            <a
+              href="https://play.google.com/store/apps/details?id=com.wagerproof.mobile"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center"
+            >
+              <img
+                src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
+                alt="Get it on Google Play"
+                className="w-[180px] h-[54px] md:w-[250px] md:h-[75px] object-contain"
+              />
+            </a>
             <Link
               to="https://wagerproof.bet/account"
               target="_blank"
@@ -91,35 +113,6 @@ const Hero = () => {
                 <span>Try on Web</span>
               </MovingBorderButton>
             </Link>
-
-            {/* App Store Badges - stacked on mobile, inline on desktop */}
-            <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
-              <a
-                href="https://play.google.com/store/apps/details?id=com.wagerproof.mobile"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center"
-              >
-                <img
-                  src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
-                  alt="Get it on Google Play"
-                  className="w-[180px] h-[54px] md:w-[250px] md:h-[75px] object-contain"
-                />
-              </a>
-              {/* Apple App Store Badge */}
-              <a
-                href="https://apps.apple.com/us/app/wagerproof-sports-picks-ai/id6757089957"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center"
-              >
-                <img
-                  src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
-                  alt="Download on the App Store"
-                  className="w-[120px] h-[40px] md:w-[160px] md:h-[54px] object-contain"
-                />
-              </a>
-            </div>
           </div>
           
           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2 mt-4">
