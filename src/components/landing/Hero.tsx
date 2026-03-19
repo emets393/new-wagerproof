@@ -65,10 +65,17 @@ const Hero = () => {
               transition={slowTransition}
               className="font-bold"
             />{" "}
-            that find plays for you
+            that find{" "}
+            <GradientText
+              text="plays"
+              gradient={gradientToUse}
+              transition={slowTransition}
+              className="font-bold"
+            />{" "}
+            for you
           </h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
-           AI bots watch the action around the clock so you spend less time grinding data and more time on the picks that matter. Get access to professional-grade predictions & data for NFL, College Football, and more.
+            Get access to professional-grade predictions & data for NFL, College Football, and more.
           </p>
 
           {/* CTA: App Store → Play Store → Try on Web (stacked mobile, row desktop) */}

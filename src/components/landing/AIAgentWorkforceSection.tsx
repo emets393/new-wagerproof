@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -18,6 +18,42 @@ import {
   CloudRain,
   Cpu,
 } from "lucide-react";
+
+// Vertical pipeline layout (mobile) — viewBox coords map to % via same W/H
+const MOBILE_PIPELINE_W = 360;
+/** Tight to content (last agent row ~594 + chip extent); avoids empty band at bottom of the panel */
+const MOBILE_PIPELINE_H = 658;
+
+function mobilePipelinePct(x: number, y: number) {
+  return {
+    left: `${(x / MOBILE_PIPELINE_W) * 100}%`,
+    top: `${(y / MOBILE_PIPELINE_H) * 100}%`,
+    transform: "translate(-50%, -50%)" as const,
+  };
+}
+
+function mobileInputAnchor(i: number) {
+  const col = i % 2;
+  const row = Math.floor(i / 2);
+  return { x: 82 + col * 196, y: 36 + row * 74 };
+}
+
+function mobileCoreAnchor() {
+  return { x: MOBILE_PIPELINE_W / 2, y: 248 };
+}
+
+/** Same columns as intake grid; pushed down + looser rows to fill space below core. */
+const MOBILE_AGENT_GRID_BASE_Y = 402;
+const MOBILE_AGENT_ROW_STEP = 96;
+
+function mobileAgentAnchor(i: number) {
+  const col = i % 2;
+  const row = Math.floor(i / 2);
+  return {
+    x: 82 + col * 196,
+    y: MOBILE_AGENT_GRID_BASE_Y + row * MOBILE_AGENT_ROW_STEP,
+  };
+}
 
 // ─────────────────────────────────────────────
 // PIPELINE ANIMATION WIDGET
@@ -41,6 +77,8 @@ const HeroPipelineWidget = () => {
     { name: "Situational Data", icon: CloudRain, iconColor: "text-cyan-500 dark:text-cyan-400", bgColor: "bg-cyan-500/10", particleColor: "#06b6d4" },
     { name: "ML Models", icon: Cpu, iconColor: "text-pink-500 dark:text-pink-400", bgColor: "bg-pink-500/10", particleColor: "#ec4899" },
   ];
+
+  const mCore = mobileCoreAnchor();
 
   return (
     <div className="py-6 md:py-8 relative w-full flex flex-col items-center justify-center">
@@ -146,35 +184,189 @@ const HeroPipelineWidget = () => {
         </svg>
       </div>
 
-      {/* Mobile fallback (stacked) */}
-      <div className="flex flex-col gap-6 w-full px-4 lg:hidden relative z-10">
-         <div className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center shadow-sm">
-            <Brain className="w-12 h-12 text-violet-500 dark:text-violet-400 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">WagerProof Core</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Ingesting thousands of data points and routing them to your autonomous agents.</p>
-         </div>
-         {agents.map((agent, i) => (
-            <div key={agent.name} className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl p-4 flex flex-col gap-2 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${agent.color}15`, border: `1px solid ${agent.color}30` }}>
-                  <Bot className="w-5 h-5" style={{ color: agent.color }} />
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-gray-900 dark:text-white">{agent.name}</div>
-                  <div className="text-[10px] font-mono text-gray-500 uppercase">{agent.strategy}</div>
-                </div>
+      {/* Mobile: vertical pipeline — same nodes, paths, and particles as desktop */}
+      <div className="lg:hidden relative w-full max-w-[400px] mx-auto px-2 min-h-[560px] h-[min(86svh,635px)] sm:h-[min(86svh,655px)]">
+        <div className="absolute inset-1 sm:inset-2 bg-white/60 dark:bg-[#0A0D14]/80 border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl dark:shadow-[0_0_80px_rgba(0,0,0,0.75)] backdrop-blur-xl" />
+
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none z-0"
+          viewBox={`0 0 ${MOBILE_PIPELINE_W} ${MOBILE_PIPELINE_H}`}
+          preserveAspectRatio="none"
+        >
+          {inputs.map((_, i) => {
+            const { x: ix, y: iy } = mobileInputAnchor(i);
+            const d = `M ${ix} ${iy + 22} C ${ix} ${iy + 95}, ${mCore.x} ${mCore.y - 48}, ${mCore.x} ${mCore.y}`;
+            return (
+              <path
+                key={`m-in-${i}`}
+                d={d}
+                fill="none"
+                stroke="currentColor"
+                className="text-gray-300 dark:text-white/10"
+                strokeWidth="2"
+                strokeDasharray="4 4"
+              />
+            );
+          })}
+          {agents.map((_, i) => {
+            const { x: ax, y: ay } = mobileAgentAnchor(i);
+            const d = `M ${mCore.x} ${mCore.y + 50} C ${mCore.x} ${mCore.y + 115}, ${ax} ${ay - 58}, ${ax} ${ay - 28}`;
+            return (
+              <path
+                key={`m-out-${i}`}
+                d={d}
+                fill="none"
+                stroke="rgba(139,92,246,0.35)"
+                strokeWidth="2"
+              />
+            );
+          })}
+          {inputs.map((input, i) => {
+            const { x: ix, y: iy } = mobileInputAnchor(i);
+            const path = `M ${ix} ${iy + 22} C ${ix} ${iy + 95}, ${mCore.x} ${mCore.y - 48}, ${mCore.x} ${mCore.y}`;
+            return (
+              <motion.circle
+                key={`m-particle-in-${i}`}
+                r="3.5"
+                fill={input.particleColor}
+                filter={`drop-shadow(0 0 5px ${input.particleColor})`}
+              >
+                <animateMotion
+                  dur={`${2 + (i % 5) * 0.2}s`}
+                  repeatCount="indefinite"
+                  path={path}
+                />
+              </motion.circle>
+            );
+          })}
+          {agents.map((agent, i) => {
+            const { x: ax, y: ay } = mobileAgentAnchor(i);
+            const path = `M ${mCore.x} ${mCore.y + 50} C ${mCore.x} ${mCore.y + 115}, ${ax} ${ay - 58}, ${ax} ${ay - 28}`;
+            return (
+              <motion.circle
+                key={`m-particle-out-${i}`}
+                r="3"
+                fill={agent.color}
+                filter={`drop-shadow(0 0 5px ${agent.color})`}
+              >
+                <animateMotion
+                  dur={`${1.6 + (i % 4) * 0.2}s`}
+                  repeatCount="indefinite"
+                  path={path}
+                />
+              </motion.circle>
+            );
+          })}
+        </svg>
+
+        <div className="absolute inset-0 z-10">
+          {inputs.map((input, i) => {
+            const { x, y } = mobileInputAnchor(i);
+            return (
+              <div
+                key={input.name}
+                className="absolute w-[min(148px,42vw)] p-2 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg flex items-center justify-center gap-2 backdrop-blur-md overflow-hidden group shadow-sm"
+                style={mobilePipelinePct(x, y)}
+              >
+                <motion.div
+                  className={`absolute inset-0 ${input.bgColor} opacity-0 group-hover:opacity-100 transition-opacity`}
+                />
+                <input.icon className={`w-4 h-4 shrink-0 ${input.iconColor}`} />
+                <span className="text-[9px] font-mono text-gray-600 dark:text-gray-300 leading-tight text-center">
+                  {input.name}
+                </span>
               </div>
-              <div className="h-1.5 w-full bg-gray-100 dark:bg-white/10 rounded-full mt-2 overflow-hidden">
-                 <motion.div 
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: agent.color }}
-                    initial={{ width: "0%" }}
-                    animate={{ width: ["0%", "100%", "0%"] }}
-                    transition={{ duration: 3 + Math.random() * 2, repeat: Infinity, ease: "linear", delay: Math.random() }}
-                  />
+            );
+          })}
+
+          <div className="absolute" style={mobilePipelinePct(mCore.x, mCore.y)}>
+            <div className="relative">
+              <motion.div
+                className="w-[4.5rem] h-[4.5rem] rounded-full bg-white dark:bg-violet-600/20 border-2 border-violet-500/50 flex items-center justify-center relative z-10 shadow-lg dark:shadow-[0_0_40px_rgba(139,92,246,0.28)] backdrop-blur-xl"
+                animate={{
+                  scale: [1, 1.05, 1],
+                  borderColor: [
+                    "rgba(139,92,246,0.3)",
+                    "rgba(139,92,246,0.8)",
+                    "rgba(139,92,246,0.3)",
+                  ],
+                }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Brain className="w-8 h-8 text-violet-500 dark:text-violet-400" />
+              </motion.div>
+              <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-mono font-bold text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/20 px-2 py-0.5 rounded border border-violet-200 dark:border-violet-500/30">
+                WAGERPROOF CORE
               </div>
             </div>
-         ))}
+          </div>
+
+          {agents.map((agent, i) => {
+            const { x, y } = mobileAgentAnchor(i);
+            return (
+              <div
+                key={agent.name}
+                className="absolute w-[min(158px,44vw)] p-2 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg flex items-center gap-2 backdrop-blur-md overflow-hidden group shadow-sm"
+                style={mobilePipelinePct(x, y)}
+              >
+                <motion.div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ backgroundColor: `${agent.color}18` }}
+                />
+                <div className="flex flex-col items-center gap-0.5 shrink-0 relative z-10">
+                  <div className="w-6 h-6 rounded-md flex items-center justify-center bg-gray-50 dark:bg-[#0A0D14] border border-gray-200 dark:border-white/10">
+                    <Bot className="w-3 h-3" style={{ color: agent.color }} />
+                  </div>
+                  <div className="flex items-end justify-center gap-[1px] h-[9px]">
+                    {[0, 1, 2, 3, 4].map((bar) => (
+                      <motion.div
+                        key={bar}
+                        className="w-[2px] rounded-full origin-bottom"
+                        style={{ backgroundColor: agent.color }}
+                        animate={{ height: [2, 7, 2] }}
+                        transition={{
+                          duration: 0.55,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: bar * 0.1 + i * 0.04,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col gap-1 relative z-10 pt-0.5">
+                  <div className="flex items-start justify-between gap-1">
+                    <span className="text-[8px] font-bold text-gray-900 dark:text-white leading-tight line-clamp-2">
+                      {agent.name}
+                    </span>
+                    <span className="text-[7px] font-mono font-bold px-1 py-px rounded bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 shrink-0">
+                      #{i + 1}
+                    </span>
+                  </div>
+                  <div className="h-0.5 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full relative shadow-[0_0_6px_currentColor]"
+                      style={{ backgroundColor: agent.color, color: agent.color }}
+                      initial={{ width: "0%" }}
+                      animate={{ width: ["0%", "100%", "0%"] }}
+                      transition={{
+                        duration: 2.1 + (i % 3) * 0.35,
+                        repeat: Infinity,
+                        ease: "linear",
+                        delay: i * 0.12,
+                      }}
+                    >
+                      <div className="absolute top-0 right-0 bottom-0 w-4 bg-white/50 dark:bg-white/30 blur-[1px]" />
+                    </motion.div>
+                  </div>
+                  <span className="text-[6px] font-mono text-gray-500 dark:text-gray-400 uppercase tracking-wide truncate">
+                    {agent.strategy}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
