@@ -257,108 +257,42 @@ export function isRevenueCatConfigured(): boolean {
  */
 export async function initializeRevenueCat(userId?: string): Promise<void> {
   try {
-    // Check platform first
-    if (Platform.OS === 'web') {
-      console.warn('RevenueCat is not available on web platform');
-      return;
-    }
+    if (Platform.OS === 'web') return;
 
-    // Get the Purchases module
     const PurchasesModule = getPurchasesModule();
-    if (!PurchasesModule) {
-      console.warn('RevenueCat module not available. Make sure the app is rebuilt after installing react-native-purchases.');
-      return;
-    }
+    if (!PurchasesModule) return;
 
-    // Verify native module is linked
-    try {
-      const RNPurchases = NativeModules.RNPurchases;
-      if (!RNPurchases) {
-        console.warn('RevenueCat native module (RNPurchases) not found. Run: cd ios && pod install && cd .. && npx expo run:ios');
-        return;
-      }
-    } catch (e) {
-      console.warn('Could not verify RevenueCat native module. The app may need to be rebuilt.');
-    }
-
-    // Configure RevenueCat first (must be called before any other methods)
-    // Use platform-specific API key
+    // Configure is the only required call — everything else is deferred
     const apiKey = getRevenueCatApiKey();
-    console.log('🔑 Configuring RevenueCat with platform:', Platform.OS);
-    console.log('🔑 Using API key:', apiKey.substring(0, 20) + '...');
-    console.log('🔑 Full API key:', apiKey);
-    console.log('🔑 API key length:', apiKey.length);
-    console.log('🔑 API key starts with:', Platform.OS === 'android' ? 'goog_' : 'appl_');
-    
     await PurchasesModule.configure({
-      apiKey: apiKey,
-      appUserID: userId || null, // Use anonymous ID if not logged in
+      apiKey,
+      appUserID: userId || null,
     });
 
-    console.log('✅ RevenueCat configured successfully for', Platform.OS);
-
-    // Collect device identifiers (IDFA on iOS, GAID on Android) for attribution
-    // This must be called after configure() so RevenueCat can pass identifiers to integrations like Meta
-    try {
-      await PurchasesModule.collectDeviceIdentifiers();
-      console.log('✅ RevenueCat device identifiers collected (IDFA/GAID)');
-    } catch (idError: any) {
-      console.warn('⚠️ Could not collect device identifiers:', idError.message);
-    }
-
-    // Set Facebook Anonymous ID for Meta attribution integration
-    try {
-      const { AppEventsLogger } = require('react-native-fbsdk-next');
-      const fbAnonId = await AppEventsLogger.getAnonymousID();
-      if (fbAnonId) {
-        await PurchasesModule.setFBAnonymousID(fbAnonId);
-        console.log('✅ RevenueCat Facebook Anonymous ID set:', fbAnonId.substring(0, 10) + '...');
-      }
-    } catch (fbError: any) {
-      console.warn('⚠️ Could not set Facebook Anonymous ID:', fbError.message);
-    }
-
-    // Verify configuration by checking if we can get customer info
-    try {
-      const testCustomerInfo = await PurchasesModule.getCustomerInfo();
-      console.log('✅ Configuration verified - customer info retrieved');
-      console.log('✅ Customer info entitlements:', Object.keys(testCustomerInfo.entitlements.active || {}));
-    } catch (verifyError: any) {
-      console.warn('⚠️ Could not verify configuration:', verifyError.message);
-    }
-
     isConfigured = true;
-    console.log('✅ RevenueCat configuration completed');
 
-    // Set log level AFTER configuration
-    // Enable debug logging in development
+    // Set log level in dev
     if (__DEV__ && LOG_LEVEL) {
-      try {
-        PurchasesModule.setLogLevel(LOG_LEVEL.DEBUG);
-        console.log('✅ RevenueCat debug logging enabled');
-      } catch (logError) {
-        console.warn('Could not set RevenueCat log level:', logError);
-      }
+      try { PurchasesModule.setLogLevel(LOG_LEVEL.DEBUG); } catch {}
     }
 
-    // Optional: Allow sharing store account across devices
-    // Uncomment if you want users to share subscriptions across devices
-    // try {
-    //   PurchasesModule.setAllowSharingStoreAccount(true);
-    // } catch (e) {
-    //   console.warn('Could not set allow sharing store account:', e);
-    // }
-
-    console.log('✅ RevenueCat initialized successfully');
+    // Device identifiers & Facebook attribution are non-blocking — fire and forget
+    // They can complete in the background after configure() returns
+    Promise.all([
+      PurchasesModule.collectDeviceIdentifiers().catch(() => {}),
+      (async () => {
+        try {
+          const { AppEventsLogger } = require('react-native-fbsdk-next');
+          const fbAnonId = await AppEventsLogger.getAnonymousID();
+          if (fbAnonId) await PurchasesModule.setFBAnonymousID(fbAnonId);
+        } catch {}
+      })(),
+    ]).catch(() => {});
   } catch (error: any) {
-    console.error('Error initializing RevenueCat:', error);
-    // Don't throw - allow app to continue without RevenueCat
+    // Don't throw — allow app to continue without RevenueCat
     isConfigured = false;
-    if (error?.message?.includes('native') || error?.message?.includes('null')) {
-      console.warn('RevenueCat native module error. Make sure to:');
-      console.warn('1. Rebuild the app: npx expo run:ios or npx expo run:android');
-      console.warn('2. For iOS: cd ios && pod install');
-      console.warn('3. Restart Metro bundler');
+    if (__DEV__) {
+      console.warn('RevenueCat init failed:', error?.message);
     }
   }
 }
@@ -370,34 +304,15 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
  */
 export async function setRevenueCatUserId(userId: string): Promise<any | null> {
   try {
-    console.log('🔑 setRevenueCatUserId called with:', userId);
-    console.log('🔑 isConfigured:', isConfigured);
-
     const PurchasesModule = getPurchasesModule();
-    console.log('🔑 PurchasesModule available:', !!PurchasesModule);
-
     if (!isConfigured || !PurchasesModule) {
-      console.warn('🔑 RevenueCat is not configured. Skipping user ID set.');
-      console.warn('🔑 This means the user will NOT be identified in RevenueCat!');
       return null;
     }
 
-    console.log('🔑 Calling Purchases.logIn() with userId:', userId);
-    const { customerInfo, created } = await PurchasesModule.logIn(userId);
-
-    console.log('✅ RevenueCat user logged in successfully');
-    console.log('✅ User ID:', userId);
-    console.log('✅ New user created in RevenueCat:', created);
-    console.log('✅ Customer originalAppUserId:', customerInfo?.originalAppUserId);
-    console.log('✅ Active entitlements:', Object.keys(customerInfo?.entitlements?.active || {}));
-    console.log('✅ All entitlements:', Object.keys(customerInfo?.entitlements?.all || {}));
-
-    // Return the customer info from login - this is the most accurate source
+    const { customerInfo } = await PurchasesModule.logIn(userId);
     return customerInfo;
   } catch (error: any) {
-    console.error('❌ Error setting RevenueCat user ID:', error);
-    console.error('❌ Error message:', error?.message);
-    console.error('❌ Error code:', error?.code);
+    if (__DEV__) console.warn('RevenueCat logIn failed:', error?.message);
     throw error;
   }
 }
@@ -414,9 +329,7 @@ export async function logOutRevenueCat(): Promise<void> {
       return;
     }
     await PurchasesModule.logOut();
-    console.log('RevenueCat user logged out');
   } catch (error) {
-    console.error('Error logging out RevenueCat user:', error);
     throw error;
   }
 }
@@ -484,13 +397,8 @@ export async function getCurrentOfferingForPlacement(placementIdentifier: string
     }
 
     const offering = await PurchasesModule.getCurrentOfferingForPlacement(placementIdentifier);
-    console.log('📦 Placement offering fetched:', {
-      placementIdentifier,
-      offeringIdentifier: offering?.identifier ?? null,
-    });
     return offering;
-  } catch (error) {
-    console.error('Error fetching offering for placement:', placementIdentifier, error);
+  } catch {
     return null;
   }
 }
@@ -508,46 +416,13 @@ export async function getPaywallOffering(placementIdentifier?: string | null): P
  */
 export async function getAllOfferings(): Promise<any> {
   try {
-    console.log('📦 getAllOfferings() called');
-    console.log('📦 Platform:', Platform.OS);
-    console.log('📦 isConfigured:', isConfigured);
-    
     const PurchasesModule = getPurchasesModule();
-    if (!isConfigured || !PurchasesModule) {
-      console.error('❌ RevenueCat not configured or module not available');
-      console.error('❌ isConfigured:', isConfigured);
-      console.error('❌ PurchasesModule:', !!PurchasesModule);
-      return null;
-    }
+    if (!isConfigured || !PurchasesModule) return null;
     
-    console.log('📦 Fetching offerings from RevenueCat...');
     const offerings = await PurchasesModule.getOfferings();
-    
-    console.log('📦 Offerings received:', {
-      hasAll: !!offerings.all,
-      hasCurrent: !!offerings.current,
-      allKeys: offerings.all ? Object.keys(offerings.all) : [],
-      currentId: offerings.current?.identifier,
-    });
-
-    // Debug: Log full offerings structure for iOS debugging
-    if (Platform.OS === 'ios') {
-      console.log('📦 [iOS DEBUG] Full offerings.all:', JSON.stringify(offerings.all, null, 2));
-      console.log('📦 [iOS DEBUG] Full offerings.current:', JSON.stringify(offerings.current, null, 2));
-      if (!offerings.current && (!offerings.all || Object.keys(offerings.all).length === 0)) {
-        console.error('❌ [iOS DEBUG] No offerings found! Check RevenueCat Dashboard:');
-        console.error('❌ 1. Are iOS products imported from App Store Connect?');
-        console.error('❌ 2. Is the "default" offering created with iOS products?');
-        console.error('❌ 3. Is "default" set as the Current Offering?');
-        console.error('❌ 4. Are iOS and Android in the SAME RevenueCat project?');
-      }
-    }
-    
     return offerings;
   } catch (error: any) {
-    console.error('❌ Error fetching all offerings:', error);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error stack:', error.stack);
+    if (__DEV__) console.warn('Error fetching all offerings:', error?.message);
     return null;
   }
 }
@@ -562,9 +437,7 @@ export async function syncPurchases(): Promise<void> {
     if (!isConfigured || !PurchasesModule) {
       throw new Error('RevenueCat is not configured');
     }
-    console.log('🔄 Syncing purchases and refreshing offerings...');
     await PurchasesModule.syncPurchases();
-    console.log('✅ Sync completed');
   } catch (error) {
     console.error('Error syncing purchases:', error);
     throw error;
@@ -577,48 +450,15 @@ export async function syncPurchases(): Promise<void> {
 export async function getOfferingById(identifier: string): Promise<any> {
   try {
     const PurchasesModule = getPurchasesModule();
-    if (!isConfigured || !PurchasesModule) {
-      console.error('❌ RevenueCat not configured or module not available');
-      return null;
-    }
-    
-    console.log('📦 Fetching all offerings...');
+    if (!isConfigured || !PurchasesModule) return null;
+
     const offerings = await PurchasesModule.getOfferings();
-    
-    console.log('📦 Full offerings object:', JSON.stringify(offerings, null, 2));
-    console.log('📦 Platform:', Platform.OS);
-    console.log('📦 Looking for offering:', identifier);
-    
-    // Log all available offering identifiers
-    if (offerings.all) {
-      const allIdentifiers = Object.keys(offerings.all);
-      console.log('📦 Available offering identifiers:', allIdentifiers);
-      
-      // Check if the offering exists in offerings.all
-      if (offerings.all[identifier]) {
-        console.log('✅ Found offering:', identifier);
-        return offerings.all[identifier];
-      } else {
-        console.warn('⚠️ Offering not found in offerings.all');
-        console.warn('⚠️ Available offerings:', allIdentifiers);
-      }
-    } else {
-      console.warn('⚠️ offerings.all is null or undefined');
-    }
-    
-    // Also check current offering
-    if (offerings.current) {
-      console.log('📦 Current offering identifier:', offerings.current.identifier);
-      if (offerings.current.identifier === identifier) {
-        console.log('✅ Found offering as current:', identifier);
-        return offerings.current;
-      }
-    }
-    
-    console.warn('⚠️ Offering not found:', identifier);
+
+    if (offerings.all?.[identifier]) return offerings.all[identifier];
+    if (offerings.current?.identifier === identifier) return offerings.current;
+
     return null;
-  } catch (error) {
-    console.error('❌ Error fetching offering by ID:', error);
+  } catch {
     return null;
   }
 }
@@ -700,10 +540,6 @@ export async function presentPaywall(
   source: PaywallSource = 'unknown'
 ): Promise<string> {
   try {
-    console.log('📱 presentPaywall() called - Paywalls V2');
-    console.log('Platform:', Platform.OS);
-    console.log('Offering provided:', !!offering);
-    
     // Check if we're on web (native modules don't work on web)
     if (Platform.OS === 'web') {
       throw new Error('RevenueCat Paywalls are not available on web platform');
@@ -729,19 +565,14 @@ export async function presentPaywall(
 
     // Present paywall using V2 API
     // Note: For V2, the paywall is configured in the dashboard and attached to an offering
-    console.log('🎬 Calling RevenueCatUI.presentPaywall() with V2 API...');
     const paywallResult = await RevenueCatUI.presentPaywall({
       offering: offering || undefined,
       displayCloseButton: true, // Only affects original template paywalls, ignored for V2
     });
     
-    console.log('✅ Paywall V2 presented, result:', paywallResult);
     await trackPaywallResult(paywallResult, offering, source);
-    
-    // Return the result as a string for easier comparison
     return paywallResult;
   } catch (error: any) {
-    console.error('❌ Error presenting paywall V2:', error);
     throw error;
   }
 }
@@ -755,10 +586,6 @@ export async function presentPaywall(
  */
 export async function presentPaywallIfNeeded(requiredEntitlementIdentifier: string, offering?: any): Promise<string> {
   try {
-    console.log('📱 presentPaywallIfNeeded() called - Paywalls V2');
-    console.log('Required entitlement:', requiredEntitlementIdentifier);
-    console.log('Offering provided:', !!offering);
-    
     // Check if we're on web (native modules don't work on web)
     if (Platform.OS === 'web') {
       throw new Error('RevenueCat Paywalls are not available on web platform');
@@ -781,14 +608,12 @@ export async function presentPaywallIfNeeded(requiredEntitlementIdentifier: stri
     }
 
     // Present paywall if needed using V2 API
-    console.log('🎬 Calling RevenueCatUI.presentPaywallIfNeeded() with V2 API...');
     const paywallResult = await RevenueCatUI.presentPaywallIfNeeded({
       requiredEntitlementIdentifier,
       offering: offering || undefined,
       displayCloseButton: true, // Only affects original template paywalls, ignored for V2
     });
     
-    console.log('✅ Paywall V2 presentIfNeeded result:', paywallResult);
     return paywallResult;
   } catch (error: any) {
     console.error('Error presenting paywall if needed:', error);

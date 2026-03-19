@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+function countVisibleCharacters(value: string): number {
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value)].length;
+  }
+
+  return Array.from(value.replace(/\uFE0F/g, '')).length;
+}
+
+const EmojiSchema = z.string().min(1).refine(
+  (value) => countVisibleCharacters(value) <= 4,
+  { message: 'Emoji must be 4 visible characters or fewer' }
+);
+
 // ============================================================================
 // ENUMS & CONSTANTS
 // ============================================================================
@@ -309,7 +322,7 @@ export const CustomInsightsSchema = z.object({
 
 export const CreateAgentSchema = z.object({
   name: z.string().min(1).max(50),
-  avatar_emoji: z.string().min(1).max(4),
+  avatar_emoji: EmojiSchema,
   avatar_color: z.string().refine(
     (val) => /^#[0-9a-fA-F]{6}$/.test(val) || /^gradient:#[0-9a-fA-F]{6},#[0-9a-fA-F]{6}$/.test(val),
     { message: 'Must be a hex color (#xxxxxx) or gradient (gradient:#xxxxxx,#xxxxxx)' }

@@ -253,20 +253,20 @@ const trackFacebookCompleteRegistration = (registrationMethod: string): void => 
  * Track Facebook Purchase event (fb_mobile_purchase)
  * This is the KEY event for Facebook ad attribution
  */
-const trackFacebookPurchase = (
+const trackFacebookPurchase = async (
   price: number,
   currency: string,
   contentId: string,
   predictedLtv: number,
   transactionId?: string
-): void => {
+): Promise<void> => {
   if (!isFacebookInitialized) {
     analyticsLog('📊 Analytics: Facebook SDK not initialized, skipping Purchase');
     return;
   }
 
   try {
-    AppEventsLogger.logPurchase(price, currency, {
+    await AppEventsLogger.logPurchase(price, currency, {
       fb_content_type: 'product',
       fb_content_id: contentId,
       fb_order_id: transactionId || 'unknown',
@@ -274,6 +274,7 @@ const trackFacebookPurchase = (
       fb_success: '1',
       fb_payment_info_available: '1',
     });
+    await AppEventsLogger.flush();
     analyticsLog('📊 Analytics: Facebook Purchase event logged:', { price, currency, contentId });
   } catch (error) {
     console.error('📊 Analytics: Error logging Facebook Purchase:', error);
@@ -524,7 +525,7 @@ export const trackSubscriptionPurchased = (
 
   // ===== Facebook/Meta Events =====
   // fb_mobile_purchase - KEY event for ad attribution
-  trackFacebookPurchase(price, currency, contentId, predictedLtv, transactionId);
+  void trackFacebookPurchase(price, currency, contentId, predictedLtv, transactionId);
 
   // Flush immediately - critical for attribution
   flushAnalytics();

@@ -263,7 +263,8 @@ export default function AgentSettingsScreen() {
     } catch (error) {
       console.error('Error saving agent:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'Failed to save agent settings');
+      const message = error instanceof Error ? error.message : 'Failed to save agent settings';
+      Alert.alert('Error', message);
     }
   }, [
     id,

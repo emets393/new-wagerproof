@@ -11,6 +11,7 @@ import { useProAccess } from '@/hooks/useProAccess';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useMetaTestSheet } from '@/contexts/MetaTestSheetContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import {
   didPaywallGrantEntitlement,
   getOfferingById,
@@ -37,6 +38,7 @@ export default function SecretSettingsScreen() {
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
   const { refreshCustomerInfo } = useRevenueCat();
   const { openSheet: openMetaTestSheet } = useMetaTestSheet();
+  const { setOnboardingIncomplete } = useOnboarding();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -217,6 +219,7 @@ export default function SecretSettingsScreen() {
                   {
                     text: 'OK',
                     onPress: () => {
+                      setOnboardingIncomplete();
                       // Close this modal first
                       router.back();
                       // Small delay to allow modal to close, then navigate to onboarding

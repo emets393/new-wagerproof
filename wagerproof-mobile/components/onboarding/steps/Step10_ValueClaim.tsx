@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, InteractionManager } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -10,14 +10,22 @@ import { useOnboarding } from '../../../contexts/OnboardingContext';
 let LottieView: any = null;
 try {
   LottieView = require('lottie-react-native').default;
-} catch (e) {
-  console.log('Lottie not available, using fallback');
+} catch {
+  // Lottie not available — fallback UI will render
 }
 
 export function ValueClaim() {
   const { nextStep, isTransitioning } = useOnboarding();
   const theme = useTheme();
   const useLottie = !!LottieView;
+
+  // Defer Lottie so text renders instantly
+  const [lottieReady, setLottieReady] = useState(false);
+  useEffect(() => {
+    if (!useLottie) return;
+    const handle = InteractionManager.runAfterInteractions(() => setLottieReady(true));
+    return () => handle.cancel();
+  }, [useLottie]);
 
   const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -36,7 +44,7 @@ export function ValueClaim() {
         </Text>
 
         <View style={styles.animationContainer}>
-          {useLottie && LottieView ? (
+          {useLottie && lottieReady && LottieView ? (
             <LottieView
               source={require('../../../assets/statistics-animation.json')}
               autoPlay

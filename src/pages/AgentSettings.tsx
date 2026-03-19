@@ -132,7 +132,7 @@ export default function AgentSettings() {
       });
       navigate(`/agents/${id}`);
     } catch (err: any) {
-      setError(err?.message || 'Failed to save settings.');
+      setError(err instanceof Error ? err.message : err?.message || 'Failed to save settings.');
     }
   };
 

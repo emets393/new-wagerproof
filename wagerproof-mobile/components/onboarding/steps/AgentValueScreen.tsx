@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, InteractionManager } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
@@ -37,6 +37,15 @@ export function AgentValueScreen({
   const { nextStep, isTransitioning } = useOnboarding();
   const theme = useTheme();
 
+  // Defer Lottie mount so the component renders instantly (title, subtitle, bullets)
+  // and the heavy JSON parse happens after the transition animation completes.
+  const [lottieReady, setLottieReady] = useState(!lottieSource);
+  useEffect(() => {
+    if (!lottieSource) return;
+    const handle = InteractionManager.runAfterInteractions(() => setLottieReady(true));
+    return () => handle.cancel();
+  }, [lottieSource]);
+
   const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     nextStep();
@@ -45,17 +54,17 @@ export function AgentValueScreen({
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: topPadding }]} showsVerticalScrollIndicator={false} bounces={false}>
-        <View style={styles.iconContainer}>
-          {lottieSource ? (
+        <View style={[styles.iconContainer, { width: lottieSize, height: lottieSize, alignSelf: 'center' }]}>
+          {lottieReady && lottieSource ? (
             <LottieView
               source={lottieSource}
               autoPlay
               loop
               style={[styles.lottie, { width: lottieSize, height: lottieSize }]}
             />
-          ) : (
+          ) : !lottieSource ? (
             <MaterialCommunityIcons name={icon} size={80} color={iconColor} />
-          )}
+          ) : null}
         </View>
 
         <Text style={[styles.title, { color: theme.colors.onBackground }]}>

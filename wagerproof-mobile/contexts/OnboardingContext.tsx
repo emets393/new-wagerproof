@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { InteractionManager } from 'react-native';
+import { useSegments } from 'expo-router';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
 import {
@@ -37,10 +38,15 @@ interface OnboardingContextType {
   currentStep: number;
   direction: number;
   isTransitioning: boolean;
+  isCompleting: boolean;
+  isCompleted: boolean;
+  completionOverride: boolean | null;
   onboardingData: OnboardingData;
   nextStep: () => void;
   prevStep: () => void;
   updateOnboardingData: (data: Partial<OnboardingData>) => void;
+  completeOnboarding: (createdAgentId?: string) => Promise<void>;
+  setOnboardingIncomplete: () => void;
   submitOnboardingData: () => Promise<void>;
   markOnboardingCompleted: (createdAgentId?: string) => Promise<void>;
   resetOnboarding: () => void;
@@ -56,13 +62,25 @@ const OnboardingContext = createContext<OnboardingContextType | undefined>(undef
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const segments = useSegments();
   const [currentStep, setCurrentStep] = useState(1);
   const [direction, setDirection] = useState(0);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [completionOverride, setCompletionOverride] = useState<boolean | null>(null);
   const hasTrackedStart = useRef(false);
   const hasCompletedOnboarding = useRef(false);
   const currentStepRef = useRef(1);
+  const completionPromiseRef = useRef<Promise<void> | null>(null);
+  const wasInOnboardingRef = useRef(false);
+
+  // Stable refs so markOnboardingCompleted/submitOnboardingData don't depend on state
+  const onboardingDataRef = useRef<OnboardingData>({});
+  onboardingDataRef.current = onboardingData;
+  const userRef = useRef(user);
+  userRef.current = user;
 
   // Agent builder form state
   const [agentFormState, setAgentFormState] = useState<CreateAgentFormState>({
@@ -72,14 +90,28 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   });
   const [createdAgentId, setCreatedAgentIdState] = useState<string | null>(null);
 
-  // Track onboarding started when first mounted
   useEffect(() => {
-    if (!hasTrackedStart.current) {
+    const inOnboardingGroup = segments[0] === '(onboarding)';
+    const wasInOnboarding = wasInOnboardingRef.current;
+
+    if (inOnboardingGroup && !hasTrackedStart.current) {
       hasTrackedStart.current = true;
       trackOnboardingStarted();
-      trackOnboardingStepViewed(1);
+      trackOnboardingStepViewed(currentStepRef.current);
     }
-  }, []);
+
+    if (
+      wasInOnboarding &&
+      !inOnboardingGroup &&
+      hasTrackedStart.current &&
+      !hasCompletedOnboarding.current &&
+      !isCompleted
+    ) {
+      trackOnboardingAbandoned(currentStepRef.current);
+    }
+
+    wasInOnboardingRef.current = inOnboardingGroup;
+  }, [segments, isCompleted]);
 
   // Track step views only. Step completion is emitted on successful forward progression.
   // Deferred to avoid blocking the transition animation.
@@ -93,16 +125,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     }
   }, [currentStep]);
 
-  useEffect(() => {
-    return () => {
-      if (!hasCompletedOnboarding.current) {
-        trackOnboardingAbandoned(currentStepRef.current);
-      }
-    };
-  }, []);
+  // Ref-based guard prevents double-taps without causing re-renders.
+  // The `isTransitioning` state is only for UI (button loading indicators).
+  const transitionLockRef = useRef(false);
 
   const nextStep = useCallback(() => {
-    if (isTransitioning) return;
+    if (transitionLockRef.current) return;
+    transitionLockRef.current = true;
 
     // Batch all state updates together to minimize re-render cascades
     setIsTransitioning(true);
@@ -115,13 +144,19 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       trackOnboardingStepCompleted(completedStep, undefined, ONBOARDING_TOTAL_STEPS);
     });
 
-    // Reset transition flag after animation completes (match total animation duration)
-    setTimeout(() => setIsTransitioning(false), 400);
-  }, [isTransitioning]);
+    // Reset after animation completes
+    setTimeout(() => {
+      transitionLockRef.current = false;
+      setIsTransitioning(false);
+    }, 350);
+  }, []); // Stable — guard is a ref, no state deps
 
   const prevStep = useCallback(() => {
+    if (transitionLockRef.current) return;
+    transitionLockRef.current = true;
     setDirection(-1);
     setCurrentStep((prev) => prev - 1);
+    setTimeout(() => { transitionLockRef.current = false; }, 350);
   }, []);
 
   const updateOnboardingData = useCallback((data: Partial<OnboardingData>) => {
@@ -188,8 +223,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const markOnboardingCompleted = useCallback(
-    async (createdAgentId?: string) => {
-      if (!user) {
+    async (agentId?: string) => {
+      const currentUser = userRef.current;
+      if (!currentUser) {
         console.error('User not authenticated');
         throw new Error('User not authenticated');
       }
@@ -198,27 +234,30 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      const payloadOnboardingData = createdAgentId
-        ? { ...onboardingData, createdAgentId }
-        : onboardingData;
+      // Read from ref so this callback never depends on onboardingData state
+      const currentData = onboardingDataRef.current;
+      const payloadOnboardingData = agentId
+        ? { ...currentData, createdAgentId: agentId }
+        : currentData;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          onboarding_data: payloadOnboardingData,
-          onboarding_completed: true,
-        })
-        .eq('user_id', user.id)
-        .select();
+      // Race against 8s timeout so bad internet never freezes the flow
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Onboarding save timed out')), 8000)
+      );
+
+      const { error } = await Promise.race([
+        supabase
+          .from('profiles')
+          .update({
+            onboarding_data: payloadOnboardingData,
+            onboarding_completed: true,
+          })
+          .eq('user_id', currentUser.id),
+        timeout,
+      ]);
 
       if (error) {
         console.error('Error updating profile:', error);
-        console.error('Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
         throw error;
       }
 
@@ -231,15 +270,43 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         acquisitionSource: payloadOnboardingData.acquisitionSource,
       });
     },
-    [onboardingData, user]
+    [] // Stable — reads from refs, no state dependencies
   );
 
+  const completeOnboarding = useCallback(async (agentId?: string) => {
+    if (completionPromiseRef.current) {
+      return completionPromiseRef.current;
+    }
+
+    setIsCompleting(true);
+    setIsCompleted(true);
+    setCompletionOverride(true);
+
+    const completionPromise = markOnboardingCompleted(agentId)
+      .catch((error) => {
+        console.error('Background onboarding completion failed:', error);
+      })
+      .finally(() => {
+        completionPromiseRef.current = null;
+        setIsCompleting(false);
+      });
+
+    completionPromiseRef.current = completionPromise;
+    return completionPromise;
+  }, [markOnboardingCompleted]);
+
   const resetOnboarding = useCallback(() => {
+    hasTrackedStart.current = false;
     hasCompletedOnboarding.current = false;
+    wasInOnboardingRef.current = false;
+    completionPromiseRef.current = null;
     setCurrentStep(1);
     setDirection(0);
     setOnboardingData({});
     setIsTransitioning(false);
+    setIsCompleting(false);
+    setIsCompleted(false);
+    setCompletionOverride(false);
     setAgentFormState({
       ...INITIAL_FORM_STATE,
       personality_params: { ...INITIAL_FORM_STATE.personality_params },
@@ -248,28 +315,34 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setCreatedAgentIdState(null);
   }, []);
 
-  const submitOnboardingData = async () => {
-    if (!user) {
+  const submitOnboardingData = useCallback(async () => {
+    const currentUser = userRef.current;
+    if (!currentUser) {
       console.error('User not authenticated');
       throw new Error('User not authenticated');
     }
 
     try {
-      await markOnboardingCompleted();
+      await completeOnboarding();
     } catch (err) {
       console.error('Unexpected error during onboarding submission:', err);
       throw err;
     }
-  };
+  }, [completeOnboarding]);
 
   const contextValue = useMemo(() => ({
     currentStep,
     direction,
     isTransitioning,
+    isCompleting,
+    isCompleted,
+    completionOverride,
     onboardingData,
     nextStep,
     prevStep,
     updateOnboardingData,
+    completeOnboarding,
+    setOnboardingIncomplete: resetOnboarding,
     submitOnboardingData,
     markOnboardingCompleted,
     resetOnboarding,
@@ -283,13 +356,17 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     currentStep,
     direction,
     isTransitioning,
+    isCompleting,
+    isCompleted,
+    completionOverride,
     onboardingData,
     nextStep,
     prevStep,
     updateOnboardingData,
+    completeOnboarding,
+    resetOnboarding,
     submitOnboardingData,
     markOnboardingCompleted,
-    resetOnboarding,
     agentFormState,
     updateAgentFormState,
     updateAgentPersonalityParam,

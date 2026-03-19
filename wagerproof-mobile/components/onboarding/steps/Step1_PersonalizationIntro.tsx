@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, InteractionManager } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +10,13 @@ import { useOnboarding } from '../../../contexts/OnboardingContext';
 export function PersonalizationIntro() {
   const { nextStep, isTransitioning } = useOnboarding();
   const theme = useTheme();
+
+  // Defer Lottie so text renders instantly, animation appears after interactions
+  const [lottieReady, setLottieReady] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => setLottieReady(true));
+    return () => handle.cancel();
+  }, []);
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -27,12 +34,16 @@ export function PersonalizationIntro() {
           Let's personalize your experience.
         </Text>
 
-        <LottieView
-          source={require('../../../assets/face-recognition-mobile.json')}
-          autoPlay
-          loop
-          style={styles.lottie}
-        />
+        <View style={styles.lottie}>
+          {lottieReady && (
+            <LottieView
+              source={require('../../../assets/face-recognition-mobile.json')}
+              autoPlay
+              loop
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+        </View>
 
         <Text style={styles.description}>
           Answer a few quick questions so we can tune your dashboard and picks.

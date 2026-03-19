@@ -8,7 +8,6 @@ import { useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
 import * as StoreReview from 'expo-store-review';
-import { useRouter } from 'expo-router';
 import { Button } from '../../ui/Button';
 import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
@@ -28,13 +27,6 @@ const SPORT_ICONS: Record<Sport, string> = {
   ncaab: 'school',
 };
 
-const SPORT_COLORS: Record<Sport, string> = {
-  nfl: '#013369',
-  cfb: '#C41E3A',
-  nba: '#1D428A',
-  ncaab: '#FF6B00',
-};
-
 const onboardingCtaButton = onboardingCta.button;
 
 function getPrimaryColor(value: string): string {
@@ -45,11 +37,10 @@ function getPrimaryColor(value: string): string {
 }
 
 export function AgentBornStep() {
-  const { currentStep, agentFormState, submitOnboardingData } = useOnboarding();
+  const { currentStep, agentFormState, completeOnboarding } = useOnboarding();
   const { refreshCustomerInfo } = useRevenueCat();
   const theme = useTheme();
   const { isDark } = useThemeContext();
-  const router = useRouter();
   const [isRevealComplete, setIsRevealComplete] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [rating, setRating] = useState(0);
@@ -57,16 +48,6 @@ export function AgentBornStep() {
   const [revealRunId, setRevealRunId] = useState(0);
   const [pulseReady, setPulseReady] = useState(false);
   const primaryColor = getPrimaryColor(agentFormState.avatar_color || '#00E676');
-  const accentColors = (
-    agentFormState.preferred_sports.length >= 2
-      ? agentFormState.preferred_sports.map((sport) => SPORT_COLORS[sport])
-      : [SPORT_COLORS[agentFormState.preferred_sports[0] || 'nba'], `${SPORT_COLORS[agentFormState.preferred_sports[0] || 'nba']}99`]
-  ) as [string, string, ...string[]];
-  const backgroundGradientColors = [
-    `${accentColors[0]}16`,
-    `${accentColors[Math.min(1, accentColors.length - 1)]}10`,
-    'rgba(255,255,255,0)',
-  ] as [string, string, string];
   const researchPulse = React.useRef(new Animated.Value(0.55)).current;
   const elementsOpacity = React.useRef(new Animated.Value(0)).current;
 
@@ -75,25 +56,27 @@ export function AgentBornStep() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsContinuing(true);
 
+    // Race paywall against 10s timeout — never freeze on bad internet
     try {
-      const result = await presentPaywallForPlacement(
-        PAYWALL_PLACEMENTS.ONBOARDING,
-        'onboarding_agent_born'
+      const paywallTimeout = new Promise<string>((resolve) =>
+        setTimeout(() => resolve('TIMED_OUT'), 10000)
       );
+      const result = await Promise.race([
+        presentPaywallForPlacement(
+          PAYWALL_PLACEMENTS.ONBOARDING,
+          'onboarding_agent_born'
+        ),
+        paywallTimeout,
+      ]);
       if (didPaywallGrantEntitlement(result)) {
-        await refreshCustomerInfo();
+        refreshCustomerInfo().catch(() => {});
       }
-    } catch (error: any) {
-      console.error('Error presenting paywall:', error);
+    } catch {
+      // Paywall dismissed or errored — continue silently
     }
 
-    try {
-      await submitOnboardingData();
-      router.replace('/(tabs)' as any);
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
-      setIsContinuing(false);
-    }
+    // Let the centralized onboarding flow own the route transition.
+    completeOnboarding().catch(() => {});
   };
 
   // Replay green intro whenever user lands on Agent Born.

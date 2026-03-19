@@ -19,12 +19,7 @@ export function DataTransparency() {
       try {
         const { status } = await getTrackingPermissionsAsync();
         if (status === 'undetermined') {
-          setTimeout(async () => {
-            const { status: newStatus } = await requestTrackingPermissionsAsync();
-            console.log('ATT permission status:', newStatus);
-          }, 500);
-        } else {
-          console.log('ATT permission already determined:', status);
+          await requestTrackingPermissionsAsync();
         }
       } catch (error) {
         console.error('Error requesting ATT permission:', error);

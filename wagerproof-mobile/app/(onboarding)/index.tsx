@@ -1,8 +1,8 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { View, StyleSheet, Animated, StatusBar } from 'react-native';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, StyleSheet, StatusBar, FlatList, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PaperProvider, MD3DarkTheme } from 'react-native-paper';
-import { OnboardingProvider, useOnboarding } from '../../contexts/OnboardingContext';
+import { useOnboarding } from '../../contexts/OnboardingContext';
 import { ThemeContext } from '../../contexts/ThemeContext';
 import { darkTheme } from '@/constants/theme';
 import { ProgressIndicator } from '../../components/onboarding/ProgressIndicator';
@@ -26,146 +26,131 @@ import { DataTransparency } from '../../components/onboarding/steps/Step14_DataT
 
 const TOTAL_STEPS = 21;
 
-const stepComponents: Record<number, React.ComponentType> = {
-  1: PersonalizationIntro,
-  2: TermsAcceptance,
-  3: SportsSelection,
-  4: AgeConfirmation,
-  5: BettorTypeSelection,
-  6: AcquisitionSource,
-  7: PrimaryGoalSelection,
-  8: ValueClaim,
-  9: FeatureSpotlight,
-  10: DataTransparency,
-  11: AgentValue1_247,
-  12: AgentValue2_VirtualAssistant,
-  13: AgentValue3_MultipleStrategies,
-  14: AgentValue4_Leaderboard,
-  15: OnboardingAgentBuilder,
-  16: OnboardingAgentBuilder,
-  17: OnboardingAgentBuilder,
-  18: OnboardingAgentBuilder,
-  19: OnboardingAgentBuilder,
-  20: AgentGenerationStep,
-  21: AgentBornStep,
-};
+// ─── Page definitions ───────────────────────────────────────────────────────
+// Steps 15-19 are a single OnboardingAgentBuilder that handles 5 internal screens.
+// We give it one page in the FlatList so FlatList doesn't scroll during builder navigation.
+interface Page {
+  key: string;
+  Component: React.ComponentType;
+}
+
+// FlatList only handles steps 1-19. Steps 20-21 are cinematic (full-screen
+// with their own Lottie animations) and render outside the FlatList.
+const PAGES: Page[] = [
+  { key: 's1', Component: PersonalizationIntro },
+  { key: 's2', Component: TermsAcceptance },
+  { key: 's3', Component: SportsSelection },
+  { key: 's4', Component: AgeConfirmation },
+  { key: 's5', Component: BettorTypeSelection },
+  { key: 's6', Component: AcquisitionSource },
+  { key: 's7', Component: PrimaryGoalSelection },
+  { key: 's8', Component: ValueClaim },
+  { key: 's9', Component: FeatureSpotlight },
+  { key: 's10', Component: DataTransparency },
+  { key: 's11', Component: AgentValue1_247 },
+  { key: 's12', Component: AgentValue2_VirtualAssistant },
+  { key: 's13', Component: AgentValue3_MultipleStrategies },
+  { key: 's14', Component: AgentValue4_Leaderboard },
+  { key: 's15', Component: OnboardingAgentBuilder },  // handles steps 15-19 internally
+];
+
+// Map context currentStep → FlatList page index (only for steps 1-19)
+function stepToPageIndex(step: number): number {
+  if (step <= 14) return step - 1;
+  return 14; // steps 15-19 → index 14 (builder handles internally)
+}
+
+// ─── Main content ───────────────────────────────────────────────────────────
 
 function OnboardingContent() {
-  const { currentStep, direction, prevStep } = useOnboarding();
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const translateX = useRef(new Animated.Value(0)).current;
-  const [displayStep, setDisplayStep] = useState(currentStep);
-  const isFirstMount = useRef(true);
+  const { currentStep, prevStep } = useOnboarding();
+  const { width } = useWindowDimensions();
+  const flatListRef = useRef<FlatList>(null);
+  const lastPageIndex = useRef(0);
 
+  const isCinematicStep = currentStep >= 20;
+
+  // Scroll FlatList whenever currentStep changes (only for steps 1-19)
   useEffect(() => {
-    // Skip animation on first mount
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      setDisplayStep(currentStep);
-      return;
+    if (isCinematicStep) return;
+    const targetIndex = stepToPageIndex(currentStep);
+    if (targetIndex !== lastPageIndex.current) {
+      flatListRef.current?.scrollToIndex({ index: targetIndex, animated: true });
+      lastPageIndex.current = targetIndex;
     }
+  }, [currentStep, isCinematicStep]);
 
-    // If the component is the same (e.g. agent builder internal navigation),
-    // skip parent animation — the component handles its own transitions
-    const prevComponent = stepComponents[displayStep];
-    const nextComponent = stepComponents[currentStep];
-    if (prevComponent === nextComponent) {
-      setDisplayStep(currentStep);
-      return;
-    }
+  const renderItem = useCallback(({ item }: { item: Page }) => {
+    const { Component } = item;
+    return (
+      <View style={{ width, flex: 1 }}>
+        <Component />
+      </View>
+    );
+  }, [width]);
 
-    // Fade out current content (reduced from 200ms for snappier feel)
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateX, {
-        toValue: direction > 0 ? -20 : 20,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // IMPORTANT: Set initial position for new content BEFORE updating displayStep
-      // This prevents the flicker where new content briefly appears at wrong position
-      fadeAnim.setValue(0);
-      translateX.setValue(direction > 0 ? 20 : -20);
+  const getItemLayout = useCallback((_: any, index: number) => ({
+    length: width,
+    offset: width * index,
+    index,
+  }), [width]);
 
-      // Now update the display step (content) - component will mount already hidden
-      setDisplayStep(currentStep);
+  const keyExtractor = useCallback((item: Page) => item.key, []);
 
-      // Use requestAnimationFrame to ensure the new component has mounted
-      // before starting the fade-in animation
-      requestAnimationFrame(() => {
-        // Fade in new content (reduced from 300ms for snappier feel)
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateX, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      });
-    });
-  // fadeAnim and translateX are stable refs — only react to step/direction changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, direction]);
-
-  const CurrentStepComponent = stepComponents[displayStep] || PersonalizationIntro;
-  const isCinematicStep = displayStep === 20 || displayStep === 21;
+  // Steps 20-21: cinematic screens render full-screen outside the FlatList
+  if (isCinematicStep) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        {currentStep === 20 ? <AgentGenerationStep /> : <AgentBornStep />}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Subtle green glow background */}
-      {!isCinematicStep && (
-        <LinearGradient
-          colors={['transparent', 'rgba(34, 197, 94, 0.14)']}
-          start={{ x: 0.5, y: 0.3 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-      )}
+      <LinearGradient
+        colors={['transparent', 'rgba(34, 197, 94, 0.14)']}
+        start={{ x: 0.5, y: 0.3 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-      {/* Force dark status bar */}
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      {/* Progress Indicator with Back Button */}
-      {!isCinematicStep && (
-        <ProgressIndicator
-          currentStep={currentStep}
-          totalSteps={TOTAL_STEPS}
-          onBack={prevStep}
-        />
-      )}
+      <ProgressIndicator
+        currentStep={currentStep}
+        totalSteps={TOTAL_STEPS}
+        onBack={prevStep}
+      />
 
-      {/* Step Content */}
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateX }],
-          },
-        ]}
-      >
-        <CurrentStepComponent />
-      </Animated.View>
+      <FlatList
+        ref={flatListRef}
+        data={PAGES}
+        renderItem={renderItem}
+        getItemLayout={getItemLayout}
+        keyExtractor={keyExtractor}
+        horizontal
+        pagingEnabled
+        scrollEnabled={false}
+        showsHorizontalScrollIndicator={false}
+        initialScrollIndex={0}
+        windowSize={3}
+        maxToRenderPerBatch={2}
+        removeClippedSubviews={false}
+        style={styles.content}
+      />
     </View>
   );
 }
 
-// Custom dark theme for onboarding with brand colors
+// ─── Theme & providers ──────────────────────────────────────────────────────
+
 const onboardingDarkTheme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#22c55e', // Green primary color
+    primary: '#22c55e',
     primaryContainer: 'rgba(34, 197, 94, 0.2)',
     onPrimaryContainer: '#86efac',
     background: '#0f1117',
@@ -176,7 +161,6 @@ const onboardingDarkTheme = {
   },
 };
 
-// Force isDark=true so all child components using useThemeContext() render dark
 const noopSetTheme = async () => {};
 const noopToggle = async () => {};
 
@@ -192,9 +176,7 @@ export default function OnboardingPage() {
   return (
     <ThemeContext.Provider value={forcedDarkContext}>
       <PaperProvider theme={onboardingDarkTheme}>
-        <OnboardingProvider>
-          <OnboardingContent />
-        </OnboardingProvider>
+        <OnboardingContent />
       </PaperProvider>
     </ThemeContext.Provider>
   );

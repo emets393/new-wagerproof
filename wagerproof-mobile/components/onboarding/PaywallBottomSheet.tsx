@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRevenueCat } from '../../contexts/RevenueCatContext';
@@ -30,8 +29,7 @@ interface PaywallBottomSheetProps {
 export function PaywallBottomSheet({ isOpen, onClose }: PaywallBottomSheetProps) {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const { isInitialized } = useRevenueCat();
-  const { submitOnboardingData } = useOnboarding();
-  const router = useRouter();
+  const { completeOnboarding } = useOnboarding();
   const [isCompleting, setIsCompleting] = useState(false);
   const snapPoints = useMemo(() => ['92%'], []);
   const { offering, isLoading, refresh } = usePlacementOffering(
@@ -55,14 +53,10 @@ export function PaywallBottomSheet({ isOpen, onClose }: PaywallBottomSheetProps)
       setIsCompleting(true);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       console.log('Starting onboarding completion from Paywall Bottom Sheet...');
-      await submitOnboardingData();
-      console.log('Onboarding data submitted successfully!');
+      await completeOnboarding();
+      console.log('Onboarding completion triggered successfully!');
 
       onClose();
-
-      setTimeout(() => {
-        router.replace('/(tabs)');
-      }, 300);
     } catch (error) {
       console.error('Error completing onboarding:', error);
       setIsCompleting(false);
@@ -74,7 +68,7 @@ export function PaywallBottomSheet({ isOpen, onClose }: PaywallBottomSheetProps)
       // Sheet was dismissed - complete onboarding
       handleCompletion();
     }
-  }, []);
+  }, [handleCompletion]);
 
   const renderBackdrop = useCallback(
     (props: any) => (

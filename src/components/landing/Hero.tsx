@@ -59,22 +59,17 @@ const Hero = () => {
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight font-extrabold leading-tight text-gray-900 dark:text-gray-100 mb-6" style={{
             fontFamily: "Inter, sans-serif"
           }}>
-            Stop <GradientText 
-              text="Losing Bets" 
+            Bots that find{" "}
+            <GradientText
+              text="plays"
               gradient={gradientToUse}
               transition={slowTransition}
               className="font-bold"
-            />
-            <br />
-            You Should Be <GradientText 
-              text="Winning" 
-              gradient={gradientToUse}
-              transition={slowTransition}
-              className="font-bold"
-            />
+            />{" "}
+            for you
           </h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
-            Sportsbooks use algorithms against you. WagerProof gives you tools that analyze live odds, public splits, and ML models 24/7 — so you only bet when the edge is real.
+            Tap into the live odds, splits, and model signals that sharp bettors use—presented in plain language, not spreadsheets. Bots and automations watch the action around the clock so you spend less time grinding data and more time on the picks that matter.
           </p>
 
           {/* CTA Buttons */}

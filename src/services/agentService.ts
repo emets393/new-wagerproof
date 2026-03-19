@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { ZodError } from 'zod';
 import {
   AgentProfile,
   AgentWithPerformance,
@@ -8,7 +9,31 @@ import {
   UpdateAgentInput,
   CreateAgentSchema,
   UpdateAgentSchema,
+  DEFAULT_CUSTOM_INSIGHTS,
+  DEFAULT_PERSONALITY_PARAMS,
 } from '@/types/agent';
+
+function formatValidationError(error: ZodError): string {
+  return error.issues.map((issue) => `${issue.path.join('.') || 'form'}: ${issue.message}`).join('; ');
+}
+
+function normalizeUpdateAgentInput(data: UpdateAgentInput): UpdateAgentInput {
+  return {
+    ...data,
+    personality_params: data.personality_params
+      ? {
+          ...DEFAULT_PERSONALITY_PARAMS,
+          ...data.personality_params,
+        }
+      : data.personality_params,
+    custom_insights: data.custom_insights
+      ? {
+          ...DEFAULT_CUSTOM_INSIGHTS,
+          ...data.custom_insights,
+        }
+      : data.custom_insights,
+  };
+}
 
 export async function fetchUserAgents(userId: string): Promise<AgentWithPerformance[]> {
   const { data: agents, error: agentsError } = await (supabase as any)
@@ -115,7 +140,17 @@ export async function createAgent(userId: string, data: CreateAgentInput): Promi
 }
 
 export async function updateAgent(agentId: string, data: UpdateAgentInput): Promise<AgentProfile> {
-  const validated = UpdateAgentSchema.parse(data);
+  let validated;
+
+  try {
+    validated = UpdateAgentSchema.parse(normalizeUpdateAgentInput(data));
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new Error(formatValidationError(error));
+    }
+    throw error;
+  }
+
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
   Object.entries(validated).forEach(([key, value]) => {

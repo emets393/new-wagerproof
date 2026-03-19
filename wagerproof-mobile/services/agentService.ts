@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 import {
   AgentProfile,
   AgentWithPerformance,
@@ -11,6 +11,8 @@ import {
   CustomInsights,
   Sport,
   ArchetypeId,
+  DEFAULT_CUSTOM_INSIGHTS,
+  DEFAULT_PERSONALITY_PARAMS,
 } from '@/types/agent';
 
 // ============================================================================
@@ -19,6 +21,28 @@ import {
 
 export type CreateAgentInput = z.input<typeof CreateAgentSchema>;
 export type UpdateAgentInput = z.input<typeof UpdateAgentSchema>;
+
+function formatValidationError(error: ZodError): string {
+  return error.issues.map((issue) => `${issue.path.join('.') || 'form'}: ${issue.message}`).join('; ');
+}
+
+function normalizeUpdateAgentInput(data: UpdateAgentInput): UpdateAgentInput {
+  return {
+    ...data,
+    personality_params: data.personality_params
+      ? {
+          ...DEFAULT_PERSONALITY_PARAMS,
+          ...data.personality_params,
+        }
+      : data.personality_params,
+    custom_insights: data.custom_insights
+      ? {
+          ...DEFAULT_CUSTOM_INSIGHTS,
+          ...data.custom_insights,
+        }
+      : data.custom_insights,
+  };
+}
 
 // ============================================================================
 // AGENT CRUD OPERATIONS
@@ -211,7 +235,7 @@ export async function updateAgent(
 ): Promise<AgentProfile> {
   try {
     // Validate input
-    const validated = UpdateAgentSchema.parse(data);
+    const validated = UpdateAgentSchema.parse(normalizeUpdateAgentInput(data));
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {
@@ -247,6 +271,10 @@ export async function updateAgent(
     console.log(`Updated agent: ${agent.name} (${agent.id})`);
     return agent as AgentProfile;
   } catch (error) {
+    if (error instanceof ZodError) {
+      console.error('Agent update validation error:', error.flatten());
+      throw new Error(formatValidationError(error));
+    }
     console.error('Error in updateAgent:', error);
     throw error;
   }

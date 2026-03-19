@@ -19,6 +19,7 @@ import { WagerBotSuggestionProvider, useWagerBotSuggestion } from '../contexts/W
 import { RevenueCatProvider, useRevenueCat } from '../contexts/RevenueCatContext';
 import { LearnWagerProofProvider } from '../contexts/LearnWagerProofContext';
 import { AgentPickAuditProvider } from '../contexts/AgentPickAuditContext';
+import { OnboardingProvider } from '../contexts/OnboardingContext';
 
 import { MetaTestSheetProvider } from '../contexts/MetaTestSheetContext';
 
@@ -359,8 +360,8 @@ function RootNavigator() {
   }
 
   return (
-    <OnboardingGuard>
-      <>
+    <OnboardingProvider key={user?.id ?? 'guest'}>
+      <OnboardingGuard>
         <Stack
           screenOptions={{
             headerShown: false,
@@ -373,7 +374,6 @@ function RootNavigator() {
             name="(onboarding)"
             options={{
               headerShown: false,
-              presentation: 'modal'
             }}
           />
           <Stack.Screen
@@ -391,8 +391,8 @@ function RootNavigator() {
         <WagerBotChatBottomSheet />
         {/* Floating assistant - renders above everything when detached */}
         <FloatingAssistantWrapper />
-      </>
-    </OnboardingGuard>
+      </OnboardingGuard>
+    </OnboardingProvider>
   );
 }
 

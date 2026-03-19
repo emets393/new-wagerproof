@@ -5,7 +5,6 @@ export default function OnboardingLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        presentation: 'modal',
         animation: 'fade',
       }}
     >
@@ -13,4 +12,3 @@ export default function OnboardingLayout() {
     </Stack>
   );
 }
-
