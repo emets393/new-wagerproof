@@ -24,6 +24,7 @@ import { useNCAABBettingTrendsForGame } from '@/hooks/useBettingTrendsForGame';
 import { useNCAABModelAccuracyForGame } from '@/hooks/useModelAccuracyForGame';
 import { BettingTrendsWidget } from './BettingTrendsWidget';
 import { ModelAccuracyWidget } from './ModelAccuracyWidget';
+import { MatchSimulatorTerminal } from './MatchSimulatorTerminal';
 
 export function NCAABGameBottomSheet() {
   const theme = useTheme();
@@ -66,10 +67,11 @@ export function NCAABGameBottomSheet() {
   const handleSimulate = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSimulating(true);
-    setTimeout(() => {
-      setSimulating(false);
-      setSimulationRevealed(true);
-    }, 2500);
+  };
+
+  const handleSimulationComplete = () => {
+    setSimulating(false);
+    setSimulationRevealed(true);
   };
 
   // Extract team colors from logo images; fall back to hardcoded CFB colors
@@ -631,33 +633,25 @@ export function NCAABGameBottomSheet() {
                   </Text>
                 </View>
 
-                {!simulationRevealed ? (
+                {!simulationRevealed && !simulating ? (
                   <View style={styles.simulateButtonContainer}>
                     <TouchableOpacity
                       style={[
                         styles.simulateButton,
-                        { 
-                          backgroundColor: simulating ? theme.colors.surfaceVariant : theme.colors.primary,
-                          borderColor: theme.colors.primary 
+                        {
+                          backgroundColor: theme.colors.primary,
+                          borderColor: theme.colors.primary
                         }
                       ]}
                       onPress={handleSimulate}
-                      disabled={simulating}
                     >
-                      {simulating ? (
-                        <View style={styles.simulatingRow}>
-                          <ActivityIndicator size="small" color={theme.colors.onSurface} />
-                          <Text style={[styles.simulateButtonText, { color: theme.colors.onSurface }]}>
-                            Simulating...
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text style={[styles.simulateButtonText, { color: '#fff' }]}>
-                          Simulate Match
-                        </Text>
-                      )}
+                      <Text style={[styles.simulateButtonText, { color: '#fff' }]}>
+                        Simulate Match
+                      </Text>
                     </TouchableOpacity>
                   </View>
+                ) : simulating && !simulationRevealed ? (
+                  <MatchSimulatorTerminal onComplete={handleSimulationComplete} />
                 ) : (
                   <View style={[styles.simulationResult, { backgroundColor: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
                     {/* Away Team Score */}

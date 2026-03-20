@@ -19,6 +19,7 @@ import { AlertCircle } from 'lucide-react';
 import debug from '@/utils/debug';
 import PolymarketWidget from './PolymarketWidget';
 import { renderTextWithLinks } from '@/utils/markdownLinks';
+import { MatchSimulatorTerminal } from './MatchSimulatorTerminal';
 
 interface GameDetailsModalProps {
   isOpen: boolean;
@@ -666,7 +667,7 @@ export function GameDetailsModal({
                 <h4 className="text-lg font-bold text-gray-900 dark:text-white">Match Simulator</h4>
               </div>
 
-              {!simRevealedById[prediction.id] && (
+              {!simRevealedById[prediction.id] && !simLoadingById[prediction.id] && (
                 <div className="flex justify-center">
                   {focusedCardId === prediction.id ? (
                     <MovingBorderButton
@@ -675,45 +676,32 @@ export function GameDetailsModal({
                       borderClassName="bg-[radial-gradient(hsl(var(--primary))_40%,transparent_60%)]"
                       duration={3000}
                       className="bg-card dark:bg-card text-foreground dark:text-foreground border-border px-6 py-6 text-lg font-bold h-full w-full"
-                      disabled={!!simLoadingById[prediction.id]}
                       onClick={() => {
                         setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
-                        setTimeout(() => {
-                          setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
-                          setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
-                        }, 2500);
                       }}
                     >
-                      {simLoadingById[prediction.id] ? (
-                        <span className="flex items-center">
-                          {league === 'ncaab' || league === 'nba' ? <BasketballLoader /> : <FootballLoader />} Simulating…
-                        </span>
-                      ) : (
-                        'Simulate Match'
-                      )}
+                      Simulate Match
                     </MovingBorderButton>
                   ) : (
                     <Button
-                      disabled={!!simLoadingById[prediction.id]}
                       onClick={() => {
                         setSimLoadingById(prev => ({ ...prev, [prediction.id]: true }));
-                        setTimeout(() => {
-                          setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
-                          setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
-                        }, 2500);
                       }}
                       className="px-6 py-6 text-lg font-bold bg-card dark:bg-card text-foreground dark:text-foreground border-2 border-border shadow-md hover:bg-muted/50"
                     >
-                      {simLoadingById[prediction.id] ? (
-                        <span className="flex items-center">
-                          {league === 'ncaab' || league === 'nba' ? <BasketballLoader /> : <FootballLoader />} Simulating…
-                        </span>
-                      ) : (
-                        'Simulate Match'
-                      )}
+                      Simulate Match
                     </Button>
                   )}
                 </div>
+              )}
+
+              {simLoadingById[prediction.id] && !simRevealedById[prediction.id] && (
+                <MatchSimulatorTerminal
+                  onComplete={() => {
+                    setSimLoadingById(prev => ({ ...prev, [prediction.id]: false }));
+                    setSimRevealedById(prev => ({ ...prev, [prediction.id]: true }));
+                  }}
+                />
               )}
 
               {simRevealedById[prediction.id] && (
