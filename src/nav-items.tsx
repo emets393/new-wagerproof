@@ -5,6 +5,7 @@ import CollegeFootball from "./pages/CollegeFootball";
 import NFL from "./pages/NFL";
 import NBA from "./pages/NBA";
 import NCAAB from "./pages/NCAAB";
+import MLB from "./pages/MLB";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import WagerBotChat from "./pages/WagerBotChat";
@@ -160,7 +161,7 @@ export const navItems: NavItem[] = [
     title: "MLB",
     to: "/mlb",
     icon: <Trophy className="h-4 w-4" />,
-    comingSoon: true,
+    page: <MLB />,
   },
   {
     title: "Curling",
