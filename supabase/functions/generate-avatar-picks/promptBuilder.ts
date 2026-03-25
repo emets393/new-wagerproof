@@ -128,6 +128,14 @@ const UNAVAILABLE_DATA_NOTES: Record<string, string> = {
   'nba:ride_hot_streaks': 'Note: Raw streak data not in NBA payload. Use situational trends (last_game_situation) instead.',
   'nba:fade_cold_streaks': 'Note: Raw streak data not in NBA payload. Use situational trends (last_game_situation) instead.',
   'ncaab:trust_polymarket': 'Note: Polymarket data limited for NCAAB. Applying where available.',
+  'mlb:weight_recent_form': 'Note: Recent form trends not available for MLB. Use starting pitcher matchup and model predictions.',
+  'mlb:ride_hot_streaks': 'Note: Streak data not available for MLB.',
+  'mlb:fade_cold_streaks': 'Note: Streak data not available for MLB.',
+  'mlb:trust_ats_trends': 'Note: ATS trends not available for MLB. Use model win probability edges instead.',
+  'mlb:regress_luck': 'Note: Luck regression metrics not available for MLB.',
+  'mlb:trust_team_ratings': 'Note: Team ratings not available for MLB. Use starting pitcher matchup, model predictions, and signals.',
+  'mlb:pace_affects_totals': 'Note: Pace not applicable to MLB. Wind speed and ballpark conditions affect totals instead.',
+  'mlb:fade_back_to_backs': 'Note: Back-to-back scheduling less impactful in MLB. Consider bullpen usage and travel instead.',
 };
 
 // =============================================================================
@@ -234,7 +242,7 @@ Return a JSON object with:
 Each pick must include:
 - "game_id": The unique identifier from the game data
 - "bet_type": "spread", "moneyline", or "total"
-- "selection": Your pick. For spreads, use the team name and their EXACT spread from the spread_summary (e.g., "Bills -1.5", "Wizards +14.5"). For moneylines, use "TeamName ML". For totals, use "Over X.X" or "Under X.X".
+- "selection": Your pick. For spreads (including MLB run lines), use the team name and their EXACT spread from the spread_summary (e.g., "Bills -1.5", "Yankees -1.5", "Red Sox +1.5"). For moneylines, use "TeamName ML". For totals, use "Over X.X" or "Under X.X".
 - "odds": American odds string. The value depends on your bet_type:
   - Spread picks: ALWAYS "-110" (standard juice). The spread LINE goes in "selection", not "odds".
   - Moneyline picks: Read the ml_summary field in vegas_lines — it shows "AwayTeam [odds] / HomeTeam [odds]" (e.g., "Dallas Mavericks -210 / Brooklyn Nets +110"). Find the team you are picking and COPY their odds exactly. That is your "odds" value. You can also get it from vegas_lines.home_ml or vegas_lines.away_ml — they contain the same values. Do NOT compute, round, guess, or make up odds. Just copy from the data.
@@ -371,6 +379,21 @@ function buildPersonalityInstructions(params: PersonalityParams, sports: string[
   // Upset alert (NCAAB)
   if (sports.includes('ncaab') && params.upset_alert) {
     instructions.push('- Flag potential upsets in ranked vs unranked matchups. The rankings lie.');
+  }
+
+  // MLB specific
+  if (sports.includes('mlb')) {
+    instructions.push('- BASEBALL CONTEXT: Starting pitchers are the most important factor. Evaluate matchups based on the SP listed for each game.');
+    instructions.push('- In MLB, the "spread" is the run line (typically ±1.5). Use "spread" as the bet_type for run line bets.');
+    instructions.push('- Weather (especially wind speed and direction) significantly affects run scoring and totals. Use the weather and signals data.');
+    instructions.push('- Model predictions include win probabilities and O/U direction with edge percentages. Lean on these heavily.');
+    instructions.push('- Use game signals when available — they provide situational context (pitcher, bullpen, weather, park factors).');
+    if (params.weather_impacts_totals) {
+      instructions.push('- Factor wind and ballpark conditions heavily into totals. Wind OUT = more runs, wind IN = fewer runs.');
+      if (params.weather_sensitivity) {
+        instructions.push(`- ${WEATHER_SENSITIVITY_MAP[params.weather_sensitivity]}`);
+      }
+    }
   }
 
   // Add unavailable data notes

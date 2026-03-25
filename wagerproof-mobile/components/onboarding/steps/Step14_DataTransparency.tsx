@@ -7,6 +7,7 @@ import { requestTrackingPermissionsAsync, getTrackingPermissionsAsync } from 'ex
 import { Button } from '../../ui/Button';
 import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { refreshDeviceIdentifiers } from '../../../services/revenuecat';
 
 export function DataTransparency() {
   const theme = useTheme();
@@ -24,6 +25,11 @@ export function DataTransparency() {
       } catch (error) {
         console.error('Error requesting ATT permission:', error);
       }
+
+      // Re-collect identifiers now that ATT has resolved — this ensures
+      // RevenueCat picks up the IDFA (if granted) and refreshes the
+      // FB anonymous ID for the Meta/RevenueCat integration.
+      refreshDeviceIdentifiers();
     };
 
     requestATT();

@@ -3,11 +3,13 @@ import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
+import { useMLBGameSheet } from '@/contexts/MLBGameSheetContext';
 import {
   fetchNFLPredictions,
   fetchCFBPredictions,
   fetchNBAPredictions,
   fetchNCAABPredictions,
+  fetchMLBPredictions,
 } from '@/services/gameDataService';
 import { Sport } from '@/types/agent';
 import { AgentPick } from '@/types/agent';
@@ -25,6 +27,7 @@ export function useGameLookup() {
   const { openGameSheet: openCFBSheet } = useCFBGameSheet();
   const { openGameSheet: openNBASheet } = useNBAGameSheet();
   const { openGameSheet: openNCAABSheet } = useNCAABGameSheet();
+  const { openGameSheet: openMLBSheet } = useMLBGameSheet();
   const { setAgentPickForAudit } = useAgentPickAudit();
 
   const openGameForPick = useCallback(
@@ -88,6 +91,19 @@ export function useGameLookup() {
             }
             return false;
           }
+          case 'mlb': {
+            const games = await fetchMLBPredictions();
+            const game = games.find(
+              (g) =>
+                String(g.game_pk) === gameId ||
+                g.id === gameId,
+            );
+            if (game) {
+              openMLBSheet(game);
+              return true;
+            }
+            return false;
+          }
           default:
             return false;
         }
@@ -96,7 +112,7 @@ export function useGameLookup() {
         return false;
       }
     },
-    [openNFLSheet, openCFBSheet, openNBASheet, openNCAABSheet, setAgentPickForAudit],
+    [openNFLSheet, openCFBSheet, openNBASheet, openNCAABSheet, openMLBSheet, setAgentPickForAudit],
   );
 
   return { openGameForPick };

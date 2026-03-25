@@ -499,14 +499,14 @@ serve(async (req) => {
       .select('*')
       .eq('result', 'pending')
       .lte('game_date', today)
-      .in('sport', ['nba', 'ncaab']);
+      .in('sport', ['nba', 'ncaab', 'mlb']);
 
     if (fetchError) {
       throw new Error(`Failed to fetch pending picks: ${fetchError.message}`);
     }
 
     if (!pendingPicks || pendingPicks.length === 0) {
-      console.log('[grade-avatar-picks] No pending NBA/NCAAB picks to grade');
+      console.log('[grade-avatar-picks] No pending NBA/NCAAB/MLB picks to grade');
       return new Response(
         JSON.stringify({
           success: true,

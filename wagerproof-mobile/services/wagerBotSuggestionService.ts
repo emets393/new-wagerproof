@@ -25,7 +25,7 @@ import { NCAABGame } from '../types/ncaab';
 // ============================================================================
 
 export type PageType = 'feed' | 'picks' | 'outliers' | 'scoreboard';
-export type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
+export type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb';
 export type GameData = NFLPrediction | CFBPrediction | NBAGame | NCAABGame;
 
 export interface SuggestionResponse {

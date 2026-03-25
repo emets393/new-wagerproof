@@ -213,7 +213,7 @@ export function RecentTrendsWidget({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
       {/* Header - Always visible, tappable */}
       <TouchableOpacity onPress={handleToggleExpand} activeOpacity={0.7}>
         <View style={styles.header}>
@@ -305,9 +305,9 @@ export function RecentTrendsWidget({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 20,
+    borderRadius: 16,
+    borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 12,
   },
   header: {
     flexDirection: 'row',

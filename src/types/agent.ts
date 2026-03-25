@@ -13,7 +13,7 @@ const EmojiSchema = z.string().min(1).refine(
   { message: 'Emoji must be 4 visible characters or fewer' }
 );
 
-export const SPORTS = ['nfl', 'cfb', 'nba', 'ncaab'] as const;
+export const SPORTS = ['nfl', 'cfb', 'nba', 'ncaab', 'mlb'] as const;
 export type Sport = (typeof SPORTS)[number];
 
 export const BET_TYPES = ['spread', 'moneyline', 'total', 'any'] as const;
@@ -379,10 +379,11 @@ export function getConditionalParams(sports: Sport[]): {
   const hasBasketball = sports.includes('nba') || sports.includes('ncaab');
   const hasNBA = sports.includes('nba');
   const hasNCAAB = sports.includes('ncaab');
+  const hasMLB = sports.includes('mlb');
 
   return {
     showPublicBetting: hasFootball,
-    showWeather: hasFootball,
+    showWeather: hasFootball || hasMLB,
     showTeamRatings: hasBasketball,
     showTrends: hasNBA,
     showBackToBacks: hasBasketball,

@@ -13,6 +13,7 @@ const SPORT_ICONS: Record<Sport, string> = {
   cfb: 'shield-half-full',
   nba: 'basketball',
   ncaab: 'school',
+  mlb: 'baseball',
 };
 
 const SPORT_COLORS: Record<Sport, string> = {
@@ -20,6 +21,7 @@ const SPORT_COLORS: Record<Sport, string> = {
   cfb: '#C41E3A',
   nba: '#1D428A',
   ncaab: '#FF6B00',
+  mlb: '#002D72',
 };
 
 function getPrimaryColor(value: string): string {

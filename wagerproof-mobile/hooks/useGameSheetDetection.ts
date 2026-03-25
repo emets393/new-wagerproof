@@ -11,13 +11,15 @@ import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
+import { useMLBGameSheet } from '@/contexts/MLBGameSheetContext';
 import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
 import { NBAGame } from '@/types/nba';
 import { NCAABGame } from '@/types/ncaab';
+import { MLBGame } from '@/types/mlb';
 
-export type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab';
-export type GameData = NFLPrediction | CFBPrediction | NBAGame | NCAABGame;
+export type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb';
+export type GameData = NFLPrediction | CFBPrediction | NBAGame | NCAABGame | MLBGame;
 
 interface GameSheetDetectionResult {
   /** The currently open game, or null if no game sheet is open */
@@ -39,19 +41,22 @@ export function useGameSheetDetection(): GameSheetDetectionResult {
   const cfb = useCFBGameSheet();
   const nba = useNBAGameSheet();
   const ncaab = useNCAABGameSheet();
+  const mlb = useMLBGameSheet();
 
   // Track the previous game to detect changes
   const previousGameRef = useRef<GameData | null>(null);
 
   // Determine which game sheet is currently open (if any)
   const openGame = nfl.selectedGame || cfb.selectedGame ||
-                   nba.selectedGame || ncaab.selectedGame || null;
+                   nba.selectedGame || ncaab.selectedGame ||
+                   mlb.selectedGame || null;
 
   // Determine the sport based on which context has a selected game
   const sport: Sport | null = nfl.selectedGame ? 'nfl' :
                               cfb.selectedGame ? 'cfb' :
                               nba.selectedGame ? 'nba' :
-                              ncaab.selectedGame ? 'ncaab' : null;
+                              ncaab.selectedGame ? 'ncaab' :
+                              mlb.selectedGame ? 'mlb' : null;
 
   const isGameSheetOpen = !!openGame;
 

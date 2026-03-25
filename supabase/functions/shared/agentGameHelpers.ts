@@ -36,6 +36,8 @@ export async function fetchGamesForSport(
       return fetchNBAGames(cfbClient, mainClient, targetDate);
     case 'ncaab':
       return fetchNCAABGames(cfbClient, mainClient, targetDate);
+    case 'mlb':
+      return fetchMLBGames(cfbClient, mainClient, targetDate);
     default:
       return { games: [], formattedGames: [] };
   }
@@ -176,6 +178,151 @@ async function fetchNCAABGames(
     )
   );
   return { games, formattedGames };
+}
+
+async function fetchMLBGames(
+  cfbClient: SupabaseClient,
+  mainClient: SupabaseClient,
+  targetDate: string
+): Promise<GameFetchResult> {
+  // MLB uses official_date (YYYY-MM-DD) not game_date
+  const { data: strictGames, error: gamesError } = await cfbClient
+    .from('mlb_games_today')
+    .select('*')
+    .eq('official_date', targetDate)
+    .or('is_active.eq.true,is_active.is.null')
+    .or('is_completed.eq.false,is_completed.is.null')
+    .order('game_time_et', { ascending: true });
+
+  let games = strictGames || [];
+  if (games.length === 0 && !gamesError) {
+    // Fallback: relaxed query without status filters
+    const { data: relaxedGames } = await cfbClient
+      .from('mlb_games_today')
+      .select('*')
+      .eq('official_date', targetDate)
+      .order('game_time_et', { ascending: true });
+    games = (relaxedGames || []).filter((g: Record<string, unknown>) =>
+      g.is_postponed !== true && g.is_completed !== true
+    );
+  }
+
+  if (games.length === 0) {
+    return { games: [], formattedGames: [] };
+  }
+
+  // Fetch signals for today's games
+  let signalsByGamePk = new Map<string, Record<string, unknown>>();
+  try {
+    const { data: signalRows } = await cfbClient
+      .from('mlb_game_signals')
+      .select('game_pk, home_signals, away_signals, game_signals');
+    if (signalRows) {
+      for (const row of signalRows as Record<string, unknown>[]) {
+        const pk = String(Math.trunc(Number(row.game_pk)));
+        signalsByGamePk.set(pk, row);
+      }
+    }
+  } catch (err) {
+    console.warn('[agentGameHelpers] MLB signals fetch failed:', (err as Error).message);
+  }
+
+  // Fetch polymarket data
+  const polymarketByGameKey = await fetchPolymarketByGameKey(mainClient, 'mlb', games.map(g => ({
+    away_team: g.away_team_name,
+    home_team: g.home_team_name,
+  })));
+
+  const formattedGames = games.map((game: Record<string, unknown>) =>
+    formatMLBGame(
+      game,
+      polymarketByGameKey.get(toGameKey('mlb', game.away_team_name, game.home_team_name)) || null,
+      signalsByGamePk.get(String(Math.trunc(Number(game.game_pk)))) || null
+    )
+  );
+  return { games, formattedGames };
+}
+
+function formatMLBGame(
+  game: Record<string, unknown>,
+  polymarket: Record<string, unknown> | null,
+  signals: Record<string, unknown> | null
+): Record<string, unknown> {
+  const gameId = String(game.game_pk);
+  const homeML = game.home_ml as number | null;
+  const awayML = game.away_ml as number | null;
+  const homeSpread = game.home_spread as number | null;
+  const awaySpread = game.away_spread as number | null;
+
+  // Parse signals arrays (they may be stringified JSON)
+  const parseSignals = (raw: unknown): string[] => {
+    if (!raw) return [];
+    const arr = Array.isArray(raw) ? raw : [];
+    return arr.map((s: unknown) => {
+      if (typeof s === 'string') {
+        try { const p = JSON.parse(s); return p.message || String(s); } catch { return String(s); }
+      }
+      if (s && typeof s === 'object') return (s as Record<string, unknown>).message as string || '';
+      return '';
+    }).filter(Boolean);
+  };
+
+  const gameSignals = signals ? parseSignals(signals.game_signals) : [];
+  const homeSignals = signals ? parseSignals(signals.home_signals) : [];
+  const awaySignals = signals ? parseSignals(signals.away_signals) : [];
+  const allSignals = [...gameSignals, ...homeSignals, ...awaySignals];
+
+  return {
+    game_id: gameId,
+    matchup: `${game.away_team_name} @ ${game.home_team_name}`,
+    away_team: game.away_team_name,
+    home_team: game.home_team_name,
+    game_date: game.official_date,
+    game_time: game.game_time_et,
+    status: game.status,
+    starting_pitchers: {
+      away_sp: game.away_sp_name || 'TBD',
+      away_sp_confirmed: game.away_sp_confirmed ?? false,
+      home_sp: game.home_sp_name || 'TBD',
+      home_sp_confirmed: game.home_sp_confirmed ?? false,
+    },
+    vegas_lines: {
+      spread_summary: `${game.away_team_name} ${fmtSpread(awaySpread)} / ${game.home_team_name} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${game.away_team_name} ${fmtML(awayML) ?? 'N/A'} / ${game.home_team_name} ${fmtML(homeML) ?? 'N/A'}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
+      home_ml: fmtML(homeML),
+      away_ml: fmtML(awayML),
+      total: game.total_line,
+    },
+    model_predictions: {
+      ml_home_win_prob: game.ml_home_win_prob,
+      ml_away_win_prob: game.ml_away_win_prob,
+      home_ml_edge_pct: game.home_ml_edge_pct,
+      away_ml_edge_pct: game.away_ml_edge_pct,
+      home_ml_strong_signal: game.home_ml_strong_signal,
+      away_ml_strong_signal: game.away_ml_strong_signal,
+      ou_direction: game.ou_direction,
+      ou_edge: game.ou_edge,
+      ou_fair_total: game.ou_fair_total,
+      ou_strong_signal: game.ou_strong_signal,
+      ou_moderate_signal: game.ou_moderate_signal,
+      is_final_prediction: game.is_final_prediction,
+    },
+    weather: {
+      temperature_f: (game as Record<string, unknown>).temperature_f ?? null,
+      wind_speed_mph: (game as Record<string, unknown>).wind_speed_mph ?? null,
+      wind_direction: (game as Record<string, unknown>).wind_direction ?? null,
+      sky: (game as Record<string, unknown>).sky ?? null,
+      weather_confirmed: game.weather_confirmed ?? null,
+    },
+    signals: allSignals.length > 0 ? allSignals : null,
+    polymarket,
+    game_data_complete: {
+      source_table: 'mlb_games_today',
+      raw_game_data: game,
+    },
+  };
 }
 
 // =============================================================================
@@ -851,7 +998,7 @@ export function gameMatchesRawGame(formattedGame: unknown, rawGame: Record<strin
 
 export function ensureFormattedGameSnapshot(
   snapshot: Record<string, unknown>,
-  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab',
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb',
   fallbackGameId: string
 ): Record<string, unknown> {
   if (isFormattedGameSnapshot(snapshot)) return snapshot;

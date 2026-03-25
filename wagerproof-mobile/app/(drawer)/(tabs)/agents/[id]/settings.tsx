@@ -43,6 +43,7 @@ const SPORT_LABELS: Record<Sport, string> = {
   cfb: 'CFB',
   nba: 'NBA',
   ncaab: 'NCAAB',
+  mlb: 'MLB',
 };
 
 const BET_TYPE_LABELS: Record<BetType, string> = {

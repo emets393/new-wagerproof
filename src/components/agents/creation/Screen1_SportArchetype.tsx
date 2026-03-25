@@ -35,7 +35,17 @@ export function Screen1_SportArchetype({ selectedSports, selectedArchetype, onSp
 
   const toggleSport = (sport: Sport) => {
     const exists = selectedSports.includes(sport);
-    onSportsChange(exists ? selectedSports.filter((s) => s !== sport) : [...selectedSports, sport]);
+    if (exists) {
+      onSportsChange(selectedSports.filter((s) => s !== sport));
+    } else if (sport === 'mlb') {
+      // MLB is exclusive — cannot be combined with other sports
+      onSportsChange(['mlb']);
+    } else if (selectedSports.includes('mlb')) {
+      // Selecting a non-MLB sport while MLB is active: replace MLB
+      onSportsChange([sport]);
+    } else {
+      onSportsChange([...selectedSports, sport]);
+    }
   };
 
   const applyArchetype = (a: PresetArchetype) => {
@@ -133,6 +143,12 @@ export function Screen1_SportArchetype({ selectedSports, selectedArchetype, onSp
                 );
               })}
             </div>
+            {selectedSports.includes('mlb') && (
+              <p className="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2 flex items-start gap-2">
+                <span className="mt-0.5">ℹ️</span>
+                MLB agents run standalone due to the size of baseball data. They cannot be combined with other sports.
+              </p>
+            )}
             <Button type="button" variant="ghost" onClick={() => setPath(null)}>
               Change path
             </Button>

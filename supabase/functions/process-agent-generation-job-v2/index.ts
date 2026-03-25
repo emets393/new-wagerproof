@@ -206,7 +206,10 @@ serve(async (req) => {
       return workerResponse(run.id, 'succeeded', 0, startTime);
     }
 
-    if (totalGames < MIN_GAMES_FOR_SLATE && avatarProfile.personality_params?.skip_weak_slates) {
+    // MLB-only agents use a lower threshold since baseball can have fewer games per day
+    const isMLBOnly = avatarProfile.preferred_sports.length === 1 && avatarProfile.preferred_sports[0] === 'mlb';
+    const minGamesThreshold = isMLBOnly ? 1 : MIN_GAMES_FOR_SLATE;
+    if (totalGames < minGamesThreshold && avatarProfile.personality_params?.skip_weak_slates) {
       await supabaseClient.rpc('mark_generation_run_succeeded_v2', {
         p_run_id: run.id,
         p_picks_generated: 0,
@@ -424,7 +427,7 @@ serve(async (req) => {
       let gameSnapshot: Record<string, unknown> = {};
       let modelInputGamePayload: Record<string, unknown> | null =
         selectedCombinedGames.find((g: unknown) => gameMatchesPickId(g, pick.game_id)) as Record<string, unknown> | null;
-      let sportType: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl';
+      let sportType: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' = 'nfl';
       let matchup = '';
       let gameDate = targetDate;
       let gameMatched = false;

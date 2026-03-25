@@ -70,7 +70,7 @@ export function ModelAccuracyWidget({
 
   if (isLoading) {
     return (
-      <View style={[styles.card, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+      <View style={[styles.card, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
         <View style={styles.content}>
           <View style={styles.header}>
             <MaterialCommunityIcons name="bullseye-arrow" size={20} color="#14b8a6" />
@@ -105,7 +105,7 @@ export function ModelAccuracyWidget({
   const themeColors = { onSurface: theme.colors.onSurface, onSurfaceVariant: theme.colors.onSurfaceVariant };
 
   return (
-    <View style={[styles.card, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+    <View style={[styles.card, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
       <View style={styles.content}>
         <View style={styles.header}>
           <MaterialCommunityIcons name="bullseye-arrow" size={20} color="#14b8a6" />
@@ -159,7 +159,7 @@ export function ModelAccuracyWidget({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 20, overflow: 'hidden', marginBottom: 12 },
+  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   content: { padding: 12 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   title: { fontSize: 15, fontWeight: '600' },

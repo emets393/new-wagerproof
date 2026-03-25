@@ -3,6 +3,9 @@ import { NFLPrediction } from '../types/nfl';
 import { CFBPrediction } from '../types/cfb';
 import { NBAGame } from '../types/nba';
 import { NCAABGame } from '../types/ncaab';
+import { MLBGame, normalizeTeamNameKey, fallbackAbbrevFromTeamName, combineSignalsOrdered, isOfficialDateToday as isMLBDateToday } from '../types/mlb';
+import type { MLBGameSignalsRow } from '../types/mlb';
+import { getMLBFallbackTeamInfo } from '../constants/mlbTeams';
 import { getAllMarketsData } from './polymarketService';
 import { PolymarketAllMarketsData } from '../types/polymarket';
 
@@ -15,7 +18,7 @@ interface GameWithPolymarket<T> {
 // Batch fetch Polymarket data for multiple games (with rate limiting)
 async function fetchPolymarketDataForGames<T extends { away_team: string; home_team: string }>(
   games: T[],
-  league: 'nfl' | 'cfb' | 'nba' | 'ncaab'
+  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb'
 ): Promise<Map<string, PolymarketAllMarketsData | null>> {
   const polymarketMap = new Map<string, PolymarketAllMarketsData | null>();
   
@@ -1115,5 +1118,112 @@ export async function fetchAndFormatGameContext(): Promise<string> {
   }
 
   return fullContext;
+}
+
+/**
+ * Fetch MLB games for the current 3-day window.
+ * Used by useGameLookup to find a game by game_pk and open the bottom sheet.
+ */
+export async function fetchMLBPredictions(): Promise<MLBGame[]> {
+  const today = new Date();
+  const dayAfterTomorrow = new Date();
+  dayAfterTomorrow.setDate(today.getDate() + 2);
+  const toYMD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const { data: games, error } = await collegeFootballSupabase
+    .from('mlb_games_today')
+    .select('*')
+    .gte('official_date', toYMD(today))
+    .lte('official_date', toYMD(dayAfterTomorrow))
+    .order('official_date', { ascending: true })
+    .order('game_time_et', { ascending: true });
+
+  if (error || !games) return [];
+
+  // Fetch signals
+  const signalsMap = new Map<string, { game_signals: unknown; home_signals: unknown; away_signals: unknown }>();
+  try {
+    const { data: signalRows } = await collegeFootballSupabase
+      .from('mlb_game_signals')
+      .select('game_pk, home_signals, away_signals, game_signals');
+    if (signalRows) {
+      for (const row of signalRows) {
+        const key = String(Math.trunc(Number(row.game_pk)));
+        signalsMap.set(key, row as any);
+      }
+    }
+  } catch (err) {
+    console.warn('MLB signals fetch failed:', err);
+  }
+
+  return games.map((row: Record<string, unknown>): MLBGame => {
+    const sigKey = String(Math.trunc(Number(row.game_pk)));
+    const sigRow = signalsMap.get(sigKey);
+    const signals = isMLBDateToday(row.official_date as string) ? combineSignalsOrdered(sigRow as MLBGameSignalsRow | undefined) : [];
+    const awayName = String(row.away_team_name || '');
+    const homeName = String(row.home_team_name || '');
+    const awayFallback = getMLBFallbackTeamInfo(awayName);
+    const homeFallback = getMLBFallbackTeamInfo(homeName);
+
+    return {
+      id: String(row.game_pk),
+      game_pk: Number(row.game_pk),
+      official_date: String(row.official_date || ''),
+      game_time_et: row.game_time_et as string | null,
+      away_team_name: awayName,
+      home_team_name: homeName,
+      away_team: row.away_team as string | null,
+      home_team: row.home_team as string | null,
+      away_team_full_name: row.away_team_full_name as string | null,
+      home_team_full_name: row.home_team_full_name as string | null,
+      away_team_id: row.away_team_id as number | null,
+      home_team_id: row.home_team_id as number | null,
+      away_abbr: awayFallback?.team || fallbackAbbrevFromTeamName(awayName),
+      home_abbr: homeFallback?.team || fallbackAbbrevFromTeamName(homeName),
+      away_logo_url: awayFallback?.logo_url || null,
+      home_logo_url: homeFallback?.logo_url || null,
+      status: row.status as string | null,
+      is_postponed: row.is_postponed as boolean | null,
+      is_completed: row.is_completed as boolean | null,
+      is_active: row.is_active as boolean | null,
+      away_ml: row.away_ml as number | null,
+      home_ml: row.home_ml as number | null,
+      away_spread: row.away_spread as number | null,
+      home_spread: row.home_spread as number | null,
+      total_line: row.total_line as number | null,
+      ml_home_win_prob: row.ml_home_win_prob as number | null,
+      ml_away_win_prob: row.ml_away_win_prob as number | null,
+      home_ml_edge_pct: row.home_ml_edge_pct as number | null,
+      away_ml_edge_pct: row.away_ml_edge_pct as number | null,
+      home_ml_strong_signal: row.home_ml_strong_signal as boolean | null,
+      away_ml_strong_signal: row.away_ml_strong_signal as boolean | null,
+      ou_edge: row.ou_edge as number | null,
+      ou_direction: row.ou_direction as 'OVER' | 'UNDER' | null,
+      ou_fair_total: row.ou_fair_total as number | null,
+      ou_strong_signal: row.ou_strong_signal as boolean | null,
+      ou_moderate_signal: row.ou_moderate_signal as boolean | null,
+      f5_fair_total: (row.f5_fair_total as number) ?? null,
+      f5_pred_margin: (row.f5_pred_margin as number) ?? null,
+      f5_total_line: (row.f5_total_line as number) ?? null,
+      f5_home_spread: (row.f5_home_spread as number) ?? null,
+      f5_away_spread: (row.f5_away_spread as number) ?? null,
+      f5_ou_edge: (row.f5_ou_edge as number) ?? null,
+      f5_home_win_prob: (row.f5_home_win_prob as number) ?? null,
+      f5_away_win_prob: (row.f5_away_win_prob as number) ?? null,
+      home_sp_name: row.home_sp_name as string | null,
+      away_sp_name: row.away_sp_name as string | null,
+      home_sp_confirmed: row.home_sp_confirmed as boolean | null,
+      away_sp_confirmed: row.away_sp_confirmed as boolean | null,
+      is_final_prediction: row.is_final_prediction as boolean | null,
+      projection_label: row.projection_label as string | null,
+      weather_confirmed: row.weather_confirmed as boolean | null,
+      weather_imputed: row.weather_imputed as boolean | null,
+      temperature_f: (row as Record<string, unknown>).temperature_f as number | null ?? null,
+      wind_speed_mph: (row as Record<string, unknown>).wind_speed_mph as number | null ?? null,
+      wind_direction: (row as Record<string, unknown>).wind_direction as string | null ?? null,
+      sky: (row as Record<string, unknown>).sky as string | null ?? null,
+      signals,
+    };
+  });
 }
 

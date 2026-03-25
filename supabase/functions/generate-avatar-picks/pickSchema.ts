@@ -220,7 +220,7 @@ export interface AvatarPick {
   id?: string;
   avatar_id: string;
   game_id: string;
-  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab';  // Matches DB column name
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb';  // Matches DB column name
   matchup: string;
   game_date: string;
   bet_type: 'spread' | 'moneyline' | 'total';

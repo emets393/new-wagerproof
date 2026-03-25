@@ -18,6 +18,7 @@ export function SportFilter({ selectedSport, onSportChange }: SportFilterProps) 
     { id: 'cfb', label: 'CFB' },
     { id: 'nba', label: 'NBA' },
     { id: 'ncaab', label: 'NCAAB' },
+    { id: 'mlb', label: 'MLB' },
   ];
 
   return (

@@ -298,6 +298,30 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
 }
 
 /**
+ * Re-collect device identifiers and FB anonymous ID after ATT prompt resolves.
+ * Call this once the user has responded to the ATT dialog so RevenueCat
+ * picks up the IDFA (if granted) and the Meta integration has the strongest
+ * possible signal.
+ */
+export async function refreshDeviceIdentifiers(): Promise<void> {
+  try {
+    const PurchasesModule = getPurchasesModule();
+    if (!PurchasesModule || !isConfigured) return;
+
+    await Promise.all([
+      PurchasesModule.collectDeviceIdentifiers().catch(() => {}),
+      (async () => {
+        try {
+          const { AppEventsLogger } = require('react-native-fbsdk-next');
+          const fbAnonId = await AppEventsLogger.getAnonymousID();
+          if (fbAnonId) await PurchasesModule.setFBAnonymousID(fbAnonId);
+        } catch {}
+      })(),
+    ]);
+  } catch {}
+}
+
+/**
  * Set the user ID for RevenueCat
  * Call this when user logs in or when user ID changes
  * Returns the CustomerInfo from the login response

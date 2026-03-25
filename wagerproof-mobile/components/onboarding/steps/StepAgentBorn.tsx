@@ -25,6 +25,7 @@ const SPORT_ICONS: Record<Sport, string> = {
   cfb: 'shield-half-full',
   nba: 'basketball',
   ncaab: 'school',
+  mlb: 'baseball',
 };
 
 const onboardingCtaButton = onboardingCta.button;

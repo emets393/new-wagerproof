@@ -35,6 +35,7 @@ const SPORT_LABELS: Record<Sport, string> = {
   cfb: 'CFB',
   nba: 'NBA',
   ncaab: 'NCAAB',
+  mlb: 'MLB',
 };
 
 const LEADERBOARD_FILTERS: { label: string; value: LeaderboardSortMode }[] = [

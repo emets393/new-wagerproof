@@ -208,11 +208,11 @@ export function CFBGameBottomSheet() {
       enablePanDownToClose
       onClose={handleCloseSheet}
       backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: isDark ? '#000000' : '#ffffff', borderTopLeftRadius: 28, borderTopRightRadius: 28 }}
+      backgroundStyle={{ backgroundColor: isDark ? '#1a1a1a' : '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28 }}
       handleIndicatorStyle={{ backgroundColor: theme.colors.onSurfaceVariant }}
     >
       <BottomSheetScrollView 
-        contentContainerStyle={[styles.contentContainer, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}
+        contentContainerStyle={[styles.contentContainer, { backgroundColor: isDark ? '#1a1a1a' : '#fff' }]}
         showsVerticalScrollIndicator={false}
       >
         {game ? (
@@ -223,7 +223,7 @@ export function CFBGameBottomSheet() {
           {/* WagerBot Insight Pill */}
           <WagerBotInsightPill game={game} sport="cfb" />
           {/* Header with Teams */}
-          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
             <LinearGradient
               colors={[awayColors.primary, awayColors.secondary, homeColors.primary, homeColors.secondary]}
               start={{ x: 0, y: 0 }}
@@ -312,7 +312,7 @@ export function CFBGameBottomSheet() {
 
           {/* Weather Widget */}
           {(game.temperature !== null || game.wind_speed !== null) && (
-            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
               <View style={styles.weatherWidget}>
               <View style={styles.sectionHeader}>
                 <MaterialCommunityIcons name="weather-partly-cloudy" size={20} color="#3b82f6" />
@@ -351,7 +351,7 @@ export function CFBGameBottomSheet() {
           )}
 
           {/* Polymarket Widget */}
-          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
             <View style={styles.sectionContent}>
               <PolymarketWidget
                 awayTeam={game.away_team}
@@ -367,98 +367,77 @@ export function CFBGameBottomSheet() {
           {/* Spread Prediction */}
           {spreadPrediction && (
             <View>
-              <Pressable 
+              <Pressable
                 onPress={handleSpreadTap}
-                style={({ pressed }) => [
-                  { opacity: pressed ? 0.7 : 1 }
-                ]}
+                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
               >
-                <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
-                  <View style={styles.predictionCard}>
-                  <View style={styles.sectionHeader}>
+                <View style={[styles.sectionCard, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
+                    <View style={styles.sectionHeader}>
                     <MaterialCommunityIcons name="target" size={20} color="#22c55e" />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                      Spread Prediction
-                    </Text>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Spread Prediction</Text>
                     <View style={styles.tapHintContainer}>
-                      <MaterialCommunityIcons 
-                        name="information-outline" 
-                        size={16} 
-                        color={theme.colors.onSurfaceVariant}
-                      />
-                      <Text style={[styles.tapHintText, { color: theme.colors.onSurfaceVariant }]}>
-                        Tap for Explanation
+                      <MaterialCommunityIcons name="information-outline" size={16} color={theme.colors.onSurfaceVariant} />
+                      <Text style={[styles.tapHintText, { color: theme.colors.onSurfaceVariant }]}>Tap</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.comparisonRow}>
+                    <View style={[styles.comparisonBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
+                      <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Vegas</Text>
+                      <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+                        {game.home_spread ? formatSpread(game.home_spread) : '-'}
+                      </Text>
+                    </View>
+                    <View style={styles.comparisonArrow}>
+                      <MaterialCommunityIcons name="arrow-right" size={20} color={theme.colors.onSurfaceVariant} />
+                    </View>
+                    <View style={[styles.comparisonBox, { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.25)', borderWidth: 1 }]}>
+                      <Text style={[styles.comparisonLabel, { color: '#22c55e' }]}>Our Model</Text>
+                      <Text style={[styles.comparisonValue, { color: '#22c55e' }]}>
+                        {spreadPrediction.predictedSpread ? (spreadPrediction.predictedSpread > 0 ? `+${spreadPrediction.predictedSpread.toFixed(1)}` : spreadPrediction.predictedSpread.toFixed(1)) : '-'}
                       </Text>
                     </View>
                   </View>
-                  <View style={[styles.predictionContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
-                    <View style={styles.edgeRow}>
-                      <View style={styles.edgeSection}>
-                        <Text style={[styles.edgeLabel, { color: theme.colors.onSurfaceVariant }]}>
-                          Edge to {getCFBTeamInitials(spreadPrediction.predictedTeam)}
-                        </Text>
-                        <Text style={[styles.edgeValue, { color: '#22c55e' }]}>
-                          {spreadPrediction.edge.toFixed(1)}
-                        </Text>
-                        <TeamAvatar teamName={spreadPrediction.predictedTeam} sport="cfb" size={56} />
-                      </View>
-                      <View style={styles.edgeSection}>
-                        <Text style={[styles.edgeLabel, { color: theme.colors.onSurfaceVariant }]}>
-                          Model Spread
-                        </Text>
-                        <Text style={[styles.edgeValue, { color: theme.colors.onSurface }]}>
-                          {spreadPrediction.predictedSpread ? (spreadPrediction.predictedSpread > 0 ? `+${spreadPrediction.predictedSpread.toFixed(1)}` : spreadPrediction.predictedSpread.toFixed(1)) : '-'}
-                        </Text>
-                        <View style={styles.vsVegasContainer}>
-                          <Text style={[styles.vsVegasLabel, { color: theme.colors.onSurfaceVariant }]}>
-                            vs. Vegas Spread
-                          </Text>
-                          <Text style={[styles.vsVegasValue, { color: theme.colors.onSurfaceVariant }]}>
-                            {game.home_spread ? formatSpread(game.home_spread) : '-'}
-                          </Text>
-                        </View>
-                      </View>
+
+                  <View style={styles.edgeSummaryRow}>
+                    <TeamAvatar teamName={spreadPrediction.predictedTeam} sport="cfb" size={40} />
+                    <View style={styles.edgeSummaryText}>
+                      <Text style={[styles.edgeSummaryTeam, { color: theme.colors.onSurface }]}>
+                        Edge to {getCFBTeamInitials(spreadPrediction.predictedTeam)}
+                      </Text>
+                      <Text style={[styles.edgeSummaryDelta, { color: '#22c55e' }]}>
+                        {spreadPrediction.edge.toFixed(1)} pts delta
+                      </Text>
                     </View>
-                    {/* Fade Alert Pill */}
+                  </View>
+
                     {spreadPrediction?.isFadeAlert && (
                       <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: 'rgba(245, 158, 11, 0.4)' }]}>
                         <MaterialCommunityIcons name="lightning-bolt" size={12} color="#f59e0b" />
-                        <Text style={[styles.fadeAlertPillText, { color: '#f59e0b', marginLeft: 4 }]}>
-                          FADE ALERT
-                        </Text>
+                        <Text style={[styles.fadeAlertPillText, { color: '#f59e0b', marginLeft: 4 }]}>FADE ALERT</Text>
                       </View>
                     )}
-                    {/* Fade Alert Tooltip - Spread */}
                     {spreadPrediction?.isFadeAlert && game && (
                       <FadeAlertTooltip
                         betType="spread"
                         suggestedBet={`${spreadPrediction.isHome ? game.away_team : game.home_team} ${formatSpread(spreadPrediction.isHome ? game.away_spread : game.home_spread)}`}
                       />
                     )}
-                  </View>
-                  </View>
                 </View>
               </Pressable>
 
-              {/* What This Means - Spread */}
               {spreadExplanationExpanded && (
                 <MotiView
                   from={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{
-                    type: 'spring',
-                    damping: 20,
-                    stiffness: 300,
-                  }}
+                  transition={{ type: 'spring', damping: 20, stiffness: 300 }}
                   style={{ overflow: 'hidden' }}
                 >
                   <View style={[styles.explanationBox, { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.25)' }]}>
                     <View style={styles.explanationHeader}>
                       <MaterialCommunityIcons name="information" size={16} color="#22c55e" />
-                      <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
-                        What This Means
-                      </Text>
+                      <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>What This Means</Text>
                     </View>
                     <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
                       {getSpreadExplanation()}
@@ -470,139 +449,91 @@ export function CFBGameBottomSheet() {
           )}
 
           {/* Over/Under Prediction */}
-          {ouPrediction && (
+          {ouPrediction && (() => {
+            const ouColor = ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444';
+            const ouBgColor = ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+            const ouBorderColor = ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+            return (
             <View>
-              <Pressable 
+              <Pressable
                 onPress={handleOuTap}
-                style={({ pressed }) => [
-                  { opacity: pressed ? 0.7 : 1 }
-                ]}
+                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
               >
-                <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
-                  <View style={styles.predictionCard}>
-                  <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons 
-                      name={ouPrediction.predictedOutcome === 'over' ? 'arrow-up-bold' : 'arrow-down-bold'} 
-                      size={20} 
-                      color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
+                <View style={[styles.sectionCard, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
+                    <View style={styles.sectionHeader}>
+                    <MaterialCommunityIcons
+                      name={ouPrediction.predictedOutcome === 'over' ? 'arrow-up-bold' : 'arrow-down-bold'}
+                      size={20}
+                      color={ouColor}
                     />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                      Over/Under Prediction
-                    </Text>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Over/Under Prediction</Text>
                     <View style={styles.tapHintContainer}>
-                      <MaterialCommunityIcons 
-                        name="information-outline" 
-                        size={16} 
-                        color={theme.colors.onSurfaceVariant}
-                      />
-                      <Text style={[styles.tapHintText, { color: theme.colors.onSurfaceVariant }]}>
-                        Tap for Explanation
+                      <MaterialCommunityIcons name="information-outline" size={16} color={theme.colors.onSurfaceVariant} />
+                      <Text style={[styles.tapHintText, { color: theme.colors.onSurfaceVariant }]}>Tap</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.comparisonRow}>
+                    <View style={[styles.comparisonBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
+                      <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Vegas O/U</Text>
+                      <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+                        {game.over_line ? roundToNearestHalf(game.over_line) : '-'}
+                      </Text>
+                    </View>
+                    <View style={styles.comparisonArrow}>
+                      <MaterialCommunityIcons name="arrow-right" size={20} color={theme.colors.onSurfaceVariant} />
+                    </View>
+                    <View style={[styles.comparisonBox, { backgroundColor: ouBgColor, borderColor: ouBorderColor, borderWidth: 1 }]}>
+                      <Text style={[styles.comparisonLabel, { color: ouColor }]}>Our Model</Text>
+                      <Text style={[styles.comparisonValue, { color: ouColor }]}>
+                        {ouPrediction.modelTotal ? roundToNearestHalf(ouPrediction.modelTotal) : '-'}
                       </Text>
                     </View>
                   </View>
-                  <View style={[styles.predictionContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
-                    <View style={styles.edgeRow}>
-                      <View style={styles.edgeSection}>
-                        <Text style={[styles.edgeLabel, { color: theme.colors.onSurfaceVariant }]}>
-                          Edge to {ouPrediction.predictedOutcome === 'over' ? 'Over' : 'Under'}
-                        </Text>
-                        <View style={styles.ouEdgeColumn}>
-                          <Text style={[
-                            styles.edgeValue,
-                            { color: ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444' }
-                          ]}>
-                            {ouPrediction.edge.toFixed(1)}
-                          </Text>
-                          <MaterialCommunityIcons 
-                            name={ouPrediction.predictedOutcome === 'over' ? 'chevron-up' : 'chevron-down'} 
-                            size={48} 
-                            color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
-                          />
-                        </View>
-                      </View>
-                      <View style={styles.edgeSection}>
-                        <Text style={[styles.edgeLabel, { color: theme.colors.onSurfaceVariant }]}>
-                          Model O/U
-                        </Text>
-                        <Text style={[styles.edgeValue, { color: theme.colors.onSurface }]}>
-                          {ouPrediction.modelTotal ? roundToNearestHalf(ouPrediction.modelTotal) : '-'}
-                        </Text>
-                        <View style={styles.vsVegasContainer}>
-                          <Text style={[styles.vsVegasLabel, { color: theme.colors.onSurfaceVariant }]}>
-                            vs. Vegas O/U
-                          </Text>
-                          <Text style={[styles.vsVegasValue, { color: theme.colors.onSurfaceVariant }]}>
-                            {game.over_line ? roundToNearestHalf(game.over_line) : '-'}
-                          </Text>
-                        </View>
-                      </View>
+
+                  <View style={styles.edgeSummaryRow}>
+                    <MaterialCommunityIcons
+                      name={ouPrediction.predictedOutcome === 'over' ? 'chevron-up' : 'chevron-down'}
+                      size={32}
+                      color={ouColor}
+                    />
+                    <View style={styles.edgeSummaryText}>
+                      <Text style={[styles.edgeSummaryTeam, { color: theme.colors.onSurface }]}>
+                        Edge to {ouPrediction.predictedOutcome === 'over' ? 'Over' : 'Under'}
+                      </Text>
+                      <Text style={[styles.edgeSummaryDelta, { color: ouColor }]}>
+                        {ouPrediction.edge.toFixed(1)} pts delta
+                      </Text>
                     </View>
-                    {/* Fade Alert Pill */}
+                  </View>
+
                     {ouPrediction?.isFadeAlert && (
-                      <View style={[
-                        styles.fadeAlertPill,
-                        {
-                          backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                          borderColor: 'rgba(245, 158, 11, 0.4)'
-                        }
-                      ]}>
-                        <MaterialCommunityIcons
-                          name="lightning-bolt"
-                          size={12}
-                          color="#f59e0b"
-                        />
-                        <Text style={[
-                          styles.fadeAlertPillText,
-                          {
-                            color: '#f59e0b',
-                            marginLeft: 4
-                          }
-                        ]}>
-                          FADE ALERT
-                        </Text>
+                      <View style={[styles.fadeAlertPill, { backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: 'rgba(245, 158, 11, 0.4)' }]}>
+                        <MaterialCommunityIcons name="lightning-bolt" size={12} color="#f59e0b" />
+                        <Text style={[styles.fadeAlertPillText, { color: '#f59e0b', marginLeft: 4 }]}>FADE ALERT</Text>
                       </View>
                     )}
-                    {/* Fade Alert Tooltip - O/U */}
                     {ouPrediction?.isFadeAlert && game && (
                       <FadeAlertTooltip
                         betType="total"
                         suggestedBet={`${ouPrediction.predictedOutcome === 'over' ? 'Under' : 'Over'} ${ouPrediction.line ? roundToNearestHalf(ouPrediction.line) : ''}`}
                       />
                     )}
-                  </View>
-                  </View>
                 </View>
               </Pressable>
 
-              {/* What This Means - O/U */}
               {ouExplanationExpanded && (
                 <MotiView
                   from={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{
-                    type: 'spring',
-                    damping: 20,
-                    stiffness: 300,
-                  }}
+                  transition={{ type: 'spring', damping: 20, stiffness: 300 }}
                   style={{ overflow: 'hidden' }}
                 >
-                  <View style={[
-                    styles.explanationBox, 
-                    { 
-                      backgroundColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                      borderColor: ouPrediction.predictedOutcome === 'over' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)'
-                    }
-                  ]}>
+                  <View style={[styles.explanationBox, { backgroundColor: ouBgColor, borderColor: ouBorderColor }]}>
                     <View style={styles.explanationHeader}>
-                      <MaterialCommunityIcons 
-                        name="information" 
-                        size={16} 
-                        color={ouPrediction.predictedOutcome === 'over' ? '#22c55e' : '#ef4444'} 
-                      />
-                      <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>
-                        What This Means
-                      </Text>
+                      <MaterialCommunityIcons name="information" size={16} color={ouColor} />
+                      <Text style={[styles.explanationTitle, { color: theme.colors.onSurface }]}>What This Means</Text>
                     </View>
                     <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
                       {getOuExplanation()}
@@ -611,11 +542,12 @@ export function CFBGameBottomSheet() {
                 </MotiView>
               )}
             </View>
-          )}
+            );
+          })()}
 
           {/* Public Betting Bars */}
           {(game.ml_splits_label || game.spread_splits_label || game.total_splits_label) && (
-            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+            <View style={[styles.sectionCard, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
               <View style={styles.sectionContent}>
                 <PublicBettingBars
                   mlSplitsLabel={game.ml_splits_label}
@@ -629,7 +561,7 @@ export function CFBGameBottomSheet() {
           )}
 
           {/* Line Movement - Simple Open → Current Display */}
-          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
             <View style={styles.sectionContent}>
               <Pressable 
                 onPress={handleLineMovementTap}
@@ -725,7 +657,7 @@ export function CFBGameBottomSheet() {
             
             return (awayScore !== null && awayScore !== undefined) && 
                    (homeScore !== null && homeScore !== undefined) && (
-              <View style={[styles.sectionCard, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+              <View style={[styles.sectionCard, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
                 <View style={styles.sectionContent}>
                 <View style={styles.sectionHeader}>
                   <MaterialCommunityIcons name="creation" size={20} color="#fbbf24" />
@@ -803,12 +735,15 @@ export function CFBGameBottomSheet() {
 
 const styles = StyleSheet.create({
   contentContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+    gap: 12,
   },
   sectionCard: {
-    borderRadius: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
     overflow: 'hidden',
-    marginBottom: 12,
   },
   headerGradient: {
     position: 'absolute',
@@ -817,12 +752,8 @@ const styles = StyleSheet.create({
     right: 0,
     height: 4,
   },
-  headerContent: {
-    padding: 12,
-  },
-  sectionContent: {
-    padding: 12,
-  },
+  headerContent: {},
+  sectionContent: {},
   dateTimeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -949,54 +880,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  predictionCard: {
-    padding: 12,
-  },
-  predictionContent: {
-    padding: 12,
-    borderRadius: 8,
-    gap: 12,
-  },
-  predictionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  predictionTeamCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  predictionTeamInitials: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  predictionTeamText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  predictionSpread: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  predictionProb: {
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  ouPredictionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  ouPredictionText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  comparisonRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  comparisonBox: { flex: 1, alignItems: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
+  comparisonLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  comparisonValue: { fontSize: 24, fontWeight: 'bold' },
+  comparisonArrow: { paddingHorizontal: 2 },
+  edgeSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  edgeSummaryText: { flex: 1 },
+  edgeSummaryTeam: { fontSize: 14, fontWeight: '600' },
+  edgeSummaryDelta: { fontSize: 13, fontWeight: '700', marginTop: 2 },
   explanationBox: {
     borderRadius: 10,
     borderWidth: 1,
@@ -1033,65 +925,6 @@ const styles = StyleSheet.create({
   },
   confidenceContainer: {
     width: '100%',
-  },
-  edgeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    gap: 16,
-  },
-  edgeSection: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 8,
-  },
-  edgeLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  edgeValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  edgeWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ouEdgeColumn: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 0,
-  },
-  edgeTeamCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  edgeTeamInitials: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    maxWidth: 50,
-  },
-  vsVegasContainer: {
-    marginTop: 12,
-    alignItems: 'center',
-    gap: 4,
-  },
-  vsVegasLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  vsVegasValue: {
-    fontSize: 16,
-    fontWeight: '700',
   },
   lineMovementCard: {
     borderRadius: 12,

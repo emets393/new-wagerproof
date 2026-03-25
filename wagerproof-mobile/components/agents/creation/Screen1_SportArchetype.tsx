@@ -46,6 +46,7 @@ const SPORT_CONFIG: Record<
   cfb: { label: 'CFB', icon: 'football', color: '#C41E3A', desc: 'College Football' },
   nba: { label: 'NBA', icon: 'basketball', color: '#1D428A', desc: 'Pro Basketball' },
   ncaab: { label: 'NCAAB', icon: 'basketball', color: '#FF6B00', desc: 'College Basketball' },
+  mlb: { label: 'MLB', icon: 'baseball', color: '#002D72', desc: 'Pro Baseball' },
 };
 
 const PERFORMANCE_ROWS = [
@@ -100,6 +101,7 @@ export function Screen1_SportArchetype({
   );
 
   // Toggle sport selection (scratch path)
+  // MLB is exclusive — cannot be combined with other sports
   const toggleSport = useCallback(
     (sport: Sport) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -107,6 +109,12 @@ export function Screen1_SportArchetype({
       const isSelected = selectedSports.includes(sport);
       if (isSelected) {
         onSportsChange(selectedSports.filter((s) => s !== sport));
+      } else if (sport === 'mlb') {
+        // MLB is exclusive: deselect all other sports
+        onSportsChange(['mlb']);
+      } else if (selectedSports.includes('mlb')) {
+        // Selecting a non-MLB sport while MLB is active: replace MLB
+        onSportsChange([sport]);
       } else {
         onSportsChange([...selectedSports, sport]);
       }
@@ -323,6 +331,15 @@ export function Screen1_SportArchetype({
             );
           })}
         </View>
+
+        {selectedSports.includes('mlb') && (
+          <View style={styles.mlbNotice}>
+            <MaterialCommunityIcons name="information-outline" size={14} color="#60a5fa" />
+            <Text style={[styles.mlbNoticeText, { color: theme.colors.onSurfaceVariant }]}>
+              MLB agents run standalone due to the size of baseball data. They cannot be combined with other sports.
+            </Text>
+          </View>
+        )}
 
         {selectedSports.length === 0 && (
           <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
@@ -553,6 +570,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 16,
     textAlign: 'center',
+  },
+  mlbNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  mlbNoticeText: {
+    fontSize: 12,
+    lineHeight: 17,
+    flex: 1,
   },
   // Presets
   loadingContainer: {

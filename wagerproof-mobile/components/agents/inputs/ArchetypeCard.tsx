@@ -62,6 +62,16 @@ const SPORT_CONFIG: Record<Sport, {
     lightText: '#CC5500',
     lightBorder: 'rgba(255, 107, 0, 0.18)',
   },
+  mlb: {
+    label: 'MLB',
+    icon: 'baseball',
+    darkBg: 'rgba(0, 45, 114, 0.15)',
+    darkText: '#6b9fd4',
+    darkBorder: 'rgba(0, 45, 114, 0.25)',
+    lightBg: 'rgba(0, 45, 114, 0.08)',
+    lightText: '#002D72',
+    lightBorder: 'rgba(0, 45, 114, 0.18)',
+  },
 };
 
 export function ArchetypeCard({

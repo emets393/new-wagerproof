@@ -22,6 +22,7 @@ const SPORT_LABELS: Record<Sport, string> = {
   cfb: 'CFB',
   nba: 'NBA',
   ncaab: 'NCAAB',
+  mlb: 'MLB',
 };
 
 function parseAvatarColor(value: string): { isGradient: boolean; colors: string[] } {

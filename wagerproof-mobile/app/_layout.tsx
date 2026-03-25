@@ -10,6 +10,7 @@ import { NFLGameSheetProvider } from '../contexts/NFLGameSheetContext';
 import { CFBGameSheetProvider } from '../contexts/CFBGameSheetContext';
 import { NBAGameSheetProvider } from '../contexts/NBAGameSheetContext';
 import { NCAABGameSheetProvider } from '../contexts/NCAABGameSheetContext';
+import { MLBGameSheetProvider } from '../contexts/MLBGameSheetContext';
 import { NBABettingTrendsSheetProvider } from '../contexts/NBABettingTrendsSheetContext';
 import { NCAABBettingTrendsSheetProvider } from '../contexts/NCAABBettingTrendsSheetContext';
 import { AdminModeProvider } from '../contexts/AdminModeContext';
@@ -28,6 +29,7 @@ import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
 import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
 import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
+import { MLBGameBottomSheet } from '../components/MLBGameBottomSheet';
 import { NBABettingTrendsBottomSheet } from '../components/NBABettingTrendsBottomSheet';
 import { NCAABBettingTrendsBottomSheet } from '../components/NCAABBettingTrendsBottomSheet';
 import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
@@ -388,6 +390,7 @@ function RootNavigator() {
         <CFBGameBottomSheet />
         <NBAGameBottomSheet />
         <NCAABGameBottomSheet />
+        <MLBGameBottomSheet />
         <WagerBotChatBottomSheet />
         {/* Floating assistant - renders above everything when detached */}
         <FloatingAssistantWrapper />
@@ -434,6 +437,7 @@ function RootLayoutContent() {
                   <CFBGameSheetProvider>
                     <NBAGameSheetProvider>
                       <NCAABGameSheetProvider>
+                        <MLBGameSheetProvider>
                         <AgentPickAuditProvider>
                           <NBABettingTrendsSheetProvider>
                             <NCAABBettingTrendsSheetProvider>
@@ -454,6 +458,7 @@ function RootLayoutContent() {
                             </NCAABBettingTrendsSheetProvider>
                           </NBABettingTrendsSheetProvider>
                         </AgentPickAuditProvider>
+                        </MLBGameSheetProvider>
                       </NCAABGameSheetProvider>
                     </NBAGameSheetProvider>
                   </CFBGameSheetProvider>

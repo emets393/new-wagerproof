@@ -14,6 +14,7 @@ import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
+import { useMLBGameSheet } from '@/contexts/MLBGameSheetContext';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { PickDetailSheetProvider } from '@/contexts/PickDetailSheetContext';
 import { PickDetailBottomSheet } from '@/components/PickDetailBottomSheet';
@@ -276,6 +277,7 @@ function TabsContent() {
   const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
   const { openGameSheet: openNBAGameSheet } = useNBAGameSheet();
   const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
+  const { openGameSheet: openMLBGameSheet } = useMLBGameSheet();
 
   // WagerBot suggestion bubble state
   const {
@@ -318,10 +320,13 @@ function TabsContent() {
       case 'ncaab':
         openNCAABGameSheet(game as any);
         break;
+      case 'mlb':
+        openMLBGameSheet(game as any);
+        break;
       default:
         console.log('🤖 Unknown sport:', sport);
     }
-  }, [findGameById, openNFLGameSheet, openCFBGameSheet, openNBAGameSheet, openNCAABGameSheet]);
+  }, [findGameById, openNFLGameSheet, openCFBGameSheet, openNBAGameSheet, openNCAABGameSheet, openMLBGameSheet]);
 
   // Determine current sport based on pathname (for bubble display)
   const getCurrentSport = () => {

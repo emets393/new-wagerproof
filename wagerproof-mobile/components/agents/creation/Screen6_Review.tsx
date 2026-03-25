@@ -46,6 +46,7 @@ const SPORT_CONFIG: Record<Sport, { label: string; color: string; badgeBg: strin
   cfb: { label: 'CFB', color: '#ef4444', badgeBg: 'rgba(239, 68, 68, 0.2)', badgeBorder: 'rgba(239, 68, 68, 0.4)', badgeText: '#fca5a5' },
   nba: { label: 'NBA', color: '#3b82f6', badgeBg: 'rgba(59, 130, 246, 0.2)', badgeBorder: 'rgba(59, 130, 246, 0.4)', badgeText: '#93bbfd' },
   ncaab: { label: 'NCAAB', color: '#f97316', badgeBg: 'rgba(249, 115, 22, 0.2)', badgeBorder: 'rgba(249, 115, 22, 0.4)', badgeText: '#fdba74' },
+  mlb: { label: 'MLB', color: '#002D72', badgeBg: 'rgba(0, 45, 114, 0.2)', badgeBorder: 'rgba(0, 45, 114, 0.4)', badgeText: '#6b9fd4' },
 };
 
 // ============================================================================
@@ -247,7 +248,8 @@ export function Screen6_Review({
         <Card.Content style={styles.previewContent}>
           {/* Avatar and Name */}
           <View style={styles.avatarRow}>
-            <GlowingCardWrapper color={parsedAvatar.primary} borderRadius={20}>
+            <View style={{ marginRight: 16 }}>
+            <GlowingCardWrapper color={parsedAvatar.primary} borderRadius={18}>
             {(() => {
               if (parsedAvatar.isGradient) {
                 return (
@@ -273,6 +275,7 @@ export function Screen6_Review({
               );
             })()}
             </GlowingCardWrapper>
+            </View>
             <View style={styles.nameContainer}>
               <Text style={[styles.agentName, { color: theme.colors.onSurface }]}>
                 {formState.name}
@@ -561,7 +564,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
   avatarEmoji: {
     fontSize: 32,

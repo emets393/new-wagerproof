@@ -2,7 +2,7 @@ import { supabase, collegeFootballSupabase } from './supabase';
 
 export interface GameSummary {
   gameId: string;
-  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab';
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb';
   awayTeam: string;
   homeTeam: string;
   gameTime?: string;
@@ -29,7 +29,7 @@ export interface GameSummary {
 
 export interface ValueAlert {
   gameId: string;
-  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab';
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb';
   awayTeam: string;
   homeTeam: string;
   marketType: string;
@@ -40,7 +40,7 @@ export interface ValueAlert {
 
 export interface FadeAlert {
   gameId: string;
-  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab';
+  sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb';
   awayTeam: string;
   homeTeam: string;
   pickType: string;
@@ -612,7 +612,7 @@ export const fetchValueAlerts = async (weekGames: GameSummary[]): Promise<ValueA
   const alerts: ValueAlert[] = [];
   if (!weekGames || weekGames.length === 0) return alerts;
 
-  const gamesByLeague = new Map<'nfl' | 'cfb' | 'nba' | 'ncaab', GameSummary[]>();
+  const gamesByLeague = new Map<'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb', GameSummary[]>();
   for (const game of weekGames) {
     const existing = gamesByLeague.get(game.sport) || [];
     existing.push(game);

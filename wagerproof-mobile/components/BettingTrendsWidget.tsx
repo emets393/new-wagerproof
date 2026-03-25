@@ -124,7 +124,7 @@ export function BettingTrendsWidget({
 
   if (isLoading) {
     return (
-      <View style={[styles.card, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+      <View style={[styles.card, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
         <View style={styles.content}>
           <View style={styles.header}>
             <MaterialCommunityIcons name="trending-up" size={20} color="#8b5cf6" />
@@ -139,7 +139,7 @@ export function BettingTrendsWidget({
   const situations = extractSituations(awayTeam, homeTeam, sport);
 
   return (
-    <View style={[styles.card, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+    <View style={[styles.card, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
       <View style={styles.content}>
         <View style={styles.header}>
           <MaterialCommunityIcons name="trending-up" size={20} color="#8b5cf6" />
@@ -220,7 +220,7 @@ export function BettingTrendsWidget({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 20, overflow: 'hidden', marginBottom: 12 },
+  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   content: { padding: 12 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   title: { fontSize: 15, fontWeight: '600' },

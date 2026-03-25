@@ -8,6 +8,7 @@ import { NFLGameCard } from '@/components/NFLGameCard';
 import { CFBGameCard } from '@/components/CFBGameCard';
 import { NBAGameCard } from '@/components/NBAGameCard';
 import { NCAABGameCard } from '@/components/NCAABGameCard';
+import { MLBGameCard } from '@/components/MLBGameCard';
 import { GameCardShimmer } from '@/components/GameCardShimmer';
 import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import { LockedGameCard } from '@/components/LockedGameCard';
@@ -19,12 +20,16 @@ import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
 import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
+import { useMLBGameSheet } from '@/contexts/MLBGameSheetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 import { NFLPrediction } from '@/types/nfl';
 import { CFBPrediction } from '@/types/cfb';
 import { NBAGame } from '@/types/nba';
 import { NCAABGame } from '@/types/ncaab';
+import { MLBGame, gamePkMapKey, normalizeTeamNameKey, fallbackAbbrevFromTeamName, combineSignalsOrdered, isOfficialDateToday } from '@/types/mlb';
+import type { MLBTeamMapping, MLBGameSignalsRow } from '@/types/mlb';
+import { getMLBFallbackTeamInfo } from '@/constants/mlbTeams';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '@/contexts/ThemeContext';
@@ -51,6 +56,7 @@ export default function FeedScreen() {
   const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
   const { openGameSheet: openNBAGameSheet } = useNBAGameSheet();
   const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
+  const { openGameSheet: openMLBGameSheet } = useMLBGameSheet();
   const { user } = useAuth();
   const { isDark } = useThemeContext();
   const { isPro, isLoading: isProLoading } = useProAccess();
@@ -79,7 +85,7 @@ export default function FeedScreen() {
     cfb: { games: CFBPrediction[], lastFetch: number | null };
     nba: { games: NBAGame[], lastFetch: number | null };
     ncaab: { games: NCAABGame[], lastFetch: number | null };
-    mlb: { games: never[], lastFetch: number | null };
+    mlb: { games: MLBGame[], lastFetch: number | null };
   }>({
     nfl: { games: [], lastFetch: null },
     cfb: { games: [], lastFetch: null },
@@ -109,18 +115,21 @@ export default function FeedScreen() {
     cfb: false,
     nba: true,
     ncaab: false,
+    mlb: false,
   });
   const [refreshing, setRefreshing] = useState<Record<Sport, boolean>>({
     nfl: false,
     cfb: false,
     nba: false,
     ncaab: false,
+    mlb: false,
   });
   const [error, setError] = useState<Record<Sport, string | null>>({
     nfl: null,
     cfb: null,
     nba: null,
     ncaab: null,
+    mlb: null,
   });
   
   // Calculate header heights (must match tab bar calculation)
@@ -154,7 +163,7 @@ export default function FeedScreen() {
     { id: 'ncaab', label: 'NCAAB', available: true, icon: 'basketball-hoop' },
     { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
     { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
-    { id: 'mlb', label: 'MLB', available: false, icon: 'baseball' },
+    { id: 'mlb', label: 'MLB', available: true, icon: 'baseball' },
   ];
 
   // Fetch NFL data - matches web app approach using v_input_values_with_epa view
@@ -685,6 +694,201 @@ export default function FeedScreen() {
     }
   };
 
+  // Fetch MLB data - mirrors web app's 4-query pattern
+  const fetchMLBData = async () => {
+    try {
+      console.log('⚾ Fetching MLB games...');
+      const today = new Date();
+      const dayAfterTomorrow = new Date();
+      dayAfterTomorrow.setDate(today.getDate() + 2);
+      const toYMD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const startDate = toYMD(today);
+      const endDate = toYMD(dayAfterTomorrow);
+
+      // 1. Strict query
+      const { data: strictGames, error: gamesError } = await collegeFootballSupabase
+        .from('mlb_games_today')
+        .select('*')
+        .or('is_active.eq.true,is_active.is.null')
+        .or('is_completed.eq.false,is_completed.is.null')
+        .gte('official_date', startDate)
+        .lte('official_date', endDate)
+        .order('official_date', { ascending: true })
+        .order('game_time_et', { ascending: true });
+
+      if (gamesError) throw new Error(gamesError.message);
+
+      let rawGames = strictGames || [];
+      if (rawGames.length === 0) {
+        // Fallback: relaxed query
+        const { data: relaxedGames } = await collegeFootballSupabase
+          .from('mlb_games_today')
+          .select('*')
+          .gte('official_date', startDate)
+          .lte('official_date', endDate)
+          .order('official_date', { ascending: true })
+          .order('game_time_et', { ascending: true });
+        rawGames = (relaxedGames || []).filter((g: any) => !g.is_postponed && !g.is_completed);
+      }
+
+      // 2. Merge is_final_prediction from mlb_predictions_current
+      const gamePks = rawGames.map((g: any) => g.game_pk).filter(Boolean);
+      let finalPredMap = new Map<number, boolean>();
+      if (gamePks.length > 0) {
+        const { data: predRows } = await collegeFootballSupabase
+          .from('mlb_predictions_current')
+          .select('game_pk, is_final_prediction')
+          .in('game_pk', gamePks);
+        if (predRows) {
+          for (const r of predRows) {
+            finalPredMap.set(Number(r.game_pk), r.is_final_prediction);
+          }
+        }
+      }
+
+      // 3. Fetch team mapping (for abbrevs + logos)
+      const { data: mappingRows } = await collegeFootballSupabase
+        .from('mlb_team_mapping')
+        .select('*');
+      const teamMapByName = new Map<string, MLBTeamMapping>();
+      const teamMapById = new Map<number, MLBTeamMapping>();
+      if (mappingRows) {
+        for (const raw of mappingRows) {
+          const m: MLBTeamMapping = {
+            mlb_api_id: Number(raw.mlb_api_id ?? raw.team_id ?? raw.id),
+            team: String(raw.team ?? raw.abbreviation ?? raw.team_abbrev ?? ''),
+            team_name: String(raw.team_name ?? raw.name ?? raw.full_name ?? ''),
+            logo_url: raw.logo_url ?? raw.logo ?? null,
+          };
+          if (m.team_name) teamMapByName.set(normalizeTeamNameKey(m.team_name), m);
+          if (m.mlb_api_id) teamMapById.set(m.mlb_api_id, m);
+        }
+      }
+
+      // 4. Fetch signals
+      const { data: signalRows } = await collegeFootballSupabase
+        .from('mlb_game_signals')
+        .select('game_pk, home_signals, away_signals, game_signals');
+      const signalsMap = new Map<string, MLBGameSignalsRow>();
+      if (signalRows) {
+        for (const row of signalRows) {
+          const key = gamePkMapKey(row.game_pk);
+          if (key) signalsMap.set(key, row as MLBGameSignalsRow);
+        }
+      }
+
+      // Resolve team mapping helper
+      const resolveTeam = (teamName: string | null, teamId: number | null): { abbrev: string; logo: string | null } => {
+        if (!teamName) return { abbrev: 'MLB', logo: null };
+        const nameKey = normalizeTeamNameKey(teamName);
+        // Step 1: exact name
+        const byName = teamMapByName.get(nameKey);
+        if (byName) return { abbrev: byName.team, logo: byName.logo_url };
+        // Step 2: ID
+        if (teamId) {
+          const byId = teamMapById.get(teamId);
+          if (byId) return { abbrev: byId.team, logo: byId.logo_url };
+        }
+        // Step 3: fuzzy
+        for (const [key, m] of teamMapByName) {
+          if (key.includes(nameKey) || nameKey.includes(key)) return { abbrev: m.team, logo: m.logo_url };
+        }
+        // Step 4: hardcoded fallback
+        const fallback = getMLBFallbackTeamInfo(teamName);
+        if (fallback) return { abbrev: fallback.team, logo: fallback.logo_url };
+        return { abbrev: fallbackAbbrevFromTeamName(teamName), logo: null };
+      };
+
+      // Build MLBGame objects
+      const games: MLBGame[] = rawGames.map((row: any) => {
+        const awayName = row.away_team_name || row.away_team || row.away_team_full_name || '';
+        const homeName = row.home_team_name || row.home_team || row.home_team_full_name || '';
+        const awayTeamId = Number(row.away_team_id ?? row.away_mlb_team_id ?? row.away_id ?? 0) || null;
+        const homeTeamId = Number(row.home_team_id ?? row.home_mlb_team_id ?? row.home_id ?? 0) || null;
+        const awayResolved = resolveTeam(awayName, awayTeamId);
+        const homeResolved = resolveTeam(homeName, homeTeamId);
+
+        // Merge final prediction
+        const finalPred = finalPredMap.get(Number(row.game_pk));
+        const isFinal = finalPred ?? row.is_final_prediction ?? null;
+
+        // Attach signals
+        const sigKey = gamePkMapKey(row.game_pk);
+        const sigRow = sigKey ? signalsMap.get(sigKey) : undefined;
+        const signals = isOfficialDateToday(row.official_date) ? combineSignalsOrdered(sigRow) : [];
+
+        return {
+          id: String(row.game_pk ?? row.id ?? `${awayName}_${homeName}_${row.official_date}`),
+          game_pk: Number(row.game_pk),
+          official_date: row.official_date,
+          game_time_et: row.game_time_et,
+          away_team_name: awayName,
+          home_team_name: homeName,
+          away_team: row.away_team,
+          home_team: row.home_team,
+          away_team_full_name: row.away_team_full_name,
+          home_team_full_name: row.home_team_full_name,
+          away_team_id: awayTeamId,
+          home_team_id: homeTeamId,
+          away_abbr: awayResolved.abbrev,
+          home_abbr: homeResolved.abbrev,
+          away_logo_url: awayResolved.logo,
+          home_logo_url: homeResolved.logo,
+          status: row.status,
+          is_postponed: row.is_postponed,
+          is_completed: row.is_completed,
+          is_active: row.is_active,
+          away_ml: row.away_ml,
+          home_ml: row.home_ml,
+          away_spread: row.away_spread,
+          home_spread: row.home_spread,
+          total_line: row.total_line,
+          ml_home_win_prob: row.ml_home_win_prob,
+          ml_away_win_prob: row.ml_away_win_prob,
+          home_ml_edge_pct: row.home_ml_edge_pct,
+          away_ml_edge_pct: row.away_ml_edge_pct,
+          home_ml_strong_signal: row.home_ml_strong_signal,
+          away_ml_strong_signal: row.away_ml_strong_signal,
+          ou_edge: row.ou_edge,
+          ou_direction: row.ou_direction,
+          ou_fair_total: row.ou_fair_total,
+          ou_strong_signal: row.ou_strong_signal,
+          ou_moderate_signal: row.ou_moderate_signal,
+          f5_fair_total: row.f5_fair_total ?? null,
+          f5_pred_margin: row.f5_pred_margin ?? null,
+          f5_total_line: row.f5_total_line ?? null,
+          f5_home_spread: row.f5_home_spread ?? null,
+          f5_away_spread: row.f5_away_spread ?? null,
+          f5_ou_edge: row.f5_ou_edge ?? null,
+          f5_home_win_prob: row.f5_home_win_prob ?? null,
+          f5_away_win_prob: row.f5_away_win_prob ?? null,
+          home_sp_name: row.home_sp_name,
+          away_sp_name: row.away_sp_name,
+          home_sp_confirmed: row.home_sp_confirmed ?? null,
+          away_sp_confirmed: row.away_sp_confirmed ?? null,
+          is_final_prediction: isFinal,
+          projection_label: row.projection_label,
+          weather_confirmed: row.weather_confirmed ?? null,
+          weather_imputed: row.weather_imputed ?? null,
+          temperature_f: (row as any).temperature_f ?? null,
+          wind_speed_mph: (row as any).wind_speed_mph ?? null,
+          wind_direction: (row as any).wind_direction ?? null,
+          sky: (row as any).sky ?? null,
+          signals,
+        } as MLBGame;
+      });
+
+      console.log(`⚾ MLB: ${games.length} games loaded`);
+      setCachedData(prev => ({
+        ...prev,
+        mlb: { games, lastFetch: Date.now() }
+      }));
+    } catch (err) {
+      console.error('Error fetching MLB data:', err);
+      setError(prev => ({ ...prev, mlb: 'Failed to fetch MLB games' }));
+    }
+  };
+
   // Fetch data for a specific sport
   const fetchDataForSport = useCallback(async (sport: Sport, forceRefresh = false) => {
     // Check if we have cached data and it's recent (less than 5 minutes old)
@@ -706,6 +910,8 @@ export default function FeedScreen() {
         await fetchNBAData();
       } else if (sport === 'ncaab') {
         await fetchNCAABData();
+      } else if (sport === 'mlb') {
+        await fetchMLBData();
       }
     } catch (err) {
       console.error(`Error fetching ${sport} data:`, err);
@@ -773,11 +979,12 @@ export default function FeedScreen() {
     
     const search = searchText.toLowerCase();
     return currentGames.filter(game => {
-      const homeTeam = game.home_team.toLowerCase();
-      const awayTeam = game.away_team.toLowerCase();
-      
-      // Search in full team names
-      return homeTeam.includes(search) || awayTeam.includes(search);
+      const homeTeam = ((game as any).home_team_name || game.home_team || '').toLowerCase();
+      const awayTeam = ((game as any).away_team_name || game.away_team || '').toLowerCase();
+      const homeAbbr = ((game as any).home_abbr || '').toLowerCase();
+      const awayAbbr = ((game as any).away_abbr || '').toLowerCase();
+
+      return homeTeam.includes(search) || awayTeam.includes(search) || homeAbbr.includes(search) || awayAbbr.includes(search);
     });
   }, [currentGames, searchText]);
 
@@ -787,14 +994,25 @@ export default function FeedScreen() {
     
     if (sortMode === 'time') {
       return games.sort((a, b) => {
-        const timeA = new Date(a.game_date).getTime();
-        const timeB = new Date(b.game_date).getTime();
+        const dateA = (a as any).official_date || a.game_date;
+        const dateB = (b as any).official_date || b.game_date;
+        const timeA = new Date(dateA).getTime();
+        const timeB = new Date(dateB).getTime();
         return timeA - timeB;
       });
     }
     
     if (sortMode === 'spread') {
-      if (selectedSport === 'cfb') {
+      if (selectedSport === 'mlb') {
+        // MLB: sort by ML edge %
+        return games.sort((a, b) => {
+          const mlbA = a as MLBGame;
+          const mlbB = b as MLBGame;
+          const edgeA = Math.max(Math.abs(mlbA.home_ml_edge_pct || 0), Math.abs(mlbA.away_ml_edge_pct || 0));
+          const edgeB = Math.max(Math.abs(mlbB.home_ml_edge_pct || 0), Math.abs(mlbB.away_ml_edge_pct || 0));
+          return edgeB - edgeA;
+        });
+      } else if (selectedSport === 'cfb') {
         return games.sort((a, b) => {
           const edgeA = Math.abs((a as CFBPrediction).home_spread_diff || 0);
           const edgeB = Math.abs((b as CFBPrediction).home_spread_diff || 0);
@@ -809,9 +1027,16 @@ export default function FeedScreen() {
         });
       }
     }
-    
+
     if (sortMode === 'ou') {
-      if (selectedSport === 'cfb') {
+      if (selectedSport === 'mlb') {
+        // MLB: sort by O/U edge %
+        return games.sort((a, b) => {
+          const edgeA = Math.abs((a as MLBGame).ou_edge || 0);
+          const edgeB = Math.abs((b as MLBGame).ou_edge || 0);
+          return edgeB - edgeA;
+        });
+      } else if (selectedSport === 'cfb') {
         return games.sort((a, b) => {
           const edgeA = Math.abs((a as CFBPrediction).over_line_diff || 0);
           const edgeB = Math.abs((b as CFBPrediction).over_line_diff || 0);
@@ -845,8 +1070,11 @@ export default function FeedScreen() {
   const handleNCAABGamePress = (game: NCAABGame) => {
     openNCAABGameSheet(game);
   };
+  const handleMLBGamePress = (game: MLBGame) => {
+    openMLBGameSheet(game);
+  };
 
-  const renderGameCard = ({ item, index }: { item: NFLPrediction | CFBPrediction | NBAGame | NCAABGame, index: number }) => {
+  const renderGameCard = ({ item, index }: { item: NFLPrediction | CFBPrediction | NBAGame | NCAABGame | MLBGame, index: number }) => {
     const cardWidth = (Dimensions.get('window').width - 24) / 2;
 
     // Non-pro users only see first 2 cards per sport, rest are locked
@@ -862,6 +1090,8 @@ export default function FeedScreen() {
       gameCard = <NBAGameCard game={item as NBAGame} onPress={() => handleNBAGamePress(item as NBAGame)} cardWidth={cardWidth} />;
     } else if (selectedSport === 'ncaab') {
       gameCard = <NCAABGameCard game={item as NCAABGame} onPress={() => handleNCAABGamePress(item as NCAABGame)} cardWidth={cardWidth} />;
+    } else if (selectedSport === 'mlb') {
+      gameCard = <MLBGameCard game={item as MLBGame} onPress={() => handleMLBGamePress(item as MLBGame)} cardWidth={cardWidth} />;
     }
 
     if (!gameCard) return null;
@@ -913,11 +1143,13 @@ export default function FeedScreen() {
         openNBAGameSheet(game as NBAGame);
       } else if (sportKey === 'ncaab') {
         openNCAABGameSheet(game as NCAABGame);
+      } else if (sportKey === 'mlb') {
+        openMLBGameSheet(game as MLBGame);
       }
     } else {
       console.log(`🤖 Game not found for ID: ${gameId}`);
     }
-  }, [cachedData, dismissSuggestion, openGameSheet, openCFBGameSheet, openNBAGameSheet, openNCAABGameSheet]);
+  }, [cachedData, dismissSuggestion, openGameSheet, openCFBGameSheet, openNBAGameSheet, openNCAABGameSheet, openMLBGameSheet]);
 
   // Render list header with search and filters for a specific sport
   const renderListHeader = (sport: Sport) => (

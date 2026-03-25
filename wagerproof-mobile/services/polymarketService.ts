@@ -183,7 +183,7 @@ const NCAAB_TEAM_MAPPINGS: Record<string, string> = {
   'Dayton': 'Dayton',
 };
 
-function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'): string {
+function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' = 'nfl'): string {
   if (league === 'cfb') {
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
   }
@@ -214,7 +214,7 @@ async function getSportsMetadata(): Promise<PolymarketSport[]> {
   }
 }
 
-async function getLeagueTagId(league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): Promise<string | null> {
+async function getLeagueTagId(league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb'): Promise<string | null> {
   const sports = await getSportsMetadata();
   const sportName = league; // nfl, cfb, nba, ncaab maps directly
   const sport = sports.find((s) => s.sport?.toLowerCase() === sportName);
@@ -230,7 +230,7 @@ async function getLeagueTagId(league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): Promise<
   return primaryTagId;
 }
 
-async function getLeagueEvents(league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'): Promise<PolymarketEvent[]> {
+async function getLeagueEvents(league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' = 'nfl'): Promise<PolymarketEvent[]> {
   try {
     const tagId = await getLeagueTagId(league);
     
@@ -475,7 +475,7 @@ function transformPriceHistory(
 async function getAllMarketsDataFromCache(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'
+  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   try {
     const gameKey = `${league}_${awayTeam}_${homeTeam}`;
@@ -530,7 +530,7 @@ async function getAllMarketsDataFromCache(
 async function getAllMarketsDataLive(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'
+  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   try {
     const awayMascot = getTeamMascot(awayTeam, league);
@@ -589,7 +589,7 @@ async function getAllMarketsDataLive(
 export async function getAllMarketsData(
   awayTeam: string,
   homeTeam: string,
-  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' = 'nfl'
+  league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   const cachedData = await getAllMarketsDataFromCache(awayTeam, homeTeam, league);
   

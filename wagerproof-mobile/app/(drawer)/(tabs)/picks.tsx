@@ -298,7 +298,7 @@ export default function PicksScreen() {
     { id: 'ncaab', label: 'NCAAB', available: true, icon: 'basketball-hoop' },
     { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
     { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
-    { id: 'mlb', label: 'MLB', available: false, icon: 'baseball' },
+    { id: 'mlb', label: 'MLB', available: true, icon: 'baseball' },
   ];
 
   // Calculate header heights (must match feed page calculation)

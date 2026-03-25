@@ -18,6 +18,7 @@ const SPORT_ICONS: Record<Sport, string> = {
   cfb: 'shield-half-full',
   nba: 'basketball',
   ncaab: 'school',
+  mlb: 'baseball',
 };
 
 function getPrimaryColor(value: string): string {
@@ -448,34 +449,31 @@ export function AgentIdCard({ agent, onPress, debugForcePicksReady }: AgentIdCar
           </View>
         </View>
 
-        {/* ── Picks action ── */}
-        <PicksActionSection
-          agent={agent}
-          primary={primary}
-          pillBg={pillBg}
-          dimText={dimText}
-          onPress={onPress}
-          debugForcePicksReady={debugForcePicksReady}
-        />
-
-        {/* ── Bottom row ── */}
+        {/* ── Bottom row: autopilot status ── */}
         <View style={styles.bottomRow}>
-          {agent.is_active && (
-            <View style={styles.autoBadge}>
-              <LottieView
-                source={require('@/assets/pulselottie.json')}
-                autoPlay
-                loop
-                style={styles.autoLottie}
-              />
-              <Text style={styles.autoText}>autopilot on</Text>
-            </View>
-          )}
-          {agent.is_active && agent.auto_generate_time && (
-            <View style={styles.nextRunBadge}>
-              <Text style={styles.nextRunText}>
-                {formatNextRun(agent.auto_generate_time, agent.auto_generate_timezone)}
-              </Text>
+          {agent.is_active ? (
+            <>
+              <View style={styles.autoBadge}>
+                <LottieView
+                  source={require('@/assets/pulselottie.json')}
+                  autoPlay
+                  loop
+                  style={styles.autoLottie}
+                />
+                <Text style={styles.autoText}>autopilot on</Text>
+              </View>
+              {agent.auto_generate_time && (
+                <View style={styles.nextRunBadge}>
+                  <Text style={styles.nextRunText}>
+                    {formatNextRun(agent.auto_generate_time, agent.auto_generate_timezone)}
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.autoOffBadge}>
+              <MaterialCommunityIcons name="pause-circle-outline" size={14} color="#ef4444" />
+              <Text style={styles.autoOffText}>autopilot off</Text>
             </View>
           )}
         </View>
@@ -487,7 +485,7 @@ export function AgentIdCard({ agent, onPress, debugForcePicksReady }: AgentIdCar
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    height: 240,
+    height: 195,
     borderRadius: 20,
     overflow: 'hidden',
     marginVertical: 4,
@@ -636,6 +634,22 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '700',
     color: '#10b981',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  autoOffBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 24,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    gap: 4,
+  },
+  autoOffText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#ef4444',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },

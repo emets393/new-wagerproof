@@ -44,7 +44,7 @@ import { GameAccuracyData } from '@/types/modelAccuracy';
 import { lookupNBAFullGame, lookupNCAABFullGame } from '@/hooks/useFullGameLookup';
 
 // Helper to filter by sport
-const filterBySport = <T extends { sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' }>(
+const filterBySport = <T extends { sport: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' }>(
   items: T[],
   filter: string | null
 ): T[] => {
@@ -58,6 +58,7 @@ const getSportIconName = (sport: string) => {
     case 'cfb': return 'school';
     case 'nba': return 'basketball';
     case 'ncaab': return 'basketball-hoop';
+    case 'mlb': return 'baseball';
     default: return 'circle-outline';
   }
 };
@@ -68,6 +69,7 @@ const getSportColor = (sport: string) => {
         case 'cfb': return '#C8102E';
         case 'nba': return '#1D428A';
         case 'ncaab': return '#F58426';
+        case 'mlb': return '#002D72';
         default: return '#888';
     }
 }

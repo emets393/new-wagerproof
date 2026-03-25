@@ -14,8 +14,9 @@ import {
   getNFLTeamLogo,
   getContrastingTextColor,
 } from '@/utils/teamColors';
+import { getMLBTeamColors, getMLBFallbackTeamInfo } from '@/constants/mlbTeams';
 
-export type SportType = 'nba' | 'ncaab' | 'cfb' | 'nfl';
+export type SportType = 'nba' | 'ncaab' | 'cfb' | 'nfl' | 'mlb';
 
 interface TeamAvatarProps {
   teamName: string;
@@ -51,6 +52,10 @@ export function TeamAvatar({ teamName, sport, size = 48, teamAbbr, logoUrl }: Te
         return getCFBTeamLogo(safeTeamName);
       case 'nfl':
         return getNFLTeamLogo(safeTeamName);
+      case 'mlb': {
+        const info = getMLBFallbackTeamInfo(safeTeamName);
+        return info?.logo_url || '';
+      }
       default:
         return '';
     }
@@ -66,6 +71,8 @@ export function TeamAvatar({ teamName, sport, size = 48, teamAbbr, logoUrl }: Te
         return getCFBTeamColors(safeTeamName);
       case 'nfl':
         return getNFLTeamColors(safeTeamName);
+      case 'mlb':
+        return getMLBTeamColors(safeTeamName);
       default:
         return { primary: '#333333', secondary: '#666666' };
     }
@@ -82,6 +89,10 @@ export function TeamAvatar({ teamName, sport, size = 48, teamAbbr, logoUrl }: Te
         return getCFBTeamInitials(safeTeamName);
       case 'nfl':
         return getTeamInitials(safeTeamName);
+      case 'mlb': {
+        const info = getMLBFallbackTeamInfo(safeTeamName);
+        return info?.team || safeTeamName.substring(0, 3).toUpperCase();
+      }
       default:
         return safeTeamName.substring(0, 3).toUpperCase();
     }

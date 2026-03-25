@@ -38,6 +38,7 @@ const SPORT_LABELS: Record<Sport | 'all', string> = {
   cfb: 'CFB',
   nba: 'NBA',
   ncaab: 'NCAAB',
+  mlb: 'MLB',
 };
 
 // ============================================================================
