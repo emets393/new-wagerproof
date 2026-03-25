@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WagerProof Pixel Office</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0b0d12;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    color: #c8cdd8;
+    overflow: hidden;
+    height: 100vh;
+  }
+  #header {
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 1300px;
+  }
+  #header h1 {
+    font-size: 14px;
+    color: #20b2aa;
+    letter-spacing: 1px;
+  }
+  #header .controls {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .btn {
+    padding: 6px 14px;
+    font-size: 11px;
+    font-family: inherit;
+    background: #1a1e28;
+    border: 1px solid #2d333b;
+    color: #8b949e;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: #252a36; color: #c8cdd8; border-color: #20b2aa; }
+  .btn.active { background: #1a332e; color: #20b2aa; border-color: #20b2aa; }
+  #canvas-container {
+    position: relative;
+    border: 1px solid #2d333b;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #0f1118;
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  #roster {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    flex-wrap: wrap;
+    max-width: 1300px;
+  }
+  .agent-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: #15191c;
+    border: 1px solid #2d333b;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .agent-badge:hover { border-color: #20b2aa; }
+  .agent-badge .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .agent-badge .name { color: #c8cdd8; }
+  .agent-badge .state { color: #8b949e; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>WAGERPROOF PIXEL OFFICE</h1>
+  <div class="controls">
+    <button class="btn" onclick="addAgent()">+ Add Agent</button>
+    <button class="btn" onclick="cycleStates()">Cycle States</button>
+    <button class="btn" onclick="toggleZoom()">Zoom</button>
+  </div>
+</div>
+
+<div id="canvas-container">
+  <canvas id="office"></canvas>
+</div>
+
+<div id="roster"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════════════
+const TILE = 32;
+const FW = 48, FH = 64;
+const SHEET_COLS = 8, SHEET_ROWS = 9;
+const ANIM_INTERVAL = 125;      // active anim fps
+const IDLE_ANIM_INTERVAL = 500; // idle anim fps
+const MOVE_SPEED = 110;         // px/sec
+const ARRIVE_THRESHOLD = 3;
+
+const ASSET_BASE = './';
+
+const SPRITE_FRAMES = {
+  front_idle:      [0,1,2,3],   front_walk:      [4,5,6,7],
+  front_sit_idle:  [8,9,10,11], front_sit_work:  [12,13,14,15],
+  left_idle:       [16,17,18,19], left_walk:     [20,21,22,23],
+  left_sit_idle:   [24,25,26,27], left_sit_work: [28,29,30,31],
+  right_idle:      [32,33,34,35], right_walk:    [36,37,38,39],
+  right_sit_idle:  [40,41,42,43], right_sit_work:[44,45,46,47],
+  back_idle:       [48,49,50,51], back_walk:     [52,53,54,55],
+  back_sit_idle:   [56,57,58,59], back_sit_work: [60,61,62,63],
+  front_done_dance:[64,65,66,67], front_alert_jump:[68,69,70,71],
+};
+
+const STATE_COLORS = {
+  idle:      '#94a3b8',
+  working:   '#f97316',
+  thinking:  '#8b5cf6',
+  done:      '#22c55e',
+  error:     '#ef4444',
+  help:      '#ef4444',
+};
+
+const STATE_LABELS = {
+  idle: 'RESTING', working: 'WORKING', thinking: 'THINKING',
+  done: 'DONE', error: 'ERROR', help: 'NEED HELP',
+};
+
+const AGENT_NAMES = [
+  'Line Hawk', 'Spread Eagle', 'Model Maven', 'Value Hunter',
+  'Risk Ranger', 'Trend Spotter', 'Odds Oracle', 'Sharp Edge',
+];
+
+// ═══════════════════════════════════════════════════════════════════
+//  ASSET LOADING
+// ═══════════════════════════════════════════════════════════════════
+const assets = { avatars: [], bg: null, fg: null, collision: null };
+let collisionGrid = null;
+let mapW = 640, mapH = 384;
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed: ' + src));
+    img.src = src;
+  });
+}
+
+async function loadAssets() {
+  const promises = [];
+  for (let i = 0; i < 8; i++) {
+    promises.push(loadImage(`${ASSET_BASE}characters/avatar_${i}.webp`));
+  }
+  promises.push(loadImage(`${ASSET_BASE}office/map/office_bg_32.webp`));
+  promises.push(loadImage(`${ASSET_BASE}office/map/office_fg_32.webp`));
+  promises.push(loadImage(`${ASSET_BASE}office/map/office_collision.webp`));
+
+  const results = await Promise.all(promises);
+  for (let i = 0; i < 8; i++) assets.avatars[i] = results[i];
+  assets.bg = results[8];
+  assets.fg = results[9];
+  assets.collision = results[10];
+
+  mapW = assets.bg.width;
+  mapH = assets.bg.height;
+
+  // Parse collision grid
+  parseCollision();
+}
+
+function parseCollision() {
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = mapW;
+  tmpCanvas.height = mapH;
+  const ctx = tmpCanvas.getContext('2d');
+  ctx.drawImage(assets.collision, 0, 0);
+  const data = ctx.getImageData(0, 0, mapW, mapH).data;
+
+  const gw = Math.floor(mapW / TILE);
+  const gh = Math.floor(mapH / TILE);
+  collisionGrid = Array.from({length: gh}, () => Array(gw).fill(true));
+
+  for (let gy = 0; gy < gh; gy++) {
+    for (let gx = 0; gx < gw; gx++) {
+      // Sample center of tile
+      const px = gx * TILE + TILE/2;
+      const py = gy * TILE + TILE/2;
+      const idx = (Math.floor(py) * mapW + Math.floor(px)) * 4;
+      const alpha = data[idx + 3];
+      collisionGrid[gy][gx] = alpha < 128; // transparent = walkable
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  A* PATHFINDING
+// ═══════════════════════════════════════════════════════════════════
+function findPath(sx, sy, ex, ey) {
+  if (!collisionGrid) return [{x: ex, y: ey}];
+
+  const gw = collisionGrid[0].length;
+  const gh = collisionGrid.length;
+
+  const toGrid = (px, py) => ({
+    x: Math.max(0, Math.min(gw-1, Math.floor(px / TILE))),
+    y: Math.max(0, Math.min(gh-1, Math.floor(py / TILE))),
+  });
+
+  let start = toGrid(sx, sy);
+  let end = toGrid(ex, ey);
+
+  // Ensure start/end are walkable
+  start = findNearestWalkable(start.x, start.y);
+  end = findNearestWalkable(end.x, end.y);
+
+  if (start.x === end.x && start.y === end.y) {
+    return [{x: end.x * TILE + TILE/2, y: end.y * TILE + TILE}];
+  }
+
+  // A* implementation
+  const key = (x, y) => `${x},${y}`;
+  const open = new Map();
+  const closed = new Set();
+  const gScore = {};
+  const fScore = {};
+  const cameFrom = {};
+
+  const h = (x, y) => Math.abs(x - end.x) + Math.abs(y - end.y);
+
+  const startKey = key(start.x, start.y);
+  gScore[startKey] = 0;
+  fScore[startKey] = h(start.x, start.y);
+  open.set(startKey, {x: start.x, y: start.y});
+
+  const dirs = [
+    {dx:0,dy:-1,cost:1}, {dx:0,dy:1,cost:1},
+    {dx:-1,dy:0,cost:1}, {dx:1,dy:0,cost:1},
+    {dx:-1,dy:-1,cost:1.4}, {dx:1,dy:-1,cost:1.4},
+    {dx:-1,dy:1,cost:1.4},  {dx:1,dy:1,cost:1.4},
+  ];
+
+  let iterations = 0;
+  while (open.size > 0 && iterations < 2000) {
+    iterations++;
+    // Find lowest fScore in open
+    let bestKey = null, bestF = Infinity;
+    for (const [k, node] of open) {
+      const f = fScore[k] || Infinity;
+      if (f < bestF) { bestF = f; bestKey = k; }
+    }
+
+    const current = open.get(bestKey);
+    open.delete(bestKey);
+    closed.add(bestKey);
+
+    if (current.x === end.x && current.y === end.y) {
+      // Reconstruct path
+      const path = [];
+      let ck = bestKey;
+      while (ck) {
+        const [cx, cy] = ck.split(',').map(Number);
+        path.unshift({x: cx * TILE + TILE/2, y: cy * TILE + TILE});
+        ck = cameFrom[ck];
+      }
+      return path;
+    }
+
+    for (const {dx, dy, cost} of dirs) {
+      const nx = current.x + dx;
+      const ny = current.y + dy;
+      if (nx < 0 || nx >= gw || ny < 0 || ny >= gh) continue;
+      if (!collisionGrid[ny][nx]) continue;
+
+      const nk = key(nx, ny);
+      if (closed.has(nk)) continue;
+
+      const tentG = (gScore[bestKey] || 0) + cost;
+      if (tentG < (gScore[nk] || Infinity)) {
+        cameFrom[nk] = bestKey;
+        gScore[nk] = tentG;
+        fScore[nk] = tentG + h(nx, ny);
+        open.set(nk, {x: nx, y: ny});
+      }
+    }
+  }
+
+  // Fallback: direct line
+  return [{x: ex, y: ey}];
+}
+
+function findNearestWalkable(gx, gy) {
+  if (!collisionGrid) return {x: gx, y: gy};
+  const gw = collisionGrid[0].length;
+  const gh = collisionGrid.length;
+
+  if (gy >= 0 && gy < gh && gx >= 0 && gx < gw && collisionGrid[gy][gx]) {
+    return {x: gx, y: gy};
+  }
+
+  for (let r = 1; r < 20; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+        const nx = gx + dx, ny = gy + dy;
+        if (nx >= 0 && nx < gw && ny >= 0 && ny < gh && collisionGrid[ny][nx]) {
+          return {x: nx, y: ny};
+        }
+      }
+    }
+  }
+  return {x: gx, y: gy};
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CHARACTER SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+
+// Predefined desk and idle positions (pixel coords)
+const DESK_SPOTS = [
+  {x: 80, y: 130, dir: 'up'},
+  {x: 192, y: 130, dir: 'up'},
+  {x: 304, y: 130, dir: 'up'},
+  {x: 80, y: 210, dir: 'up'},
+  {x: 192, y: 210, dir: 'up'},
+  {x: 460, y: 150, dir: 'up'},
+  {x: 572, y: 150, dir: 'up'},
+];
+
+const IDLE_SPOTS = [
+  {x: 160, y: 280}, {x: 240, y: 300}, {x: 120, y: 320},
+  {x: 200, y: 340}, {x: 300, y: 280}, {x: 480, y: 370},
+  {x: 520, y: 360}, {x: 80, y: 350},
+];
+
+class Character {
+  constructor(id, name, avatarIdx) {
+    this.id = id;
+    this.name = name;
+    this.avatarIdx = avatarIdx;
+    this.state = 'idle';
+
+    // Position
+    const spot = IDLE_SPOTS[id % IDLE_SPOTS.length];
+    this.x = spot.x;
+    this.y = spot.y;
+    this.facing = 'down';
+    this.deskIdx = -1;
+
+    // Animation
+    this.animKey = 'front_idle';
+    this.frameIdx = 0;
+    this.animTimer = 0;
+
+    // Movement
+    this.path = [];
+    this.pathIdx = 0;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.arrived = true;
+
+    // Speech bubble
+    this.speech = '';
+    this.speechTimer = 0;
+
+    // Effects
+    this.effects = [];
+  }
+
+  setState(newState) {
+    if (this.state === newState) return;
+    const oldState = this.state;
+    this.state = newState;
+
+    // Spawn state-change ring
+    this.spawnEffect('stateChange');
+
+    if (newState === 'working' || newState === 'thinking') {
+      this.goToDesk();
+      this.speech = newState === 'working' ? 'Crunching data...' : 'Thinking...';
+      this.speechTimer = -1; // persistent
+    } else if (newState === 'done') {
+      this.releaseDesk();
+      this.goToIdleSpot();
+      this.speech = 'Done!';
+      this.speechTimer = 5000;
+      this.spawnEffect('confetti');
+    } else if (newState === 'error') {
+      this.speech = 'Error!';
+      this.speechTimer = -1;
+      this.spawnEffect('warning');
+    } else {
+      this.releaseDesk();
+      this.goToIdleSpot();
+      this.speech = '';
+    }
+  }
+
+  goToDesk() {
+    // Find available desk
+    if (this.deskIdx >= 0) return;
+    for (let i = 0; i < DESK_SPOTS.length; i++) {
+      if (!characters.some(c => c !== this && c.deskIdx === i)) {
+        this.deskIdx = i;
+        const desk = DESK_SPOTS[i];
+        this.navigateTo(desk.x, desk.y);
+        return;
+      }
+    }
+    // Overflow: stay where you are
+    this.navigateTo(this.x + 20, this.y);
+  }
+
+  releaseDesk() {
+    this.deskIdx = -1;
+  }
+
+  goToIdleSpot() {
+    const spot = IDLE_SPOTS[(this.id + Math.floor(Math.random() * 4)) % IDLE_SPOTS.length];
+    this.navigateTo(spot.x + Math.random() * 30 - 15, spot.y + Math.random() * 20 - 10);
+  }
+
+  navigateTo(tx, ty) {
+    this.targetX = tx;
+    this.targetY = ty;
+    this.path = findPath(this.x, this.y, tx, ty);
+    this.pathIdx = 0;
+    this.arrived = false;
+  }
+
+  update(dt) {
+    // Movement
+    if (!this.arrived && this.path.length > 0) {
+      const wp = this.path[this.pathIdx];
+      const dx = wp.x - this.x;
+      const dy = wp.y - this.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      if (dist < ARRIVE_THRESHOLD) {
+        this.pathIdx++;
+        if (this.pathIdx >= this.path.length) {
+          this.arrived = true;
+          this.x = wp.x;
+          this.y = wp.y;
+        }
+      } else {
+        const speed = MOVE_SPEED * dt;
+        this.x += (dx / dist) * Math.min(speed, dist);
+        this.y += (dy / dist) * Math.min(speed, dist);
+
+        // Set facing based on movement
+        if (Math.abs(dx) > Math.abs(dy)) {
+          this.facing = dx > 0 ? 'right' : 'left';
+        } else {
+          this.facing = dy > 0 ? 'down' : 'up';
+        }
+      }
+    }
+
+    // Determine animation key
+    this.updateAnimation(dt);
+
+    // Speech timer
+    if (this.speechTimer > 0) {
+      this.speechTimer -= dt * 1000;
+      if (this.speechTimer <= 0) this.speech = '';
+    }
+
+    // Effects
+    this.effects = this.effects.filter(e => {
+      e.age += dt * 1000;
+      return e.age < e.duration;
+    });
+
+    // Random focus sparkles when working
+    if (this.state === 'working' && this.arrived && Math.random() < 0.03) {
+      this.spawnEffect('focus');
+    }
+  }
+
+  updateAnimation(dt) {
+    const dirMap = {down: 'front', up: 'back', left: 'left', right: 'right'};
+    const dir = dirMap[this.facing];
+
+    if (!this.arrived) {
+      this.animKey = `${dir}_walk`;
+    } else if (this.state === 'done') {
+      this.animKey = 'front_done_dance';
+    } else if (this.state === 'error') {
+      this.animKey = 'front_alert_jump';
+    } else if (this.state === 'working' || this.state === 'thinking') {
+      if (this.deskIdx >= 0) {
+        const desk = DESK_SPOTS[this.deskIdx];
+        const ddir = dirMap[desk.dir] || dir;
+        this.animKey = this.state === 'working' ? `${ddir}_sit_work` : `${ddir}_sit_idle`;
+      } else {
+        this.animKey = `${dir}_idle`;
+      }
+    } else {
+      this.animKey = `${dir}_idle`;
+    }
+
+    const frames = SPRITE_FRAMES[this.animKey];
+    if (!frames) return;
+
+    const interval = this.arrived && this.state === 'idle' ? IDLE_ANIM_INTERVAL : ANIM_INTERVAL;
+    this.animTimer += dt * 1000;
+    if (this.animTimer >= interval) {
+      this.animTimer -= interval;
+      this.frameIdx = (this.frameIdx + 1) % frames.length;
+    }
+  }
+
+  spawnEffect(type) {
+    if (type === 'confetti') {
+      for (let i = 0; i < 15; i++) {
+        this.effects.push({
+          type: 'confetti',
+          ox: Math.random() * 30 - 15,
+          oy: -Math.random() * 20,
+          vx: Math.random() * 60 - 30,
+          vy: -Math.random() * 80 - 40,
+          color: ['#f97316','#22c55e','#8b5cf6','#3b82f6','#ef4444','#eab308'][Math.floor(Math.random()*6)],
+          size: 2 + Math.random() * 2,
+          age: 0,
+          duration: 1500 + Math.random() * 1000,
+        });
+      }
+    } else if (type === 'warning') {
+      this.effects.push({
+        type: 'warning', age: 0, duration: 1200,
+      });
+    } else if (type === 'focus') {
+      const chars = ['0','1','{','}',';','>','_','$'];
+      this.effects.push({
+        type: 'focus',
+        char: chars[Math.floor(Math.random()*chars.length)],
+        ox: Math.random() * 20 - 10,
+        oy: 0,
+        age: 0,
+        duration: 1000 + Math.random() * 500,
+        color: Math.random() > 0.5 ? '#20b2aa' : '#22c55e',
+      });
+    } else if (type === 'stateChange') {
+      this.effects.push({
+        type: 'stateChange',
+        color: STATE_COLORS[this.state] || '#94a3b8',
+        age: 0,
+        duration: 600,
+      });
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RENDERER
+// ═══════════════════════════════════════════════════════════════════
+let canvas, ctx;
+let scale = 2;
+let characters = [];
+let lastTime = 0;
+
+function initCanvas() {
+  canvas = document.getElementById('office');
+  ctx = canvas.getContext('2d');
+  canvas.width = mapW * scale;
+  canvas.height = mapH * scale;
+  ctx.imageSmoothingEnabled = false;
+}
+
+function drawFrame(frameIndex, avatarImg, x, y) {
+  const col = frameIndex % SHEET_COLS;
+  const row = Math.floor(frameIndex / SHEET_COLS);
+  const sx = col * FW;
+  const sy = row * FH;
+
+  ctx.drawImage(
+    avatarImg,
+    sx, sy, FW, FH,
+    Math.round((x - FW/2) * scale),
+    Math.round((y - FH + 10) * scale),  // anchor at feet
+    FW * scale, FH * scale
+  );
+}
+
+function drawSpeechBubble(text, x, y) {
+  if (!text) return;
+  const sx = x * scale;
+  const sy = (y - FH - 8) * scale;
+
+  ctx.font = `${9 * scale}px 'JetBrains Mono', monospace`;
+  const metrics = ctx.measureText(text);
+  const tw = metrics.width;
+  const pad = 4 * scale;
+  const bw = tw + pad * 2;
+  const bh = 12 * scale;
+
+  // Bubble background
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  roundRect(ctx, sx - bw/2, sy - bh, bw, bh, 3 * scale);
+  ctx.fill();
+
+  // Tail
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.beginPath();
+  ctx.moveTo(sx - 3*scale, sy);
+  ctx.lineTo(sx + 3*scale, sy);
+  ctx.lineTo(sx, sy + 4*scale);
+  ctx.closePath();
+  ctx.fill();
+
+  // Text
+  ctx.fillStyle = '#1a1a2e';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, sx, sy - 3*scale);
+}
+
+function drawNameTag(char) {
+  const sx = char.x * scale;
+  const sy = (char.y - FH + 2) * scale;
+
+  const name = char.name.length > 14 ? char.name.slice(0,12) + '..' : char.name;
+  ctx.font = `bold ${7 * scale}px 'JetBrains Mono', monospace`;
+  const tw = ctx.measureText(name).width;
+  const pad = 3 * scale;
+  const bw = tw + pad * 2;
+  const bh = 10 * scale;
+
+  // Background
+  ctx.fillStyle = 'rgba(15,17,24,0.85)';
+  roundRect(ctx, sx - bw/2, sy - bh, bw, bh, 2 * scale);
+  ctx.fill();
+
+  // Color border
+  ctx.strokeStyle = STATE_COLORS[char.state] || '#94a3b8';
+  ctx.lineWidth = scale;
+  roundRect(ctx, sx - bw/2, sy - bh, bw, bh, 2 * scale);
+  ctx.stroke();
+
+  // Name
+  ctx.fillStyle = '#e0e4ec';
+  ctx.textAlign = 'center';
+  ctx.fillText(name, sx, sy - 2.5*scale);
+
+  // Status pill above
+  const label = STATE_LABELS[char.state] || 'IDLE';
+  ctx.font = `bold ${5 * scale}px 'JetBrains Mono', monospace`;
+  const lw = ctx.measureText(label).width;
+  const pw = lw + 4*scale;
+  const ph = 7*scale;
+
+  ctx.fillStyle = STATE_COLORS[char.state] || '#94a3b8';
+  roundRect(ctx, sx - pw/2, sy - bh - ph - scale, pw, ph, 2*scale);
+  ctx.fill();
+
+  ctx.fillStyle = '#fff';
+  ctx.fillText(label, sx, sy - bh - 2*scale);
+}
+
+function drawEffects(char) {
+  for (const e of char.effects) {
+    const progress = e.age / e.duration;
+
+    if (e.type === 'confetti') {
+      const gravity = 120;
+      const t = e.age / 1000;
+      const ex = (char.x + e.ox + e.vx * t) * scale;
+      const ey = (char.y + e.oy + e.vy * t + 0.5 * gravity * t * t) * scale;
+      const alpha = 1 - progress;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = e.color;
+      ctx.fillRect(ex, ey, e.size * scale, e.size * scale);
+      ctx.globalAlpha = 1;
+    }
+    else if (e.type === 'warning') {
+      const wobble = Math.sin(e.age * 0.02) * 3;
+      const ex = (char.x + wobble) * scale;
+      const ey = (char.y - FH - 20) * scale;
+      ctx.font = `bold ${14*scale}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#eab308';
+      ctx.globalAlpha = 1 - progress * 0.5;
+      ctx.fillText('⚠', ex, ey);
+      ctx.globalAlpha = 1;
+    }
+    else if (e.type === 'focus') {
+      const ey = char.y - FH/2 - e.age * 0.03;
+      ctx.font = `${8*scale}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = e.color;
+      ctx.globalAlpha = 1 - progress;
+      ctx.fillText(e.char, (char.x + e.ox) * scale, ey * scale);
+      ctx.globalAlpha = 1;
+    }
+    else if (e.type === 'stateChange') {
+      const radius = 20 * progress * scale;
+      ctx.beginPath();
+      ctx.arc(char.x * scale, (char.y - FH/2) * scale, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = e.color;
+      ctx.lineWidth = 2 * scale;
+      ctx.globalAlpha = 1 - progress;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function render(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+  lastTime = timestamp;
+
+  // Update characters
+  for (const c of characters) c.update(dt);
+
+  // Clear
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background
+  ctx.drawImage(assets.bg, 0, 0, mapW, mapH, 0, 0, mapW * scale, mapH * scale);
+
+  // Sort characters by Y for depth
+  const sorted = [...characters].sort((a, b) => a.y - b.y);
+
+  // Draw characters
+  for (const char of sorted) {
+    const frames = SPRITE_FRAMES[char.animKey];
+    if (!frames) continue;
+    const frameIndex = frames[char.frameIdx % frames.length];
+    const avatarImg = assets.avatars[char.avatarIdx];
+    if (!avatarImg) continue;
+    drawFrame(frameIndex, avatarImg, char.x, char.y);
+  }
+
+  // Foreground
+  ctx.drawImage(assets.fg, 0, 0, mapW, mapH, 0, 0, mapW * scale, mapH * scale);
+
+  // UI overlays (after foreground)
+  for (const char of sorted) {
+    drawEffects(char);
+    drawNameTag(char);
+    drawSpeechBubble(char.speech, char.x, char.y);
+  }
+
+  requestAnimationFrame(render);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════════════════════
+let agentCounter = 0;
+
+function addAgent() {
+  if (characters.length >= 8) return;
+  const idx = agentCounter++;
+  const c = new Character(idx, AGENT_NAMES[idx % AGENT_NAMES.length], idx % 8);
+  characters.push(c);
+  updateRoster();
+
+  // Randomly assign initial state after a delay
+  setTimeout(() => {
+    const states = ['idle', 'working', 'thinking', 'done'];
+    c.setState(states[Math.floor(Math.random() * states.length)]);
+    updateRoster();
+  }, 500 + Math.random() * 1000);
+}
+
+function cycleStates() {
+  const states = ['idle', 'working', 'thinking', 'done', 'error'];
+  for (const c of characters) {
+    const newState = states[Math.floor(Math.random() * states.length)];
+    c.setState(newState);
+  }
+  updateRoster();
+}
+
+function toggleZoom() {
+  scale = scale === 2 ? 3 : scale === 3 ? 1 : 2;
+  canvas.width = mapW * scale;
+  canvas.height = mapH * scale;
+  ctx.imageSmoothingEnabled = false;
+}
+
+function updateRoster() {
+  const roster = document.getElementById('roster');
+  roster.innerHTML = '';
+  for (const c of characters) {
+    const badge = document.createElement('div');
+    badge.className = 'agent-badge';
+    badge.innerHTML = `
+      <span class="dot" style="background:${STATE_COLORS[c.state]}"></span>
+      <span class="name">${c.name}</span>
+      <span class="state">${STATE_LABELS[c.state]}</span>
+    `;
+    badge.onclick = () => {
+      const states = ['idle', 'working', 'thinking', 'done', 'error'];
+      const idx = states.indexOf(c.state);
+      c.setState(states[(idx + 1) % states.length]);
+      updateRoster();
+    };
+    roster.appendChild(badge);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════
+async function init() {
+  await loadAssets();
+  initCanvas();
+
+  // Add 4 initial agents
+  for (let i = 0; i < 4; i++) {
+    addAgent();
+  }
+
+  // Stagger state changes for visual interest
+  setTimeout(() => { if (characters[0]) characters[0].setState('working'); updateRoster(); }, 800);
+  setTimeout(() => { if (characters[1]) characters[1].setState('thinking'); updateRoster(); }, 1200);
+  setTimeout(() => { if (characters[2]) characters[2].setState('working'); updateRoster(); }, 1600);
+  setTimeout(() => { if (characters[3]) characters[3].setState('idle'); updateRoster(); }, 2000);
+
+  // Periodic random state changes for demo
+  setInterval(() => {
+    if (characters.length === 0) return;
+    const c = characters[Math.floor(Math.random() * characters.length)];
+    const states = ['idle', 'working', 'thinking', 'done'];
+    c.setState(states[Math.floor(Math.random() * states.length)]);
+    updateRoster();
+  }, 6000);
+
+  requestAnimationFrame(render);
+}
+
+init();
+</script>
+</body>
+</html>

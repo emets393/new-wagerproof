@@ -1003,6 +1003,69 @@ export default function AgentDetailScreen() {
           timezone={agent.auto_generate_timezone || 'America/New_York'}
         />
 
+        {/* Autopilot Toggle */}
+        <View
+          style={[
+            styles.autoGenTimeRow,
+            {
+              backgroundColor: isDark
+                ? 'rgba(255, 255, 255, 0.06)'
+                : 'rgba(0, 0, 0, 0.03)',
+              borderColor: isDark
+                ? 'rgba(255, 255, 255, 0.1)'
+                : 'rgba(0, 0, 0, 0.06)',
+            },
+          ]}
+        >
+          <View style={styles.autoGenTimeLeft}>
+            <MaterialCommunityIcons
+              name="robot-outline"
+              size={18}
+              color={agent.auto_generate ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            />
+            <Text style={[styles.autoGenTimeLabel, { color: theme.colors.onSurface }]}>
+              Autopilot
+            </Text>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={async () => {
+              if (!id) return;
+              try {
+                await updateAgentMutation.mutateAsync({
+                  agentId: id,
+                  data: { auto_generate: !agent.auto_generate },
+                });
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                refetchAgent();
+              } catch {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              }
+            }}
+            style={[
+              styles.autopilotToggle,
+              {
+                backgroundColor: agent.auto_generate
+                  ? theme.colors.primary
+                  : isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.autopilotToggleText,
+                {
+                  color: agent.auto_generate
+                    ? '#fff'
+                    : theme.colors.onSurfaceVariant,
+                },
+              ]}
+            >
+              {agent.auto_generate ? 'ON' : 'OFF'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Generate Picks Status */}
         {isGeneratingPicks ? (
           <ThinkingAnimation variant="generatingPicks" />
@@ -1701,6 +1764,16 @@ const styles = StyleSheet.create({
   autoGenTimeValue: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  autopilotToggle: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  autopilotToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   autoGenTimezoneValue: {
     fontSize: 13,

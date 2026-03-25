@@ -7,6 +7,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   Alert,
 } from 'react-native';
@@ -24,10 +25,9 @@ import { useUserAgents } from '@/hooks/useAgents';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { trackAppOpen } from '@/services/activityService';
 import { AgentTimelineSection } from '@/components/agents/AgentTimeline';
-import { AgentLeaderboard } from '@/components/agents/AgentLeaderboard';
+import { AgentIdCard } from '@/components/agents/AgentIdCard';
+import { PixelOffice } from '@/components/agents/PixelOffice';
 import { AgentWithPerformance } from '@/types/agent';
-
-type AgentsTab = 'my-agents' | 'leaderboard';
 
 // Skeleton component for loading state (matches compact header + CompactPickCard)
 function AgentTimelineSkeleton({ isDark }: { isDark: boolean }) {
@@ -178,7 +178,6 @@ export default function AgentsHubScreen() {
   const { scrollY } = useScroll();
   const { openManualMenu } = useWagerBotSuggestion();
   const { canCreateAnotherAgent, isPro, isAdmin } = useAgentEntitlements();
-  const [activeTab, setActiveTab] = useState<AgentsTab>('my-agents');
 
   // Fetch user's agents
   const {
@@ -191,8 +190,7 @@ export default function AgentsHubScreen() {
 
   // Header layout constants
   const HEADER_TOP_HEIGHT = 56;
-  const TAB_BAR_ROW_HEIGHT = 48;
-  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT + TAB_BAR_ROW_HEIGHT;
+  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT;
 
   // Track activity on mount
   useEffect(() => {
@@ -203,7 +201,7 @@ export default function AgentsHubScreen() {
 
   useEffect(() => {
     scrollY.setValue(0);
-  }, [scrollY, activeTab]);
+  }, [scrollY]);
 
   // Handle navigation to create screen
   const handleCreateAgent = useCallback(() => {
@@ -313,68 +311,11 @@ export default function AgentsHubScreen() {
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Tab Switcher */}
-          <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={styles.tabButton}
-              onPress={() => setActiveTab('my-agents')}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.tabLabel,
-                  {
-                    color: activeTab === 'my-agents'
-                      ? theme.colors.onSurface
-                      : theme.colors.onSurfaceVariant,
-                    fontWeight: activeTab === 'my-agents' ? '700' : '500',
-                  },
-                ]}
-              >
-                My Agents
-              </Text>
-              {activeTab === 'my-agents' && <View style={styles.tabUnderline} />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.tabButton}
-              onPress={() => setActiveTab('leaderboard')}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.tabLabel,
-                  {
-                    color: activeTab === 'leaderboard'
-                      ? theme.colors.onSurface
-                      : theme.colors.onSurfaceVariant,
-                    fontWeight: activeTab === 'leaderboard' ? '700' : '500',
-                  },
-                ]}
-              >
-                Leaderboard
-              </Text>
-              {activeTab === 'leaderboard' && <View style={styles.tabUnderline} />}
-            </TouchableOpacity>
-          </View>
         </AndroidBlurView>
       </View>
 
       {/* Content */}
-      {activeTab === 'leaderboard' ? (
-        <View style={{ flex: 1 }}>
-          <AgentLeaderboard
-            limit={50}
-            showViewAll={false}
-            embedded={true}
-            contentContainerStyle={{
-              paddingTop: TOTAL_HEADER_HEIGHT,
-              paddingBottom: TAB_BAR_HEIGHT + 80,
-            }}
-            progressViewOffset={TOTAL_HEADER_HEIGHT}
-          />
-        </View>
-      ) : isLoading && !agents ? (
+      {isLoading && !agents ? (
         <View style={{ paddingTop: TOTAL_HEADER_HEIGHT }}>
           {renderLoadingSkeletons()}
         </View>
@@ -420,10 +361,17 @@ export default function AgentsHubScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
         >
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <PixelOffice agentCount={4} />
+          </View>
           <EmptyState onCreatePress={handleCreateAgent} isDark={isDark} />
         </ScrollView>
       ) : (
-        <ScrollView
+        <FlatList
+          data={agents}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={[
             styles.listContent,
             {
@@ -433,17 +381,24 @@ export default function AgentsHubScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
-        >
-          {agents.map((agent) => (
-            <View key={agent.id}>
-              {renderAgentSection({ item: agent })}
-            </View>
-          ))}
-        </ScrollView>
+          ListHeaderComponent={
+            <>
+              <PixelOffice agentCount={Math.min(agents.length, 8)} />
+              <View style={{ height: 12 }} />
+            </>
+          }
+          renderItem={({ item, index }) => (
+            <AgentIdCard
+              agent={item}
+              onPress={() => handleAgentPress(item)}
+              debugForcePicksReady={index === 0}
+            />
+          )}
+        />
       )}
 
       {/* FAB for creating new agent - only on My Agents tab */}
-      {activeTab === 'my-agents' && hasAgents && canCreateMoreAgents && (
+      {hasAgents && canCreateMoreAgents && (
         <FAB
           icon="plus"
           style={[
@@ -458,7 +413,7 @@ export default function AgentsHubScreen() {
         />
       )}
 
-      {activeTab === 'my-agents' && hasAgents && !canCreateMoreAgents && (
+      {hasAgents && !canCreateMoreAgents && (
         <TouchableOpacity
           style={[
             styles.upgradeHint,
@@ -548,32 +503,12 @@ const styles = StyleSheet.create({
   chatButton: {
     padding: 8,
   },
-  tabBar: {
-    flexDirection: 'row',
-    height: 48,
-    paddingHorizontal: 16,
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  tabLabel: {
-    fontSize: 14,
-    letterSpacing: 0.1,
-  },
-  tabUnderline: {
-    position: 'absolute',
-    bottom: 0,
-    left: '20%',
-    right: '20%',
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: '#00E676',
-  },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
+  },
+  columnWrapper: {
+    paddingHorizontal: 8,
+    gap: 8,
   },
   stateScrollContent: {
     flexGrow: 1,

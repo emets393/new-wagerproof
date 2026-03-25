@@ -31,6 +31,7 @@ import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useProAccess } from '@/hooks/useProAccess';
 import { LockedOverlay } from '@/components/LockedOverlay';
 import { TopAgentPicksFeed } from '@/components/agents/TopAgentPicksFeed';
+import { AgentLeaderboard } from '@/components/agents/AgentLeaderboard';
 import { useNBABettingTrendsSheet } from '@/contexts/NBABettingTrendsSheetContext';
 import { useNCAABBettingTrendsSheet } from '@/contexts/NCAABBettingTrendsSheetContext';
 import { useNBABettingTrends } from '@/hooks/useNBABettingTrends';
@@ -527,7 +528,7 @@ export default function OutliersScreen() {
   const { isPro, isLoading: isProLoading } = useProAccess();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'outliers' | 'agentPicks'>('outliers');
+  const [activeTab, setActiveTab] = useState<'outliers' | 'agentPicks' | 'leaderboard'>('outliers');
 
   // Hub navigation
   type OutlierCategory = 'value' | 'fade' | 'nba-trends' | 'ncaab-trends' | 'nba-accuracy' | 'ncaab-accuracy';
@@ -1296,9 +1297,10 @@ export default function OutliersScreen() {
     { useNativeDriver: true }
   );
 
-  const INNER_TABS: { key: 'outliers' | 'agentPicks'; label: string }[] = [
+  const INNER_TABS: { key: 'outliers' | 'agentPicks' | 'leaderboard'; label: string }[] = [
     { key: 'outliers', label: 'Outliers' },
     { key: 'agentPicks', label: 'Top Agent Picks' },
+    { key: 'leaderboard', label: 'Leaderboard' },
   ];
 
   return (
@@ -1387,6 +1389,22 @@ export default function OutliersScreen() {
            }}
            progressViewOffset={TOTAL_HEADER_HEIGHT}
          />
+       )}
+
+       {/* Leaderboard Tab */}
+       {activeTab === 'leaderboard' && (
+         <View style={{ flex: 1 }}>
+           <AgentLeaderboard
+             limit={50}
+             showViewAll={false}
+             embedded={true}
+             contentContainerStyle={{
+               paddingTop: TOTAL_HEADER_HEIGHT,
+               paddingBottom: TAB_BAR_HEIGHT + 80,
+             }}
+             progressViewOffset={TOTAL_HEADER_HEIGHT}
+           />
+         </View>
        )}
 
        {/* Outliers Tab — Hub View */}
