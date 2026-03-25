@@ -383,7 +383,7 @@ export default function AgentsHubScreen() {
           refreshControl={refreshControl}
           ListHeaderComponent={
             <>
-              <PixelOffice agentCount={Math.min(agents.length, 8)} />
+              <PixelOffice agents={[...agents].sort((a, b) => (b.performance?.net_units ?? -Infinity) - (a.performance?.net_units ?? -Infinity)).slice(0, 6)} />
               <View style={{ height: 12 }} />
             </>
           }

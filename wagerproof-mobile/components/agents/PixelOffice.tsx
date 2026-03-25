@@ -7,6 +7,7 @@ import {
   Dimensions,
   Text,
 } from 'react-native';
+import { AgentWithPerformance } from '@/types/agent';
 
 
 // ── Asset imports ────────────────────────────────────────────────
@@ -97,17 +98,43 @@ const IDLE_SPOTS = [
   { x: 300, y: 700 }, { x: 440, y: 690 },
 ];
 
-const AGENT_NAMES = [
+const FALLBACK_NAMES = [
   'Line Hawk', 'Spread Eagle', 'Model Maven', 'Value Hunter',
   'Risk Ranger', 'Trend Spotter', 'Odds Oracle', 'Sharp Edge',
 ];
+
+// Derive an office display state from real agent data
+function deriveOfficeState(agent: AgentWithPerformance): { state: string; label: string } {
+  const hasPicksToday = agent.last_generated_at &&
+    new Date(agent.last_generated_at).toDateString() === new Date().toDateString();
+
+  if (!agent.is_active) {
+    return { state: 'idle', label: 'OFF' };
+  }
+  if (hasPicksToday) {
+    return { state: 'done', label: 'PICKS READY' };
+  }
+  // Active but hasn't generated yet — show as working/thinking
+  return { state: 'working', label: 'WORKING' };
+}
+
+function getPrimaryFromColor(value: string): string {
+  if (value.startsWith('gradient:')) {
+    return value.replace('gradient:', '').split(',')[0];
+  }
+  return value;
+}
 
 // ── Agent state type ─────────────────────────────────────────────
 interface AgentState {
   id: number;
   name: string;
+  emoji: string;
+  accentColor: string;
+  stateLabel: string;
   avatarIdx: number;
   state: string;
+  isActive: boolean;
   x: number;
   y: number;
   targetX: number;
@@ -158,9 +185,12 @@ const SpriteCharacter = React.memo(({
 });
 
 // ── Name tag component ───────────────────────────────────────────
-const NameTag = React.memo(({ name, state, scale }: { name: string; state: string; scale: number }) => {
+const NameTag = React.memo(({ name, emoji, state, stateLabel, accentColor, scale }: {
+  name: string; emoji: string; state: string; stateLabel: string; accentColor: string; scale: number;
+}) => {
   const color = STATE_COLORS[state] || '#94a3b8';
-  const label = STATE_LABELS[state] || 'IDLE';
+  const label = stateLabel || STATE_LABELS[state] || 'IDLE';
+  const borderTint = accentColor || color;
   return (
     <View style={tagStyles.container}>
       {/* Status pill */}
@@ -168,12 +198,12 @@ const NameTag = React.memo(({ name, state, scale }: { name: string; state: strin
         <Text style={[tagStyles.pillText, { fontSize: Math.max(5, 5 * scale) }]}>{label}</Text>
       </View>
       {/* Name background */}
-      <View style={[tagStyles.nameBox, { borderColor: color }]}>
+      <View style={[tagStyles.nameBox, { borderColor: borderTint }]}>
         <Text
           style={[tagStyles.nameText, { fontSize: Math.max(6, 6 * scale) }]}
           numberOfLines={1}
         >
-          {name}
+          {emoji ? `${emoji} ` : ''}{name}
         </Text>
       </View>
     </View>
@@ -181,7 +211,7 @@ const NameTag = React.memo(({ name, state, scale }: { name: string; state: strin
 });
 
 const tagStyles = StyleSheet.create({
-  container: { alignItems: 'center', position: 'absolute', top: -24, left: -30, width: 60 },
+  container: { alignItems: 'center', position: 'absolute', top: -24, left: -40, width: 80 },
   pill: { paddingHorizontal: 3, paddingVertical: 1, borderRadius: 3, marginBottom: 1 },
   pillText: { color: '#fff', fontWeight: '800', letterSpacing: 0.3 },
   nameBox: {
@@ -201,10 +231,11 @@ const tagStyles = StyleSheet.create({
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════
 interface PixelOfficeProps {
-  agentCount?: number;
+  agents?: AgentWithPerformance[];
+  agentCount?: number; // fallback for empty state
 }
 
-export function PixelOffice({ agentCount = 4 }: PixelOfficeProps) {
+export function PixelOffice({ agents: realAgents, agentCount = 4 }: PixelOfficeProps) {
   const screenWidth = Dimensions.get('window').width - 16; // match FlatList paddingHorizontal 8*2
   const scale = screenWidth / MAP_W;
   const displayW = screenWidth;
@@ -215,19 +246,32 @@ export function PixelOffice({ agentCount = 4 }: PixelOfficeProps) {
   const deskClaims = useRef<Set<number>>(new Set());
   const [renderTick, setRenderTick] = useState(0);
 
+  // Stable key for real agents to detect actual data changes (not reference)
+  const agentKey = realAgents
+    ? realAgents.map(a => `${a.id}:${a.is_active}:${a.last_generated_at ?? ''}`).join('|')
+    : `fallback:${agentCount}`;
+
   // Initialize agents
   useEffect(() => {
-    const count = Math.min(agentCount, 8);
+    const hasReal = realAgents && realAgents.length > 0;
+    const count = hasReal ? Math.min(realAgents!.length, 8) : Math.min(agentCount, 8);
     const agents: AgentState[] = [];
     deskClaims.current.clear();
 
     for (let i = 0; i < count; i++) {
       const spot = IDLE_SPOTS[i % IDLE_SPOTS.length];
+      const real = hasReal ? realAgents![i] : null;
+      const derived = real ? deriveOfficeState(real) : null;
+
       agents.push({
         id: i,
-        name: AGENT_NAMES[i],
-        avatarIdx: i,
-        state: 'idle',
+        name: real ? real.name : FALLBACK_NAMES[i],
+        emoji: real ? real.avatar_emoji : '',
+        accentColor: real ? getPrimaryFromColor(real.avatar_color) : '',
+        stateLabel: derived ? derived.label : '',
+        avatarIdx: i % 8,
+        state: derived ? derived.state : 'idle',
+        isActive: real ? real.is_active : true,
         x: spot.x + (Math.random() * 20 - 10),
         y: spot.y + (Math.random() * 10 - 5),
         targetX: spot.x,
@@ -243,15 +287,27 @@ export function PixelOffice({ agentCount = 4 }: PixelOfficeProps) {
 
     // Stagger initial state assignments
     const timeouts: ReturnType<typeof setTimeout>[] = [];
-    const initialStates = ['working', 'thinking', 'working', 'idle', 'done', 'working', 'thinking', 'idle'];
-    for (let i = 0; i < count; i++) {
-      timeouts.push(setTimeout(() => {
-        setAgentState(i, initialStates[i % initialStates.length]);
-      }, 600 + i * 400));
+    if (hasReal) {
+      // Use derived states for real agents
+      for (let i = 0; i < count; i++) {
+        const derived = deriveOfficeState(realAgents![i]);
+        timeouts.push(setTimeout(() => {
+          setAgentState(i, derived.state);
+        }, 600 + i * 400));
+      }
+    } else {
+      // Fallback: stagger through dummy states
+      const initialStates = ['working', 'thinking', 'working', 'idle', 'done', 'working', 'thinking', 'idle'];
+      for (let i = 0; i < count; i++) {
+        timeouts.push(setTimeout(() => {
+          setAgentState(i, initialStates[i % initialStates.length]);
+        }, 600 + i * 400));
+      }
     }
 
     return () => timeouts.forEach(clearTimeout);
-  }, [agentCount]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentKey]);
 
   // Set agent state with desk assignment logic
   const setAgentState = useCallback((id: number, newState: string) => {
@@ -259,6 +315,12 @@ export function PixelOffice({ agentCount = 4 }: PixelOfficeProps) {
     if (!agent || agent.state === newState) return;
 
     agent.state = newState;
+    // Update label to match current state (overrides initial derived label)
+    if (!agent.isActive) {
+      agent.stateLabel = 'OFF';
+    } else {
+      agent.stateLabel = STATE_LABELS[newState] || 'IDLE';
+    }
 
     if (newState === 'working' || newState === 'thinking') {
       // Assign desk
@@ -368,14 +430,21 @@ export function PixelOffice({ agentCount = 4 }: PixelOfficeProps) {
 
     requestAnimationFrame(loop);
 
-    // Periodic random state changes
+    // Periodic state changes — weighted by agent activity
     const stateInterval = setInterval(() => {
       const agents = agentsRef.current;
       if (agents.length === 0) return;
       const a = agents[Math.floor(Math.random() * agents.length)];
-      const states = ['idle', 'working', 'thinking', 'done', 'working', 'thinking'];
-      const newState = states[Math.floor(Math.random() * states.length)];
-      setAgentState(a.id, newState);
+
+      if (!a.isActive) {
+        // Inactive agents: mostly idle, occasionally wander
+        const states = ['idle', 'idle', 'idle', 'thinking'];
+        setAgentState(a.id, states[Math.floor(Math.random() * states.length)]);
+      } else {
+        // Active agents: cycle through productive states
+        const states = ['working', 'thinking', 'done', 'working', 'thinking', 'idle'];
+        setAgentState(a.id, states[Math.floor(Math.random() * states.length)]);
+      }
     }, 5000);
 
     return () => {
@@ -426,7 +495,7 @@ export function PixelOffice({ agentCount = 4 }: PixelOfficeProps) {
               zIndex: Math.round(agent.y),
             }]}
           >
-            <NameTag name={agent.name} state={agent.state} scale={scale} />
+            <NameTag name={agent.name} emoji={agent.emoji} state={agent.state} stateLabel={agent.stateLabel} accentColor={agent.accentColor} scale={scale} />
             <SpriteCharacter
               avatarIdx={agent.avatarIdx}
               frameIndex={frameIndex}
