@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, TouchableOpacity, FlatList, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, TextInput, ScrollView, Animated, TouchableOpacity, FlatList, Dimensions, Alert, Linking } from 'react-native';
 import { useTheme, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -35,6 +35,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useProAccess } from '@/hooks/useProAccess';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type Sport = 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb';
 type SortMode = 'time' | 'spread' | 'ou';
@@ -77,7 +78,7 @@ export default function FeedScreen() {
   } = useWagerBotSuggestion();
   
   // State
-  const [selectedSport, setSelectedSport] = useState<Sport>('nba');
+  const [selectedSport, setSelectedSport] = useState<Sport>('mlb');
   
   // Cached data state - keeps data for each sport separately
   const [cachedData, setCachedData] = useState<{
@@ -159,11 +160,11 @@ export default function FeedScreen() {
   );
 
   const sports: SportOption[] = [
+    { id: 'mlb', label: 'MLB', available: true, icon: 'baseball' },
     { id: 'nba', label: 'NBA', available: true, icon: 'basketball' },
     { id: 'ncaab', label: 'NCAAB', available: true, icon: 'basketball-hoop' },
     { id: 'nfl', label: 'NFL', available: true, icon: 'football' },
     { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
-    { id: 'mlb', label: 'MLB', available: true, icon: 'baseball' },
   ];
 
   // Fetch NFL data - matches web app approach using v_input_values_with_epa view
@@ -1152,6 +1153,30 @@ export default function FeedScreen() {
   }, [cachedData, dismissSuggestion, openGameSheet, openCFBGameSheet, openNBAGameSheet, openNCAABGameSheet, openMLBGameSheet]);
 
   // Render list header with search and filters for a specific sport
+  const DiscordBanner = useCallback(() => (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => Linking.openURL('https://discord.gg/gwy9y7XSDV')}
+      style={styles.discordBannerWrap}
+    >
+      <LinearGradient
+        colors={isDark ? ['#5865f2', '#4752c4', '#6573ff'] : ['#5b67f3', '#4752c4', '#7080ff']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.discordBannerGradient}
+      >
+        <View style={styles.discordBannerIcon}>
+          <MaterialCommunityIcons name="chat-processing-outline" size={22} color="#5865f2" />
+        </View>
+        <View style={styles.discordBannerContent}>
+          <Text style={styles.discordBannerTitle}>Join our Discord</Text>
+          <Text style={styles.discordBannerSub}>Get picks, live chat & community updates</Text>
+        </View>
+        <MaterialCommunityIcons name="arrow-right" size={18} color="rgba(255,255,255,0.6)" />
+      </LinearGradient>
+    </TouchableOpacity>
+  ), [isDark]);
+
   const renderListHeader = (sport: Sport) => (
     <View>
       <View style={[
@@ -1236,6 +1261,9 @@ export default function FeedScreen() {
 
       {/* NCAAB Model Accuracy Banner */}
       {sport === 'ncaab' && !searchTexts.ncaab && <NCAABModelAccuracyBanner />}
+
+      {/* MLB Discord Banner */}
+      {sport === 'mlb' && !searchTexts.mlb && <DiscordBanner />}
     </View>
   );
 
@@ -1674,5 +1702,40 @@ const styles = StyleSheet.create({
     marginTop: 15,
     fontSize: 16,
     textAlign: 'center',
+  },
+  discordBannerWrap: {
+    marginHorizontal: 8,
+    marginBottom: 10,
+  },
+  discordBannerGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 12,
+  },
+  discordBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  discordBannerContent: {
+    flex: 1,
+    gap: 2,
+  },
+  discordBannerTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  discordBannerSub: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 11,
+    fontWeight: '500',
   },
 });

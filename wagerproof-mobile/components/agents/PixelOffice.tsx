@@ -299,6 +299,9 @@ const LAPTOP_ID_MAP: Record<number, number> = {
   12: 4, 13: 5, 14: 6, 15: 7,
 };
 
+// Pre-built O(1) lookup map for hot-path access in the 60fps game loop
+const POINTS_BY_KEY = new Map(ALL_POINTS.map(p => [p.key, p]));
+
 function getPointsByRoom(roomIds: string[], activity?: string): ClaimablePoint[] {
   return ALL_POINTS.filter(
     p => roomIds.includes(p.roomId) && (!activity || p.activity === activity),
@@ -651,15 +654,17 @@ export function PixelOffice({
   }), [laptopFrontClose, laptopFrontOpen, laptopBackClose, laptopBackOpen,
        laptopLeftClose, laptopLeftOpen, laptopRightClose, laptopRightOpen]);
 
-  // Load all 8 avatar sprite sheets
-  const sheet0 = useImage(avatarSheetSources[0]);
-  const sheet1 = useImage(avatarSheetSources[1]);
-  const sheet2 = useImage(avatarSheetSources[2]);
-  const sheet3 = useImage(avatarSheetSources[3]);
-  const sheet4 = useImage(avatarSheetSources[4]);
-  const sheet5 = useImage(avatarSheetSources[5]);
-  const sheet6 = useImage(avatarSheetSources[6]);
-  const sheet7 = useImage(avatarSheetSources[7]);
+  // Load avatar sprite sheets — only for agents that will be displayed
+  // Passing null to useImage skips decoding, saving ~880KB GPU memory per unused sheet
+  const maxAgents = realAgents ? Math.min(realAgents.length, 8) : Math.min(agentCount, 8);
+  const sheet0 = useImage(maxAgents > 0 ? avatarSheetSources[0] : null);
+  const sheet1 = useImage(maxAgents > 1 ? avatarSheetSources[1] : null);
+  const sheet2 = useImage(maxAgents > 2 ? avatarSheetSources[2] : null);
+  const sheet3 = useImage(maxAgents > 3 ? avatarSheetSources[3] : null);
+  const sheet4 = useImage(maxAgents > 4 ? avatarSheetSources[4] : null);
+  const sheet5 = useImage(maxAgents > 5 ? avatarSheetSources[5] : null);
+  const sheet6 = useImage(maxAgents > 6 ? avatarSheetSources[6] : null);
+  const sheet7 = useImage(maxAgents > 7 ? avatarSheetSources[7] : null);
 
   const avatarSheets = useMemo(
     () => [sheet0, sheet1, sheet2, sheet3, sheet4, sheet5, sheet6, sheet7],
@@ -914,7 +919,7 @@ export function PixelOffice({
                 a.moveProgress = 0;
 
                 // Snap facing to the interaction point's facing direction
-                const claimedPt = ALL_POINTS.find(p => p.key === a.claimedPointKey);
+                const claimedPt = POINTS_BY_KEY.get(a.claimedPointKey);
                 if (claimedPt) {
                   a.facing = claimedPt.facing;
                 }
@@ -953,7 +958,7 @@ export function PixelOffice({
             a.x = a.targetX;
             a.y = a.targetY;
             a.arrived = true;
-            const claimedPt = ALL_POINTS.find(p => p.key === a.claimedPointKey);
+            const claimedPt = POINTS_BY_KEY.get(a.claimedPointKey);
             if (claimedPt) {
               a.facing = claimedPt.facing;
             }
@@ -979,7 +984,7 @@ export function PixelOffice({
         } else if (a.state === 'error') {
           a.animKey = 'front_alert_jump';
         } else if ((a.state === 'working' || a.state === 'thinking') && a.claimedPointKey) {
-          const claimedPt = ALL_POINTS.find(p => p.key === a.claimedPointKey);
+          const claimedPt = POINTS_BY_KEY.get(a.claimedPointKey);
           if (claimedPt && (claimedPt.activity === 'working' || claimedPt.activity === 'thinking')) {
             const ptDir = dirMap[claimedPt.facing] || dir;
             a.animKey = a.state === 'working' ? `${ptDir}_sit_work` : `${ptDir}_sit_idle`;
@@ -1041,7 +1046,7 @@ export function PixelOffice({
 
         for (const a of agents) {
           if (!a.arrived) continue;
-          const claimedPt = ALL_POINTS.find(p => p.key === a.claimedPointKey);
+          const claimedPt = POINTS_BY_KEY.get(a.claimedPointKey);
           if (!claimedPt) continue;
 
           // Coffee steam

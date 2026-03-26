@@ -208,13 +208,50 @@ function getTeamMascot(teamName: string): string {
   return NFL_TEAM_MASCOTS[teamName] || teamName;
 }
 
+// MLB teams - Polymarket and DB both use full names (e.g., "New York Yankees")
+// Map common DB variations to Polymarket names
+const MLB_TEAM_MAPPINGS: Record<string, string> = {
+  'Arizona Diamondbacks': 'Arizona Diamondbacks',
+  'Atlanta Braves': 'Atlanta Braves',
+  'Baltimore Orioles': 'Baltimore Orioles',
+  'Boston Red Sox': 'Boston Red Sox',
+  'Chicago Cubs': 'Chicago Cubs',
+  'Chicago White Sox': 'Chicago White Sox',
+  'Cincinnati Reds': 'Cincinnati Reds',
+  'Cleveland Guardians': 'Cleveland Guardians',
+  'Colorado Rockies': 'Colorado Rockies',
+  'Detroit Tigers': 'Detroit Tigers',
+  'Houston Astros': 'Houston Astros',
+  'Kansas City Royals': 'Kansas City Royals',
+  'Los Angeles Angels': 'Los Angeles Angels',
+  'Los Angeles Dodgers': 'Los Angeles Dodgers',
+  'Miami Marlins': 'Miami Marlins',
+  'Milwaukee Brewers': 'Milwaukee Brewers',
+  'Minnesota Twins': 'Minnesota Twins',
+  'New York Mets': 'New York Mets',
+  'New York Yankees': 'New York Yankees',
+  'Oakland Athletics': 'Oakland Athletics',
+  'Philadelphia Phillies': 'Philadelphia Phillies',
+  'Pittsburgh Pirates': 'Pittsburgh Pirates',
+  'San Diego Padres': 'San Diego Padres',
+  'San Francisco Giants': 'San Francisco Giants',
+  'Seattle Mariners': 'Seattle Mariners',
+  'St. Louis Cardinals': 'St. Louis Cardinals',
+  'St Louis Cardinals': 'St. Louis Cardinals',
+  'Tampa Bay Rays': 'Tampa Bay Rays',
+  'Texas Rangers': 'Texas Rangers',
+  'Toronto Blue Jays': 'Toronto Blue Jays',
+  'Washington Nationals': 'Washington Nationals',
+};
+
 // Get team name for matching with Polymarket format
 // NFL: uses mascots (Ravens, Dolphins)
 // NBA: uses mascots (Hornets, Bucks) - extract from full name
 // CFB: uses school names (Ohio State, Michigan)
 // NCAAB: Note - Polymarket uses full names like "Duke Blue Devils" but database has "Duke"
 //        The matching function will handle this via flexible matching
-function getTeamName(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): string {
+// MLB: uses full team names (New York Yankees, etc.)
+function getTeamName(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb'): string {
   if (league === 'nba') {
     // NBA: Extract mascot from full name (Charlotte Hornets -> Hornets)
     const mascot = NBA_TEAM_TO_MASCOT[teamName];
@@ -234,6 +271,9 @@ function getTeamName(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'):
   }
   if (league === 'cfb') {
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
+  }
+  if (league === 'mlb') {
+    return MLB_TEAM_MAPPINGS[teamName] || teamName;
   }
   // NFL uses mascot-based names
   return getTeamMascot(teamName);
@@ -295,6 +335,29 @@ serve(async (req) => {
       console.error('Error fetching NCAAB games:', ncaabError);
     }
 
+    // Fetch MLB games from mlb_games_today
+    let mlbGames: any[] = [];
+    try {
+      const { data: mlbData, error: mlbError } = await cfbSupabase
+        .from('mlb_games_today')
+        .select('away_team_name, home_team_name, official_date')
+        .gte('official_date', today)
+        .lte('official_date', weekFromNowStr);
+
+      if (!mlbError && mlbData) {
+        // Map to standard format
+        mlbGames = mlbData.map((g: any) => ({
+          away_team: g.away_team_name,
+          home_team: g.home_team_name,
+        }));
+        console.log(`⚾ Found ${mlbGames.length} MLB games from mlb_games_today`);
+      } else if (mlbError) {
+        console.error('Error fetching MLB games:', mlbError);
+      }
+    } catch (e) {
+      console.log('MLB games table may not exist, skipping...', e);
+    }
+
     // Fetch NBA games from nba_input_values_view (same view used by NBA page)
     let nbaGames: any[] = [];
     try {
@@ -315,7 +378,7 @@ serve(async (req) => {
     }
 
     // Combine and tag with league
-    const allGames: Array<{ away_team: string; home_team: string; league: 'nfl' | 'cfb' | 'ncaab' | 'nba'; training_key?: string }> = [];
+    const allGames: Array<{ away_team: string; home_team: string; league: 'nfl' | 'cfb' | 'ncaab' | 'nba' | 'mlb'; training_key?: string }> = [];
     
     if (nflLines && nflLines.length > 0) {
       // Deduplicate NFL by training_key
@@ -340,6 +403,10 @@ serve(async (req) => {
       allGames.push(...nbaGames.map(g => ({ ...g, league: 'nba' as const })));
     }
 
+    if (mlbGames && mlbGames.length > 0) {
+      allGames.push(...mlbGames.map(g => ({ ...g, league: 'mlb' as const })));
+    }
+
     if (allGames.length === 0) {
       console.log('No games found to update');
       return new Response(
@@ -348,7 +415,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📊 Found ${allGames.length} games to update (${nflLines?.length || 0} NFL, ${cfbGames?.length || 0} CFB, ${ncaabGames?.length || 0} NCAAB, ${nbaGames?.length || 0} NBA)`);
+    console.log(`📊 Found ${allGames.length} games to update (${nflLines?.length || 0} NFL, ${cfbGames?.length || 0} CFB, ${ncaabGames?.length || 0} NCAAB, ${nbaGames?.length || 0} NBA, ${mlbGames?.length || 0} MLB)`);
 
     // Step 2: Get tag IDs for all leagues (using hardcoded values for CBB and NBA)
     // Fetch sports metadata for NFL and CFB
@@ -376,14 +443,15 @@ serve(async (req) => {
       cfbTagId = cfbTagCandidates.find((t: string) => t !== '1') || cfbTagCandidates[0];
     }
 
-    // Use hardcoded tag IDs for CBB and NBA (these are the correct ones)
+    // Use hardcoded tag IDs for CBB, NBA, and MLB (these are the correct ones)
     const ncaabTagId = '102114'; // CBB tag ID
     const nbaTagId = '745'; // NBA tag ID
+    const mlbTagId = '100381'; // MLB tag ID
 
-    console.log(`🏈 NFL tag ID: ${nflTagId}, 🏈 CFB tag ID: ${cfbTagId}, 🏀 NCAAB tag ID: ${ncaabTagId}, 🏀 NBA tag ID: ${nbaTagId}`);
+    console.log(`🏈 NFL tag ID: ${nflTagId}, 🏈 CFB tag ID: ${cfbTagId}, 🏀 NCAAB tag ID: ${ncaabTagId}, 🏀 NBA tag ID: ${nbaTagId}, ⚾ MLB tag ID: ${mlbTagId}`);
 
     // Step 3: Fetch events for all leagues
-    const allEvents: Array<{ event: any; league: 'nfl' | 'cfb' | 'ncaab' | 'nba' }> = [];
+    const allEvents: Array<{ event: any; league: 'nfl' | 'cfb' | 'ncaab' | 'nba' | 'mlb' }> = [];
 
     // Helper to fetch ALL events for a tag with pagination (Polymarket caps at 100 per request)
     async function fetchAllEventsForTag(tagId: string, leagueName: string): Promise<any[]> {
@@ -448,7 +516,13 @@ serve(async (req) => {
         console.log(`📋 Found ${events.length} total NBA events on Polymarket`);
       }));
     }
-    
+    if (mlbTagId) {
+      eventFetches.push(fetchAllEventsForTag(mlbTagId, 'MLB').then(events => {
+        allEvents.push(...events.map((e: any) => ({ event: e, league: 'mlb' as const })));
+        console.log(`⚾ Found ${events.length} total MLB events on Polymarket`);
+      }));
+    }
+
     await Promise.all(eventFetches);
 
     // Filter events to only include games (vs/@ pattern) - excludes props, futures, etc.
@@ -460,14 +534,15 @@ serve(async (req) => {
 
     // Step 3.5: Cache the events list for each league
     console.log('💾 Caching events list...');
-    const leagueTypes: Array<'nfl' | 'cfb' | 'ncaab' | 'nba'> = ['nfl', 'cfb', 'ncaab', 'nba'];
-    
+    const leagueTypes: Array<'nfl' | 'cfb' | 'ncaab' | 'nba' | 'mlb'> = ['nfl', 'cfb', 'ncaab', 'nba', 'mlb'];
+
     for (const league of leagueTypes) {
       const leagueEvents = gameEvents.filter(e => e.league === league).map(e => e.event);
-      const tagId = league === 'nfl' ? nflTagId : 
-                    league === 'cfb' ? cfbTagId : 
-                    league === 'ncaab' ? ncaabTagId : 
-                    nbaTagId;
+      const tagId = league === 'nfl' ? nflTagId :
+                    league === 'cfb' ? cfbTagId :
+                    league === 'ncaab' ? ncaabTagId :
+                    league === 'nba' ? nbaTagId :
+                    mlbTagId;
       
       if (!tagId) continue;
       
@@ -503,12 +578,13 @@ serve(async (req) => {
       nfl: { total: 0, matched: 0, markets: 0 },
       cfb: { total: 0, matched: 0, markets: 0 },
       ncaab: { total: 0, matched: 0, markets: 0 },
-      nba: { total: 0, matched: 0, markets: 0 }
+      nba: { total: 0, matched: 0, markets: 0 },
+      mlb: { total: 0, matched: 0, markets: 0 }
     };
 
     // Pre-index league events for fast lookup (avoid re-filtering per game)
     const leagueEventsMap: Record<string, any[]> = {};
-    for (const league of ['nfl', 'cfb', 'ncaab', 'nba'] as const) {
+    for (const league of ['nfl', 'cfb', 'ncaab', 'nba', 'mlb'] as const) {
       leagueEventsMap[league] = gameEvents.filter(e => e.league === league).map(e => e.event);
     }
 
@@ -560,7 +636,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`📊 Matched games - NFL: ${leagueStats.nfl.matched}/${leagueStats.nfl.total}, CFB: ${leagueStats.cfb.matched}/${leagueStats.cfb.total}, NCAAB: ${leagueStats.ncaab.matched}/${leagueStats.ncaab.total}, NBA: ${leagueStats.nba.matched}/${leagueStats.nba.total}`);
+    console.log(`📊 Matched games - NFL: ${leagueStats.nfl.matched}/${leagueStats.nfl.total}, CFB: ${leagueStats.cfb.matched}/${leagueStats.cfb.total}, NCAAB: ${leagueStats.ncaab.matched}/${leagueStats.ncaab.total}, NBA: ${leagueStats.nba.matched}/${leagueStats.nba.total}, MLB: ${leagueStats.mlb.matched}/${leagueStats.mlb.total}`);
     console.log(`📋 Total market tasks to fetch: ${marketTasks.length}`);
 
     // Step 4b: Fetch price histories and upsert in parallel batches
@@ -641,6 +717,7 @@ serve(async (req) => {
         cfbGames: allGames.filter(g => g.league === 'cfb').length,
         ncaabGames: allGames.filter(g => g.league === 'ncaab').length,
         nbaGames: allGames.filter(g => g.league === 'nba').length,
+        mlbGames: allGames.filter(g => g.league === 'mlb').length,
         leagueStats: leagueStats,
         errors: errors.length > 0 ? errors : undefined,
         debug: debugInfo.slice(0, 10),
@@ -670,7 +747,7 @@ function parseTeamsFromTitle(title: string): { team1: string; team2: string } | 
 }
 
 // Helper: Find matching event
-function findMatchingEvent(events: any[], awayTeam: string, homeTeam: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'): any | null {
+function findMatchingEvent(events: any[], awayTeam: string, homeTeam: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb'): any | null {
   // Replace non-alphanumeric chars with spaces (not remove them) so hyphens become word boundaries
   // e.g., "Massachusetts-Lowell" -> "massachusetts lowell" (not "massachusettslowell")
   const cleanName = (name: string) => name.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();

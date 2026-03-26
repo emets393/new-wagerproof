@@ -1,5 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Image, Text } from 'react-native';
+
+// ── Shared animation ticker ──────────────────────────────────────
+// Single global interval drives ALL pixel emoji animations, instead of
+// one setInterval per instance. Reduces 20+ intervals to 1.
+let globalTick = 0;
+let tickerInterval: ReturnType<typeof setInterval> | null = null;
+const tickListeners = new Set<(tick: number) => void>();
+
+function ensureTicker() {
+  if (tickerInterval) return;
+  tickerInterval = setInterval(() => {
+    globalTick++;
+    tickListeners.forEach(cb => cb(globalTick));
+  }, 200); // 5fps shared tick — smooth enough for emoji animation
+}
+
+function stopTickerIfEmpty() {
+  if (tickListeners.size === 0 && tickerInterval) {
+    clearInterval(tickerInterval);
+    tickerInterval = null;
+  }
+}
+
+function useSharedTick(): number {
+  const [tick, setTick] = useState(globalTick);
+  useEffect(() => {
+    const cb = (t: number) => setTick(t);
+    tickListeners.add(cb);
+    ensureTicker();
+    return () => {
+      tickListeners.delete(cb);
+      stopTickerIfEmpty();
+    };
+  }, []);
+  return tick;
+}
 
 /**
  * Maps emoji characters to their pixel art animation frames (4 frames each).
@@ -40,10 +76,10 @@ export const PIXEL_EMOJI_FRAMES: Record<string, any[]> = {
   '\uD83D\uDC7B': [require('@/assets/pixel-office/emoji/ghost_f0.png'), require('@/assets/pixel-office/emoji/ghost_f1.png'), require('@/assets/pixel-office/emoji/ghost_f2.png'), require('@/assets/pixel-office/emoji/ghost_f3.png')], // 👻
   '\uD83D\uDC80': [require('@/assets/pixel-office/emoji/skull_f0.png'), require('@/assets/pixel-office/emoji/skull_f1.png'), require('@/assets/pixel-office/emoji/skull_f2.png'), require('@/assets/pixel-office/emoji/skull_f3.png')], // 💀
   '\uD83D\uDC7D': [require('@/assets/pixel-office/emoji/alien_f0.png'), require('@/assets/pixel-office/emoji/alien_f1.png'), require('@/assets/pixel-office/emoji/alien_f2.png'), require('@/assets/pixel-office/emoji/alien_f3.png')], // 👽
-  // 🦹 superhero — pending generation
+  '\uD83E\uDDB9': [require('@/assets/pixel-office/emoji/superhero_f0.png'), require('@/assets/pixel-office/emoji/superhero_f1.png'), require('@/assets/pixel-office/emoji/superhero_f2.png'), require('@/assets/pixel-office/emoji/superhero_f3.png')], // 🦹
 
   // Page 4 — Power & Sports
-  // 💥 explosion — pending generation
+  '\uD83D\uDCA5': [require('@/assets/pixel-office/emoji/explosion_f0.png'), require('@/assets/pixel-office/emoji/explosion_f1.png'), require('@/assets/pixel-office/emoji/explosion_f2.png'), require('@/assets/pixel-office/emoji/explosion_f3.png')], // 💥
   '\uD83C\uDFC6': [require('@/assets/pixel-office/emoji/trophy_f0.png'), require('@/assets/pixel-office/emoji/trophy_f1.png'), require('@/assets/pixel-office/emoji/trophy_f2.png'), require('@/assets/pixel-office/emoji/trophy_f3.png')], // 🏆
   '\uD83D\uDC51': [require('@/assets/pixel-office/emoji/crown_f0.png'), require('@/assets/pixel-office/emoji/crown_f1.png'), require('@/assets/pixel-office/emoji/crown_f2.png'), require('@/assets/pixel-office/emoji/crown_f3.png')], // 👑
   '\uD83C\uDF1F': [require('@/assets/pixel-office/emoji/star_f0.png'), require('@/assets/pixel-office/emoji/star_f1.png'), require('@/assets/pixel-office/emoji/star_f2.png'), require('@/assets/pixel-office/emoji/star_f3.png')], // 🌟
@@ -102,19 +138,14 @@ export const PixelEmojiInline = React.memo(({
   fallbackFontSize?: number;
 }) => {
   const frames = PIXEL_EMOJI_FRAMES[emoji];
-  const [frameIdx, setFrameIdx] = useState(0);
-
-  useEffect(() => {
-    if (!frames) return;
-    const interval = setInterval(() => {
-      setFrameIdx(prev => (prev + 1) % frames.length);
-    }, 1000 / fps);
-    return () => clearInterval(interval);
-  }, [frames, fps]);
+  const tick = useSharedTick();
 
   if (!frames) {
     return <Text style={{ fontSize: fallbackFontSize ?? size * 0.8 }}>{emoji}</Text>;
   }
+
+  // Derive frame index from shared tick — all emojis animate in lockstep
+  const frameIdx = tick % frames.length;
 
   return (
     <Image

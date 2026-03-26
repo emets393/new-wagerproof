@@ -183,6 +183,41 @@ const NCAAB_TEAM_MAPPINGS: Record<string, string> = {
   'Dayton': 'Dayton',
 };
 
+// MLB teams - Polymarket and DB both use full names (e.g., "New York Yankees")
+const MLB_TEAM_MAPPINGS: Record<string, string> = {
+  'Arizona Diamondbacks': 'Arizona Diamondbacks',
+  'Atlanta Braves': 'Atlanta Braves',
+  'Baltimore Orioles': 'Baltimore Orioles',
+  'Boston Red Sox': 'Boston Red Sox',
+  'Chicago Cubs': 'Chicago Cubs',
+  'Chicago White Sox': 'Chicago White Sox',
+  'Cincinnati Reds': 'Cincinnati Reds',
+  'Cleveland Guardians': 'Cleveland Guardians',
+  'Colorado Rockies': 'Colorado Rockies',
+  'Detroit Tigers': 'Detroit Tigers',
+  'Houston Astros': 'Houston Astros',
+  'Kansas City Royals': 'Kansas City Royals',
+  'Los Angeles Angels': 'Los Angeles Angels',
+  'Los Angeles Dodgers': 'Los Angeles Dodgers',
+  'Miami Marlins': 'Miami Marlins',
+  'Milwaukee Brewers': 'Milwaukee Brewers',
+  'Minnesota Twins': 'Minnesota Twins',
+  'New York Mets': 'New York Mets',
+  'New York Yankees': 'New York Yankees',
+  'Oakland Athletics': 'Oakland Athletics',
+  'Philadelphia Phillies': 'Philadelphia Phillies',
+  'Pittsburgh Pirates': 'Pittsburgh Pirates',
+  'San Diego Padres': 'San Diego Padres',
+  'San Francisco Giants': 'San Francisco Giants',
+  'Seattle Mariners': 'Seattle Mariners',
+  'St. Louis Cardinals': 'St. Louis Cardinals',
+  'St Louis Cardinals': 'St. Louis Cardinals',
+  'Tampa Bay Rays': 'Tampa Bay Rays',
+  'Texas Rangers': 'Texas Rangers',
+  'Toronto Blue Jays': 'Toronto Blue Jays',
+  'Washington Nationals': 'Washington Nationals',
+};
+
 function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' = 'nfl'): string {
   if (league === 'cfb') {
     return CFB_TEAM_MAPPINGS[teamName] || teamName;
@@ -192,6 +227,9 @@ function getTeamMascot(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab'
   }
   if (league === 'ncaab') {
     return NCAAB_TEAM_MAPPINGS[teamName] || teamName;
+  }
+  if (league === 'mlb') {
+    return MLB_TEAM_MAPPINGS[teamName] || teamName;
   }
   return NFL_TEAM_MASCOTS[teamName] || teamName;
 }
@@ -215,10 +253,15 @@ async function getSportsMetadata(): Promise<PolymarketSport[]> {
 }
 
 async function getLeagueTagId(league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb'): Promise<string | null> {
+  // Use hardcoded tag IDs for known leagues (more reliable than API lookup)
+  if (league === 'ncaab') return '102114';
+  if (league === 'nba') return '745';
+  if (league === 'mlb') return '100381';
+
   const sports = await getSportsMetadata();
-  const sportName = league; // nfl, cfb, nba, ncaab maps directly
+  const sportName = league; // nfl, cfb maps directly
   const sport = sports.find((s) => s.sport?.toLowerCase() === sportName);
-  
+
   if (!sport) {
     console.error(`${sportName.toUpperCase()} sport not found in Polymarket`);
     return null;
@@ -226,7 +269,7 @@ async function getLeagueTagId(league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb'): 
 
   const tagCandidates = sport.tags.split(',').map(t => t.trim()).filter(Boolean);
   const primaryTagId = tagCandidates.find(t => t !== '1') || tagCandidates[0];
-  
+
   return primaryTagId;
 }
 

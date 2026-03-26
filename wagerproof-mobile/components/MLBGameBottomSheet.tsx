@@ -200,6 +200,16 @@ export function MLBGameBottomSheet() {
               )}
             </View>
 
+            {/* Polymarket */}
+            <PolymarketWidget
+              awayTeam={awayName}
+              homeTeam={homeName}
+              gameDate={game.official_date}
+              awayTeamColors={awayColors}
+              homeTeamColors={homeColors}
+              league="mlb"
+            />
+
             {/* Projected Score with Full Game / 1st 5 toggle */}
             {(fullRuns || f5Runs) && (
               <View style={[styles.section, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
@@ -418,12 +428,6 @@ export function MLBGameBottomSheet() {
               </View>
             )}
 
-            {/* Polymarket */}
-            <PolymarketWidget
-              awayTeam={awayName}
-              homeTeam={homeName}
-              league="mlb"
-            />
           </>
         )}
       </BottomSheetScrollView>
