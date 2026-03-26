@@ -387,44 +387,14 @@ export default function MLB() {
       setLoading(true);
       setError(null);
 
-      const today = new Date();
-      const dayAfterTomorrow = new Date();
-      dayAfterTomorrow.setDate(today.getDate() + 2);
-
-      const startDate = toYMD(today);
-      const endDate = toYMD(dayAfterTomorrow);
-
-      const { data: strictGames, error: gamesError } = await collegeFootballSupabase
+      const { data: games, error: gamesError } = await collegeFootballSupabase
         .from('mlb_games_today')
         .select('*')
-        .or('is_active.eq.true,is_active.is.null')
-        .or('is_completed.eq.false,is_completed.is.null')
-        .gte('official_date', startDate)
-        .lte('official_date', endDate)
         .order('official_date', { ascending: true })
         .order('game_time_et', { ascending: true });
 
       if (gamesError) {
         throw new Error(gamesError.message);
-      }
-
-      // Fallback: if strict filter yields nothing, keep the 3-day window but avoid
-      // excluding rows due to nullable status flags.
-      let games = strictGames || [];
-      if (games.length === 0) {
-        const { data: relaxedGames, error: relaxedError } = await collegeFootballSupabase
-          .from('mlb_games_today')
-          .select('*')
-          .gte('official_date', startDate)
-          .lte('official_date', endDate)
-          .order('official_date', { ascending: true })
-          .order('game_time_et', { ascending: true });
-
-        if (relaxedError) {
-          throw new Error(relaxedError.message);
-        }
-
-        games = (relaxedGames || []).filter((g: any) => g.is_postponed !== true && g.is_completed !== true);
       }
 
       const { data: teams, error: teamError } = await collegeFootballSupabase
@@ -730,7 +700,7 @@ export default function MLB() {
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <h3 className="text-lg font-semibold mb-2">No Upcoming MLB Predictions</h3>
-              <p className="text-muted-foreground">No active games were found for today and the next two days.</p>
+              <p className="text-muted-foreground">No games were returned from `mlb_games_today`.</p>
             </div>
           </CardContent>
         </Card>
