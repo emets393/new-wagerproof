@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
+import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
 import { useAuth } from '@/contexts/AuthContext';
 import { useArchetypeById } from '@/hooks/usePresetArchetypes';
 import { ensureAutoPickNotificationPermission } from '@/services/notificationService';
@@ -259,7 +260,10 @@ export function Screen6_Review({
                     end={{ x: 1, y: 1 }}
                     style={styles.avatarContainer}
                   >
-                    <Text style={styles.avatarEmoji}>{formState.avatar_emoji}</Text>
+                    {hasPixelEmoji(formState.avatar_emoji)
+                      ? <PixelEmojiInline emoji={formState.avatar_emoji} size={34} fps={5} />
+                      : <Text style={styles.avatarEmoji}>{formState.avatar_emoji}</Text>
+                    }
                   </LinearGradient>
                 );
               }
@@ -270,7 +274,10 @@ export function Screen6_Review({
                     { backgroundColor: `${parsedAvatar.primary}30` },
                   ]}
                 >
-                  <Text style={styles.avatarEmoji}>{formState.avatar_emoji}</Text>
+                  {hasPixelEmoji(formState.avatar_emoji)
+                    ? <PixelEmojiInline emoji={formState.avatar_emoji} size={34} fps={5} />
+                    : <Text style={styles.avatarEmoji}>{formState.avatar_emoji}</Text>
+                  }
                 </View>
               );
             })()}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Switch, Modal, TouchableOpacity, Animated } from 'react-native';
+import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
 import LottieView from 'lottie-react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -196,7 +197,10 @@ export function AgentBornStep() {
             <View style={styles.agentHeader}>
               <GlowingCardWrapper color={primaryColor} borderRadius={12}>
                 <View style={[styles.agentEmojiContainer, { backgroundColor: `${primaryColor}25` }]}>
-                  <Text style={styles.agentEmoji}>{agentFormState.avatar_emoji || '🤖'}</Text>
+                  {hasPixelEmoji(agentFormState.avatar_emoji || '🤖')
+                    ? <PixelEmojiInline emoji={agentFormState.avatar_emoji || '🤖'} size={24} fps={5} />
+                    : <Text style={styles.agentEmoji}>{agentFormState.avatar_emoji || '🤖'}</Text>
+                  }
                 </View>
               </GlowingCardWrapper>
               <View style={styles.agentInfo}>

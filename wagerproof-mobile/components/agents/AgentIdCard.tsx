@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
+import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import LottieView from 'lottie-react-native';
+import { GlowAccentBar } from '@/components/agents/GlowAccentBar';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import {
   AgentWithPerformance,
@@ -336,10 +338,11 @@ function formatNextRun(time: string, tz: string): string {
 interface AgentIdCardProps {
   agent: AgentWithPerformance;
   onPress: () => void;
+  onLongPress?: () => void;
   debugForcePicksReady?: boolean;
 }
 
-export function AgentIdCard({ agent, onPress, debugForcePicksReady }: AgentIdCardProps) {
+export function AgentIdCard({ agent, onPress, onLongPress, debugForcePicksReady }: AgentIdCardProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
 
@@ -366,33 +369,32 @@ export function AgentIdCard({ agent, onPress, debugForcePicksReady }: AgentIdCar
 
   return (
     <TouchableOpacity
-      style={[styles.card, {
-        backgroundColor: cardBg,
-        ...Platform.select({
-          ios: {
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: isDark ? 0.4 : 0.1,
-            shadowRadius: 6,
-          },
-          android: { elevation: 3 },
-        }),
+      style={[styles.cardShadow, {
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDark ? 0.4 : 0.12,
+        shadowRadius: 8,
       }]}
       activeOpacity={0.7}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
     >
-      {/* Top accent gradient */}
-      <LinearGradient
-        colors={[primary, secondary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.accentBar}
-      />
+      <View style={[styles.card, {
+        backgroundColor: cardBg,
+        borderWidth: isDark ? 0 : 1,
+        borderColor: isDark ? 'transparent' : 'rgba(0, 0, 0, 0.06)',
+      }]}>
+      {/* Glowing accent bar */}
+      <GlowAccentBar color={primary} />
 
-      {/* Subtle bg tint */}
+      {/* Background color gradient */}
       <LinearGradient
-        colors={[`${primary}12`, 'transparent']}
-        style={styles.bgTint}
+        colors={[`${primary}15`, `${secondary}10`, 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.backgroundGradient}
       />
 
       <View style={styles.content}>
@@ -401,7 +403,10 @@ export function AgentIdCard({ agent, onPress, debugForcePicksReady }: AgentIdCar
           {/* Emoji + Name row */}
           <View style={styles.identityRow}>
             <View style={[styles.emojiCircle, { backgroundColor: `${primary}20` }]}>
-              <Text style={styles.emoji}>{agent.avatar_emoji}</Text>
+              {hasPixelEmoji(agent.avatar_emoji)
+                ? <PixelEmojiInline emoji={agent.avatar_emoji} size={22} fps={5} />
+                : <Text style={styles.emoji}>{agent.avatar_emoji}</Text>
+              }
             </View>
             <View style={styles.nameCol}>
               <Text
@@ -478,27 +483,29 @@ export function AgentIdCard({ agent, onPress, debugForcePicksReady }: AgentIdCar
           )}
         </View>
       </View>
+      </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  cardShadow: {
     flex: 1,
     height: 195,
+    marginVertical: 4,
+    borderRadius: 20,
+  },
+  card: {
+    flex: 1,
     borderRadius: 20,
     overflow: 'hidden',
-    marginVertical: 4,
   },
-  accentBar: {
-    height: 3,
-  },
-  bgTint: {
+  backgroundGradient: {
     position: 'absolute',
-    top: 3,
+    top: 0,
     left: 0,
     right: 0,
-    height: 80,
+    bottom: 0,
   },
   content: {
     flex: 1,

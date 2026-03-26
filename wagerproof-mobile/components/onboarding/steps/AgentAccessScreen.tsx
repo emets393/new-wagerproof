@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
 import { Button } from '../../ui/Button';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useRevenueCat } from '../../../contexts/RevenueCatContext';
@@ -81,9 +82,10 @@ export function AgentAccessScreen() {
               { backgroundColor: `${agentFormState.avatar_color}30` },
             ]}
           >
-            <Text style={styles.agentEmoji}>
-              {agentFormState.avatar_emoji || '🤖'}
-            </Text>
+            {hasPixelEmoji(agentFormState.avatar_emoji || '🤖')
+              ? <PixelEmojiInline emoji={agentFormState.avatar_emoji || '🤖'} size={40} fps={5} />
+              : <Text style={styles.agentEmoji}>{agentFormState.avatar_emoji || '🤖'}</Text>
+            }
           </View>
           <Text style={styles.agentName}>
             {agentFormState.name || 'Your Agent'}

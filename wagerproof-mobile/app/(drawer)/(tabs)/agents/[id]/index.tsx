@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Switch,
   ActivityIndicator,
   Platform,
   Alert,
@@ -27,6 +28,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgent, useUpdateAgent, useUserAgents } from '@/hooks/useAgents';
@@ -41,7 +43,7 @@ import {
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
 import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
-import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
+import { GlowAccentBar } from '@/components/agents/GlowAccentBar';
 import { LockedPickCard } from '@/components/LockedPickCard';
 import { useGameLookup } from '@/hooks/useGameLookup';
 import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
@@ -736,10 +738,10 @@ export default function AgentDetailScreen() {
             },
           ]}
         >
+          <GlowAccentBar color={getPrimaryColor(agent.avatar_color)} />
+          <View style={styles.profileCardContent}>
           {/* Avatar and Info */}
           <View style={styles.profileHeader}>
-            <View style={{ marginRight: 16 }}>
-            <GlowingCardWrapper color={getPrimaryColor(agent.avatar_color)} borderRadius={20}>
             {(() => {
               const parsed = parseAvatarColor(agent.avatar_color);
               if (parsed.isGradient) {
@@ -748,9 +750,12 @@ export default function AgentDetailScreen() {
                     colors={parsed.colors as [string, string]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={styles.avatarLarge}
+                    style={[styles.avatarLarge, { marginRight: 16 }]}
                   >
-                    <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
+                    {hasPixelEmoji(agent.avatar_emoji)
+                      ? <PixelEmojiInline emoji={agent.avatar_emoji} size={40} fps={5} />
+                      : <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
+                    }
                   </LinearGradient>
                 );
               }
@@ -758,15 +763,16 @@ export default function AgentDetailScreen() {
                 <View
                   style={[
                     styles.avatarLarge,
-                    { backgroundColor: agent.avatar_color },
+                    { backgroundColor: agent.avatar_color, marginRight: 16 },
                   ]}
                 >
-                  <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
+                  {hasPixelEmoji(agent.avatar_emoji)
+                      ? <PixelEmojiInline emoji={agent.avatar_emoji} size={40} fps={5} />
+                      : <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
+                    }
                 </View>
               );
             })()}
-            </GlowingCardWrapper>
-            </View>
             <View style={styles.profileInfo}>
               <Text
                 style={[styles.agentName, { color: theme.colors.onSurface }]}
@@ -957,6 +963,7 @@ export default function AgentDetailScreen() {
               </Text>
             </View>
           </View>
+          </View>
         </View>
 
         {/* Auto-Generate Time & Timezone */}
@@ -1028,14 +1035,14 @@ export default function AgentDetailScreen() {
               Autopilot
             </Text>
           </View>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={async () => {
+          <Switch
+            value={agent.auto_generate}
+            onValueChange={async (value) => {
               if (!id) return;
               try {
                 await updateAgentMutation.mutateAsync({
                   agentId: id,
-                  data: { auto_generate: !agent.auto_generate },
+                  data: { auto_generate: value },
                 });
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 refetchAgent();
@@ -1043,28 +1050,12 @@ export default function AgentDetailScreen() {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
               }
             }}
-            style={[
-              styles.autopilotToggle,
-              {
-                backgroundColor: agent.auto_generate
-                  ? theme.colors.primary
-                  : isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.autopilotToggleText,
-                {
-                  color: agent.auto_generate
-                    ? '#fff'
-                    : theme.colors.onSurfaceVariant,
-                },
-              ]}
-            >
-              {agent.auto_generate ? 'ON' : 'OFF'}
-            </Text>
-          </TouchableOpacity>
+            trackColor={{
+              false: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+              true: theme.colors.primary,
+            }}
+            thumbColor="#fff"
+          />
         </View>
 
         {/* Generate Picks Status */}
@@ -1622,8 +1613,11 @@ const styles = StyleSheet.create({
   profileCard: {
     borderRadius: 20,
     borderWidth: 1,
-    padding: 20,
+    overflow: 'hidden',
     marginBottom: 20,
+  },
+  profileCardContent: {
+    padding: 20,
   },
   profileHeader: {
     flexDirection: 'row',
@@ -1765,16 +1759,6 @@ const styles = StyleSheet.create({
   autoGenTimeValue: {
     fontSize: 15,
     fontWeight: '700',
-  },
-  autopilotToggle: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  autopilotToggleText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
   },
   autoGenTimezoneValue: {
     fontSize: 13,

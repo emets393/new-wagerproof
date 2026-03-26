@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   Platform,
+  ActionSheetIOS,
   RefreshControl,
   ScrollView,
   FlatList,
@@ -21,7 +22,7 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScroll } from '@/contexts/ScrollContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
-import { useUserAgents } from '@/hooks/useAgents';
+import { useUserAgents, useUpdateAgent, useDeleteAgent } from '@/hooks/useAgents';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { trackAppOpen } from '@/services/activityService';
 import { AgentTimelineSection } from '@/components/agents/AgentTimeline';
@@ -228,10 +229,85 @@ export default function AgentsHubScreen() {
     [router]
   );
 
+  // Mutations for long-press actions
+  const updateAgentMutation = useUpdateAgent();
+  const deleteAgentMutation = useDeleteAgent();
+
   // Handle refresh
   const handleRefresh = useCallback(() => {
     return refetch();
   }, [refetch]);
+
+  // Long-press context menu
+  const handleAgentLongPress = useCallback(
+    (agent: AgentWithPerformance) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const autopilotLabel = agent.auto_generate ? 'Turn Autopilot Off' : 'Turn Autopilot On';
+
+      const actions = {
+        settings: () => router.push(`/agents/${agent.id}` as any),
+        autopilot: async () => {
+          try {
+            await updateAgentMutation.mutateAsync({
+              agentId: agent.id,
+              data: { auto_generate: !agent.auto_generate },
+            });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            refetch();
+          } catch {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
+        },
+        delete: () => {
+          Alert.alert(
+            'Delete Agent',
+            `Are you sure you want to delete "${agent.name}"? This cannot be undone.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await deleteAgentMutation.mutateAsync(agent.id);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    refetch();
+                  } catch {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                  }
+                },
+              },
+            ]
+          );
+        },
+      };
+
+      if (Platform.OS === 'ios') {
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options: ['Cancel', 'Settings', autopilotLabel, 'Delete Agent'],
+            destructiveButtonIndex: 3,
+            cancelButtonIndex: 0,
+            title: agent.name,
+          },
+          (buttonIndex) => {
+            if (buttonIndex === 1) actions.settings();
+            else if (buttonIndex === 2) actions.autopilot();
+            else if (buttonIndex === 3) actions.delete();
+          }
+        );
+      } else {
+        Alert.alert(agent.name, undefined, [
+          { text: 'Settings', onPress: actions.settings },
+          { text: autopilotLabel, onPress: actions.autopilot },
+          { text: 'Delete Agent', style: 'destructive', onPress: actions.delete },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
+      }
+    },
+    [router, updateAgentMutation, deleteAgentMutation, refetch]
+  );
 
   const refreshControl = (
     <RefreshControl
@@ -391,6 +467,7 @@ export default function AgentsHubScreen() {
             <AgentIdCard
               agent={item}
               onPress={() => handleAgentPress(item)}
+              onLongPress={() => handleAgentLongPress(item)}
               debugForcePicksReady={index === 0}
             />
           )}

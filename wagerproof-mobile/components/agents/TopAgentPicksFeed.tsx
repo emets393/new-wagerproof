@@ -21,6 +21,7 @@ import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickIt
 import { LockedOverlay } from '@/components/LockedOverlay';
 import { formatNetUnits } from '@/types/agent';
 import { useGameLookup } from '@/hooks/useGameLookup';
+import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
 
 const FILTERS: { label: string; value: FeedFilter }[] = [
   { label: 'Top', value: 'top10' },
@@ -93,7 +94,10 @@ function AgentHeader({ agent, onPress, isDark }: AgentHeaderProps) {
           { backgroundColor: `${getPrimaryColor(agent.avatar_color)}25` },
         ]}
       >
-        <Text style={styles.agentEmoji}>{agent.avatar_emoji}</Text>
+        {hasPixelEmoji(agent.avatar_emoji)
+          ? <PixelEmojiInline emoji={agent.avatar_emoji} size={20} fps={5} />
+          : <Text style={styles.agentEmoji}>{agent.avatar_emoji}</Text>
+        }
       </View>
       <View style={styles.agentNameContainer}>
         <Text

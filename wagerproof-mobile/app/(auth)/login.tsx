@@ -10,6 +10,8 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useLearnWagerProof } from '@/contexts/LearnWagerProofContext';
+import { PixelOffice } from '@/components/agents/PixelOffice';
+import { AgentWithPerformance } from '@/types/agent';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -22,7 +24,7 @@ const ONBOARDING_SCREENS = [
   },
   {
     type: 'image',
-    title: 'Create Agent Bots',
+    title: 'Create Bots',
     subtitle: 'Build multiple bots that research picks for you 24/7.',
     media: null, // Placeholder
     color: '#00BFA5', // Teal
@@ -61,6 +63,7 @@ const ONBOARDING_SCREENS = [
 ];
 
 const SCREEN_DURATION = 5000;
+const SCREEN_DURATIONS = ONBOARDING_SCREENS.map((_, i) => i === 1 ? 10000 : SCREEN_DURATION);
 
 // --- Widget Components ---
 
@@ -203,27 +206,36 @@ const AIModelCard = () => (
 );
 
 // --- New Widgets for Screen 3: Create Agent Bots ---
-const AgentBotsCard = () => (
-  <View style={[styles.widgetCardContainer, { width: 290, height: 180 }]}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
-        <MaterialCommunityIcons name="robot" size={24} color="#fff" />
-      </View>
-      <View style={{ marginLeft: 12 }}>
-        <Text style={styles.widgetTitle}>NFL Bot Squad</Text>
-        <Text style={styles.widgetStatSub}>4 bots active • running 24/7</Text>
-      </View>
-    </View>
+const DEMO_AGENTS: AgentWithPerformance[] = [
+  {
+    id: 'demo-1', name: 'Sharp Edge', avatar_emoji: '🦅', avatar_color: '#3b82f6',
+    preferred_sports: ['nba'], is_active: true, auto_generate: true,
+    auto_generate_time: '09:00', auto_generate_timezone: 'America/New_York',
+    performance: { wins: 42, losses: 28, pushes: 2, total_picks: 72, net_units: 8.5, win_rate: 0.58, current_streak: 3, best_streak: 7, worst_streak: -4, roi: 11.8, last_calculated_at: '' },
+  } as any,
+  {
+    id: 'demo-2', name: 'Taco King', avatar_emoji: '🌮', avatar_color: '#f59e0b',
+    preferred_sports: ['nfl'], is_active: true, auto_generate: true,
+    auto_generate_time: '09:00', auto_generate_timezone: 'America/New_York',
+    performance: { wins: 35, losses: 30, pushes: 1, total_picks: 66, net_units: 2.1, win_rate: 0.53, current_streak: -1, best_streak: 5, worst_streak: -3, roi: 3.2, last_calculated_at: '' },
+  } as any,
+  {
+    id: 'demo-3', name: 'Data Bot', avatar_emoji: '🤖', avatar_color: '#8b5cf6',
+    preferred_sports: ['nba', 'nfl'], is_active: true, auto_generate: true,
+    auto_generate_time: '09:00', auto_generate_timezone: 'America/New_York',
+    performance: { wins: 50, losses: 22, pushes: 3, total_picks: 75, net_units: 15.3, win_rate: 0.67, current_streak: 5, best_streak: 9, worst_streak: -2, roi: 20.4, last_calculated_at: '' },
+  } as any,
+  {
+    id: 'demo-4', name: 'Moneyline', avatar_emoji: '💰', avatar_color: '#10b981',
+    preferred_sports: ['mlb'], is_active: true, auto_generate: true,
+    auto_generate_time: '09:00', auto_generate_timezone: 'America/New_York',
+    performance: { wins: 28, losses: 25, pushes: 0, total_picks: 53, net_units: -1.2, win_rate: 0.53, current_streak: -2, best_streak: 4, worst_streak: -5, roi: -2.3, last_calculated_at: '' },
+  } as any,
+];
 
-    <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: 12, borderRadius: 8 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-        <Text style={{ color: '#fff', fontWeight: '700' }}>Value Hunters</Text>
-        <Text style={{ color: '#00BFA5', fontWeight: '700' }}>3 picks found</Text>
-      </View>
-      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 18 }}>
-        Multiple bots scan odds, props, and market moves around the clock to surface your best opportunities.
-      </Text>
-    </View>
+const AgentBotsDemo = () => (
+  <View style={{ width: screenWidth - 32, marginTop: 40, borderRadius: 20, overflow: 'hidden' }}>
+    <PixelOffice agents={DEMO_AGENTS} startAtDesks hideControls />
   </View>
 );
 
@@ -339,21 +351,11 @@ const ScreenVisuals = ({ isActive, type }: { isActive: boolean, type: string }) 
   }
 
   if (type === 'screen-3') {
-    const cardTransform: any = {
-      transform: [
-        { rotate: animValue.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['-2deg', '2deg', '-1deg'] }) },
-        { translateY: animValue.interpolate({ inputRange: [0, 1], outputRange: [0, -15] }) }
-      ],
-    };
-    // Only add opacity animation on iOS
-    if (!isAndroid) {
-      cardTransform.opacity = animValue.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 1, 1] });
-    }
     return (
       <View style={styles.visualsWrapper}>
-        <Animated.View style={[styles.floatingWidgetWrapper, cardTransform]}>
-          <AgentBotsCard />
-        </Animated.View>
+        <View style={styles.floatingWidgetWrapper}>
+          <AgentBotsDemo />
+        </View>
       </View>
     );
   }
@@ -526,20 +528,20 @@ export default function LoginScreen() {
   //   return () => clearTimeout(timer);
   // }, [openLearnSheet]);
   
-  // Auto-advance with Pause support
+  // Auto-advance with Pause support (per-screen duration)
   useEffect(() => {
-    let timer: any; 
+    let timer: any;
 
     if (!isPaused) {
-      timer = setInterval(() => {
+      timer = setTimeout(() => {
         setCurrentIndex((prev) => (prev + 1) % ONBOARDING_SCREENS.length);
-      }, SCREEN_DURATION);
+      }, SCREEN_DURATIONS[currentIndex]);
     }
 
     return () => {
-      if (timer) clearInterval(timer);
+      if (timer) clearTimeout(timer);
     };
-  }, [isPaused]); 
+  }, [isPaused, currentIndex]);
 
   const handleSegmentPress = (index: number) => {
     setCurrentIndex(index);
@@ -648,10 +650,10 @@ export default function LoginScreen() {
       </View>
 
       {/* Progress Bar */}
-      <SegmentedProgressBar 
-        total={ONBOARDING_SCREENS.length} 
-        current={currentIndex} 
-        duration={SCREEN_DURATION} 
+      <SegmentedProgressBar
+        total={ONBOARDING_SCREENS.length}
+        current={currentIndex}
+        duration={SCREEN_DURATIONS[currentIndex]}
         onPressSegment={handleSegmentPress}
         paused={isPaused}
       />

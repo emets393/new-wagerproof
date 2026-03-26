@@ -452,8 +452,8 @@ export const INITIAL_FORM_STATE: CreateAgentFormState = {
   preferred_sports: [],
   archetype: null,
   name: '',
-  avatar_emoji: '',
-  avatar_color: '#6366f1',
+  avatar_emoji: '\uD83E\uDD16', // 🤖 default
+  avatar_color: 'gradient:#6366f1,#ec4899', // Indigo → Pink default
   personality_params: { ...DEFAULT_PERSONALITY_PARAMS },
   custom_insights: { ...DEFAULT_CUSTOM_INSIGHTS },
   auto_generate: true,

@@ -4,7 +4,10 @@ import {
   StyleSheet,
   Dimensions,
   Text,
+  Image,
+  TouchableOpacity,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Canvas,
   Image as SkiaImage,
@@ -21,6 +24,19 @@ import { AgentWithPerformance } from '@/types/agent';
 // V2 assets from pixel-agent-desk (the reference office)
 const officeV2Bg = require('@/assets/pixel-office/v2/office_bg.webp');
 const officeV2Fg = require('@/assets/pixel-office/v2/office_fg.webp');
+
+// Floor plan background options
+const FLOOR_BG = {
+  standard_day: require('@/assets/pixel-office/floors/standard_day.webp'),
+  standard_night: require('@/assets/pixel-office/floors/standard_night.webp'),
+  future_day: require('@/assets/pixel-office/floors/future_day.webp'),
+  future_night: require('@/assets/pixel-office/floors/future_night.webp'),
+} as const;
+
+type FloorStyle = 'standard' | 'future';
+type TimeMode = 'auto' | 'day' | 'night';
+const FLOOR_STORAGE_KEY = 'pixel-office-floor-style';
+const TIME_STORAGE_KEY = 'pixel-office-time-mode';
 
 const avatarSheetSources = [
   require('@/assets/pixel-office/characters/avatar_0.webp'),
@@ -482,6 +498,9 @@ function getPrimaryFromColor(value: string): string {
 }
 
 // ── Name tag component (React Native overlay) ───────────────────
+// ── Animated Pixel Emoji (shared component) ─────────────────────
+import { PixelEmojiInline, PIXEL_EMOJI_FRAMES } from '@/components/agents/PixelEmojiInline';
+
 const NameTag = React.memo(({ name, emoji, state, stateLabel, accentColor, scale }: {
   name: string; emoji: string; state: string; stateLabel: string; accentColor: string; scale: number;
 }) => {
@@ -493,12 +512,17 @@ const NameTag = React.memo(({ name, emoji, state, stateLabel, accentColor, scale
       <View style={[tagStyles.pill, { backgroundColor: color }]}>
         <Text style={[tagStyles.pillText, { fontSize: Math.max(5, 5 * scale) }]}>{label}</Text>
       </View>
-      <View style={[tagStyles.nameBox, { borderColor: borderTint }]}>
+      <View style={[tagStyles.nameBox, { borderColor: borderTint, flexDirection: 'row', alignItems: 'center', gap: 2 }]}>
+        {emoji ? (
+          PIXEL_EMOJI_FRAMES[emoji]
+            ? <PixelEmojiInline emoji={emoji} size={Math.max(8, 8 * scale)} fps={4} />
+            : <Text style={{ fontSize: Math.max(6, 6 * scale) }}>{emoji} </Text>
+        ) : null}
         <Text
           style={[tagStyles.nameText, { fontSize: Math.max(6, 6 * scale) }]}
           numberOfLines={1}
         >
-          {emoji ? `${emoji} ` : ''}{name}
+          {name}
         </Text>
       </View>
     </View>
@@ -530,7 +554,10 @@ const SpeechBubble = React.memo(({ emoji, scale }: { emoji: string; scale: numbe
       top: -38,
       left: -((size + 8) / 2),
     }]}>
-      <Text style={{ fontSize: size * 0.7, textAlign: 'center' }}>{emoji}</Text>
+      {PIXEL_EMOJI_FRAMES[emoji]
+        ? <PixelEmojiInline emoji={emoji} size={size * 0.8} fps={6} />
+        : <Text style={{ fontSize: size * 0.7, textAlign: 'center' }}>{emoji}</Text>
+      }
     </View>
   );
 });
@@ -554,6 +581,8 @@ interface PixelOfficeProps {
   agentCount?: number;
   forceNight?: boolean;
   forceAgentState?: string;
+  startAtDesks?: boolean;
+  hideControls?: boolean;
 }
 
 export function PixelOffice({
@@ -561,13 +590,46 @@ export function PixelOffice({
   agentCount = 4,
   forceNight,
   forceAgentState,
+  startAtDesks = false,
+  hideControls = false,
 }: PixelOfficeProps) {
+  // Floor style state (persisted)
+  const [floorStyle, setFloorStyle] = useState<FloorStyle>('future');
+  const [timeMode, setTimeMode] = useState<TimeMode>('auto');
+
+  useEffect(() => {
+    AsyncStorage.getItem(FLOOR_STORAGE_KEY).then((val) => {
+      if (val === 'standard' || val === 'future') setFloorStyle(val);
+    });
+    AsyncStorage.getItem(TIME_STORAGE_KEY).then((val) => {
+      if (val === 'auto' || val === 'day' || val === 'night') setTimeMode(val);
+    });
+  }, []);
+
+  const toggleFloorStyle = useCallback(() => {
+    setFloorStyle((prev) => {
+      const next = prev === 'standard' ? 'future' : 'standard';
+      AsyncStorage.setItem(FLOOR_STORAGE_KEY, next);
+      return next;
+    });
+  }, []);
+
+  const cycleTimeMode = useCallback(() => {
+    setTimeMode((prev) => {
+      const next: TimeMode = prev === 'auto' ? 'day' : prev === 'day' ? 'night' : 'auto';
+      AsyncStorage.setItem(TIME_STORAGE_KEY, next);
+      return next;
+    });
+  }, []);
+
   // Day/night mode
   const hour = new Date().getHours();
-  const isNight = forceNight !== undefined ? forceNight : (hour >= 19 || hour < 6);
+  const autoNight = forceNight !== undefined ? forceNight : (hour >= 19 || hour < 6);
+  const isNight = timeMode === 'auto' ? autoNight : timeMode === 'night';
 
-  // V2 background and foreground (from pixel-agent-desk reference)
-  const bgImage = useImage(officeV2Bg);
+  // Select background based on floor style + day/night
+  const floorBgKey = `${floorStyle}_${isNight ? 'night' : 'day'}` as keyof typeof FLOOR_BG;
+  const bgImage = useImage(FLOOR_BG[floorBgKey]);
   const fgImage = useImage(officeV2Fg);
 
   // Laptop sprite images
@@ -742,11 +804,13 @@ export function PixelOffice({
     for (let i = 0; i < count; i++) {
       const real = hasReal ? realAgents![i] : null;
       const derived = real ? deriveOfficeState(real) : null;
-      // Spawn agents at walkable hallway/common area positions
-      // Using idle points as spawn locations (guaranteed walkable)
-      const spawnPoint = IDLE_POINTS[i % IDLE_POINTS.length];
-      const startX = spawnPoint.x + (Math.random() * 8 - 4);
-      const startY = spawnPoint.y + (Math.random() * 8 - 4);
+
+      // Choose spawn point: desk if startAtDesks, otherwise idle
+      const spawnPoint = startAtDesks
+        ? DESK_POINTS[i % DESK_POINTS.length]
+        : IDLE_POINTS[i % IDLE_POINTS.length];
+      const startX = spawnPoint.x + (startAtDesks ? 0 : (Math.random() * 8 - 4));
+      const startY = spawnPoint.y + (startAtDesks ? 0 : (Math.random() * 8 - 4));
 
       agents.push({
         id: i,
@@ -757,11 +821,11 @@ export function PixelOffice({
         avatarIdx: i % 8,
         state: derived ? derived.state : 'idle',
         isActive: real ? real.is_active : true,
-        x: startX + (Math.random() * 20 - 10),
-        y: startY + (Math.random() * 10 - 5),
+        x: startX,
+        y: startY,
         targetX: startX,
         targetY: startY,
-        facing: 'down',
+        facing: startAtDesks ? spawnPoint.facing : 'down',
         animKey: 'front_idle',
         frameIdx: 0,
         claimedPointKey: '',
@@ -1204,16 +1268,7 @@ export function PixelOffice({
           />
         )}
 
-        {/* 6. Night overlay */}
-        {isNight && (
-          <Rect
-            x={0}
-            y={0}
-            width={displayW}
-            height={displayH}
-            color="rgba(10, 15, 40, 0.55)"
-          />
-        )}
+        {/* Night overlay removed — night backgrounds have lighting baked in */}
       </Canvas>
 
       {/* ── React Native overlays: name tags, speech bubbles ── */}
@@ -1254,6 +1309,34 @@ export function PixelOffice({
         <View style={styles.labelDot} />
         <Text style={styles.labelText}>Agent HQ — {isNight ? 'Night Shift' : 'Live'}</Text>
       </View>
+
+      {/* ── Bottom-right controls ── */}
+      {!hideControls && <View style={styles.controls}>
+        <TouchableOpacity
+          style={styles.controlPill}
+          onPress={cycleTimeMode}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.controlIcon}>
+            {isNight ? '🌙' : '☀️'}
+          </Text>
+          <Text style={styles.controlText}>
+            {timeMode === 'auto' ? 'Auto' : timeMode === 'day' ? 'Day' : 'Night'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.controlPill}
+          onPress={toggleFloorStyle}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.controlIcon}>
+            {floorStyle === 'standard' ? '🏢' : '🚀'}
+          </Text>
+          <Text style={styles.controlText}>
+            {floorStyle === 'standard' ? 'Standard' : 'Future'}
+          </Text>
+        </TouchableOpacity>
+      </View>}
     </View>
   );
 }
@@ -1287,6 +1370,32 @@ const styles = StyleSheet.create({
   labelText: {
     color: '#8b949e',
     fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  controls: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    gap: 4,
+    zIndex: 2000,
+  },
+  controlPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(10,12,18,0.75)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 3,
+  },
+  controlIcon: {
+    fontSize: 9,
+  },
+  controlText: {
+    color: '#8b949e',
+    fontSize: 8,
     fontWeight: '600',
     letterSpacing: 0.3,
   },

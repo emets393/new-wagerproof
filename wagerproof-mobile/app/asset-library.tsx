@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,34 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+
+// ── Animated Pixel Emoji Preview ──
+const FIRE_FRAMES = [
+  require('@/assets/pixel-office/emoji/fire_f0.png'),
+  require('@/assets/pixel-office/emoji/fire_f1.png'),
+  require('@/assets/pixel-office/emoji/fire_f2.png'),
+  require('@/assets/pixel-office/emoji/fire_f3.png'),
+];
+
+function AnimatedPixelEmoji({ frames, size = 64, fps = 6 }: { frames: any[]; size?: number; fps?: number }) {
+  const [frameIdx, setFrameIdx] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setFrameIdx(prev => (prev + 1) % frames.length);
+    }, 1000 / fps);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [frames.length, fps]);
+
+  return (
+    <Image
+      source={frames[frameIdx]}
+      style={{ width: size, height: size, imageRendering: 'pixelated' } as any}
+      resizeMode="contain"
+    />
+  );
+}
 
 // ── Asset Registry ──
 type AssetEntry = {
@@ -252,6 +280,47 @@ export default function AssetLibraryScreen() {
             )}
           </View>
         )}
+
+        {/* Animated Pixel Emoji Preview */}
+        <View style={styles.emojiPreviewSection}>
+          <Text style={styles.sectionLabel}>Animated Pixel Emojis</Text>
+          <View style={styles.emojiPreviewRow}>
+            {[32, 48, 64, 96, 128].map(size => (
+              <View key={size} style={styles.emojiPreviewItem}>
+                <View style={[styles.emojiPreviewBg, { width: size + 16, height: size + 16 }]}>
+                  <AnimatedPixelEmoji frames={FIRE_FRAMES} size={size} fps={6} />
+                </View>
+                <Text style={styles.emojiSizeLabel}>{size}px</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.emojiPreviewRow}>
+            <View style={styles.emojiPreviewItem}>
+              <Text style={styles.emojiSizeLabel}>2 FPS</Text>
+              <View style={[styles.emojiPreviewBg, { width: 80, height: 80 }]}>
+                <AnimatedPixelEmoji frames={FIRE_FRAMES} size={64} fps={2} />
+              </View>
+            </View>
+            <View style={styles.emojiPreviewItem}>
+              <Text style={styles.emojiSizeLabel}>4 FPS</Text>
+              <View style={[styles.emojiPreviewBg, { width: 80, height: 80 }]}>
+                <AnimatedPixelEmoji frames={FIRE_FRAMES} size={64} fps={4} />
+              </View>
+            </View>
+            <View style={styles.emojiPreviewItem}>
+              <Text style={styles.emojiSizeLabel}>6 FPS</Text>
+              <View style={[styles.emojiPreviewBg, { width: 80, height: 80 }]}>
+                <AnimatedPixelEmoji frames={FIRE_FRAMES} size={64} fps={6} />
+              </View>
+            </View>
+            <View style={styles.emojiPreviewItem}>
+              <Text style={styles.emojiSizeLabel}>10 FPS</Text>
+              <View style={[styles.emojiPreviewBg, { width: 80, height: 80 }]}>
+                <AnimatedPixelEmoji frames={FIRE_FRAMES} size={64} fps={10} />
+              </View>
+            </View>
+          </View>
+        </View>
 
         {/* Asset Grid */}
         <View style={styles.assetGrid}>
@@ -558,5 +627,47 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#6b7280',
     fontWeight: '500',
+  },
+  // Animated Emoji Preview
+  emojiPreviewSection: {
+    marginBottom: 20,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.3)',
+    padding: 16,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#e0e4ec',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  emojiPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+    flexWrap: 'wrap',
+  },
+  emojiPreviewItem: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  emojiPreviewBg: {
+    backgroundColor: '#1a1d27',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiSizeLabel: {
+    fontSize: 9,
+    color: '#6b7280',
+    fontWeight: '600',
   },
 });

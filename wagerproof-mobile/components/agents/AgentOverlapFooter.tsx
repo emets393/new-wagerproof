@@ -4,6 +4,7 @@ import { useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { AgentPickOverlap } from '@/types/agent';
+import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
 
 interface AgentOverlapFooterProps {
   overlap: AgentPickOverlap;
@@ -34,9 +35,9 @@ export function AgentOverlapFooter({ overlap }: AgentOverlapFooterProps) {
         {visible.map((agent, i) => {
           const { isGradient, colors } = parseAvatarColor(agent.avatar_color);
 
-          const circleContent = (
-            <Text style={styles.emoji}>{agent.avatar_emoji}</Text>
-          );
+          const circleContent = hasPixelEmoji(agent.avatar_emoji)
+            ? <PixelEmojiInline emoji={agent.avatar_emoji} size={12} fps={5} />
+            : <Text style={styles.emoji}>{agent.avatar_emoji}</Text>;
 
           if (isGradient) {
             return (

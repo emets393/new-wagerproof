@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { SwipeableEmojiPicker } from '@/components/agents/inputs/SwipeableEmojiPicker';
 import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
+import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
 
 // ============================================================================
 // TYPES
@@ -24,20 +25,8 @@ interface Screen2_IdentityProps {
   existingNames?: string[];
 }
 
-// Solid colors
-const SOLID_COLORS = [
-  '#6366f1', // Indigo
-  '#8b5cf6', // Purple
-  '#ec4899', // Pink
-  '#ef4444', // Red
-  '#f97316', // Orange
-  '#eab308', // Yellow
-  '#22c55e', // Green
-  '#06b6d4', // Cyan
-];
-
-// Gradient options stored as "gradient:#color1,#color2"
-const GRADIENT_OPTIONS = [
+// All color options are gradients (stored as "gradient:#color1,#color2")
+const COLOR_OPTIONS = [
   'gradient:#6366f1,#ec4899', // Indigo → Pink
   'gradient:#8b5cf6,#06b6d4', // Purple → Cyan
   'gradient:#ef4444,#f97316', // Red → Orange
@@ -46,6 +35,14 @@ const GRADIENT_OPTIONS = [
   'gradient:#ec4899,#8b5cf6', // Pink → Purple
   'gradient:#06b6d4,#6366f1', // Cyan → Indigo
   'gradient:#22c55e,#eab308', // Green → Yellow
+  'gradient:#ef4444,#ec4899', // Red → Pink
+  'gradient:#8b5cf6,#f97316', // Purple → Orange
+  'gradient:#3b82f6,#22c55e', // Blue → Green
+  'gradient:#f59e0b,#ef4444', // Amber → Red
+  'gradient:#14b8a6,#8b5cf6', // Teal → Purple
+  'gradient:#6366f1,#3b82f6', // Indigo → Blue
+  'gradient:#dc2626,#7c3aed', // Red → Violet
+  'gradient:#0ea5e9,#22d3ee', // Sky → Cyan
 ];
 
 // Parse a color value into its components
@@ -128,9 +125,10 @@ export function Screen2_Identity({
                   end={{ x: 1, y: 1 }}
                   style={[styles.avatarPreview, { borderColor: primaryColor }]}
                 >
-                  <Text style={styles.avatarEmoji}>
-                    {emoji || '\u2753'}
-                  </Text>
+                  {hasPixelEmoji(emoji || '\uD83E\uDD16')
+                    ? <PixelEmojiInline emoji={emoji || '\uD83E\uDD16'} size={48} fps={5} />
+                    : <Text style={styles.avatarEmoji}>{emoji || '\uD83E\uDD16'}</Text>
+                  }
                 </LinearGradient>
               ) : (
                 <View
@@ -139,9 +137,10 @@ export function Screen2_Identity({
                     { backgroundColor: `${color}30`, borderColor: color },
                   ]}
                 >
-                  <Text style={styles.avatarEmoji}>
-                    {emoji || '\u2753'}
-                  </Text>
+                  {hasPixelEmoji(emoji || '\uD83E\uDD16')
+                    ? <PixelEmojiInline emoji={emoji || '\uD83E\uDD16'} size={48} fps={5} />
+                    : <Text style={styles.avatarEmoji}>{emoji || '\uD83E\uDD16'}</Text>
+                  }
                 </View>
               )}
             </GlowingCardWrapper>
@@ -250,43 +249,11 @@ export function Screen2_Identity({
         <Text
           style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant }]}
         >
-          Select a solid color or gradient for your agent
+          Select a gradient color for your agent
         </Text>
 
-        {/* Solid Colors */}
-        <Text style={[styles.colorGroupLabel, { color: theme.colors.onSurfaceVariant }]}>
-          Solid
-        </Text>
         <View style={styles.colorGrid}>
-          {SOLID_COLORS.map((colorOption) => {
-            const isSelected = color === colorOption;
-            return (
-              <TouchableOpacity
-                key={colorOption}
-                style={[
-                  styles.colorButton,
-                  { backgroundColor: colorOption },
-                  isSelected && styles.colorButtonSelected,
-                ]}
-                onPress={() => handleColorSelect(colorOption)}
-                activeOpacity={0.7}
-              >
-                {isSelected && (
-                  <View style={styles.colorCheckmark}>
-                    <MaterialCommunityIcons name="check" size={14} color="#ffffff" />
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Gradient Colors */}
-        <Text style={[styles.colorGroupLabel, { color: theme.colors.onSurfaceVariant, marginTop: 16 }]}>
-          Gradient
-        </Text>
-        <View style={styles.colorGrid}>
-          {GRADIENT_OPTIONS.map((gradientValue) => {
+          {COLOR_OPTIONS.map((gradientValue) => {
             const isSelected = color === gradientValue;
             const gradientColors = gradientValue.replace('gradient:', '').split(',');
             return (

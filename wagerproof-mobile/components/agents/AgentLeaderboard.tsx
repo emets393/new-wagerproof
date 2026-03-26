@@ -22,6 +22,7 @@ import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { usePrefetchAgentPicks } from '@/hooks/useAgentPicks';
 import { LeaderboardEntry, LeaderboardSortMode, LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import { Sport, formatNetUnits } from '@/types/agent';
+import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
 
 function getPrimaryColor(value: string): string {
   if (value.startsWith('gradient:')) {
@@ -138,7 +139,10 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
                   { backgroundColor: `${getPrimaryColor(entry.avatar_color)}25` },
                 ]}
               >
-                <Text style={styles.avatarEmojiTop3}>{entry.avatar_emoji}</Text>
+                {hasPixelEmoji(entry.avatar_emoji)
+                  ? <PixelEmojiInline emoji={entry.avatar_emoji} size={26} fps={5} />
+                  : <Text style={styles.avatarEmojiTop3}>{entry.avatar_emoji}</Text>
+                }
               </View>
             </GlowingCardWrapper>
           </View>
@@ -149,7 +153,10 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
               { backgroundColor: `${getPrimaryColor(entry.avatar_color)}25` },
             ]}
           >
-            <Text style={styles.avatarEmoji}>{entry.avatar_emoji}</Text>
+            {hasPixelEmoji(entry.avatar_emoji)
+              ? <PixelEmojiInline emoji={entry.avatar_emoji} size={22} fps={5} />
+              : <Text style={styles.avatarEmoji}>{entry.avatar_emoji}</Text>
+            }
           </View>
         )}
         <View style={styles.nameContainer}>
