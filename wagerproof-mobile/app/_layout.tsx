@@ -385,6 +385,20 @@ function RootNavigator() {
               headerShown: false
             }}
           />
+          <Stack.Screen
+            name="pixel-office-debug"
+            options={{
+              presentation: 'card',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="asset-library"
+            options={{
+              presentation: 'card',
+              headerShown: false,
+            }}
+          />
         </Stack>
         <NFLGameBottomSheet />
         <CFBGameBottomSheet />

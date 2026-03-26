@@ -147,6 +147,8 @@ export default function PixelOfficeDebugScreen() {
             <PixelOffice
               agents={useRealAgents && agents ? [...agents].sort((a, b) => (b.performance?.net_units ?? -Infinity) - (a.performance?.net_units ?? -Infinity)).slice(0, 6) : undefined}
               agentCount={useRealAgents ? undefined : agentCount}
+              forceNight={isNightMode}
+              forceAgentState={forcedState ?? undefined}
             />
           </View>
         </View>
@@ -170,7 +172,7 @@ export default function PixelOfficeDebugScreen() {
             <Switch value={isNightMode} onValueChange={setIsNightMode} color="#f59e0b" />
           </View>
           <Text style={styles.hint}>
-            (Day/night asset swap will work once dual asset sets are created)
+            Applies a night tint overlay. Full day/night asset swap will work once dual asset sets are created.
           </Text>
         </View>
 
@@ -222,7 +224,6 @@ export default function PixelOfficeDebugScreen() {
                 selected={forcedState === s.id}
                 onPress={() => {
                   setForcedState(forcedState === s.id ? null : s.id);
-                  Alert.alert('State Override', `Agent ${selectedAgent} → ${s.label}\n\n(Will wire to PixelOffice ref once activity engine exists)`);
                 }}
                 style={[styles.chip, forcedState === s.id && { backgroundColor: s.color }]}
                 textStyle={{ color: forcedState === s.id ? '#fff' : '#8b949e', fontSize: 12 }}
@@ -328,6 +329,24 @@ export default function PixelOfficeDebugScreen() {
           <Text style={styles.hint}>
             (Particle system not yet implemented — this catalogs the planned effects)
           </Text>
+        </View>
+
+        <Divider style={styles.divider} />
+
+        {/* ── Asset Library ── */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.assetLibraryButton}
+            onPress={() => router.push('/asset-library' as any)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="view-grid" size={24} color="#fff" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.assetLibraryTitle}>Asset Library</Text>
+              <Text style={styles.assetLibrarySubtitle}>Browse all pixel office assets individually</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color="#8b949e" />
+          </TouchableOpacity>
         </View>
 
         <Divider style={styles.divider} />
@@ -497,5 +516,24 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     flex: 1,
     marginLeft: 12,
+  },
+  assetLibraryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139,92,246,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.3)',
+    borderRadius: 14,
+    padding: 16,
+  },
+  assetLibraryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  assetLibrarySubtitle: {
+    fontSize: 11,
+    color: '#8b949e',
+    marginTop: 2,
   },
 });

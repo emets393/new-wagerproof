@@ -501,7 +501,7 @@ export default function SecretSettingsScreen() {
             description="Test office layouts, activities, day/night, and agent states"
             left={props => <List.Icon {...props} icon="monitor-eye" color="#8b5cf6" />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/(modals)/pixel-office-debug' as any)}
+            onPress={() => router.push('/pixel-office-debug' as any)}
             style={{ backgroundColor: theme.colors.surface }}
           />
 
