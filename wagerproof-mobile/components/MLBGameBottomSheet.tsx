@@ -9,7 +9,6 @@ import {
   MLBGame,
   getFullGameRuns,
   getF5Runs,
-  isOfficialDateToday,
   formatMoneyline,
   formatSpread,
   formatMLBDateLabel,
@@ -64,9 +63,9 @@ export function MLBGameBottomSheet() {
   const ouConfLabel = game?.ou_strong_signal ? 'Strong' : game?.ou_moderate_signal ? 'Moderate' : 'Weak';
   const ouConfColor = game?.ou_strong_signal ? '#22c55e' : game?.ou_moderate_signal ? '#84cc16' : '#eab308';
 
-  // Signals
-  const showSignals = game ? isOfficialDateToday(game.official_date) : false;
+  // Signals — show for any game that has them
   const signals = game?.signals || [];
+  const showSignals = signals.length > 0 || (game != null);
 
   // Postponed game
   if (game && game.is_postponed) {
@@ -155,7 +154,7 @@ export function MLBGameBottomSheet() {
                     </Text>
                   </View>
                   <View style={styles.linesColumn}>
-                    <Text style={[styles.lineLabel, { color: theme.colors.onSurfaceVariant }]}>Spread</Text>
+                    <Text style={[styles.lineLabel, { color: theme.colors.onSurfaceVariant }]}>Run Line</Text>
                     <Text style={[styles.lineValue, { color: theme.colors.onSurface }]}>
                       {formatSpread(game.away_spread)} / {formatSpread(game.home_spread)}
                     </Text>

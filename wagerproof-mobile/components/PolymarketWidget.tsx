@@ -542,7 +542,7 @@ export function PolymarketWidget({
                 },
               ]}
             >
-              Spread
+              {league === 'mlb' ? 'Run Line' : 'Spread'}
             </Text>
           </View>
         </Pressable>

@@ -3,7 +3,7 @@ import { NFLPrediction } from '../types/nfl';
 import { CFBPrediction } from '../types/cfb';
 import { NBAGame } from '../types/nba';
 import { NCAABGame } from '../types/ncaab';
-import { MLBGame, normalizeTeamNameKey, fallbackAbbrevFromTeamName, combineSignalsOrdered, isOfficialDateToday as isMLBDateToday } from '../types/mlb';
+import { MLBGame, normalizeTeamNameKey, fallbackAbbrevFromTeamName, combineSignalsOrdered } from '../types/mlb';
 import type { MLBGameSignalsRow } from '../types/mlb';
 import { getMLBFallbackTeamInfo } from '../constants/mlbTeams';
 import { getAllMarketsData } from './polymarketService';
@@ -1159,7 +1159,7 @@ export async function fetchMLBPredictions(): Promise<MLBGame[]> {
   return games.map((row: Record<string, unknown>): MLBGame => {
     const sigKey = String(Math.trunc(Number(row.game_pk)));
     const sigRow = signalsMap.get(sigKey);
-    const signals = isMLBDateToday(row.official_date as string) ? combineSignalsOrdered(sigRow as MLBGameSignalsRow | undefined) : [];
+    const signals = combineSignalsOrdered(sigRow as MLBGameSignalsRow | undefined);
     const awayName = String(row.away_team_name || '');
     const homeName = String(row.home_team_name || '');
     const awayFallback = getMLBFallbackTeamInfo(awayName);
