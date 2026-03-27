@@ -4,7 +4,7 @@ import { useTheme, Card } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
+
 import {
   AgentWithPerformance,
   Sport,
@@ -103,10 +103,7 @@ export const AgentCard = React.memo(function AgentCard({ agent, onPress }: Agent
                     end={{ x: 1, y: 1 }}
                     style={styles.avatarContainer}
                   >
-                    {hasPixelEmoji(agent.avatar_emoji)
-                      ? <PixelEmojiInline emoji={agent.avatar_emoji} size={28} fps={5} />
-                      : <Text style={styles.avatarEmoji}>{agent.avatar_emoji}</Text>
-                    }
+                    <Text style={styles.avatarEmoji}>{agent.avatar_emoji}</Text>
                   </LinearGradient>
                 );
               }
@@ -117,10 +114,7 @@ export const AgentCard = React.memo(function AgentCard({ agent, onPress }: Agent
                     { backgroundColor: `${agent.avatar_color}20` },
                   ]}
                 >
-                  {hasPixelEmoji(agent.avatar_emoji)
-                      ? <PixelEmojiInline emoji={agent.avatar_emoji} size={28} fps={5} />
-                      : <Text style={styles.avatarEmoji}>{agent.avatar_emoji}</Text>
-                    }
+                  <Text style={styles.avatarEmoji}>{agent.avatar_emoji}</Text>
                 </View>
               );
             })()}

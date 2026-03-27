@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, View, Text, StyleSheet, Animated, Switch } from 'react-native';
-import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme, Button } from 'react-native-paper';
 import LottieView from 'lottie-react-native';
@@ -153,10 +153,7 @@ export function AgentBornCreationCelebration({
               />
               <GlowingCardWrapper color={primaryColor} borderRadius={20}>
                 <View style={[styles.avatar, { backgroundColor: `${primaryColor}25` }]}>
-                  {hasPixelEmoji(agent.avatar_emoji || '🤖')
-                    ? <PixelEmojiInline emoji={agent.avatar_emoji || '🤖'} size={30} fps={5} />
-                    : <Text style={styles.avatarEmoji}>{agent.avatar_emoji || '🤖'}</Text>
-                  }
+                  <Text style={styles.avatarEmoji}>{agent.avatar_emoji || '🤖'}</Text>
                 </View>
               </GlowingCardWrapper>
               <View style={styles.agentInfo}>

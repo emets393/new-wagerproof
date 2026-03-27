@@ -1,6 +1,6 @@
 # Mobile-Specific Features
 
-> Last verified: December 2024
+> Last verified: March 2026
 
 ## Navigation Architecture
 
@@ -16,9 +16,14 @@ app/
 │       ├── outliers.tsx # Betting anomalies
 │       ├── scoreboard.tsx # Live scores (8 leagues)
 │       ├── chat.tsx    # WagerBot (modal)
+│       ├── voice-chat.tsx # Voice chat (WebRTC)
+│       ├── roast.tsx   # Roast Mode
+│       ├── agents/     # AI Agents (hub, create, [id], public)
 │       ├── settings.tsx # Hidden tab
 │       └── feature-requests.tsx # Hidden tab
-└── (modals)/            # Discord, secret-settings
+├── (modals)/            # Discord, secret-settings, delete-account
+├── pixel-office-debug.tsx # Dev: pixel office viewer
+└── asset-library.tsx    # Dev: pixel art asset browser
 ```
 
 ### Tab Bar
@@ -32,8 +37,8 @@ app/
 ## Feed Screen
 
 ### Sport Tabs
-All 4 sports are **fully live** (not "coming soon"):
-- NFL, CFB, NBA, NCAAB
+All 5 sports are **fully live** (not "coming soon"):
+- NFL, CFB, NBA, NCAAB, MLB
 
 ### Features
 - Horizontal sport selector

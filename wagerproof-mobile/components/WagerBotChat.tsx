@@ -208,6 +208,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   // Note: threadId no longer used with Responses API (kept for backward compatibility)
   const [threadId, setThreadId] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -218,6 +219,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const [chatHistories, setChatHistories] = useState<Array<{ id: string; title: string; timestamp: string; threadId: string | null }>>([]);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   
+  // Ref to always access the latest sendMessageWithText (avoids stale closure in useCallback)
+  const sendMessageWithTextRef = useRef<(text: string) => Promise<void>>();
+
   // Animation values for message appearance
   const messageAnimations = useRef<{ [key: string]: Animated.Value }>({});
   const drawerAnimation = useRef(new Animated.Value(300)).current; // Positive for right side
@@ -308,6 +312,11 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       console.error('   This should never happen - thread ID validation failed!');
     }
   }, [threadId]);
+
+  // Keep sessionIdRef in sync with state so async callbacks always read the latest value
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
 
   // Debug: Log sessionId changes to track thread creation
   useEffect(() => {
@@ -456,10 +465,11 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       
       // Reset all state
       setMessages([]);
+      sessionIdRef.current = null;
       setSessionId(null);
       setThreadId(null);
       setShowWelcome(true);
-      
+
       // Re-initialize to get fresh client secret
       await initializeChat();
       
@@ -483,6 +493,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         
         setMessages(loadedMessages);
         setThreadId(openaiThreadId);
+        sessionIdRef.current = historyId;
         setSessionId(historyId);
         setShowWelcome(loadedMessages.length === 0);
         setShowHistoryDrawer(false);
@@ -522,6 +533,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               // If we're currently viewing this thread, clear the chat
               if (sessionId === threadId) {
                 setMessages([]);
+                sessionIdRef.current = null;
                 setSessionId(null);
                 setThreadId(null);
                 setShowWelcome(true);
@@ -549,8 +561,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
     if (isLoading || isSending || isContextLoading) return;
     setInputText(message);
     // Small delay to show the text before sending
+    // Use ref to always call the latest sendMessageWithText (avoids stale closure)
     setTimeout(() => {
-      sendMessageWithText(message);
+      sendMessageWithTextRef.current?.(message);
     }, 100);
   }, [isContextLoading, isLoading, isSending]);
 
@@ -857,44 +870,47 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
           console.log('✅ Final message length:', currentContent.length);
           
           // Save to Supabase (Responses API doesn't use OpenAI thread IDs)
+          // Use sessionIdRef to always read the latest value (avoids stale closure from React state)
           try {
+            const currentSessionId = sessionIdRef.current;
             console.log('💾 Starting Supabase save...');
-            console.log('  - Current sessionId:', sessionId);
+            console.log('  - Current sessionId:', currentSessionId);
             console.log('  - User ID:', userId);
             console.log('  - Message text length:', messageText.length);
             console.log('  - Assistant content length:', currentContent.length);
-            
+
             // If this is the first message, create a new thread in Supabase
-            if (!sessionId) {
+            if (!currentSessionId) {
               console.log('🆕 Creating new thread in Supabase...');
               const thread = await chatThreadService.createThread(
                 userId,
                 messageText,
                 undefined  // No OpenAI thread ID with Responses API
               );
+              sessionIdRef.current = thread.id;
               setSessionId(thread.id);
               console.log('✅ Created new Supabase thread:', thread.id);
-              
+
               // Save both messages to the thread
               console.log('💾 Saving user message...');
               await chatThreadService.saveMessage(thread.id, 'user', messageText);
               console.log('✅ User message saved');
-              
+
               // Save assistant message
               console.log('💾 Saving assistant message...');
               await chatThreadService.saveMessage(thread.id, 'assistant', currentContent);
               console.log('✅ Assistant message saved');
-              
+
             } else {
-              console.log('📝 Updating existing thread:', sessionId);
-              
+              console.log('📝 Updating existing thread:', currentSessionId);
+
               // Save new messages to existing thread
               console.log('💾 Saving user message to existing thread...');
-              await chatThreadService.saveMessage(sessionId, 'user', messageText);
+              await chatThreadService.saveMessage(currentSessionId, 'user', messageText);
               console.log('✅ User message saved');
-              
+
               console.log('💾 Saving assistant message to existing thread...');
-              await chatThreadService.saveMessage(sessionId, 'assistant', currentContent);
+              await chatThreadService.saveMessage(currentSessionId, 'assistant', currentContent);
               console.log('✅ Assistant message saved');
             }
             
@@ -969,6 +985,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       setIsSending(false);
     }
   };
+
+  // Keep ref in sync so handleSuggestedMessage always calls the latest version
+  sendMessageWithTextRef.current = sendMessageWithText;
 
   // Removed auto-scroll useEffect - now handled by onContentSizeChange in ScrollView
 

@@ -1,6 +1,6 @@
 # Polymarket Integration
 
-> Last verified: January 2025
+> Last verified: March 2026
 
 ## Overview
 
@@ -15,8 +15,9 @@ WagerProof integrates Polymarket betting markets to display real-time prediction
 |-------|------------|--------|--------|
 | NFL | `nfl` | `450` | Integrated |
 | College Football | `cfb` | `100351` | Integrated |
-| NBA | `nba` | TBD | Ready to integrate |
-| NCAAB | `ncaab` | TBD | Ready to integrate |
+| NBA | `nba` | TBD | Integrated (cache enabled) |
+| NCAAB | `ncaab` | TBD | Integrated (cache enabled) |
+| MLB | `mlb` | TBD | Integrated (cache enabled via migration `20260326000000`) |
 
 ---
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Animated,
   View,
@@ -11,6 +11,8 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  InteractionManager,
+  Dimensions,
 } from 'react-native';
 import { useTheme, FAB } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -192,6 +194,21 @@ export default function AgentsHubScreen() {
   // Header layout constants
   const HEADER_TOP_HEIGHT = 56;
   const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT;
+
+  // Lazy-mount PixelOffice: render a placeholder first so cards appear immediately
+  const [officeReady, setOfficeReady] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setOfficeReady(true);
+    });
+    return () => handle.cancel();
+  }, []);
+
+  // Memoize sorted agents for PixelOffice to avoid re-sorting on every render
+  const topAgentsForOffice = useMemo(
+    () => [...(agents || [])].sort((a, b) => (b.performance?.net_units ?? -Infinity) - (a.performance?.net_units ?? -Infinity)).slice(0, 6),
+    [agents]
+  );
 
   // Track activity on mount
   useEffect(() => {
@@ -444,8 +461,8 @@ export default function AgentsHubScreen() {
         </ScrollView>
       ) : (
         <FlatList
-          data={agents}
-          keyExtractor={(item) => item.id}
+          data={agents && agents.length % 2 !== 0 ? [...agents, null] : agents}
+          keyExtractor={(item, index) => item?.id ?? `spacer_${index}`}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={[
@@ -459,18 +476,29 @@ export default function AgentsHubScreen() {
           refreshControl={refreshControl}
           ListHeaderComponent={
             <>
-              <PixelOffice agents={[...agents].sort((a, b) => (b.performance?.net_units ?? -Infinity) - (a.performance?.net_units ?? -Infinity)).slice(0, 6)} />
+              {officeReady ? (
+                <PixelOffice agents={topAgentsForOffice} />
+              ) : (
+                <View style={{ width: Dimensions.get('window').width - 16, height: 800 * ((Dimensions.get('window').width - 16) / 864), alignSelf: 'center', backgroundColor: isDark ? '#1a1a2e' : '#e8e4d8', borderRadius: 12 }} />
+              )}
               <View style={{ height: 12 }} />
             </>
           }
-          renderItem={({ item, index }) => (
-            <AgentIdCard
-              agent={item}
-              onPress={() => handleAgentPress(item)}
-              onLongPress={() => handleAgentLongPress(item)}
-              debugForcePicksReady={index === 0}
-            />
-          )}
+          renderItem={({ item, index }) => {
+            if (!item) return <View style={{ flex: 1, marginVertical: 4 }} />;
+            return (
+              <AgentIdCard
+                agent={item}
+                onPress={() => handleAgentPress(item)}
+                onLongPress={() => handleAgentLongPress(item)}
+                debugForcePicksReady={index === 0}
+              />
+            );
+          }}
+          initialNumToRender={6}
+          maxToRenderPerBatch={4}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
         />
       )}
 

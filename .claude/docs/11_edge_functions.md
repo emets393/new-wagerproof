@@ -1,6 +1,6 @@
 # Supabase Edge Functions
 
-> Last verified: January 2025
+> Last verified: March 2026
 
 ## Overview
 
@@ -47,6 +47,32 @@ WagerProof uses Supabase Edge Functions (Deno runtime) for server-side operation
 | Function | Purpose | Trigger |
 |----------|---------|---------|
 | `send-discord-notification` | Send alerts to Discord channel | Various |
+| `send-agent-pick-ready-notification` | Push notification when agent picks are ready | After generation |
+| `send-reactivation-events` | Reactivation emails for inactive users | Cron |
+
+### AI Agents (Avatar System)
+| Function | Purpose | Trigger |
+|----------|---------|---------|
+| `generate-avatar-picks` | V1 on-demand agent pick generation | Manual |
+| `request-avatar-picks-generation-v2` | V2 queue entry point — enqueues generation job | Manual / Cron |
+| `process-agent-generation-job-v2` | V2 queue worker — processes enqueued jobs | Internal (via `INTERNAL_FUNCTION_SECRET`) |
+| `auto-generate-avatar-picks` | Trigger daily auto-generation for all agents | Cron |
+| `grade-avatar-picks` | Grade agent picks against game results | Cron (multiple windows) |
+| `backfill-avatar-performance` | Recalculate performance caches for all agents | Cron / Manual |
+| `regrade-avatar-pushes` | Re-grade and re-send push notifications | Manual |
+
+### Account Management
+| Function | Purpose | Called From |
+|----------|---------|-------------|
+| `delete-own-account` | Handle account deletion (GDPR compliance) | Settings page |
+| `get-gemini-key` | Retrieve Google Gemini API key for client use | Mobile app |
+| `create-wagerbot-voice-session` | Set up WebRTC voice chat session | Voice chat page |
+
+### Misc
+| Function | Purpose |
+|----------|---------|
+| `generate-no-games-terminal` | Generate terminal message when no games available |
+| `shared` | Shared utility module (not a standalone function) |
 
 ### Analytics/Patterns
 | Function | Purpose | Called From |

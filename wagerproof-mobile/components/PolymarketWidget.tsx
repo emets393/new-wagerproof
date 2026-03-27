@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useTheme, Chip } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CartesianChart, Line } from 'victory-native';
@@ -11,6 +11,7 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  withDelay,
   Easing,
   interpolate,
 } from 'react-native-reanimated';
@@ -58,6 +59,137 @@ const adjustColorForDarkMode = (color: string | undefined, isDark: boolean): str
 
 // Honeydew green color for value alerts (matching website)
 const HONEYDEW_COLOR = '#73b69e';
+
+// Shimmer skeleton block with cascading delay
+function ShimmerBlock({
+  width,
+  height,
+  borderRadius = 6,
+  delay = 0,
+  style,
+  isDark,
+}: {
+  width: number | string;
+  height: number;
+  borderRadius?: number;
+  delay?: number;
+  style?: any;
+  isDark: boolean;
+}) {
+  const shimmer = useSharedValue(0);
+
+  useEffect(() => {
+    shimmer.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(shimmer.value, [0, 0.5, 1], [0.3, 0.7, 0.3]),
+  }));
+
+  const baseColor = isDark ? '#2a2a2e' : '#e5e7eb';
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: width as any,
+          height,
+          borderRadius,
+          backgroundColor: baseColor,
+          overflow: 'hidden',
+        },
+        animatedStyle,
+        style,
+      ]}
+    />
+  );
+}
+
+function PolymarketSkeleton({ isDark, theme }: { isDark: boolean; theme: any }) {
+  return (
+    <View style={[styles.container, { backgroundColor: hexToRgba(theme.colors.surface, 0.5), borderColor: theme.colors.outline }]}>
+      {/* Header skeleton */}
+      <View style={styles.header}>
+        <ShimmerBlock width={20} height={20} borderRadius={4} delay={0} isDark={isDark} />
+        <ShimmerBlock width={140} height={16} borderRadius={4} delay={60} isDark={isDark} style={{ flex: 0 }} />
+        <View style={{ flex: 1 }} />
+        <ShimmerBlock width={48} height={22} borderRadius={8} delay={120} isDark={isDark} />
+      </View>
+
+      {/* Market selector chips skeleton */}
+      <View style={styles.marketSelector}>
+        <ShimmerBlock width={52} height={32} borderRadius={16} delay={180} isDark={isDark} />
+        <ShimmerBlock width={68} height={32} borderRadius={16} delay={240} isDark={isDark} />
+        <ShimmerBlock width={52} height={32} borderRadius={16} delay={300} isDark={isDark} />
+      </View>
+
+      {/* Odds cards skeleton */}
+      <View style={styles.oddsRow}>
+        <View style={[styles.oddsCard, { backgroundColor: isDark ? '#1a1a1e' : '#f3f4f6', borderColor: isDark ? '#333' : '#d1d5db' }]}>
+          <ShimmerBlock width={60} height={12} borderRadius={4} delay={360} isDark={isDark} style={{ marginBottom: 8 }} />
+          <ShimmerBlock width={80} height={28} borderRadius={4} delay={420} isDark={isDark} />
+        </View>
+        <View style={[styles.oddsCard, { backgroundColor: isDark ? '#1a1a1e' : '#f3f4f6', borderColor: isDark ? '#333' : '#d1d5db' }]}>
+          <ShimmerBlock width={60} height={12} borderRadius={4} delay={480} isDark={isDark} style={{ marginBottom: 8 }} />
+          <ShimmerBlock width={80} height={28} borderRadius={4} delay={540} isDark={isDark} />
+        </View>
+      </View>
+
+      {/* Chart area skeleton */}
+      <View style={[styles.chartContainer, { marginVertical: 12 }]}>
+        <View style={{ height: 180, justifyContent: 'flex-end', gap: 4, paddingHorizontal: 4 }}>
+          {/* Fake chart lines */}
+          {[0, 1, 2, 3, 4].map((i) => (
+            <ShimmerBlock
+              key={i}
+              width="100%"
+              height={2}
+              borderRadius={1}
+              delay={600 + i * 60}
+              isDark={isDark}
+              style={{ opacity: 0.4 }}
+            />
+          ))}
+          {/* Chart body fill */}
+          <ShimmerBlock
+            width="100%"
+            height={140}
+            borderRadius={8}
+            delay={600}
+            isDark={isDark}
+            style={{ position: 'absolute', top: 8, left: 4 }}
+          />
+        </View>
+      </View>
+
+      {/* Time range buttons skeleton */}
+      <View style={styles.timeRangeContainer}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <ShimmerBlock
+            key={i}
+            width={45}
+            height={30}
+            borderRadius={8}
+            delay={900 + i * 60}
+            isDark={isDark}
+          />
+        ))}
+      </View>
+
+      {/* Disclaimer skeleton */}
+      <View style={[styles.disclaimer, { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}>
+        <ShimmerBlock width="80%" height={10} borderRadius={4} delay={1260} isDark={isDark} style={{ alignSelf: 'center' }} />
+      </View>
+    </View>
+  );
+}
 
 
 export function PolymarketWidget({
@@ -288,18 +420,9 @@ export function PolymarketWidget({
   const awayColor = adjustColorForDarkMode(awayTeamColors?.primary, isDark);
   const homeColor = adjustColorForDarkMode(homeTeamColors?.primary, isDark);
 
-  // Loading state
+  // Loading state - skeleton shimmer
   if (isLoading) {
-    return (
-      <View style={[styles.container, { backgroundColor: hexToRgba(theme.colors.surface, 0.5), borderColor: theme.colors.outline }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
-            Loading betting data...
-          </Text>
-        </View>
-      </View>
-    );
+    return <PolymarketSkeleton isDark={isDark} theme={theme} />;
   }
 
   // Error or no data state
@@ -834,15 +957,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 12,
   },
-  loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
-  },
-  loadingText: {
-    fontSize: 13,
-  },
-  emptyContainer: {
+emptyContainer: {
     padding: 20,
     alignItems: 'center',
     gap: 8,

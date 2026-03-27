@@ -1,10 +1,10 @@
 # Sports & Predictions
 
-> Last verified: December 2024
+> Last verified: March 2026
 
 ## Overview
 
-WagerProof provides game predictions, live scores, and betting analytics for four major sports: NFL, CFB (College Football), NBA, and NCAAB (College Basketball).
+WagerProof provides game predictions, live scores, and betting analytics for five major sports: NFL, CFB (College Football), NBA, NCAAB (College Basketball), and MLB.
 
 ---
 
@@ -41,6 +41,7 @@ WagerProof provides game predictions, live scores, and betting analytics for fou
 ### Sport Pages
 - `NFL.tsx` (93KB), `CollegeFootball.tsx` (95KB)
 - `NBA.tsx` (75KB), `NCAAB.tsx` (82KB)
+- `MLB.tsx` - MLB predictions with game cards and bottom sheet details
 - `TodayInSports.tsx` (117KB) - Live dashboard
 
 ### Key Components

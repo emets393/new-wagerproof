@@ -1,19 +1,20 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useReducer } from 'react';
 import { Image, Text } from 'react-native';
 
 // ── Shared animation ticker ──────────────────────────────────────
-// Single global interval drives ALL pixel emoji animations, instead of
-// one setInterval per instance. Reduces 20+ intervals to 1.
+// Single global interval drives ALL pixel emoji animations at ~3fps.
+// Each instance uses useReducer (cheaper than useState for forced updates)
+// and only re-renders when its frame index actually changes.
 let globalTick = 0;
 let tickerInterval: ReturnType<typeof setInterval> | null = null;
-const tickListeners = new Set<(tick: number) => void>();
+const tickListeners = new Set<() => void>();
 
 function ensureTicker() {
   if (tickerInterval) return;
   tickerInterval = setInterval(() => {
     globalTick++;
-    tickListeners.forEach(cb => cb(globalTick));
-  }, 200); // 5fps shared tick — smooth enough for emoji animation
+    tickListeners.forEach(cb => cb());
+  }, 300); // ~3fps — visually smooth for 4-frame emoji loops, fewer re-renders
 }
 
 function stopTickerIfEmpty() {
@@ -23,18 +24,29 @@ function stopTickerIfEmpty() {
   }
 }
 
-function useSharedTick(): number {
-  const [tick, setTick] = useState(globalTick);
+function useSharedTick(frameCount: number): number {
+  // useReducer with a counter is cheaper than useState for forced updates
+  const [, forceRender] = useReducer(x => x + 1, 0);
+  const lastFrameRef = useRef(globalTick % frameCount);
+
   useEffect(() => {
-    const cb = (t: number) => setTick(t);
+    const cb = () => {
+      const newFrame = globalTick % frameCount;
+      // Only trigger a re-render when the frame index actually changes
+      if (newFrame !== lastFrameRef.current) {
+        lastFrameRef.current = newFrame;
+        forceRender();
+      }
+    };
     tickListeners.add(cb);
     ensureTicker();
     return () => {
       tickListeners.delete(cb);
       stopTickerIfEmpty();
     };
-  }, []);
-  return tick;
+  }, [frameCount]);
+
+  return globalTick % frameCount;
 }
 
 /**
@@ -138,14 +150,13 @@ export const PixelEmojiInline = React.memo(({
   fallbackFontSize?: number;
 }) => {
   const frames = PIXEL_EMOJI_FRAMES[emoji];
-  const tick = useSharedTick();
+
+  // Hook must be called unconditionally (rules of hooks), but with a safe default
+  const frameIdx = useSharedTick(frames?.length || 4);
 
   if (!frames) {
     return <Text style={{ fontSize: fallbackFontSize ?? size * 0.8 }}>{emoji}</Text>;
   }
-
-  // Derive frame index from shared tick — all emojis animate in lockstep
-  const frameIdx = tick % frames.length;
 
   return (
     <Image

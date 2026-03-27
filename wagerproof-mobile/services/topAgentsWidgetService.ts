@@ -78,7 +78,7 @@ export async function fetchTopAgentsForWidget(userId: string): Promise<TopAgentW
 
   const { data: agents, error: agentsError } = await supabase
     .from('avatar_profiles')
-    .select('*')
+    .select('id, name, avatar_emoji, avatar_color, user_id, preferred_sports, is_widget_favorite, is_active')
     .eq('user_id', userId)
     .eq('is_active', true);
 
@@ -93,7 +93,7 @@ export async function fetchTopAgentsForWidget(userId: string): Promise<TopAgentW
 
   const { data: performances, error: perfError } = await supabase
     .from('avatar_performance_cache')
-    .select('*')
+    .select('avatar_id, wins, losses, pushes, total_picks, win_rate, net_units, current_streak, best_streak')
     .in('avatar_id', agentIds);
 
   if (perfError) {
@@ -127,10 +127,15 @@ export async function fetchTopAgentsForWidget(userId: string): Promise<TopAgentW
   if (selectedAgents.length === 0) return [];
 
   const selectedIds = selectedAgents.map((agent) => agent.id);
+  // Include 3 days of lookback so historicalPicks fallback works when today has no picks
+  const lookbackDate = new Date();
+  lookbackDate.setDate(lookbackDate.getDate() - 3);
+  const lookbackStr = lookbackDate.toISOString().split('T')[0];
   const { data: picks, error: picksError } = await supabase
     .from('avatar_picks')
-    .select('*')
+    .select('id, avatar_id, sport, matchup, pick_selection, pick_type, odds, result, game_date, game_id, created_at')
     .in('avatar_id', selectedIds)
+    .gte('game_date', lookbackStr)
     .order('created_at', { ascending: false })
     .limit(MAX_WIDGET_AGENTS * PICKS_PER_AGENT * 5);
 

@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  InteractionManager,
 } from 'react-native';
 import { Portal, useTheme, Button, Chip, Snackbar } from 'react-native-paper';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
@@ -28,7 +29,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
+
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgent, useUpdateAgent, useUserAgents } from '@/hooks/useAgents';
@@ -247,6 +248,15 @@ export default function AgentDetailScreen() {
   const [noPicksConclusion, setNoPicksConclusion] = useState<string | null>(null);
   const [generatingToastVisible, setGeneratingToastVisible] = useState(false);
   const [selectedAuditPick, setSelectedAuditPick] = useState<AgentPick | null>(null);
+  const [chartsReady, setChartsReady] = useState(false);
+
+  // Defer chart rendering until after initial interactions complete
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setChartsReady(true);
+    });
+    return () => handle.cancel();
+  }, []);
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const isGeneratingRef = useRef(false);
@@ -276,7 +286,7 @@ export default function AgentDetailScreen() {
     isLoading: isLoadingAllPicks,
     error: allPicksError,
     refetch: refetchAllPicks,
-  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks });
+  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks && (showHistory || chartsReady) });
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -752,10 +762,7 @@ export default function AgentDetailScreen() {
                     end={{ x: 1, y: 1 }}
                     style={[styles.avatarLarge, { marginRight: 16 }]}
                   >
-                    {hasPixelEmoji(agent.avatar_emoji)
-                      ? <PixelEmojiInline emoji={agent.avatar_emoji} size={40} fps={5} />
-                      : <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
-                    }
+                    <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
                   </LinearGradient>
                 );
               }
@@ -766,10 +773,7 @@ export default function AgentDetailScreen() {
                     { backgroundColor: agent.avatar_color, marginRight: 16 },
                   ]}
                 >
-                  {hasPixelEmoji(agent.avatar_emoji)
-                      ? <PixelEmojiInline emoji={agent.avatar_emoji} size={40} fps={5} />
-                      : <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
-                    }
+                  <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
                 </View>
               );
             })()}
@@ -1395,8 +1399,8 @@ export default function AgentDetailScreen() {
           )}
         </View>
 
-        {/* Performance Charts */}
-        {canViewAgentPicks ? (
+        {/* Performance Charts — deferred until after initial paint */}
+        {canViewAgentPicks && chartsReady ? (
           <AgentPerformanceCharts
             allPicks={allPicks || []}
             preferredSports={agent.preferred_sports}

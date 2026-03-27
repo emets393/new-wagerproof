@@ -501,8 +501,6 @@ function getPrimaryFromColor(value: string): string {
 }
 
 // ── Name tag component (React Native overlay) ───────────────────
-// ── Animated Pixel Emoji (shared component) ─────────────────────
-import { PixelEmojiInline, PIXEL_EMOJI_FRAMES } from '@/components/agents/PixelEmojiInline';
 
 const NameTag = React.memo(({ name, emoji, state, stateLabel, accentColor, scale }: {
   name: string; emoji: string; state: string; stateLabel: string; accentColor: string; scale: number;
@@ -517,9 +515,7 @@ const NameTag = React.memo(({ name, emoji, state, stateLabel, accentColor, scale
       </View>
       <View style={[tagStyles.nameBox, { borderColor: borderTint, flexDirection: 'row', alignItems: 'center', gap: 2 }]}>
         {emoji ? (
-          PIXEL_EMOJI_FRAMES[emoji]
-            ? <PixelEmojiInline emoji={emoji} size={Math.max(8, 8 * scale)} fps={4} />
-            : <Text style={{ fontSize: Math.max(6, 6 * scale) }}>{emoji} </Text>
+          <Text style={{ fontSize: Math.max(6, 6 * scale) }}>{emoji} </Text>
         ) : null}
         <Text
           style={[tagStyles.nameText, { fontSize: Math.max(6, 6 * scale) }]}
@@ -557,10 +553,7 @@ const SpeechBubble = React.memo(({ emoji, scale }: { emoji: string; scale: numbe
       top: -38,
       left: -((size + 8) / 2),
     }]}>
-      {PIXEL_EMOJI_FRAMES[emoji]
-        ? <PixelEmojiInline emoji={emoji} size={size * 0.8} fps={6} />
-        : <Text style={{ fontSize: size * 0.7, textAlign: 'center' }}>{emoji}</Text>
-      }
+      <Text style={{ fontSize: size * 0.7, textAlign: 'center' }}>{emoji}</Text>
     </View>
   );
 });
@@ -806,16 +799,18 @@ export function PixelOffice({
     claimedPoints.current.clear();
     particlesRef.current = [];
 
+    // Collect all valid spawn locations and shuffle for random starting positions
+    const allSpawnPoints = [...IDLE_POINTS, ...MEETING_POINTS, ...DESK_POINTS];
+    const shuffledSpawns = allSpawnPoints.sort(() => Math.random() - 0.5);
+
     for (let i = 0; i < count; i++) {
       const real = hasReal ? realAgents![i] : null;
       const derived = real ? deriveOfficeState(real) : null;
 
-      // Choose spawn point: desk if startAtDesks, otherwise idle
-      const spawnPoint = startAtDesks
-        ? DESK_POINTS[i % DESK_POINTS.length]
-        : IDLE_POINTS[i % IDLE_POINTS.length];
-      const startX = spawnPoint.x + (startAtDesks ? 0 : (Math.random() * 8 - 4));
-      const startY = spawnPoint.y + (startAtDesks ? 0 : (Math.random() * 8 - 4));
+      // Each agent starts at a random room location
+      const spawnPoint = shuffledSpawns[i % shuffledSpawns.length];
+      const startX = spawnPoint.x + (Math.random() * 8 - 4);
+      const startY = spawnPoint.y + (Math.random() * 8 - 4);
 
       agents.push({
         id: i,
@@ -1029,6 +1024,10 @@ export function PixelOffice({
       }
     };
 
+    // Idle detection: when all agents have arrived and no particles are active,
+    // throttle the loop to ~2fps instead of 60fps to free the JS thread.
+    let idleFrameCount = 0;
+
     const loop = () => {
       if (!running) return;
       const now = performance.now();
@@ -1036,13 +1035,29 @@ export function PixelOffice({
       lastTime = now;
       frameTick++;
 
+      const agents = agentsRef.current;
+      const allIdle = agents.length > 0 && agents.every(a => a.arrived);
+      const hasParticles = particlesRef.current.length > 0;
+
+      if (allIdle && !hasParticles) {
+        idleFrameCount++;
+      } else {
+        idleFrameCount = 0;
+      }
+
+      // After 60 consecutive idle frames (~1s), throttle to ~2fps
+      const isThrottled = idleFrameCount > 60;
+      if (isThrottled && frameTick % 30 !== 0) {
+        requestAnimationFrame(loop);
+        return;
+      }
+
       updateAgents(dt);
 
       // Particle spawning
       particleTimer += dt;
       if (particleTimer > 0.3) {
         particleTimer = 0;
-        const agents = agentsRef.current;
 
         for (const a of agents) {
           if (!a.arrived) continue;
@@ -1089,7 +1104,7 @@ export function PixelOffice({
 
       updateParticles(dt);
 
-      // Render at ~20fps (every 3rd frame of ~60fps rAF)
+      // Render at ~20fps (every 3rd frame of ~60fps rAF), or ~2fps when throttled
       if (frameTick % 3 === 0) {
         setRenderTick(t => t + 1);
       }

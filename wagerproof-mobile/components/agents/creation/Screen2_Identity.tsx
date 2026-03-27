@@ -8,7 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { SwipeableEmojiPicker } from '@/components/agents/inputs/SwipeableEmojiPicker';
 import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
-import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
+
 
 // ============================================================================
 // TYPES
@@ -125,10 +125,7 @@ export function Screen2_Identity({
                   end={{ x: 1, y: 1 }}
                   style={[styles.avatarPreview, { borderColor: primaryColor }]}
                 >
-                  {hasPixelEmoji(emoji || '\uD83E\uDD16')
-                    ? <PixelEmojiInline emoji={emoji || '\uD83E\uDD16'} size={48} fps={5} />
-                    : <Text style={styles.avatarEmoji}>{emoji || '\uD83E\uDD16'}</Text>
-                  }
+                  <Text style={styles.avatarEmoji}>{emoji || '\uD83E\uDD16'}</Text>
                 </LinearGradient>
               ) : (
                 <View
@@ -137,10 +134,7 @@ export function Screen2_Identity({
                     { backgroundColor: `${color}30`, borderColor: color },
                   ]}
                 >
-                  {hasPixelEmoji(emoji || '\uD83E\uDD16')
-                    ? <PixelEmojiInline emoji={emoji || '\uD83E\uDD16'} size={48} fps={5} />
-                    : <Text style={styles.avatarEmoji}>{emoji || '\uD83E\uDD16'}</Text>
-                  }
+                  <Text style={styles.avatarEmoji}>{emoji || '\uD83E\uDD16'}</Text>
                 </View>
               )}
             </GlowingCardWrapper>

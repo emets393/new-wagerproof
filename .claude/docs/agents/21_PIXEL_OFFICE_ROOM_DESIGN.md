@@ -373,9 +373,9 @@ A comprehensive debug/testing page accessible from **Secret Settings** allows de
 7. **Map Overlay**: Show tile grid, interaction points, pathfinding zones
 
 ### Route
-`/(modals)/pixel-office-debug`
+`/pixel-office-debug`
 
-Accessible from Secret Settings → "Pixel Office Debug" item.
+Root-level route (not in modals group). Accessible from Secret Settings → "Pixel Office Debug" item. There is also `/asset-library` for browsing pixel art assets.
 
 ---
 

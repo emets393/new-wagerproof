@@ -2,7 +2,7 @@ import React, { useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
+
 
 // ============================================================================
 // Legacy emojis that were removed from the picker but may exist on saved agents.
@@ -133,10 +133,7 @@ export function SwipeableEmojiPicker({
                     onPress={() => handleEmojiPress(emoji)}
                     activeOpacity={0.7}
                   >
-                    {hasPixelEmoji(emoji)
-                      ? <PixelEmojiInline emoji={emoji} size={24} fps={5} />
-                      : <Text style={styles.emojiText}>{emoji}</Text>
-                    }
+                    <Text style={styles.emojiText}>{emoji}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -166,10 +163,7 @@ export function SwipeableEmojiPicker({
                     onPress={() => handleEmojiPress(emoji)}
                     activeOpacity={0.7}
                   >
-                    {hasPixelEmoji(emoji)
-                      ? <PixelEmojiInline emoji={emoji} size={24} fps={5} />
-                      : <Text style={styles.emojiText}>{emoji}</Text>
-                    }
+                    <Text style={styles.emojiText}>{emoji}</Text>
                   </TouchableOpacity>
                 );
               })}

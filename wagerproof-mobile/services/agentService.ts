@@ -16,6 +16,19 @@ import {
 } from '@/types/agent';
 
 // ============================================================================
+// COLUMN SELECTIONS — avoid SELECT * to reduce payload size
+// ============================================================================
+
+/** Columns needed for list views (excludes large JSONB: personality_params, custom_insights) */
+const AGENT_LIST_COLUMNS = 'id, user_id, name, avatar_emoji, avatar_color, preferred_sports, archetype, is_public, is_active, created_at, updated_at, auto_generate, auto_generate_time, auto_generate_timezone, is_widget_favorite, last_generated_at, last_auto_generated_at, owner_last_active_at, daily_generation_count, last_generation_date';
+
+/** All columns needed for detail/edit views (includes personality_params, custom_insights) */
+const AGENT_DETAIL_COLUMNS = '*';
+
+/** Columns needed for performance cache */
+const PERF_COLUMNS = 'avatar_id, wins, losses, pushes, total_picks, win_rate, net_units, current_streak, best_streak, worst_streak, last_calculated_at';
+
+// ============================================================================
 // INPUT TYPES
 // ============================================================================
 
@@ -53,10 +66,10 @@ function normalizeUpdateAgentInput(data: UpdateAgentInput): UpdateAgentInput {
  */
 export async function fetchUserAgents(userId: string): Promise<AgentWithPerformance[]> {
   try {
-    // Fetch agents
+    // Fetch agents (list columns only — excludes large JSONB fields)
     const { data: agents, error: agentsError } = await supabase
       .from('avatar_profiles')
-      .select('*')
+      .select(AGENT_LIST_COLUMNS)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -73,7 +86,7 @@ export async function fetchUserAgents(userId: string): Promise<AgentWithPerforma
     const agentIds = agents.map((a) => a.id);
     const { data: performances, error: perfError } = await supabase
       .from('avatar_performance_cache')
-      .select('*')
+      .select(PERF_COLUMNS)
       .in('avatar_id', agentIds);
 
     if (perfError) {
@@ -108,16 +121,25 @@ export async function fetchUserAgents(userId: string): Promise<AgentWithPerforma
  */
 export async function fetchAgentById(agentId: string): Promise<AgentWithPerformance | null> {
   try {
-    // Fetch agent
-    const { data: agent, error: agentError } = await supabase
-      .from('avatar_profiles')
-      .select('*')
-      .eq('id', agentId)
-      .single();
+    // Fetch agent and performance in parallel
+    const [agentResult, perfResult] = await Promise.all([
+      supabase
+        .from('avatar_profiles')
+        .select(AGENT_DETAIL_COLUMNS)
+        .eq('id', agentId)
+        .single(),
+      supabase
+        .from('avatar_performance_cache')
+        .select(PERF_COLUMNS)
+        .eq('avatar_id', agentId)
+        .maybeSingle(),
+    ]);
+
+    const { data: agent, error: agentError } = agentResult;
+    const { data: performance, error: perfError } = perfResult;
 
     if (agentError) {
       if (agentError.code === 'PGRST116') {
-        // Not found
         return null;
       }
       console.error('Error fetching agent:', agentError);
@@ -128,16 +150,8 @@ export async function fetchAgentById(agentId: string): Promise<AgentWithPerforma
       return null;
     }
 
-    // Fetch performance data
-    const { data: performance, error: perfError } = await supabase
-      .from('avatar_performance_cache')
-      .select('*')
-      .eq('avatar_id', agentId)
-      .maybeSingle();
-
     if (perfError) {
       console.error('Error fetching performance:', perfError);
-      // Don't throw - return agent without performance
     }
 
     const agentWithPerformance: AgentWithPerformance = {

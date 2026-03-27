@@ -27,7 +27,7 @@ import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceChar
 import { LockedPickCard } from '@/components/LockedPickCard';
 import { LockedOverlay } from '@/components/LockedOverlay';
 import { GlowingCardWrapper } from '@/components/agents/GlowingCardWrapper';
-import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
+
 import { useGameLookup } from '@/hooks/useGameLookup';
 import {
   Sport,
@@ -477,10 +477,7 @@ export default function PublicAgentViewScreen() {
                     end={{ x: 1, y: 1 }}
                     style={styles.avatarLarge}
                   >
-                    {hasPixelEmoji(agent.avatar_emoji)
-                      ? <PixelEmojiInline emoji={agent.avatar_emoji} size={40} fps={5} />
-                      : <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
-                    }
+                    <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
                   </LinearGradient>
                 );
               }
@@ -491,10 +488,7 @@ export default function PublicAgentViewScreen() {
                     { backgroundColor: agent.avatar_color },
                   ]}
                 >
-                  {hasPixelEmoji(agent.avatar_emoji)
-                    ? <PixelEmojiInline emoji={agent.avatar_emoji} size={40} fps={5} />
-                    : <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
-                  }
+                  <Text style={styles.avatarEmojiLarge}>{agent.avatar_emoji}</Text>
                 </View>
               );
             })()}

@@ -67,7 +67,7 @@ wagerproof-mobile/
 
 ## Key Feature Areas
 
-### 1. Sports Predictions (NFL, CFB, NBA, NCAAB)
+### 1. Sports Predictions (NFL, CFB, NBA, NCAAB, MLB)
 - **Web**: Separate pages per sport with game cards, modals, filters
 - **Mobile**: Unified Feed screen with sport tabs, bottom sheets for details
 - **Data Sources**:
@@ -101,7 +101,7 @@ wagerproof-mobile/
 ### 6. Polymarket Integration
 - **Both platforms**: Prediction market odds display
 - **Cache**: `polymarket_markets` + `polymarket_events` tables
-- **Leagues**: NFL, CFB, NBA, NCAAB
+- **Leagues**: NFL, CFB, NBA, NCAAB, MLB
 
 ---
 

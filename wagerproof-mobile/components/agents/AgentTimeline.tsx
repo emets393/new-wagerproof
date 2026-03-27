@@ -16,7 +16,7 @@ import {
   formatStreak,
 } from '@/types/agent';
 import { AgentPickItem, PickCardSkeleton } from './AgentPickItem';
-import { PixelEmojiInline, hasPixelEmoji } from '@/components/agents/PixelEmojiInline';
+
 import { LockedPickCard } from '@/components/LockedPickCard';
 import { LockedGameCard } from '@/components/LockedGameCard';
 
@@ -118,10 +118,7 @@ export function AgentTimelineSection({ agent, onAgentPress }: AgentTimelineSecti
         onPress={handlePress}
       >
         <View style={[styles.agentEmojiContainer, { backgroundColor: `${getPrimaryColor(agent.avatar_color)}25` }]}>
-          {hasPixelEmoji(agent.avatar_emoji)
-            ? <PixelEmojiInline emoji={agent.avatar_emoji} size={24} fps={5} />
-            : <Text style={styles.agentEmoji}>{agent.avatar_emoji}</Text>
-          }
+          <Text style={styles.agentEmoji}>{agent.avatar_emoji}</Text>
         </View>
         <View style={styles.agentInfo}>
           <View style={styles.agentTitleRow}>

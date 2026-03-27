@@ -207,57 +207,6 @@ class ChatThreadService {
     }
   }
 
-  /**
-   * Generate AI title for thread (after first exchange)
-   */
-  async generateThreadTitle(
-    threadId: string,
-    userMessage: string,
-    assistantMessage: string
-  ): Promise<void> {
-    try {
-      console.log('🤖 Generating AI title for thread:', threadId);
-
-      // Use OpenAI to generate a concise title
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: 'Generate a concise 3-5 word title that summarizes the following conversation. Return only the title, no quotes or explanation.',
-            },
-            {
-              role: 'user',
-              content: `User: ${userMessage}\n\nAssistant: ${assistantMessage.substring(0, 200)}`,
-            },
-          ],
-          max_tokens: 20,
-          temperature: 0.7,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const title = result.choices[0]?.message?.content?.trim() || 'Chat Conversation';
-
-      // Update thread title in Supabase
-      await this.updateThreadTitle(threadId, title);
-
-      console.log('✅ Generated title:', title);
-    } catch (error) {
-      console.error('❌ Error generating title:', error);
-      // Non-critical, don't throw - leave default title
-    }
-  }
 }
 
 export const chatThreadService = new ChatThreadService();

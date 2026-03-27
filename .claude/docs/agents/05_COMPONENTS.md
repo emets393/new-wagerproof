@@ -25,26 +25,41 @@
 ├── components/agents/
 │   ├── AgentCard.tsx
 │   ├── AgentPickCard.tsx
+│   ├── AgentPickItem.tsx
 │   ├── AgentLeaderboard.tsx
-│   ├── AgentStatsBanner.tsx
-│   ├── ThinkingTrace.tsx
+│   ├── AgentOverlapFooter.tsx
+│   ├── AgentPerformanceCharts.tsx
+│   ├── AgentPickPayloadAuditWidget.tsx
+│   ├── AgentPickRationaleWidget.tsx
+│   ├── AgentTimeline.tsx
+│   ├── AgentChatRoom.tsx
+│   ├── AgentIdCard.tsx
+│   ├── GlowAccentBar.tsx
+│   ├── GlowingCardWrapper.tsx
+│   ├── PixelEmojiInline.tsx
+│   ├── PixelOffice.tsx
+│   ├── PrinterSlipAnimation.tsx
+│   ├── ThinkingAnimation.tsx
+│   ├── TopAgentPicksFeed.tsx
 │   │
 │   ├── creation/
-│   │   ├── CreationStepContainer.tsx
-│   │   ├── ArchetypeCard.tsx
-│   │   ├── EmojiColorPicker.tsx
-│   │   ├── DataWeightsAllocator.tsx
-│   │   └── AgentPreviewCard.tsx
+│   │   ├── AgentBornCreationCelebration.tsx
+│   │   ├── AgentCreationGenerationIntro.tsx
+│   │   ├── Screen1_SportArchetype.tsx
+│   │   ├── Screen2_Identity.tsx
+│   │   ├── Screen3_Personality.tsx
+│   │   ├── Screen4_DataAndConditions.tsx
+│   │   ├── Screen5_CustomInsights.tsx
+│   │   └── Screen6_Review.tsx
 │   │
-│   └── settings/
-│       ├── SettingsSection.tsx
-│       ├── LabeledSlider.tsx
-│       ├── BiasSlider.tsx
-│       ├── WeightAllocationSlider.tsx
-│       ├── RadioCardGroup.tsx
-│       ├── DraggableRankList.tsx
-│       ├── TeamPicker.tsx
-│       └── MultiSliderGroup.tsx
+│   └── inputs/
+│       ├── ArchetypeCard.tsx
+│       ├── OddsInput.tsx
+│       ├── SliderInput.tsx
+│       ├── SwipeableEmojiPicker.tsx
+│       ├── TimePickerModal.tsx
+│       ├── TimezonePickerModal.tsx
+│       └── ToggleInput.tsx
 │
 ├── services/
 │   └── agentService.ts        # CRUD + pick generation

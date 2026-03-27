@@ -122,7 +122,7 @@ if (rootElement.hasChildNodes()) {
 
 ### App Configuration (`app.json`)
 - Name: "WagerProof"
-- Version: 3.0.1
+- Version: 3.5.0
 - Bundle IDs: `com.wagerproof.mobile`
 
 ---

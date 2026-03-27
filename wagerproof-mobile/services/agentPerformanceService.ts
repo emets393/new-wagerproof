@@ -171,8 +171,13 @@ export async function fetchLeaderboard(
   excludeUnder10Picks: boolean = false,
   timeframe: LeaderboardTimeframe = 'all_time'
 ): Promise<LeaderboardEntry[]> {
-  // Always use the manual query so we control the filters directly
-  return await fetchLeaderboardFallback(limit, sport, sortMode, excludeUnder10Picks, timeframe);
+  // Use V2 RPC (server-side SQL) for performance; fall back to client-side only on RPC error
+  try {
+    return await fetchLeaderboardV2(limit, sport, sortMode, excludeUnder10Picks, timeframe);
+  } catch (v2Error) {
+    console.warn('Leaderboard V2 RPC failed, falling back to client-side:', v2Error);
+    return await fetchLeaderboardFallback(limit, sport, sortMode, excludeUnder10Picks, timeframe);
+  }
 }
 
 export async function fetchLeaderboardV2(

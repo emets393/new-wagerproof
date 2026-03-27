@@ -10,7 +10,7 @@ WagerProof is a professional-grade sports betting analytics and predictions plat
 - Model-generated probabilities for betting outcomes (spread, moneyline, totals)
 - Line movement and public betting sentiment analysis
 - Editor picks and community insights
-- Multi-sport coverage: NFL, College Football (CFB), NBA, College Basketball (NCAAB)
+- Multi-sport coverage: NFL, College Football (CFB), NBA, College Basketball (NCAAB), MLB
 
 ## Tech Stack
 
@@ -160,7 +160,7 @@ wagerproof-mobile/
 - **Web**: Netlify (configured in `netlify.toml`)
 - **Domain**: wagerproof.bet
 - **Mobile**: Expo EAS builds for iOS/Android
-- **Version**: 3.0.1
+- **Version**: 3.5.0
 
 ## Common Development Tasks
 
@@ -202,3 +202,43 @@ Key tables include:
 - Most data fetching uses React Query with aggressive caching
 - AI features require API keys and have admin controls
 - The app supports both live and historical game data
+
+## Documentation Standards
+
+### Rule: Always Update Docs With Code Changes
+
+When you modify, add, or delete code, you MUST check whether any .md files document the affected area. If they do, update them in the same commit. This is not optional — stale docs are worse than no docs.
+
+Specifically:
+- If you change a module's behavior → update its README or doc
+- If you add a new feature, endpoint, or system → add documentation for it
+- If you rename or move files → update any docs that reference old paths
+- If you delete code → check for and remove/update docs that reference it
+- If you change env vars, config, or dependencies → update setup/config docs
+- If you change architecture or data flow → update architecture docs
+
+### Rule: Documentation Lives Next to Code
+
+- Module-level docs go in the module directory as README.md
+- Project-level docs go in /docs or the repo root
+- Don't create deeply nested doc structures — keep it flat and findable
+
+### Rule: Doc Quality Standards
+
+- Write for someone who knows the tech stack but is new to this codebase
+- Start with WHAT it does and WHY, then HOW
+- Include example usage when it helps
+- No aspirational content — only document what currently exists
+- Keep it concise. If a doc is over 200 lines, consider splitting it
+
+### Rule: After Multi-File Changes, Do a Doc Sweep
+
+If a task touches 5+ files or changes architecture, do a quick scan of all .md files in affected directories to make sure nothing is stale. Mention what you checked in your commit message.
+
+### Rule: Never Create Stub Docs
+
+Don't create placeholder docs that say "TODO" or "Coming soon." Either write the doc properly or don't create the file. Empty docs create false confidence that something is documented.
+
+### Rule: PR Description as Doc Check
+
+Before finalizing any PR or set of changes, ask yourself: "If someone reads only the docs, will they understand the current state of this system?" If not, fix the docs.
