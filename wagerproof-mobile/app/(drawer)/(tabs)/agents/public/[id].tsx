@@ -864,7 +864,7 @@ export default function PublicAgentViewScreen() {
                     <AgentPickItem
                       key={pick.id}
                       pick={pick}
-                      showReasoning="full"
+                      showReasoning={false}
                       loading={loadingPickId === pick.id}
                       onPress={() => {
                         if (pick.game_id) {

@@ -529,6 +529,15 @@ export default function AgentDetailScreen() {
     </View>
   );
 
+  const renderHistoryPick = (pick: AgentPick) => (
+    <AgentPickItem
+      key={pick.id}
+      pick={pick}
+      showReasoning={false}
+      onPress={() => openPickAudit(pick)}
+    />
+  );
+
   const renderAuditBackdrop = (props: any) => (
     <BottomSheetBackdrop
       {...props}
@@ -1369,7 +1378,7 @@ export default function AgentDetailScreen() {
                     <LockedPickCard sport={agent.preferred_sports[0]?.toUpperCase() || 'PRO'} />
                   </>
                 ) : filteredPicks.length > 0 ? (
-                  filteredPicks.slice(0, 10).map((pick) => renderPickWithActions(pick))
+                  filteredPicks.slice(0, 10).map((pick) => renderHistoryPick(pick))
                 ) : (
                   <View
                     style={[
@@ -1840,7 +1849,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   picksList: {
-    gap: 6,
+    gap: 10,
   },
   pickActionsRow: {
     flexDirection: 'row',

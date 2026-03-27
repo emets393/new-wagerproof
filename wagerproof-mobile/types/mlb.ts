@@ -79,6 +79,7 @@ export interface MLBGame {
   wind_speed_mph: number | null;
   wind_direction: string | null;
   sky: string | null;
+  venue_name: string | null;
 
   // Signals (attached after fetch)
   signals?: MLBSignalItem[];
@@ -139,6 +140,59 @@ export function getF5Runs(game: MLBGame): { home: number; away: number } | null 
     home: (total + margin) / 2,
     away: (total - margin) / 2,
   };
+}
+
+/** Known dome / retractable-roof stadiums. Values: 'dome' (always closed) or 'retractable'. */
+const DOME_VENUES: Record<string, 'dome' | 'retractable'> = {
+  'tropicana field': 'dome',
+  'minute maid park': 'retractable',
+  'daikin park': 'retractable', // renamed Minute Maid
+  'chase field': 'retractable',
+  'globe life field': 'retractable',
+  'rogers centre': 'retractable',
+  'loandepot park': 'retractable',
+  'loanDepot park': 'retractable',
+  't-mobile park': 'retractable',
+  'american family field': 'retractable',
+  'marlins park': 'retractable',
+  'safeco field': 'retractable',
+  'miller park': 'retractable',
+};
+
+/** Returns roof type for a venue, or null if open-air. */
+export function getVenueRoofType(venueName: string | null | undefined): 'dome' | 'retractable' | null {
+  if (!venueName) return null;
+  const key = venueName.toLowerCase().trim();
+  for (const [venue, type] of Object.entries(DOME_VENUES)) {
+    if (key.includes(venue.toLowerCase())) return type;
+  }
+  return null;
+}
+
+/** Convert compass direction string to degrees (0 = N, 90 = E, etc.). */
+export function windDirectionToDegrees(dir: string | null | undefined): number | null {
+  if (!dir) return null;
+  const map: Record<string, number> = {
+    N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+    E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+    S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+    W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
+  };
+  return map[dir.toUpperCase().trim()] ?? null;
+}
+
+/** Get a weather icon name based on sky condition string. */
+export function getSkyIcon(sky: string | null | undefined): string {
+  if (!sky) return 'weather-sunny';
+  const s = sky.toLowerCase();
+  if (s.includes('rain') || s.includes('shower')) return 'weather-pouring';
+  if (s.includes('storm') || s.includes('thunder')) return 'weather-lightning-rainy';
+  if (s.includes('snow') || s.includes('flurr')) return 'weather-snowy';
+  if (s.includes('overcast')) return 'weather-cloudy';
+  if (s.includes('cloud') || s.includes('partly')) return 'weather-partly-cloudy';
+  if (s.includes('fog') || s.includes('haz')) return 'weather-fog';
+  if (s.includes('clear') || s.includes('sunny')) return 'weather-sunny';
+  return 'weather-partly-cloudy';
 }
 
 /** Check if official_date is today in Eastern Time. */

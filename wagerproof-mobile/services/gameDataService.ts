@@ -1218,10 +1218,11 @@ export async function fetchMLBPredictions(): Promise<MLBGame[]> {
       projection_label: row.projection_label as string | null,
       weather_confirmed: row.weather_confirmed as boolean | null,
       weather_imputed: row.weather_imputed as boolean | null,
-      temperature_f: (row as Record<string, unknown>).temperature_f as number | null ?? null,
-      wind_speed_mph: (row as Record<string, unknown>).wind_speed_mph as number | null ?? null,
-      wind_direction: (row as Record<string, unknown>).wind_direction as string | null ?? null,
-      sky: (row as Record<string, unknown>).sky as string | null ?? null,
+      temperature_f: ((row as Record<string, unknown>).temperature_f as number | null) ?? null,
+      wind_speed_mph: ((row as Record<string, unknown>).wind_speed_mph as number | null) ?? null,
+      wind_direction: ((row as Record<string, unknown>).wind_direction as string | null) ?? null,
+      sky: ((row as Record<string, unknown>).sky as string | null) ?? null,
+      venue_name: (row as Record<string, unknown>).venue_name as string | null ?? null,
       signals,
     };
   });

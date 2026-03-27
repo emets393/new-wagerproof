@@ -106,7 +106,7 @@ export function getResultBadge(
 }
 
 // ============================================================================
-// AGENT PICK ITEM — compact card with team color gradients
+// AGENT PICK ITEM — bet-slip style card
 // ============================================================================
 
 interface AgentPickItemProps {
@@ -125,7 +125,6 @@ export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, 
 
   const { away, home } = parseMatchup(pick.matchup);
 
-  // For NCAAB, use the team mapping table for correct logos and abbreviations
   const isNCAAB = pick.sport === 'ncaab';
   const awayMapping = isNCAAB ? lookupNCAABTeam(away, teamMap) : null;
   const homeMapping = isNCAAB ? lookupNCAABTeam(home, teamMap) : null;
@@ -149,6 +148,22 @@ export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, 
 
   const cardBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.02)';
   const borderColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)';
+  const dividerColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const pillBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+  const pillBorder = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+
+  // Determine icon for bet type — game card style
+  const bt = (pick.bet_type || '').toLowerCase();
+  const isTotal = bt.includes('total') || bt.includes('over') || bt.includes('under');
+  const isSpread = bt.includes('spread');
+  const isOver = (pick.pick_selection || '').toLowerCase().includes('over');
+
+  // For spread/ML, figure out which team is picked
+  const pickSelectionLower = (pick.pick_selection || '').toLowerCase();
+  const isAwayPicked = pickSelectionLower.includes(awayAbbr.toLowerCase()) || pickSelectionLower.includes(away.toLowerCase());
+  const pickedTeam = isAwayPicked ? away : home;
+  const pickedAbbr = isAwayPicked ? awayAbbr : homeAbbr;
+  const pickedLogoUrl = isAwayPicked ? awayLogoUrl : homeLogoUrl;
 
   return (
     <TouchableOpacity activeOpacity={0.7} onPress={handlePress} disabled={!onPress || loading}>
@@ -160,144 +175,98 @@ export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, 
         )}
         {/* Team color gradient top border */}
         <LinearGradient
-          colors={[
-            awayColors.primary,
-            awayColors.secondary,
-            homeColors.primary,
-            homeColors.secondary,
-          ]}
+          colors={[awayColors.primary, awayColors.secondary, homeColors.primary, homeColors.secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.pickCardTopBorder}
         />
 
-        {/* Subtle team color background gradient (matches game cards) */}
-        <LinearGradient
-          colors={[
-            `${awayColors.primary}15`,
-            `${awayColors.secondary}10`,
-            `${theme.colors.surface}00`,
-          ]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.backgroundGradient}
-        />
-
         <View style={styles.pickCardContent}>
-          {/* Row 1: Teams + result badge */}
-          <View style={styles.pickTeamsRow}>
-            <View style={styles.pickTeamsInfo}>
-              <TeamAvatar teamName={away} sport={pick.sport} size={22} teamAbbr={awayAbbr} logoUrl={awayLogoUrl} />
-              <Text style={[styles.pickTeamAbbr, { color: theme.colors.onSurface }]}>
-                {awayAbbr}
-              </Text>
-              <Text style={[styles.pickAtSymbol, { color: theme.colors.outline }]}>@</Text>
-              <TeamAvatar teamName={home} sport={pick.sport} size={22} teamAbbr={homeAbbr} logoUrl={homeLogoUrl} />
-              <Text style={[styles.pickTeamAbbr, { color: theme.colors.onSurface }]}>
-                {homeAbbr}
-              </Text>
+          {/* ── HEADER: matchup + date/result ── */}
+          <View style={styles.headerRow}>
+            <View style={styles.matchupRow}>
+              <TeamAvatar teamName={away} sport={pick.sport} size={26} teamAbbr={awayAbbr} logoUrl={awayLogoUrl} />
+              <Text style={[styles.teamName, { color: theme.colors.onSurface }]}>{awayAbbr}</Text>
+              <Text style={[styles.atSymbol, { color: theme.colors.outline }]}>@</Text>
+              <TeamAvatar teamName={home} sport={pick.sport} size={26} teamAbbr={homeAbbr} logoUrl={homeLogoUrl} />
+              <Text style={[styles.teamName, { color: theme.colors.onSurface }]}>{homeAbbr}</Text>
             </View>
-
             {resultBadge ? (
-              <View style={[styles.pickResultBadge, { backgroundColor: resultBadge.bgColor }]}>
-                <MaterialCommunityIcons
-                  name={resultBadge.icon as any}
-                  size={9}
-                  color={resultBadge.color}
-                />
-                <Text style={styles.pickResultText}>{resultBadge.text}</Text>
+              <View style={[styles.resultBadge, { backgroundColor: resultBadge.bgColor }]}>
+                <MaterialCommunityIcons name={resultBadge.icon as any} size={10} color={resultBadge.color} />
+                <Text style={styles.resultText}>{resultBadge.text}</Text>
               </View>
             ) : (
-              <View
-                style={[
-                  styles.pickPendingBadge,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(255,255,255,0.08)'
-                      : 'rgba(0,0,0,0.04)',
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="clock-outline"
-                  size={10}
-                  color={theme.colors.onSurfaceVariant}
-                />
-                <Text style={[styles.pickPendingText, { color: theme.colors.onSurfaceVariant }]}>
+              <View style={[styles.dateBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                <MaterialCommunityIcons name="clock-outline" size={10} color={theme.colors.onSurfaceVariant} />
+                <Text style={[styles.dateText, { color: theme.colors.onSurfaceVariant }]}>
                   {formatGameDate(pick.game_date)}
                 </Text>
               </View>
             )}
           </View>
 
-          {/* Row 2: Bet type icon + selection + odds + units */}
-          <View style={styles.pickDetailsRow}>
-            <MaterialCommunityIcons
-              name={pickIcon.name as any}
-              size={14}
-              color={pickIcon.color}
-            />
+          {/* ── PICK PILL — game card style ── */}
+          <View style={[styles.pickPill, { backgroundColor: pillBg, borderColor: pillBorder }]}>
+            {/* Icon: arrow circle for O/U, team avatar for spread/ML */}
+            {isTotal ? (
+              <View style={[styles.pickIconCircle, { backgroundColor: isOver ? '#22c55e' : '#ef4444' }]}>
+                <MaterialCommunityIcons
+                  name={isOver ? 'arrow-up' : 'arrow-down'}
+                  size={18}
+                  color="#fff"
+                />
+              </View>
+            ) : (
+              <View style={styles.pickIconAvatar}>
+                <TeamAvatar teamName={pickedTeam} sport={pick.sport} size={30} teamAbbr={pickedAbbr} logoUrl={pickedLogoUrl} />
+              </View>
+            )}
+            {/* Selection text */}
             <Text
               style={[styles.pickSelection, { color: theme.colors.onSurface }]}
               numberOfLines={1}
             >
               {pick.pick_selection}
             </Text>
-            {pick.odds && (
-              <Text style={[styles.pickOdds, { color: theme.colors.onSurfaceVariant }]}>
-                ({pick.odds})
-              </Text>
-            )}
-            <View style={{ flex: 1 }} />
-            <Text style={[styles.pickUnits, { color: theme.colors.onSurfaceVariant }]}>
-              {pick.units}u
-            </Text>
+            {/* Odds + Units on far right */}
+            <View style={styles.pickMetaRight}>
+              {pick.odds && (
+                <View style={[styles.oddsPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+                  <Text style={[styles.oddsValue, { color: theme.colors.onSurface }]}>
+                    {pick.odds}
+                  </Text>
+                </View>
+              )}
+              <View style={[styles.unitsPill, { backgroundColor: isDark ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.08)' }]}>
+                <Text style={styles.unitsValue}>{pick.units}u</Text>
+              </View>
+            </View>
           </View>
 
-          {/* Row 3: Reasoning (optional) */}
+          {/* ── SUMMARY ── */}
           {showReasoning && pick.reasoning_text ? (
-            <View
-              style={[
-                styles.reasoningRow,
-                {
-                  borderTopColor: isDark
-                    ? 'rgba(255,255,255,0.06)'
-                    : 'rgba(0,0,0,0.04)',
-                },
-              ]}
-            >
+            <View style={[styles.reasoningSection, { borderTopColor: dividerColor }]}>
+              <Text style={[styles.sectionHeader, { color: theme.colors.onSurfaceVariant }]}>SUMMARY</Text>
               <Text
                 style={[styles.reasoningText, { color: theme.colors.onSurfaceVariant }]}
                 numberOfLines={showReasoning === 'summary' ? 2 : undefined}
               >
                 {pick.reasoning_text}
               </Text>
-              {showReasoning === 'full' &&
-                pick.key_factors &&
-                pick.key_factors.length > 0 && (
-                  <View style={styles.keyFactorsContainer}>
-                    {pick.key_factors.map((factor, index) => (
-                      <View key={index} style={styles.factorRow}>
-                        <Text
-                          style={[
-                            styles.factorBullet,
-                            { color: theme.colors.primary },
-                          ]}
-                        >
-                          •
-                        </Text>
-                        <Text
-                          style={[
-                            styles.factorText,
-                            { color: theme.colors.onSurfaceVariant },
-                          ]}
-                        >
-                          {factor}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
+              {showReasoning === 'full' && pick.key_factors && pick.key_factors.length > 0 && (
+                <View style={styles.factorsContainer}>
+                  <Text style={[styles.sectionHeader, { color: theme.colors.onSurfaceVariant }]}>KEY FACTORS</Text>
+                  {pick.key_factors.map((factor, index) => (
+                    <View key={index} style={styles.factorRow}>
+                      <View style={[styles.factorDot, { backgroundColor: pickIcon.color }]} />
+                      <Text style={[styles.factorText, { color: theme.colors.onSurfaceVariant }]}>
+                        {factor}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           ) : null}
 
@@ -370,7 +339,7 @@ export function PickCardSkeleton({ isDark }: { isDark: boolean }) {
 
 const styles = StyleSheet.create({
   pickCard: {
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -380,7 +349,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   pickCardTopBorder: {
     position: 'absolute',
@@ -390,107 +359,150 @@ const styles = StyleSheet.create({
     height: 3,
     zIndex: 1,
   },
-  backgroundGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
   pickCardContent: {
-    paddingTop: 8,
-    paddingBottom: 8,
-    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingHorizontal: 12,
   },
-  pickTeamsRow: {
+
+  // ── Header row ──
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  pickTeamsInfo: {
+  matchupRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     flex: 1,
   },
-  pickTeamAbbr: {
-    fontSize: 12,
+  teamName: {
+    fontSize: 14,
     fontWeight: '700',
   },
-  pickAtSymbol: {
+  atSymbol: {
     fontSize: 11,
     fontWeight: '500',
     marginHorizontal: 1,
   },
-  pickDetailsRow: {
+  resultBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  resultText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  dateText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  // ── Pick pill — game card style ──
+  pickPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  pickIconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  pickIconAvatar: {
+    marginRight: 10,
   },
   pickSelection: {
-    fontSize: 12,
-    fontWeight: '600',
-    flexShrink: 1,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
   },
-  pickOdds: {
-    fontSize: 11,
-    fontWeight: '500',
+  pickMetaRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 'auto',
+    paddingLeft: 8,
   },
-  pickUnits: {
-    fontSize: 11,
-    fontWeight: '600',
+  oddsPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  reasoningRow: {
-    marginTop: 6,
-    paddingTop: 6,
+  oddsValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  unitsPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  unitsValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3b82f6',
+    fontVariant: ['tabular-nums'],
+  },
+
+  // ── Reasoning ──
+  reasoningSection: {
+    marginTop: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
   },
-  reasoningText: {
+  sectionHeader: {
     fontSize: 11,
-    lineHeight: 16,
-    fontStyle: 'italic',
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 5,
   },
-  keyFactorsContainer: {
-    marginTop: 6,
+  reasoningText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  factorsContainer: {
+    marginTop: 12,
+    gap: 5,
   },
   factorRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 3,
-    paddingLeft: 2,
   },
-  factorBullet: {
-    fontSize: 11,
-    marginRight: 6,
-    lineHeight: 16,
+  factorDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginRight: 8,
+    marginTop: 7,
   },
   factorText: {
     flex: 1,
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  pickResultBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  pickResultText: {
-    color: '#ffffff',
-    fontSize: 8,
-    fontWeight: '700',
-  },
-  pickPendingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  pickPendingText: {
-    fontSize: 8,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontSize: 14,
+    lineHeight: 20,
   },
   skeletonRow: {
     flexDirection: 'row',

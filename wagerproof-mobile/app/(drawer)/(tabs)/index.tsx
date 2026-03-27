@@ -816,7 +816,7 @@ export default function FeedScreen() {
         // Attach signals
         const sigKey = gamePkMapKey(row.game_pk);
         const sigRow = sigKey ? signalsMap.get(sigKey) : undefined;
-        const signals = isOfficialDateToday(row.official_date) ? combineSignalsOrdered(sigRow) : [];
+        const signals = combineSignalsOrdered(sigRow);
 
         return {
           id: String(row.game_pk ?? row.id ?? `${awayName}_${homeName}_${row.official_date}`),
@@ -875,6 +875,7 @@ export default function FeedScreen() {
           wind_speed_mph: (row as any).wind_speed_mph ?? null,
           wind_direction: (row as any).wind_direction ?? null,
           sky: (row as any).sky ?? null,
+          venue_name: (row as any).venue_name ?? null,
           signals,
         } as MLBGame;
       });

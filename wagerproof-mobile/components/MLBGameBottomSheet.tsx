@@ -5,6 +5,14 @@ import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 import {
   MLBGame,
   getFullGameRuns,
@@ -15,6 +23,9 @@ import {
   formatMLBGameTime,
   getSignalSeverityColor,
   getSignalCategoryIcon,
+  getVenueRoofType,
+  windDirectionToDegrees,
+  getSkyIcon,
 } from '@/types/mlb';
 import { useMLBGameSheet } from '@/contexts/MLBGameSheetContext';
 import { getMLBTeamColors } from '@/constants/mlbTeams';
@@ -57,11 +68,23 @@ export function MLBGameBottomSheet() {
   const mlPickEdge = mlPickSide === 'home' ? game?.home_ml_edge_pct : game?.away_ml_edge_pct;
   const mlPickStrong = mlPickSide === 'home' ? game?.home_ml_strong_signal : game?.away_ml_strong_signal;
 
+  // Implied probability from moneyline odds (for Vegas vs Model comparison)
+  const mlToImpliedProb = (ml: number | null): number | null => {
+    if (ml === null || ml === undefined) return null;
+    return ml < 0 ? Math.abs(ml) / (Math.abs(ml) + 100) : 100 / (ml + 100);
+  };
+  const vegasImpliedProb = mlPickSide === 'home'
+    ? mlToImpliedProb(game?.home_ml ?? null)
+    : mlToImpliedProb(game?.away_ml ?? null);
+
   // O/U
   const ouDirection = game?.ou_direction;
   const ouEdge = game?.ou_edge !== null && game?.ou_edge !== undefined ? Math.abs(game.ou_edge) : null;
   const ouConfLabel = game?.ou_strong_signal ? 'Strong' : game?.ou_moderate_signal ? 'Moderate' : 'Weak';
   const ouConfColor = game?.ou_strong_signal ? '#22c55e' : game?.ou_moderate_signal ? '#84cc16' : '#eab308';
+  const ouDelta = game?.ou_fair_total != null && game?.total_line != null
+    ? Math.abs(game.ou_fair_total - game.total_line).toFixed(1)
+    : null;
 
   // Signals — show for any game that has them
   const signals = game?.signals || [];
@@ -258,7 +281,7 @@ export function MLBGameBottomSheet() {
               </View>
             )}
 
-            {/* ML Projection */}
+            {/* ML Projection — Vegas vs Model */}
             {mlPickSide !== null && mlPickProb !== null && (
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -270,45 +293,63 @@ export function MLBGameBottomSheet() {
                     <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Moneyline Projection</Text>
                     <MaterialCommunityIcons name={mlExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={theme.colors.onSurfaceVariant} />
                   </View>
-                  <View style={styles.projectionRow}>
+
+                  {/* Vegas vs Model comparison */}
+                  <View style={styles.comparisonRow}>
+                    <View style={[styles.comparisonBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
+                      <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Vegas</Text>
+                      <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+                        {vegasImpliedProb !== null ? `${(vegasImpliedProb * 100).toFixed(1)}%` : '-'}
+                      </Text>
+                    </View>
+                    <View style={styles.comparisonArrow}>
+                      <MaterialCommunityIcons name="arrow-right" size={20} color={theme.colors.onSurfaceVariant} />
+                    </View>
+                    <View style={[styles.comparisonBox, { backgroundColor: mlPickStrong ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', borderColor: mlPickStrong ? 'rgba(34,197,94,0.25)' : 'rgba(234,179,8,0.25)', borderWidth: 1 }]}>
+                      <Text style={[styles.comparisonLabel, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>Our Model</Text>
+                      <Text style={[styles.comparisonValue, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>
+                        {(mlPickProb * 100).toFixed(1)}%
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Edge + Team summary */}
+                  <View style={styles.edgeSummaryRow}>
                     <TeamLogoLarge
                       logoUrl={mlPickSide === 'home' ? game.home_logo_url : game.away_logo_url}
                       abbrev={mlPickSide === 'home' ? game.home_abbr : game.away_abbr}
                       colors={mlPickSide === 'home' ? homeColors : awayColors}
-                      size={32}
+                      size={36}
                     />
-                    <View style={styles.projectionInfo}>
-                      <Text style={[styles.projectionPick, { color: theme.colors.onSurface }]}>
-                        {mlPickSide === 'home' ? game.home_abbr : game.away_abbr} ML
+                    <View style={styles.edgeSummaryText}>
+                      <Text style={[styles.edgeSummaryTeam, { color: theme.colors.onSurface }]}>
+                        Edge to {mlPickSide === 'home' ? game.home_abbr : game.away_abbr}
                       </Text>
-                      <Text style={[styles.projectionProb, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>
-                        {(mlPickProb * 100).toFixed(1)}% win prob
+                      {mlPickEdge !== null && mlPickEdge !== undefined && (
+                        <Text style={[styles.edgeSummaryDelta, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>
+                          +{Math.abs(mlPickEdge).toFixed(1)}% delta
+                        </Text>
+                      )}
+                    </View>
+                    <View style={[styles.confBadge, { backgroundColor: mlPickStrong ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)' }]}>
+                      <Text style={{ color: mlPickStrong ? '#22c55e' : '#eab308', fontSize: 11, fontWeight: '600' }}>
+                        {mlPickStrong ? 'Strong' : 'Weak'} Signal
                       </Text>
                     </View>
-                    {mlPickEdge !== null && mlPickEdge !== undefined && (
-                      <View style={[styles.edgeBadge, { backgroundColor: mlPickStrong ? 'rgba(34,197,94,0.15)' : 'rgba(234,179,8,0.15)' }]}>
-                        <Text style={[styles.edgeText, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>
-                          +{Math.abs(mlPickEdge).toFixed(1)}% edge
-                        </Text>
-                      </View>
-                    )}
                   </View>
-                  <View style={[styles.confBadge, { backgroundColor: mlPickStrong ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)' }]}>
-                    <Text style={{ color: mlPickStrong ? '#22c55e' : '#eab308', fontSize: 11, fontWeight: '600' }}>
-                      {mlPickStrong ? 'Strong' : 'Weak'} Signal
-                    </Text>
-                  </View>
+
                   {mlExpanded && (
                     <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
                       The model gives {mlPickSide === 'home' ? game.home_abbr : game.away_abbr} a {(mlPickProb * 100).toFixed(1)}% chance to win
-                      {mlPickEdge !== null && mlPickEdge !== undefined ? `, representing a +${Math.abs(mlPickEdge).toFixed(1)}% edge over the implied market probability.` : '.'}
+                      {vegasImpliedProb !== null ? ` vs Vegas implied ${(vegasImpliedProb * 100).toFixed(1)}%` : ''}
+                      {mlPickEdge !== null && mlPickEdge !== undefined ? `, a +${Math.abs(mlPickEdge).toFixed(1)}% edge.` : '.'}
                     </Text>
                   )}
                 </View>
               </TouchableOpacity>
             )}
 
-            {/* O/U Projection */}
+            {/* O/U Projection — Vegas vs Model */}
             {ouDirection !== null && (
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -324,37 +365,54 @@ export function MLBGameBottomSheet() {
                     <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Total Projection</Text>
                     <MaterialCommunityIcons name={ouExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={theme.colors.onSurfaceVariant} />
                   </View>
-                  <View style={styles.projectionRow}>
-                    <View style={[styles.ouCircle, { backgroundColor: ouDirection === 'OVER' ? '#22c55e' : '#ef4444' }]}>
-                      <MaterialCommunityIcons
-                        name={ouDirection === 'OVER' ? 'arrow-up' : 'arrow-down'}
-                        size={20}
-                        color="#fff"
-                      />
-                    </View>
-                    <View style={styles.projectionInfo}>
-                      <Text style={[styles.projectionPick, { color: theme.colors.onSurface }]}>
-                        {ouDirection === 'OVER' ? 'Over' : 'Under'} {game.total_line ?? ''}
+
+                  {/* Vegas vs Model comparison */}
+                  <View style={styles.comparisonRow}>
+                    <View style={[styles.comparisonBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
+                      <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Vegas O/U</Text>
+                      <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+                        {game.total_line ?? '-'}
                       </Text>
-                      {game.ou_fair_total !== null && game.ou_fair_total !== undefined && (
-                        <Text style={[styles.projectionProb, { color: theme.colors.onSurfaceVariant }]}>
-                          Fair total: {game.ou_fair_total.toFixed(1)}
+                    </View>
+                    <View style={styles.comparisonArrow}>
+                      <MaterialCommunityIcons name="arrow-right" size={20} color={theme.colors.onSurfaceVariant} />
+                    </View>
+                    <View style={[styles.comparisonBox, {
+                      backgroundColor: ouDirection === 'OVER' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                      borderColor: ouDirection === 'OVER' ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)',
+                      borderWidth: 1,
+                    }]}>
+                      <Text style={[styles.comparisonLabel, { color: ouDirection === 'OVER' ? '#22c55e' : '#ef4444' }]}>Our Model</Text>
+                      <Text style={[styles.comparisonValue, { color: ouDirection === 'OVER' ? '#22c55e' : '#ef4444' }]}>
+                        {game.ou_fair_total?.toFixed(1) ?? '-'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Edge summary */}
+                  <View style={styles.edgeSummaryRow}>
+                    <MaterialCommunityIcons
+                      name={ouDirection === 'OVER' ? 'chevron-up' : 'chevron-down'}
+                      size={32}
+                      color={ouDirection === 'OVER' ? '#22c55e' : '#ef4444'}
+                    />
+                    <View style={styles.edgeSummaryText}>
+                      <Text style={[styles.edgeSummaryTeam, { color: theme.colors.onSurface }]}>
+                        Edge to {ouDirection === 'OVER' ? 'Over' : 'Under'}
+                      </Text>
+                      {ouDelta !== null && (
+                        <Text style={[styles.edgeSummaryDelta, { color: ouDirection === 'OVER' ? '#22c55e' : '#ef4444' }]}>
+                          {ouDelta} pts delta
                         </Text>
                       )}
                     </View>
-                    {ouEdge !== null && (
-                      <View style={[styles.edgeBadge, { backgroundColor: `${ouConfColor}20` }]}>
-                        <Text style={[styles.edgeText, { color: ouConfColor }]}>
-                          +{ouEdge.toFixed(1)}% edge
-                        </Text>
-                      </View>
-                    )}
+                    <View style={[styles.confBadge, { backgroundColor: `${ouConfColor}15` }]}>
+                      <Text style={{ color: ouConfColor, fontSize: 11, fontWeight: '600' }}>
+                        {ouConfLabel} Signal
+                      </Text>
+                    </View>
                   </View>
-                  <View style={[styles.confBadge, { backgroundColor: `${ouConfColor}15` }]}>
-                    <Text style={{ color: ouConfColor, fontSize: 11, fontWeight: '600' }}>
-                      {ouConfLabel} Signal
-                    </Text>
-                  </View>
+
                   {ouExpanded && (
                     <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
                       The model projects a fair total of {game.ou_fair_total?.toFixed(1) ?? 'N/A'} vs the market line of {game.total_line ?? 'N/A'}, suggesting the {ouDirection === 'OVER' ? 'Over' : 'Under'}.
@@ -393,37 +451,17 @@ export function MLBGameBottomSheet() {
             )}
 
             {/* Weather */}
-            {game.temperature_f !== null && game.temperature_f !== undefined && (
+            {game.temperature_f !== null && game.temperature_f !== undefined ? (
+              <MLBWeatherSection game={game} isDark={isDark} theme={theme} />
+            ) : (
               <View style={[styles.section, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
                 <View style={styles.projectionHeader}>
-                  <MaterialCommunityIcons name="weather-partly-cloudy" size={18} color={theme.colors.primary} />
-                  <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Weather</Text>
+                  <MaterialCommunityIcons name="weather-partly-cloudy" size={18} color={theme.colors.onSurfaceVariant} />
+                  <Text style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant }]}>Weather</Text>
                 </View>
-                <View style={styles.weatherRow}>
-                  <View style={styles.weatherItem}>
-                    <MaterialCommunityIcons name="thermometer" size={16} color={theme.colors.onSurfaceVariant} />
-                    <Text style={[styles.weatherText, { color: theme.colors.onSurface }]}>{game.temperature_f}°F</Text>
-                  </View>
-                  {game.wind_speed_mph !== null && game.wind_speed_mph !== undefined && (
-                    <View style={styles.weatherItem}>
-                      <MaterialCommunityIcons name="weather-windy" size={16} color={theme.colors.onSurfaceVariant} />
-                      <Text style={[styles.weatherText, { color: theme.colors.onSurface }]}>
-                        {game.wind_speed_mph} mph {game.wind_direction || ''}
-                      </Text>
-                    </View>
-                  )}
-                  {game.sky && (
-                    <View style={styles.weatherItem}>
-                      <MaterialCommunityIcons name="weather-cloudy" size={16} color={theme.colors.onSurfaceVariant} />
-                      <Text style={[styles.weatherText, { color: theme.colors.onSurface }]}>{game.sky}</Text>
-                    </View>
-                  )}
-                </View>
-                {game.weather_imputed && !game.weather_confirmed && (
-                  <Text style={[styles.weatherNote, { color: theme.colors.onSurfaceVariant }]}>
-                    Weather is estimated — awaiting confirmed inputs
-                  </Text>
-                )}
+                <Text style={[styles.wxPendingText, { color: theme.colors.onSurfaceVariant }]}>
+                  Weather data updates ~4 hours before game time
+                </Text>
               </View>
             )}
 
@@ -435,6 +473,104 @@ export function MLBGameBottomSheet() {
 }
 
 /** Large team logo for bottom sheet. */
+/** Animated wind arrow that points in the compass direction. */
+function WindArrow({ direction, isDark }: { direction: string | null; isDark: boolean }) {
+  const degrees = windDirectionToDegrees(direction);
+  const spin = useSharedValue(0);
+
+  useEffect(() => {
+    if (degrees !== null) {
+      spin.value = withTiming(degrees, { duration: 800, easing: Easing.out(Easing.cubic) });
+    }
+  }, [degrees]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.value}deg` }],
+  }));
+
+  if (degrees === null) return null;
+
+  return (
+    <Animated.View style={[{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+      <MaterialCommunityIcons name="arrow-up" size={22} color={isDark ? '#93c5fd' : '#3b82f6'} />
+    </Animated.View>
+  );
+}
+
+/** Weather section with field visual, wind arrow, temp, sky, and roof indicator. */
+function MLBWeatherSection({ game, isDark, theme }: { game: MLBGame; isDark: boolean; theme: any }) {
+  const roofType = getVenueRoofType(game.venue_name);
+  const skyIcon = getSkyIcon(game.sky) as any;
+  const isDome = roofType !== null;
+
+  return (
+    <View style={[styles.section, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
+      <View style={styles.projectionHeader}>
+        <MaterialCommunityIcons name="weather-partly-cloudy" size={18} color={theme.colors.primary} />
+        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Weather</Text>
+        {game.venue_name && (
+          <Text style={[styles.wxVenueName, { color: theme.colors.onSurfaceVariant }]}>{game.venue_name}</Text>
+        )}
+      </View>
+
+      {/* Main weather cards row */}
+      <View style={styles.wxCardsRow}>
+        {/* Temperature card */}
+        <View style={[styles.wxCard, { backgroundColor: isDark ? '#2a1a1a' : '#fef2f2', borderColor: isDark ? '#442d2d' : '#fecaca' }]}>
+          <View style={styles.wxCardIcon}>
+            <MaterialCommunityIcons name="thermometer" size={24} color={isDark ? '#fca5a5' : '#ef4444'} />
+          </View>
+          <Text style={[styles.wxCardValue, { color: theme.colors.onSurface }]}>{game.temperature_f}°F</Text>
+          <Text style={[styles.wxCardLabel, { color: theme.colors.onSurfaceVariant }]}>Temp</Text>
+        </View>
+
+        {/* Sky condition card */}
+        {game.sky && (
+          <View style={[styles.wxCard, { backgroundColor: isDark ? '#1a2a1a' : '#f0fdf4', borderColor: isDark ? '#2d442d' : '#bbf7d0' }]}>
+            <View style={styles.wxCardIcon}>
+              <MaterialCommunityIcons name={skyIcon} size={24} color={isDark ? '#86efac' : '#22c55e'} />
+            </View>
+            <Text style={[styles.wxCardValue, { color: theme.colors.onSurface }]} numberOfLines={1}>{game.sky}</Text>
+            <Text style={[styles.wxCardLabel, { color: theme.colors.onSurfaceVariant }]}>Sky</Text>
+          </View>
+        )}
+
+        {/* Wind card */}
+        {game.wind_speed_mph !== null && game.wind_speed_mph !== undefined && (
+          <View style={[styles.wxCard, { backgroundColor: isDark ? '#1a1a2e' : '#eff6ff', borderColor: isDark ? '#2d2d44' : '#bfdbfe' }]}>
+            <View style={styles.wxCardIcon}>
+              <WindArrow direction={game.wind_direction} isDark={isDark} />
+            </View>
+            <Text style={[styles.wxCardValue, { color: theme.colors.onSurface }]}>{game.wind_speed_mph} mph</Text>
+            <Text style={[styles.wxCardLabel, { color: theme.colors.onSurfaceVariant }]}>{game.wind_direction || 'Wind'}</Text>
+          </View>
+        )}
+
+        {/* Roof / field type card */}
+        <View style={[styles.wxCard, { backgroundColor: isDark ? '#1a1a2a' : '#f5f3ff', borderColor: isDark ? '#2d2d44' : '#c4b5fd' }]}>
+          <View style={styles.wxCardIcon}>
+            <MaterialCommunityIcons
+              name={isDome ? 'dome-light' : 'baseball-diamond'}
+              size={24}
+              color={isDark ? '#c4b5fd' : '#7c3aed'}
+            />
+          </View>
+          <Text style={[styles.wxCardValue, { color: theme.colors.onSurface }]}>
+            {roofType === 'dome' ? 'Dome' : roofType === 'retractable' ? 'Dome/Roof' : 'Open Air'}
+          </Text>
+          <Text style={[styles.wxCardLabel, { color: theme.colors.onSurfaceVariant }]}>Field</Text>
+        </View>
+      </View>
+
+      {game.weather_imputed && !game.weather_confirmed && (
+        <Text style={[styles.wxNote, { color: theme.colors.onSurfaceVariant }]}>
+          Weather is estimated — awaiting confirmed inputs
+        </Text>
+      )}
+    </View>
+  );
+}
+
 function TeamLogoLarge({
   logoUrl,
   abbrev,
@@ -630,32 +766,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  projectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
-  },
-  projectionInfo: {
-    flex: 1,
-  },
-  projectionPick: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  projectionProb: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  edgeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  edgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
   confBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
@@ -667,13 +777,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginTop: 10,
-  },
-  ouCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   signalsList: {
     gap: 8,
@@ -697,24 +800,95 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontStyle: 'italic',
   },
-  weatherRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  weatherItem: {
+  comparisonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
+    marginBottom: 12,
   },
-  weatherText: {
+  comparisonBox: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  comparisonLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  comparisonValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  comparisonArrow: {
+    paddingHorizontal: 2,
+  },
+  edgeSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  edgeSummaryText: {
+    flex: 1,
+  },
+  edgeSummaryTeam: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  edgeSummaryDelta: {
     fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  wxVenueName: {
+    fontSize: 11,
     fontWeight: '500',
   },
-  weatherNote: {
+  wxCardsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  wxCard: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    gap: 4,
+  },
+  wxCardIcon: {
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wxCardValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  wxCardLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  wxNote: {
     fontSize: 11,
     fontStyle: 'italic',
-    marginTop: 6,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  wxPendingText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 8,
   },
   postponedBadge: {
     flexDirection: 'row',
