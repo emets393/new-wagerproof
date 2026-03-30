@@ -54,7 +54,7 @@ All MLB queries use **`collegeFootballSupabase`** from `college-football-client.
 |--------|------|--------------------|----------|
 | **`mlb_games_today`** | Primary row per game; lines, probs, F5 fields, starters, flags, etc. | `select('*')` with filters below | `game_pk` |
 | **`mlb_team_mapping`** | Map team names / MLB IDs → display **abbrev** + **logo_url** | `select('*')` | `team_name` (normalized) or `mlb_api_id` ↔ game `*_team_id` |
-| **`mlb_predictions_current`** | Authoritative **`is_final_prediction`** per game when present | `select('game_pk, is_final_prediction').in('game_pk', gamePks)` | `game_pk` |
+| **`mlb_predictions_current`** | Authoritative **`is_final_prediction`** and **F5 ML edge %** per game when a row exists | `select('game_pk, is_final_prediction, f5_home_ml_edge_pct, f5_away_ml_edge_pct').in('game_pk', gamePks)` | `game_pk` |
 | **`mlb_game_signals`** | Optional **signals** arrays per game | `select('game_pk, home_signals, away_signals, game_signals')` (full result set; no client-side `.in('game_pk')`) | `game_pk` (in-memory, string-normalized) |
 
 ### 4.1 `mlb_games_today` — fetch and filters
@@ -77,11 +77,10 @@ All MLB queries use **`collegeFootballSupabase`** from `college-football-client.
 
 ### 4.2 Merge from `mlb_predictions_current`
 
-After loading games, the client loads `is_final_prediction` for all `game_pk` values in the result set. Each game object is spread with:
+After loading games, the client loads one row per `game_pk` from `mlb_predictions_current` for all `game_pk` values in the result set.
 
-`is_final_prediction: valueFromTable ?? row.is_final_prediction ?? null`
-
-So the table can **override** a value already on the game row if both exist.
+- **`is_final_prediction`:** If a current row exists for that `game_pk`, the merged object uses `!!row.is_final_prediction`. If no current row exists, the value from `mlb_games_today` is kept (`row.is_final_prediction ?? null`).
+- **`f5_home_ml_edge_pct` / `f5_away_ml_edge_pct`:** If a current row exists, these columns from the table are written onto the game object (null if the column is null). If no current row exists, the game row’s existing values are left unchanged. The UI **does not** recompute F5 moneyline edge from win probability or market MLs; it only displays these stored percentages.
 
 ### 4.3 `mlb_game_signals`
 
@@ -157,7 +156,9 @@ The UI TypeScript type is `MLBPredictionRow` in `MLB.tsx`. Below is the **intend
 | `f5_total_line` | F5 market total in UI. |
 | `f5_ou_edge` | Sign determines OVER vs UNDER; magnitude shown as edge. |
 | `f5_home_win_prob`, `f5_away_win_prob` | F5 win probs and pick side. |
-| `f5_home_spread`, `f5_away_spread` | Shown only in the **1st 5** moneyline section next to F5 win probs. |
+| `f5_home_spread`, `f5_away_spread` | May be present on the row; **not** shown in the 1st 5 moneyline section (UI shows F5 win prob and F5 ML edge only). |
+| `f5_home_ml_edge_pct`, `f5_away_ml_edge_pct` | F5 moneyline edge % per team. **Source of truth** for the card is `mlb_predictions_current` when merged (see §4.2); the client maps them with `toNum` for display only—no client-side edge formula. |
+| `f5_home_ml_strong_signal`, `f5_away_ml_strong_signal` | Strong-edge flags; the **pick row** shows **Strong edge** only when the picked side’s flag is truthy (`true`, or coerced `1` / `"true"` / `"1"`). If false/absent, no badge. |
 
 ### 6.7 Starters and metadata
 
@@ -256,9 +257,9 @@ Layout: **away logo** — **away runs** — **home runs** — **home logo** (one
 - **Affects:**
   - Section title “Projected Score (Full Game | 1st 5)”
   - Derived runs (`activeRuns`)
-  - **Moneyline projection** block (full vs F5 pick, probs, edges; **F5 spreads** only here)
+  - **Moneyline projection** block (full vs F5 pick, probs, edges; in **1st 5** mode: per-team **F5 win prob** + **F5 ML edge**, pick-row **F5 ML edge** + optional **Strong edge** if the picked side’s `f5_*_ml_strong_signal` is true)
   - **Total projection** block (full vs F5 fair total, market total, O/U pick/edge)
-- **Does not change:** Header moneylines/spreads (always **full-game** `home_ml` / `away_ml` / `home_spread` / `away_spread`).
+- **Does not change:** Header moneylines/spreads (always **full-game** `home_ml` / `away_ml` / `home_spread` / `away_spread`). F5 spreads are not shown in the card body.
 
 ---
 
