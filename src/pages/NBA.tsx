@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertCircle, History, TrendingUp, BarChart, ScatterChart, Brain, Target, Users, Calendar, Clock, Info, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Zap, Search } from 'lucide-react';
@@ -31,7 +30,7 @@ import { areCompletionsEnabled } from '@/utils/aiCompletionSettings';
 import { useDisplaySettings } from '@/hooks/useDisplaySettings';
 import { GameTailSection } from '@/components/GameTailSection';
 import { CardFooter } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { getNBATeamColors, getNBATeamInitials } from '@/utils/teamColors';
 import { useSportsPageCache } from '@/hooks/useSportsPageCache';
@@ -1540,105 +1539,29 @@ ${contextParts}
                         {(() => {
                           const edgeInfo = getEdgeInfo(prediction.home_spread_diff ?? null, prediction.away_team, prediction.home_team);
                           if (!edgeInfo) return null;
-                          
+
                           const edgeValue = edgeInfo.edgeValue;
                           const confidenceColor = edgeValue >= 7 ? 'bg-green-500' : edgeValue >= 3 ? 'bg-orange-500' : 'bg-gray-500';
-                          const isFadeAlert = edgeValue >= 10;
-                          
-                          const pillContent = (
-                            <div className={`${isFadeAlert ? 'bg-green-500/80 backdrop-blur-md' : confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
+
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <Target className="h-3 w-3" />
                               <span>Edge to {getTeamInitials(edgeInfo.teamName)} +{edgeInfo.displayEdge}</span>
                             </div>
                           );
-                          
-                          return isFadeAlert ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex flex-col items-center gap-1.5 cursor-help">
-                                  <MovingBorderButton
-                                    borderRadius="1.5rem"
-                                    containerClassName="h-auto w-auto p-0"
-                                    className="bg-transparent p-0 border-0 m-0"
-                                    borderClassName="bg-[radial-gradient(#22c55e_40%,transparent_60%)]"
-                                    duration={2000}
-                                    as="div"
-                                  >
-                                    {pillContent}
-                                  </MovingBorderButton>
-                                  <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">
-                                    <Zap className="h-3 w-3 fill-green-600 dark:fill-green-400" />
-                                    <span>FADE ALERT</span>
-                                  </div>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent 
-                                side="top" 
-                                className="max-w-xs p-3 pr-6 bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600"
-                                sideOffset={8}
-                                avoidCollisions={true}
-                                collisionPadding={8}
-                                style={{ 
-                                  zIndex: 99999
-                                }}
-                              >
-                                <p className="text-sm text-white dark:text-gray-100 leading-relaxed">
-                                  When a model shows extreme confidence (80%+), it may be overreacting to a single factor. Consider analyzing other factors and potentially fading (betting against) this prediction.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : pillContent;
                         })()}
                         {showNFLMoneylinePills && prediction.home_away_ml_prob !== null && (() => {
                           const isHome = prediction.home_away_ml_prob > 0.5;
                           const predictedTeam = isHome ? prediction.home_team : prediction.away_team;
                           const confidencePct = Math.round((isHome ? prediction.home_away_ml_prob : 1 - prediction.home_away_ml_prob) * 100);
                           const confidenceColor = confidencePct >= 65 ? 'bg-blue-500' : confidencePct >= 58 ? 'bg-indigo-500' : 'bg-gray-500';
-                          const isFadeAlert = confidencePct >= 80;
-                          
-                          const pillContent = (
-                            <div className={`${isFadeAlert ? 'bg-blue-500/80 backdrop-blur-md' : confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
+
+                          return (
+                            <div className={`${confidenceColor} text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap`}>
                               <Users className="h-3 w-3" />
                               <span>{getTeamInitials(predictedTeam)} ML {confidencePct}%</span>
                             </div>
                           );
-                          
-                          return isFadeAlert ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex flex-col items-center gap-1.5 cursor-help">
-                                  <MovingBorderButton
-                                    borderRadius="1.5rem"
-                                    containerClassName="h-auto w-auto p-0"
-                                    className="bg-transparent p-0 border-0 m-0"
-                                    borderClassName="bg-[radial-gradient(#3b82f6_40%,transparent_60%)]"
-                                    duration={2000}
-                                    as="div"
-                                  >
-                                    {pillContent}
-                                  </MovingBorderButton>
-                                  <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                                    <Zap className="h-3 w-3 fill-blue-600 dark:fill-blue-400" />
-                                    <span>FADE ALERT</span>
-                                  </div>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent 
-                                side="top" 
-                                className="max-w-xs p-3 pr-6 bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600"
-                                sideOffset={8}
-                                avoidCollisions={true}
-                                collisionPadding={8}
-                                style={{ 
-                                  zIndex: 99999
-                                }}
-                              >
-                                <p className="text-sm text-white dark:text-gray-100 leading-relaxed">
-                                  When a model shows extreme confidence (80%+), it may be overreacting to a single factor. Consider analyzing other factors and potentially fading (betting against) this prediction.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : pillContent;
                         })()}
                         {/* Over/Under Edge - Show edge value (delta) like College Basketball */}
                         {prediction.over_line_diff !== null && (() => {

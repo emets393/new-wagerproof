@@ -247,7 +247,6 @@ export default function MLBTodayBettingTrends() {
   const [teamByMlbApiId, setTeamByMlbApiId] = useState<Map<number, MlbTeamMapEntry>>(() => new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [expandedGames, setExpandedGames] = useState<Set<number>>(new Set());
   const [highlightGamePk, setHighlightGamePk] = useState<number | null>(null);
   const [sortMode, setSortMode] = useState<'time' | 'ou-consensus' | 'ml-dominance'>('time');
@@ -329,7 +328,6 @@ export default function MLBTodayBettingTrends() {
 
       if (!data?.length) {
         setGames([]);
-        setLastUpdated(new Date());
         setLoading(false);
         return;
       }
@@ -397,7 +395,6 @@ export default function MLBTodayBettingTrends() {
       };
       scored.sort(sortFn);
       setGames(scored.map(({ _ou, _ml, ...g }) => g));
-      setLastUpdated(new Date());
     } catch {
       setError('An unexpected error occurred while loading MLB situational trends.');
     } finally {
@@ -626,9 +623,10 @@ export default function MLBTodayBettingTrends() {
             Today&apos;s betting trends
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Situational moneyline and over rates for today&apos;s MLB games (from{' '}
-            <code className="text-xs bg-muted px-1 rounded">mlb_situational_trends_today</code>)
-            {lastUpdated && <span className="ml-2">• Last updated: {lastUpdated.toLocaleTimeString()}</span>}
+            Situational moneyline and over rates for today&apos;s MLB games (current season).
+            <span className="ml-2">
+              • Today: {new Date().toLocaleDateString(undefined, { dateStyle: 'long' })}
+            </span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
