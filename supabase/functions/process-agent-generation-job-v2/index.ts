@@ -33,6 +33,7 @@ import {
   type PayloadBudgetMode,
   type PromptTokenCount,
 } from '../shared/tokenBudget.ts';
+import { fetchActiveSystemPrompt } from '../shared/promptFetcher.ts';
 
 // Shared game helpers — extracted to avoid importing V1's serve() side effect
 import {
@@ -160,21 +161,13 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 6. Fetch System Prompt
+    // 6. Fetch System Prompt (sport-aware)
     // -------------------------------------------------------------------------
-    let remotePromptTemplate: string | null = null;
-    let systemPromptVersion = 'hardcoded_fallback';
-
-    const { data: promptRow } = await supabaseClient
-      .from('agent_system_prompts')
-      .select('id, prompt_text')
-      .eq('is_active', true)
-      .single();
-
-    if (promptRow) {
-      remotePromptTemplate = promptRow.prompt_text;
-      systemPromptVersion = String(promptRow.id || 'unknown');
-    }
+    const { remotePromptTemplate, systemPromptVersion } = await fetchActiveSystemPrompt(
+      supabaseClient,
+      avatarProfile.preferred_sports,
+      '[worker-v2]'
+    );
 
     // -------------------------------------------------------------------------
     // 7. Fetch Games for Avatar's Sports

@@ -21,7 +21,7 @@ A feature where users build up to 5 AI-powered "Virtual Picks Experts" (Agents) 
 |----------|--------|-----------|
 | **Visibility** | Private by default, opt-in public | Protects user strategies while enabling community |
 | **AI Backend** | Supabase Edge Functions + OpenAI | Fits existing patterns |
-| **System Prompt** | Remote (DB table `agent_system_prompts`) | Developers iterate without deploys |
+| **System Prompt** | Remote (DB table `agent_system_prompts`), sport-specific prompts supported | Developers iterate without deploys; MLB agents get a dedicated prompt with deep Statcast/signal analytics guide |
 | **Platform** | Mobile-first, then web | Primary user base on mobile |
 | **Personality** | Parameters only (affects pick selection) | Reasoning stays analytical |
 | **Tracking** | Units only (+/- units like editor picks) | Simple, proven system |

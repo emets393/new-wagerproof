@@ -30,6 +30,7 @@ import {
   type PayloadBudgetMode,
   type PromptTokenCount,
 } from '../shared/tokenBudget.ts';
+import { fetchActiveSystemPrompt } from '../shared/promptFetcher.ts';
 
 // =============================================================================
 // Types
@@ -124,24 +125,8 @@ serve(async (req) => {
     const cfbClient = createClient(cfbSupabaseUrl, cfbSupabaseKey);
 
     // -------------------------------------------------------------------------
-    // 2. Fetch Active System Prompt from Database
+    // 2. System prompt is now fetched per-avatar (sport-aware) in the loop below
     // -------------------------------------------------------------------------
-    let remotePromptTemplate: string | null = null;
-    let systemPromptVersion: string = 'hardcoded_fallback';
-
-    const { data: promptRow, error: promptError } = await supabaseClient
-      .from('agent_system_prompts')
-      .select('id, prompt_text')
-      .eq('is_active', true)
-      .single();
-
-    if (promptError || !promptRow) {
-      console.warn('[auto-generate-avatar-picks] No active system prompt found, using hardcoded fallback');
-    } else {
-      remotePromptTemplate = promptRow.prompt_text;
-      systemPromptVersion = String(promptRow.id || 'unknown');
-      console.log(`[auto-generate-avatar-picks] Loaded remote system prompt template: ${systemPromptVersion}`);
-    }
 
     // -------------------------------------------------------------------------
     // 3. Fetch Eligible Avatars
@@ -204,9 +189,7 @@ serve(async (req) => {
         gamesByPort,
         today,
         supabaseClient,
-        openaiApiKey,
-        remotePromptTemplate,
-        systemPromptVersion
+        openaiApiKey
       );
 
       results.push(result);
@@ -269,9 +252,7 @@ async function processAvatar(
   gamesByPort: Record<string, { games: unknown[]; formattedGames: unknown[] }>,
   targetDate: string,
   supabaseClient: SupabaseClient,
-  openaiApiKey: string,
-  remotePromptTemplate: string | null,
-  systemPromptVersion: string
+  openaiApiKey: string
 ): Promise<ProcessingResult> {
   const result: ProcessingResult = {
     avatar_id: avatar.avatar_id,
@@ -347,6 +328,15 @@ async function processAvatar(
 
       return result;
     }
+
+    // -------------------------------------------------------------------------
+    // Fetch System Prompt (sport-aware per avatar)
+    // -------------------------------------------------------------------------
+    const { remotePromptTemplate, systemPromptVersion } = await fetchActiveSystemPrompt(
+      supabaseClient,
+      avatar.preferred_sports,
+      '[auto-generate-avatar-picks]'
+    );
 
     // -------------------------------------------------------------------------
     // Build AI Prompt

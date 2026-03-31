@@ -50,6 +50,60 @@ for (const info of Object.values(MLB_TEAMS)) {
   _abbrevMap[info.team] = info;
 }
 
+/**
+ * MLB Stats API team_id → abbreviation + ESPN slug.
+ * Matches `team_id` from `mlb_situational_trends_today`.
+ * Source: web app's MLB_STATS_API_TEAM_BRAND.
+ */
+const MLB_TEAM_BY_ID: Record<number, { abbrev: string; espnSlug: string }> = {
+  108: { abbrev: 'LAA', espnSlug: 'laa' },
+  109: { abbrev: 'ARI', espnSlug: 'ari' },
+  110: { abbrev: 'BAL', espnSlug: 'bal' },
+  111: { abbrev: 'BOS', espnSlug: 'bos' },
+  112: { abbrev: 'CHC', espnSlug: 'chc' },
+  113: { abbrev: 'CIN', espnSlug: 'cin' },
+  114: { abbrev: 'CLE', espnSlug: 'cle' },
+  115: { abbrev: 'COL', espnSlug: 'col' },
+  116: { abbrev: 'DET', espnSlug: 'det' },
+  117: { abbrev: 'HOU', espnSlug: 'hou' },
+  118: { abbrev: 'KC',  espnSlug: 'kc' },
+  119: { abbrev: 'LAD', espnSlug: 'lad' },
+  120: { abbrev: 'WSH', espnSlug: 'wsh' },
+  121: { abbrev: 'NYM', espnSlug: 'nym' },
+  133: { abbrev: 'ATH', espnSlug: 'ath' },
+  134: { abbrev: 'PIT', espnSlug: 'pit' },
+  135: { abbrev: 'SD',  espnSlug: 'sd' },
+  136: { abbrev: 'SEA', espnSlug: 'sea' },
+  137: { abbrev: 'SF',  espnSlug: 'sf' },
+  138: { abbrev: 'STL', espnSlug: 'stl' },
+  139: { abbrev: 'TB',  espnSlug: 'tb' },
+  140: { abbrev: 'TEX', espnSlug: 'tex' },
+  141: { abbrev: 'TOR', espnSlug: 'tor' },
+  142: { abbrev: 'MIN', espnSlug: 'min' },
+  143: { abbrev: 'PHI', espnSlug: 'phi' },
+  144: { abbrev: 'ATL', espnSlug: 'atl' },
+  145: { abbrev: 'CWS', espnSlug: 'cws' },
+  146: { abbrev: 'MIA', espnSlug: 'mia' },
+  147: { abbrev: 'NYY', espnSlug: 'nyy' },
+  158: { abbrev: 'MIL', espnSlug: 'mil' },
+};
+
+/**
+ * Resolve team display info from MLB Stats API team_id.
+ * Returns abbreviation and ESPN logo URL.
+ */
+export function getMLBTeamById(teamId: number | string): { abbrev: string; logoUrl: string } | null {
+  const id = Math.trunc(Number(teamId));
+  if (!Number.isFinite(id)) return null;
+  const brand = MLB_TEAM_BY_ID[id];
+  if (!brand) return null;
+  const slug = brand.espnSlug === 'ath' ? 'ath' : brand.espnSlug;
+  return {
+    abbrev: brand.abbrev,
+    logoUrl: `https://a.espncdn.com/i/teamlogos/mlb/500/${slug}.png`,
+  };
+}
+
 const FALLBACK_COLORS = { primary: '#1f2937', secondary: '#6b7280' };
 
 /**

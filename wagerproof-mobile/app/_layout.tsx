@@ -13,6 +13,7 @@ import { NCAABGameSheetProvider } from '../contexts/NCAABGameSheetContext';
 import { MLBGameSheetProvider } from '../contexts/MLBGameSheetContext';
 import { NBABettingTrendsSheetProvider } from '../contexts/NBABettingTrendsSheetContext';
 import { NCAABBettingTrendsSheetProvider } from '../contexts/NCAABBettingTrendsSheetContext';
+import { MLBBettingTrendsSheetProvider } from '../contexts/MLBBettingTrendsSheetContext';
 import { AdminModeProvider } from '../contexts/AdminModeContext';
 import { EditorPickSheetProvider } from '../contexts/EditorPickSheetContext';
 import { WagerBotChatSheetProvider } from '../contexts/WagerBotChatSheetContext';
@@ -33,6 +34,7 @@ import { NCAABGameBottomSheet } from '../components/NCAABGameBottomSheet';
 import { MLBGameBottomSheet } from '../components/MLBGameBottomSheet';
 import { NBABettingTrendsBottomSheet } from '../components/NBABettingTrendsBottomSheet';
 import { NCAABBettingTrendsBottomSheet } from '../components/NCAABBettingTrendsBottomSheet';
+import { MLBBettingTrendsBottomSheet } from '../components/MLBBettingTrendsBottomSheet';
 import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { EditorPickCreatorBottomSheet } from '../components/EditorPickCreatorBottomSheet';
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
@@ -457,6 +459,7 @@ function RootLayoutContent() {
                         <AgentPickAuditProvider>
                           <NBABettingTrendsSheetProvider>
                             <NCAABBettingTrendsSheetProvider>
+                            <MLBBettingTrendsSheetProvider>
                               <WagerBotChatSheetProvider>
                                 <LearnWagerProofProvider>
                                   <MetaTestSheetProvider>
@@ -467,6 +470,7 @@ function RootLayoutContent() {
                                     <EditorPickCreatorBottomSheet />
                                     <NBABettingTrendsBottomSheet />
                                     <NCAABBettingTrendsBottomSheet />
+                                    <MLBBettingTrendsBottomSheet />
                                     <LearnWagerProofBottomSheet />
                                     <MetaTestBottomSheet />
                                     <AgentHRBottomSheet />
@@ -474,6 +478,7 @@ function RootLayoutContent() {
                                   </MetaTestSheetProvider>
                                 </LearnWagerProofProvider>
                               </WagerBotChatSheetProvider>
+                            </MLBBettingTrendsSheetProvider>
                             </NCAABBettingTrendsSheetProvider>
                           </NBABettingTrendsSheetProvider>
                         </AgentPickAuditProvider>

@@ -14,6 +14,7 @@ import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import { LockedGameCard } from '@/components/LockedGameCard';
 import { BettingTrendsBanner } from '@/components/nba/BettingTrendsBanner';
 import { NCAABBettingTrendsBanner } from '@/components/ncaab/BettingTrendsBanner';
+import { MLBBettingTrendsBanner } from '@/components/mlb/MLBBettingTrendsBanner';
 import { NBAModelAccuracyBanner } from '@/components/nba/ModelAccuracyBanner';
 import { NCAABModelAccuracyBanner } from '@/components/ncaab/ModelAccuracyBanner';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
@@ -1173,7 +1174,7 @@ export default function FeedScreen() {
           <Text style={styles.discordBannerTitle}>Join our Discord</Text>
           <Text style={styles.discordBannerSub}>Get picks, live chat & community updates</Text>
         </View>
-        <MaterialCommunityIcons name="arrow-right" size={18} color="rgba(255,255,255,0.6)" />
+        <MaterialCommunityIcons name="chevron-right" size={28} color="rgba(255,255,255,0.6)" />
       </LinearGradient>
     </TouchableOpacity>
   ), [isDark]);
@@ -1262,6 +1263,9 @@ export default function FeedScreen() {
 
       {/* NCAAB Model Accuracy Banner */}
       {sport === 'ncaab' && !searchTexts.ncaab && <NCAABModelAccuracyBanner />}
+
+      {/* MLB Betting Trends Banner */}
+      {sport === 'mlb' && !searchTexts.mlb && <MLBBettingTrendsBanner />}
 
       {/* MLB Discord Banner */}
       {sport === 'mlb' && !searchTexts.mlb && <DiscordBanner />}
@@ -1705,20 +1709,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   discordBannerWrap: {
-    marginHorizontal: 8,
-    marginBottom: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   discordBannerGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 16,
-    gap: 12,
+    minHeight: 70,
+    gap: 14,
   },
   discordBannerIcon: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center',
@@ -1726,17 +1732,16 @@ const styles = StyleSheet.create({
   },
   discordBannerContent: {
     flex: 1,
-    gap: 2,
   },
   discordBannerTitle: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 0.2,
+    marginBottom: 2,
   },
   discordBannerSub: {
     color: 'rgba(255,255,255,0.75)',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '500',
   },
 });

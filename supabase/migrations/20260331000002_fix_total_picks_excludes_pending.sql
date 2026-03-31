@@ -1,14 +1,9 @@
--- Add grading_skip_reason column to avatar_picks
--- Persists why a pick was skipped during grading instead of only logging ephemerally.
-ALTER TABLE public.avatar_picks
-  ADD COLUMN IF NOT EXISTS grading_skip_reason text DEFAULT NULL;
+-- =============================================================================
+-- Fix: total_picks should only count settled picks (won/lost/push), not pending
+-- Bug: total_picks was COUNT(*) which included pending picks, making agents
+-- appear to have more picks than graded results, distorting the W-L record.
+-- =============================================================================
 
-COMMENT ON COLUMN public.avatar_picks.grading_skip_reason IS
-  'Reason a pick was skipped during grading, e.g. team_not_in_matchup, no_game_result_found, malformed_odds';
-
--- Guard against division-by-zero in recalculate_avatar_performance.
--- The existing regex ^[+-]?[0-9]+$ matches "0". We add ABS(odds::integer) > 0.
--- Also adds advisory lock to prevent concurrent recalculations for the same avatar.
 CREATE OR REPLACE FUNCTION public.recalculate_avatar_performance(p_avatar_id uuid)
 RETURNS void AS $$
 DECLARE
@@ -22,7 +17,6 @@ DECLARE
   v_streak_count integer := 0;
 BEGIN
   -- Advisory lock prevents concurrent recalculation for the same avatar.
-  -- Uses the first 8 bytes of avatar_id as a bigint lock key.
   PERFORM pg_advisory_xact_lock(('x' || left(replace(p_avatar_id::text, '-', ''), 16))::bit(64)::bigint);
 
   -- Aggregate sport stats
@@ -133,6 +127,7 @@ BEGIN
     now()
   FROM (
     SELECT
+      -- FIX: total_picks only counts settled picks (won/lost/push), not pending
       COUNT(*) FILTER (WHERE result IN ('won', 'lost', 'push')) as total_picks,
       COUNT(*) FILTER (WHERE result = 'won') as wins,
       COUNT(*) FILTER (WHERE result = 'lost') as losses,

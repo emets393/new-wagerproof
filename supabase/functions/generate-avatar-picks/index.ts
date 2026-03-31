@@ -26,6 +26,7 @@ import {
   type PayloadBudgetMode,
   type PromptTokenCount,
 } from '../shared/tokenBudget.ts';
+import { fetchActiveSystemPrompt } from '../shared/promptFetcher.ts';
 
 // =============================================================================
 // Constants
@@ -136,24 +137,13 @@ serve(async (req) => {
     }
 
     // ---------------------------------------------------------------------
-    // 5. Fetch Active System Prompt from Database
+    // 5. Fetch Active System Prompt from Database (sport-aware)
     // ---------------------------------------------------------------------
-    let remotePromptTemplate: string | null = null;
-    let systemPromptVersion: string = 'hardcoded_fallback';
-
-    const { data: promptRow, error: promptError } = await supabaseClient
-      .from('agent_system_prompts')
-      .select('id, prompt_text')
-      .eq('is_active', true)
-      .single();
-
-    if (promptError || !promptRow) {
-      console.warn('[generate-avatar-picks] No active system prompt found, using hardcoded fallback');
-    } else {
-      remotePromptTemplate = promptRow.prompt_text;
-      systemPromptVersion = String(promptRow.id || 'unknown');
-      console.log(`[generate-avatar-picks] Loaded remote system prompt template: ${systemPromptVersion}`);
-    }
+    const { remotePromptTemplate, systemPromptVersion } = await fetchActiveSystemPrompt(
+      supabaseClient,
+      avatarProfile.preferred_sports,
+      '[generate-avatar-picks]'
+    );
 
     // ---------------------------------------------------------------------
     // 6. Fetch Today's Games for Preferred Sports

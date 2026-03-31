@@ -231,6 +231,83 @@ async function fetchGameResults(
 }
 
 // =============================================================================
+// MLB Game Results from mlb_training_snapshots (CFB Supabase)
+// =============================================================================
+
+/**
+ * Fetch MLB game results from the mlb_training_snapshots table.
+ * Each game has TWO rows (home + away). We query the home row to get one row
+ * per game and compute ml_result, spread_result, and ou_result.
+ *
+ * - ml_result: winning team name (from `won` boolean)
+ * - spread_result: team that covered the standard -1.5 run line, or 'PUSH'
+ * - ou_result: 'over', 'under', or 'push' (directly from the column)
+ */
+async function fetchMLBGameResults(
+  cfbClient: SupabaseClient,
+  gameDates: string[]
+): Promise<Map<string, GameResult>> {
+  const results = new Map<string, GameResult>();
+  if (gameDates.length === 0) return results;
+
+  const { data, error } = await cfbClient
+    .from('mlb_training_snapshots')
+    .select('game_pk, official_date, team_name, opp_team_name, home_away, runs_scored, runs_allowed, won, ou_result, result_filled_at')
+    .eq('home_away', 'home')
+    .not('result_filled_at', 'is', null)
+    .in('official_date', gameDates);
+
+  if (error) {
+    console.error('[grade-avatar-picks] Error fetching MLB game results from mlb_training_snapshots:', error);
+    return results;
+  }
+
+  for (const row of data || []) {
+    const gameId = String(row.game_pk);
+    const homeTeam = String(row.team_name);
+    const awayTeam = String(row.opp_team_name);
+    const homeScore = Number(row.runs_scored) || 0;
+    const awayScore = Number(row.runs_allowed) || 0;
+    const margin = homeScore - awayScore; // positive = home won
+
+    // ML result: which team won
+    const mlResult = row.won ? homeTeam : awayTeam;
+
+    // Spread result: standard MLB run line is -1.5 / +1.5
+    // Winner by 2+ covers -1.5; winner by exactly 1 means the loser covers +1.5
+    let spreadResult: string | null = null;
+    if (margin > 1.5) {
+      // Home won by 2+ → home covers -1.5
+      spreadResult = homeTeam;
+    } else if (margin < -1.5) {
+      // Away won by 2+ → away covers -1.5
+      spreadResult = awayTeam;
+    } else if (margin === 1) {
+      // Home won by exactly 1 → away covers +1.5
+      spreadResult = awayTeam;
+    } else if (margin === -1) {
+      // Away won by exactly 1 → home covers +1.5
+      spreadResult = homeTeam;
+    }
+    // margin === 0 shouldn't happen in baseball (no ties in completed games)
+
+    results.set(gameId, {
+      league: 'MLB',
+      game_id: gameId,
+      game_date: String(row.official_date),
+      home_team: homeTeam,
+      away_team: awayTeam,
+      ml_result: mlResult,
+      spread_result: spreadResult,
+      ou_result: row.ou_result ? String(row.ou_result) : null,
+    });
+  }
+
+  console.log(`[grade-avatar-picks] Fetched ${results.size} MLB game results for dates: ${gameDates.join(', ')}`);
+  return results;
+}
+
+// =============================================================================
 // Team Name Resolution
 // =============================================================================
 
@@ -506,7 +583,7 @@ serve(async (req) => {
     }
 
     if (!pendingPicks || pendingPicks.length === 0) {
-      console.log('[grade-avatar-picks] No pending NBA/NCAAB/MLB picks to grade');
+      console.log('[grade-avatar-picks] No pending picks to grade');
       return new Response(
         JSON.stringify({
           success: true,
@@ -518,31 +595,37 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[grade-avatar-picks] Found ${pendingPicks.length} pending NBA/NCAAB picks to process`);
+    console.log(`[grade-avatar-picks] Found ${pendingPicks.length} pending NBA/NCAAB/MLB picks to process`);
 
     // -------------------------------------------------------------------------
     // 2. Collect unique game dates per league and batch fetch results
     // -------------------------------------------------------------------------
     const nbaDates = new Set<string>();
     const ncaabDates = new Set<string>();
+    const mlbDates = new Set<string>();
 
     for (const pick of pendingPicks) {
       if (pick.sport === 'nba') nbaDates.add(pick.game_date);
       else if (pick.sport === 'ncaab') ncaabDates.add(pick.game_date);
+      else if (pick.sport === 'mlb') mlbDates.add(pick.game_date);
     }
 
-    const [nbaResults, ncaabResults] = await Promise.all([
+    const [nbaResults, ncaabResults, mlbResults] = await Promise.all([
       nbaDates.size > 0
         ? fetchGameResults(cfbClient, 'NBA', [...nbaDates])
         : Promise.resolve(new Map<string, GameResult>()),
       ncaabDates.size > 0
         ? fetchGameResults(cfbClient, 'NCAAB', [...ncaabDates])
         : Promise.resolve(new Map<string, GameResult>()),
+      mlbDates.size > 0
+        ? fetchMLBGameResults(cfbClient, [...mlbDates])
+        : Promise.resolve(new Map<string, GameResult>()),
     ]);
 
     const resultsByLeague: Record<string, { map: Map<string, GameResult>; all: GameResult[] }> = {
       nba: { map: nbaResults, all: [...nbaResults.values()] },
       ncaab: { map: ncaabResults, all: [...ncaabResults.values()] },
+      mlb: { map: mlbResults, all: [...mlbResults.values()] },
     };
 
     // -------------------------------------------------------------------------

@@ -160,6 +160,60 @@ async function fetchGameResults(
   return results;
 }
 
+async function fetchMLBGameResults(
+  cfbClient: SupabaseClient,
+  gameDates: string[]
+): Promise<Map<string, GameResult>> {
+  const results = new Map<string, GameResult>();
+  if (gameDates.length === 0) return results;
+
+  const { data, error } = await cfbClient
+    .from('mlb_training_snapshots')
+    .select('game_pk, official_date, team_name, opp_team_name, home_away, runs_scored, runs_allowed, won, ou_result, result_filled_at')
+    .eq('home_away', 'home')
+    .not('result_filled_at', 'is', null)
+    .in('official_date', gameDates);
+
+  if (error) {
+    console.error('[regrade-avatar-pushes] Error fetching MLB game results:', error);
+    return results;
+  }
+
+  for (const row of data || []) {
+    const gameId = String(row.game_pk);
+    const homeTeam = String(row.team_name);
+    const awayTeam = String(row.opp_team_name);
+    const homeScore = Number(row.runs_scored) || 0;
+    const awayScore = Number(row.runs_allowed) || 0;
+    const margin = homeScore - awayScore;
+
+    const mlResult = row.won ? homeTeam : awayTeam;
+
+    let spreadResult: string | null = null;
+    if (margin > 1.5) {
+      spreadResult = homeTeam;
+    } else if (margin < -1.5) {
+      spreadResult = awayTeam;
+    } else if (margin === 1) {
+      spreadResult = awayTeam;
+    } else if (margin === -1) {
+      spreadResult = homeTeam;
+    }
+
+    results.set(gameId, {
+      league: 'MLB',
+      game_id: gameId,
+      game_date: String(row.official_date),
+      home_team: homeTeam,
+      away_team: awayTeam,
+      ml_result: mlResult,
+      spread_result: spreadResult,
+      ou_result: row.ou_result ? String(row.ou_result) : null,
+    });
+  }
+  return results;
+}
+
 function resolveCanonicalTeamName(
   pickedTeam: string,
   gameResult: GameResult,
@@ -288,7 +342,7 @@ serve(async (req) => {
 
   const startedAt = Date.now();
   let dryRun = false;
-  let sports: string[] = ['nba', 'ncaab'];
+  let sports: string[] = ['nba', 'ncaab', 'mlb'];
   try {
     const body = await req.json();
     dryRun = Boolean((body as Record<string, unknown> | null)?.dry_run);
@@ -347,19 +401,23 @@ serve(async (req) => {
 
     const nbaDates = new Set<string>();
     const ncaabDates = new Set<string>();
+    const mlbDates = new Set<string>();
     for (const pick of picks) {
       if (pick.sport === 'nba') nbaDates.add(toDateOnly(pick.game_date) || pick.game_date);
       if (pick.sport === 'ncaab') ncaabDates.add(toDateOnly(pick.game_date) || pick.game_date);
+      if (pick.sport === 'mlb') mlbDates.add(toDateOnly(pick.game_date) || pick.game_date);
     }
 
-    const [nbaResults, ncaabResults] = await Promise.all([
+    const [nbaResults, ncaabResults, mlbResults] = await Promise.all([
       nbaDates.size > 0 ? fetchGameResults(cfbClient, 'NBA', [...nbaDates]) : Promise.resolve(new Map<string, GameResult>()),
       ncaabDates.size > 0 ? fetchGameResults(cfbClient, 'NCAAB', [...ncaabDates]) : Promise.resolve(new Map<string, GameResult>()),
+      mlbDates.size > 0 ? fetchMLBGameResults(cfbClient, [...mlbDates]) : Promise.resolve(new Map<string, GameResult>()),
     ]);
 
     const resultsByLeague: Record<string, { map: Map<string, GameResult>; all: GameResult[] }> = {
       nba: { map: nbaResults, all: [...nbaResults.values()] },
       ncaab: { map: ncaabResults, all: [...ncaabResults.values()] },
+      mlb: { map: mlbResults, all: [...mlbResults.values()] },
     };
 
     const changed: Array<Record<string, unknown>> = [];

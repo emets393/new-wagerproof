@@ -128,14 +128,14 @@ const UNAVAILABLE_DATA_NOTES: Record<string, string> = {
   'nba:ride_hot_streaks': 'Note: Raw streak data not in NBA payload. Use situational trends (last_game_situation) instead.',
   'nba:fade_cold_streaks': 'Note: Raw streak data not in NBA payload. Use situational trends (last_game_situation) instead.',
   'ncaab:trust_polymarket': 'Note: Polymarket data limited for NCAAB. Applying where available.',
-  'mlb:weight_recent_form': 'Note: Recent form trends not available for MLB. Use starting pitcher matchup and model predictions.',
-  'mlb:ride_hot_streaks': 'Note: Streak data not available for MLB.',
-  'mlb:fade_cold_streaks': 'Note: Streak data not available for MLB.',
-  'mlb:trust_ats_trends': 'Note: ATS trends not available for MLB. Use model win probability edges instead.',
-  'mlb:regress_luck': 'Note: Luck regression metrics not available for MLB.',
-  'mlb:trust_team_ratings': 'Note: Team ratings not available for MLB. Use starting pitcher matchup, model predictions, and signals.',
-  'mlb:pace_affects_totals': 'Note: Pace not applicable to MLB. Wind speed and ballpark conditions affect totals instead.',
-  'mlb:fade_back_to_backs': 'Note: Back-to-back scheduling less impactful in MLB. Consider bullpen usage and travel instead.',
+  'mlb:weight_recent_form': 'Note: For MLB, recent form is available via last-3-start pitcher trends and last-5-game batting/bullpen trends. Use these to assess momentum.',
+  'mlb:ride_hot_streaks': 'Note: For MLB, win/loss streak data is available in schedule features. Use it alongside situational trends.',
+  'mlb:fade_cold_streaks': 'Note: For MLB, win/loss streak data is available in schedule features. Use it alongside situational trends.',
+  'mlb:trust_ats_trends': 'Note: ATS trends not available for MLB. Use model win probability edges and situational trend records instead.',
+  'mlb:regress_luck': 'Note: For MLB, luck regression is available via xFIP vs ERA and xERA vs ERA gaps. Use game signals for automatic detection.',
+  'mlb:trust_team_ratings': 'Note: For MLB, power ratings and rank-bucket records are available. Use them for opponent context and tier analysis.',
+  'mlb:pace_affects_totals': 'Note: Pace not applicable to MLB. Use wind speed, ballpark park factors, and temperature for totals analysis instead.',
+  'mlb:fade_back_to_backs': 'Note: Back-to-back scheduling less impactful in MLB. Consider bullpen workload (bp_ip_last3d) and travel instead.',
 };
 
 // =============================================================================
