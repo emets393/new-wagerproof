@@ -24,6 +24,13 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import NFLGameCard from '@/components/NFLGameCard';
 import { LiquidButton } from '@/components/animate-ui/components/buttons/liquid';
+import {
+  buildMlbTeamMappingMaps,
+  espnMlb500LogoUrlFromAbbrev,
+  normalizeTeamNameKey,
+  resolveMlbTeamDisplay,
+  supplementalMlbLogoUrl,
+} from '@/utils/mlbTeamLogos';
 
 interface MLBPredictionRow {
   id: number | null;
@@ -69,6 +76,10 @@ interface MLBPredictionRow {
   f5_ou_edge?: number | null;
   f5_home_win_prob?: number | null;
   f5_away_win_prob?: number | null;
+  f5_home_ml_edge_pct?: number | null;
+  f5_away_ml_edge_pct?: number | null;
+  f5_home_ml_strong_signal?: boolean | null;
+  f5_away_ml_strong_signal?: boolean | null;
   ou_fair_total?: number | null;
   home_ml_strong_signal?: boolean | null;
   away_ml_strong_signal?: boolean | null;
@@ -86,38 +97,6 @@ interface MLBTeamMapping {
 type SortKey = 'time' | 'ml' | 'ou';
 type CardProjectionView = 'full' | 'f5';
 const fallbackTeamColors = { primary: '#1f2937', secondary: '#6b7280' };
-const MLB_FALLBACK_BY_NAME: Record<string, { team: string; logo_url: string }> = {
-  'arizona diamondbacks': { team: 'ARI', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/ari.png' },
-  'atlanta braves': { team: 'ATL', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/atl.png' },
-  'baltimore orioles': { team: 'BAL', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/bal.png' },
-  'boston red sox': { team: 'BOS', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/bos.png' },
-  'chicago cubs': { team: 'CHC', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/chc.png' },
-  'chicago white sox': { team: 'CWS', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/cws.png' },
-  'cincinnati reds': { team: 'CIN', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/cin.png' },
-  'cleveland guardians': { team: 'CLE', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/cle.png' },
-  'colorado rockies': { team: 'COL', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/col.png' },
-  'detroit tigers': { team: 'DET', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/det.png' },
-  'houston astros': { team: 'HOU', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/hou.png' },
-  'kansas city royals': { team: 'KC', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/kc.png' },
-  'los angeles angels': { team: 'LAA', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/laa.png' },
-  'los angeles dodgers': { team: 'LAD', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/lad.png' },
-  'miami marlins': { team: 'MIA', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/mia.png' },
-  'milwaukee brewers': { team: 'MIL', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/mil.png' },
-  'minnesota twins': { team: 'MIN', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/min.png' },
-  'new york mets': { team: 'NYM', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/nym.png' },
-  'new york yankees': { team: 'NYY', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/nyy.png' },
-  'oakland athletics': { team: 'OAK', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/oak.png' },
-  'philadelphia phillies': { team: 'PHI', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/phi.png' },
-  'pittsburgh pirates': { team: 'PIT', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/pit.png' },
-  'san diego padres': { team: 'SD', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/sd.png' },
-  'san francisco giants': { team: 'SF', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/sf.png' },
-  'seattle mariners': { team: 'SEA', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/sea.png' },
-  'st louis cardinals': { team: 'STL', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/stl.png' },
-  'tampa bay rays': { team: 'TB', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/tb.png' },
-  'texas rangers': { team: 'TEX', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/tex.png' },
-  'toronto blue jays': { team: 'TOR', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/tor.png' },
-  'washington nationals': { team: 'WSH', logo_url: 'https://a.espncdn.com/i/teamlogos/mlb/500/wsh.png' },
-};
 
 function formatMoneyline(ml: number | null): string {
   if (ml === null || ml === undefined) return '-';
@@ -140,6 +119,10 @@ function formatDateLabel(dateString: string): string {
 function toNum(value: number | null | undefined): number | null {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
   return Number(value);
+}
+
+function isF5MlStrongSignal(v: unknown): boolean {
+  return v === true || v === 'true' || v === 1 || v === '1';
 }
 
 function formatGameTime(timeString: string | null): string {
@@ -178,15 +161,6 @@ const MLB_CARD_SECTION =
 /** Inner panel for nested projection blocks (ML / Total). */
 const MLB_CARD_INNER =
   'rounded-lg border border-slate-600/45 bg-slate-950/40 p-3 space-y-2 ring-1 ring-inset ring-white/[0.04]';
-
-/** Normalize for matching game `*_team_name` to mapping `team_name`. */
-function normalizeTeamNameKey(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[.'’]/g, '')
-    .replace(/\s+/g, ' ');
-}
 
 function fallbackAbbrevFromTeamName(teamName: string): string {
   const t = teamName.trim();
@@ -387,44 +361,14 @@ export default function MLB() {
       setLoading(true);
       setError(null);
 
-      const today = new Date();
-      const dayAfterTomorrow = new Date();
-      dayAfterTomorrow.setDate(today.getDate() + 2);
-
-      const startDate = toYMD(today);
-      const endDate = toYMD(dayAfterTomorrow);
-
-      const { data: strictGames, error: gamesError } = await collegeFootballSupabase
+      const { data: games, error: gamesError } = await collegeFootballSupabase
         .from('mlb_games_today')
         .select('*')
-        .or('is_active.eq.true,is_active.is.null')
-        .or('is_completed.eq.false,is_completed.is.null')
-        .gte('official_date', startDate)
-        .lte('official_date', endDate)
         .order('official_date', { ascending: true })
         .order('game_time_et', { ascending: true });
 
       if (gamesError) {
         throw new Error(gamesError.message);
-      }
-
-      // Fallback: if strict filter yields nothing, keep the 3-day window but avoid
-      // excluding rows due to nullable status flags.
-      let games = strictGames || [];
-      if (games.length === 0) {
-        const { data: relaxedGames, error: relaxedError } = await collegeFootballSupabase
-          .from('mlb_games_today')
-          .select('*')
-          .gte('official_date', startDate)
-          .lte('official_date', endDate)
-          .order('official_date', { ascending: true })
-          .order('game_time_et', { ascending: true });
-
-        if (relaxedError) {
-          throw new Error(relaxedError.message);
-        }
-
-        games = (relaxedGames || []).filter((g: any) => g.is_postponed !== true && g.is_completed !== true);
       }
 
       const { data: teams, error: teamError } = await collegeFootballSupabase
@@ -435,44 +379,40 @@ export default function MLB() {
         throw new Error(teamError.message);
       }
 
-      const byMlbApiId = new Map<number, MLBTeamMapping>();
-      const byTeamName = new Map<string, MLBTeamMapping>();
-      (teams || []).forEach((raw: any) => {
-        const row: MLBTeamMapping = {
-          mlb_api_id: Number(raw.mlb_api_id ?? raw.team_id ?? raw.id),
-          team: String(raw.team ?? raw.abbreviation ?? raw.team_abbrev ?? ''),
-          team_name: String(raw.team_name ?? raw.name ?? raw.full_name ?? ''),
-          logo_url: raw.logo_url ?? raw.logo ?? null,
-        };
-
-        if (!Number.isNaN(row.mlb_api_id)) byMlbApiId.set(row.mlb_api_id, row);
-        if (row.team_name) byTeamName.set(normalizeTeamNameKey(row.team_name), row);
-      });
-
-      setTeamMapByMlbApiId(byMlbApiId);
-      setTeamMapByTeamName(byTeamName);
-      setTeamMappingsList((teams || []) as MLBTeamMapping[]);
+      const { byMlbApiId, byTeamName, list: mappingList } = buildMlbTeamMappingMaps(
+        (teams || []) as Record<string, unknown>[],
+      );
+      setTeamMapByMlbApiId(byMlbApiId as Map<number, MLBTeamMapping>);
+      setTeamMapByTeamName(byTeamName as Map<string, MLBTeamMapping>);
+      setTeamMappingsList(mappingList as MLBTeamMapping[]);
       const gamePks = (games || []).map((g: any) => Number(g.game_pk)).filter((n: number) => !Number.isNaN(n));
-      let finalByGamePk = new Map<number, boolean>();
+      const currentByGamePk = new Map<number, Record<string, unknown>>();
       if (gamePks.length > 0) {
-        const { data: finalRows } = await collegeFootballSupabase
+        const { data: currentRows } = await collegeFootballSupabase
           .from('mlb_predictions_current')
-          .select('game_pk,is_final_prediction')
+          .select('game_pk,is_final_prediction,f5_home_ml_edge_pct,f5_away_ml_edge_pct')
           .in('game_pk', gamePks);
-        (finalRows || []).forEach((row: any) => {
+        (currentRows || []).forEach((row: any) => {
           const pk = Number(row.game_pk);
           if (!Number.isNaN(pk)) {
-            finalByGamePk.set(pk, !!row.is_final_prediction);
+            currentByGamePk.set(pk, row as Record<string, unknown>);
           }
         });
       }
 
       const mergedGames = (games || []).map((g: any) => {
         const pk = Number(g.game_pk);
-        const finalFromTable = !Number.isNaN(pk) ? finalByGamePk.get(pk) : undefined;
+        const cur = !Number.isNaN(pk) ? currentByGamePk.get(pk) : undefined;
         return {
           ...g,
-          is_final_prediction: finalFromTable ?? g.is_final_prediction ?? null,
+          is_final_prediction:
+            cur !== undefined ? !!cur.is_final_prediction : (g.is_final_prediction ?? null),
+          ...(cur !== undefined
+            ? {
+                f5_home_ml_edge_pct: (cur.f5_home_ml_edge_pct ?? null) as number | null,
+                f5_away_ml_edge_pct: (cur.f5_away_ml_edge_pct ?? null) as number | null,
+              }
+            : {}),
         };
       });
 
@@ -554,58 +494,13 @@ export default function MLB() {
     teamId: number | null | undefined,
     teamNameFromGame: string | null | undefined,
   ): { abbrev: string; logoUrl: string | null } | null {
-    const name = teamNameFromGame?.trim();
-    const nameKey = name ? normalizeTeamNameKey(name) : '';
-
-    // 1) Primary: exact `team_name` match (same string as on the game row)
-    if (nameKey) {
-      const byName = teamMapByTeamName.get(nameKey);
-      if (byName?.team) {
-        const url = byName.logo_url?.trim();
-        return { abbrev: byName.team, logoUrl: url && url.length > 0 ? url : null };
-      }
-    }
-
-    // 2) Fallback: MLB team id on game row === `mlb_api_id` in mapping
-    if (teamId !== null && teamId !== undefined) {
-      const id = Number(teamId);
-      if (!Number.isNaN(id)) {
-        const byId = teamMapByMlbApiId.get(id);
-        if (byId?.team) {
-          const url = byId.logo_url?.trim();
-          return { abbrev: byId.team, logoUrl: url && url.length > 0 ? url : null };
-        }
-      }
-    }
-
-    // 3) Fuzzy: e.g. mapping "New York Yankees" vs game "Yankees" (pick longest stable match)
-    if (nameKey && teamMappingsList.length > 0) {
-      let best: MLBTeamMapping | null = null;
-      let bestScore = 0;
-      for (const row of teamMappingsList) {
-        if (!row.team_name || !row.team) continue;
-        const tn = normalizeTeamNameKey(row.team_name);
-        if (nameKey === tn || nameKey.includes(tn) || tn.includes(nameKey)) {
-          const score = Math.min(nameKey.length, tn.length);
-          if (score > bestScore) {
-            bestScore = score;
-            best = row;
-          }
-        }
-      }
-      if (best?.team) {
-        const url = best.logo_url?.trim();
-        return { abbrev: best.team, logoUrl: url && url.length > 0 ? url : null };
-      }
-    }
-
-    // 4) Hard fallback map for abbrev/logo when browser session cannot read mapping rows.
-    if (nameKey && MLB_FALLBACK_BY_NAME[nameKey]) {
-      const hit = MLB_FALLBACK_BY_NAME[nameKey];
-      return { abbrev: hit.team, logoUrl: hit.logo_url };
-    }
-
-    return null;
+    return resolveMlbTeamDisplay(
+      teamId,
+      teamNameFromGame,
+      teamMapByMlbApiId,
+      teamMapByTeamName,
+      teamMappingsList,
+    );
   }
 
   const getCardProjectionView = (gameKey: string): CardProjectionView => {
@@ -730,7 +625,7 @@ export default function MLB() {
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <h3 className="text-lg font-semibold mb-2">No Upcoming MLB Predictions</h3>
-              <p className="text-muted-foreground">No active games were found for today and the next two days.</p>
+              <p className="text-muted-foreground">No games were returned from `mlb_games_today`.</p>
             </div>
           </CardContent>
         </Card>
@@ -749,8 +644,14 @@ export default function MLB() {
           const homeResolved = resolveTeamMapping(Number.isNaN(homeTeamId) ? null : homeTeamId, homeTeam);
           const awayAbbrev = awayResolved?.abbrev ?? fallbackAbbrevFromTeamName(awayTeam);
           const homeAbbrev = homeResolved?.abbrev ?? fallbackAbbrevFromTeamName(homeTeam);
-          const awayLogoUrl = awayResolved?.logoUrl ?? null;
-          const homeLogoUrl = homeResolved?.logoUrl ?? null;
+          const awayLogoUrl =
+            awayResolved?.logoUrl ??
+            supplementalMlbLogoUrl(normalizeTeamNameKey(awayTeam), awayAbbrev) ??
+            null;
+          const homeLogoUrl =
+            homeResolved?.logoUrl ??
+            supplementalMlbLogoUrl(normalizeTeamNameKey(homeTeam), homeAbbrev) ??
+            null;
           const mlProb = Math.max(prediction.ml_home_win_prob || 0, prediction.ml_away_win_prob || 0);
           const mlSide = (prediction.ml_home_win_prob || 0) >= (prediction.ml_away_win_prob || 0) ? homeAbbrev : awayAbbrev;
           const ouEdge = Math.abs(prediction.ou_edge || 0);
@@ -773,7 +674,15 @@ export default function MLB() {
           const f5Runs = getF5Runs(prediction);
           const f5HomeProb = toNum(prediction.f5_home_win_prob);
           const f5AwayProb = toNum(prediction.f5_away_win_prob);
-          const f5PickTeam = (f5HomeProb ?? 0) >= (f5AwayProb ?? 0) ? homeAbbrev : awayAbbrev;
+          const f5PickIsHome = (f5HomeProb ?? 0) >= (f5AwayProb ?? 0);
+          const f5PickTeam = f5PickIsHome ? homeAbbrev : awayAbbrev;
+          const f5HomeMlEdge = toNum(prediction.f5_home_ml_edge_pct);
+          const f5AwayMlEdge = toNum(prediction.f5_away_ml_edge_pct);
+          const f5PickEdge = f5PickIsHome ? f5HomeMlEdge : f5AwayMlEdge;
+          const rSig = prediction as Record<string, unknown>;
+          const f5PickMlStrong = f5PickIsHome
+            ? isF5MlStrongSignal(rSig.f5_home_ml_strong_signal)
+            : isF5MlStrongSignal(rSig.f5_away_ml_strong_signal);
           const f5TotalEdge = Math.abs(toNum(prediction.f5_ou_edge) ?? 0);
           const f5Direction = (toNum(prediction.f5_ou_edge) ?? 0) >= 0 ? 'OVER' : 'UNDER';
           const activeRuns = cardView === 'full' ? fullRuns : f5Runs;
@@ -781,7 +690,7 @@ export default function MLB() {
           const scoreLogoImg = (url: string | null, abbrev: string, side: 'away' | 'home') => {
             const onImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
               const target = e.currentTarget;
-              target.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${abbrev.toLowerCase()}.png`;
+              target.src = espnMlb500LogoUrlFromAbbrev(abbrev);
               target.onerror = () => {
                 target.style.display = 'none';
                 const parent = target.parentElement;
@@ -878,7 +787,7 @@ export default function MLB() {
                           referrerPolicy="no-referrer"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${awayAbbrev.toLowerCase()}.png`;
+                            target.src = espnMlb500LogoUrlFromAbbrev(awayAbbrev);
                             target.onerror = () => {
                               target.style.display = 'none';
                               const parent = target.parentElement;
@@ -927,7 +836,7 @@ export default function MLB() {
                           referrerPolicy="no-referrer"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${homeAbbrev.toLowerCase()}.png`;
+                            target.src = espnMlb500LogoUrlFromAbbrev(homeAbbrev);
                             target.onerror = () => {
                               target.style.display = 'none';
                               const parent = target.parentElement;
@@ -1061,14 +970,30 @@ export default function MLB() {
                         <div className="text-sm text-white">
                           Pick: <span className="font-semibold">{f5PickTeam}</span>
                           {' '}| Win Prob: <span className="font-semibold">{(f5HomeProb !== null || f5AwayProb !== null) ? `${(Math.max(f5HomeProb ?? 0, f5AwayProb ?? 0) * 100).toFixed(1)}%` : '-'}</span>
+                          {' '}| Edge:{' '}
+                          <span className="font-semibold">
+                            {f5PickEdge !== null ? `${f5PickEdge > 0 ? '+' : ''}${f5PickEdge.toFixed(1)}%` : '-'}
+                          </span>
+                          {f5PickMlStrong ? (
+                            <>
+                              {' '}|{' '}
+                              <span className={`font-semibold px-2 py-0.5 rounded border ${signalStyle('Strong')}`}>
+                                Strong edge
+                              </span>
+                            </>
+                          ) : null}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {awayAbbrev}: F5 Spread {formatSpread(prediction.f5_away_spread)} | F5 Win Prob{' '}
+                          {awayAbbrev}: F5 Win Prob{' '}
                           {f5AwayProb !== null ? `${(f5AwayProb * 100).toFixed(1)}%` : '-'}
+                          {' '}| F5 ML Edge{' '}
+                          {f5AwayMlEdge !== null ? `${f5AwayMlEdge > 0 ? '+' : ''}${f5AwayMlEdge.toFixed(1)}%` : '-'}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {homeAbbrev}: F5 Spread {formatSpread(prediction.f5_home_spread)} | F5 Win Prob{' '}
+                          {homeAbbrev}: F5 Win Prob{' '}
                           {f5HomeProb !== null ? `${(f5HomeProb * 100).toFixed(1)}%` : '-'}
+                          {' '}| F5 ML Edge{' '}
+                          {f5HomeMlEdge !== null ? `${f5HomeMlEdge > 0 ? '+' : ''}${f5HomeMlEdge.toFixed(1)}%` : '-'}
                         </div>
                       </>
                     )}
