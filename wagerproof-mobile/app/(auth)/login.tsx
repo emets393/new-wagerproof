@@ -233,11 +233,24 @@ const DEMO_AGENTS: AgentWithPerformance[] = [
   } as any,
 ];
 
-const AgentBotsDemo = () => (
-  <View style={{ width: screenWidth - 32, marginTop: 40, borderRadius: 20, overflow: 'hidden' }}>
-    <PixelOffice agents={DEMO_AGENTS} startAtDesks hideControls />
-  </View>
-);
+const AgentBotsDemo = () => {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    // Small delay to let the carousel transition settle before loading the heavy component
+    const timer = setTimeout(() => setReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <View style={{ width: screenWidth - 32, marginTop: 40, borderRadius: 20, overflow: 'hidden' }}>
+      {ready ? (
+        <PixelOffice agents={DEMO_AGENTS} startAtDesks hideControls />
+      ) : (
+        <View style={{ width: screenWidth - 32, aspectRatio: 864 / 800, backgroundColor: '#1a1a2e', borderRadius: 20 }} />
+      )}
+    </View>
+  );
+};
 
 // --- New Widgets for Screen 4: Discord Community ---
 const DiscordCard = () => (

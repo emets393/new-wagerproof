@@ -30,6 +30,7 @@ import { trackAppOpen } from '@/services/activityService';
 import { AgentTimelineSection } from '@/components/agents/AgentTimeline';
 import { AgentIdCard } from '@/components/agents/AgentIdCard';
 import { PixelOffice } from '@/components/agents/PixelOffice';
+import { CompanyDashboardBanner } from '@/components/agents/CompanyDashboardBanner';
 import { AgentWithPerformance } from '@/types/agent';
 
 // Skeleton component for loading state (matches compact header + CompactPickCard)
@@ -204,11 +205,13 @@ export default function AgentsHubScreen() {
     return () => handle.cancel();
   }, []);
 
-  // Memoize sorted agents for PixelOffice to avoid re-sorting on every render
-  const topAgentsForOffice = useMemo(
-    () => [...(agents || [])].sort((a, b) => (b.performance?.net_units ?? -Infinity) - (a.performance?.net_units ?? -Infinity)).slice(0, 6),
+  // Memoize agents sorted by unit performance (best first)
+  const sortedAgents = useMemo(
+    () => [...(agents || [])].sort((a, b) => (b.performance?.net_units ?? -Infinity) - (a.performance?.net_units ?? -Infinity)),
     [agents]
   );
+
+  const topAgentsForOffice = useMemo(() => sortedAgents.slice(0, 6), [sortedAgents]);
 
   // Track activity on mount
   useEffect(() => {
@@ -461,7 +464,7 @@ export default function AgentsHubScreen() {
         </ScrollView>
       ) : (
         <FlatList
-          data={agents && agents.length % 2 !== 0 ? [...agents, null] : agents}
+          data={sortedAgents.length % 2 !== 0 ? [...sortedAgents, null] : sortedAgents}
           keyExtractor={(item, index) => item?.id ?? `spacer_${index}`}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
@@ -476,6 +479,7 @@ export default function AgentsHubScreen() {
           refreshControl={refreshControl}
           ListHeaderComponent={
             <>
+              <CompanyDashboardBanner agents={agents || []} />
               {officeReady ? (
                 <PixelOffice agents={topAgentsForOffice} />
               ) : (

@@ -23,6 +23,7 @@ import { AgentPickAuditProvider } from '../contexts/AgentPickAuditContext';
 import { OnboardingProvider } from '../contexts/OnboardingContext';
 
 import { MetaTestSheetProvider } from '../contexts/MetaTestSheetContext';
+import { AgentHRSheetProvider } from '../contexts/AgentHRSheetContext';
 
 import { OnboardingGuard } from '../components/OnboardingGuard';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
@@ -39,6 +40,7 @@ import { AnimatedSplash } from '../components/AnimatedSplash';
 import { LearnWagerProofBottomSheet } from '../components/learn-wagerproof/LearnWagerProofBottomSheet';
 
 import { MetaTestBottomSheet } from '../components/MetaTestBottomSheet';
+import { AgentHRBottomSheet } from '../components/agents/AgentHRBottomSheet';
 
 import { useOnGameSheetOpen, useGameSheetDetection } from '../hooks/useGameSheetDetection';
 import { useAppReady } from '../hooks/useAppReady';
@@ -458,6 +460,7 @@ function RootLayoutContent() {
                               <WagerBotChatSheetProvider>
                                 <LearnWagerProofProvider>
                                   <MetaTestSheetProvider>
+                                    <AgentHRSheetProvider>
                                     <RootNavigator />
                                     <WebPurchaseRedemptionHandler />
                                     <NotificationHandler />
@@ -466,6 +469,8 @@ function RootLayoutContent() {
                                     <NCAABBettingTrendsBottomSheet />
                                     <LearnWagerProofBottomSheet />
                                     <MetaTestBottomSheet />
+                                    <AgentHRBottomSheet />
+                                    </AgentHRSheetProvider>
                                   </MetaTestSheetProvider>
                                 </LearnWagerProofProvider>
                               </WagerBotChatSheetProvider>

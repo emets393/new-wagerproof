@@ -1,6 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
-import { useTheme, List, Switch, Divider, Button } from 'react-native-paper';
+import React from 'react';
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,6 +20,7 @@ import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useMetaTestSheet } from '@/contexts/MetaTestSheetContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useThemeContext } from '@/contexts/ThemeContext';
 import {
   didPaywallGrantEntitlement,
   getOfferingById,
@@ -30,17 +39,94 @@ import {
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 
+type ActionRowProps = {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  iconColor: string;
+  iconBackground: string;
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  rightContent?: React.ReactNode;
+  last?: boolean;
+};
+
+function ActionRow({
+  icon,
+  iconColor,
+  iconBackground,
+  title,
+  subtitle,
+  onPress,
+  rightContent,
+  last = false,
+}: ActionRowProps) {
+  const { isDark } = useThemeContext();
+  const rowBackground = isDark ? '#1d1d1d' : '#ffffff';
+  const rowBorder = isDark ? 'rgba(255,255,255,0.08)' : '#ece7e1';
+  const titleColor = isDark ? '#f5f1eb' : '#232325';
+  const subtitleColor = isDark ? '#aea79f' : '#7d7873';
+  const chevronColor = isDark ? '#8f8a84' : '#b7b7b7';
+
+  return (
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.72 : 1}
+      disabled={!onPress}
+      onPress={onPress}
+      style={[
+        styles.actionRow,
+        { backgroundColor: rowBackground },
+        !last && styles.actionRowBorder,
+        !last && { borderBottomColor: rowBorder },
+      ]}
+    >
+      <View style={[styles.actionIconWrap, { backgroundColor: iconBackground }]}>
+        <MaterialCommunityIcons name={icon} size={23} color={iconColor} />
+      </View>
+
+      <View style={styles.actionTextWrap}>
+        <Text style={[styles.actionTitle, { color: titleColor }]}>{title}</Text>
+        {!!subtitle && <Text style={[styles.actionSubtitle, { color: subtitleColor }]}>{subtitle}</Text>}
+      </View>
+
+      <View style={styles.actionRight}>
+        {rightContent ?? <MaterialCommunityIcons name="chevron-right" size={28} color={chevronColor} />}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  const { isDark } = useThemeContext();
+  const sectionTitleColor = isDark ? '#9e978f' : '#6c6763';
+  const sectionCardColor = isDark ? '#1d1d1d' : '#ffffff';
+
+  return (
+    <View style={styles.sectionWrap}>
+      <Text style={[styles.sectionTitle, { color: sectionTitleColor }]}>{title}</Text>
+      <View style={[styles.sectionCard, { backgroundColor: sectionCardColor }]}>{children}</View>
+    </View>
+  );
+}
+
 export default function SecretSettingsScreen() {
-  const theme = useTheme();
+  const { isDark } = useThemeContext();
   const { user } = useAuth();
   const { testModeEnabled, setTestModeEnabled, triggerTestSuggestion } = useWagerBotSuggestion();
-  const { forceFreemiumMode, setForceFreemiumMode, isPro } = useProAccess();
+  const { forceFreemiumMode, setForceFreemiumMode } = useProAccess();
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
   const { refreshCustomerInfo } = useRevenueCat();
   const { openSheet: openMetaTestSheet } = useMetaTestSheet();
   const { setOnboardingIncomplete } = useOnboarding();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  const pageBackground = isDark ? '#111111' : '#f3f0eb';
+  const titleColor = isDark ? '#f8f4ef' : '#1e1e1f';
+  const subtitleColor = isDark ? '#b8b2aa' : '#6f6a66';
+  const switchTrackColors = isDark
+    ? { false: '#4f4a45', true: '#f0c542' }
+    : { false: '#cfc7bf', true: '#1f1f1f' };
+  const switchThumbColor = isDark ? '#fffaf2' : '#ffffff';
 
   const handleTestPushDiagnostics = async () => {
     const lines: string[] = [];
@@ -62,7 +148,6 @@ export default function SecretSettingsScreen() {
       lines.push(`Permission error: ${e.message}`);
     }
 
-    // Show projectId resolution
     const Constants = require('expo-constants').default;
     const pid1 = Constants.expoConfig?.extra?.eas?.projectId;
     const pid2 = (Constants as any).manifest?.extra?.eas?.projectId;
@@ -71,7 +156,6 @@ export default function SecretSettingsScreen() {
     lines.push(`projectId (manifest): ${pid2 ?? 'null'}`);
     lines.push(`projectId (manifest2): ${pid3 ?? 'null'}`);
 
-    // Call getExpoPushTokenAsync directly to surface the real error
     try {
       const Constants = require('expo-constants').default;
       const projectId =
@@ -103,7 +187,7 @@ export default function SecretSettingsScreen() {
     }
 
     const report = lines.join('\n');
-    console.log('🔔 Push Diagnostics:\n' + report);
+    console.log('Push Diagnostics:\n' + report);
     Alert.alert('Push Notification Diagnostics', report);
   };
 
@@ -114,7 +198,6 @@ export default function SecretSettingsScreen() {
     }
 
     try {
-      // 1. Request permission if needed
       let status = await getNotificationPermissionStatus();
       if (status !== 'granted') {
         status = await requestNotificationPermission();
@@ -124,18 +207,14 @@ export default function SecretSettingsScreen() {
         }
       }
 
-      // 2. Ensure notification handler is set
       await initializeNotifications();
-
-      // 3. Register token
       await registerPushToken(user.id);
       const token = await getExpoPushToken();
 
       if (!token) {
-        // Fallback to local notification on simulator
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: '🎯 Test Agent Picks Ready!',
+            title: 'Test Agent Picks Ready!',
             body: '3 new picks just dropped. Tap to view.',
             sound: 'default',
             data: { type: 'auto_pick_ready', agent_id: 'test', run_id: 'test' },
@@ -146,11 +225,10 @@ export default function SecretSettingsScreen() {
         return;
       }
 
-      // 4. Send a REAL push via Expo Push API
       const message = {
         to: token,
         sound: 'default',
-        title: "🎯 Test Agent's picks are ready!",
+        title: "Test Agent's picks are ready!",
         body: '3 new picks just dropped. Tap to view.',
         channelId: 'agent-picks',
         data: { type: 'auto_pick_ready', agent_id: 'test', run_id: 'test' },
@@ -163,7 +241,7 @@ export default function SecretSettingsScreen() {
       });
 
       const result = await response.json();
-      console.log('🔔 Expo push response:', JSON.stringify(result));
+      console.log('Expo push response:', JSON.stringify(result));
 
       const ticket = result.data?.[0] || result.data || result;
       const ticketStatus = ticket.status || 'unknown';
@@ -173,7 +251,7 @@ export default function SecretSettingsScreen() {
         `Sent via Expo Push API.\n\nStatus: ${ticketStatus}\nToken: ${token.slice(0, 35)}...\n\n${ticketStatus === 'ok' ? 'You should receive the push notification momentarily.' : `Error: ${JSON.stringify(ticket.details || ticket.message || 'unknown')}`}`
       );
     } catch (e: any) {
-      console.error('🔔 Test push error:', e);
+      console.error('Test push error:', e);
       Alert.alert('Error', e.message);
     }
   };
@@ -194,9 +272,6 @@ export default function SecretSettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('Resetting onboarding for user:', user.id);
-              
-              // Update the profile to mark onboarding as incomplete
               const { error } = await supabase
                 .from('profiles')
                 .update({
@@ -206,12 +281,10 @@ export default function SecretSettingsScreen() {
                 .eq('user_id', user.id);
 
               if (error) {
-                console.error('Error resetting onboarding:', error);
                 Alert.alert('Error', 'Failed to reset onboarding. Please try again.');
                 return;
               }
 
-              console.log('Onboarding reset successfully');
               Alert.alert(
                 'Success',
                 'Onboarding reset! Redirecting to onboarding...',
@@ -220,9 +293,7 @@ export default function SecretSettingsScreen() {
                     text: 'OK',
                     onPress: () => {
                       setOnboardingIncomplete();
-                      // Close this modal first
                       router.back();
-                      // Small delay to allow modal to close, then navigate to onboarding
                       setTimeout(() => {
                         router.replace('/(onboarding)');
                       }, 300);
@@ -230,8 +301,7 @@ export default function SecretSettingsScreen() {
                   },
                 ]
               );
-            } catch (err) {
-              console.error('Unexpected error resetting onboarding:', err);
+            } catch {
               Alert.alert('Error', 'An unexpected error occurred. Please try again.');
             }
           },
@@ -241,401 +311,251 @@ export default function SecretSettingsScreen() {
   };
 
   const handleCheckOfferings = async () => {
-    console.log('📦 Check Offerings button pressed');
-    console.log('📱 Platform:', Platform.OS);
-    console.log('📱 Platform Version:', Platform.Version);
-    
     try {
-      // First, get all offerings to see what's available
-      console.log('📦 Calling getAllOfferings()...');
       const allOfferings = await getAllOfferings();
-      
-      console.log('📦 getAllOfferings() returned:', {
-        isNull: allOfferings === null,
-        isUndefined: allOfferings === undefined,
-        hasAll: !!allOfferings?.all,
-        hasCurrent: !!allOfferings?.current,
-      });
-      
+
       if (!allOfferings) {
-        console.error('❌ getAllOfferings() returned null/undefined');
         Alert.alert(
           'No Offerings',
-          `Platform: ${Platform.OS}\n\nNo offerings found at all. Check:\n\n1. RevenueCat is initialized\n2. Internet connectivity\n3. API key is correct for ${Platform.OS}\n4. Android app is configured in RevenueCat dashboard\n\nCheck console logs for details.`
+          `Platform: ${Platform.OS}\n\nNo offerings found. Check RevenueCat config.`
         );
         return;
       }
 
-      // Log all available offerings
       const availableIdentifiers = allOfferings.all ? Object.keys(allOfferings.all) : [];
-      console.log('📦 All available offering identifiers:', availableIdentifiers);
-      console.log('📦 Current offering identifier:', allOfferings.current?.identifier);
-      
-      // Try to fetch the specific "default" offering
       const defaultOffering = await getOfferingById('default');
-      
+
       if (!defaultOffering) {
         const message = availableIdentifiers.length > 0
-          ? `The offering named "default" was not found.\n\nAvailable offerings:\n${availableIdentifiers.join('\n')}\n\nPlatform: ${Platform.OS}\n\nCheck console logs for details.`
-          : 'No offerings found. Make sure you have:\n\n1. Created offerings in RevenueCat dashboard\n2. Internet connectivity\n3. API key matches platform\n\nCheck console logs for details.';
-        
+          ? `"default" not found.\n\nAvailable: ${availableIdentifiers.join(', ')}`
+          : 'No offerings found. Check RevenueCat dashboard.';
         Alert.alert('No "default" Offering', message);
         return;
       }
 
-      const offeringInfo = {
-        identifier: defaultOffering.identifier,
-        serverDescription: defaultOffering.serverDescription,
-        packagesCount: defaultOffering.availablePackages?.length || 0,
-        packages: defaultOffering.availablePackages?.map((pkg: any) => ({
-          identifier: pkg.identifier,
-          packageType: pkg.packageType,
-          product: {
-            identifier: pkg.product.identifier,
-            price: pkg.product.priceString,
-          }
-        })) || []
-      };
-
-      console.log('✅ "default" offering:', offeringInfo);
-      
+      const packagesCount = defaultOffering.availablePackages?.length || 0;
       Alert.alert(
-        'Offering "default" Found',
-        `Platform: ${Platform.OS}\nOffering: ${offeringInfo.identifier}\nPackages: ${offeringInfo.packagesCount}\n\nCheck console for full details.`,
-        [{ text: 'OK' }]
+        'Offering Found',
+        `Platform: ${Platform.OS}\nOffering: ${defaultOffering.identifier}\nPackages: ${packagesCount}`
       );
     } catch (error: any) {
-      console.error('❌ Error fetching offerings:', error);
-      Alert.alert(
-        'Error',
-        `Failed to fetch offerings:\n\n${error.message}\n\nPlatform: ${Platform.OS}\n\nCheck console for details.`
-      );
+      Alert.alert('Error', `Failed to fetch offerings:\n\n${error.message}`);
     }
   };
 
   const handleTestPaywall = async () => {
-    console.log('🎬 Test Paywall button pressed');
-    console.log('Platform:', Platform.OS);
-
     try {
       const paywallResult = await presentPaywallForPlacement(
         PAYWALL_PLACEMENTS.GENERIC_FEATURE,
         'secret_settings_test_paywall'
       );
-      
-      console.log('✅ Paywall completed with result:', paywallResult);
-      console.log('Result type:', typeof paywallResult);
 
       if (didPaywallGrantEntitlement(paywallResult)) {
-        console.log('🔄 Refreshing customer info to update entitlements...');
         await refreshCustomerInfo();
-        console.log('✅ Customer info refreshed - entitlements should now be active');
         Alert.alert('Success', 'Purchase completed!');
       } else if (String(paywallResult).toUpperCase().includes('NOT_PRESENTED')) {
-        Alert.alert(
-          'Paywall Not Shown',
-          'The paywall could not be presented for the configured placement. Check that the placement exists, has an offering, and the paywall is published.'
-        );
-      } else {
-        console.log('ℹ️ Paywall completed with result:', paywallResult);
-        if (!String(paywallResult).toUpperCase().includes('CANCEL')) {
-          Alert.alert('Info', `Paywall completed with result: ${paywallResult}`);
-        }
+        Alert.alert('Paywall Not Shown', 'Check that the placement exists and has a published paywall.');
+      } else if (!String(paywallResult).toUpperCase().includes('CANCEL')) {
+        Alert.alert('Info', `Result: ${paywallResult}`);
       }
     } catch (error: any) {
-      console.error('❌ Exception while presenting paywall:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        stack: error.stack,
-      });
-      Alert.alert(
-        'Error',
-        `Failed to present paywall:\n\n${error.message || 'Unknown error'}\n\nCheck console logs for more details.`
-      );
+      Alert.alert('Error', `Failed to present paywall:\n\n${error.message || 'Unknown error'}`);
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.background, paddingTop: insets.top + 16 }]}>
-        <View style={styles.headerContent}>
-          <MaterialCommunityIcons name="shield-key" size={32} color={theme.colors.primary} />
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            Secret Settings
-          </Text>
+    <View style={[styles.container, { backgroundColor: pageBackground }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + 40,
+        }}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} hitSlop={12}>
+            <MaterialCommunityIcons name="chevron-left" size={38} color={titleColor} />
+          </TouchableOpacity>
+
+          <View style={styles.headerCenter}>
+            <Text style={[styles.headerTitle, { color: titleColor }]}>Developer</Text>
+            <Text style={[styles.headerSubtitle, { color: subtitleColor }]}>
+              Testing & debug options
+            </Text>
+          </View>
+
+          <View style={styles.headerSpacer} />
         </View>
-        <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-          Developer & Testing Options
-        </Text>
-      </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
-        {/* WagerBot Testing Section */}
-        <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
-            WagerBot Suggestions Testing
-          </List.Subheader>
+        <View style={styles.pagePadding}>
+          {/* Developer Tools */}
+          <SectionCard title="Developer Tools">
+            <ActionRow
+              icon="phone"
+              iconColor="#22c55e"
+              iconBackground="#e9f8f0"
+              title="Voice Chat"
+              subtitle="Open real-time voice chat with WagerBot"
+              onPress={() => router.push('/voice-chat' as any)}
+            />
+            <ActionRow
+              icon="fire"
+              iconColor="#f97316"
+              iconBackground="#fff3e8"
+              title="Roast Mode"
+              subtitle="Open hidden roast bot mode"
+              onPress={() => router.push('/roast' as any)}
+              last
+            />
+          </SectionCard>
 
-          <List.Item
-            title="Test Mode"
-            description={testModeEnabled ? "Test mode enabled - trigger button visible in header" : "Enable to show trigger button in Feed header"}
-            left={props => <List.Icon {...props} icon="bug" color={testModeEnabled ? '#00E676' : theme.colors.primary} />}
-            right={() => (
-              <Switch
-                value={testModeEnabled}
-                onValueChange={setTestModeEnabled}
-                color="#00E676"
-              />
-            )}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-          <List.Item
-            title="Trigger Test Bubble"
-            description="Show a test suggestion bubble now"
-            left={props => <List.Icon {...props} icon="robot" color="#00E676" />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              triggerTestSuggestion();
-              Alert.alert('Test Bubble', 'A test suggestion bubble should appear on the Feed screen. Go back to see it!');
-            }}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-        </List.Section>
-        <Divider />
-
-        {/* Freemium Testing Section */}
-        <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
-            Freemium Mode Testing
-          </List.Subheader>
-
-          <List.Item
-            title="Simulate Freemium Mode"
-            description={forceFreemiumMode
-              ? "Freemium mode active - viewing as non-subscriber"
-              : "Enable to test the app as a non-subscriber"}
-            left={props => <List.Icon {...props} icon="account-lock" color={forceFreemiumMode ? '#f59e0b' : theme.colors.primary} />}
-            right={() => (
-              <Switch
-                value={forceFreemiumMode}
-                onValueChange={setForceFreemiumMode}
-                color="#f59e0b"
-              />
-            )}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-          <List.Item
-            title="Current Status"
-            description={isPro ? "Pro access active" : "Free tier (limited access)"}
-            left={props => <List.Icon {...props} icon={isPro ? "crown" : "account"} color={isPro ? '#22c55e' : '#94a3b8'} />}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-        </List.Section>
-        <Divider />
-
-        {/* Admin Mode Section - Only visible to admins */}
-        {canEnableAdminMode && (
-          <>
-            <List.Section>
-              <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
-                Admin Mode
-              </List.Subheader>
-
-              <List.Item
+          {/* Testing Toggles */}
+          <SectionCard title="Testing Toggles">
+            <ActionRow
+              icon="bug"
+              iconColor="#22c55e"
+              iconBackground="#e9f8f0"
+              title="WagerBot Test Mode"
+              subtitle={testModeEnabled ? 'Trigger button visible in header' : 'Show trigger button in Feed header'}
+              rightContent={
+                <Switch
+                  value={testModeEnabled}
+                  onValueChange={setTestModeEnabled}
+                  trackColor={switchTrackColors}
+                  thumbColor={switchThumbColor}
+                />
+              }
+            />
+            <ActionRow
+              icon="robot-outline"
+              iconColor="#22c55e"
+              iconBackground="#e9f8f0"
+              title="Trigger Test Bubble"
+              subtitle="Show a test suggestion bubble now"
+              onPress={() => {
+                triggerTestSuggestion();
+                Alert.alert('Test Bubble', 'A test suggestion bubble should appear on the Feed screen.');
+              }}
+            />
+            <ActionRow
+              icon="account-lock"
+              iconColor="#f59e0b"
+              iconBackground="#fff8e6"
+              title="Simulate Freemium"
+              subtitle={forceFreemiumMode ? 'Viewing as non-subscriber' : 'Test the app as a non-subscriber'}
+              rightContent={
+                <Switch
+                  value={forceFreemiumMode}
+                  onValueChange={setForceFreemiumMode}
+                  trackColor={switchTrackColors}
+                  thumbColor={switchThumbColor}
+                />
+              }
+              last={!canEnableAdminMode}
+            />
+            {canEnableAdminMode && (
+              <ActionRow
+                icon="shield-account"
+                iconColor="#22c55e"
+                iconBackground="#e9f8f0"
                 title="Admin Mode"
-                description={adminModeEnabled
-                  ? "Admin features enabled - can edit picks, set results"
-                  : "Enable to access editor picks management"}
-                left={props => <List.Icon {...props} icon="shield-account" color={adminModeEnabled ? '#22c55e' : theme.colors.primary} />}
-                right={() => (
+                subtitle={adminModeEnabled ? 'Admin features enabled' : 'Enable editor picks management'}
+                rightContent={
                   <Switch
                     value={adminModeEnabled}
                     onValueChange={toggleAdminMode}
-                    color="#22c55e"
+                    trackColor={switchTrackColors}
+                    thumbColor={switchThumbColor}
                   />
-                )}
-                style={{ backgroundColor: theme.colors.surface }}
+                }
+                last
               />
+            )}
+          </SectionCard>
 
-              <List.Item
-                title="Admin Status"
-                description="You have admin privileges"
-                left={props => <List.Icon {...props} icon="check-decagram" color="#22c55e" />}
-                style={{ backgroundColor: theme.colors.surface }}
-              />
-            </List.Section>
-            <Divider />
-          </>
-        )}
-
-        {/* Developer Section */}
-        <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
-            Developer Options
-          </List.Subheader>
-
-          <List.Item
-            title="WagerBot Voice Chat"
-            description="Open real-time voice chat with WagerBot"
-            left={props => <List.Icon {...props} icon="phone" color="#22c55e" />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/voice-chat' as any)}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-          <List.Item
-            title="Roast Mode"
-            description="Open hidden roast bot mode"
-            left={props => <List.Icon {...props} icon="fire" color="#f97316" />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/roast' as any)}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-          <List.Item
-            title="Pixel Office Debug"
-            description="Test office layouts, activities, day/night, and agent states"
-            left={props => <List.Icon {...props} icon="monitor-eye" color="#8b5cf6" />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/pixel-office-debug' as any)}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-        </List.Section>
-        <Divider />
-
-        {/* Push Notification Testing */}
-        <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
-            Push Notification Testing
-          </List.Subheader>
-
-          <List.Item
-            title="Push Diagnostics"
-            description="Check device, permission, token, and DB status"
-            left={props => <List.Icon {...props} icon="stethoscope" color="#f59e0b" />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleTestPushDiagnostics}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-
-          <List.Item
-            title="Register & Send Test Push"
-            description="Request permission, register token, send local notification"
-            left={props => <List.Icon {...props} icon="bell-ring-outline" color="#22c55e" />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleRegisterAndTestPush}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-        </List.Section>
-        <Divider />
-
-        {/* Testing Section */}
-        <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
-            Testing Tools
-          </List.Subheader>
-
-          <List.Item
-            title="Reset Onboarding"
-            description="Go through onboarding flow again"
-            left={props => <List.Icon {...props} icon="reload" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleResetOnboarding}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Sync & Refresh Offerings"
-            description="Force refresh from RevenueCat servers"
-            left={props => <List.Icon {...props} icon="refresh" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={async () => {
-              try {
-                console.log('🔄 Syncing purchases...');
-                await syncPurchases();
-                Alert.alert('Success', 'Offerings refreshed from server. Check offerings again.');
-              } catch (error: any) {
-                console.error('Error syncing:', error);
-                Alert.alert('Error', `Failed to sync: ${error.message}`);
-              }
-            }}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Check RevenueCat Offerings"
-            description="Debug: Check available offerings"
-            left={props => <List.Icon {...props} icon="package-variant" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleCheckOfferings}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Test RevenueCat Paywall"
-            description="Test the dynamic paywall"
-            left={props => <List.Icon {...props} icon="credit-card" color={theme.colors.primary} />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleTestPaywall}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Test Meta SDK Events"
-            description="Debug Facebook/Meta attribution events"
-            left={props => <List.Icon {...props} icon="facebook" color="#1877F2" />}
-            right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={openMetaTestSheet}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-        </List.Section>
-        <Divider />
-
-        {/* Info Section */}
-        <List.Section>
-          <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>
-            Build Information
-          </List.Subheader>
-          
-          <List.Item
-            title="App Version"
-            description="1.0.0"
-            left={props => <List.Icon {...props} icon="information" color={theme.colors.primary} />}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          <List.Item
-            title="Build Environment"
-            description={__DEV__ ? "Development" : "Production"}
-            left={props => <List.Icon {...props} icon="code-tags" color={theme.colors.primary} />}
-            style={{ backgroundColor: theme.colors.surface }}
-          />
-          
-          {user && (
-            <List.Item
-              title="User ID"
-              description={user.id}
-              left={props => <List.Icon {...props} icon="account-key" color={theme.colors.primary} />}
-              style={{ backgroundColor: theme.colors.surface }}
+          {/* Diagnostics */}
+          <SectionCard title="Diagnostics">
+            <ActionRow
+              icon="stethoscope"
+              iconColor="#f59e0b"
+              iconBackground="#fff8e6"
+              title="Push Diagnostics"
+              subtitle="Check device, permission, token, and DB status"
+              onPress={handleTestPushDiagnostics}
             />
-          )}
-        </List.Section>
+            <ActionRow
+              icon="bell-ring-outline"
+              iconColor="#22c55e"
+              iconBackground="#e9f8f0"
+              title="Register & Test Push"
+              subtitle="Request permission, register token, send notification"
+              onPress={handleRegisterAndTestPush}
+            />
+            <ActionRow
+              icon="refresh"
+              iconColor="#2a86ff"
+              iconBackground="#edf5ff"
+              title="Sync Offerings"
+              subtitle="Force refresh from RevenueCat servers"
+              onPress={async () => {
+                try {
+                  await syncPurchases();
+                  Alert.alert('Success', 'Offerings refreshed from server.');
+                } catch (error: any) {
+                  Alert.alert('Error', `Failed to sync: ${error.message}`);
+                }
+              }}
+            />
+            <ActionRow
+              icon="package-variant"
+              iconColor="#2a86ff"
+              iconBackground="#edf5ff"
+              title="Check Offerings"
+              subtitle="Debug available RevenueCat offerings"
+              onPress={handleCheckOfferings}
+            />
+            <ActionRow
+              icon="credit-card"
+              iconColor="#2a86ff"
+              iconBackground="#edf5ff"
+              title="Test Paywall"
+              subtitle="Present the dynamic paywall"
+              onPress={handleTestPaywall}
+            />
+            <ActionRow
+              icon="facebook"
+              iconColor="#1877F2"
+              iconBackground="#e8f0fe"
+              title="Meta SDK Events"
+              subtitle="Debug Facebook/Meta attribution events"
+              onPress={openMetaTestSheet}
+            />
+            <ActionRow
+              icon="reload"
+              iconColor="#d16a00"
+              iconBackground="#fff0e1"
+              title="Reset Onboarding"
+              subtitle="Go through the onboarding flow again"
+              onPress={handleResetOnboarding}
+              last
+            />
+          </SectionCard>
 
-        {/* Close Button */}
-        <View style={styles.closeContainer}>
-          <Button
-            mode="outlined"
-            onPress={() => router.back()}
-            style={styles.closeButton}
-            icon="close"
-          >
-            Close
-          </Button>
+          {/* Info */}
+          {user && (
+            <SectionCard title="Info">
+              <ActionRow
+                icon="account-key"
+                iconColor="#8b8b8b"
+                iconBackground="#f4f1ec"
+                title="User ID"
+                subtitle={user.id}
+                rightContent={<View />}
+                last
+              />
+            </SectionCard>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -647,33 +567,89 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    elevation: 4,
+    minHeight: 88,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    paddingHorizontal: 18,
   },
-  headerContent: {
+  backButton: {
+    width: 44,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 44,
+  },
+  headerTitle: {
+    fontSize: 31,
+    lineHeight: 36,
+    fontWeight: '700',
+    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
+  },
+  headerSubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  pagePadding: {
+    paddingHorizontal: 18,
+    gap: 22,
+  },
+  sectionWrap: {
+    gap: 12,
+  },
+  sectionTitle: {
+    paddingHorizontal: 6,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  sectionCard: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+  actionRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  subtitle: {
-    fontSize: 14,
-    marginTop: 4,
+  actionIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  scrollView: {
+  actionTextWrap: {
     flex: 1,
+    marginLeft: 14,
+    marginRight: 8,
   },
-  closeContainer: {
-    padding: 16,
-    marginTop: 24,
+  actionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
   },
-  closeButton: {
-    borderRadius: 8,
+  actionSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  actionRight: {
+    minWidth: 28,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
 });

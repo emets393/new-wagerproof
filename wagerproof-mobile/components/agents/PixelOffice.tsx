@@ -674,6 +674,7 @@ export function PixelOffice({
   const claimedPoints = useRef<Set<string>>(new Set());
   const particlesRef = useRef<Particle[]>([]);
   const [renderTick, setRenderTick] = useState(0);
+  const [overlayTick, setOverlayTick] = useState(0);
 
   // Stable key for real agents to detect actual data changes
   const agentKey = realAgents
@@ -799,7 +800,51 @@ export function PixelOffice({
     claimedPoints.current.clear();
     particlesRef.current = [];
 
-    // Collect all valid spawn locations and shuffle for random starting positions
+    // When startAtDesks is true (onboarding/login), place agents directly at desks
+    // with no pathfinding. This avoids A* computation and staggered timeouts.
+    if (startAtDesks) {
+      const deskPoints = DESK_POINTS.slice(0, count);
+      for (let i = 0; i < count; i++) {
+        const real = hasReal ? realAgents![i] : null;
+        const desk = deskPoints[i % deskPoints.length];
+        const dirMap: Record<string, string> = { down: 'front', up: 'back', left: 'left', right: 'right' };
+        const dir = dirMap[desk.facing] || 'front';
+        const deskKey = `desk_${i}`;
+        claimedPoints.current.add(deskKey);
+
+        agents.push({
+          id: i,
+          name: real ? real.name : FALLBACK_NAMES[i],
+          emoji: real ? real.avatar_emoji : '',
+          accentColor: real ? getPrimaryFromColor(real.avatar_color) : '',
+          stateLabel: 'WORKING',
+          avatarIdx: i % 8,
+          state: 'working',
+          isActive: true,
+          x: desk.x,
+          y: desk.y,
+          targetX: desk.x,
+          targetY: desk.y,
+          facing: desk.facing,
+          animKey: `${dir}_sit_work`,
+          frameIdx: 0,
+          claimedPointKey: deskKey,
+          arrived: true,
+          path: [],
+          pathIdx: 0,
+          moveProgress: 0,
+          fromX: desk.x,
+          fromY: desk.y,
+          toX: desk.x,
+          toY: desk.y,
+          bubbleEmoji: '',
+        });
+      }
+      agentsRef.current = agents;
+      return;
+    }
+
+    // Normal mode: spawn at random locations, then stagger state assignments
     const allSpawnPoints = [...IDLE_POINTS, ...MEETING_POINTS, ...DESK_POINTS];
     const shuffledSpawns = allSpawnPoints.sort(() => Math.random() - 0.5);
 
@@ -807,7 +852,6 @@ export function PixelOffice({
       const real = hasReal ? realAgents![i] : null;
       const derived = real ? deriveOfficeState(real) : null;
 
-      // Each agent starts at a random room location
       const spawnPoint = shuffledSpawns[i % shuffledSpawns.length];
       const startX = spawnPoint.x + (Math.random() * 8 - 4);
       const startY = spawnPoint.y + (Math.random() * 8 - 4);
@@ -825,7 +869,7 @@ export function PixelOffice({
         y: startY,
         targetX: startX,
         targetY: startY,
-        facing: startAtDesks ? spawnPoint.facing : 'down',
+        facing: 'down',
         animKey: 'front_idle',
         frameIdx: 0,
         claimedPointKey: '',
@@ -1018,15 +1062,16 @@ export function PixelOffice({
         p.opacity = p.life * 0.5;
       }
 
-      // Cap particle count
-      if (particles.length > 60) {
-        particles.splice(0, particles.length - 60);
+      // Cap particle count (lower for mobile perf)
+      if (particles.length > 30) {
+        particles.splice(0, particles.length - 30);
       }
     };
 
     // Idle detection: when all agents have arrived and no particles are active,
     // throttle the loop to ~2fps instead of 60fps to free the JS thread.
     let idleFrameCount = 0;
+    let lastOverlayTick = 0;
 
     const loop = () => {
       if (!running) return;
@@ -1047,9 +1092,13 @@ export function PixelOffice({
 
       // After 60 consecutive idle frames (~1s), throttle to ~2fps
       const isThrottled = idleFrameCount > 60;
-      if (isThrottled && frameTick % 30 !== 0) {
-        requestAnimationFrame(loop);
-        return;
+      // When fully idle, skip most frames entirely — no state updates needed
+      if (isThrottled) {
+        // Only run 1 in 30 frames (~2fps) for animation cycling
+        if (frameTick % 30 !== 0) {
+          requestAnimationFrame(loop);
+          return;
+        }
       }
 
       updateAgents(dt);
@@ -1104,9 +1153,15 @@ export function PixelOffice({
 
       updateParticles(dt);
 
-      // Render at ~20fps (every 3rd frame of ~60fps rAF), or ~2fps when throttled
-      if (frameTick % 3 === 0) {
+      // Canvas render at ~12fps (every 5th frame of ~60fps rAF) — pixel art looks great at low fps
+      if (frameTick % 5 === 0) {
         setRenderTick(t => t + 1);
+
+        // RN overlays (name tags) update at ~4fps (every 3rd canvas tick)
+        lastOverlayTick++;
+        if (lastOverlayTick % 3 === 0) {
+          setOverlayTick(t => t + 1);
+        }
       }
 
       requestAnimationFrame(loop);
@@ -1114,34 +1169,38 @@ export function PixelOffice({
 
     requestAnimationFrame(loop);
 
-    // Periodic state changes
-    const stateInterval = setInterval(() => {
-      const agents = agentsRef.current;
-      if (agents.length === 0) return;
+    // Periodic state changes — skip when startAtDesks (onboarding/login)
+    // to avoid unnecessary pathfinding and keep agents stationary
+    let stateInterval: ReturnType<typeof setInterval> | null = null;
+    if (!startAtDesks) {
+      stateInterval = setInterval(() => {
+        const agents = agentsRef.current;
+        if (agents.length === 0) return;
 
-      if (forceAgentState) {
-        for (const a of agents) {
-          setAgentState(a.id, forceAgentState);
+        if (forceAgentState) {
+          for (const a of agents) {
+            setAgentState(a.id, forceAgentState);
+          }
+          return;
         }
-        return;
-      }
 
-      const a = agents[Math.floor(Math.random() * agents.length)];
+        const a = agents[Math.floor(Math.random() * agents.length)];
 
-      if (!a.isActive) {
-        const states = ['idle', 'idle', 'idle', 'thinking'];
-        setAgentState(a.id, states[Math.floor(Math.random() * states.length)]);
-      } else {
-        const states = ['working', 'thinking', 'done', 'working', 'thinking', 'idle'];
-        setAgentState(a.id, states[Math.floor(Math.random() * states.length)]);
-      }
-    }, 5000);
+        if (!a.isActive) {
+          const states = ['idle', 'idle', 'idle', 'thinking'];
+          setAgentState(a.id, states[Math.floor(Math.random() * states.length)]);
+        } else {
+          const states = ['working', 'thinking', 'done', 'working', 'thinking', 'idle'];
+          setAgentState(a.id, states[Math.floor(Math.random() * states.length)]);
+        }
+      }, 5000);
+    }
 
     return () => {
       running = false;
-      clearInterval(stateInterval);
+      if (stateInterval) clearInterval(stateInterval);
     };
-  }, [setAgentState, forceAgentState, isNight, spawnParticle]);
+  }, [setAgentState, forceAgentState, isNight, spawnParticle, startAtDesks]);
 
   // Apply forced state immediately when it changes
   useEffect(() => {
@@ -1153,12 +1212,21 @@ export function PixelOffice({
   }, [forceAgentState, setAgentState]);
 
   // Sort agents by Y for depth (lower Y = further back = drawn first)
+  // Used for Skia canvas rendering — updates at canvas rate (~12fps)
   const sortedAgents = useMemo(() => {
     const agents = [...agentsRef.current];
     agents.sort((a, b) => a.y - b.y);
     return agents;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renderTick]);
+
+  // Snapshot agents for RN overlays — updates at slower rate (~4fps)
+  const overlayAgents = useMemo(() => {
+    const agents = [...agentsRef.current];
+    agents.sort((a, b) => a.y - b.y);
+    return agents;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overlayTick]);
 
   // Snapshot particles for render
   const particles = useMemo(() => {
@@ -1292,7 +1360,8 @@ export function PixelOffice({
       </Canvas>
 
       {/* ── React Native overlays: name tags, speech bubbles ── */}
-      {sortedAgents.map(agent => {
+      {/* Uses overlayAgents which updates at ~4fps to reduce RN layout work */}
+      {overlayAgents.map(agent => {
         const charW = FW * scale;
         const charH = FH * scale;
         const left = agent.x * scale - charW / 2;

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Dimensions, InteractionManager } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
@@ -41,6 +41,15 @@ export function AgentValue1_247() {
   const { nextStep, isTransitioning } = useOnboarding();
   const theme = useTheme();
 
+  // Defer PixelOffice mount until after screen transition completes
+  const [officeReady, setOfficeReady] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setOfficeReady(true);
+    });
+    return () => handle.cancel();
+  }, []);
+
   const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     nextStep();
@@ -50,7 +59,11 @@ export function AgentValue1_247() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         <View style={styles.officeContainer}>
-          <PixelOffice agents={DEMO_AGENTS} startAtDesks hideControls />
+          {officeReady ? (
+            <PixelOffice agents={DEMO_AGENTS} startAtDesks hideControls />
+          ) : (
+            <View style={styles.officePlaceholder} />
+          )}
         </View>
 
         <Text style={[styles.title, { color: theme.colors.onBackground }]}>
@@ -86,6 +99,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     marginBottom: 24,
+  },
+  officePlaceholder: {
+    width: screenWidth - 32,
+    // Match PixelOffice aspect ratio: MAP_H (800) / MAP_W (864)
+    aspectRatio: 864 / 800,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 20,
   },
   title: {
     fontSize: 28,
