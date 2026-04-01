@@ -707,12 +707,10 @@ export default function FeedScreen() {
       const startDate = toYMD(today);
       const endDate = toYMD(dayAfterTomorrow);
 
-      // 1. Strict query
-      const { data: strictGames, error: gamesError } = await collegeFootballSupabase
+      // Fetch all games in the date window — show every game present in mlb_games_today
+      const { data: allGames, error: gamesError } = await collegeFootballSupabase
         .from('mlb_games_today')
         .select('*')
-        .or('is_active.eq.true,is_active.is.null')
-        .or('is_completed.eq.false,is_completed.is.null')
         .gte('official_date', startDate)
         .lte('official_date', endDate)
         .order('official_date', { ascending: true })
@@ -720,18 +718,7 @@ export default function FeedScreen() {
 
       if (gamesError) throw new Error(gamesError.message);
 
-      let rawGames = strictGames || [];
-      if (rawGames.length === 0) {
-        // Fallback: relaxed query
-        const { data: relaxedGames } = await collegeFootballSupabase
-          .from('mlb_games_today')
-          .select('*')
-          .gte('official_date', startDate)
-          .lte('official_date', endDate)
-          .order('official_date', { ascending: true })
-          .order('game_time_et', { ascending: true });
-        rawGames = (relaxedGames || []).filter((g: any) => !g.is_postponed && !g.is_completed);
-      }
+      const rawGames = (allGames || []).filter((g: any) => !g.is_postponed);
 
       // 2. Merge is_final_prediction from mlb_predictions_current
       const gamePks = rawGames.map((g: any) => g.game_pk).filter(Boolean);

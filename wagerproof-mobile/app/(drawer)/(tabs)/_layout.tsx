@@ -19,6 +19,12 @@ import { useLiveScores } from '@/hooks/useLiveScores';
 import { PickDetailSheetProvider } from '@/contexts/PickDetailSheetContext';
 import { PickDetailBottomSheet } from '@/components/PickDetailBottomSheet';
 
+// Lift live-scores state out of FloatingTabBar so it doesn't re-mount the hook
+// on every pathname change. TabsContent owns the hook; FloatingTabBar receives
+// only the derived boolean.
+const LiveScoresContext = React.createContext(false);
+function useLiveGames() { return React.useContext(LiveScoresContext); }
+
 function LiveIndicator() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
@@ -67,7 +73,7 @@ function LiveIndicator() {
   );
 }
 
-function FloatingTabBar() {
+const FloatingTabBar = React.memo(function FloatingTabBar() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { scrollYClamped } = useScroll();
@@ -75,7 +81,7 @@ function FloatingTabBar() {
   const segments = useSegments() as string[];
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { hasLiveGames } = useLiveScores();
+  const hasLiveGames = useLiveGames();
   
   // Hide tab bar on chat, roast, and agent sub-screens
   const isOnChatScreen = pathname.includes('/chat') || segments.includes('chat');
@@ -200,7 +206,7 @@ function FloatingTabBar() {
       </AndroidBlurView>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   floatingTabBar: {
@@ -466,15 +472,21 @@ function TabsContent() {
 }
 
 export default function TabsLayout() {
+  // Own the live-scores hook here so FloatingTabBar gets a stable boolean
+  // without re-mounting the hook on every pathname change.
+  const { hasLiveGames } = useLiveScores();
+
   return (
-    <ScrollProvider>
-      <PickDetailSheetProvider>
-        <TabsContent />
-        {/* Wrap in View with higher zIndex to appear above FloatingTabBar (zIndex: 1000) */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, pointerEvents: 'box-none' }}>
-          <PickDetailBottomSheet />
-        </View>
-      </PickDetailSheetProvider>
-    </ScrollProvider>
+    <LiveScoresContext.Provider value={hasLiveGames}>
+      <ScrollProvider>
+        <PickDetailSheetProvider>
+          <TabsContent />
+          {/* Wrap in View with higher zIndex to appear above FloatingTabBar (zIndex: 1000) */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, pointerEvents: 'box-none' }}>
+            <PickDetailBottomSheet />
+          </View>
+        </PickDetailSheetProvider>
+      </ScrollProvider>
+    </LiveScoresContext.Provider>
   );
 }

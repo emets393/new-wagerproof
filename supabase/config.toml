@@ -86,5 +86,8 @@ verify_jwt = false  # Cron calls don't have JWT, auth via service key
 [functions.regrade-avatar-pushes]
 verify_jwt = false
 
+[functions.backfill-avatar-performance]
+verify_jwt = false  # Admin function, auth via x-internal-secret header
+
 [functions.send-agent-pick-ready-notification]
 verify_jwt = false  # Internal function, auth via service role key

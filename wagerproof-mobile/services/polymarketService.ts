@@ -273,10 +273,20 @@ async function getLeagueTagId(league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb'): 
   return primaryTagId;
 }
 
+// In-memory cache for league events to avoid repeated proxy calls
+const leagueEventsCache: Record<string, { events: PolymarketEvent[]; fetchedAt: number }> = {};
+const LEAGUE_EVENTS_TTL = 10 * 60 * 1000; // 10 minutes
+
 async function getLeagueEvents(league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' = 'nfl'): Promise<PolymarketEvent[]> {
+  // Return cached events if still fresh
+  const cached = leagueEventsCache[league];
+  if (cached && Date.now() - cached.fetchedAt < LEAGUE_EVENTS_TTL) {
+    return cached.events;
+  }
+
   try {
     const tagId = await getLeagueTagId(league);
-    
+
     if (!tagId) {
       console.error(`Could not get ${league.toUpperCase()} tag ID`);
       return [];
@@ -291,7 +301,9 @@ async function getLeagueEvents(league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' =
       return [];
     }
 
-    return data?.events || [];
+    const events = data?.events || [];
+    leagueEventsCache[league] = { events, fetchedAt: Date.now() };
+    return events;
   } catch (error) {
     console.error('Error fetching league events:', error);
     return [];
@@ -522,6 +534,7 @@ async function getAllMarketsDataFromCache(
 ): Promise<PolymarketAllMarketsData | null> {
   try {
     const gameKey = `${league}_${awayTeam}_${homeTeam}`;
+    console.log(`[Polymarket] Cache lookup: ${gameKey}`);
 
     const { data, error } = await supabase
       .from('polymarket_markets')
@@ -530,13 +543,16 @@ async function getAllMarketsDataFromCache(
       .eq('league', league);
 
     if (error) {
-      console.error('Cache query error:', error);
+      console.error('[Polymarket] Cache query error:', error);
       return null;
     }
 
     if (!data || data.length === 0) {
+      console.log(`[Polymarket] Cache miss for ${gameKey}`);
       return null;
     }
+
+    console.log(`[Polymarket] Cache hit for ${gameKey}: ${data.length} markets`);
 
     const result: PolymarketAllMarketsData = {
       awayTeam,
@@ -635,11 +651,13 @@ export async function getAllMarketsData(
   league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb' = 'nfl'
 ): Promise<PolymarketAllMarketsData | null> {
   const cachedData = await getAllMarketsDataFromCache(awayTeam, homeTeam, league);
-  
+
   if (cachedData) {
+    console.log(`[Polymarket] Returning cached data for ${league}_${awayTeam}_${homeTeam}`);
     return cachedData;
   }
 
+  console.log(`[Polymarket] Falling back to live API for ${league}_${awayTeam}_${homeTeam}`);
   return getAllMarketsDataLive(awayTeam, homeTeam, league);
 }
 

@@ -61,6 +61,10 @@ export interface MLBGame {
   f5_ou_edge: number | null;
   f5_home_win_prob: number | null;
   f5_away_win_prob: number | null;
+  f5_home_ml_edge_pct: number | null;
+  f5_away_ml_edge_pct: number | null;
+  f5_home_ml_strong_signal: boolean | null;
+  f5_away_ml_strong_signal: boolean | null;
 
   // Starters
   home_sp_name: string | null;

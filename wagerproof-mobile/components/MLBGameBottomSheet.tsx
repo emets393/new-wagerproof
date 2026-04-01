@@ -60,30 +60,55 @@ export function MLBGameBottomSheet() {
   const f5Runs = game ? getF5Runs(game) : null;
   const activeRuns = projView === 'full' ? fullRuns : f5Runs;
 
-  // ML pick
-  const mlPickSide = game && game.ml_home_win_prob !== null && game.ml_away_win_prob !== null
-    ? (game.ml_home_win_prob >= game.ml_away_win_prob ? 'home' : 'away')
-    : null;
-  const mlPickProb = mlPickSide === 'home' ? game?.ml_home_win_prob : game?.ml_away_win_prob;
-  const mlPickEdge = mlPickSide === 'home' ? game?.home_ml_edge_pct : game?.away_ml_edge_pct;
-  const mlPickStrong = mlPickSide === 'home' ? game?.home_ml_strong_signal : game?.away_ml_strong_signal;
-
   // Implied probability from moneyline odds (for Vegas vs Model comparison)
   const mlToImpliedProb = (ml: number | null): number | null => {
     if (ml === null || ml === undefined) return null;
     return ml < 0 ? Math.abs(ml) / (Math.abs(ml) + 100) : 100 / (ml + 100);
   };
-  const vegasImpliedProb = mlPickSide === 'home'
-    ? mlToImpliedProb(game?.home_ml ?? null)
-    : mlToImpliedProb(game?.away_ml ?? null);
 
-  // O/U
-  const ouDirection = game?.ou_direction;
-  const ouEdge = game?.ou_edge !== null && game?.ou_edge !== undefined ? Math.abs(game.ou_edge) : null;
-  const ouConfLabel = game?.ou_strong_signal ? 'Strong' : game?.ou_moderate_signal ? 'Moderate' : 'Weak';
-  const ouConfColor = game?.ou_strong_signal ? '#22c55e' : game?.ou_moderate_signal ? '#84cc16' : '#eab308';
-  const ouDelta = game?.ou_fair_total != null && game?.total_line != null
-    ? Math.abs(game.ou_fair_total - game.total_line).toFixed(1)
+  // ── ML pick (reactive to projView) ──
+  const homeWinProb = projView === 'full' ? game?.ml_home_win_prob : game?.f5_home_win_prob;
+  const awayWinProb = projView === 'full' ? game?.ml_away_win_prob : game?.f5_away_win_prob;
+  const mlPickSide = game && homeWinProb != null && awayWinProb != null
+    ? (homeWinProb >= awayWinProb ? 'home' : 'away')
+    : null;
+  const mlPickProb = mlPickSide === 'home' ? homeWinProb : awayWinProb;
+  const mlPickStrong = projView === 'full'
+    ? (mlPickSide === 'home' ? game?.home_ml_strong_signal : game?.away_ml_strong_signal)
+    : (mlPickSide === 'home' ? game?.f5_home_ml_strong_signal : game?.f5_away_ml_strong_signal);
+
+  // Vegas implied prob (only available for full game since F5 ML odds aren't in DB)
+  const vegasImpliedProb = projView === 'full' && mlPickSide
+    ? (mlPickSide === 'home'
+      ? mlToImpliedProb(game?.home_ml ?? null)
+      : mlToImpliedProb(game?.away_ml ?? null))
+    : null;
+
+  // ML edge: for full game compute client-side from displayed values; for F5 use DB edge
+  const mlPickEdgeDb = projView === 'full'
+    ? (mlPickSide === 'home' ? game?.home_ml_edge_pct : game?.away_ml_edge_pct)
+    : (mlPickSide === 'home' ? game?.f5_home_ml_edge_pct : game?.f5_away_ml_edge_pct);
+  const mlPickEdge = (projView === 'full' && mlPickProb != null && vegasImpliedProb != null)
+    ? (mlPickProb - vegasImpliedProb) * 100
+    : mlPickEdgeDb ?? null;
+
+  // ── O/U (reactive to projView) ──
+  const ouFairTotal = projView === 'full' ? game?.ou_fair_total : game?.f5_fair_total;
+  const ouLine = projView === 'full' ? game?.total_line : game?.f5_total_line;
+  const ouEdgeRaw = projView === 'full' ? game?.ou_edge : game?.f5_ou_edge;
+  const ouDirection: 'OVER' | 'UNDER' | null | undefined = projView === 'full'
+    ? game?.ou_direction
+    : (ouEdgeRaw != null ? (ouEdgeRaw >= 0 ? 'OVER' : 'UNDER') : null);
+  const ouEdge = ouEdgeRaw != null ? Math.abs(ouEdgeRaw) : null;
+  // Full game has explicit signal fields; F5 does not, so default to Weak
+  const ouConfLabel = projView === 'full'
+    ? (game?.ou_strong_signal ? 'Strong' : game?.ou_moderate_signal ? 'Moderate' : 'Weak')
+    : 'Weak';
+  const ouConfColor = projView === 'full'
+    ? (game?.ou_strong_signal ? '#22c55e' : game?.ou_moderate_signal ? '#84cc16' : '#eab308')
+    : '#eab308';
+  const ouDelta = ouFairTotal != null && ouLine != null
+    ? Math.abs(ouFairTotal - ouLine).toFixed(1)
     : null;
 
   // Signals — show for any game that has them
@@ -237,7 +262,7 @@ export function MLBGameBottomSheet() {
               <View style={[styles.section, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
                 <View style={styles.projHeaderRow}>
                   <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Projected Score</Text>
-                  <View style={styles.projToggle}>
+                  <View style={[styles.projToggle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
                     <TouchableOpacity
                       onPress={() => { setProjView('full'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
                       style={[styles.projToggleBtn, projView === 'full' && { backgroundColor: theme.colors.primary }]}
@@ -282,7 +307,7 @@ export function MLBGameBottomSheet() {
             )}
 
             {/* ML Projection — Vegas vs Model */}
-            {mlPickSide !== null && mlPickProb !== null && (
+            {mlPickSide !== null && mlPickProb != null && (
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => { setSpreadExpanded(!mlExpanded); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
@@ -290,28 +315,39 @@ export function MLBGameBottomSheet() {
                 <View style={[styles.section, { backgroundColor: isDark ? '#222' : '#f5f5f5', borderColor: isDark ? '#333' : '#e0e0e0' }]}>
                   <View style={styles.projectionHeader}>
                     <MaterialCommunityIcons name="baseball" size={18} color={theme.colors.primary} />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Moneyline Projection</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>{projView === 'full' ? 'Moneyline Projection' : '1st 5 Moneyline'}</Text>
                     <MaterialCommunityIcons name={mlExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={theme.colors.onSurfaceVariant} />
                   </View>
 
                   {/* Vegas vs Model comparison */}
-                  <View style={styles.comparisonRow}>
-                    <View style={[styles.comparisonBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
-                      <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Vegas</Text>
-                      <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
-                        {vegasImpliedProb !== null ? `${(vegasImpliedProb * 100).toFixed(1)}%` : '-'}
-                      </Text>
+                  {vegasImpliedProb !== null ? (
+                    <View style={styles.comparisonRow}>
+                      <View style={[styles.comparisonBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
+                        <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Vegas</Text>
+                        <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
+                          {`${(vegasImpliedProb * 100).toFixed(1)}%`}
+                        </Text>
+                      </View>
+                      <View style={styles.comparisonArrow}>
+                        <MaterialCommunityIcons name="arrow-right" size={20} color={theme.colors.onSurfaceVariant} />
+                      </View>
+                      <View style={[styles.comparisonBox, { backgroundColor: mlPickStrong ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', borderColor: mlPickStrong ? 'rgba(34,197,94,0.25)' : 'rgba(234,179,8,0.25)', borderWidth: 1 }]}>
+                        <Text style={[styles.comparisonLabel, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>Our Model</Text>
+                        <Text style={[styles.comparisonValue, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>
+                          {(mlPickProb * 100).toFixed(1)}%
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.comparisonArrow}>
-                      <MaterialCommunityIcons name="arrow-right" size={20} color={theme.colors.onSurfaceVariant} />
+                  ) : (
+                    <View style={styles.comparisonRow}>
+                      <View style={[styles.comparisonBox, { backgroundColor: mlPickStrong ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', borderColor: mlPickStrong ? 'rgba(34,197,94,0.25)' : 'rgba(234,179,8,0.25)', borderWidth: 1, flex: 1 }]}>
+                        <Text style={[styles.comparisonLabel, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>Win Prob</Text>
+                        <Text style={[styles.comparisonValue, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>
+                          {(mlPickProb * 100).toFixed(1)}%
+                        </Text>
+                      </View>
                     </View>
-                    <View style={[styles.comparisonBox, { backgroundColor: mlPickStrong ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', borderColor: mlPickStrong ? 'rgba(34,197,94,0.25)' : 'rgba(234,179,8,0.25)', borderWidth: 1 }]}>
-                      <Text style={[styles.comparisonLabel, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>Our Model</Text>
-                      <Text style={[styles.comparisonValue, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>
-                        {(mlPickProb * 100).toFixed(1)}%
-                      </Text>
-                    </View>
-                  </View>
+                  )}
 
                   {/* Edge + Team summary */}
                   <View style={styles.edgeSummaryRow}>
@@ -326,8 +362,8 @@ export function MLBGameBottomSheet() {
                         Edge to {mlPickSide === 'home' ? game.home_abbr : game.away_abbr}
                       </Text>
                       {mlPickEdge !== null && mlPickEdge !== undefined && (
-                        <Text style={[styles.edgeSummaryDelta, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>
-                          +{Math.abs(mlPickEdge).toFixed(1)}% delta
+                        <Text style={[styles.edgeSummaryDelta, { color: mlPickEdge >= 0 ? (mlPickStrong ? '#22c55e' : '#eab308') : '#ef4444' }]}>
+                          {mlPickEdge >= 0 ? '+' : ''}{mlPickEdge.toFixed(1)}% delta
                         </Text>
                       )}
                     </View>
@@ -340,9 +376,9 @@ export function MLBGameBottomSheet() {
 
                   {mlExpanded && (
                     <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
-                      The model gives {mlPickSide === 'home' ? game.home_abbr : game.away_abbr} a {(mlPickProb * 100).toFixed(1)}% chance to win
+                      The model gives {mlPickSide === 'home' ? game.home_abbr : game.away_abbr} a {(mlPickProb * 100).toFixed(1)}% chance to win{projView === 'f5' ? ' through 5 innings' : ''}
                       {vegasImpliedProb !== null ? ` vs Vegas implied ${(vegasImpliedProb * 100).toFixed(1)}%` : ''}
-                      {mlPickEdge !== null && mlPickEdge !== undefined ? `, a +${Math.abs(mlPickEdge).toFixed(1)}% edge.` : '.'}
+                      {mlPickEdge !== null && mlPickEdge !== undefined ? `, a ${mlPickEdge >= 0 ? '+' : ''}${mlPickEdge.toFixed(1)}% edge.` : '.'}
                     </Text>
                   )}
                 </View>
@@ -362,7 +398,7 @@ export function MLBGameBottomSheet() {
                       size={18}
                       color={ouDirection === 'OVER' ? '#22c55e' : '#ef4444'}
                     />
-                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Total Projection</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>{projView === 'full' ? 'Total Projection' : '1st 5 Total'}</Text>
                     <MaterialCommunityIcons name={ouExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={theme.colors.onSurfaceVariant} />
                   </View>
 
@@ -371,7 +407,7 @@ export function MLBGameBottomSheet() {
                     <View style={[styles.comparisonBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
                       <Text style={[styles.comparisonLabel, { color: theme.colors.onSurfaceVariant }]}>Vegas O/U</Text>
                       <Text style={[styles.comparisonValue, { color: theme.colors.onSurface }]}>
-                        {game.total_line ?? '-'}
+                        {ouLine ?? '-'}
                       </Text>
                     </View>
                     <View style={styles.comparisonArrow}>
@@ -384,7 +420,7 @@ export function MLBGameBottomSheet() {
                     }]}>
                       <Text style={[styles.comparisonLabel, { color: ouDirection === 'OVER' ? '#22c55e' : '#ef4444' }]}>Our Model</Text>
                       <Text style={[styles.comparisonValue, { color: ouDirection === 'OVER' ? '#22c55e' : '#ef4444' }]}>
-                        {game.ou_fair_total?.toFixed(1) ?? '-'}
+                        {ouFairTotal?.toFixed(1) ?? '-'}
                       </Text>
                     </View>
                   </View>
@@ -415,7 +451,7 @@ export function MLBGameBottomSheet() {
 
                   {ouExpanded && (
                     <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
-                      The model projects a fair total of {game.ou_fair_total?.toFixed(1) ?? 'N/A'} vs the market line of {game.total_line ?? 'N/A'}, suggesting the {ouDirection === 'OVER' ? 'Over' : 'Under'}.
+                      The model projects a fair{projView === 'f5' ? ' F5' : ''} total of {ouFairTotal?.toFixed(1) ?? 'N/A'} vs the market line of {ouLine ?? 'N/A'}, suggesting the {ouDirection === 'OVER' ? 'Over' : 'Under'}.
                     </Text>
                   )}
                 </View>
@@ -724,11 +760,12 @@ const styles = StyleSheet.create({
   },
   projToggle: {
     flexDirection: 'row',
-    borderRadius: 8,
-    overflow: 'hidden',
+    borderRadius: 10,
+    padding: 3,
+    gap: 2,
   },
   projToggleBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 8,
   },

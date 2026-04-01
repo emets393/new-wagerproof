@@ -208,7 +208,8 @@ export function PolymarketWidget({
   const { data: allMarketsData, isLoading, error } = useQuery({
     queryKey: ['polymarket-all', league, awayTeam, homeTeam],
     queryFn: () => getAllMarketsData(awayTeam, homeTeam, league),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes — data doesn't change fast
+    gcTime: 30 * 60 * 1000, // 30 minutes — keep in memory across sheet open/close
     retry: 1,
   });
 

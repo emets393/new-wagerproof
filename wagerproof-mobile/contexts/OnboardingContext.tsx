@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { InteractionManager } from 'react-native';
 import { useSegments } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
+import { enqueueWrite } from '../services/offlineQueue';
 import {
   ONBOARDING_TOTAL_STEPS,
   trackOnboardingStarted,
@@ -20,6 +22,71 @@ import {
   DEFAULT_PERSONALITY_PARAMS,
   DEFAULT_CUSTOM_INSIGHTS,
 } from '@/types/agent';
+
+// ─── AsyncStorage keys for offline resilience ────────────────────────────────
+const ONBOARDING_COMPLETED_KEY_PREFIX = '@wagerproof/onboarding-completed/';
+const ONBOARDING_PROGRESS_KEY = '@wagerproof/onboarding-progress';
+
+function getOnboardingCompletedKey(userId: string) {
+  return `${ONBOARDING_COMPLETED_KEY_PREFIX}${userId}`;
+}
+
+/** Cache onboarding completion locally so the app never re-shows onboarding on network failure. */
+export async function cacheOnboardingCompleted(userId: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(getOnboardingCompletedKey(userId), 'true');
+  } catch {}
+}
+
+/** Check if onboarding was cached as completed locally (survives app restarts). */
+export async function isOnboardingCachedAsCompleted(userId: string): Promise<boolean> {
+  try {
+    const val = await AsyncStorage.getItem(getOnboardingCompletedKey(userId));
+    return val === 'true';
+  } catch {
+    return false;
+  }
+}
+
+interface SavedOnboardingProgress {
+  userId: string;
+  currentStep: number;
+  onboardingData: OnboardingData;
+  savedAt: number;
+}
+
+/** Persist form progress so users don't lose 18 steps of input on a crash/restart. */
+async function saveOnboardingProgress(userId: string, step: number, data: OnboardingData): Promise<void> {
+  try {
+    const progress: SavedOnboardingProgress = { userId, currentStep: step, onboardingData: data, savedAt: Date.now() };
+    await AsyncStorage.setItem(ONBOARDING_PROGRESS_KEY, JSON.stringify(progress));
+  } catch {}
+}
+
+/** Restore saved onboarding progress (returns null if none or expired > 7 days). */
+async function restoreOnboardingProgress(userId: string): Promise<SavedOnboardingProgress | null> {
+  try {
+    const raw = await AsyncStorage.getItem(ONBOARDING_PROGRESS_KEY);
+    if (!raw) return null;
+    const progress = JSON.parse(raw) as SavedOnboardingProgress;
+    // Only restore if same user and < 7 days old
+    if (progress.userId !== userId) return null;
+    if (Date.now() - progress.savedAt > 7 * 24 * 60 * 60 * 1000) {
+      await AsyncStorage.removeItem(ONBOARDING_PROGRESS_KEY);
+      return null;
+    }
+    return progress;
+  } catch {
+    return null;
+  }
+}
+
+/** Clear saved onboarding progress (called on completion). */
+async function clearOnboardingProgress(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(ONBOARDING_PROGRESS_KEY);
+  } catch {}
+}
 
 export interface OnboardingData {
   favoriteSports?: string[];
@@ -89,6 +156,29 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     custom_insights: { ...INITIAL_FORM_STATE.custom_insights },
   });
   const [createdAgentId, setCreatedAgentIdState] = useState<string | null>(null);
+
+  // Restore saved onboarding progress on mount (resume from where user left off)
+  const hasRestoredProgress = useRef(false);
+  useEffect(() => {
+    if (!user?.id || hasRestoredProgress.current) return;
+    hasRestoredProgress.current = true;
+    restoreOnboardingProgress(user.id).then((progress) => {
+      if (progress && progress.currentStep > 1) {
+        console.log(`Restoring onboarding progress: step ${progress.currentStep}`);
+        setCurrentStep(progress.currentStep);
+        setOnboardingData(progress.onboardingData);
+      }
+    });
+  }, [user?.id]);
+
+  // Persist form progress after each step change (debounced to avoid excessive writes)
+  useEffect(() => {
+    if (!user?.id || currentStep <= 1) return;
+    const timer = setTimeout(() => {
+      saveOnboardingProgress(user.id, currentStep, onboardingData);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [user?.id, currentStep, onboardingData]);
 
   useEffect(() => {
     const inOnboardingGroup = segments[0] === '(onboarding)';
@@ -240,25 +330,40 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         ? { ...currentData, createdAgentId: agentId }
         : currentData;
 
+      // Always cache locally FIRST so the user is never re-shown onboarding
+      await cacheOnboardingCompleted(currentUser.id);
+      await clearOnboardingProgress();
+
       // Race against 8s timeout so bad internet never freezes the flow
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Onboarding save timed out')), 8000)
       );
 
-      const { error } = await Promise.race([
-        supabase
-          .from('profiles')
-          .update({
-            onboarding_data: payloadOnboardingData,
-            onboarding_completed: true,
-          })
-          .eq('user_id', currentUser.id),
-        timeout,
-      ]);
+      try {
+        const { error } = await Promise.race([
+          supabase
+            .from('profiles')
+            .update({
+              onboarding_data: payloadOnboardingData,
+              onboarding_completed: true,
+            })
+            .eq('user_id', currentUser.id),
+          timeout,
+        ]);
 
-      if (error) {
-        console.error('Error updating profile:', error);
-        throw error;
+        if (error) {
+          throw error;
+        }
+      } catch (saveError) {
+        // DB write failed — queue for retry on network recovery.
+        // The local cache already marks onboarding as complete so the user is never blocked.
+        console.warn('Onboarding save failed, queuing for retry:', saveError);
+        await enqueueWrite({
+          type: 'onboarding_completion',
+          userId: currentUser.id,
+          payload: { onboardingData: payloadOnboardingData },
+        });
+        // Don't re-throw — the user should proceed regardless
       }
 
       hasCompletedOnboarding.current = true;
@@ -282,9 +387,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setIsCompleted(true);
     setCompletionOverride(true);
 
+    // markOnboardingCompleted now handles its own error recovery (local cache + queue),
+    // so it should never throw. But guard just in case.
     const completionPromise = markOnboardingCompleted(agentId)
       .catch((error) => {
         console.error('Background onboarding completion failed:', error);
+        // Even on unexpected errors, keep the user moving — local cache is already set
       })
       .finally(() => {
         completionPromiseRef.current = null;

@@ -52,7 +52,7 @@ interface AgentTimelineSectionProps {
   onAgentPress: () => void;
 }
 
-export function AgentTimelineSection({ agent, onAgentPress }: AgentTimelineSectionProps) {
+export const AgentTimelineSection = React.memo(function AgentTimelineSection({ agent, onAgentPress }: AgentTimelineSectionProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { canViewAgentPicks, isLoading: isEntitlementsLoading } = useAgentEntitlements();
@@ -228,7 +228,7 @@ export function AgentTimelineSection({ agent, onAgentPress }: AgentTimelineSecti
       ) : null}
     </View>
   );
-}
+});
 
 // ============================================================================
 // STYLES

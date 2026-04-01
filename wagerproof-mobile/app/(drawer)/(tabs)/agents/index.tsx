@@ -34,7 +34,7 @@ import { CompanyDashboardBanner } from '@/components/agents/CompanyDashboardBann
 import { AgentWithPerformance } from '@/types/agent';
 
 // Skeleton component for loading state (matches compact header + CompactPickCard)
-function AgentTimelineSkeleton({ isDark }: { isDark: boolean }) {
+const AgentTimelineSkeleton = React.memo(function AgentTimelineSkeleton({ isDark }: { isDark: boolean }) {
   const shimmer = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
   const headerBg = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)';
   const cardBg = isDark ? 'rgba(30, 30, 30, 0.6)' : 'rgba(255, 255, 255, 0.9)';
@@ -92,7 +92,7 @@ function AgentTimelineSkeleton({ isDark }: { isDark: boolean }) {
       ))}
     </View>
   );
-}
+});
 
 // Empty state component
 const JOURNEY_STEPS = [
@@ -349,6 +349,22 @@ export default function AgentsHubScreen() {
     [handleAgentPress]
   );
 
+  // Render agent card for 2-column grid (memoized to prevent re-creating closures)
+  const renderAgentCard = useCallback(
+    ({ item, index }: { item: AgentWithPerformance | null; index: number }) => {
+      if (!item) return <View style={{ flex: 1, marginVertical: 4 }} />;
+      return (
+        <AgentIdCard
+          agent={item}
+          onPress={() => handleAgentPress(item)}
+          onLongPress={() => handleAgentLongPress(item)}
+          debugForcePicksReady={index === 0}
+        />
+      );
+    },
+    [handleAgentPress, handleAgentLongPress]
+  );
+
   // Render loading skeletons
   const renderLoadingSkeletons = () => (
     <View style={styles.skeletonContainer}>
@@ -360,6 +376,19 @@ export default function AgentsHubScreen() {
 
   // Calculate tab bar height for bottom padding
   const TAB_BAR_HEIGHT = 65 + insets.bottom;
+
+  // Memoize list header to avoid re-mounting PixelOffice and CompanyDashboardBanner on every render
+  const listHeader = useMemo(() => (
+    <>
+      <CompanyDashboardBanner agents={agents || []} />
+      {officeReady ? (
+        <PixelOffice agents={topAgentsForOffice} />
+      ) : (
+        <View style={{ width: Dimensions.get('window').width - 16, height: 800 * ((Dimensions.get('window').width - 16) / 864), alignSelf: 'center', backgroundColor: isDark ? '#1a1a2e' : '#e8e4d8', borderRadius: 12 }} />
+      )}
+      <View style={{ height: 12 }} />
+    </>
+  ), [agents, officeReady, topAgentsForOffice, isDark]);
 
   const hasAgents = agents && agents.length > 0;
   const totalCount = agents?.length || 0;
@@ -477,32 +506,13 @@ export default function AgentsHubScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
-          ListHeaderComponent={
-            <>
-              <CompanyDashboardBanner agents={agents || []} />
-              {officeReady ? (
-                <PixelOffice agents={topAgentsForOffice} />
-              ) : (
-                <View style={{ width: Dimensions.get('window').width - 16, height: 800 * ((Dimensions.get('window').width - 16) / 864), alignSelf: 'center', backgroundColor: isDark ? '#1a1a2e' : '#e8e4d8', borderRadius: 12 }} />
-              )}
-              <View style={{ height: 12 }} />
-            </>
-          }
-          renderItem={({ item, index }) => {
-            if (!item) return <View style={{ flex: 1, marginVertical: 4 }} />;
-            return (
-              <AgentIdCard
-                agent={item}
-                onPress={() => handleAgentPress(item)}
-                onLongPress={() => handleAgentLongPress(item)}
-                debugForcePicksReady={index === 0}
-              />
-            );
-          }}
-          initialNumToRender={6}
-          maxToRenderPerBatch={4}
-          windowSize={5}
+          ListHeaderComponent={listHeader}
+          renderItem={renderAgentCard}
+          initialNumToRender={4}
+          maxToRenderPerBatch={2}
+          windowSize={3}
           removeClippedSubviews={Platform.OS === 'android'}
+          updateCellsBatchingPeriod={100}
         />
       )}
 

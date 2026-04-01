@@ -275,7 +275,7 @@ export function AgentPerformanceCharts({
 // SPORT CHART CARD
 // ============================================================================
 
-function SportChartCard({
+const SportChartCard = React.memo(function SportChartCard({
   stat,
   isDark,
   theme,
@@ -392,7 +392,7 @@ function SportChartCard({
       )}
     </View>
   );
-}
+});
 
 // ============================================================================
 // STYLES

@@ -613,7 +613,9 @@ export function AgentLeaderboard({
     </View>
   );
 
-  // When embedded with onScroll, wrap empty/loading in ScrollView so scroll drives header/footer hide
+  // When embedded with onScroll, wrap empty/loading in ScrollView so scroll drives header/footer hide.
+  // When embedded WITHOUT onScroll, still apply contentContainerStyle as plain View style
+  // so the paddingTop accounts for the fixed header.
   const ScrollWrapper = embedded && onScroll ? Animated.ScrollView : View;
   const scrollWrapperProps =
     embedded && onScroll
@@ -628,7 +630,10 @@ export function AgentLeaderboard({
           showsVerticalScrollIndicator: false,
           bounces: false,
         }
-      : {};
+      : {
+          // Plain View — apply the same padding as style so skeletons aren't hidden under the header
+          style: [styles.listContent, contentContainerStyle, { flexGrow: 1 }],
+        };
 
   return (
     <View style={[styles.container, embedded && styles.embeddedContainer]}>

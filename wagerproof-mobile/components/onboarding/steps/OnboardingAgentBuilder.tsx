@@ -218,10 +218,38 @@ export function OnboardingAgentBuilder() {
         }
       }
 
-      Alert.alert(
-        'Error',
-        error?.message || 'Failed to create agent. Please try again.'
-      );
+      // Network/timeout errors: offer Skip option so user isn't stuck
+      const isNetworkError =
+        error?.message?.includes('timed out') ||
+        error?.message?.includes('taking too long') ||
+        error?.message?.includes('network') ||
+        error?.message?.includes('fetch') ||
+        error?.message?.includes('Failed to fetch');
+
+      if (isNetworkError) {
+        Alert.alert(
+          'Connection Issue',
+          'Unable to create your agent right now. You can retry or skip and set up your agent later.',
+          [
+            { text: 'Retry', style: 'default', onPress: () => handleCreate() },
+            {
+              text: 'Skip for Now',
+              style: 'cancel',
+              onPress: () => {
+                // Mark onboarding as complete locally without agent creation.
+                // User can create their agent from the Agents tab later.
+                markOnboardingCompleted().catch(() => {});
+                nextStep(); // Go to generation animation → born step → main app
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          error?.message || 'Failed to create agent. Please try again.'
+        );
+      }
     }
   }, [agentFormState, createMutation, setCreatedAgentId, markOnboardingCompleted, nextStep, user?.id]);
 

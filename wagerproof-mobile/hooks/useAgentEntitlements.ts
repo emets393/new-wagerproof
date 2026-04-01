@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useProAccess } from '@/hooks/useProAccess';
+import { useIsOffline } from '@/hooks/useNetworkState';
 
 const FREE_AGENT_LIMIT = 1;
 const FREE_LEADERBOARD_MIN_RANK = 6;
@@ -9,6 +10,7 @@ const PRO_MAX_TOTAL_AGENTS = 30;
 
 export function useAgentEntitlements() {
   const { isPro, isAdmin, isLoading } = useProAccess();
+  const isOffline = useIsOffline();
 
   const canCreateAnotherAgent = useCallback(
     (existingActiveAgentCount: number, existingTotalAgentCount: number = existingActiveAgentCount): boolean => {
@@ -37,6 +39,10 @@ export function useAgentEntitlements() {
     isLoading,
     isPro,
     isAdmin,
+    isOffline,
+    // When offline and not pro, the lock may be due to network — UI should show
+    // "offline" messaging instead of a paywall prompt
+    isLockedDueToNetwork: isOffline && !isPro && !isAdmin,
     canViewAgentPicks,
     canCreatePublicAgent,
     canUseAutopilot,

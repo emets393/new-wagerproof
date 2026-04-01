@@ -523,9 +523,11 @@ serve(async (req) => {
 
   try {
     let dryRun = false;
+    let recalcAll = false;
     try {
       const body = await req.json();
       dryRun = Boolean((body as Record<string, unknown> | null)?.dry_run);
+      recalcAll = Boolean((body as Record<string, unknown> | null)?.recalc_all);
     } catch {
       // Allow empty or non-JSON cron requests.
     }
@@ -715,9 +717,25 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 4. Recalculate performance for affected avatars
+    // 4. Recalculate performance for affected avatars (or ALL if recalc_all)
     // -------------------------------------------------------------------------
     const avatarsUpdated: string[] = [];
+
+    if (recalcAll) {
+      // Recalc ALL avatars that have any picks (for backfill after formula fixes)
+      console.log('[grade-avatar-picks] recalc_all=true — recalculating ALL avatars');
+      const { data: allAvatars, error: avatarFetchError } = await supabase
+        .from('avatar_performance_cache')
+        .select('avatar_id');
+
+      if (avatarFetchError) {
+        console.error('[grade-avatar-picks] Failed to fetch avatar list for recalc_all:', avatarFetchError);
+      } else {
+        for (const row of allAvatars || []) {
+          affectedAvatars.add(row.avatar_id);
+        }
+      }
+    }
 
     for (const avatarId of affectedAvatars) {
       if (dryRun) {

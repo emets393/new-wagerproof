@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import {
   CustomerInfo,
   PurchasesOffering,
@@ -44,7 +45,7 @@ interface CachedEntitlementState {
 
 const ENTITLEMENT_CACHE_KEY_PREFIX = '@wagerproof/entitlement-state/v1/';
 const GRANTED_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const DENIED_CACHE_TTL_MS = 5 * 60 * 1000;
+const DENIED_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour (was 5 min — short TTL caused unnecessary re-checks)
 
 const getEntitlementCacheKey = (userId: string) => `${ENTITLEMENT_CACHE_KEY_PREFIX}${userId}`;
 
@@ -158,24 +159,47 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     }
   }, [persistEntitlementState]);
 
-  // Safety timeout: if loading takes more than 10 seconds, force it to complete
-  // Resolve unknown -> denied on timeout so lock UI can make a deterministic decision.
+  // Safety timeout: if loading takes more than 10 seconds, force it to complete.
+  // IMPORTANT: Never downgrade from "granted" to "denied" on timeout.
+  // If status is still "unknown", try to hydrate from cache one more time before defaulting.
   useEffect(() => {
     if (!isLoading) return;
 
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        console.warn('📱 RevenueCat: Loading timeout reached (10s), forcing isLoading = false');
-        setEntitlementStatus((prev) => (prev === 'unknown' ? 'denied' : prev));
-        if (entitlementStatus === 'unknown') {
-          setIsProInternal(false);
-        }
-        setIsLoading(false);
+    const timeout = setTimeout(async () => {
+      if (!isLoading) return;
+
+      console.warn('📱 RevenueCat: Loading timeout reached (10s), forcing isLoading = false');
+
+      if (entitlementStatus === 'unknown') {
+        // Last-resort: try to hydrate from cache even with expired TTL.
+        // It's better to show a stale "granted" than to lock a paying user out.
+        try {
+          if (user?.id) {
+            const rawCache = await AsyncStorage.getItem(getEntitlementCacheKey(user.id));
+            if (rawCache) {
+              const parsed = JSON.parse(rawCache) as CachedEntitlementState;
+              if (parsed.userId === user.id && parsed.status === 'granted') {
+                console.log('📱 RevenueCat: Timeout recovery — using expired cache (granted)');
+                setEntitlementStatus('granted');
+                setIsProInternal(true);
+                setSubscriptionType(parsed.subscriptionType ?? null);
+                setIsLoading(false);
+                return;
+              }
+            }
+          }
+        } catch {}
+
+        // No cache or cache was "denied" — resolve to denied
+        setEntitlementStatus('denied');
+        setIsProInternal(false);
       }
+      // If already "granted" from hydration, don't touch it
+      setIsLoading(false);
     }, 10000);
 
     return () => clearTimeout(timeout);
-  }, [isLoading, entitlementStatus]);
+  }, [isLoading, entitlementStatus, user?.id]);
 
   // Initialize RevenueCat
   useEffect(() => {
@@ -496,6 +520,32 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
     const subscription = AppState.addEventListener('change', onAppStateChange);
     return () => subscription.remove();
+  }, [user?.id, isInitialized, refreshCustomerInfo]);
+
+  // Refresh entitlements when network connectivity recovers.
+  // This ensures that a user who was offline gets their Pro status updated
+  // as soon as they reconnect, rather than staying on a stale cache.
+  const wasOfflineRef = useRef(false);
+  useEffect(() => {
+    if (!user?.id || !isInitialized) return;
+
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const isOnline = state.isConnected && state.isInternetReachable;
+      if (isOnline && wasOfflineRef.current) {
+        console.log('📱 RevenueCat: Network recovered — refreshing entitlements');
+        wasOfflineRef.current = false;
+        // Small delay to let the network stabilize
+        setTimeout(() => {
+          refreshCustomerInfo().catch((err) => {
+            console.warn('📱 RevenueCat: Network recovery refresh failed:', err);
+          });
+        }, 2000);
+      } else if (!isOnline) {
+        wasOfflineRef.current = true;
+      }
+    });
+
+    return () => unsubscribe();
   }, [user?.id, isInitialized, refreshCustomerInfo]);
 
   const value: RevenueCatContextType = {

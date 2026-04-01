@@ -4,7 +4,8 @@ import { ActivityIndicator, useTheme } from 'react-native-paper';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
-import { useOnboarding } from '../contexts/OnboardingContext';
+import { useOnboarding, isOnboardingCachedAsCompleted, cacheOnboardingCompleted } from '../contexts/OnboardingContext';
+import { hasPendingOnboardingCompletion } from '../services/offlineQueue';
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
@@ -54,7 +55,16 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
         ]);
 
         if (error) {
-          setOnboardingStatus({ completed: null, loading: false });
+          // Network/DB error — check local cache before assuming incomplete
+          const cachedCompleted = await isOnboardingCachedAsCompleted(user.id);
+          const hasPending = await hasPendingOnboardingCompletion(user.id);
+          if (cachedCompleted || hasPending) {
+            setOnboardingStatus({ completed: true, loading: false });
+          } else {
+            // No local cache, no DB data — treat as unknown (null), NOT false.
+            // This prevents redirecting to onboarding on network failure.
+            setOnboardingStatus({ completed: null, loading: false });
+          }
           hasEverFetched.current = true;
           return;
         }
@@ -63,9 +73,23 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
           completed: profile?.onboarding_completed ?? false,
           loading: false,
         });
+
+        // If DB says completed, ensure local cache is also set for future offline use
+        if (profile?.onboarding_completed) {
+          cacheOnboardingCompleted(user.id);
+        }
+
         hasEverFetched.current = true;
       } catch {
-        setOnboardingStatus({ completed: null, loading: false });
+        // Timeout or network error — check local cache
+        const cachedCompleted = await isOnboardingCachedAsCompleted(user.id);
+        const hasPending = await hasPendingOnboardingCompletion(user.id);
+        if (cachedCompleted || hasPending) {
+          setOnboardingStatus({ completed: true, loading: false });
+        } else {
+          // Unknown state — DO NOT redirect to onboarding.
+          setOnboardingStatus({ completed: null, loading: false });
+        }
         hasEverFetched.current = true;
       }
     };
@@ -79,7 +103,12 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     const inOnboardingGroup = segments[0] === '(onboarding)';
     const effectiveCompleted = completionOverride ?? (isCompleted || onboardingStatus.completed === true);
 
-    // If user is authenticated and hasn't completed onboarding, redirect to onboarding
+    // CRITICAL: When effectiveCompleted is null (network failed, no local cache),
+    // do NOT redirect anywhere. The user stays on their current screen.
+    // This prevents the bug where authenticated users get pushed to onboarding
+    // due to a network timeout.
+
+    // If user is authenticated and definitively hasn't completed onboarding, redirect to onboarding
     if (user && effectiveCompleted === false && !inOnboardingGroup) {
       router.replace('/(onboarding)');
     }

@@ -51,7 +51,7 @@ interface AgentHeaderProps {
   isDark: boolean;
 }
 
-function AgentHeader({ agent, onPress, isDark }: AgentHeaderProps) {
+const AgentHeader = React.memo(function AgentHeader({ agent, onPress, isDark }: AgentHeaderProps) {
   const theme = useTheme();
   const record = `${agent.wins}-${agent.losses}${agent.pushes > 0 ? `-${agent.pushes}` : ''}`;
   const netUnits = formatNetUnits(agent.net_units);
@@ -124,7 +124,7 @@ function AgentHeader({ agent, onPress, isDark }: AgentHeaderProps) {
       />
     </TouchableOpacity>
   );
-}
+});
 
 interface TopAgentPicksFeedProps {
   onScroll?: (event: any) => void;

@@ -1,6 +1,9 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PaperProvider, ActivityIndicator } from 'react-native-paper';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider, useThemeContext } from '../contexts/ThemeContext';
@@ -22,6 +25,7 @@ import { RevenueCatProvider, useRevenueCat } from '../contexts/RevenueCatContext
 import { LearnWagerProofProvider } from '../contexts/LearnWagerProofContext';
 import { AgentPickAuditProvider } from '../contexts/AgentPickAuditContext';
 import { OnboardingProvider } from '../contexts/OnboardingContext';
+import { startOfflineQueueListener } from '../services/offlineQueue';
 
 import { MetaTestSheetProvider } from '../contexts/MetaTestSheetContext';
 import { AgentHRSheetProvider } from '../contexts/AgentHRSheetContext';
@@ -39,6 +43,8 @@ import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { EditorPickCreatorBottomSheet } from '../components/EditorPickCreatorBottomSheet';
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
 import { AnimatedSplash } from '../components/AnimatedSplash';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { GlobalErrorBoundary } from '../components/GlobalErrorBoundary';
 import { LearnWagerProofBottomSheet } from '../components/learn-wagerproof/LearnWagerProofBottomSheet';
 
 import { MetaTestBottomSheet } from '../components/MetaTestBottomSheet';
@@ -65,6 +71,9 @@ import {
 // Prevent auto-hide of splash screen
 SplashScreen.preventAutoHideAsync();
 
+// Start the offline queue listener to flush pending writes on network recovery
+startOfflineQueueListener();
+
 // Create a query client with optimized settings for slow networks
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +97,20 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Persist React Query cache to AsyncStorage so data survives app restarts.
+// Stale data is better than blank screens when offline.
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: '@wagerproof/react-query-cache',
+  throttleTime: 2000, // Don't write to storage more than once every 2 seconds
+});
+
+const persistOptions = {
+  persister: asyncStoragePersister,
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours — cached data available offline for a full day
+  buster: '1', // Increment to invalidate all cached data on schema changes
+};
 
 /**
  * Floating Assistant Wrapper
@@ -465,6 +488,7 @@ function RootLayoutContent() {
                                   <MetaTestSheetProvider>
                                     <AgentHRSheetProvider>
                                     <RootNavigator />
+                                    <OfflineBanner />
                                     <WebPurchaseRedemptionHandler />
                                     <NotificationHandler />
                                     <EditorPickCreatorBottomSheet />
@@ -504,17 +528,19 @@ function RootLayoutContent() {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <AnalyticsProvider>
-            <RevenueCatProvider>
-              <RootLayoutContent />
-            </RevenueCatProvider>
-          </AnalyticsProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <GlobalErrorBoundary>
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+        <ThemeProvider>
+          <AuthProvider>
+            <AnalyticsProvider>
+              <RevenueCatProvider>
+                <RootLayoutContent />
+              </RevenueCatProvider>
+            </AnalyticsProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </PersistQueryClientProvider>
+    </GlobalErrorBoundary>
   );
 }
 
