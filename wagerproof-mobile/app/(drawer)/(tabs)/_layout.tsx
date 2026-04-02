@@ -98,7 +98,7 @@ const FloatingTabBar = React.memo(function FloatingTabBar() {
   const tabs = [
     { name: 'index', path: '/(drawer)/(tabs)/', title: 'Games', icon: 'trophy' },
     { name: 'agents', path: '/(drawer)/(tabs)/agents', title: 'Agents', icon: 'brain' },
-    { name: 'outliers', path: '/(drawer)/(tabs)/outliers', title: 'Feed', icon: 'rss' },
+    { name: 'outliers', path: '/(drawer)/(tabs)/outliers', title: 'Alerts', icon: 'bell-alert-outline' },
     { name: 'scoreboard', path: '/(drawer)/(tabs)/scoreboard', title: 'Scores', icon: 'scoreboard' },
   ];
 
@@ -406,9 +406,9 @@ function TabsContent() {
       <Tabs.Screen
         name="outliers"
         options={{
-          title: 'Feed',
+          title: 'Alerts',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="rss" size={size} color={color} />
+            <MaterialCommunityIcons name="bell-alert-outline" size={size} color={color} />
           ),
         }}
       />
