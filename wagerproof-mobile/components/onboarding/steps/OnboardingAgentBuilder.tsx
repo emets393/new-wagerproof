@@ -13,9 +13,6 @@ import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
-import { useCreateAgent } from '@/hooks/useAgents';
-import { fetchUserAgents } from '@/services/agentService';
-import { useAuth } from '@/contexts/AuthContext';
 import { Sport } from '@/types/agent';
 
 // Import agent builder screen components
@@ -42,18 +39,16 @@ export function OnboardingAgentBuilder() {
     isTransitioning,
     prevStep,
     onboardingData,
+    updateOnboardingData,
     agentFormState,
     updateAgentFormState,
     updateAgentPersonalityParam,
     updateAgentCustomInsight,
     applyArchetypePreset,
-    setCreatedAgentId,
     markOnboardingCompleted,
   } = useOnboarding();
 
-  const { user } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
-  const createMutation = useCreateAgent();
 
   // Pre-fill agent sports from onboarding sports selection (was in AgentBuilderTransition)
   useEffect(() => {
@@ -166,92 +161,18 @@ export function OnboardingAgentBuilder() {
     [agentFormState]
   );
 
-  // Handle agent creation (called on last screen's Continue)
-  const handleCreate = useCallback(async () => {
+  // On the last screen, just mark complete and advance.
+  // Agent config is stored in context; actual creation happens after onboarding exits.
+  const handleCreate = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    try {
-      // Race the mutation against a timeout so the user never stares at a spinner forever
-      const CREATION_TIMEOUT_MS = 12000;
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Agent creation is taking too long. Please check your connection and try again.')), CREATION_TIMEOUT_MS)
-      );
+    // Store agent config in onboarding data so it can be created after onboarding
+    updateOnboardingData({ agentFormState });
 
-      const newAgent = await Promise.race([
-        createMutation.mutateAsync({
-          name: agentFormState.name.trim(),
-          avatar_emoji: agentFormState.avatar_emoji,
-          avatar_color: agentFormState.avatar_color,
-          preferred_sports: agentFormState.preferred_sports,
-          archetype: agentFormState.archetype,
-          personality_params: agentFormState.personality_params,
-          custom_insights: agentFormState.custom_insights,
-          auto_generate: agentFormState.auto_generate,
-          auto_generate_time: agentFormState.auto_generate_time,
-          auto_generate_timezone: agentFormState.auto_generate_timezone,
-        }),
-        timeoutPromise,
-      ]);
-
-      setCreatedAgentId(newAgent.id);
-      markOnboardingCompleted(newAgent.id).catch(() => {});
-      nextStep();
-    } catch (error: any) {
-      // If agent limit was hit (user retrying onboarding), use their existing agent instead
-      if (
-        error?.message?.includes('Agent limit reached') ||
-        error?.message?.includes('row-level security') ||
-        error?.message?.includes('permission denied')
-      ) {
-        try {
-          if (user?.id) {
-            const existingAgents = await fetchUserAgents(user.id);
-            if (existingAgents.length > 0) {
-              setCreatedAgentId(existingAgents[0].id);
-              markOnboardingCompleted(existingAgents[0].id).catch(() => {});
-              nextStep();
-              return;
-            }
-          }
-        } catch {
-          // Fall through to error alert
-        }
-      }
-
-      // Network/timeout errors: offer Skip option so user isn't stuck
-      const isNetworkError =
-        error?.message?.includes('timed out') ||
-        error?.message?.includes('taking too long') ||
-        error?.message?.includes('network') ||
-        error?.message?.includes('fetch') ||
-        error?.message?.includes('Failed to fetch');
-
-      if (isNetworkError) {
-        Alert.alert(
-          'Connection Issue',
-          'Unable to create your agent right now. You can retry or skip and set up your agent later.',
-          [
-            { text: 'Retry', style: 'default', onPress: () => handleCreate() },
-            {
-              text: 'Skip for Now',
-              style: 'cancel',
-              onPress: () => {
-                // Mark onboarding as complete locally without agent creation.
-                // User can create their agent from the Agents tab later.
-                markOnboardingCompleted().catch(() => {});
-                nextStep(); // Go to generation animation → born step → main app
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Error',
-          error?.message || 'Failed to create agent. Please try again.'
-        );
-      }
-    }
-  }, [agentFormState, createMutation, setCreatedAgentId, markOnboardingCompleted, nextStep, user?.id]);
+    // Mark onboarding complete (local-only, instant) and advance to cinematic
+    markOnboardingCompleted().catch(() => {});
+    nextStep();
+  }, [agentFormState, updateOnboardingData, markOnboardingCompleted, nextStep]);
 
   const handleNext = useCallback(() => {
     if (!validateScreen(agentScreenIndex)) {
@@ -373,8 +294,8 @@ export function OnboardingAgentBuilder() {
                 variant="glass"
                 forceDarkMode
                 style={onboardingCta.button}
-                disabled={!canProceed || createMutation.isPending}
-                loading={isTransitioning || createMutation.isPending}
+                disabled={!canProceed}
+                loading={isTransitioning}
               >
                 Continue
               </Button>

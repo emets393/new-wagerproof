@@ -3,7 +3,7 @@ import { useTheme } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React, { useEffect, useRef, useCallback } from 'react';
 import { ScrollProvider, useScroll } from '@/contexts/ScrollContext';
-import { Animated, TouchableOpacity, Text, StyleSheet, Platform, View } from 'react-native';
+import { ActivityIndicator, Animated, TouchableOpacity, Text, StyleSheet, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -371,6 +371,12 @@ function TabsContent() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          lazy: true,
+          lazyPlaceholder: () => (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+          ),
           tabBarActiveTintColor: theme.colors.primary,
           tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
           tabBarStyle: {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Switch, Modal, TouchableOpacity, Animated, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Switch, Modal, TouchableOpacity, Animated } from 'react-native';
 
 import LottieView from 'lottie-react-native';
 import { BlurView } from 'expo-blur';
@@ -14,24 +14,6 @@ import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { Sport } from '@/types/agent';
-import { useRevenueCat } from '../../../contexts/RevenueCatContext';
-import {
-  PAYWALL_PLACEMENTS,
-} from '../../../services/revenuecat';
-import { usePlacementOffering } from '@/hooks/usePlacementOffering';
-
-// Lazy load RevenueCatUI for embedded Paywall V2
-let RevenueCatUI: any = null;
-let PaywallComponent: any = null;
-try {
-  if (Platform.OS !== 'web') {
-    const purchasesUI = require('react-native-purchases-ui');
-    RevenueCatUI = purchasesUI.default;
-    PaywallComponent = RevenueCatUI?.Paywall;
-  }
-} catch (error: any) {
-  console.warn('Could not load react-native-purchases-ui:', error.message);
-}
 
 const SPORT_ICONS: Record<Sport, string> = {
   nfl: 'football',
@@ -52,38 +34,21 @@ function getPrimaryColor(value: string): string {
 
 export function AgentBornStep() {
   const { currentStep, agentFormState, completeOnboarding } = useOnboarding();
-  const { refreshCustomerInfo, isInitialized } = useRevenueCat();
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const [isRevealComplete, setIsRevealComplete] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [showPaywallModal, setShowPaywallModal] = useState(false);
   const [rating, setRating] = useState(0);
-  const [isContinuing, setIsContinuing] = useState(false);
   const [revealRunId, setRevealRunId] = useState(0);
   const [pulseReady, setPulseReady] = useState(false);
   const primaryColor = getPrimaryColor(agentFormState.avatar_color || '#00E676');
   const researchPulse = React.useRef(new Animated.Value(0.55)).current;
   const elementsOpacity = React.useRef(new Animated.Value(0)).current;
 
-  const { offering, isLoading: isOfferingLoading, refresh: refreshOffering } = usePlacementOffering(
-    PAYWALL_PLACEMENTS.ONBOARDING,
-    showPaywallModal && isInitialized
-  );
-
-  const handlePaywallComplete = async () => {
-    refreshCustomerInfo().catch(() => {});
-    setShowPaywallModal(false);
-    completeOnboarding().catch(() => {});
-  };
-
-  const handleContinue = async () => {
-    if (isContinuing) return;
+  const handleContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setIsContinuing(true);
-
-    // Show the non-dismissible paywall modal
-    setShowPaywallModal(true);
+    // Instant — local state only, no network
+    completeOnboarding().catch(() => {});
   };
 
   // Replay green intro whenever user lands on Agent Born.
@@ -96,12 +61,10 @@ export function AgentBornStep() {
     setRevealRunId((prev) => prev + 1);
     elementsOpacity.setValue(0);
 
-    // Keep reveal visible long enough to fully read as an intro.
     const revealTimeout = setTimeout(() => {
       setIsRevealComplete(true);
     }, 3000);
 
-    // Start fading elements in 1s after reveal starts.
     const fadeInTimeout = setTimeout(() => {
       Animated.timing(elementsOpacity, {
         toValue: 1,
@@ -298,10 +261,8 @@ export function AgentBornStep() {
           variant="glass"
           forceDarkMode
           style={onboardingCtaButton}
-          disabled={isContinuing}
-          loading={isContinuing}
         >
-          Let's see the picks!
+          Let's go!
         </Button>
       </Animated.View>
 
@@ -315,55 +276,6 @@ export function AgentBornStep() {
           />
         </View>
       )}
-
-      {/* Non-dismissible paywall modal */}
-      <Modal
-        visible={showPaywallModal}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => {
-          // Intentionally empty — prevent Android back button from dismissing
-        }}
-      >
-        <View style={styles.paywallModalContainer}>
-          {isOfferingLoading || !isInitialized ? (
-            <View style={styles.paywallLoading}>
-              <ActivityIndicator size="large" color="#22c55e" />
-              <Text style={styles.paywallLoadingText}>Loading subscription options...</Text>
-            </View>
-          ) : !PaywallComponent || !offering ? (
-            <View style={styles.paywallLoading}>
-              <MaterialCommunityIcons name="alert-circle" size={48} color="#ef4444" />
-              <Text style={styles.paywallLoadingText}>
-                Unable to load subscription options.
-              </Text>
-              <TouchableOpacity
-                style={styles.paywallRetryButton}
-                onPress={refreshOffering}
-              >
-                <Text style={styles.paywallRetryText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <PaywallComponent
-              options={{ offering }}
-              onPurchaseCompleted={async () => {
-                await handlePaywallComplete();
-              }}
-              onRestoreCompleted={async ({ customerInfo }: any) => {
-                const hasEntitlement = customerInfo?.entitlements?.active?.['WagerProof Pro'];
-                if (hasEntitlement) {
-                  await handlePaywallComplete();
-                }
-              }}
-              onDismiss={() => {
-                // Do nothing — keep the paywall open (non-dismissible)
-              }}
-              style={styles.paywallFull}
-            />
-          )}
-        </View>
-      </Modal>
 
       <Modal
         visible={showFeedbackModal}
@@ -482,21 +394,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     width: '100%',
   },
-  // ---- Feed card styles (mirrors AgentTimeline header/panel) ----
   feedCardContainer: {
     borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
-  },
-  backgroundGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  gradientBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
   },
   agentHeader: {
     flexDirection: 'row',
@@ -594,7 +495,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
   },
-  // Feedback modal
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -642,37 +542,5 @@ const styles = StyleSheet.create({
   skipLinkText: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.45)',
-  },
-  // Non-dismissible paywall modal styles
-  paywallModalContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  paywallFull: {
-    flex: 1,
-  },
-  paywallLoading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  paywallLoadingText: {
-    color: '#fff',
-    marginTop: 12,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  paywallRetryButton: {
-    backgroundColor: '#22c55e',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 20,
-  },
-  paywallRetryText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });

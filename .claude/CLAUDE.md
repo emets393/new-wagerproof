@@ -203,6 +203,36 @@ Key tables include:
 - AI features require API keys and have admin controls
 - The app supports both live and historical game data
 
+## Inline Code Comments
+
+Write inline comments that help future developers (and AI agents) understand **why** code exists, not what it does. The code itself shows what — comments explain the reasoning, constraints, and non-obvious decisions.
+
+### When to comment
+
+- **Architecture decisions**: Why this approach was chosen over alternatives. E.g. `// PagerView instead of FlatList — native paging runs on UI thread, zero JS bridge work`
+- **Non-obvious constraints**: Business rules, platform quirks, or race conditions. E.g. `// Must cache locally FIRST — if DB write fails, user should never re-see onboarding`
+- **Integration boundaries**: Where this code talks to external systems and what assumptions it makes. E.g. `// RevenueCat SDK caches offerings after first fetch — subsequent calls resolve from cache`
+- **"Why not" explanations**: When you intentionally avoided the obvious approach. E.g. `// Don't await this — Supabase sync is background-only, never blocks the user`
+- **Feature doc references**: When a block implements a documented feature, link to the doc. E.g. `// See .claude/docs/agents/06_IMPLEMENTATION.md for the full generation pipeline`
+
+### When NOT to comment
+
+- Self-explanatory code (`const userId = user.id` does not need a comment)
+- Type annotations that already describe intent
+- Simple CRUD operations, standard React patterns, obvious hooks
+- Restating what the next line of code does (`// Set loading to true` before `setLoading(true)`)
+
+### Style
+
+- Keep comments to 1-2 lines. If you need more, the code might need refactoring or a doc file.
+- Use `//` for inline. Use `/** */` JSDoc only for exported functions/components that aren't self-documenting.
+- Write in plain language, not formal prose. `// Hack: iOS crashes if we hide splash before our view paints` is better than `// This addresses a known iOS rendering lifecycle issue`.
+- When referencing a feature doc, use relative paths from repo root: `// See .claude/docs/agents/01_DATA_PAYLOADS.md`
+
+### Comment density
+
+Aim for comments on ~10-20% of logical blocks. A 100-line file might have 3-5 comments. A file with zero comments is fine if the code is truly self-explanatory. A file where every other line has a comment is over-documented.
+
 ## Documentation Standards
 
 ### Rule: Always Update Docs With Code Changes

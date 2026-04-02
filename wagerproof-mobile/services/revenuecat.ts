@@ -422,7 +422,8 @@ export async function getCurrentOfferingForPlacement(placementIdentifier: string
 
     const offering = await PurchasesModule.getCurrentOfferingForPlacement(placementIdentifier);
     return offering;
-  } catch {
+  } catch (err: any) {
+    console.warn('📱 RevenueCat: getCurrentOfferingForPlacement failed:', err?.message || err);
     return null;
   }
 }

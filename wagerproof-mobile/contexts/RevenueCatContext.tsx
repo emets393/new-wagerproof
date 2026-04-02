@@ -217,6 +217,15 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
         if (isMounted) {
           setIsInitialized(actuallyConfigured);
+
+          // Prefetch offerings immediately so paywall is instant when needed later.
+          // Fire-and-forget — this caches in the SDK for subsequent reads.
+          if (actuallyConfigured) {
+            import('../services/revenuecat').then(({ getCurrentOfferingForPlacement }) => {
+              getCurrentOfferingForPlacement('onboarding').catch(() => {});
+            }).catch(() => {});
+          }
+
           // DON'T set isLoading = false here - wait until customer info is loaded
           // This prevents the race condition where isPro shows false before entitlements load
 
@@ -295,12 +304,9 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
             // refreshCustomerInfo already sets isLoading = false in its finally block
           }
 
-          // Defer offerings refresh to avoid competing with onboarding network calls.
-          // Offerings are only needed when the paywall is shown (end of onboarding or later).
-          setTimeout(() => {
-            refreshOfferings().catch(err => console.warn('📱 RevenueCat: Error refreshing offerings:', err));
-            console.log('📱 RevenueCat: Offerings refresh started (deferred)');
-          }, 10000);
+          // Offerings already prefetched at SDK init time. Refresh generic offerings
+          // in background for non-placement paywalls.
+          refreshOfferings().catch(err => console.warn('📱 RevenueCat: Error refreshing offerings:', err));
         } else {
           console.log('📱 RevenueCat: No user (auth loaded, user is null), logging out from RevenueCat');
           // Log out if no user

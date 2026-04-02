@@ -32,11 +32,9 @@ import { useThemeContext } from '@/contexts/ThemeContext';
 
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
-import { useAgent, useUpdateAgent, useUserAgents } from '@/hooks/useAgents';
+import { useUpdateAgent, useUserAgents } from '@/hooks/useAgents';
 import { syncTopAgentsWidgetData } from '@/hooks/useTopAgentsWidgetSync';
 import {
-  useTodaysPicks,
-  useTodaysGenerationRun,
   useAgentPicks,
   useAgentDetailSnapshot,
   useGeneratePicks,
@@ -50,6 +48,7 @@ import { useGameLookup } from '@/hooks/useGameLookup';
 import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
 import {
   AgentPick,
+  AgentWithPerformance,
   Sport,
   formatRecord,
   formatNetUnits,
@@ -262,23 +261,22 @@ export default function AgentDetailScreen() {
   const isGeneratingRef = useRef(false);
   const auditSheetRef = useRef<BottomSheet>(null);
 
-  // Fetch agent data
-  const {
-    data: agent,
-    isLoading: isLoadingAgent,
-    isRefetching: isRefetchingAgent,
-    refetch: refetchAgent,
-  } = useAgent(id || '');
-
-  // Fetch today's picks (fallback for when V2 snapshot hasn't loaded yet)
-  const { data: todaysPicks } = useTodaysPicks(id || '', { enabled: canViewAgentPicks });
-  const { data: todaysGenerationRun } = useTodaysGenerationRun(id || '', { enabled: canViewAgentPicks });
-
+  // Single snapshot call: fetches agent profile, performance, today's picks, and generation run
   const {
     data: detailSnapshotV2,
     isLoading: isLoadingDetailSnapshotV2,
+    isRefetching: isRefetchingSnapshot,
     refetch: refetchDetailSnapshotV2,
-  } = useAgentDetailSnapshot(id || '', { enabled: canViewAgentPicks });
+  } = useAgentDetailSnapshot(id || '');
+
+  // Derive agent (with performance) from the snapshot
+  const agent = useMemo<AgentWithPerformance | null>(() => {
+    if (!detailSnapshotV2?.agent) return null;
+    return {
+      ...detailSnapshotV2.agent,
+      performance: detailSnapshotV2.performance ?? null,
+    };
+  }, [detailSnapshotV2?.agent, detailSnapshotV2?.performance]);
 
   // Fetch pick history
   const {
@@ -363,7 +361,7 @@ export default function AgentDetailScreen() {
         agentId: id,
         data: { is_widget_favorite: nextFavoriteState },
       });
-      await refetchAgent();
+      await refetchDetailSnapshotV2();
 
       if (agent.user_id) {
         await syncTopAgentsWidgetData(agent.user_id);
@@ -381,7 +379,7 @@ export default function AgentDetailScreen() {
     isFavoriteUpdating,
     otherFavoriteAgents,
     updateAgentMutation,
-    refetchAgent,
+    refetchDetailSnapshotV2,
   ]);
 
   // Handle auto-generate time & timezone change (saved together)
@@ -396,11 +394,11 @@ export default function AgentDetailScreen() {
         data: { auto_generate_time: newTime, auto_generate_timezone: timezone },
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      refetchAgent();
+      refetchDetailSnapshotV2();
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  }, [id, updateAgentMutation, refetchAgent]);
+  }, [id, updateAgentMutation, refetchDetailSnapshotV2]);
 
   // Handle generate picks (initial or regeneration)
   const handleGeneratePicks = useCallback(async () => {
@@ -418,9 +416,8 @@ export default function AgentDetailScreen() {
     try {
       const { result } = await generatePicksMutation.mutateAsync({ agentId: id, isAdmin: adminModeEnabled });
       // Refetch data after generation
-      refetchAgent();
+      refetchDetailSnapshotV2();
       if (canViewAgentPicks) {
-        refetchDetailSnapshotV2();
         refetchAllPicks();
       }
 
@@ -445,7 +442,6 @@ export default function AgentDetailScreen() {
     canRegenerate,
     adminModeEnabled,
     generatePicksMutation,
-    refetchAgent,
     refetchDetailSnapshotV2,
     refetchAllPicks,
     canViewAgentPicks,
@@ -459,13 +455,12 @@ export default function AgentDetailScreen() {
 
   // Handle refresh - parallel refetch for faster pull-to-refresh
   const handleRefresh = useCallback(() => {
-    const promises: Promise<any>[] = [refetchAgent()];
+    const promises: Promise<any>[] = [refetchDetailSnapshotV2()];
     if (canViewAgentPicks) {
-      promises.push(refetchDetailSnapshotV2(), refetchAllPicks());
+      promises.push(refetchAllPicks());
     }
     Promise.all(promises);
   }, [
-    refetchAgent,
     refetchDetailSnapshotV2,
     refetchAllPicks,
     canViewAgentPicks,
@@ -619,8 +614,8 @@ export default function AgentDetailScreen() {
       payloadIsFormatted: isFormatted,
     };
   }, [selectedAuditPick]);
-  const effectiveTodaysPicks = detailSnapshotV2?.todays_picks || todaysPicks;
-  const effectiveTodaysGenerationRun = detailSnapshotV2?.todays_generation_run || todaysGenerationRun;
+  const effectiveTodaysPicks = detailSnapshotV2?.todays_picks;
+  const effectiveTodaysGenerationRun = detailSnapshotV2?.todays_generation_run;
   const hasTodaysPicks = effectiveTodaysPicks && effectiveTodaysPicks.length > 0;
   const isGeneratingPicks = generatePicksMutation.isPending;
   const persistedNoPicksConclusion = useMemo(() => {
@@ -638,7 +633,7 @@ export default function AgentDetailScreen() {
   const isLoadingTodaySection = isLoadingDetailSnapshotV2;
 
   // Render loading state
-  if (isLoadingAgent && !agent) {
+  if (isLoadingDetailSnapshotV2 && !agent) {
     return <AgentDetailLoadingShimmer isDark={isDark} topInset={insets.top} />;
   }
 
@@ -736,7 +731,7 @@ export default function AgentDetailScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetchingAgent}
+            refreshing={isRefetchingSnapshot}
             onRefresh={handleRefresh}
             colors={[theme.colors.primary]}
             tintColor={theme.colors.primary}
@@ -1058,7 +1053,7 @@ export default function AgentDetailScreen() {
                   data: { auto_generate: value },
                 });
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                refetchAgent();
+                refetchDetailSnapshotV2();
               } catch {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
               }

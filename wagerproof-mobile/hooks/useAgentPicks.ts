@@ -128,7 +128,7 @@ export function useTodaysPicks(agentId: string, options?: PickQueryOptions) {
     enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000, // 2 minutes
     // Only poll when screen is focused to save battery
-    refetchInterval: (options?.focused ?? true) ? 5 * 60 * 1000 : false,
+    refetchInterval: (options?.focused ?? false) ? 10 * 60 * 1000 : false,
   });
 }
 
@@ -139,7 +139,7 @@ export function useTodaysGenerationRun(agentId: string, options?: PickQueryOptio
     enabled: !!agentId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000,
     // Only poll when screen is focused to save battery
-    refetchInterval: (options?.focused ?? true) ? 5 * 60 * 1000 : false,
+    refetchInterval: (options?.focused ?? false) ? 10 * 60 * 1000 : false,
   });
 }
 

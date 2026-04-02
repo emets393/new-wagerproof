@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -70,7 +70,15 @@ const SPARKLINE_H = 32;
 
 function MiniSparkline({ performance }: { performance: AgentWithPerformance['performance'] }) {
   const [chartW, setChartW] = useState(0);
-  const points = generateSparkPoints(performance);
+  const points = useMemo(() => generateSparkPoints(performance), [
+    performance?.total_picks,
+    performance?.wins,
+    performance?.losses,
+    performance?.pushes,
+    performance?.net_units,
+    performance?.best_streak,
+    performance?.worst_streak,
+  ]);
   const isPositive = (performance?.net_units ?? 0) >= 0;
   const color = isPositive ? '#22c55e' : '#ef4444';
 
@@ -170,11 +178,13 @@ export const AgentIdCard = React.memo(function AgentIdCard({ agent, onPress, onL
         ? '#ef4444'
         : '#8b949e';
 
-  const primary = getPrimaryColor(agent.avatar_color);
-  const secondary = getSecondaryColor(agent.avatar_color);
-  const cardBg = isDark ? '#1a1a1a' : '#ffffff';
-  const pillBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
-  const dimText = isDark ? '#8b949e' : '#6b7280';
+  const primary = useMemo(() => getPrimaryColor(agent.avatar_color), [agent.avatar_color]);
+  const secondary = useMemo(() => getSecondaryColor(agent.avatar_color), [agent.avatar_color]);
+  const { cardBg, pillBg, dimText } = useMemo(() => ({
+    cardBg: isDark ? '#1a1a1a' : '#ffffff',
+    pillBg: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    dimText: isDark ? '#8b949e' : '#6b7280',
+  }), [isDark]);
 
   return (
     <TouchableOpacity

@@ -349,6 +349,29 @@ export default function AgentsHubScreen() {
     [handleAgentPress]
   );
 
+  // Memoize padded data array to avoid spread on every render
+  const paddedAgents = useMemo(() => {
+    if (!sortedAgents.length) return sortedAgents;
+    return sortedAgents.length % 2 !== 0 ? [...sortedAgents, null] : sortedAgents;
+  }, [sortedAgents]);
+
+  // Fixed row height: card 195px + marginVertical 4*2 = 203px per row
+  const ITEM_HEIGHT = 203;
+
+  const getItemLayout = useCallback(
+    (_data: any, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * Math.floor(index / 2),
+      index,
+    }),
+    []
+  );
+
+  const keyExtractor = useCallback(
+    (item: AgentWithPerformance | null, index: number) => item?.id ?? `spacer_${index}`,
+    []
+  );
+
   // Render agent card for 2-column grid (memoized to prevent re-creating closures)
   const renderAgentCard = useCallback(
     ({ item, index }: { item: AgentWithPerformance | null; index: number }) => {
@@ -493,8 +516,8 @@ export default function AgentsHubScreen() {
         </ScrollView>
       ) : (
         <FlatList
-          data={sortedAgents.length % 2 !== 0 ? [...sortedAgents, null] : sortedAgents}
-          keyExtractor={(item, index) => item?.id ?? `spacer_${index}`}
+          data={paddedAgents}
+          keyExtractor={keyExtractor}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={[
@@ -508,10 +531,11 @@ export default function AgentsHubScreen() {
           refreshControl={refreshControl}
           ListHeaderComponent={listHeader}
           renderItem={renderAgentCard}
+          getItemLayout={getItemLayout}
           initialNumToRender={4}
-          maxToRenderPerBatch={2}
-          windowSize={3}
-          removeClippedSubviews={Platform.OS === 'android'}
+          maxToRenderPerBatch={6}
+          windowSize={7}
+          removeClippedSubviews={true}
           updateCellsBatchingPeriod={100}
         />
       )}

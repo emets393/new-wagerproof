@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, StatusBar, FlatList, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, StatusBar, useWindowDimensions } from 'react-native';
+import PagerView from 'react-native-pager-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PaperProvider, MD3DarkTheme } from 'react-native-paper';
 import { useOnboarding } from '../../contexts/OnboardingContext';
@@ -28,33 +29,34 @@ const TOTAL_STEPS = 21;
 
 // ─── Page definitions ───────────────────────────────────────────────────────
 // Steps 15-19 are a single OnboardingAgentBuilder that handles 5 internal screens.
-// We give it one page in the FlatList so FlatList doesn't scroll during builder navigation.
-interface Page {
-  key: string;
-  Component: React.ComponentType;
-}
+// PagerView gives it one page; the builder handles its own internal navigation.
 
-// FlatList only handles steps 1-19. Steps 20-21 are cinematic (full-screen
-// with their own Lottie animations) and render outside the FlatList.
-const PAGES: Page[] = [
-  { key: 's1', Component: PersonalizationIntro },
-  { key: 's2', Component: TermsAcceptance },
-  { key: 's3', Component: SportsSelection },
-  { key: 's4', Component: AgeConfirmation },
-  { key: 's5', Component: BettorTypeSelection },
-  { key: 's6', Component: AcquisitionSource },
-  { key: 's7', Component: PrimaryGoalSelection },
-  { key: 's8', Component: ValueClaim },
-  { key: 's9', Component: FeatureSpotlight },
-  { key: 's10', Component: DataTransparency },
-  { key: 's11', Component: AgentValue1_247 },
-  { key: 's12', Component: AgentValue2_VirtualAssistant },
-  { key: 's13', Component: AgentValue3_MultipleStrategies },
-  { key: 's14', Component: AgentValue4_Leaderboard },
-  { key: 's15', Component: OnboardingAgentBuilder },  // handles steps 15-19 internally
-];
+const PAGES = [
+  PersonalizationIntro,   // step 1
+  TermsAcceptance,        // step 2
+  SportsSelection,        // step 3
+  AgeConfirmation,        // step 4
+  BettorTypeSelection,    // step 5
+  AcquisitionSource,      // step 6
+  PrimaryGoalSelection,   // step 7
+  ValueClaim,             // step 8
+  FeatureSpotlight,       // step 9
+  DataTransparency,       // step 10
+  AgentValue1_247,        // step 11
+  AgentValue2_VirtualAssistant, // step 12
+  AgentValue3_MultipleStrategies, // step 13
+  AgentValue4_Leaderboard, // step 14
+  OnboardingAgentBuilder,  // steps 15-19 (handles internally)
+] as const;
 
-// Map context currentStep → FlatList page index (only for steps 1-19)
+// Wrap each page in React.memo to prevent re-renders of offscreen pages
+const MemoizedPages = PAGES.map((Component, i) => {
+  const MemoPage = React.memo(() => <Component />);
+  MemoPage.displayName = `OnboardingPage${i}`;
+  return MemoPage;
+});
+
+// Map context currentStep → PagerView page index (only for steps 1-19)
 function stepToPageIndex(step: number): number {
   if (step <= 14) return step - 1;
   return 14; // steps 15-19 → index 14 (builder handles internally)
@@ -64,40 +66,22 @@ function stepToPageIndex(step: number): number {
 
 function OnboardingContent() {
   const { currentStep, prevStep } = useOnboarding();
-  const { width } = useWindowDimensions();
-  const flatListRef = useRef<FlatList>(null);
+  const pagerRef = useRef<PagerView>(null);
   const lastPageIndex = useRef(0);
 
   const isCinematicStep = currentStep >= 20;
 
-  // Scroll FlatList whenever currentStep changes (only for steps 1-19)
+  // Navigate PagerView when currentStep changes (only for steps 1-19)
   useEffect(() => {
     if (isCinematicStep) return;
     const targetIndex = stepToPageIndex(currentStep);
     if (targetIndex !== lastPageIndex.current) {
-      flatListRef.current?.scrollToIndex({ index: targetIndex, animated: true });
+      pagerRef.current?.setPage(targetIndex);
       lastPageIndex.current = targetIndex;
     }
   }, [currentStep, isCinematicStep]);
 
-  const renderItem = useCallback(({ item }: { item: Page }) => {
-    const { Component } = item;
-    return (
-      <View style={{ width, flex: 1 }}>
-        <Component />
-      </View>
-    );
-  }, [width]);
-
-  const getItemLayout = useCallback((_: any, index: number) => ({
-    length: width,
-    offset: width * index,
-    index,
-  }), [width]);
-
-  const keyExtractor = useCallback((item: Page) => item.key, []);
-
-  // Steps 20-21: cinematic screens render full-screen outside the FlatList
+  // Steps 20-21: cinematic screens render full-screen outside PagerView
   if (isCinematicStep) {
     return (
       <View style={styles.container}>
@@ -124,22 +108,19 @@ function OnboardingContent() {
         onBack={prevStep}
       />
 
-      <FlatList
-        ref={flatListRef}
-        data={PAGES}
-        renderItem={renderItem}
-        getItemLayout={getItemLayout}
-        keyExtractor={keyExtractor}
-        horizontal
-        pagingEnabled
-        scrollEnabled={false}
-        showsHorizontalScrollIndicator={false}
-        initialScrollIndex={0}
-        windowSize={3}
-        maxToRenderPerBatch={2}
-        removeClippedSubviews={false}
+      <PagerView
+        ref={pagerRef}
         style={styles.content}
-      />
+        initialPage={0}
+        scrollEnabled={false}
+        offscreenPageLimit={1}
+      >
+        {MemoizedPages.map((MemoPage, index) => (
+          <View key={`page-${index}`} style={styles.page} collapsable={false}>
+            <MemoPage />
+          </View>
+        ))}
+      </PagerView>
     </View>
   );
 }
@@ -188,6 +169,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f1117',
   },
   content: {
+    flex: 1,
+  },
+  page: {
     flex: 1,
   },
 });

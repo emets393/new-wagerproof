@@ -1,6 +1,4 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { ActivityIndicator, useTheme } from 'react-native-paper';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
@@ -11,131 +9,87 @@ interface OnboardingGuardProps {
   children: React.ReactNode;
 }
 
+/**
+ * Routing guard that determines whether to show onboarding or main app.
+ *
+ * Architecture:
+ * 1. Reads local AsyncStorage cache (instant, ~1-5ms) to determine initial route.
+ *    This means zero spinner between splash and first screen.
+ * 2. Background-validates against Supabase (non-blocking).
+ *    If DB disagrees with cache, updates state reactively.
+ */
 export function OnboardingGuard({ children }: OnboardingGuardProps) {
   const { user, loading: authLoading } = useAuth();
   const { isCompleted, completionOverride } = useOnboarding();
   const router = useRouter();
   const segments = useSegments();
-  const theme = useTheme();
-  const [onboardingStatus, setOnboardingStatus] = useState<{
-    completed: boolean | null;
-    loading: boolean;
-  }>({ completed: null, loading: true });
-  // Track whether we've ever successfully fetched onboarding status.
-  // After the first fetch, we render children optimistically instead of showing a spinner.
-  const hasEverFetched = useRef(false);
 
+  // null = unknown (don't redirect), true/false = resolved
+  const [localCompleted, setLocalCompleted] = useState<boolean | null>(null);
+  const hasCheckedLocal = useRef(false);
+
+  // Step 1: Fast local cache check (runs once per user, instant)
   useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      if (!user) {
-        setOnboardingStatus({ completed: null, loading: false });
-        return;
-      }
+    if (!user?.id) {
+      setLocalCompleted(null);
+      hasCheckedLocal.current = false;
+      return;
+    }
+    if (hasCheckedLocal.current) return;
+    hasCheckedLocal.current = true;
 
-      // Check onboarding status silently (no console.log — it crosses the RN bridge)
-      // Only show loading spinner on the very first check.
-      // Subsequent checks (e.g. user object reference changes) run silently in the background.
-      if (!hasEverFetched.current) {
-        setOnboardingStatus((prev) => ({ ...prev, loading: true }));
-      }
+    // Read from AsyncStorage — no network, no spinner
+    Promise.all([
+      isOnboardingCachedAsCompleted(user.id),
+      hasPendingOnboardingCompletion(user.id),
+    ]).then(([cached, pending]) => {
+      setLocalCompleted(cached || pending);
+    });
 
-      try {
-        // Race the query against a 5s timeout so users never stare at a spinner on bad internet
-        const timeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Onboarding check timed out')), 5000)
-        );
+    // Step 2: Background validation against DB (non-blocking, fire and forget)
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 5000)
+    );
 
-        const { data: profile, error } = await Promise.race([
-          supabase
-            .from('profiles')
-            .select('onboarding_completed')
-            .eq('user_id', user.id)
-            .single(),
-          timeout,
-        ]);
+    Promise.race([
+      supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('user_id', user.id)
+        .single(),
+      timeout,
+    ])
+      .then(({ data: profile, error }: any) => {
+        if (error) return; // Network failed — trust local cache
+        const dbCompleted = profile?.onboarding_completed ?? false;
+        setLocalCompleted(dbCompleted);
+        // Sync cache if DB says completed but local didn't know
+        if (dbCompleted) cacheOnboardingCompleted(user.id);
+      })
+      .catch(() => {
+        // Timeout or network error — local cache is authoritative
+      });
+  }, [user?.id]);
 
-        if (error) {
-          // Network/DB error — check local cache before assuming incomplete
-          const cachedCompleted = await isOnboardingCachedAsCompleted(user.id);
-          const hasPending = await hasPendingOnboardingCompletion(user.id);
-          if (cachedCompleted || hasPending) {
-            setOnboardingStatus({ completed: true, loading: false });
-          } else {
-            // No local cache, no DB data — treat as unknown (null), NOT false.
-            // This prevents redirecting to onboarding on network failure.
-            setOnboardingStatus({ completed: null, loading: false });
-          }
-          hasEverFetched.current = true;
-          return;
-        }
-
-        setOnboardingStatus({
-          completed: profile?.onboarding_completed ?? false,
-          loading: false,
-        });
-
-        // If DB says completed, ensure local cache is also set for future offline use
-        if (profile?.onboarding_completed) {
-          cacheOnboardingCompleted(user.id);
-        }
-
-        hasEverFetched.current = true;
-      } catch {
-        // Timeout or network error — check local cache
-        const cachedCompleted = await isOnboardingCachedAsCompleted(user.id);
-        const hasPending = await hasPendingOnboardingCompletion(user.id);
-        if (cachedCompleted || hasPending) {
-          setOnboardingStatus({ completed: true, loading: false });
-        } else {
-          // Unknown state — DO NOT redirect to onboarding.
-          setOnboardingStatus({ completed: null, loading: false });
-        }
-        hasEverFetched.current = true;
-      }
-    };
-
-    checkOnboardingStatus();
-  }, [user?.id]); // Only re-check when the user ID actually changes, not on every user object reference change
-
+  // Routing effect — runs when state changes
   useEffect(() => {
-    if (authLoading || onboardingStatus.loading) return;
+    if (authLoading) return;
 
     const inOnboardingGroup = segments[0] === '(onboarding)';
-    const effectiveCompleted = completionOverride ?? (isCompleted || onboardingStatus.completed === true);
+    const effectiveCompleted = completionOverride ?? (isCompleted || localCompleted === true);
 
-    // CRITICAL: When effectiveCompleted is null (network failed, no local cache),
-    // do NOT redirect anywhere. The user stays on their current screen.
-    // This prevents the bug where authenticated users get pushed to onboarding
-    // due to a network timeout.
-
-    // If user is authenticated and definitively hasn't completed onboarding, redirect to onboarding
+    // Only redirect on definitive false, never on null (unknown)
     if (user && effectiveCompleted === false && !inOnboardingGroup) {
       router.replace('/(onboarding)');
     }
 
-    // If user is authenticated and has completed onboarding, redirect to main app
     if (user && effectiveCompleted === true && inOnboardingGroup) {
       router.replace('/(drawer)/(tabs)');
     }
-  }, [user, authLoading, onboardingStatus, segments, isCompleted, completionOverride, router]);
+  }, [user, authLoading, localCompleted, segments, isCompleted, completionOverride, router]);
 
-  // Only show full-screen loading spinner on initial auth load + first onboarding check.
-  // After the first successful fetch, always render children (navigation useEffect handles routing).
-  if (authLoading || (onboardingStatus.loading && !hasEverFetched.current && !isCompleted)) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
-
+  // No spinner — always render children immediately.
+  // The splash screen covers the initial frame; by the time it fades,
+  // the local cache check has resolved and routing is correct.
   return <>{children}</>;
 }
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

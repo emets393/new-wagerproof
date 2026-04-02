@@ -31,6 +31,8 @@ import { MetaTestSheetProvider } from '../contexts/MetaTestSheetContext';
 import { AgentHRSheetProvider } from '../contexts/AgentHRSheetContext';
 
 import { OnboardingGuard } from '../components/OnboardingGuard';
+import { DeferredAgentCreator } from '../components/DeferredAgentCreator';
+import { PostOnboardingPaywall } from '../components/PostOnboardingPaywall';
 import { NFLGameBottomSheet } from '../components/NFLGameBottomSheet';
 import { CFBGameBottomSheet } from '../components/CFBGameBottomSheet';
 import { NBAGameBottomSheet } from '../components/NBAGameBottomSheet';
@@ -435,6 +437,9 @@ function RootNavigator() {
         <WagerBotChatBottomSheet />
         {/* Floating assistant - renders above everything when detached */}
         <FloatingAssistantWrapper />
+        {/* Deferred work — runs after onboarding, inside OnboardingProvider scope */}
+        <DeferredAgentCreator />
+        <PostOnboardingPaywall />
       </OnboardingGuard>
     </OnboardingProvider>
   );
