@@ -168,6 +168,11 @@ export const navItems: NavItem[] = [
         to: "/mlb/todays-betting-trends",
         icon: <TrendingUp className="h-4 w-4" />,
       },
+      {
+        title: "Historical Analysis",
+        to: "/mlb/historical-analysis",
+        icon: <BarChart className="h-4 w-4" />,
+      },
     ],
   },
   {

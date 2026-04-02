@@ -17,6 +17,7 @@ import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
 import NCAAB from "./pages/NCAAB";
 import MLB from "./pages/MLB";
 import MLBTodayBettingTrends from "./pages/MLBTodayBettingTrends";
+import MLBHistoricalAnalysis from "./pages/MLBHistoricalAnalysis";
 import NCAABTodayBettingTrends from "./pages/NCAABTodayBettingTrends";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
@@ -212,6 +213,7 @@ function AppRoutes() {
           <Route path="/ncaab" element={<ProtectedRoute allowFreemium={true}><NCAAB /></ProtectedRoute>} />
           <Route path="/mlb" element={<ProtectedRoute allowFreemium={true}><MLB /></ProtectedRoute>} />
           <Route path="/mlb/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><MLBTodayBettingTrends /></ProtectedRoute>} />
+          <Route path="/mlb/historical-analysis" element={<ProtectedRoute allowFreemium={true}><MLBHistoricalAnalysis /></ProtectedRoute>} />
           <Route path="/ncaab/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayBettingTrends /></ProtectedRoute>} />
           <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />
