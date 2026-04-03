@@ -1369,17 +1369,16 @@ export default function OutliersScreen() {
   const TAB_BAR_BASE_HEIGHT = 65;
   const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
 
-  // Header slides up completely as user scrolls up
+  // Header stays fixed (no scroll-based hiding)
   const headerTranslate = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [0, -TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [0, 0],
     extrapolate: 'clamp',
   });
 
-  // Header fades out as user scrolls up
   const headerOpacity = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [1, 0],
+    outputRange: [1, 1],
     extrapolate: 'clamp',
   });
 

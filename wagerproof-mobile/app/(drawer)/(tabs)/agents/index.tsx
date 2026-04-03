@@ -4,6 +4,7 @@ import {
   View,
   Text,
   StyleSheet,
+  ActivityIndicator,
   Platform,
   ActionSheetIOS,
   RefreshControl,
@@ -212,6 +213,12 @@ export default function AgentsHubScreen() {
   );
 
   const topAgentsForOffice = useMemo(() => sortedAgents.slice(0, 6), [sortedAgents]);
+  const OFFICE_WIDTH = Dimensions.get('window').width - 16;
+  const OFFICE_HEIGHT = 800 * (OFFICE_WIDTH / 864);
+  // CompanyDashboardBanner + office + spacing; when scrolled beyond this, HQ is fully off-screen.
+  const OFFICE_VISIBILITY_CUTOFF = OFFICE_HEIGHT + 520;
+  const [officeSceneActive, setOfficeSceneActive] = useState(true);
+  const officeActiveRef = useRef(true);
 
   // Track activity on mount
   useEffect(() => {
@@ -257,6 +264,14 @@ export default function AgentsHubScreen() {
   const handleRefresh = useCallback(() => {
     return refetch();
   }, [refetch]);
+
+  const handleContentScroll = useCallback((y: number) => {
+    const shouldRun = y < OFFICE_VISIBILITY_CUTOFF;
+    if (officeActiveRef.current !== shouldRun) {
+      officeActiveRef.current = shouldRun;
+      setOfficeSceneActive(shouldRun);
+    }
+  }, [OFFICE_VISIBILITY_CUTOFF]);
 
   // Long-press context menu
   const handleAgentLongPress = useCallback(
@@ -405,13 +420,18 @@ export default function AgentsHubScreen() {
     <>
       <CompanyDashboardBanner agents={agents || []} />
       {officeReady ? (
-        <PixelOffice agents={topAgentsForOffice} />
+        <PixelOffice agents={topAgentsForOffice} isActive={officeSceneActive} />
       ) : (
-        <View style={{ width: Dimensions.get('window').width - 16, height: 800 * ((Dimensions.get('window').width - 16) / 864), alignSelf: 'center', backgroundColor: isDark ? '#1a1a2e' : '#e8e4d8', borderRadius: 12 }} />
+        <View style={{ width: Dimensions.get('window').width - 16, height: 800 * ((Dimensions.get('window').width - 16) / 864), alignSelf: 'center', backgroundColor: isDark ? '#1a1a2e' : '#e8e4d8', borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <ActivityIndicator size="small" color={isDark ? '#8b949e' : '#334155'} />
+          <Text style={{ color: isDark ? '#8b949e' : '#475569', fontSize: 12, fontWeight: '600', letterSpacing: 0.3 }}>
+            Loading Agent HQ...
+          </Text>
+        </View>
       )}
       <View style={{ height: 12 }} />
     </>
-  ), [agents, officeReady, topAgentsForOffice, isDark]);
+  ), [agents, officeReady, topAgentsForOffice, isDark, officeSceneActive]);
 
   const hasAgents = agents && agents.length > 0;
   const totalCount = agents?.length || 0;
@@ -508,9 +528,11 @@ export default function AgentsHubScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
+          onScroll={(e) => handleContentScroll(e.nativeEvent.contentOffset.y)}
+          scrollEventThrottle={64}
         >
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-            <PixelOffice agentCount={4} />
+            <PixelOffice agentCount={4} isActive={officeSceneActive} />
           </View>
           <EmptyState onCreatePress={handleCreateAgent} isDark={isDark} />
         </ScrollView>
@@ -537,6 +559,8 @@ export default function AgentsHubScreen() {
           windowSize={7}
           removeClippedSubviews={true}
           updateCellsBatchingPeriod={100}
+          onScroll={(e) => handleContentScroll(e.nativeEvent.contentOffset.y)}
+          scrollEventThrottle={64}
         />
       )}
 

@@ -101,7 +101,8 @@ export function PostOnboardingPaywall() {
               }
             }}
             onDismiss={() => {
-              // Non-dismissible — do nothing
+              // X button in RevenueCat paywall config triggers this — let user through
+              handleComplete();
             }}
             style={styles.paywall}
           />

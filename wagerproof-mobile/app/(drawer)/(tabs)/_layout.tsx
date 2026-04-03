@@ -109,16 +109,16 @@ const FloatingTabBar = React.memo(function FloatingTabBar() {
   const TAB_BAR_BASE_HEIGHT = 65;
   const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
 
-  // Simple scroll-based animations for feed screen only
+  // Tab bar stays fixed (no scroll-based hiding)
   const tabBarTranslate = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [0, TAB_BAR_HEIGHT + 20],
+    outputRange: [0, 0],
     extrapolate: 'clamp',
   });
 
   const tabBarOpacity = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [1, 0],
+    outputRange: [1, 1],
     extrapolate: 'clamp',
   });
 

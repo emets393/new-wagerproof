@@ -140,17 +140,16 @@ export default function FeedScreen() {
   const TOTAL_HEADER_HEIGHT = insets.top + HEADER_TOP_HEIGHT + TABS_HEIGHT;
   const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
   
-  // Header slides up completely as user scrolls up (like tab bar slides down)
+  // Header stays fixed (no scroll-based hiding)
   const headerTranslate = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [0, -TOTAL_COLLAPSIBLE_HEIGHT],
+    outputRange: [0, 0],
     extrapolate: 'clamp',
   });
 
-  // Header fades out as user scrolls up
   const headerOpacity = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [1, 0],
+    outputRange: [1, 1],
     extrapolate: 'clamp',
   });
 

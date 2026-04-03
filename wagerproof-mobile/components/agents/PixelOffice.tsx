@@ -4,9 +4,12 @@ import {
   StyleSheet,
   Dimensions,
   Text,
-  Image,
+  ActivityIndicator,
   TouchableOpacity,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Canvas,
@@ -579,6 +582,7 @@ interface PixelOfficeProps {
   forceAgentState?: string;
   startAtDesks?: boolean;
   hideControls?: boolean;
+  isActive?: boolean;
 }
 
 export function PixelOffice({
@@ -588,10 +592,15 @@ export function PixelOffice({
   forceAgentState,
   startAtDesks = false,
   hideControls = false,
+  isActive = true,
 }: PixelOfficeProps) {
+  const isFocused = useIsFocused();
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
+
   // Floor style state (persisted)
   const [floorStyle, setFloorStyle] = useState<FloorStyle>('future');
   const [timeMode, setTimeMode] = useState<TimeMode>('auto');
+  const shouldAnimate = isFocused && appState === 'active' && isActive;
 
   useEffect(() => {
     AsyncStorage.getItem(FLOOR_STORAGE_KEY).then((val) => {
@@ -600,6 +609,11 @@ export function PixelOffice({
     AsyncStorage.getItem(TIME_STORAGE_KEY).then((val) => {
       if (val === 'auto' || val === 'day' || val === 'night') setTimeMode(val);
     });
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', setAppState);
+    return () => sub.remove();
   }, []);
 
   const toggleFloorStyle = useCallback(() => {
@@ -663,6 +677,23 @@ export function PixelOffice({
     () => [sheet0, sheet1, sheet2, sheet3, sheet4, sheet5, sheet6, sheet7],
     [sheet0, sheet1, sheet2, sheet3, sheet4, sheet5, sheet6, sheet7],
   );
+  const avatarSheetsReady = useMemo(
+    () => avatarSheets.slice(0, maxAgents).every(Boolean),
+    [avatarSheets, maxAgents],
+  );
+  const coreAssetsReady = Boolean(
+    bgImage &&
+    fgImage &&
+    laptopFrontClose &&
+    laptopFrontOpen &&
+    laptopBackClose &&
+    laptopBackOpen &&
+    laptopLeftClose &&
+    laptopLeftOpen &&
+    laptopRightClose &&
+    laptopRightOpen &&
+    avatarSheetsReady
+  );
 
   const screenWidth = Dimensions.get('window').width - 16;
   const scale = screenWidth / MAP_W;
@@ -673,7 +704,7 @@ export function PixelOffice({
   const agentsRef = useRef<AgentState[]>([]);
   const claimedPoints = useRef<Set<string>>(new Set());
   const particlesRef = useRef<Particle[]>([]);
-  const [renderTick, setRenderTick] = useState(0);
+  const [sceneTick, setSceneTick] = useState(0);
   const [overlayTick, setOverlayTick] = useState(0);
 
   // Stable key for real agents to detect actual data changes
@@ -912,10 +943,14 @@ export function PixelOffice({
 
   // ── Game loop ──────────────────────────────────────────────────
   useEffect(() => {
+    if (!shouldAnimate) return;
+
     let lastTime = performance.now();
     let frameTick = 0;
     let running = true;
     let particleTimer = 0;
+    let lastSceneCommit = 0;
+    let lastOverlayCommit = 0;
 
     const updateAgents = (dt: number) => {
       const agents = agentsRef.current;
@@ -1071,7 +1106,6 @@ export function PixelOffice({
     // Idle detection: when all agents have arrived and no particles are active,
     // throttle the loop to ~2fps instead of 60fps to free the JS thread.
     let idleFrameCount = 0;
-    let lastOverlayTick = 0;
 
     const loop = () => {
       if (!running) return;
@@ -1153,15 +1187,15 @@ export function PixelOffice({
 
       updateParticles(dt);
 
-      // Canvas render at ~12fps (every 5th frame of ~60fps rAF) — pixel art looks great at low fps
-      if (frameTick % 5 === 0) {
-        setRenderTick(t => t + 1);
-
-        // RN overlays (name tags) update at ~4fps (every 3rd canvas tick)
-        lastOverlayTick++;
-        if (lastOverlayTick % 3 === 0) {
-          setOverlayTick(t => t + 1);
-        }
+      // Time-based commits avoid React state spam from a frame-modulo strategy.
+      // Scene snapshot: ~10fps, overlay snapshot: ~4fps.
+      if (now - lastSceneCommit >= 100) {
+        lastSceneCommit = now;
+        setSceneTick(t => t + 1);
+      }
+      if (now - lastOverlayCommit >= 250) {
+        lastOverlayCommit = now;
+        setOverlayTick(t => t + 1);
       }
 
       requestAnimationFrame(loop);
@@ -1172,7 +1206,7 @@ export function PixelOffice({
     // Periodic state changes — skip when startAtDesks (onboarding/login)
     // to avoid unnecessary pathfinding and keep agents stationary
     let stateInterval: ReturnType<typeof setInterval> | null = null;
-    if (!startAtDesks) {
+    if (!startAtDesks && shouldAnimate) {
       stateInterval = setInterval(() => {
         const agents = agentsRef.current;
         if (agents.length === 0) return;
@@ -1200,7 +1234,7 @@ export function PixelOffice({
       running = false;
       if (stateInterval) clearInterval(stateInterval);
     };
-  }, [setAgentState, forceAgentState, isNight, spawnParticle, startAtDesks]);
+  }, [setAgentState, forceAgentState, isNight, spawnParticle, startAtDesks, shouldAnimate]);
 
   // Apply forced state immediately when it changes
   useEffect(() => {
@@ -1218,7 +1252,7 @@ export function PixelOffice({
     agents.sort((a, b) => a.y - b.y);
     return agents;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderTick]);
+  }, [sceneTick]);
 
   // Snapshot agents for RN overlays — updates at slower rate (~4fps)
   const overlayAgents = useMemo(() => {
@@ -1232,7 +1266,7 @@ export function PixelOffice({
   const particles = useMemo(() => {
     return [...particlesRef.current];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderTick]);
+  }, [sceneTick]);
 
   return (
     <View style={[styles.container, { width: displayW, height: displayH, alignSelf: 'center' }]}>
@@ -1396,8 +1430,15 @@ export function PixelOffice({
       {/* ── Bottom-left label ── */}
       <View style={styles.label}>
         <View style={styles.labelDot} />
-        <Text style={styles.labelText}>Agent HQ — {isNight ? 'Night Shift' : 'Live'}</Text>
+        <Text style={styles.labelText}>Agent HQ — {!shouldAnimate ? 'Paused' : isNight ? 'Night Shift' : 'Live'}</Text>
       </View>
+
+      {!coreAssetsReady && (
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <ActivityIndicator size="small" color="#cbd5e1" />
+          <Text style={styles.loadingText}>Loading Agent HQ...</Text>
+        </View>
+      )}
 
       {/* ── Bottom-right controls ── */}
       {!hideControls && <View style={styles.controls}>
@@ -1460,6 +1501,20 @@ const styles = StyleSheet.create({
     color: '#8b949e',
     fontSize: 9,
     fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10,12,18,0.35)',
+    gap: 8,
+    zIndex: 2100,
+  },
+  loadingText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
   controls: {
