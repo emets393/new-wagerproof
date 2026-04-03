@@ -13,6 +13,7 @@ import { MLBBettingTrendsMatchupCard } from '@/components/mlb/MLBBettingTrendsMa
 import { MLBGameTrendsData, MLBTrendsSortMode } from '@/types/mlbBettingTrends';
 import { BettingTrendsMatchupCardShimmer } from '@/components/BettingTrendsMatchupCardShimmer';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
+import { ToolExplainerBanner } from '@/components/ToolExplainerBanner';
 import { useScroll } from '@/contexts/ScrollContext';
 import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import {
@@ -36,8 +37,7 @@ export default function MLBBettingTrendsScreen() {
   const { scrollY, scrollYClamped } = useScroll();
 
   const HEADER_HEIGHT = 56;
-  const PILLS_HEIGHT = 48;
-  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_HEIGHT + PILLS_HEIGHT;
+  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_HEIGHT;
   const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
 
   const headerTranslate = scrollYClamped.interpolate({
@@ -106,10 +106,8 @@ export default function MLBBettingTrendsScreen() {
             key={pill.mode}
             style={[
               styles.sortPill,
-              isActive && styles.sortPillActive,
               {
-                borderColor: isActive ? WAGERPROOF_GREEN : theme.colors.outlineVariant,
-                backgroundColor: isActive ? 'rgba(0, 230, 118, 0.1)' : 'transparent',
+                backgroundColor: isActive ? WAGERPROOF_GREEN : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
               },
             ]}
             onPress={() => handleSortChange(pill.mode)}
@@ -117,12 +115,12 @@ export default function MLBBettingTrendsScreen() {
             <MaterialCommunityIcons
               name={pill.icon}
               size={16}
-              color={isActive ? WAGERPROOF_GREEN : theme.colors.onSurfaceVariant}
+              color={isActive ? '#000000' : theme.colors.onSurfaceVariant}
             />
             <Text
               style={[
                 styles.sortPillText,
-                { color: isActive ? WAGERPROOF_GREEN : theme.colors.onSurfaceVariant },
+                { color: isActive ? '#000000' : theme.colors.onSurfaceVariant },
               ]}
             >
               {pill.label}
@@ -184,10 +182,7 @@ export default function MLBBettingTrendsScreen() {
             <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
           </TouchableOpacity>
 
-          <View style={styles.titleContainer}>
-            <MaterialCommunityIcons name="chart-line" size={24} color={WAGERPROOF_GREEN} />
-            <Text style={[styles.title, { color: theme.colors.onSurface }]}>MLB Betting Trends</Text>
-          </View>
+          <View style={{ flex: 1 }} />
 
           <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton} disabled={isLoading}>
             {isLoading ? (
@@ -197,8 +192,6 @@ export default function MLBBettingTrendsScreen() {
             )}
           </TouchableOpacity>
         </View>
-
-        {renderSortPills()}
       </AndroidBlurView>
     </Animated.View>
   );
@@ -247,6 +240,23 @@ export default function MLBBettingTrendsScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
         overScrollMode="never"
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 16 }}>
+            <ToolExplainerBanner
+              accentColor="#002D72"
+              title="MLB Betting Trends"
+              titleIcon="baseball"
+              headline="162 games reveal the patterns."
+              description="Situational win % and over/under trends at 60%+ across rest, matchup type, and recent form — edges the daily line doesn't always catch."
+              examples={[
+                { icon: 'baseball-bat', label: 'Yankees ML after a loss', value: '64% (18-10)', valueColor: '#22c55e' },
+                { icon: 'trending-up', label: 'Dodgers Over vs LHP', value: '67% (12-6)', valueColor: '#22c55e' },
+                { icon: 'sleep', label: 'Braves ML on full rest', value: '62% (15-9)', valueColor: '#22c55e' },
+              ]}
+            />
+            {renderSortPills()}
+          </View>
+        }
         ListEmptyComponent={renderEmpty}
       />
     </View>
@@ -303,14 +313,10 @@ const styles = StyleSheet.create({
   sortPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1.5,
     gap: 6,
-  },
-  sortPillActive: {
-    borderWidth: 2,
   },
   sortPillText: {
     fontSize: 13,

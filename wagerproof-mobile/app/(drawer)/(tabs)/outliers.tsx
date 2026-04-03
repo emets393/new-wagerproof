@@ -14,7 +14,9 @@ import { Card } from '@/components/ui/Card';
 import { AlertCardShimmer } from '@/components/AlertCardShimmer';
 import { TeamAvatar, SportType } from '@/components/TeamAvatar';
 import { OutlierMatchupCard } from '@/components/OutlierMatchupCard';
+import { OutlierCardShimmer } from '@/components/OutlierCardShimmer';
 import { OutliersHeroHeader } from '@/components/OutliersHeroHeader';
+import { ToolExplainerBanner } from '@/components/ToolExplainerBanner';
 import {
   getTeamInitials,
   getNBATeamInitials,
@@ -1534,15 +1536,10 @@ export default function OutliersScreen() {
             <Text style={[styles.hubSectionTitle, { color: theme.colors.onSurface }]}>Prediction Market Alerts</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
           </TouchableOpacity>
-          <View style={[styles.hubExplainer, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.06)' : 'rgba(34, 197, 94, 0.06)', borderLeftColor: '#22c55e' }]}>
-            <Text style={[styles.hubExplainerText, { color: theme.colors.onSurfaceVariant }]}>
-              Prediction markets move faster than sportsbooks. When Polymarket consensus diverges from the line, the book may not have adjusted yet — that's your window.
-            </Text>
-          </View>
           {(valueAlertsLoading || gamesLoading) ? (
             <View style={[styles.hubShimmerRow, styles.hubScrollBreakout]}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={[styles.hubShimmerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+              {[0, 1, 2].map(i => (
+                <OutlierCardShimmer key={i} delay={i * 150} />
               ))}
             </View>
           ) : filteredValueAlerts.length > 0 ? (
@@ -1559,6 +1556,7 @@ export default function OutliersScreen() {
                   pickLabel={`${a.side} ${a.marketType}`}
                   pickValue={`${a.percentage.toFixed(0)}% consensus`}
                   accentColor="#22c55e"
+                  loading={loadingGameId === a.gameId}
                   onPress={() => handleGamePress(a.game)}
                 />
               ))}
@@ -1585,15 +1583,10 @@ export default function OutliersScreen() {
             <Text style={[styles.hubSectionTitle, { color: theme.colors.onSurface }]}>Model Fade Alerts</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
           </TouchableOpacity>
-          <View style={[styles.hubExplainer, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.06)' : 'rgba(245, 158, 11, 0.06)', borderLeftColor: '#f59e0b' }]}>
-            <Text style={[styles.hubExplainerText, { color: theme.colors.onSurfaceVariant }]}>
-              When our model is extremely confident, backtesting shows betting the opposite side has been more profitable. These are contrarian opportunities.
-            </Text>
-          </View>
           {(fadeAlertsLoading || gamesLoading) ? (
             <View style={[styles.hubShimmerRow, styles.hubScrollBreakout]}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={[styles.hubShimmerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+              {[0, 1, 2].map(i => (
+                <OutlierCardShimmer key={i} delay={i * 150} />
               ))}
             </View>
           ) : filteredFadeAlerts.length > 0 ? (
@@ -1610,6 +1603,7 @@ export default function OutliersScreen() {
                   pickLabel={`Fade ${a.predictedTeam} ${a.pickType}`}
                   pickValue={`${a.confidence}${a.sport === 'nfl' ? '%' : 'pt'} confidence`}
                   accentColor="#f59e0b"
+                  loading={loadingGameId === a.gameId}
                   onPress={() => handleGamePress(a.game)}
                 />
               ))}
@@ -1636,15 +1630,10 @@ export default function OutliersScreen() {
             <Text style={[styles.hubSectionTitle, { color: theme.colors.onSurface }]}>NBA Betting Trends</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
           </TouchableOpacity>
-          <View style={[styles.hubExplainer, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.06)' : 'rgba(14, 165, 233, 0.06)', borderLeftColor: '#0ea5e9' }]}>
-            <Text style={[styles.hubExplainerText, { color: theme.colors.onSurfaceVariant }]}>
-              Teams covering at {BETTING_TRENDS_THRESHOLD}%+ in specific situations — after wins, as favorites, on rest — patterns the line doesn't always price in.
-            </Text>
-          </View>
           {nbaTrendsLoading ? (
             <View style={[styles.hubShimmerRow, styles.hubScrollBreakout]}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={[styles.hubShimmerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+              {[0, 1, 2].map(i => (
+                <OutlierCardShimmer key={i} delay={i * 150} />
               ))}
             </View>
           ) : nbaTrendOutliers.length > 0 ? (
@@ -1659,9 +1648,12 @@ export default function OutliersScreen() {
                   pickLabel={`${t.candidate.teamName} ${t.candidate.marketType}`}
                   pickValue={`${t.candidate.percentage.toFixed(0)}% (${t.candidate.record})`}
                   accentColor="#0ea5e9"
+                  loading={loadingGameId === String(t.gameId)}
                   onPress={() => {
+                    setLoadingGameId(String(t.gameId));
                     const game = nbaTrendsGames.find((g) => g.gameId === t.gameId);
                     if (game) openNBATrendsSheet(game);
+                    setTimeout(() => setLoadingGameId(null), 500);
                   }}
                 />
               ))}
@@ -1688,15 +1680,10 @@ export default function OutliersScreen() {
             <Text style={[styles.hubSectionTitle, { color: theme.colors.onSurface }]}>NCAAB Betting Trends</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
           </TouchableOpacity>
-          <View style={[styles.hubExplainer, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.06)' : 'rgba(99, 102, 241, 0.06)', borderLeftColor: '#6366f1' }]}>
-            <Text style={[styles.hubExplainerText, { color: theme.colors.onSurfaceVariant }]}>
-              College basketball has more variance — situational trends at {BETTING_TRENDS_THRESHOLD}%+ ATS or O/U win rates can reveal edges the market misses.
-            </Text>
-          </View>
           {ncaabTrendsLoading ? (
             <View style={[styles.hubShimmerRow, styles.hubScrollBreakout]}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={[styles.hubShimmerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+              {[0, 1, 2].map(i => (
+                <OutlierCardShimmer key={i} delay={i * 150} />
               ))}
             </View>
           ) : ncaabTrendOutliers.length > 0 ? (
@@ -1713,9 +1700,12 @@ export default function OutliersScreen() {
                   pickLabel={`${t.candidate.teamName} ${t.candidate.marketType}`}
                   pickValue={`${t.candidate.percentage.toFixed(0)}% (${t.candidate.record})`}
                   accentColor="#6366f1"
+                  loading={loadingGameId === String(t.gameId)}
                   onPress={() => {
+                    setLoadingGameId(String(t.gameId));
                     const game = ncaabTrendsGames.find((g) => g.gameId === t.gameId);
                     if (game) openNCAABTrendsSheet(game);
+                    setTimeout(() => setLoadingGameId(null), 500);
                   }}
                 />
               ))}
@@ -1742,15 +1732,10 @@ export default function OutliersScreen() {
             <Text style={[styles.hubSectionTitle, { color: theme.colors.onSurface }]}>MLB Betting Trends</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
           </TouchableOpacity>
-          <View style={[styles.hubExplainer, { backgroundColor: isDark ? 'rgba(0, 45, 114, 0.06)' : 'rgba(0, 45, 114, 0.06)', borderLeftColor: '#002D72' }]}>
-            <Text style={[styles.hubExplainerText, { color: theme.colors.onSurfaceVariant }]}>
-              Situational win % and over/under trends across rest, matchup type, and recent form — edges the daily line doesn't always catch.
-            </Text>
-          </View>
           {mlbTrendsLoading ? (
             <View style={[styles.hubShimmerRow, styles.hubScrollBreakout]}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={[styles.hubShimmerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+              {[0, 1, 2].map(i => (
+                <OutlierCardShimmer key={i} delay={i * 150} />
               ))}
             </View>
           ) : mlbTrendOutliers.length > 0 ? (
@@ -1783,8 +1768,11 @@ export default function OutliersScreen() {
                     pickLabel={`${t.candidate.teamName} ${t.candidate.marketType}`}
                     pickValue={`${t.candidate.percentage.toFixed(0)}% (${t.candidate.record})`}
                     accentColor="#002D72"
+                    loading={loadingGameId === String(t.gameId)}
                     onPress={() => {
+                      setLoadingGameId(String(t.gameId));
                       if (game) openMLBTrendsSheet(game);
+                      setTimeout(() => setLoadingGameId(null), 500);
                     }}
                   />
                 );
@@ -1812,15 +1800,10 @@ export default function OutliersScreen() {
             <Text style={[styles.hubSectionTitle, { color: theme.colors.onSurface }]}>NBA Model Accuracy</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
           </TouchableOpacity>
-          <View style={[styles.hubExplainer, { backgroundColor: isDark ? 'rgba(20, 184, 166, 0.06)' : 'rgba(20, 184, 166, 0.06)', borderLeftColor: '#14b8a6' }]}>
-            <Text style={[styles.hubExplainerText, { color: theme.colors.onSurfaceVariant }]}>
-              Our model's track record in similar edge situations. High accuracy means reliable signal; low accuracy flags a profitable fade.
-            </Text>
-          </View>
           {nbaAccuracyLoading ? (
             <View style={[styles.hubShimmerRow, styles.hubScrollBreakout]}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={[styles.hubShimmerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+              {[0, 1, 2].map(i => (
+                <OutlierCardShimmer key={i} delay={i * 150} />
               ))}
             </View>
           ) : nbaAccuracyOutliers.length > 0 ? (
@@ -1837,9 +1820,15 @@ export default function OutliersScreen() {
                   pickLabel={`${o.pick} ${o.pickType}`}
                   pickValue={o.isHigh ? `${o.accuracyPct.toFixed(0)}% accurate` : `Only ${o.accuracyPct.toFixed(0)}% — fade`}
                   accentColor={o.isHigh ? '#14b8a6' : '#ef4444'}
+                  loading={loadingGameId === String(o.gameId)}
                   onPress={async () => {
-                    const fullGame = await lookupNBAFullGame(o.gameId);
-                    if (fullGame) openNBASheet(fullGame);
+                    setLoadingGameId(String(o.gameId));
+                    try {
+                      const fullGame = await lookupNBAFullGame(o.gameId);
+                      if (fullGame) openNBASheet(fullGame);
+                    } finally {
+                      setTimeout(() => setLoadingGameId(null), 500);
+                    }
                   }}
                 />
               ))}
@@ -1866,15 +1855,10 @@ export default function OutliersScreen() {
             <Text style={[styles.hubSectionTitle, { color: theme.colors.onSurface }]}>NCAAB Model Accuracy</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
           </TouchableOpacity>
-          <View style={[styles.hubExplainer, { backgroundColor: isDark ? 'rgba(249, 115, 22, 0.06)' : 'rgba(249, 115, 22, 0.06)', borderLeftColor: '#f97316' }]}>
-            <Text style={[styles.hubExplainerText, { color: theme.colors.onSurfaceVariant }]}>
-              College games with extreme model accuracy or inaccuracy — bet with the model or fade it based on historical performance.
-            </Text>
-          </View>
           {ncaabAccuracyLoading ? (
             <View style={[styles.hubShimmerRow, styles.hubScrollBreakout]}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={[styles.hubShimmerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+              {[0, 1, 2].map(i => (
+                <OutlierCardShimmer key={i} delay={i * 150} />
               ))}
             </View>
           ) : ncaabAccuracyOutliers.length > 0 ? (
@@ -1891,9 +1875,15 @@ export default function OutliersScreen() {
                   pickLabel={`${o.pick} ${o.pickType}`}
                   pickValue={o.isHigh ? `${o.accuracyPct.toFixed(0)}% accurate` : `Only ${o.accuracyPct.toFixed(0)}% — fade`}
                   accentColor={o.isHigh ? '#14b8a6' : '#ef4444'}
+                  loading={loadingGameId === String(o.gameId)}
                   onPress={async () => {
-                    const fullGame = await lookupNCAABFullGame(o.gameId);
-                    if (fullGame) openNCAABSheet(fullGame);
+                    setLoadingGameId(String(o.gameId));
+                    try {
+                      const fullGame = await lookupNCAABFullGame(o.gameId);
+                      if (fullGame) openNCAABSheet(fullGame);
+                    } finally {
+                      setTimeout(() => setLoadingGameId(null), 500);
+                    }
                   }}
                 />
               ))}
@@ -1929,28 +1919,7 @@ export default function OutliersScreen() {
                  <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
                </TouchableOpacity>
 
-               <View style={styles.detailTitleContainer}>
-                 <MaterialCommunityIcons
-                   name={
-                     selectedCategory === 'value' ? 'trending-up' :
-                     selectedCategory === 'fade' ? 'lightning-bolt' :
-                     selectedCategory === 'nba-trends' || selectedCategory === 'ncaab-trends' ? 'basketball' :
-                     selectedCategory === 'mlb-trends' ? 'baseball' :
-                     'bullseye-arrow'
-                   }
-                   size={22}
-                   color="#00E676"
-                 />
-                 <Text style={[styles.detailTitle, { color: theme.colors.onSurface }]}>
-                   {selectedCategory === 'value' && 'Prediction Market Alerts'}
-                   {selectedCategory === 'fade' && 'Model Fade Alerts'}
-                   {selectedCategory === 'nba-trends' && 'NBA Betting Trends'}
-                   {selectedCategory === 'ncaab-trends' && 'NCAAB Betting Trends'}
-                   {selectedCategory === 'mlb-trends' && 'MLB Betting Trends'}
-                   {selectedCategory === 'nba-accuracy' && 'NBA Model Accuracy'}
-                   {selectedCategory === 'ncaab-accuracy' && 'NCAAB Model Accuracy'}
-                 </Text>
-               </View>
+               <View style={{ flex: 1 }} />
 
                <TouchableOpacity onPress={onRefresh} style={styles.detailRefreshButton} disabled={refreshing}>
                  {refreshing ? (
@@ -1973,9 +1942,18 @@ export default function OutliersScreen() {
            {/* Value Alerts Detail */}
            {selectedCategory === 'value' && (
              <>
-               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
-                 Markets where prediction market odds show disagreement with lines or strong consensus.
-               </Text>
+               <ToolExplainerBanner
+                 accentColor="#22c55e"
+                 title="Prediction Market Alerts"
+                 titleIcon="trending-up"
+                 headline="Follow the smart money."
+                 description="Prediction markets move faster than sportsbooks. When Polymarket consensus diverges from the line, the book may not have adjusted yet — that's your window."
+                 examples={[
+                   { icon: 'trending-up', label: 'Polymarket has Chiefs ML at 67%', value: 'Book: -150', valueColor: '#22c55e' },
+                   { icon: 'swap-horizontal', label: 'Consensus says Over but line hasn\'t moved', value: '62% Over', valueColor: '#22c55e' },
+                   { icon: 'alert-circle', label: 'Spread divergence: market vs book', value: '+3.5 gap', valueColor: '#f59e0b' },
+                 ]}
+               />
                {renderSportFilter(valueAlerts || [], valueAlertsFilter, setValueAlertsFilter)}
                {valueAlertsLoading || gamesLoading ? (
                  <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={i} />)}</View>
@@ -1999,9 +1977,18 @@ export default function OutliersScreen() {
            {/* Fade Alerts Detail */}
            {selectedCategory === 'fade' && (
              <>
-               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
-                 When our model shows extreme confidence, historical backtesting reveals fading has been more profitable.
-               </Text>
+               <ToolExplainerBanner
+                 accentColor="#f59e0b"
+                 title="Model Fade Alerts"
+                 titleIcon="lightning-bolt"
+                 headline="When confidence backfires."
+                 description="When our model is extremely confident, backtesting shows betting the opposite side has been more profitable. These are contrarian opportunities hiding in plain sight."
+                 examples={[
+                   { icon: 'lightning-bolt', label: 'Model says Bills -7 at 92% confidence', value: 'Fade', valueColor: '#ef4444' },
+                   { icon: 'swap-vertical', label: 'Backtest: fading 90%+ picks hits 61%', value: '61% win', valueColor: '#22c55e' },
+                   { icon: 'gauge-full', label: 'Extreme NBA spread confidence', value: 'Fade', valueColor: '#ef4444' },
+                 ]}
+               />
                {renderSportFilter(fadeAlerts || [], fadeAlertsFilter, setFadeAlertsFilter)}
                {fadeAlertsLoading || gamesLoading ? (
                  <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={i} />)}</View>
@@ -2025,9 +2012,18 @@ export default function OutliersScreen() {
            {/* NBA Trends Detail */}
            {selectedCategory === 'nba-trends' && (
              <>
-               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
-                 Highest ATS and O/U trends at {BETTING_TRENDS_THRESHOLD}%+ win rates.
-               </Text>
+               <ToolExplainerBanner
+                 accentColor="#0ea5e9"
+                 title="NBA Betting Trends"
+                 titleIcon="basketball"
+                 headline="Situations that keep paying off."
+                 description={`Teams covering at ${BETTING_TRENDS_THRESHOLD}%+ in specific situations — after wins, as favorites, on rest — patterns the line doesn't always price in.`}
+                 examples={[
+                   { icon: 'shield-check', label: 'Celtics ATS after a loss', value: '72% (13-5)', valueColor: '#22c55e' },
+                   { icon: 'trending-up', label: 'Lakers Over as home favorite', value: '68% (11-5)', valueColor: '#22c55e' },
+                   { icon: 'sleep', label: 'Nuggets ATS on 2+ days rest', value: '70% (9-4)', valueColor: '#22c55e' },
+                 ]}
+               />
                {nbaTrendsLoading ? (
                  <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={`nba-trends-${i}`} />)}</View>
                ) : nbaTrendOutliers.length > 0 ? (
@@ -2050,9 +2046,18 @@ export default function OutliersScreen() {
            {/* NCAAB Trends Detail */}
            {selectedCategory === 'ncaab-trends' && (
              <>
-               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
-                 Highest ATS and O/U trends at {BETTING_TRENDS_THRESHOLD}%+ win rates.
-               </Text>
+               <ToolExplainerBanner
+                 accentColor="#6366f1"
+                 title="NCAAB Betting Trends"
+                 titleIcon="basketball"
+                 headline="College chaos has patterns."
+                 description={`More variance means bigger edges. Situational trends at ${BETTING_TRENDS_THRESHOLD}%+ ATS or O/U win rates reveal what the market misses in college hoops.`}
+                 examples={[
+                   { icon: 'shield-check', label: 'Duke ATS as home favorite', value: '74% (14-5)', valueColor: '#22c55e' },
+                   { icon: 'trending-up', label: 'Gonzaga Over after a win', value: '69% (9-4)', valueColor: '#22c55e' },
+                   { icon: 'arrow-down', label: 'Kentucky Under as dog', value: '71% (10-4)', valueColor: '#22c55e' },
+                 ]}
+               />
                {ncaabTrendsLoading ? (
                  <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={`ncaab-trends-${i}`} />)}</View>
                ) : ncaabTrendOutliers.length > 0 ? (
@@ -2075,9 +2080,18 @@ export default function OutliersScreen() {
            {/* MLB Trends Detail */}
            {selectedCategory === 'mlb-trends' && (
              <>
-               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
-                 Situational win % and over/under trends at {MLB_BETTING_TRENDS_THRESHOLD}%+ across rest, matchup type, and recent form.
-               </Text>
+               <ToolExplainerBanner
+                 accentColor="#002D72"
+                 title="MLB Betting Trends"
+                 titleIcon="baseball"
+                 headline="162 games reveal the patterns."
+                 description={`Situational win % and over/under trends at ${MLB_BETTING_TRENDS_THRESHOLD}%+ across rest, matchup type, and recent form — edges the daily line doesn't always catch.`}
+                 examples={[
+                   { icon: 'baseball-bat', label: 'Yankees ML after a loss', value: '64% (18-10)', valueColor: '#22c55e' },
+                   { icon: 'trending-up', label: 'Dodgers Over vs LHP', value: '67% (12-6)', valueColor: '#22c55e' },
+                   { icon: 'sleep', label: 'Braves ML on full rest', value: '62% (15-9)', valueColor: '#22c55e' },
+                 ]}
+               />
                {mlbTrendsLoading ? (
                  <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={`mlb-trends-${i}`} />)}</View>
                ) : mlbTrendOutliers.length > 0 ? (
@@ -2100,9 +2114,18 @@ export default function OutliersScreen() {
            {/* NBA Accuracy Detail */}
            {selectedCategory === 'nba-accuracy' && (
              <>
-               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
-                 Spread, ML, and O/U predictions with notable historical accuracy ({'>'}={NBA_ACCURACY_HIGH_THRESHOLD}% or {'<'}={NBA_ACCURACY_LOW_THRESHOLD}%) on {NBA_ACCURACY_MIN_GAMES}+ game samples.
-               </Text>
+               <ToolExplainerBanner
+                 accentColor="#14b8a6"
+                 title="NBA Model Accuracy"
+                 titleIcon="bullseye-arrow"
+                 headline="Know when the model is dialed in."
+                 description={`Our model's track record on similar matchups. High accuracy (${NBA_ACCURACY_HIGH_THRESHOLD}%+) means reliable signal. Low accuracy (${NBA_ACCURACY_LOW_THRESHOLD}%-) flags a profitable fade.`}
+                 examples={[
+                   { icon: 'thumb-up', label: 'Celtics spread pick — 82% accurate', value: 'Trust', valueColor: '#22c55e' },
+                   { icon: 'thumb-down', label: 'Lakers O/U pick — only 38% accurate', value: 'Fade', valueColor: '#ef4444' },
+                   { icon: 'bullseye-arrow', label: 'Nuggets ML pick — 71% accurate', value: 'Trust', valueColor: '#22c55e' },
+                 ]}
+               />
                {nbaAccuracyLoading ? (
                  <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={`nba-acc-${i}`} />)}</View>
                ) : nbaAccuracyOutliers.length > 0 ? (
@@ -2125,9 +2148,18 @@ export default function OutliersScreen() {
            {/* NCAAB Accuracy Detail */}
            {selectedCategory === 'ncaab-accuracy' && (
              <>
-               <Text style={[styles.sectionDescription, { color: theme.colors.onSurfaceVariant, marginBottom: 12 }]}>
-                 Spread and O/U predictions with extreme historical accuracy ({'>'}={NCAAB_ACCURACY_HIGH_THRESHOLD}% or {'<'}={NCAAB_ACCURACY_LOW_THRESHOLD}%) on {NCAAB_ACCURACY_MIN_GAMES}+ game samples.
-               </Text>
+               <ToolExplainerBanner
+                 accentColor="#f97316"
+                 title="NCAAB Model Accuracy"
+                 titleIcon="bullseye-arrow"
+                 headline="The model's college track record."
+                 description={`Games where the model has been extremely accurate (${NCAAB_ACCURACY_HIGH_THRESHOLD}%+) or consistently wrong (${NCAAB_ACCURACY_LOW_THRESHOLD}%-). Both are actionable.`}
+                 examples={[
+                   { icon: 'thumb-up', label: 'Duke spread pick — 79% accurate', value: 'Trust', valueColor: '#22c55e' },
+                   { icon: 'thumb-down', label: 'UNC O/U pick — only 35% accurate', value: 'Fade', valueColor: '#ef4444' },
+                   { icon: 'bullseye-arrow', label: 'Kansas ML pick — 74% accurate', value: 'Trust', valueColor: '#22c55e' },
+                 ]}
+               />
                {ncaabAccuracyLoading ? (
                  <View>{[1, 2, 3].map((i) => <AlertCardShimmer key={`ncaab-acc-${i}`} />)}</View>
                ) : ncaabAccuracyOutliers.length > 0 ? (

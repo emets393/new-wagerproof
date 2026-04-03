@@ -53,6 +53,8 @@ export interface MLBGame {
   ou_moderate_signal: boolean | null;
 
   // First five (F5)
+  f5_home_ml: number | null;
+  f5_away_ml: number | null;
   f5_fair_total: number | null;
   f5_pred_margin: number | null;
   f5_total_line: number | null;

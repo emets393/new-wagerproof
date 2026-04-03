@@ -12,6 +12,7 @@ import { useProAccess } from '@/hooks/useProAccess';
 import { NBAModelAccuracyMatchupCard } from '@/components/nba/ModelAccuracyMatchupCard';
 import { ModelAccuracyCardShimmer } from '@/components/ModelAccuracyCardShimmer';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
+import { ToolExplainerBanner } from '@/components/ToolExplainerBanner';
 import { useScroll } from '@/contexts/ScrollContext';
 import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import { GameAccuracyData, AccuracySortMode } from '@/types/modelAccuracy';
@@ -36,8 +37,7 @@ export default function NBAModelAccuracyScreen() {
   const { scrollY, scrollYClamped } = useScroll();
 
   const HEADER_HEIGHT = 56;
-  const PILLS_HEIGHT = 48;
-  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_HEIGHT + PILLS_HEIGHT;
+  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_HEIGHT;
 
   const headerTranslate = scrollYClamped.interpolate({
     inputRange: [0, TOTAL_HEADER_HEIGHT],
@@ -104,10 +104,8 @@ export default function NBAModelAccuracyScreen() {
             key={pill.mode}
             style={[
               styles.sortPill,
-              isActive && styles.sortPillActive,
               {
-                borderColor: isActive ? WAGERPROOF_GREEN : theme.colors.outlineVariant,
-                backgroundColor: isActive ? 'rgba(0, 230, 118, 0.1)' : 'transparent',
+                backgroundColor: isActive ? WAGERPROOF_GREEN : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
               },
             ]}
             onPress={() => handleSortChange(pill.mode)}
@@ -115,12 +113,12 @@ export default function NBAModelAccuracyScreen() {
             <MaterialCommunityIcons
               name={pill.icon}
               size={16}
-              color={isActive ? WAGERPROOF_GREEN : theme.colors.onSurfaceVariant}
+              color={isActive ? '#000000' : theme.colors.onSurfaceVariant}
             />
             <Text
               style={[
                 styles.sortPillText,
-                { color: isActive ? WAGERPROOF_GREEN : theme.colors.onSurfaceVariant },
+                { color: isActive ? '#000000' : theme.colors.onSurfaceVariant },
               ]}
             >
               {pill.label}
@@ -151,10 +149,7 @@ export default function NBAModelAccuracyScreen() {
             <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
           </TouchableOpacity>
 
-          <View style={styles.titleContainer}>
-            <MaterialCommunityIcons name="bullseye-arrow" size={24} color={WAGERPROOF_GREEN} />
-            <Text style={[styles.title, { color: theme.colors.onSurface }]}>NBA Model Accuracy</Text>
-          </View>
+          <View style={{ flex: 1 }} />
 
           <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton} disabled={isLoading}>
             {isLoading ? (
@@ -164,8 +159,6 @@ export default function NBAModelAccuracyScreen() {
             )}
           </TouchableOpacity>
         </View>
-
-        {renderSortPills()}
       </AndroidBlurView>
     </Animated.View>
   );
@@ -265,6 +258,23 @@ export default function NBAModelAccuracyScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
         overScrollMode="never"
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 16 }}>
+            <ToolExplainerBanner
+              accentColor="#14b8a6"
+              title="NBA Model Accuracy"
+              titleIcon="bullseye-arrow"
+              headline="Know when the model is dialed in."
+              description="Our model's track record on similar matchups. High accuracy means reliable signal. Low accuracy flags a profitable fade."
+              examples={[
+                { icon: 'thumb-up', label: 'Celtics spread pick — 82% accurate', value: 'Trust', valueColor: '#22c55e' },
+                { icon: 'thumb-down', label: 'Lakers O/U pick — only 38% accurate', value: 'Fade', valueColor: '#ef4444' },
+                { icon: 'bullseye-arrow', label: 'Nuggets ML pick — 71% accurate', value: 'Trust', valueColor: '#22c55e' },
+              ]}
+            />
+            {renderSortPills()}
+          </View>
+        }
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderHowToUseTool}
       />
@@ -322,14 +332,10 @@ const styles = StyleSheet.create({
   sortPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1.5,
     gap: 6,
-  },
-  sortPillActive: {
-    borderWidth: 2,
   },
   sortPillText: {
     fontSize: 13,

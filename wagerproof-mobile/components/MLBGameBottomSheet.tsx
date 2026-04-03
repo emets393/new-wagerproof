@@ -77,18 +77,17 @@ export function MLBGameBottomSheet() {
     ? (mlPickSide === 'home' ? game?.home_ml_strong_signal : game?.away_ml_strong_signal)
     : (mlPickSide === 'home' ? game?.f5_home_ml_strong_signal : game?.f5_away_ml_strong_signal);
 
-  // Vegas implied prob (only available for full game since F5 ML odds aren't in DB)
-  const vegasImpliedProb = projView === 'full' && mlPickSide
-    ? (mlPickSide === 'home'
-      ? mlToImpliedProb(game?.home_ml ?? null)
-      : mlToImpliedProb(game?.away_ml ?? null))
-    : null;
+  // Vegas implied prob from moneyline odds (full game or F5)
+  const pickMl = projView === 'full'
+    ? (mlPickSide === 'home' ? game?.home_ml : game?.away_ml) ?? null
+    : (mlPickSide === 'home' ? game?.f5_home_ml : game?.f5_away_ml) ?? null;
+  const vegasImpliedProb = mlPickSide ? mlToImpliedProb(pickMl) : null;
 
   // ML edge: for full game compute client-side from displayed values; for F5 use DB edge
   const mlPickEdgeDb = projView === 'full'
     ? (mlPickSide === 'home' ? game?.home_ml_edge_pct : game?.away_ml_edge_pct)
     : (mlPickSide === 'home' ? game?.f5_home_ml_edge_pct : game?.f5_away_ml_edge_pct);
-  const mlPickEdge = (projView === 'full' && mlPickProb != null && vegasImpliedProb != null)
+  const mlPickEdge = (mlPickProb != null && vegasImpliedProb != null)
     ? (mlPickProb - vegasImpliedProb) * 100
     : mlPickEdgeDb ?? null;
 

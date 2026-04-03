@@ -168,19 +168,47 @@ export async function fetchAgentById(agentId: string): Promise<AgentWithPerforma
 }
 
 /**
- * Create a new agent
+ * Check if a Supabase error is an RLS / permission denial.
+ */
+function isRlsError(error: any): boolean {
+  return (
+    error.code === '42501' ||
+    error.message?.toLowerCase().includes('row-level security') ||
+    error.message?.toLowerCase().includes('permission denied')
+  );
+}
+
+/**
+ * Sync the user's RevenueCat subscription status to the profiles table so
+ * server-side RLS policies see the correct Pro state.
+ */
+async function syncSubscriptionToSupabase(userId: string, isActive: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ subscription_active: isActive })
+    .eq('user_id', userId);
+  if (error) {
+    console.warn('Failed to sync subscription_active to Supabase:', error.message);
+  }
+}
+
+/**
+ * Create a new agent.
+ *
+ * If the insert is blocked by RLS but RevenueCat says the user is Pro,
+ * we sync subscription_active to Supabase and retry once. This prevents
+ * Pro users from being locked out when the DB hasn't seen their entitlement yet.
  */
 export async function createAgent(
   userId: string,
   data: CreateAgentInput
 ): Promise<AgentProfile> {
+  // Lazy-import to avoid circular dependency — revenuecat.ts is a service, not a context
+  const { hasActiveEntitlement } = require('./revenuecat');
+
   try {
-    // Validate input
     const validated = CreateAgentSchema.parse(data);
 
-    // Insert the agent immediately with is_public=false (safe default).
-    // Check entitlement in parallel and update is_public afterwards if needed.
-    // This avoids blocking the UI with a sequential RPC call.
     const insertData = {
       user_id: userId,
       name: validated.name,
@@ -195,10 +223,11 @@ export async function createAgent(
       auto_generate_timezone: validated.auto_generate_timezone,
       is_widget_favorite: validated.is_widget_favorite,
       is_public: false,
-      // Manual-mode agents are created inactive so they do not count as live autopilot agents.
+      // Manual-mode agents are created inactive so they don't count as live autopilot agents.
       is_active: validated.auto_generate,
     };
 
+    // ── First attempt ──
     const { data: agent, error } = await supabase
       .from('avatar_profiles')
       .insert(insertData)
@@ -206,6 +235,7 @@ export async function createAgent(
       .single();
 
     if (error) {
+      // Duplicate name — no retry needed
       if (
         error.code === '23505' ||
         error.message?.toLowerCase().includes('unique_avatar_name_per_user') ||
@@ -213,18 +243,54 @@ export async function createAgent(
       ) {
         throw new Error(`You already have an agent named "${validated.name}". Please choose a different name.`);
       }
-      if (
-        error.code === '42501' ||
-        error.message?.toLowerCase().includes('row-level security') ||
-        error.message?.toLowerCase().includes('permission denied')
-      ) {
-        throw new Error('Agent limit reached. Free: 1 active. Pro: 10 active, 30 total.');
+
+      // RLS blocked the insert — could be a stale subscription_active flag
+      if (isRlsError(error)) {
+        let isPro = false;
+        try {
+          isPro = await hasActiveEntitlement();
+        } catch { /* RevenueCat unavailable — fall through to error */ }
+
+        if (isPro) {
+          // User IS Pro but DB didn't know — sync and retry once
+          console.log('Agent insert blocked by RLS but user has Pro entitlement — syncing and retrying');
+          await syncSubscriptionToSupabase(userId, true);
+
+          const retry = await supabase
+            .from('avatar_profiles')
+            .insert(insertData)
+            .select()
+            .single();
+
+          if (retry.error) {
+            if (isRlsError(retry.error)) {
+              // Still blocked after sync — genuinely at the Pro limit
+              throw new Error('You\'ve reached the Pro agent limit (10 active, 30 total). Archive an agent to create a new one.');
+            }
+            throw retry.error;
+          }
+
+          // Retry succeeded — continue with the created agent
+          const retryAgent = retry.data as AgentProfile;
+          Promise.resolve(supabase.rpc('can_access_agent_picks', { p_user_id: userId }))
+            .then(({ data: canAccess }) => {
+              if (canAccess) {
+                supabase.from('avatar_profiles').update({ is_public: true }).eq('id', retryAgent.id);
+              }
+            })
+            .catch(() => {});
+
+          return retryAgent;
+        }
+
+        // Not Pro — show the free-tier limit message
+        throw new Error('Free users can create 1 active agent. Upgrade to Pro for up to 10 active agents.');
       }
+
       throw error;
     }
 
     // Fire-and-forget: check entitlement and flip is_public if the user qualifies.
-    // This doesn't block the UI — the agent is already created and usable.
     Promise.resolve(supabase.rpc('can_access_agent_picks', { p_user_id: userId }))
       .then(({ data: canAccess }) => {
         if (canAccess) {

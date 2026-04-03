@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
@@ -17,11 +16,13 @@ import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useTopAgentPicksFeed, FeedFilter, FeedPickWithAgent, AgentMeta } from '@/hooks/useTopAgentPicksFeed';
 import { useProAccess } from '@/hooks/useProAccess';
-import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
+import { AgentPickItem, PickCardSkeleton, parseMatchup } from '@/components/agents/AgentPickItem';
 import { LockedOverlay } from '@/components/LockedOverlay';
+import { OutlierMatchupCard } from '@/components/OutlierMatchupCard';
+import { OutlierCardShimmer } from '@/components/OutlierCardShimmer';
 import { formatNetUnits } from '@/types/agent';
 import { useGameLookup } from '@/hooks/useGameLookup';
-
+import { SportType } from '@/components/TeamAvatar';
 
 const FILTERS: { label: string; value: FeedFilter }[] = [
   { label: 'Top', value: 'top10' },
@@ -45,86 +46,26 @@ function getRankDisplay(rank: number | null): { color: string; icon: string | nu
   return { color: '#00E676', icon: null };
 }
 
-interface AgentHeaderProps {
+/** Group picks into agent sections: { agent, picks[] } */
+interface AgentSection {
   agent: AgentMeta;
-  onPress: () => void;
-  isDark: boolean;
+  picks: FeedPickWithAgent[];
 }
 
-const AgentHeader = React.memo(function AgentHeader({ agent, onPress, isDark }: AgentHeaderProps) {
-  const theme = useTheme();
-  const record = `${agent.wins}-${agent.losses}${agent.pushes > 0 ? `-${agent.pushes}` : ''}`;
-  const netUnits = formatNetUnits(agent.net_units);
-  const isPositive = agent.net_units >= 0;
-  const rankStyle = agent.rank ? getRankDisplay(agent.rank) : null;
+function groupPicksByAgent(picks: FeedPickWithAgent[]): AgentSection[] {
+  const sections: AgentSection[] = [];
+  let currentSection: AgentSection | null = null;
 
-  return (
-    <TouchableOpacity
-      style={[
-        styles.agentHeader,
-        {
-          backgroundColor: isDark
-            ? 'rgba(255, 255, 255, 0.03)'
-            : 'rgba(0, 0, 0, 0.02)',
-        },
-      ]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      {/* Rank badge */}
-      {agent.rank != null && (
-        <View style={styles.rankBadge}>
-          {rankStyle?.icon ? (
-            <MaterialCommunityIcons
-              name={rankStyle.icon as any}
-              size={16}
-              color={rankStyle.color}
-            />
-          ) : (
-            <Text style={[styles.rankText, { color: rankStyle?.color || theme.colors.onSurfaceVariant }]}>
-              #{agent.rank}
-            </Text>
-          )}
-        </View>
-      )}
+  for (const pick of picks) {
+    if (!currentSection || currentSection.agent.avatar_id !== pick.agent.avatar_id) {
+      currentSection = { agent: pick.agent, picks: [] };
+      sections.push(currentSection);
+    }
+    currentSection.picks.push(pick);
+  }
 
-      <View
-        style={[
-          styles.agentAvatar,
-          { backgroundColor: `${getPrimaryColor(agent.avatar_color)}25` },
-        ]}
-      >
-        <Text style={styles.agentEmoji}>{agent.avatar_emoji}</Text>
-      </View>
-      <View style={styles.agentNameContainer}>
-        <Text
-          style={[styles.agentName, { color: theme.colors.onSurface }]}
-          numberOfLines={1}
-        >
-          {agent.name}
-        </Text>
-        <View style={styles.agentStatsRow}>
-          <Text style={[styles.agentRecord, { color: theme.colors.onSurfaceVariant }]}>
-            {record}
-          </Text>
-          <Text
-            style={[
-              styles.agentUnits,
-              { color: isPositive ? '#10b981' : '#ef4444' },
-            ]}
-          >
-            {netUnits}
-          </Text>
-        </View>
-      </View>
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={18}
-        color={theme.colors.onSurfaceVariant}
-      />
-    </TouchableOpacity>
-  );
-});
+  return sections;
+}
 
 interface TopAgentPicksFeedProps {
   onScroll?: (event: any) => void;
@@ -146,10 +87,11 @@ export function TopAgentPicksFeed({
   const { openGameForPick } = useGameLookup();
   const [filter, setFilter] = useState<FeedFilter>('top10');
   const [searchText, setSearchText] = useState('');
+  const [loadingPickId, setLoadingPickId] = useState<string | null>(null);
 
   const { picks, isLoading, isRefetching, refetch } = useTopAgentPicksFeed(filter);
 
-  // Filter picks by search text (agent name or team matchup)
+  // Filter picks by search text
   const filteredPicks = useMemo(() => {
     if (!searchText.trim()) return picks;
     const q = searchText.toLowerCase();
@@ -161,45 +103,24 @@ export function TopAgentPicksFeed({
     );
   }, [picks, searchText]);
 
-  // Group consecutive picks by agent for display
-  const groupedItems = useMemo(() => {
-    const items: any[] = [];
-    let lastAgentId: string | null = null;
+  // Group into agent sections
+  const agentSections = useMemo(() => groupPicksByAgent(filteredPicks), [filteredPicks]);
 
-    filteredPicks.forEach((pick, index) => {
-      if (pick.agent.avatar_id !== lastAgentId) {
-        items.push({
-          type: 'header',
-          agent: pick.agent,
-          key: `header-${pick.agent.avatar_id}-${index}`,
-        });
-        lastAgentId = pick.agent.avatar_id;
-      }
-      items.push({
-        type: 'pick',
-        pick,
-        key: pick.id,
-      });
-    });
-
-    return items;
-  }, [filteredPicks]);
-
-  // Pro gating: free users see first N picks, rest locked
-  const visibleItems = useMemo(() => {
-    if (isPro) return groupedItems;
+  // Pro gating: free users see first N picks total
+  const visibleSections = useMemo(() => {
+    if (isPro) return agentSections;
 
     let pickCount = 0;
-    const result: any[] = [];
-    for (const item of groupedItems) {
-      if (item.type === 'pick') {
-        pickCount++;
-        if (pickCount > FREE_PICK_LIMIT) break;
-      }
-      result.push(item);
+    const result: AgentSection[] = [];
+    for (const section of agentSections) {
+      if (pickCount >= FREE_PICK_LIMIT) break;
+      const remaining = FREE_PICK_LIMIT - pickCount;
+      const visiblePicks = section.picks.slice(0, remaining);
+      result.push({ agent: section.agent, picks: visiblePicks });
+      pickCount += visiblePicks.length;
     }
     return result;
-  }, [groupedItems, isPro]);
+  }, [agentSections, isPro]);
 
   const hasLockedPicks = !isPro && filteredPicks.length > FREE_PICK_LIMIT;
 
@@ -211,195 +132,17 @@ export function TopAgentPicksFeed({
     [router],
   );
 
-  const renderItem = useCallback(
-    ({ item }: { item: any }) => {
-      if (item.type === 'header') {
-        return (
-          <AgentHeader
-            agent={item.agent}
-            onPress={() => handleAgentPress(item.agent.avatar_id)}
-            isDark={isDark}
-          />
-        );
-      }
-
-      return (
-        <View style={styles.pickContainer}>
-          <AgentPickItem
-            pick={item.pick}
-            showReasoning="summary"
-            onPress={() => {
-              if (item.pick.game_id) {
-                openGameForPick(item.pick.sport, item.pick.game_id, item.pick);
-              }
-            }}
-          />
-        </View>
-      );
-    },
-    [handleAgentPress, isDark, openGameForPick],
-  );
-
-  const renderHeader = () => (
-    <View>
-      {/* Filter pills */}
-      <View style={styles.filterContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
-          {FILTERS.map((f) => {
-            const isActive = filter === f.value;
-            return (
-              <TouchableOpacity
-                key={f.value}
-                style={[
-                  styles.filterPill,
-                  {
-                    backgroundColor: isActive
-                      ? (isDark ? 'rgba(0, 230, 118, 0.16)' : 'rgba(0, 230, 118, 0.14)')
-                      : (isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)'),
-                    borderColor: isActive
-                      ? 'rgba(0, 230, 118, 0.45)'
-                      : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
-                  },
-                ]}
-                activeOpacity={0.8}
-                onPress={() => setFilter(f.value)}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    { color: isActive ? '#00E676' : theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {f.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Search bar */}
-      <View style={styles.searchContainer}>
-        <View
-          style={[
-            styles.searchBar,
-            {
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
-            },
-          ]}
-        >
-          <MaterialCommunityIcons
-            name="magnify"
-            size={18}
-            color={theme.colors.onSurfaceVariant}
-          />
-          <TextInput
-            style={[styles.searchInput, { color: theme.colors.onSurface }]}
-            placeholder="Search agent or team..."
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            value={searchText}
-            onChangeText={setSearchText}
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchText('')}>
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={16}
-                color={theme.colors.onSurfaceVariant}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderFooter = () => {
-    if (hasLockedPicks) {
-      return (
-        <LockedOverlay
-          message="Unlock all agent picks with Pro"
-          style={styles.lockedOverlay}
-        >
-          <View style={styles.lockedContent}>
-            {[1, 2, 3].map((i) => (
-              <View key={i} style={styles.lockedPickPlaceholder}>
-                <PickCardSkeleton isDark={isDark} />
-              </View>
-            ))}
-          </View>
-        </LockedOverlay>
-      );
-    }
-    return null;
-  };
-
-  const renderEmpty = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.skeletonContainer}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View key={i} style={styles.pickContainer}>
-              <PickCardSkeleton isDark={isDark} />
-            </View>
-          ))}
-        </View>
-      );
-    }
-
-    if (searchText.trim() && picks.length > 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons
-            name="magnify"
-            size={48}
-            color={theme.colors.onSurfaceVariant}
-          />
-          <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-            No picks matching "{searchText}"
-          </Text>
-        </View>
-      );
-    }
-
-    const emptyMessage =
-      filter === 'following'
-        ? "You're not following any agents yet. Visit the Agents tab to discover and follow agents."
-        : filter === 'favorites'
-        ? "No favorited agents yet. Favorite your own agents or followed agents to see them here."
-        : 'No agent picks available for the next few days. Check back later!';
-
-    return (
-      <View style={styles.emptyContainer}>
-        <MaterialCommunityIcons
-          name={filter === 'following' ? 'account-plus-outline' : filter === 'favorites' ? 'star-outline' : 'brain'}
-          size={48}
-          color={theme.colors.onSurfaceVariant}
-        />
-        <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-          {emptyMessage}
-        </Text>
-      </View>
-    );
-  };
+  const emptyMessage =
+    filter === 'following'
+      ? "You're not following any agents yet. Visit the Agents tab to discover and follow agents."
+      : filter === 'favorites'
+      ? "No favorited agents yet. Favorite your own agents or followed agents to see them here."
+      : 'No agent picks available for the next few days. Check back later!';
 
   return (
     <View style={styles.container}>
-      <Animated.FlatList
-        data={visibleItems}
-        renderItem={renderItem}
-        keyExtractor={(item: any) => item.key}
-        ListHeaderComponent={renderHeader}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={renderEmpty}
-        contentContainerStyle={[styles.listContent, contentContainerStyle]}
+      <Animated.ScrollView
+        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={scrollEventThrottle}
@@ -415,7 +158,254 @@ export function TopAgentPicksFeed({
             progressViewOffset={progressViewOffset}
           />
         }
-      />
+      >
+        {/* Filter pills */}
+        <View style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+          >
+            {FILTERS.map((f) => {
+              const isActive = filter === f.value;
+              return (
+                <TouchableOpacity
+                  key={f.value}
+                  style={[
+                    styles.filterPill,
+                    {
+                      backgroundColor: isActive
+                        ? (isDark ? 'rgba(0, 230, 118, 0.16)' : 'rgba(0, 230, 118, 0.14)')
+                        : (isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)'),
+                      borderColor: isActive
+                        ? 'rgba(0, 230, 118, 0.45)'
+                        : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
+                    },
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => setFilter(f.value)}
+                >
+                  <Text
+                    style={[
+                      styles.filterPillText,
+                      { color: isActive ? '#00E676' : theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Search bar */}
+        <View style={styles.searchContainer}>
+          <View
+            style={[
+              styles.searchBar,
+              {
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="magnify"
+              size={18}
+              color={theme.colors.onSurfaceVariant}
+            />
+            <TextInput
+              style={[styles.searchInput, { color: theme.colors.onSurface }]}
+              placeholder="Search agent or team..."
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              value={searchText}
+              onChangeText={setSearchText}
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            {searchText.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchText('')}>
+                <MaterialCommunityIcons
+                  name="close-circle"
+                  size={16}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Loading state — cascading shimmer */}
+        {isLoading && (
+          <View style={styles.skeletonContainer}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={styles.sectionSkeleton}>
+                <View style={[styles.skeletonHeader, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]} />
+                <View style={styles.skeletonCardRow}>
+                  {[0, 1, 2].map((j) => (
+                    <OutlierCardShimmer key={j} delay={i * 400 + j * 150} />
+                  ))}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && filteredPicks.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons
+              name={
+                searchText.trim() && picks.length > 0 ? 'magnify' :
+                filter === 'following' ? 'account-plus-outline' :
+                filter === 'favorites' ? 'star-outline' : 'brain'
+              }
+              size={48}
+              color={theme.colors.onSurfaceVariant}
+            />
+            <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
+              {searchText.trim() && picks.length > 0
+                ? `No picks matching "${searchText}"`
+                : emptyMessage}
+            </Text>
+          </View>
+        )}
+
+        {/* Agent sections — Spotify-style horizontal card rows */}
+        {!isLoading && visibleSections.map((section) => {
+          const { agent } = section;
+          const record = `${agent.wins}-${agent.losses}${agent.pushes > 0 ? `-${agent.pushes}` : ''}`;
+          const netUnits = formatNetUnits(agent.net_units);
+          const isPositive = agent.net_units >= 0;
+          const rankStyle = agent.rank ? getRankDisplay(agent.rank) : null;
+
+          return (
+            <View key={`section-${agent.avatar_id}`} style={styles.agentSection}>
+              {/* Agent header */}
+              <TouchableOpacity
+                style={styles.agentHeader}
+                onPress={() => handleAgentPress(agent.avatar_id)}
+                activeOpacity={0.7}
+              >
+                {/* Rank badge */}
+                {agent.rank != null && (
+                  <View style={styles.rankBadge}>
+                    {rankStyle?.icon ? (
+                      <MaterialCommunityIcons
+                        name={rankStyle.icon as any}
+                        size={16}
+                        color={rankStyle.color}
+                      />
+                    ) : (
+                      <Text style={[styles.rankText, { color: rankStyle?.color || theme.colors.onSurfaceVariant }]}>
+                        #{agent.rank}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                <View
+                  style={[
+                    styles.agentAvatar,
+                    { backgroundColor: `${getPrimaryColor(agent.avatar_color)}25` },
+                  ]}
+                >
+                  <Text style={styles.agentEmoji}>{agent.avatar_emoji}</Text>
+                </View>
+                <View style={styles.agentNameContainer}>
+                  <Text
+                    style={[styles.agentName, { color: theme.colors.onSurface }]}
+                    numberOfLines={1}
+                  >
+                    {agent.name}
+                  </Text>
+                  <View style={styles.agentStatsRow}>
+                    <Text style={[styles.agentRecord, { color: theme.colors.onSurfaceVariant }]}>
+                      {record}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.agentUnits,
+                        { color: isPositive ? '#10b981' : '#ef4444' },
+                      ]}
+                    >
+                      {netUnits}
+                    </Text>
+                  </View>
+                </View>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={18}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              </TouchableOpacity>
+
+              {/* Horizontally scrollable pick cards */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.cardScrollBreakout}
+                contentContainerStyle={styles.cardRow}
+              >
+                {section.picks.slice(0, 4).map((pick) => {
+                  const { away, home } = parseMatchup(pick.matchup);
+                  return (
+                    <OutlierMatchupCard
+                      key={pick.id}
+                      awayTeam={away}
+                      homeTeam={home}
+                      sport={pick.sport as SportType}
+                      pickIcon={
+                        pick.bet_type === 'spread' ? 'numeric' :
+                        pick.bet_type === 'moneyline' ? 'currency-usd' :
+                        pick.bet_type === 'total' ? 'arrow-up-down' :
+                        'cards-outline'
+                      }
+                      betTypeIcon={
+                        pick.bet_type === 'spread' ? 'numeric' :
+                        pick.bet_type === 'moneyline' ? 'currency-usd' :
+                        pick.bet_type === 'total' ? 'arrow-up-down' :
+                        'cards-outline'
+                      }
+                      pickLabel={pick.pick_selection}
+                      pickValue={pick.odds || undefined}
+                      accentColor={getPrimaryColor(agent.avatar_color)}
+                      loading={loadingPickId === pick.id}
+                      onPress={async () => {
+                        if (pick.game_id) {
+                          setLoadingPickId(pick.id);
+                          try {
+                            await openGameForPick(pick.sport, pick.game_id, pick);
+                          } finally {
+                            setTimeout(() => setLoadingPickId(null), 500);
+                          }
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </ScrollView>
+            </View>
+          );
+        })}
+
+        {/* Locked overlay for free users */}
+        {hasLockedPicks && (
+          <LockedOverlay
+            message="Unlock all agent picks with Pro"
+            style={styles.lockedOverlay}
+          >
+            <View style={styles.lockedContent}>
+              {[1, 2, 3].map((i) => (
+                <View key={i} style={styles.lockedPickPlaceholder}>
+                  <PickCardSkeleton isDark={isDark} />
+                </View>
+              ))}
+            </View>
+          </LockedOverlay>
+        )}
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -424,10 +414,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  listContent: {
+  scrollContent: {
+    paddingHorizontal: 16,
     paddingBottom: 16,
   },
   filterContainer: {
+    marginHorizontal: -16,
     paddingHorizontal: 16,
   },
   filterRow: {
@@ -449,8 +441,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   searchBar: {
     flexDirection: 'row',
@@ -466,40 +457,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     paddingVertical: 0,
   },
+  // Agent sections — Spotify-style
+  agentSection: {
+    marginBottom: 24,
+  },
   agentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 6,
-    padding: 10,
-    borderRadius: 10,
-    gap: 8,
+    gap: 10,
+    marginBottom: 12,
+    paddingRight: 4,
   },
   rankBadge: {
-    width: 28,
+    minWidth: 28,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   rankText: {
     fontSize: 12,
     fontWeight: '800',
   },
   agentAvatar: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   agentEmoji: {
-    fontSize: 18,
+    fontSize: 16,
   },
   agentNameContainer: {
     flex: 1,
   },
   agentName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: 1,
   },
@@ -516,17 +509,40 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  pickContainer: {
-    marginHorizontal: 16,
-    marginBottom: 6,
+  // Horizontal card scroll — edge to edge
+  cardScrollBreakout: {
+    marginHorizontal: -16,
   },
+  cardRow: {
+    paddingLeft: 16,
+    paddingRight: 16,
+  },
+  // Loading
   skeletonContainer: {
+    gap: 24,
     paddingTop: 8,
   },
+  sectionSkeleton: {
+    gap: 12,
+  },
+  skeletonHeader: {
+    height: 32,
+    borderRadius: 10,
+    width: '60%',
+  },
+  skeletonCardRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  skeletonCard: {
+    width: 160,
+    height: 160,
+    borderRadius: 14,
+  },
+  // Empty
   emptyContainer: {
     alignItems: 'center',
     padding: 32,
-    marginHorizontal: 16,
     marginTop: 24,
     gap: 12,
   },
@@ -535,8 +551,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  // Locked
   lockedOverlay: {
-    marginHorizontal: 16,
     marginTop: 8,
     minHeight: 200,
   },

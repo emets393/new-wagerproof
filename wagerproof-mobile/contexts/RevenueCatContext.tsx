@@ -24,6 +24,7 @@ import {
   isRevenueCatConfigured,
 } from '../services/revenuecat';
 import { useAuth } from './AuthContext';
+import { supabase } from '../services/supabase';
 import {
   trackSubscriptionStarted,
   trackSubscriptionPurchased,
@@ -156,6 +157,26 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
     if (userId) {
       await persistEntitlementState(userId, nextStatus, nextSubscriptionType);
+
+      // Sync subscription status to Supabase profiles table so RLS policies
+      // (e.g. can_create_agent) see the correct Pro status for this user.
+      const expiresAt = activeEntitlement?.expirationDate ?? null;
+      supabase
+        .from('profiles')
+        .update({
+          subscription_active: hasEntitlement,
+          subscription_status: nextSubscriptionType ?? (hasEntitlement ? 'active' : 'inactive'),
+          subscription_expires_at: expiresAt,
+          revenuecat_customer_id: info.originalAppUserId,
+        })
+        .eq('user_id', userId)
+        .then(({ error: syncError }) => {
+          if (syncError) {
+            console.warn('📱 RevenueCat: Failed to sync subscription to Supabase:', syncError.message);
+          } else {
+            console.log('📱 RevenueCat: Synced subscription_active =', hasEntitlement, 'to Supabase');
+          }
+        });
     }
   }, [persistEntitlementState]);
 

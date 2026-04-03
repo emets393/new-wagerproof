@@ -1,17 +1,17 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeContext } from '@/contexts/ThemeContext';
-import { getNFLTeamColors, getNBATeamColors, getCFBTeamColors } from '@/utils/teamColors';
-import { getMLBTeamColors } from '@/constants/mlbTeams';
+import { getNFLTeamColors, getNBATeamColors, getCFBTeamColors, getNFLTeamLogo, getNBATeamLogo, getCFBTeamLogo } from '@/utils/teamColors';
+import { getMLBTeamColors, getMLBFallbackTeamInfo } from '@/constants/mlbTeams';
 import { TeamAvatar, SportType } from '@/components/TeamAvatar';
 
 const CARD_SIZE = 160;
 const LOGO_SIZE = 64;
 const VS_CIRCLE_SIZE = 34;
-// Logo bg includes padding around the TeamAvatar
 const LOGO_BG_SIZE = LOGO_SIZE + 10;
+const BET_BADGE_SIZE = 30;
 
 interface OutlierMatchupCardProps {
   awayTeam: string;
@@ -30,6 +30,10 @@ interface OutlierMatchupCardProps {
   pickValue?: string;
   /** Accent color for the pick value text */
   accentColor?: string;
+  /** Bet type badge icon shown in bottom-left corner of the card */
+  betTypeIcon?: string;
+  /** Show a loading spinner overlay on the card */
+  loading?: boolean;
   onPress?: () => void;
 }
 
@@ -41,6 +45,31 @@ function getTeamColors(teamName: string, sport: SportType): { primary: string; s
     case 'ncaab': return getCFBTeamColors(teamName);
     case 'mlb': return getMLBTeamColors(teamName);
     default: return { primary: '#6B7280', secondary: '#9CA3AF' };
+  }
+}
+
+/** Resolve a logo URL for the team if none was explicitly provided */
+function resolveLogoUrl(teamName: string, sport: SportType): string | null {
+  switch (sport) {
+    case 'nfl': {
+      const url = getNFLTeamLogo(teamName);
+      return url || null;
+    }
+    case 'nba': {
+      const url = getNBATeamLogo(teamName);
+      return url || null;
+    }
+    case 'cfb':
+    case 'ncaab': {
+      const url = getCFBTeamLogo(teamName);
+      return url || null;
+    }
+    case 'mlb': {
+      const info = getMLBFallbackTeamInfo(teamName);
+      return info?.logo_url || null;
+    }
+    default:
+      return null;
   }
 }
 
@@ -56,14 +85,19 @@ export function OutlierMatchupCard({
   pickLabel,
   pickValue,
   accentColor = '#00E676',
+  betTypeIcon,
+  loading = false,
   onPress,
 }: OutlierMatchupCardProps) {
   const { isDark } = useThemeContext();
   const awayColorsLookup = getTeamColors(awayTeam, sport);
   const homeColorsLookup = getTeamColors(homeTeam, sport);
-  // Use explicit overrides when provided (for MLB where DB names may not match color lookup)
   const awayColors = { ...awayColorsLookup, primary: awayColor || awayColorsLookup.primary };
   const homeColors = { ...homeColorsLookup, primary: homeColor || homeColorsLookup.primary };
+
+  // Resolve logos: use explicit prop first, then sport-specific lookup
+  const resolvedAwayLogo = awayTeamLogo || resolveLogoUrl(awayTeam, sport);
+  const resolvedHomeLogo = homeTeamLogo || resolveLogoUrl(homeTeam, sport);
 
   return (
     <TouchableOpacity
@@ -74,7 +108,6 @@ export function OutlierMatchupCard({
       {/* Square gradient card */}
       <View style={styles.card}>
         <LinearGradient
-          // Diagonal gradient: away team color top-left → home team color bottom-right
           colors={[awayColors.primary, homeColors.primary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -87,7 +120,7 @@ export function OutlierMatchupCard({
                 teamName={awayTeam}
                 sport={sport}
                 size={LOGO_SIZE}
-                logoUrl={awayTeamLogo}
+                logoUrl={resolvedAwayLogo}
               />
             </View>
           </View>
@@ -99,7 +132,7 @@ export function OutlierMatchupCard({
                 teamName={homeTeam}
                 sport={sport}
                 size={LOGO_SIZE}
-                logoUrl={homeTeamLogo}
+                logoUrl={resolvedHomeLogo}
               />
             </View>
           </View>
@@ -110,6 +143,26 @@ export function OutlierMatchupCard({
               <Text style={[styles.vsText, { color: isDark ? '#ffffff' : '#000000' }]}>VS</Text>
             </View>
           </View>
+
+          {/* Bet type badge — bottom-left corner */}
+          {betTypeIcon && (
+            <View style={styles.betBadgeContainer}>
+              <View style={[styles.betBadge, { backgroundColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+                <MaterialCommunityIcons
+                  name={betTypeIcon as any}
+                  size={16}
+                  color={accentColor}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Loading spinner overlay */}
+          {loading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="small" color="#ffffff" />
+            </View>
+          )}
         </LinearGradient>
       </View>
 
@@ -158,7 +211,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   awayLogo: {
-    // Positioned so the logo circle nestles behind the VS circle
     top: (CARD_SIZE / 2) - LOGO_BG_SIZE + 6,
     left: (CARD_SIZE / 2) - LOGO_BG_SIZE + 6,
   },
@@ -181,7 +233,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    // Ensure VS is above both logos
     zIndex: 10,
   },
   vsCircle: {
@@ -190,7 +241,6 @@ const styles = StyleSheet.create({
     borderRadius: VS_CIRCLE_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
-    // Subtle shadow for depth
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -201,6 +251,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  // Bet type badge — bottom-left corner of the card
+  betBadgeContainer: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    zIndex: 15,
+  },
+  betBadge: {
+    width: BET_BADGE_SIZE,
+    height: BET_BADGE_SIZE,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+    borderRadius: 14,
   },
   subtextRow: {
     flexDirection: 'row',

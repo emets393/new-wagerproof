@@ -13,6 +13,7 @@ import { BettingTrendsMatchupCard } from '@/components/nba/BettingTrendsMatchupC
 import { NBAGameTrendsData, TrendsSortMode } from '@/types/nbaBettingTrends';
 import { BettingTrendsMatchupCardShimmer } from '@/components/BettingTrendsMatchupCardShimmer';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
+import { ToolExplainerBanner } from '@/components/ToolExplainerBanner';
 import { useScroll } from '@/contexts/ScrollContext';
 import { NoGamesTerminal } from '@/components/NoGamesTerminal';
 import {
@@ -44,8 +45,7 @@ export default function NBABettingTrendsScreen() {
 
   // Calculate header heights (must match tab bar calculation in _layout.tsx)
   const HEADER_HEIGHT = 56;
-  const PILLS_HEIGHT = 48;
-  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_HEIGHT + PILLS_HEIGHT;
+  const TOTAL_HEADER_HEIGHT = insets.top + HEADER_HEIGHT;
   const TOTAL_COLLAPSIBLE_HEIGHT = TOTAL_HEADER_HEIGHT;
 
   // Header slides up as user scrolls (synced with tab bar)
@@ -117,10 +117,8 @@ export default function NBABettingTrendsScreen() {
             key={pill.mode}
             style={[
               styles.sortPill,
-              isActive && styles.sortPillActive,
-              { 
-                borderColor: isActive ? WAGERPROOF_GREEN : theme.colors.outlineVariant,
-                backgroundColor: isActive ? 'rgba(0, 230, 118, 0.1)' : 'transparent',
+              {
+                backgroundColor: isActive ? WAGERPROOF_GREEN : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
               },
             ]}
             onPress={() => handleSortChange(pill.mode)}
@@ -128,12 +126,12 @@ export default function NBABettingTrendsScreen() {
             <MaterialCommunityIcons
               name={pill.icon}
               size={16}
-              color={isActive ? WAGERPROOF_GREEN : theme.colors.onSurfaceVariant}
+              color={isActive ? '#000000' : theme.colors.onSurfaceVariant}
             />
             <Text
               style={[
                 styles.sortPillText,
-                { color: isActive ? WAGERPROOF_GREEN : theme.colors.onSurfaceVariant },
+                { color: isActive ? '#000000' : theme.colors.onSurfaceVariant },
               ]}
             >
               {pill.label}
@@ -179,16 +177,7 @@ export default function NBABettingTrendsScreen() {
   if (isLoading && games.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
-        {/* Frosted Glass Header */}
-        <Animated.View
-          style={[
-            styles.fixedHeaderContainer,
-            {
-              transform: [{ translateY: headerTranslate }],
-              opacity: headerOpacity,
-            },
-          ]}
-        >
+        <Animated.View style={[styles.fixedHeaderContainer]}>
           <AndroidBlurView
             intensity={80}
             tint={isDark ? 'dark' : 'light'}
@@ -198,12 +187,7 @@ export default function NBABettingTrendsScreen() {
               <TouchableOpacity onPress={handleBack} style={styles.backButton}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
-
-              <View style={styles.titleContainer}>
-                <MaterialCommunityIcons name="chart-line" size={24} color={WAGERPROOF_GREEN} />
-                <Text style={[styles.title, { color: theme.colors.onSurface }]}>NBA Betting Trends</Text>
-              </View>
-
+              <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton} disabled={isLoading}>
                 {isLoading ? (
                   <ActivityIndicator size="small" color={WAGERPROOF_GREEN} />
@@ -212,9 +196,6 @@ export default function NBABettingTrendsScreen() {
                 )}
               </TouchableOpacity>
             </View>
-
-            {/* Sort Pills */}
-            {renderSortPills()}
           </AndroidBlurView>
         </Animated.View>
         <View style={{ paddingTop: TOTAL_HEADER_HEIGHT + 12 }}>
@@ -228,16 +209,7 @@ export default function NBABettingTrendsScreen() {
   if (error && games.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]}>
-        {/* Frosted Glass Header */}
-        <Animated.View
-          style={[
-            styles.fixedHeaderContainer,
-            {
-              transform: [{ translateY: headerTranslate }],
-              opacity: headerOpacity,
-            },
-          ]}
-        >
+        <Animated.View style={[styles.fixedHeaderContainer]}>
           <AndroidBlurView
             intensity={80}
             tint={isDark ? 'dark' : 'light'}
@@ -247,19 +219,11 @@ export default function NBABettingTrendsScreen() {
               <TouchableOpacity onPress={handleBack} style={styles.backButton}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
-
-              <View style={styles.titleContainer}>
-                <MaterialCommunityIcons name="chart-line" size={24} color={WAGERPROOF_GREEN} />
-                <Text style={[styles.title, { color: theme.colors.onSurface }]}>NBA Betting Trends</Text>
-              </View>
-
+              <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton} disabled={isLoading}>
                 <MaterialCommunityIcons name="refresh" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
             </View>
-
-            {/* Sort Pills */}
-            {renderSortPills()}
           </AndroidBlurView>
         </Animated.View>
         <View style={{ paddingTop: TOTAL_HEADER_HEIGHT + 12 }}>
@@ -291,10 +255,7 @@ export default function NBABettingTrendsScreen() {
               <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
             </TouchableOpacity>
 
-            <View style={styles.titleContainer}>
-              <MaterialCommunityIcons name="chart-line" size={24} color={WAGERPROOF_GREEN} />
-              <Text style={[styles.title, { color: theme.colors.onSurface }]}>NBA Betting Trends</Text>
-            </View>
+            <View style={{ flex: 1 }} />
 
             <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton} disabled={isLoading}>
               {isLoading ? (
@@ -304,9 +265,6 @@ export default function NBABettingTrendsScreen() {
               )}
             </TouchableOpacity>
           </View>
-
-          {/* Sort Pills */}
-          {renderSortPills()}
         </AndroidBlurView>
       </Animated.View>
 
@@ -326,6 +284,23 @@ export default function NBABettingTrendsScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
         overScrollMode="never"
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 16 }}>
+            <ToolExplainerBanner
+              accentColor="#0ea5e9"
+              title="NBA Betting Trends"
+              titleIcon="basketball"
+              headline="Situations that keep paying off."
+              description="Teams covering at 65%+ in specific situations — after wins, as favorites, on rest — patterns the line doesn't always price in."
+              examples={[
+                { icon: 'shield-check', label: 'Celtics ATS after a loss', value: '72% (13-5)', valueColor: '#22c55e' },
+                { icon: 'trending-up', label: 'Lakers Over as home favorite', value: '68% (11-5)', valueColor: '#22c55e' },
+                { icon: 'sleep', label: 'Nuggets ATS on 2+ days rest', value: '70% (9-4)', valueColor: '#22c55e' },
+              ]}
+            />
+            {renderSortPills()}
+          </View>
+        }
         ListEmptyComponent={renderEmpty}
       />
     </View>
@@ -382,14 +357,10 @@ const styles = StyleSheet.create({
   sortPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1.5,
     gap: 6,
-  },
-  sortPillActive: {
-    borderWidth: 2,
   },
   sortPillText: {
     fontSize: 13,

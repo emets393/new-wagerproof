@@ -1202,6 +1202,8 @@ export async function fetchMLBPredictions(): Promise<MLBGame[]> {
       ou_fair_total: row.ou_fair_total as number | null,
       ou_strong_signal: row.ou_strong_signal as boolean | null,
       ou_moderate_signal: row.ou_moderate_signal as boolean | null,
+      f5_home_ml: (row.f5_home_ml as number) ?? null,
+      f5_away_ml: (row.f5_away_ml as number) ?? null,
       f5_fair_total: (row.f5_fair_total as number) ?? null,
       f5_pred_margin: (row.f5_pred_margin as number) ?? null,
       f5_total_line: (row.f5_total_line as number) ?? null,
