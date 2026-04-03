@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Platform, ActivityIndicator, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Platform, ActivityIndicator, BackHandler, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -16,8 +16,15 @@ try {
   }
 } catch {}
 
+// Android: RevenueCat's PaywallView is Jetpack Compose-based and requires a
+// LifecycleOwner in the view tree. React Native's <Modal> renders inside a
+// Dialog that doesn't provide one, causing a native crash. We use a full-screen
+// overlay View on Android instead.
+const isAndroid = Platform.OS === 'android';
+
 /**
- * Non-dismissible paywall modal that appears after onboarding completes.
+ * Non-dismissible paywall that appears after onboarding completes.
+ * Uses Modal on iOS, full-screen overlay on Android (Compose view crash workaround).
  * Decoupled from onboarding — if RevenueCat fails, user can skip.
  * Mounts in the root layout.
  */
@@ -61,6 +68,56 @@ export function PostOnboardingPaywall() {
 
   if (!shouldShow) return null;
 
+  const paywallContent = (
+    <View style={isAndroid ? styles.androidOverlay : styles.container}>
+      {isAndroid && <StatusBar backgroundColor="#000" barStyle="light-content" />}
+      {(isLoading || !isInitialized) && !timedOut ? (
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color="#22c55e" />
+          <Text style={styles.loadingText}>Loading subscription options...</Text>
+        </View>
+      ) : !PaywallComponent || !offering ? (
+        <View style={styles.loading}>
+          <MaterialCommunityIcons name="alert-circle" size={48} color="#ef4444" />
+          <Text style={styles.loadingText}>Unable to load subscription options.</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => { setTimedOut(false); refresh(); }}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.retryButton, styles.skipButton]}
+            onPress={handleComplete}
+          >
+            <Text style={[styles.retryText, { color: '#999' }]}>Continue without subscription</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <PaywallComponent
+          options={{ offering }}
+          onPurchaseCompleted={handleComplete}
+          onRestoreCompleted={({ customerInfo }: any) => {
+            if (customerInfo?.entitlements?.active?.['WagerProof Pro']) {
+              handleComplete();
+            }
+          }}
+          onDismiss={() => {
+            // X button in RevenueCat paywall config triggers this — let user through
+            handleComplete();
+          }}
+          style={styles.paywall}
+        />
+      )}
+    </View>
+  );
+
+  // Android: render as full-screen overlay to avoid Modal/Compose crash.
+  // iOS: use Modal for proper presentation and animation.
+  if (isAndroid) {
+    return paywallContent;
+  }
+
   return (
     <Modal
       visible
@@ -68,46 +125,7 @@ export function PostOnboardingPaywall() {
       presentationStyle="fullScreen"
       onRequestClose={() => {}}
     >
-      <View style={styles.container}>
-        {(isLoading || !isInitialized) && !timedOut ? (
-          <View style={styles.loading}>
-            <ActivityIndicator size="large" color="#22c55e" />
-            <Text style={styles.loadingText}>Loading subscription options...</Text>
-          </View>
-        ) : !PaywallComponent || !offering ? (
-          <View style={styles.loading}>
-            <MaterialCommunityIcons name="alert-circle" size={48} color="#ef4444" />
-            <Text style={styles.loadingText}>Unable to load subscription options.</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => { setTimedOut(false); refresh(); }}
-            >
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.retryButton, styles.skipButton]}
-              onPress={handleComplete}
-            >
-              <Text style={[styles.retryText, { color: '#999' }]}>Continue without subscription</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <PaywallComponent
-            options={{ offering }}
-            onPurchaseCompleted={handleComplete}
-            onRestoreCompleted={({ customerInfo }: any) => {
-              if (customerInfo?.entitlements?.active?.['WagerProof Pro']) {
-                handleComplete();
-              }
-            }}
-            onDismiss={() => {
-              // X button in RevenueCat paywall config triggers this — let user through
-              handleComplete();
-            }}
-            style={styles.paywall}
-          />
-        )}
-      </View>
+      {paywallContent}
     </Modal>
   );
 }
@@ -115,6 +133,13 @@ export function PostOnboardingPaywall() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
+  },
+  androidOverlay: {
+    // Full-screen overlay instead of Modal — avoids Compose/LifecycleOwner crash
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 99999,
+    elevation: 99999,
     backgroundColor: '#000',
   },
   paywall: {
