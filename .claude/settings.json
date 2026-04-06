@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "You are a code review agent. A file was just modified. Review the change for: (1) bugs or logic errors, (2) security issues (injection, leaked secrets, broken auth), (3) race conditions or state management issues, (4) deviation from existing patterns in the codebase. Only flag real issues — do not nitpick style or suggest refactors. If the file is outside wagerproof-mobile/, src/, or supabase/, respond with no issues. File and change details: $ARGUMENTS",
+            "model": "claude-sonnet-4-6",
+            "timeout": 30,
+            "statusMessage": "Running code review..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "You are a dependency review agent. A file was just modified. Check: (1) What other files import or depend on this file (downstream)? Are any of them broken by this change? (2) What does this file import (upstream)? Are there any mismatched interfaces, missing exports, or type errors? (3) If a function signature, export, or type changed, list all files that need updating. Only report actual breakage risks — not hypothetical concerns. File and change details: $ARGUMENTS",
+            "model": "claude-sonnet-4-6",
+            "timeout": 30,
+            "statusMessage": "Reviewing dependencies..."
+          }
+        ]
+      }
+    ]
+  }
+}

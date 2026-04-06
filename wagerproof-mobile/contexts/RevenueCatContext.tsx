@@ -22,6 +22,7 @@ import {
   getActiveSubscriptionType,
   getEntitlementPeriodType,
   isRevenueCatConfigured,
+  addCustomerInfoUpdateListener,
 } from '../services/revenuecat';
 import { useAuth } from './AuthContext';
 import { supabase } from '../services/supabase';
@@ -574,6 +575,21 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
     return () => unsubscribe();
   }, [user?.id, isInitialized, refreshCustomerInfo]);
+
+  // Subscribe to real-time CustomerInfo updates from RevenueCat SDK.
+  // This fires on purchases, renewals, expirations, and other lifecycle events
+  // detected natively (StoreKit 2, Play Billing) — more reliable than only
+  // checking on foreground/network recovery.
+  useEffect(() => {
+    if (!user?.id || !isInitialized) return;
+
+    const cleanup = addCustomerInfoUpdateListener(async (info) => {
+      console.log('📱 RevenueCat: CustomerInfoUpdateListener fired');
+      await applyCustomerInfoState(info, 'listener', user.id);
+    });
+
+    return () => cleanup?.();
+  }, [user?.id, isInitialized, applyCustomerInfoState]);
 
   const value: RevenueCatContextType = {
     isInitialized,

@@ -85,30 +85,14 @@ export function useProAccess() {
   }, [customerInfo, isPro]);
 
   /**
-   * Check if subscription is active
+   * Check if subscription is active.
+   * Per RevenueCat best practices: if an entitlement is in .active, it IS
+   * active — RevenueCat handles grace periods, billing retry, etc. Do NOT
+   * manually check dates or willRenew for access gating.
    */
   const isSubscriptionActive = useCallback((): boolean => {
-    if (!customerInfo || !isPro) {
-      return false;
-    }
-
-    const entitlement = customerInfo.entitlements.active['WagerProof Pro'];
-    if (!entitlement) {
-      return false;
-    }
-
-    // Lifetime purchase
-    if (entitlement.willRenew === false && entitlement.periodType === 'NORMAL') {
-      return true;
-    }
-
-    // Check expiration date
-    if (entitlement.expirationDate) {
-      return new Date(entitlement.expirationDate) > new Date();
-    }
-
-    return entitlement.willRenew === true;
-  }, [customerInfo, isPro]);
+    return isPro;
+  }, [isPro]);
 
   return {
     isPro,

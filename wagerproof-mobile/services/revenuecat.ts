@@ -754,23 +754,40 @@ export function getEntitlementPeriodType(customerInfo: any): string | null {
 }
 
 /**
- * Check if subscription is active and not expired
+ * Check if subscription is active.
+ * Per RevenueCat best practices: if an entitlement exists in .active, it IS
+ * active. RevenueCat already handles grace periods, billing retry, and
+ * platform-specific behaviors before populating .active. Do NOT manually
+ * check expiration dates or willRenew for access gating.
  */
 export function isSubscriptionActive(customerInfo: any): boolean {
-  const entitlement = customerInfo.entitlements.active[ENTITLEMENT_IDENTIFIER];
-  if (!entitlement) {
-    return false;
-  }
+  return customerInfo?.entitlements?.active?.[ENTITLEMENT_IDENTIFIER] !== undefined;
+}
 
-  // Check if it's a lifetime purchase (no expiration)
-  if (entitlement.willRenew === false && entitlement.periodType === 'NORMAL') {
-    return true; // Lifetime purchase
-  }
+/**
+ * Register a listener for real-time CustomerInfo updates from RevenueCat.
+ * Fires on purchases, renewals, expirations, and other subscription lifecycle
+ * events detected by the SDK (StoreKit 2 listener, server-side changes, etc.).
+ * Returns a cleanup function to remove the listener.
+ */
+export function addCustomerInfoUpdateListener(
+  listener: (customerInfo: any) => void
+): (() => void) | null {
+  const PurchasesModule = getPurchasesModule();
+  if (!PurchasesModule) return null;
 
-  // Check expiration date for subscriptions
-  if (entitlement.expirationDate) {
-    return new Date(entitlement.expirationDate) > new Date();
+  try {
+    PurchasesModule.addCustomerInfoUpdateListener(listener);
+    // RevenueCat SDK doesn't return an unsubscribe function from
+    // addCustomerInfoUpdateListener, but removeCustomerInfoUpdateListener
+    // exists on some SDK versions. For safety, return a no-op cleanup.
+    return () => {
+      try {
+        PurchasesModule.removeCustomerInfoUpdateListener?.(listener);
+      } catch {}
+    };
+  } catch (err) {
+    console.warn('Failed to add CustomerInfoUpdateListener:', err);
+    return null;
   }
-
-  return entitlement.willRenew === true;
 }
