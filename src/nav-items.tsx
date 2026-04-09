@@ -173,6 +173,11 @@ export const navItems: NavItem[] = [
         to: "/mlb/historical-analysis",
         icon: <BarChart className="h-4 w-4" />,
       },
+      {
+        title: "Regression Report",
+        to: "/mlb/daily-regression-report",
+        icon: <TrendingUp className="h-4 w-4" />,
+      },
     ],
   },
   {
