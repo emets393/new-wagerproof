@@ -1,6 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import { WagerBotVoiceService, WagerBotVoice } from '@/services/wagerBotVoiceService';
+import {
+  WagerBotVoiceService,
+  WagerBotVoice,
+  WagerBotPersonality,
+} from '@/services/wagerBotVoiceService';
+
+const VOICE_STORAGE_KEY = '@wagerbot_voice';
+const PERSONALITY_STORAGE_KEY = '@wagerbot_personality';
 
 export function useWagerBotVoice(gameContext?: string) {
   const [isConnecting, setIsConnecting] = useState(true);
@@ -9,6 +17,7 @@ export function useWagerBotVoice(gameContext?: string) {
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<WagerBotVoice>('marin');
+  const [selectedPersonality, setSelectedPersonality] = useState<WagerBotPersonality>('friendly');
   const [lastError, setLastError] = useState<string | null>(null);
   const [connectedAt, setConnectedAt] = useState<Date | null>(null);
   const [promptSource, setPromptSource] = useState<'supabase' | 'fallback' | null>(null);
@@ -17,6 +26,22 @@ export function useWagerBotVoice(gameContext?: string) {
   const serviceRef = useRef(WagerBotVoiceService.getInstance());
   const gameContextRef = useRef(gameContext);
   gameContextRef.current = gameContext;
+  const prefsLoadedRef = useRef(false);
+
+  // Load persisted preferences on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const [storedVoice, storedPersonality] = await Promise.all([
+          AsyncStorage.getItem(VOICE_STORAGE_KEY),
+          AsyncStorage.getItem(PERSONALITY_STORAGE_KEY),
+        ]);
+        if (storedVoice) setSelectedVoice(WagerBotVoiceService.normalizeVoice(storedVoice));
+        if (storedPersonality) setSelectedPersonality(WagerBotVoiceService.normalizePersonality(storedPersonality));
+      } catch {}
+      prefsLoadedRef.current = true;
+    })();
+  }, []);
 
   const setupCallbacks = useCallback(() => {
     const service = serviceRef.current;
@@ -85,15 +110,20 @@ export function useWagerBotVoice(gameContext?: string) {
     setIsConnected(false);
     setLastError(null);
     setConnectedAt(null);
-    await serviceRef.current.initialize(selectedVoice, gameContextRef.current);
-  }, [selectedVoice]);
+    await serviceRef.current.initialize(selectedVoice, selectedPersonality, gameContextRef.current);
+  }, [selectedVoice, selectedPersonality]);
 
-  // Initialize on mount
+  // Initialize on mount (wait for prefs to load)
   useEffect(() => {
     setupCallbacks();
-    connect();
+
+    // Small delay to let persisted preferences load before first connect
+    const timeout = setTimeout(() => {
+      connect();
+    }, 100);
 
     return () => {
+      clearTimeout(timeout);
       serviceRef.current.clearCallbacks();
       serviceRef.current.disconnect();
     };
@@ -125,8 +155,26 @@ export function useWagerBotVoice(gameContext?: string) {
     setIsConnecting(true);
     setLastError(null);
 
+    // Persist preference
+    AsyncStorage.setItem(VOICE_STORAGE_KEY, normalized).catch(() => {});
+
     await serviceRef.current.updateVoice(normalized, gameContextRef.current);
   }, [selectedVoice, isConnected]);
+
+  const changePersonality = useCallback(async (personality: WagerBotPersonality) => {
+    const normalized = WagerBotVoiceService.normalizePersonality(personality);
+    if (normalized === selectedPersonality && isConnected) return;
+
+    Haptics.selectionAsync();
+    setSelectedPersonality(normalized);
+    setIsConnecting(true);
+    setLastError(null);
+
+    // Persist preference
+    AsyncStorage.setItem(PERSONALITY_STORAGE_KEY, normalized).catch(() => {});
+
+    await serviceRef.current.updatePersonality(normalized, gameContextRef.current);
+  }, [selectedPersonality, isConnected]);
 
   return {
     isConnecting,
@@ -135,6 +183,7 @@ export function useWagerBotVoice(gameContext?: string) {
     isWaitingForResponse,
     isSpeaking,
     selectedVoice,
+    selectedPersonality,
     lastError,
     connectedAt,
     promptSource,
@@ -144,5 +193,6 @@ export function useWagerBotVoice(gameContext?: string) {
     stopTalking,
     hangUp,
     changeVoice,
+    changePersonality,
   };
 }

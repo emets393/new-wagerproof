@@ -27,6 +27,21 @@ import {
   presentPaywallForPlacementIfNeeded,
 } from '@/services/revenuecat';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import type { WagerBotVoice } from '@/services/wagerBotVoiceService';
+
+// Per-voice Lottie character animations — same 3 Monster files from Honeydew
+const VOICE_LOTTIE_MAP: Record<string, any> = {
+  marin: require('@/assets/VoiceMonster_Marin.json'),
+  cedar: require('@/assets/VoiceMonster_Cedar.json'),
+  ash: require('@/assets/VoiceMonster_Ash.json'),
+};
+
+// Fallback for voices without a dedicated character
+const DEFAULT_LOTTIE = require('@/assets/ChattingRobot.json');
+
+function getLottieSource(voice: WagerBotVoice) {
+  return VOICE_LOTTIE_MAP[voice] || DEFAULT_LOTTIE;
+}
 
 function formatDuration(connectedAt: Date | null): string {
   if (!connectedAt) return '00:00';
@@ -55,6 +70,7 @@ export default function VoiceChatScreen() {
     isWaitingForResponse,
     isSpeaking,
     selectedVoice,
+    selectedPersonality,
     lastError,
     connectedAt,
     promptSource,
@@ -64,6 +80,7 @@ export default function VoiceChatScreen() {
     stopTalking,
     hangUp,
     changeVoice,
+    changePersonality,
   } = useWagerBotVoice(gameContext);
 
   // Animation controllers
@@ -176,9 +193,13 @@ export default function VoiceChatScreen() {
     return 'rgba(255,255,255,0.4)';
   })();
 
+  // Spicy mode uses red accent instead of green
+  const isSpicy = selectedPersonality === 'spicy';
+  const accentColor = isSpicy ? '#ef4444' : '#22c55e';
+
   const orbBorderColor = orbGlowAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['rgba(255,255,255,0.15)', '#22c55e'],
+    outputRange: ['rgba(255,255,255,0.15)', accentColor],
   });
 
   const orbShadowOpacity = orbGlowAnim.interpolate({
@@ -248,6 +269,13 @@ export default function VoiceChatScreen() {
 
   const holdDisabled = !isConnected || isConnecting;
 
+  // Voice name mapping for display
+  const voiceDisplayNames: Record<string, string> = {
+    marin: 'Donna',
+    cedar: 'Kevin',
+    ash: 'Jordan',
+  };
+
   return (
     <LinearGradient
       colors={['#0a0a0a', '#0d1117', '#0a0a0a']}
@@ -278,6 +306,20 @@ export default function VoiceChatScreen() {
           <View style={[styles.statusDot, { backgroundColor: statusDotColor }]} />
           <Text style={styles.statusText}>{statusText}</Text>
         </View>
+        {isSpicy && (
+          <View
+            style={[
+              styles.statusPill,
+              {
+                backgroundColor: 'rgba(239,68,68,0.12)',
+                borderColor: 'rgba(239,68,68,0.3)',
+              },
+            ]}
+          >
+            <MaterialCommunityIcons name="fire" size={12} color="#ef4444" />
+            <Text style={[styles.statusText, { color: '#ef4444' }]}>Spicy</Text>
+          </View>
+        )}
         {promptSource && (
           <TouchableOpacity
             onPress={() => Alert.alert(
@@ -306,11 +348,14 @@ export default function VoiceChatScreen() {
 
       {/* Title */}
       <Text style={styles.title}>WagerBot</Text>
+      <Text style={styles.voiceLabel}>
+        {voiceDisplayNames[selectedVoice] || selectedVoice}
+      </Text>
       {isLoadingContext && (
         <Text style={styles.contextLoading}>Loading game data...</Text>
       )}
 
-      {/* Center orb */}
+      {/* Center orb — Lottie character changes per voice */}
       <View style={styles.orbContainer}>
         <Animated.View
           style={[
@@ -324,18 +369,20 @@ export default function VoiceChatScreen() {
               {
                 borderColor: orbBorderColor,
                 borderWidth: orbBorderWidth,
-                shadowColor: '#22c55e',
+                shadowColor: accentColor,
                 shadowOpacity: orbShadowOpacity,
                 shadowRadius: 30,
               },
             ]}
           >
-            <LottieView
-              source={require('@/assets/ChattingRobot.json')}
-              autoPlay
-              loop
-              style={styles.lottie}
-            />
+            <View style={styles.lottieClip}>
+              <LottieView
+                source={getLottieSource(selectedVoice)}
+                autoPlay
+                loop
+                style={styles.lottie}
+              />
+            </View>
           </Animated.View>
         </Animated.View>
       </View>
@@ -354,8 +401,9 @@ export default function VoiceChatScreen() {
         <TouchableOpacity
           style={[
             styles.holdButton,
+            { backgroundColor: accentColor },
             holdDisabled && styles.holdButtonDisabled,
-            isListening && styles.holdButtonActive,
+            isListening && { backgroundColor: `${accentColor}d9` },
           ]}
           onPressIn={holdDisabled ? undefined : handleHoldStart}
           onPressOut={holdDisabled ? undefined : handleHoldEnd}
@@ -390,11 +438,13 @@ export default function VoiceChatScreen() {
         </View>
       </View>
 
-      {/* Voice Settings */}
+      {/* Voice & Personality Settings */}
       <VoiceSettingsSheet
         visible={showVoiceSettings}
         selectedVoice={selectedVoice}
+        selectedPersonality={selectedPersonality}
         onVoiceChanged={changeVoice}
+        onPersonalityChanged={changePersonality}
         onClose={() => setShowVoiceSettings(false)}
       />
     </LinearGradient>
@@ -436,6 +486,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 8,
+    flexWrap: 'wrap',
   },
   statusPill: {
     flexDirection: 'row',
@@ -465,6 +516,13 @@ const styles = StyleSheet.create({
     marginTop: 14,
     letterSpacing: -0.5,
   },
+  voiceLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
+    marginTop: 4,
+  },
   contextLoading: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.4)',
@@ -489,10 +547,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowOffset: { width: 0, height: 0 },
     elevation: 12,
+    overflow: 'hidden',
+  },
+  // Clip the Lottie to a circle matching Honeydew's oval clip (orbSize * 0.82)
+  lottieClip: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   lottie: {
-    width: 120,
-    height: 120,
+    width: 180,
+    height: 180,
   },
   errorCard: {
     flexDirection: 'row',
@@ -533,9 +601,6 @@ const styles = StyleSheet.create({
   holdButtonDisabled: {
     backgroundColor: 'rgba(255,255,255,0.15)',
     shadowOpacity: 0,
-  },
-  holdButtonActive: {
-    backgroundColor: 'rgba(34,197,94,0.85)',
   },
   holdButtonText: {
     fontSize: 16,

@@ -7,9 +7,11 @@ import {
 import { supabase } from './supabase';
 
 export type WagerBotVoice = 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'marin' | 'cedar';
+export type WagerBotPersonality = 'friendly' | 'spicy';
 
 const SUPPORTED_VOICES: WagerBotVoice[] = ['ash', 'ballad', 'coral', 'sage', 'verse', 'marin', 'cedar'];
 const DEFAULT_VOICE: WagerBotVoice = 'marin';
+const DEFAULT_PERSONALITY: WagerBotPersonality = 'friendly';
 
 type VoidCallback = () => void;
 type ErrorCallback = (error: string) => void;
@@ -18,7 +20,8 @@ type ErrorCallback = (error: string) => void;
  * OpenAI Realtime voice service for WagerBot.
  *
  * Audio-first, push-to-talk using a persistent WebRTC session.
- * Modeled after Honeydew's RoastChefService.
+ * Modeled after Honeydew's RoastChefService — supports voice selection
+ * and personality modes (friendly/spicy).
  */
 export class WagerBotVoiceService {
   private static instance: WagerBotVoiceService;
@@ -36,6 +39,7 @@ export class WagerBotVoiceService {
   private _dataChannelOpen = false;
 
   private _voice: WagerBotVoice = DEFAULT_VOICE;
+  private _personality: WagerBotPersonality = DEFAULT_PERSONALITY;
   private _model = 'gpt-realtime';
   private _promptSource: 'supabase' | 'fallback' | null = null;
   private _promptText: string | null = null;
@@ -63,12 +67,17 @@ export class WagerBotVoiceService {
   get isWaitingForResponse() { return this._isWaitingForResponse; }
   get isSpeaking() { return this._isSpeaking; }
   get currentVoice() { return this._voice; }
+  get currentPersonality() { return this._personality; }
   get promptSource() { return this._promptSource; }
   get promptText() { return this._promptText; }
 
   static normalizeVoice(voice?: string): WagerBotVoice {
     const v = voice?.toLowerCase().trim() as WagerBotVoice;
     return SUPPORTED_VOICES.includes(v) ? v : DEFAULT_VOICE;
+  }
+
+  static normalizePersonality(personality?: string): WagerBotPersonality {
+    return personality === 'spicy' ? 'spicy' : 'friendly';
   }
 
   clearCallbacks() {
@@ -84,11 +93,13 @@ export class WagerBotVoiceService {
 
   async initialize(
     voice: WagerBotVoice = DEFAULT_VOICE,
+    personality: WagerBotPersonality = DEFAULT_PERSONALITY,
     gameContext?: string,
   ) {
     if (this._isConnecting) return;
 
     this._voice = WagerBotVoiceService.normalizeVoice(voice);
+    this._personality = WagerBotVoiceService.normalizePersonality(personality);
     this._isConnecting = true;
 
     try {
@@ -167,15 +178,27 @@ export class WagerBotVoiceService {
     }
   }
 
-  async reconnect(voice?: WagerBotVoice, gameContext?: string) {
-    await this.initialize(voice || this._voice, gameContext);
+  async reconnect(voice?: WagerBotVoice, personality?: WagerBotPersonality, gameContext?: string) {
+    await this.initialize(
+      voice || this._voice,
+      personality || this._personality,
+      gameContext,
+    );
   }
 
   async updateVoice(voice: WagerBotVoice, gameContext?: string) {
     const normalized = WagerBotVoiceService.normalizeVoice(voice);
     if (normalized === this._voice && this.isConnected) return;
     this._voice = normalized;
-    await this.reconnect(normalized, gameContext);
+    await this.reconnect(normalized, this._personality, gameContext);
+  }
+
+  async updatePersonality(personality: WagerBotPersonality, gameContext?: string) {
+    const normalized = WagerBotVoiceService.normalizePersonality(personality);
+    if (normalized === this._personality && this.isConnected) return;
+    this._personality = normalized;
+    // Personality changes the system prompt, so we must reconnect
+    await this.reconnect(this._voice, normalized, gameContext);
   }
 
   async startListening() {
@@ -246,6 +269,7 @@ export class WagerBotVoiceService {
       {
         body: {
           voice: this._voice,
+          rudeness: this._personality,
           gameContext: gameContext || '',
         },
       },
@@ -254,7 +278,14 @@ export class WagerBotVoiceService {
     if (error) throw new Error(`Session creation failed: ${error.message}`);
     if (!data?.clientSecret) throw new Error('No client secret in response');
 
-    return data as { clientSecret: string; model: string; voice: string; promptSource?: 'supabase' | 'fallback'; promptText?: string };
+    return data as {
+      clientSecret: string;
+      model: string;
+      voice: string;
+      rudeness?: string;
+      promptSource?: 'supabase' | 'fallback';
+      promptText?: string;
+    };
   }
 
   private wirePeerConnection() {

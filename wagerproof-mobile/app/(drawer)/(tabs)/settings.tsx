@@ -462,6 +462,18 @@ export default function SettingsScreen() {
             )}
           </SectionCard>
 
+          <SectionCard title="More Goodies">
+            <ActionRow
+              icon="microphone-message"
+              iconColor="#22c55e"
+              iconBackground="#e9faf0"
+              title="WagerBot Voice"
+              subtitle="Talk to WagerBot — real-time voice analysis"
+              onPress={() => router.push('/(drawer)/(tabs)/voice-chat')}
+              last
+            />
+          </SectionCard>
+
           <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/(modals)/discord')}>
             <LinearGradient
               colors={isDark ? ['#5865f2', '#6573ff', '#7c88ff'] : ['#5b67f3', '#6f7cff', '#8d96ff']}

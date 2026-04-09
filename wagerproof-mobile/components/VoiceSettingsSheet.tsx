@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,12 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import type { WagerBotVoice } from '@/services/wagerBotVoiceService';
+import type { WagerBotVoice, WagerBotPersonality } from '@/services/wagerBotVoiceService';
 
 interface VoiceOption {
   value: WagerBotVoice;
@@ -19,30 +20,109 @@ interface VoiceOption {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 }
 
+// Primary voices that map to the 3 Monster Lottie characters (matches Honeydew)
 const VOICE_OPTIONS: VoiceOption[] = [
-  { value: 'marin', label: 'Marin', subtitle: 'Sharp and unfiltered', icon: 'microphone' },
-  { value: 'cedar', label: 'Cedar', subtitle: 'Deep and savage', icon: 'microphone-variant' },
-  { value: 'ash', label: 'Ash', subtitle: 'Balanced and clear', icon: 'account-voice' },
-  { value: 'ballad', label: 'Ballad', subtitle: 'Warm and expressive', icon: 'microphone-variant' },
-  { value: 'coral', label: 'Coral', subtitle: 'Bright and energetic', icon: 'microphone' },
-  { value: 'sage', label: 'Sage', subtitle: 'Calm and thoughtful', icon: 'account-voice' },
-  { value: 'verse', label: 'Verse', subtitle: 'Dynamic and confident', icon: 'microphone-variant' },
+  { value: 'marin', label: 'Donna', subtitle: 'Female voice', icon: 'microphone' },
+  { value: 'cedar', label: 'Kevin', subtitle: 'Male voice', icon: 'microphone-variant' },
+  { value: 'ash', label: 'Jordan', subtitle: 'British voice', icon: 'account-voice' },
+];
+
+interface PersonalityOption {
+  value: WagerBotPersonality;
+  label: string;
+  subtitle: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+}
+
+const PERSONALITY_OPTIONS: PersonalityOption[] = [
+  {
+    value: 'friendly',
+    label: 'Friendly',
+    subtitle: 'Warm, helpful, family-safe',
+    icon: 'emoticon-happy-outline',
+  },
+  {
+    value: 'spicy',
+    label: 'Spicy',
+    subtitle: 'Full roast with profanity (adults only)',
+    icon: 'fire',
+  },
 ];
 
 interface VoiceSettingsSheetProps {
   visible: boolean;
   selectedVoice: WagerBotVoice;
+  selectedPersonality: WagerBotPersonality;
   onVoiceChanged: (voice: WagerBotVoice) => void;
+  onPersonalityChanged: (personality: WagerBotPersonality) => void;
   onClose: () => void;
+}
+
+/**
+ * Multi-step spicy mode confirmation — mirrors Honeydew's exact 3-step warning flow.
+ * Returns true if user confirmed through all steps.
+ */
+function confirmSpicyMode(): Promise<boolean> {
+  return new Promise((resolve) => {
+    // Step 1 — Subtle warning
+    Alert.alert(
+      'Turn on Spicy Mode?',
+      "Just a heads up — Spicy Mode is meant for novelty and a good laugh. WagerBot's personality gets a little... extra.",
+      [
+        { text: 'Never mind', style: 'cancel', onPress: () => resolve(false) },
+        {
+          text: "I'm curious",
+          onPress: () => {
+            // Step 2 — Serious warning
+            Alert.alert(
+              'Are you sure?',
+              "This is going to be R-rated. WagerBot will be really rude, really mean, and will use explicit profanity. It's definitely not for kids.",
+              [
+                { text: 'Take me back', style: 'cancel', onPress: () => resolve(false) },
+                {
+                  text: 'I can handle it',
+                  onPress: () => {
+                    // Step 3 — Final confirmation
+                    Alert.alert(
+                      'Last chance!',
+                      "Okay, we warned you. We're about to turn on the full roast — uncensored, unfiltered, and absolutely savage. No take-backs.",
+                      [
+                        { text: 'Actually, no', style: 'cancel', onPress: () => resolve(false) },
+                        {
+                          text: 'Turn it on',
+                          style: 'destructive',
+                          onPress: () => resolve(true),
+                        },
+                      ]
+                    );
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  });
 }
 
 export function VoiceSettingsSheet({
   visible,
   selectedVoice,
+  selectedPersonality,
   onVoiceChanged,
+  onPersonalityChanged,
   onClose,
 }: VoiceSettingsSheetProps) {
   const insets = useSafeAreaInsets();
+
+  const handlePersonalityPress = async (personality: WagerBotPersonality) => {
+    if (personality === 'spicy' && selectedPersonality !== 'spicy') {
+      const confirmed = await confirmSpicyMode();
+      if (!confirmed) return;
+    }
+    onPersonalityChanged(personality);
+  };
 
   return (
     <Modal
@@ -77,7 +157,6 @@ export function VoiceSettingsSheet({
                   ]}
                   onPress={() => {
                     onVoiceChanged(option.value);
-                    onClose();
                   }}
                   activeOpacity={0.7}
                 >
@@ -102,6 +181,49 @@ export function VoiceSettingsSheet({
                       name="check-circle"
                       size={24}
                       color="#22c55e"
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Personality section */}
+            <Text style={[styles.sectionLabel, { marginTop: 20 }]}>PERSONALITY</Text>
+
+            {PERSONALITY_OPTIONS.map((option) => {
+              const isSelected = selectedPersonality === option.value;
+              const isSpicy = option.value === 'spicy';
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.optionTile,
+                    isSelected && (isSpicy ? styles.optionTileSpicy : styles.optionTileSelected),
+                  ]}
+                  onPress={() => handlePersonalityPress(option.value)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.optionIcon,
+                      isSelected && (isSpicy ? styles.optionIconSpicy : styles.optionIconSelected),
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={option.icon}
+                      size={22}
+                      color={isSelected ? '#ffffff' : 'rgba(255,255,255,0.5)'}
+                    />
+                  </View>
+                  <View style={styles.optionText}>
+                    <Text style={styles.optionLabel}>{option.label}</Text>
+                    <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                  </View>
+                  {isSelected && (
+                    <MaterialCommunityIcons
+                      name="check-circle"
+                      size={24}
+                      color={isSpicy ? '#ef4444' : '#22c55e'}
                     />
                   )}
                 </TouchableOpacity>
@@ -168,6 +290,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(34,197,94,0.3)',
     borderWidth: 1.5,
   },
+  optionTileSpicy: {
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    borderColor: 'rgba(239,68,68,0.3)',
+    borderWidth: 1.5,
+  },
   optionIcon: {
     width: 40,
     height: 40,
@@ -179,6 +306,9 @@ const styles = StyleSheet.create({
   },
   optionIconSelected: {
     backgroundColor: '#22c55e',
+  },
+  optionIconSpicy: {
+    backgroundColor: '#ef4444',
   },
   optionText: {
     flex: 1,
