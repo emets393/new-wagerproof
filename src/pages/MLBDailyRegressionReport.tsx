@@ -259,7 +259,7 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
 
   const teamBadge = (name: string | null) => {
     if (!name) return null;
-    const key = name.toLowerCase();
+    const key = name.toLowerCase().replace(/\./g, '');
     const fb = MLB_FALLBACK_BY_NAME[key];
     if (!fb) return <span className="text-sm">{name}</span>;
     return (
@@ -291,10 +291,19 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                     {p.locked && <Badge variant="secondary" className="text-xs">LOCKED</Badge>}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 mb-2">
-                  {teamBadge(p.away_team)}
-                  <span className="text-muted-foreground text-xs">@</span>
-                  {teamBadge(p.home_team)}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {teamBadge(p.away_team)}
+                    <span className="text-muted-foreground text-xs">@</span>
+                    {teamBadge(p.home_team)}
+                    {(p as any).game_number >= 2 && <Badge variant="secondary" className="text-xs">Game 2</Badge>}
+                  </div>
+                  {p.game_time_et && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {new Date(p.game_time_et).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET
+                    </span>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div>
