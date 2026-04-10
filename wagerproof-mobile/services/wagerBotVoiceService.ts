@@ -5,6 +5,7 @@ import {
   mediaDevices,
 } from 'react-native-webrtc';
 import { Audio } from 'expo-av';
+import { forceToSpeaker, resetAudioRoute } from '@/modules/audio-route';
 import { supabase } from './supabase';
 
 export type WagerBotVoice = 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'marin' | 'cedar';
@@ -349,6 +350,8 @@ export class WagerBotVoiceService {
         case 'connected':
           if (!this._isConnected) {
             this._isConnected = true;
+            // WebRTC's PlayAndRecord category defaults to earpiece — override to loudspeaker
+            forceToSpeaker().catch(() => {});
             this.startSessionTimer();
             this.onConnected?.();
           }
@@ -550,7 +553,8 @@ export class WagerBotVoiceService {
     this.clearSessionTimer();
     const wasConnected = this._isConnected;
 
-    // Reset audio mode so other parts of the app aren't affected
+    // Reset audio route and mode so other parts of the app aren't affected
+    resetAudioRoute().catch(() => {});
     Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: false,
