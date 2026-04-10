@@ -86,9 +86,11 @@ wagerproof-mobile/
 - AI-identified "Value Finds" for high-value opportunities
 
 ### 4. WagerBot (`/wagerbot-chat`)
-- AI-powered conversational betting assistant
-- ChatKit integration for natural language queries
-- References game data, odds, and predictions
+- Agentic AI chat powered by Supabase Edge Function + OpenAI Responses API (gpt-4o)
+- 10 custom data tools (predictions, odds, Polymarket, editor picks) + built-in web search
+- SSE streaming with real-time tool execution status
+- ContentBlock-based message model with thread persistence
+- **Documentation**: See `.claude/docs/02_chat_wagerbot.md` for full architecture
 
 ### 5. Analytics Tools
 - NFL Analytics Dashboard (`/nfl-analytics`)

@@ -1,0 +1,339 @@
+// wagerbot-chat Edge Function — Agentic AI chat for WagerBot.
+//
+// Pipeline per request:
+//   1. Authenticate the caller from the JWT.
+//   2. Resolve thread: create one if thread_id is null, verify ownership otherwise.
+//   3. Persist the new user message to chat_messages.
+//   4. Run the OpenAI Responses API agent loop with tool calling + web search.
+//      Streams SSE events back to the client.
+//   5. Persist the assistant response to chat_messages.
+//   6. Auto-title new threads via a lightweight OpenAI call.
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { runAgentLoop, type AgentConfig, type ResponsesInputItem } from "./agent.ts";
+import { getAllTools, type ToolContext } from "./tools/registry.ts";
+import { createSSEStream } from "./sse.ts";
+import { getTodayInET } from "../shared/dateUtils.ts";
+
+// EdgeRuntime.waitUntil keeps background work alive past response close
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
+function waitUntil(p: Promise<unknown>) {
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+    EdgeRuntime.waitUntil(p);
+  } else {
+    p.catch((e) => console.error("[wagerbot-chat] waitUntil task failed:", e));
+  }
+}
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+};
+
+// Built once at cold-start, but the date is injected per-request below
+const SYSTEM_PROMPT_TEMPLATE = `You are WagerBot, a sharp and knowledgeable sports betting analyst powered by machine learning models and real-time data.
+
+Today's date is {{TODAY_ET}} (Eastern Time). When users say "today" they mean this date. Do NOT pass a date parameter to tools unless the user asks about a specific different date — the tools default to today automatically.
+
+You have access to tools that fetch live predictions, odds, and analytics across NFL, NBA, CFB, NCAAB, and MLB. You also have web_search to look up news, injuries, or anything not in the database. ALWAYS use your tools to get current data before answering questions about games, predictions, odds, or betting analysis. Never make up data, odds, or scores.
+
+Data availability by sport:
+- NBA: Richest data — team ratings, L3/L5 trends, shooting splits, streaks, ATS%, luck, consistency, injuries
+- MLB: Rich data — Statcast signals, park factors, power ratings, situational trends
+- NCAAB: Team ratings, rankings, seeds, conference/neutral-site flags
+- NFL/CFB: Model predictions, weather, public betting splits — no team ratings or trends
+
+When analyzing a game or giving betting advice:
+1. Fetch the model predictions for that sport using the appropriate tool
+2. Check Polymarket odds if relevant for market consensus comparison
+3. Identify value: compare model probability vs. implied odds from Vegas lines
+4. Be specific with numbers — cite win probabilities, spreads, confidence levels
+5. Use web_search for breaking news, injuries, or context not in the database
+
+Style guidelines:
+- Be concise but thorough. Lead with the pick, then explain why.
+- Use markdown formatting: bold for picks, tables for multi-game summaries
+- When comparing model vs. market, highlight where the model sees value (edge > 3%)
+- If asked about a specific team, use search_games first if you're unsure of the league
+- Always call suggest_follow_ups as the LAST step of every response
+
+You are confident and opinionated but honest about uncertainty. If the model shows low confidence or a close call, say so. Never guarantee outcomes — sports betting involves risk.`;
+
+interface ChatRequest {
+  thread_id?: string | null;
+  user_message: string;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
+  if (req.method !== "POST") return jsonError(405, "Method not allowed");
+
+  // ── Auth ──────────────────────────────────────────────────────────────
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!jwt) return jsonError(401, "Missing Authorization bearer token");
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  const cfbUrl = Deno.env.get("CFB_SUPABASE_URL");
+  const cfbAnonKey = Deno.env.get("CFB_SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !anonKey) return jsonError(500, "Supabase env not configured");
+  if (!openaiKey) return jsonError(500, "OPENAI_API_KEY not set");
+  if (!cfbUrl || !cfbAnonKey) return jsonError(500, "CFB Supabase env not configured");
+
+  // User-scoped client for auth + user data (RLS applies)
+  const supabase = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+    auth: { persistSession: false },
+  });
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
+  if (userErr || !userData?.user) {
+    console.error("[wagerbot-chat] auth failed:", userErr?.message, userErr?.status);
+    return jsonError(401, `Invalid token: ${userErr?.message ?? "no user"}`);
+  }
+  const userId = userData.user.id;
+
+  // Service-role clients for data access (no RLS)
+  const mainService = createClient(supabaseUrl, serviceKey!, {
+    auth: { persistSession: false },
+  });
+  const cfbService = createClient(cfbUrl, cfbAnonKey, {
+    auth: { persistSession: false },
+  });
+
+  // ── Body ──────────────────────────────────────────────────────────────
+  let body: ChatRequest;
+  try { body = await req.json(); }
+  catch { return jsonError(400, "Body must be JSON"); }
+  if (!body?.user_message) return jsonError(400, "user_message is required");
+
+  // Inject today's date into the system prompt
+  const SYSTEM_PROMPT = SYSTEM_PROMPT_TEMPLATE.replace("{{TODAY_ET}}", getTodayInET());
+
+  // ── Resolve thread ────────────────────────────────────────────────────
+  let threadId = body.thread_id ?? null;
+  let isNewThread = false;
+
+  // Build the Responses API input from conversation history
+  let input: ResponsesInputItem[] = [];
+
+  if (threadId) {
+    // Verify thread ownership
+    const { data: thread, error: tErr } = await supabase
+      .from("chat_threads")
+      .select("id")
+      .eq("id", threadId)
+      .maybeSingle();
+    if (tErr || !thread) return jsonError(404, "Thread not found");
+
+    // Load message history and convert to Responses API input format
+    const { data: msgs } = await supabase
+      .from("chat_messages")
+      .select("role, content, blocks")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true });
+
+    input = buildInputFromHistory(msgs || []);
+  } else {
+    // Create new thread
+    const { data: newThread, error: cErr } = await supabase
+      .from("chat_threads")
+      .insert({ user_id: userId })
+      .select("id")
+      .single();
+    if (cErr || !newThread) return jsonError(500, `Couldn't create thread: ${cErr?.message}`);
+    threadId = newThread.id;
+    isNewThread = true;
+  }
+
+  // Add the new user message
+  input.push({ role: "user", content: body.user_message });
+
+  // Persist user message immediately
+  await supabase.from("chat_messages").insert({
+    thread_id: threadId,
+    role: "user",
+    content: body.user_message,
+  });
+
+  // ── Stream + run agent loop ───────────────────────────────────────────
+  const { sink, body: streamBody } = createSSEStream();
+
+  (async () => {
+    try {
+      sink.emit("wagerbot.thread", {
+        thread_id: threadId,
+        created: isNewThread,
+      });
+
+      const ctx: ToolContext = {
+        supabase: mainService,
+        cfbSupabase: cfbService,
+        userId,
+        threadId: threadId!,
+        emit: (event, data) => sink.emit(event, data),
+      };
+
+      const config: AgentConfig = {
+        model: "gpt-4o",
+        systemPrompt: SYSTEM_PROMPT,
+        tools: getAllTools(),
+        maxTurns: 8,
+        maxTokens: 4096,
+      };
+
+      const { finalContent, allAssistantText, blocks } = await runAgentLoop({
+        config,
+        input,
+        sink,
+        toolContext: ctx,
+        apiKey: openaiKey,
+      });
+
+      // Persist the assistant response with blocks
+      await supabase.from("chat_messages").insert({
+        thread_id: threadId,
+        role: "assistant",
+        content: finalContent || allAssistantText || "",
+        blocks: JSON.stringify(blocks),
+      });
+
+      // Bump thread updated_at
+      await supabase
+        .from("chat_threads")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", threadId);
+
+      sink.emit("wagerbot.message_persisted", {
+        role: "assistant",
+      });
+
+      // Auto-title new threads (fire-and-forget)
+      if (isNewThread && allAssistantText) {
+        waitUntil(
+          generateAndSetTitle(
+            supabase,
+            openaiKey,
+            threadId!,
+            body.user_message,
+            allAssistantText,
+            sink,
+          ),
+        );
+      }
+    } catch (e) {
+      console.error("[wagerbot-chat] agent loop failed:", e);
+      sink.emit("wagerbot.error", {
+        code: "agent_loop_failed",
+        message: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      sink.close();
+    }
+  })();
+
+  return new Response(streamBody, {
+    headers: {
+      ...CORS_HEADERS,
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+});
+
+// ---- Helpers ----------------------------------------------------------------
+
+function jsonError(status: number, message: string): Response {
+  return new Response(
+    JSON.stringify({ error: message }),
+    { status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+  );
+}
+
+/** Convert stored chat_messages rows into Responses API input items.
+ *  Skips tool-result messages (internal) and extracts text from blocks. */
+function buildInputFromHistory(msgs: any[]): ResponsesInputItem[] {
+  const items: ResponsesInputItem[] = [];
+
+  for (const m of msgs) {
+    if (m.role === "tool") continue;
+
+    // Extract text content from blocks or plain content
+    let text = "";
+    if (m.blocks) {
+      const parsed = typeof m.blocks === "string" ? JSON.parse(m.blocks) : m.blocks;
+      if (Array.isArray(parsed)) {
+        text = parsed
+          .filter((b: any) => b.type === "text" && b.text)
+          .map((b: any) => b.text)
+          .join("");
+      }
+    }
+    if (!text && m.content) {
+      text = m.content;
+    }
+    if (!text) continue;
+
+    if (m.role === "user") {
+      items.push({ role: "user", content: text });
+    } else if (m.role === "assistant") {
+      items.push({ role: "assistant", content: text });
+    }
+  }
+
+  return items;
+}
+
+/** Generate a short title for the thread using OpenAI. */
+async function generateAndSetTitle(
+  supabase: any,
+  apiKey: string,
+  threadId: string,
+  userMessage: string,
+  assistantText: string,
+  sink: any,
+) {
+  try {
+    // Use Responses API for title generation too
+    const resp = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_output_tokens: 20,
+        instructions: "Generate a 3-6 word title for this conversation. No quotes, no punctuation. Just the title words.",
+        input: `User: ${userMessage.slice(0, 200)}\nAssistant: ${assistantText.slice(0, 300)}`,
+      }),
+    });
+
+    if (!resp.ok) return;
+    const data = await resp.json();
+    // Responses API returns output array with message items
+    const title = data.output
+      ?.find((item: any) => item.type === "message")
+      ?.content
+      ?.find((part: any) => part.type === "output_text")
+      ?.text
+      ?.trim();
+    if (!title) return;
+
+    await supabase
+      .from("chat_threads")
+      .update({ title })
+      .eq("id", threadId);
+
+    sink.emit("wagerbot.thread_titled", { thread_id: threadId, title });
+  } catch (e) {
+    console.warn("[wagerbot-chat] title generation failed:", e);
+  }
+}

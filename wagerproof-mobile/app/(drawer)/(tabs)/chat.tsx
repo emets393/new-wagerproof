@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Animated, Alert, Platform } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,6 @@ import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useRouter } from 'expo-router';
 import WagerBotChat from '@/components/WagerBotChat';
-import { fetchAndFormatGameContext } from '@/services/gameDataService';
 import { useProAccess } from '@/hooks/useProAccess';
 import {
   didPaywallGrantEntitlement,
@@ -30,82 +29,35 @@ export default function ChatScreen() {
   const router = useRouter();
   const { isPro, isLoading: isProLoading } = useProAccess();
 
-  const [gameContext, setGameContext] = useState<string>('');
-  const [isLoadingContext, setIsLoadingContext] = useState(true);
-  const [contextError, setContextError] = useState<string | null>(null);
   const chatRef = useRef<any>(null);
-
-  // Scroll animation setup - disabled header collapsing for better UX
   const scrollY = useRef(new Animated.Value(0)).current;
-  const HEADER_HEIGHT = insets.top + 8 + 56 + 8; // paddingTop + header content height + paddingBottom
+  const HEADER_HEIGHT = insets.top + 8 + 56 + 8;
 
-  // Hide suggestion bubble when chat screen is open and prevent new ones
+  // Hide suggestion bubble when chat screen is open
   useEffect(() => {
     setChatPageOpen(true);
-    return () => {
-      setChatPageOpen(false);
-    };
+    return () => { setChatPageOpen(false); };
   }, [setChatPageOpen]);
 
-  // Fetch game data on mount
-  useEffect(() => {
-    loadGameContext();
-  }, []);
-
-  const loadGameContext = async () => {
-    try {
-      setIsLoadingContext(true);
-      setContextError(null);
-      console.log('🔄 Loading game context for WagerBot...');
-      
-      const context = await fetchAndFormatGameContext();
-      setGameContext(context);
-      
-      console.log('✅ Game context loaded successfully');
-      console.log('📊 Context length:', context.length, 'characters');
-      console.log('📊 Context preview (first 300 chars):', context.substring(0, 300));
-      
-      if (!context || context.length === 0) {
-        console.warn('⚠️ WARNING: Game context is empty! AI will not have game data.');
-        setContextError('No game data available at this time.');
-      }
-    } catch (error) {
-      console.error('❌ Error loading game context:', error);
-      setContextError('Failed to load game data. Chat will work without game context.');
-      // Don't block chat from loading - it can still work without context
-    } finally {
-      setIsLoadingContext(false);
-    }
-  };
-
-  // Show loading while checking auth
   if (!user) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
-          Loading...
-        </Text>
+        <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>Loading...</Text>
       </View>
     );
   }
 
-  const handleBack = () => {
-    // Navigate back to feed
-    router.back();
-  };
+  const handleBack = () => router.back();
 
   const handleUnlockPress = async () => {
     try {
       const result = await presentPaywallForPlacementIfNeeded(
         ENTITLEMENT_IDENTIFIER,
-        PAYWALL_PLACEMENTS.GENERIC_FEATURE
+        PAYWALL_PLACEMENTS.GENERIC_FEATURE,
       );
-      
       if (didPaywallGrantEntitlement(result)) {
-        console.log('🔄 Purchase/restore detected, refreshing customer info...');
         await refreshCustomerInfo();
-        console.log('✅ Customer info refreshed - entitlements should now be active');
       }
     } catch (error) {
       console.error('Error presenting paywall:', error);
@@ -114,15 +66,8 @@ export default function ChatScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000000' : theme.colors.background }]}>
-      {/* Fixed Header with Back Button - Always visible for better accessibility */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top + 8,
-          }
-        ]}
-      >
+      {/* Fixed Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View pointerEvents="none" style={styles.headerFx}>
           <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFillObject} />
           <LinearGradient
@@ -133,7 +78,7 @@ export default function ChatScreen() {
           />
         </View>
         <View style={styles.headerContent}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={handleBack}
             style={styles.sideButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -141,15 +86,8 @@ export default function ChatScreen() {
             <MaterialCommunityIcons name="arrow-left" size={22} color="#ffffff" />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
-            <Text style={[styles.title, { color: '#ffffff' }]}>
-              WagerBot
-            </Text>
-            <View style={styles.statusRow}>
-              {isLoadingContext && <ActivityIndicator size="small" color="#ffffff" />}
-              <Text style={styles.subtitle}>
-                {isLoadingContext ? 'Loading live data' : 'Game data loaded'}
-              </Text>
-            </View>
+            <Text style={[styles.title, { color: '#ffffff' }]}>WagerBot</Text>
+            <Text style={styles.subtitle}>AI-powered analysis</Text>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity
@@ -160,7 +98,7 @@ export default function ChatScreen() {
               <MaterialCommunityIcons name="history" size={21} color="#ffffff" />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => chatRef.current?.clearChat?.()}
+              onPress={() => chatRef.current?.handleNewChat?.()}
               style={styles.sideButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -168,23 +106,15 @@ export default function ChatScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        {contextError && (
-          <Text style={[styles.contextWarning, { color: 'rgba(255,255,255,0.72)' }]}>
-            {contextError}
-          </Text>
-        )}
       </View>
 
-      {/* Chat Component or Locked State (only show locked when loading is complete) */}
+      {/* Chat Component or Locked State */}
       {isProLoading || isPro ? (
         <View style={styles.chatContainer}>
           <WagerBotChat
             ref={chatRef}
             userId={user.id}
             userEmail={user.email || ''}
-            gameContext={gameContext}
-            isContextLoading={isLoadingContext}
-            onRefresh={loadGameContext}
             onBack={handleBack}
             scrollY={scrollY}
             headerHeight={HEADER_HEIGHT}
@@ -195,50 +125,39 @@ export default function ChatScreen() {
           <TouchableOpacity
             style={[
               styles.lockedContent,
-              { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.95)' }
+              { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.95)' },
             ]}
             onPress={handleUnlockPress}
             activeOpacity={0.8}
           >
-            <View style={[
-              styles.proBadge,
-              { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(217, 119, 6, 0.15)' }
-            ]}>
-              <MaterialCommunityIcons
-                name="crown"
-                size={16}
-                color={isDark ? '#f59e0b' : '#d97706'}
-              />
-              <Text style={[styles.proText, { color: isDark ? '#f59e0b' : '#d97706' }]}>
-                PRO
-              </Text>
+            <View
+              style={[
+                styles.proBadge,
+                { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(217, 119, 6, 0.15)' },
+              ]}
+            >
+              <MaterialCommunityIcons name="crown" size={16} color={isDark ? '#f59e0b' : '#d97706'} />
+              <Text style={[styles.proText, { color: isDark ? '#f59e0b' : '#d97706' }]}>PRO</Text>
             </View>
-
             <MaterialCommunityIcons
               name="robot"
               size={64}
               color={isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)'}
               style={styles.lockedRobotIcon}
             />
-
-            <MaterialCommunityIcons
-              name="lock"
-              size={32}
-              color={isDark ? '#ffffff' : '#1f2937'}
-            />
-
+            <MaterialCommunityIcons name="lock" size={32} color={isDark ? '#ffffff' : '#1f2937'} />
             <Text style={[styles.lockedTitle, { color: isDark ? '#ffffff' : '#1f2937' }]}>
               WagerBot Pro
             </Text>
-
-            <Text style={[styles.lockedSubtitle, { color: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.5)' }]}>
+            <Text
+              style={[
+                styles.lockedSubtitle,
+                { color: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.5)' },
+              ]}
+            >
               Get unlimited AI-powered betting analysis and insights
             </Text>
-
-            <View style={[
-              styles.unlockButton,
-              { backgroundColor: isDark ? '#f59e0b' : '#d97706' }
-            ]}>
+            <View style={[styles.unlockButton, { backgroundColor: isDark ? '#f59e0b' : '#d97706' }]}>
               <Text style={styles.unlockButtonText}>Unlock with Pro</Text>
             </View>
           </TouchableOpacity>
@@ -249,19 +168,9 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-  },
+  container: { flex: 1 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  loadingText: { marginTop: 16, fontSize: 16 },
   header: {
     position: 'absolute',
     top: 0,
@@ -305,43 +214,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     pointerEvents: 'none',
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 17,
-    lineHeight: 21,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  subtitle: {
-    marginTop: 1,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-    textAlign: 'center',
-  },
-  contextWarning: {
-    fontSize: 11,
-    marginTop: 8,
-    textAlign: 'center',
-    zIndex: 2,
-  },
-  chatContainer: {
-    flex: 1,
-  },
-  lockedContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontSize: 17, lineHeight: 21, fontWeight: '600', textAlign: 'center' },
+  subtitle: { marginTop: 1, fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
+  chatContainer: { flex: 1 },
+  lockedContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   lockedContent: {
     alignItems: 'center',
     padding: 32,
@@ -363,36 +240,10 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 24,
   },
-  proText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  lockedRobotIcon: {
-    marginBottom: 16,
-  },
-  lockedTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  lockedSubtitle: {
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 16,
-  },
-  unlockButton: {
-    marginTop: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  unlockButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  proText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
+  lockedRobotIcon: { marginBottom: 16 },
+  lockedTitle: { fontSize: 24, fontWeight: '700', marginTop: 12, textAlign: 'center' },
+  lockedSubtitle: { fontSize: 14, marginTop: 8, textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
+  unlockButton: { marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
+  unlockButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
 });

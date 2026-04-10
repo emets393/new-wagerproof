@@ -1,303 +1,225 @@
 # WagerBot Chat System
 
-> Last verified: December 2024
+> Last verified: April 2026
 
 ## Overview
 
-WagerBot is an AI-powered betting assistant that provides game analysis, predictions, and betting insights. The implementation differs significantly between web and mobile platforms.
+WagerBot is an agentic AI chat that provides sports betting analysis, predictions, and insights. It uses a Supabase Edge Function running an OpenAI Responses API agent loop with 10 custom data tools + built-in web search. Responses stream to the mobile client via Server-Sent Events (SSE).
 
----
+## Architecture
 
-## Architecture Comparison
-
-| Feature | Web | Mobile |
-|---------|-----|--------|
-| **UI Library** | ChatKit SDK | Custom React Native |
-| **API Backend** | ChatKit → Assistants API | BuildShip → Responses API |
-| **State** | Stateful (ChatKit managed) | Stateless (history sent each request) |
-| **Storage** | localStorage only | Supabase (cloud) |
-| **Images** | Via ChatKit | Full custom support |
-| **Sports** | NFL, CFB | NFL, CFB, NBA, NCAAB |
-| **Polymarket** | No | Yes |
-
----
-
-## Web Implementation
-
-### Components
-- `/src/pages/WagerBotChat.tsx` - Main chat page
-- `/src/components/ChatKitWrapper.tsx` - ChatKit integration
-- `/src/utils/chatSession.ts` - Session management
-
-### ChatKit Configuration
-```typescript
-// index.html loads ChatKit script
-<script src="https://cdn.jsdelivr.net/npm/@anthropic-ai/chatkit@latest/dist/index.global.js"></script>
-
-// Package installed
-"@openai/chatkit-react": "^1.1.1"
+```
+Mobile App (WagerBotChat.tsx)
+  │  HTTP POST + JWT (user_message, thread_id)
+  ▼
+Edge Function: wagerbot-chat/index.ts
+  │  Auth → Resolve thread → Persist user message
+  ▼
+Agent Loop: wagerbot-chat/agent.ts
+  │  OpenAI Responses API (gpt-4o, streaming)
+  │  ← model requests tools → execute in parallel
+  │  ← model generates text → stream to client
+  ▼
+SSE Stream → Mobile App
+  │  wagerbot.* events (tool status, follow-ups, thread info)
+  │  + text deltas (streamed word-by-word)
+  ▼
+Persist assistant message → Auto-title thread
 ```
 
-### Session Management
-```typescript
-// chatSession.ts
-class ChatSessionManager {
-  private sessions: ChatSession[] = [];
-  private currentSessionIndex: number = 0;
+## Edge Function: `wagerbot-chat`
 
-  async getOrCreateSession(userId: string): Promise<string> {
-    // Generate client secret from BuildShip
-    const response = await fetch(
-      'https://xna68l.buildship.run/chatKitSessionGenerator-2fc1c5152ebf',
-      { method: 'POST', body: JSON.stringify({ userId }) }
-    );
-    // ...
-  }
+**Endpoint:** `POST /functions/v1/wagerbot-chat`
+
+### Request
+```json
+{
+  "user_message": "What are the best NBA bets today?",
+  "thread_id": "uuid-or-null"
+}
+```
+Headers: `Authorization: Bearer <user_jwt>`
+
+### Response
+SSE stream with two event types:
+
+**1. Text deltas** (forwarded from OpenAI):
+```
+data: {"choices":[{"delta":{"content":"The model..."}}]}
+```
+
+**2. WagerBot events** (custom):
+
+| Event | Data | Purpose |
+|-------|------|---------|
+| `wagerbot.thread` | `{ thread_id, created }` | Thread ID for new/existing |
+| `wagerbot.tool_start` | `{ id, name, arguments }` | Tool execution started |
+| `wagerbot.tool_end` | `{ id, name, ms, ok, result_summary }` | Tool completed |
+| `wagerbot.follow_ups` | `{ questions: string[] }` | Suggested next questions |
+| `wagerbot.message_persisted` | `{ role }` | Message saved to DB |
+| `wagerbot.thread_titled` | `{ thread_id, title }` | Auto-generated title |
+| `wagerbot.error` | `{ code, message }` | Error occurred |
+
+### Pipeline
+1. Authenticate JWT via `supabase.auth.getUser(jwt)`
+2. Resolve thread (create new or verify ownership)
+3. Load message history from `chat_messages` table
+4. Persist user message immediately
+5. Run agent loop (streams SSE back to client)
+6. Persist assistant response with `blocks` JSONB
+7. Auto-title new threads (fire-and-forget background task)
+
+## Agent Loop
+
+**File:** `wagerbot-chat/agent.ts`
+
+- **API:** OpenAI Responses API (`/v1/responses`)
+- **Model:** gpt-4o
+- **Max tokens:** 4096
+- **Max tool turns:** 8
+- **Streaming:** Yes, via SSE
+- **Multi-turn:** Uses `previous_response_id` for tool result chaining
+
+The loop:
+1. Sends request with `instructions` (system prompt) + `input` (conversation)
+2. Streams response, forwarding text deltas to client
+3. If model calls functions → execute all in parallel → submit results → loop
+4. If model outputs text → done, return to index.ts for persistence
+
+## Tool Registry
+
+**File:** `wagerbot-chat/tools/registry.ts`
+
+Adding a tool: create `tools/<name>.ts` exporting `tool: ToolDefinition`, import and register in `ALL_TOOLS`.
+
+### Custom Tools (10)
+
+| Tool | Sport | Data Source (CFB Supabase) | Key Data |
+|------|-------|---------------------------|----------|
+| `get_nba_predictions` | NBA | `nba_input_values_view` + `nba_predictions` | Team ratings, L3/L5 trends, shooting, streaks, injuries |
+| `get_nfl_predictions` | NFL | `nfl_predictions_epa` | Model predictions, weather, public betting splits |
+| `get_cfb_predictions` | CFB | `cfb_live_weekly_inputs` | Model predictions, weather, public betting |
+| `get_ncaab_predictions` | NCAAB | `v_cbb_input_values` + `ncaab_predictions` | Team ratings, rankings, seeds, context flags |
+| `get_mlb_predictions` | MLB | `mlb_games_today` + `mlb_game_signals` | Statcast signals, model predictions, weather |
+| `get_polymarket_odds` | All | `polymarket_markets` (Main Supabase) | Market odds for spread/ML/total |
+| `get_game_detail` | All | Sport-specific tables | Deep dive on single matchup |
+| `search_games` | All | All sport tables | Cross-league team/date search |
+| `get_editor_picks` | All | `editor_picks` (Main Supabase) | Published expert picks |
+| `suggest_follow_ups` | — | — | Emits 3-5 follow-up questions via SSE |
+
+### Built-in Tool (1)
+
+| Tool | Source | Purpose |
+|------|--------|---------|
+| `web_search` | OpenAI built-in | Breaking news, injuries, context not in DB |
+
+### Tool Context
+
+Each tool receives:
+```typescript
+interface ToolContext {
+  supabase: SupabaseClient;      // Main DB (service-role, no RLS)
+  cfbSupabase: SupabaseClient;   // Sports data DB
+  userId: string;
+  threadId: string;
+  emit: (event, data) => void;   // Emit custom SSE events
 }
 ```
 
-### Context Passing (Web)
-System context is embedded in **starter prompts** since ChatKit doesn't support system messages directly:
-```typescript
-starterPrompts={[
-  {
-    title: "Analyze today's games",
-    prompt: `<context>${gameData}</context>\n\nAnalyze today's games`,
-  }
-]}
-```
+## Database Schema
 
----
+### `chat_threads`
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID PK | Thread ID |
+| `user_id` | UUID FK | Owner (auth.users) |
+| `title` | TEXT | Auto-generated title |
+| `created_at` | TIMESTAMPTZ | |
+| `updated_at` | TIMESTAMPTZ | |
 
-## Mobile Implementation
+### `chat_messages`
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID PK | Message ID |
+| `thread_id` | UUID FK | Parent thread |
+| `role` | TEXT | "user", "assistant", or "tool" |
+| `content` | TEXT | Plain text (legacy compat) |
+| `blocks` | JSONB | ContentBlock array (new format) |
+| `created_at` | TIMESTAMPTZ | |
+
+### `wagerbot_chat_prompts` (future use)
+Remote-configurable system prompts. Not currently used — prompt is hardcoded in `index.ts`.
+
+### RLS Policies
+- `chat_threads`: Users can CRUD own threads only
+- `chat_messages`: Access inherited via thread ownership join
+- Edge function uses service-role for writes (bypasses RLS)
+
+## Mobile Client
+
+### Service Layer
+**`wagerproof-mobile/services/wagerBotChatService.ts`**
+- Uses `expo/fetch` for ReadableStream support (React Native's built-in fetch lacks streaming)
+- Gets JWT from `supabase.auth.getSession()`
+- Parses SSE stream into typed `WagerBotSSEEvent` callbacks
+- Also exports `loadThread()` for loading message history
+
+### Type Definitions
+**`wagerproof-mobile/types/chatTypes.ts`**
+- `ContentBlock`: text | tool_use | follow_ups
+- `ChatMessage`: id, role, blocks[], timestamp
+- `WagerBotSSEEvent`: union of all event types
+- `TOOL_DISPLAY_NAMES` / `TOOL_ICONS`: UI rendering maps
 
 ### Components
-- `/wagerproof-mobile/app/(drawer)/(tabs)/chat.tsx` - Chat screen
-- `/wagerproof-mobile/components/WagerBotChat.tsx` - Main component (60KB)
-- `/wagerproof-mobile/services/gameDataService.ts` - Game context
-- `/wagerproof-mobile/services/chatThreadService.ts` - Thread persistence
+**`wagerproof-mobile/components/WagerBotChat.tsx`** — Main chat container
+- Welcome screen with suggested prompts
+- Message history drawer (swipe to delete)
+- Keyboard-aware input area
+- Auto-scroll on new content
 
-### API Architecture (Responses API)
+**`wagerproof-mobile/components/chat/`:**
+| Component | Purpose |
+|-----------|---------|
+| `MessageBubble.tsx` | Renders ContentBlock array per message |
+| `StreamingText.tsx` | Word-by-word fade-in animation during streaming |
+| `ToolCallsPill.tsx` | Collapsible tool execution summary with icons |
+| `FollowUpPills.tsx` | Horizontal scrollable suggestion pills |
+| `ThinkingIndicator.tsx` | Lottie animation while agent is thinking |
 
-**IMPORTANT**: Mobile uses OpenAI **Responses API** (stateless), NOT Assistants API.
+### Screen
+**`wagerproof-mobile/app/(drawer)/(tabs)/chat.tsx`**
+- Pro-gated via `useProAccess()` hook
+- Header with back, history, and new chat buttons
 
-```typescript
-// Request structure
-const requestBody = {
-  message: userMessage.content,
-  SystemPrompt: gameContext,        // Game data as markdown
-  conversationHistory: messages.slice(-20).map(msg => ({
-    role: msg.role,
-    content: msg.content
-  })),
-  images: imagesToSend              // Optional
-};
-```
+## System Prompt
 
-### Streaming (Mobile)
-```typescript
-// Uses XMLHttpRequest for streaming
-const xhr = new XMLHttpRequest();
-xhr.open('POST', chatEndpoint, true);
+The system prompt is defined in `index.ts` as `SYSTEM_PROMPT_TEMPLATE` with `{{TODAY_ET}}` placeholder injected per-request. It tells the model:
+- Today's date in ET
+- Available tools and when to use them
+- Data availability per sport (NBA richest, NFL/CFB most limited)
+- To use web_search for news/injuries not in DB
+- Style: lead with pick, use markdown, cite numbers
+- Always call `suggest_follow_ups` last
 
-// iOS: onprogress events
-xhr.onprogress = () => {
-  const newText = xhr.responseText.substring(parsedLength);
-  processNewText(newText);
-};
+## Environment Variables
 
-// Android: Polling fallback (50ms intervals)
-if (Platform.OS === 'android') {
-  pollingInterval = setInterval(() => {
-    // Poll responseText manually
-  }, 50);
-}
-```
-
----
-
-## Chat Thread Storage (Supabase)
-
-### Database Schema
-```sql
--- chat_threads table
-CREATE TABLE chat_threads (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id),
-  title TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  page_context TEXT,
-  openai_thread_id TEXT  -- Legacy, not used with Responses API
-);
-
--- chat_messages table
-CREATE TABLE chat_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  thread_id UUID REFERENCES chat_threads(id),
-  role TEXT NOT NULL,  -- 'user' or 'assistant'
-  content TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### Service Layer (`chatThreadService.ts`)
-```typescript
-export const chatThreadService = {
-  async createThread(userId: string, title: string, pageContext?: string) {
-    return supabase.from('chat_threads').insert({
-      user_id: userId,
-      title,
-      page_context: pageContext
-    });
-  },
-
-  async saveMessage(threadId: string, role: string, content: string) {
-    return supabase.from('chat_messages').insert({
-      thread_id: threadId,
-      role,
-      content
-    });
-  },
-
-  // AI-generated titles using GPT-3.5-turbo
-  async generateTitle(messages: Message[]): Promise<string> {
-    // Returns 3-5 word title
-  }
-};
-```
-
----
-
-## Game Data Service
-
-### Data Sources by Sport
-
-**NFL** (`gameDataService.ts`):
-```typescript
-// Tables: v_input_values_with_epa, nfl_predictions_epa, nfl_betting_lines, production_weather
-const nflData = await fetchNFLGames();
-// Returns: teams, predictions (ML/spread/O-U), weather, public splits
-```
-
-**CFB**:
-```typescript
-// Tables: cfb_live_weekly_inputs, cfb_api_predictions
-const cfbData = await fetchCFBGames();
-```
-
-**NBA**:
-```typescript
-// Tables: nba_input_values_view, nba_predictions
-const nbaData = await fetchNBAGames();
-// Returns: adjusted offense/defense/pace, ATS%, Over%
-```
-
-**NCAAB**:
-```typescript
-// Tables: v_cbb_input_values, ncaab_predictions
-const ncaabData = await fetchNCAABGames();
-// Returns: rankings, conference info, neutral site
-```
-
-### Polymarket Integration (Mobile Only)
-```typescript
-// Fetches prediction market probabilities
-const polymarketData = await fetchPolymarketData(games, league);
-// Returns: ML%, spread%, total% for each game
-// Rate limited to first 10 games per league
-```
-
----
-
-## Mobile-Specific Features
-
-### Image Upload
-```typescript
-// Pick image
-const result = await ImagePicker.launchImageLibraryAsync({
-  mediaTypes: ImagePicker.MediaTypeOptions.Images,
-  quality: 0.8,
-  base64: true,
-});
-
-// Add to request
-requestBody.images = [{ base64: asset.base64, name: fileName }];
-```
-
-### Context Indicator
-- **Green dot**: Game data available
-- **Gray dot**: No game data
-- Tap to see data status alert
-
-### Suggested Messages
-Quick-tap suggestions on welcome screen:
-- "What games look good today?"
-- "Analyze the NFL games"
-- etc.
-
-### Chat History Drawer
-- Right-side drawer with thread history
-- Delete threads with confirmation
-- Auto-generated AI titles
-
-### Animated Streaming Text
-Per-character fade-in animation during AI response streaming.
-
----
+All set as Supabase platform secrets:
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — auto-injected
+- `OPENAI_API_KEY` — GPT-4o access
+- `CFB_SUPABASE_URL`, `CFB_SUPABASE_ANON_KEY` — sports data instance
 
 ## Key Files
 
-### Web
-```
-src/
-├── pages/WagerBotChat.tsx
-├── components/ChatKitWrapper.tsx
-└── utils/chatSession.ts
-```
-
-### Mobile
-```
-wagerproof-mobile/
-├── app/(drawer)/(tabs)/chat.tsx
-├── components/WagerBotChat.tsx          # 60KB main component
-├── services/gameDataService.ts          # 41KB context fetching
-├── services/chatThreadService.ts        # Thread persistence
-└── utils/chatSessionManager.ts          # Session handling
-```
-
----
-
-## Troubleshooting
-
-### No AI Response (Mobile)
-1. Check BuildShip endpoint is correct
-2. Verify SystemPrompt is being sent
-3. Look for quota exceeded errors
-4. Check network connectivity
-
-### Missing Game Context
-1. Check context indicator (green vs gray)
-2. Verify Supabase connections (both clients)
-3. Check gameDataService is fetching correctly
-4. Review console logs for fetch errors
-
-### Streaming Issues
-1. **iOS**: Should work with onprogress
-2. **Android**: Ensure polling interval is active
-3. Check for network timeouts (15s default)
-
-### Thread Not Saving
-1. Verify user is authenticated
-2. Check Supabase RLS policies
-3. Confirm thread ID is valid UUID
-4. Look for Supabase errors in logs
-
----
-
-## Future Considerations
-
-1. **Web Image Support**: Currently via ChatKit only
-2. **Unified API**: Consider moving web to Responses API
-3. **Thread ID Usage**: Legacy column still exists but unused
-4. **Offline Support**: Mobile could cache conversations
+| File | Purpose |
+|------|---------|
+| `supabase/functions/wagerbot-chat/index.ts` | Edge function entry, auth, thread management |
+| `supabase/functions/wagerbot-chat/agent.ts` | Responses API agent loop with streaming |
+| `supabase/functions/wagerbot-chat/sse.ts` | SSE writer (forwardRaw + emit) |
+| `supabase/functions/wagerbot-chat/tools/registry.ts` | Tool registry and executor |
+| `supabase/functions/wagerbot-chat/tools/*.ts` | Individual tool implementations |
+| `wagerproof-mobile/services/wagerBotChatService.ts` | Mobile SSE streaming client |
+| `wagerproof-mobile/types/chatTypes.ts` | ContentBlock types, SSE events, tool maps |
+| `wagerproof-mobile/components/WagerBotChat.tsx` | Main chat UI component |
+| `wagerproof-mobile/components/chat/*.tsx` | Message rendering sub-components |
+| `supabase/migrations/20260409000003_wagerbot_chat_blocks.sql` | blocks column + prompts table |

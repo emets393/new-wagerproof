@@ -39,6 +39,7 @@
     "expo-crypto": "~15.0.8",
     "expo-dev-client": "~6.0.19",
     "expo-device": "~8.0.10",
+    "expo-fetch": "^0.0.0",
     "expo-file-system": "^19.0.17",
     "expo-haptics": "~15.0.7",
     "expo-image-picker": "^17.0.8",

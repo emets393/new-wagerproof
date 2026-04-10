@@ -22,6 +22,13 @@ WagerProof uses Supabase Edge Functions (Deno runtime) for server-side operation
 | `polymarket-proxy` | CORS proxy for Polymarket APIs | `polymarketService.ts` |
 | `fetch-live-scores` | ESPN scoreboard API → `live_scores` table | `liveScoresService.ts` |
 
+### WagerBot Chat
+| Function | Purpose | Trigger |
+|----------|---------|---------|
+| `wagerbot-chat` | Agentic AI chat with 10 data tools + web search (Responses API) | Mobile app POST |
+
+See [02_chat_wagerbot.md](02_chat_wagerbot.md) for full architecture.
+
 ### AI Completions
 | Function | Purpose | Trigger |
 |----------|---------|---------|
