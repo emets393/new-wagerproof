@@ -1,11 +1,16 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { useFocusEffect } from 'expo-router';
 import {
   WagerBotVoiceService,
   WagerBotVoice,
   WagerBotPersonality,
 } from '@/services/wagerBotVoiceService';
+
+// Auto-disconnect after 10 minutes of connection time
+const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
 
 const VOICE_STORAGE_KEY = '@wagerbot_voice';
 const PERSONALITY_STORAGE_KEY = '@wagerbot_personality';
@@ -26,9 +31,14 @@ export function useWagerBotVoice(gameContext?: string) {
   const serviceRef = useRef(WagerBotVoiceService.getInstance());
   const gameContextRef = useRef(gameContext);
   gameContextRef.current = gameContext;
-  const prefsLoadedRef = useRef(false);
 
-  // Load persisted preferences on mount
+  // Refs for voice/personality so useFocusEffect callback always has latest values
+  const voiceRef = useRef(selectedVoice);
+  voiceRef.current = selectedVoice;
+  const personalityRef = useRef(selectedPersonality);
+  personalityRef.current = selectedPersonality;
+
+  // Load persisted preferences on mount (runs once, tabs stay mounted)
   useEffect(() => {
     (async () => {
       try {
@@ -36,10 +46,17 @@ export function useWagerBotVoice(gameContext?: string) {
           AsyncStorage.getItem(VOICE_STORAGE_KEY),
           AsyncStorage.getItem(PERSONALITY_STORAGE_KEY),
         ]);
-        if (storedVoice) setSelectedVoice(WagerBotVoiceService.normalizeVoice(storedVoice));
-        if (storedPersonality) setSelectedPersonality(WagerBotVoiceService.normalizePersonality(storedPersonality));
+        if (storedVoice) {
+          const v = WagerBotVoiceService.normalizeVoice(storedVoice);
+          setSelectedVoice(v);
+          voiceRef.current = v;
+        }
+        if (storedPersonality) {
+          const p = WagerBotVoiceService.normalizePersonality(storedPersonality);
+          setSelectedPersonality(p);
+          personalityRef.current = p;
+        }
       } catch {}
-      prefsLoadedRef.current = true;
     })();
   }, []);
 
@@ -110,24 +127,73 @@ export function useWagerBotVoice(gameContext?: string) {
     setIsConnected(false);
     setLastError(null);
     setConnectedAt(null);
-    await serviceRef.current.initialize(selectedVoice, selectedPersonality, gameContextRef.current);
-  }, [selectedVoice, selectedPersonality]);
-
-  // Initialize on mount (wait for prefs to load)
-  useEffect(() => {
-    setupCallbacks();
-
-    // Small delay to let persisted preferences load before first connect
-    const timeout = setTimeout(() => {
-      connect();
-    }, 100);
-
-    return () => {
-      clearTimeout(timeout);
-      serviceRef.current.clearCallbacks();
-      serviceRef.current.disconnect();
-    };
+    await serviceRef.current.initialize(
+      voiceRef.current,
+      personalityRef.current,
+      gameContextRef.current,
+    );
   }, []);
+
+  // Connect when screen is focused, tear down when it loses focus.
+  // Tab screens never unmount in Expo Router, so useEffect cleanup won't fire
+  // on back navigation — useFocusEffect handles this correctly.
+  useFocusEffect(
+    useCallback(() => {
+      setupCallbacks();
+
+      // Small delay to let persisted preferences load on first focus
+      const timeout = setTimeout(() => {
+        connect();
+      }, 100);
+
+      return () => {
+        clearTimeout(timeout);
+        serviceRef.current.teardownSync();
+        // Reset local state so UI is clean if user returns
+        setIsConnecting(true);
+        setIsConnected(false);
+        setIsListening(false);
+        setIsWaitingForResponse(false);
+        setIsSpeaking(false);
+        setConnectedAt(null);
+        setLastError(null);
+        setPromptSource(null);
+        setPromptText(null);
+      };
+    }, [])
+  );
+
+  // Disconnect when app goes to background/inactive
+  useEffect(() => {
+    const handleAppState = (nextState: AppStateStatus) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        serviceRef.current.teardownSync();
+        setIsConnected(false);
+        setIsConnecting(false);
+        setConnectedAt(null);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppState);
+    return () => subscription.remove();
+  }, []);
+
+  // Auto-disconnect after 10 minutes of connection time
+  useEffect(() => {
+    if (!connectedAt) return;
+
+    const remaining = SESSION_TIMEOUT_MS - (Date.now() - connectedAt.getTime());
+    if (remaining <= 0) {
+      serviceRef.current.hangUp();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      serviceRef.current.hangUp();
+    }, remaining);
+
+    return () => clearTimeout(timer);
+  }, [connectedAt]);
 
   const startTalking = useCallback(async () => {
     if (!isConnected || isConnecting) return;
@@ -148,33 +214,31 @@ export function useWagerBotVoice(gameContext?: string) {
 
   const changeVoice = useCallback(async (voice: WagerBotVoice) => {
     const normalized = WagerBotVoiceService.normalizeVoice(voice);
-    if (normalized === selectedVoice && isConnected) return;
+    if (normalized === voiceRef.current && serviceRef.current.isConnected) return;
 
     Haptics.selectionAsync();
     setSelectedVoice(normalized);
+    voiceRef.current = normalized;
     setIsConnecting(true);
     setLastError(null);
 
-    // Persist preference
     AsyncStorage.setItem(VOICE_STORAGE_KEY, normalized).catch(() => {});
-
     await serviceRef.current.updateVoice(normalized, gameContextRef.current);
-  }, [selectedVoice, isConnected]);
+  }, []);
 
   const changePersonality = useCallback(async (personality: WagerBotPersonality) => {
     const normalized = WagerBotVoiceService.normalizePersonality(personality);
-    if (normalized === selectedPersonality && isConnected) return;
+    if (normalized === personalityRef.current && serviceRef.current.isConnected) return;
 
     Haptics.selectionAsync();
     setSelectedPersonality(normalized);
+    personalityRef.current = normalized;
     setIsConnecting(true);
     setLastError(null);
 
-    // Persist preference
     AsyncStorage.setItem(PERSONALITY_STORAGE_KEY, normalized).catch(() => {});
-
     await serviceRef.current.updatePersonality(normalized, gameContextRef.current);
-  }, [selectedPersonality, isConnected]);
+  }, []);
 
   return {
     isConnecting,

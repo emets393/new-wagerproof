@@ -4,6 +4,7 @@ import {
   MediaStream,
   mediaDevices,
 } from 'react-native-webrtc';
+import { Audio } from 'expo-av';
 import { supabase } from './supabase';
 
 export type WagerBotVoice = 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'marin' | 'cedar';
@@ -43,6 +44,10 @@ export class WagerBotVoiceService {
   private _model = 'gpt-realtime';
   private _promptSource: 'supabase' | 'fallback' | null = null;
   private _promptText: string | null = null;
+  private _sessionTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Hard ceiling — service tears itself down after 10 min even if hook doesn't
+  private static SESSION_TIMEOUT_MS = 10 * 60 * 1000;
 
   // Callbacks
   onConnected: VoidCallback | null = null;
@@ -104,6 +109,14 @@ export class WagerBotVoiceService {
 
     try {
       await this.disconnectInternal(false);
+
+      // Route audio through the loudspeaker instead of the earpiece.
+      // Must be set before WebRTC creates its audio session.
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        playThroughEarpieceAndroid: false,
+      });
 
       // 1. Get ephemeral token from Supabase edge function
       const session = await this.createRealtimeSession(gameContext);
@@ -258,6 +271,43 @@ export class WagerBotVoiceService {
     await this.disconnectInternal(false);
   }
 
+  /**
+   * Synchronous teardown — safe to call from React useEffect cleanup where
+   * we can't await. Closes WebRTC, mic, and timers immediately.
+   */
+  teardownSync() {
+    this.clearSessionTimer();
+    this._isConnecting = false;
+    this._isListening = false;
+    this._isWaitingForResponse = false;
+    this._isSpeaking = false;
+    this._isConnected = false;
+    this._dataChannelOpen = false;
+
+    try { if (this.micTrack) this.micTrack.enabled = false; } catch {}
+
+    if (this.dataChannel) {
+      try { this.dataChannel.close(); } catch {}
+      this.dataChannel = null;
+    }
+
+    if (this.peerConnection) {
+      try { this.peerConnection.close(); } catch {}
+      this.peerConnection = null;
+    }
+
+    if (this.localStream) {
+      this.localStream.getTracks().forEach((track: any) => {
+        try { track.stop(); } catch {}
+      });
+      try { (this.localStream as any).release?.(); } catch {}
+      this.localStream = null;
+    }
+
+    this.micTrack = null;
+    this.clearCallbacks();
+  }
+
   // --- Private ---
 
   private async createRealtimeSession(gameContext?: string) {
@@ -299,6 +349,7 @@ export class WagerBotVoiceService {
         case 'connected':
           if (!this._isConnected) {
             this._isConnected = true;
+            this.startSessionTimer();
             this.onConnected?.();
           }
           break;
@@ -307,6 +358,7 @@ export class WagerBotVoiceService {
         case 'closed':
           if (this._isConnected) {
             this._isConnected = false;
+            this.clearSessionTimer();
             this.onDisconnected?.();
           }
           break;
@@ -479,8 +531,31 @@ export class WagerBotVoiceService {
     return 'Failed to connect WagerBot voice. Try again.';
   }
 
+  private startSessionTimer() {
+    this.clearSessionTimer();
+    this._sessionTimer = setTimeout(() => {
+      console.log('[WagerBotVoice] Session timeout (10 min) — auto-disconnecting.');
+      this.disconnectInternal(true);
+    }, WagerBotVoiceService.SESSION_TIMEOUT_MS);
+  }
+
+  private clearSessionTimer() {
+    if (this._sessionTimer) {
+      clearTimeout(this._sessionTimer);
+      this._sessionTimer = null;
+    }
+  }
+
   private async disconnectInternal(notify: boolean) {
+    this.clearSessionTimer();
     const wasConnected = this._isConnected;
+
+    // Reset audio mode so other parts of the app aren't affected
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: false,
+      playThroughEarpieceAndroid: false,
+    }).catch(() => {});
 
     this._isListening = false;
     this._isWaitingForResponse = false;
