@@ -31,6 +31,9 @@ import {
   registerPushToken,
   deactivatePushTokens,
 } from '@/services/notificationService';
+import { Modal } from 'react-native';
+import ThinkingSpritePicker from '@/components/chat/ThinkingSpritePicker';
+import { THINKING_SPRITES, useThinkingSprite } from '@/hooks/useThinkingSprite';
 
 type ActionRowProps = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -126,6 +129,9 @@ export default function SettingsScreen() {
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [spritePickerVisible, setSpritePickerVisible] = useState(false);
+  const selectedSprite = useThinkingSprite();
+  const spriteLabel = THINKING_SPRITES.find((s) => s.name === selectedSprite)?.label ?? 'Petals';
 
   // Check notification permission status on mount
   useEffect(() => {
@@ -420,6 +426,14 @@ export default function SettingsScreen() {
               }
             />
             <ActionRow
+              icon="creation-outline"
+              iconColor="#9c27b0"
+              iconBackground="#f3e5f5"
+              title="Thinking Sprite"
+              subtitle={`Currently: ${spriteLabel}`}
+              onPress={() => setSpritePickerVisible(true)}
+            />
+            <ActionRow
               icon="bell-outline"
               iconColor="#e65100"
               iconBackground="#fff3e0"
@@ -620,6 +634,22 @@ export default function SettingsScreen() {
           Alert.alert('Success', 'Welcome to WagerProof Pro.');
         }}
       />
+
+      <Modal
+        visible={spritePickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSpritePickerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.sheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setSpritePickerVisible(false)}
+        />
+        <View style={[styles.sheetContainer, { paddingBottom: insets.bottom + 16 }]}>
+          <ThinkingSpritePicker onDismiss={() => setSpritePickerVisible(false)} />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -888,5 +918,15 @@ const styles = StyleSheet.create({
   },
   destructiveText: {
     color: '#dd4d3f',
+  },
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  sheetContainer: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 4,
   },
 });

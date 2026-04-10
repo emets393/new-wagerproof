@@ -248,6 +248,7 @@ async function consumeResponsesStream(
 
   let responseId: string | null = null;
   let textContent = "";
+  let reasoningSummary = "";
 
   // Accumulate function call arguments by item ID
   const functionCallMap: Record<string, PendingFunctionCall> = {};
@@ -282,6 +283,7 @@ async function consumeResponsesStream(
           sink,
           setResponseId: (id) => { responseId = id; },
           appendText: (t) => { textContent += t; },
+          appendReasoning: (t) => { reasoningSummary += t; },
           functionCallMap,
           webSearchCalls,
         });
@@ -308,6 +310,7 @@ interface EventHandlers {
   sink: SSESink;
   setResponseId: (id: string) => void;
   appendText: (text: string) => void;
+  appendReasoning: (text: string) => void;
   functionCallMap: Record<string, PendingFunctionCall>;
   webSearchCalls: Array<{ id: string }>;
 }
@@ -383,6 +386,20 @@ function handleEvent(eventName: string, data: any, h: EventHandlers) {
           result_summary: "Web search completed",
         });
       }
+      break;
+
+    // Reasoning/thinking output — emitted by o-series models (o1, o3, o4-mini)
+    case "response.reasoning.delta":
+      if (data?.delta) {
+        h.appendReasoning(data.delta);
+        h.sink.emit("wagerbot.thinking_delta", { text: data.delta });
+      }
+      break;
+
+    case "response.reasoning.done":
+      h.sink.emit("wagerbot.thinking_done", {
+        summary: data?.text?.slice(0, 500) || "",
+      });
       break;
 
     // Response lifecycle — no action needed

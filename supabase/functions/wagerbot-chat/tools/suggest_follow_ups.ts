@@ -10,11 +10,11 @@ import type { ToolDefinition } from "./registry.ts";
 export const tool: ToolDefinition = {
   name: "suggest_follow_ups",
   description:
-    "Suggest 3 short follow-up questions the user might want to ask next. " +
-    "Call this as the LAST step of every response, after any other tools " +
-    "and after writing the final text. Each question should be specific, " +
-    "actionable, and 4-12 words long. Phrase them from the user's perspective " +
-    "(e.g. 'What are the best NBA value bets?' not 'Show NBA value bets').",
+    "MANDATORY: Call this as the absolute LAST step of EVERY response, after writing your final text. " +
+    "Provide 3 specific follow-up questions the user might ask next. " +
+    "Questions should be actionable, 4-12 words, phrased from the user's perspective. " +
+    "Example: 'What are the best NBA value bets tonight?' — NOT 'Show NBA value bets'. " +
+    "You MUST call this tool on every single response without exception.",
   parameters: {
     type: "object",
     properties: {

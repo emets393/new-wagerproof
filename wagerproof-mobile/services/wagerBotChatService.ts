@@ -123,6 +123,7 @@ export async function sendMessage(params: {
     } catch (error: any) {
       if (error.name === 'AbortError') return;
       onError(error instanceof Error ? error : new Error(String(error)));
+      onComplete();
     }
   })();
 
@@ -155,6 +156,12 @@ function parseCustomEvent(eventName: string, data: string, onEvent: (e: WagerBot
         break;
       case 'wagerbot.error':
         onEvent({ type: 'error', data: parsed as WagerBotErrorEvent });
+        break;
+      case 'wagerbot.thinking_delta':
+        onEvent({ type: 'thinking_delta', data: { text: parsed.text } });
+        break;
+      case 'wagerbot.thinking_done':
+        onEvent({ type: 'thinking_done', data: { summary: parsed.summary } });
         break;
     }
   } catch {

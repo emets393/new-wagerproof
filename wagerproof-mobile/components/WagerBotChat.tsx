@@ -306,6 +306,29 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               });
               break;
             }
+            case 'thinking_delta': {
+              // Append thinking text to the assistant message (from reasoning models)
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.role !== 'assistant') return prev;
+
+                const thinkingBlock = last.blocks.find(
+                  (b): b is Extract<ContentBlock, { type: 'thinking' }> => b.type === 'thinking',
+                );
+                if (thinkingBlock) {
+                  thinkingBlock.text += event.data.text;
+                } else {
+                  last.blocks.push({ type: 'thinking', text: event.data.text });
+                }
+                return [...updated];
+              });
+              break;
+            }
+            case 'thinking_done': {
+              // Thinking complete — no UI action needed, the block is already populated
+              break;
+            }
             case 'follow_ups': {
               setMessages((prev) => {
                 const updated = [...prev];
@@ -332,11 +355,11 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
         },
         onError: (error: Error) => {
           console.error('[WagerBotChat] Send failed:', error);
-          // Add error text to assistant message
+          // Always append error text, even if tool blocks already exist
           setMessages((prev) => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
-            if (last?.role === 'assistant' && last.blocks.length === 0) {
+            if (last?.role === 'assistant') {
               last.blocks.push({
                 type: 'text',
                 text: `Sorry, I encountered an error: ${error.message}. Please try again.`,
@@ -344,6 +367,9 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             }
             return [...updated];
           });
+          // Must clear streaming state on error, otherwise UI freezes
+          setIsStreaming(false);
+          setIsSending(false);
         },
         onComplete: () => {
           setIsStreaming(false);
@@ -368,6 +394,27 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const handleFollowUpSelect = (question: string) => {
     handleSendMessage(question);
   };
+
+  // Regenerate: re-send the last user message
+  const handleRegenerate = useCallback(() => {
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastUserMsg) return;
+    const text = lastUserMsg.blocks
+      .filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text')
+      .map((b) => b.text)
+      .join('');
+    if (text) {
+      // Remove the last assistant message before regenerating
+      setMessages((prev) => {
+        const lastIdx = prev.length - 1;
+        if (prev[lastIdx]?.role === 'assistant') {
+          return prev.slice(0, lastIdx);
+        }
+        return prev;
+      });
+      handleSendMessage(text);
+    }
+  }, [messages, handleSendMessage]);
 
   // Check if assistant is still "thinking" (streaming but no blocks yet)
   const lastMessage = messages[messages.length - 1];
@@ -397,6 +444,32 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
             <MaterialCommunityIcons name="close" size={24} color="#ffffff" />
           </TouchableOpacity>
         </View>
+        {chatHistories.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearAllButton}
+            onPress={() => {
+              Alert.alert(
+                'Clear All Chats',
+                `Delete all ${chatHistories.length} conversations?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Clear All',
+                    style: 'destructive',
+                    onPress: async () => {
+                      await chatThreadService.deleteAllThreads(userId);
+                      handleNewChat();
+                      loadChatHistories();
+                    },
+                  },
+                ],
+              );
+            }}
+          >
+            <MaterialCommunityIcons name="delete-sweep-outline" size={16} color="rgba(255,100,100,0.8)" />
+            <Text style={styles.clearAllText}>Clear All</Text>
+          </TouchableOpacity>
+        )}
         <ScrollView style={styles.drawerContent}>
           {chatHistories.length === 0 ? (
             <Text style={styles.emptyHistoryText}>No chat history yet</Text>
@@ -515,6 +588,7 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                       message={message}
                       isStreaming={isStreamingThis}
                       onFollowUpSelect={handleFollowUpSelect}
+                      onRegenerate={isLast && !isStreaming ? handleRegenerate : undefined}
                     />
                   </ReanimatedAnimated.View>
                 );
@@ -655,6 +729,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  clearAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginTop: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 100, 100, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 100, 100, 0.15)',
+  },
+  clearAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 100, 100, 0.8)',
   },
   drawerContent: {
     flex: 1,

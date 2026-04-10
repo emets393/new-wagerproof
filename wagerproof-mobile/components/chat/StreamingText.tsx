@@ -1,13 +1,13 @@
-// StreamingText — Animated text rendering with word-by-word fade-in.
-// Keeps the existing AnimatedWord pattern from the old WagerBotChat
-// but works with the new ContentBlock model.
+// StreamingText — Streaming text with blinking caret, matching Ellie's
+// TextBlockView pattern. During streaming, renders markdown with a soft
+// blinking caret at the end. Once streaming stops, renders full markdown.
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import ReanimatedAnimated, {
+import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withDelay,
+  withRepeat,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
@@ -19,14 +19,8 @@ interface StreamingTextProps {
   color?: string;
 }
 
-// Word-by-word animation only during streaming. Once streaming stops,
-// render the full markdown without animation for performance.
-export default function StreamingText({ text, isStreaming, color = '#ffffff' }: StreamingTextProps) {
-  const previousLengthRef = useRef(0);
-
-  // Only animate new words during streaming
+export default function StreamingText({ text, isStreaming }: StreamingTextProps) {
   if (!isStreaming || !text) {
-    previousLengthRef.current = text.length;
     return (
       <View style={styles.container}>
         <Markdown style={markdownStyles}>{text}</Markdown>
@@ -34,76 +28,46 @@ export default function StreamingText({ text, isStreaming, color = '#ffffff' }: 
     );
   }
 
-  // During streaming, show animated words for new content
-  const words = text.split(/(\s+)/);
-  const prevLength = previousLengthRef.current;
-  const newContentStart = prevLength;
-
-  // Track which character index each word starts at
-  let charIndex = 0;
-  const wordEntries = words.map((word) => {
-    const start = charIndex;
-    charIndex += word.length;
-    return { word, start, isNew: start >= newContentStart };
-  });
-
-  // Update ref for next render
-  previousLengthRef.current = text.length;
-
-  let newWordIndex = 0;
+  // During streaming: markdown + blinking caret
   return (
     <View style={styles.container}>
-      <View style={styles.wordWrap}>
-        {wordEntries.map((entry, i) => {
-          if (entry.isNew) {
-            const delay = Math.min(newWordIndex * 20, 200);
-            newWordIndex++;
-            return (
-              <AnimatedWord
-                key={`${i}-${entry.word}`}
-                word={entry.word}
-                delay={delay}
-                color={color}
-              />
-            );
-          }
-          return (
-            <ReanimatedAnimated.Text key={i} style={{ color }}>
-              {entry.word}
-            </ReanimatedAnimated.Text>
-          );
-        })}
-      </View>
+      <Markdown style={markdownStyles}>{text}</Markdown>
+      <BlinkingCaret />
     </View>
   );
 }
 
-function AnimatedWord({ word, delay, color }: { word: string; delay: number; color: string }) {
-  const opacity = useSharedValue(0);
+// Soft blinking caret at the trailing edge of streaming text,
+// matching Ellie's BlinkingCaret (6x14pt, 0.7s blink cycle)
+function BlinkingCaret() {
+  const opacity = useSharedValue(1);
 
   useEffect(() => {
-    opacity.value = withDelay(
-      delay,
-      withTiming(1, { duration: 150, easing: Easing.out(Easing.ease) }),
+    opacity.value = withRepeat(
+      withTiming(0.3, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
     );
-  }, [delay]);
+  }, []);
 
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
-  return (
-    <ReanimatedAnimated.Text style={[{ color }, style]}>
-      {word}
-    </ReanimatedAnimated.Text>
-  );
+  return <Animated.View style={[styles.caret, style]} />;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  wordWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  caret: {
+    width: 6,
+    height: 14,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(100, 220, 100, 0.9)',
+    marginTop: 2,
+    alignSelf: 'flex-start',
   },
 });
 

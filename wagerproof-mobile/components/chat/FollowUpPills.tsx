@@ -1,8 +1,10 @@
-// FollowUpPills — Tappable suggestion pills at the end of an assistant
-// response. Replaces the static welcome screen suggestions.
+// FollowUpPills — Vertical list of suggested follow-up questions, matching
+// Ellie's FollowUpsBlockView. Each row has an arrow icon, question text,
+// and a plus icon, separated by hairline dividers.
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -16,53 +18,60 @@ export default function FollowUpPills({ questions, onSelect }: FollowUpPillsProp
 
   return (
     <Animated.View entering={FadeIn.duration(300)} style={styles.container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {questions.map((question, index) => (
+      {questions.map((question, index) => (
+        <View key={index}>
+          {index > 0 && <View style={styles.divider} />}
           <TouchableOpacity
-            key={index}
-            style={styles.pill}
-            activeOpacity={0.7}
+            style={styles.row}
+            activeOpacity={0.6}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onSelect(question);
             }}
           >
-            <Text style={styles.pillText} numberOfLines={2}>
-              {question}
-            </Text>
+            <MaterialCommunityIcons
+              name="arrow-bottom-right"
+              size={16}
+              color="rgba(255, 255, 255, 0.5)"
+              style={styles.arrowIcon}
+            />
+            <Text style={styles.questionText}>{question}</Text>
+            <MaterialCommunityIcons
+              name="plus"
+              size={14}
+              color="rgba(255, 255, 255, 0.3)"
+            />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        </View>
+      ))}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8,
-    paddingLeft: 16,
+    paddingTop: 4,
+    paddingHorizontal: 16,
   },
-  scrollContent: {
-    gap: 8,
-    paddingRight: 16,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    gap: 10,
   },
-  pill: {
+  arrowIcon: {
+    marginTop: 2,
+  },
+  questionText: {
+    flex: 1,
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 21,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    maxWidth: 240,
-  },
-  pillText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
+    marginLeft: 34, // Indent past the arrow icon
   },
 });

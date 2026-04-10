@@ -8,6 +8,7 @@ export type ToolStatus =
 
 export type ContentBlock =
   | { type: 'text'; text: string }
+  | { type: 'thinking'; text: string }
   | { type: 'tool_use'; id: string; name: string; arguments: string; status: ToolStatus }
   | { type: 'follow_ups'; questions: string[] };
 
@@ -62,6 +63,8 @@ export type WagerBotSSEEvent =
   | { type: 'thread_titled'; data: WagerBotThreadTitledEvent }
   | { type: 'error'; data: WagerBotErrorEvent }
   | { type: 'content_delta'; data: { text: string } }
+  | { type: 'thinking_delta'; data: { text: string } }
+  | { type: 'thinking_done'; data: { summary: string } }
   | { type: 'done' };
 
 // Tool display name mapping

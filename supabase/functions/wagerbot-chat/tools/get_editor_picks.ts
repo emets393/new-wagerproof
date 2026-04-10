@@ -5,8 +5,10 @@ import type { ToolDefinition, ToolContext } from "./registry.ts";
 export const tool: ToolDefinition = {
   name: "get_editor_picks",
   description:
-    "Get current editor/expert picks with notes and performance tracking. " +
-    "Use this when the user asks about expert picks, recommended bets, or editor analysis.",
+    "Get published editor/expert staff picks with reasoning and W-L tracking. " +
+    "ONLY call this when the user explicitly asks about editor picks, expert picks, or staff recommendations. " +
+    "Do NOT use this for general predictions — use the sport-specific prediction tools instead. " +
+    "Call once only — it returns up to 20 recent picks.",
   parameters: {
     type: "object",
     properties: {

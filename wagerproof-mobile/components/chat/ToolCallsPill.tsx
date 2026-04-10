@@ -7,7 +7,15 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  Layout,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import type { ContentBlock, ToolStatus } from '../../types/chatTypes';
 import { TOOL_DISPLAY_NAMES, TOOL_ICONS } from '../../types/chatTypes';
 
@@ -17,12 +25,31 @@ interface ToolCallsPillProps {
 
 export default function ToolCallsPill({ toolBlocks }: ToolCallsPillProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const shimmerOpacity = useSharedValue(0.15);
 
   // Filter out suggest_follow_ups from display — it's a UX tool, not a data tool
   const visibleTools = toolBlocks.filter((t) => t.name !== 'suggest_follow_ups');
 
   const anyRunning = visibleTools.some((t) => t.status.state === 'running');
   const allDone = visibleTools.every((t) => t.status.state === 'done');
+
+  // Shimmer border while tools are running — pulses border opacity
+  useEffect(() => {
+    if (anyRunning) {
+      shimmerOpacity.value = withRepeat(
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true,
+      );
+    } else {
+      shimmerOpacity.value = withTiming(0, { duration: 300 });
+    }
+  }, [anyRunning]);
+
+  // Pulse the border width to create shimmer — avoids color string interpolation
+  const shimmerBorderStyle = useAnimatedStyle(() => ({
+    borderWidth: 1.5 * shimmerOpacity.value,
+  }));
 
   // Auto-expand when tools are running, auto-collapse when done
   useEffect(() => {
@@ -46,6 +73,7 @@ export default function ToolCallsPill({ toolBlocks }: ToolCallsPillProps) {
       layout={Layout.springify()}
       style={styles.container}
     >
+      <Animated.View style={[styles.pillBorder, shimmerBorderStyle]}>
       <TouchableOpacity
         style={styles.pill}
         onPress={() => setIsExpanded(!isExpanded)}
@@ -94,6 +122,7 @@ export default function ToolCallsPill({ toolBlocks }: ToolCallsPillProps) {
           color="rgba(255,255,255,0.4)"
         />
       </TouchableOpacity>
+      </Animated.View>
 
       {/* Expanded list */}
       {isExpanded && (
@@ -144,6 +173,12 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingVertical: 4,
+  },
+  pillBorder: {
+    borderRadius: 17,
+    borderWidth: 0,
+    borderColor: 'rgba(100, 150, 255, 0.45)',
+    overflow: 'hidden',
   },
   pill: {
     flexDirection: 'row',

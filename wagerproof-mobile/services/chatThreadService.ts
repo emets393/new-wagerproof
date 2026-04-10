@@ -189,6 +189,24 @@ class ChatThreadService {
   }
 
   /**
+   * Delete all threads for a user
+   */
+  async deleteAllThreads(userId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('chat_threads')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      console.log('✅ Deleted all threads for user:', userId);
+    } catch (error) {
+      console.error('❌ Error deleting all threads:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Delete a thread and all its messages
    */
   async deleteThread(threadId: string): Promise<void> {
