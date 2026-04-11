@@ -18,6 +18,7 @@ import { tool as getGameDetail } from "./get_game_detail.ts";
 import { tool as searchGames } from "./search_games.ts";
 import { tool as getEditorPicks } from "./get_editor_picks.ts";
 import { tool as suggestFollowUps } from "./suggest_follow_ups.ts";
+import { tool as presentAnalysis } from "./present_analysis.ts";
 
 export interface ToolContext {
   /** Main Supabase client (user data, Polymarket, editor picks). */
@@ -32,6 +33,8 @@ export interface ToolContext {
    *  The agent loop already emits tool_start/tool_end — only use this
    *  for tool-specific signals. */
   emit: (event: string, data: unknown) => void;
+  /** Access the current response blocks (for present_analysis to find game_cards). */
+  getBlocks: () => any[];
 }
 
 export interface ToolDefinition {
@@ -53,6 +56,7 @@ const ALL_TOOLS: Record<string, ToolDefinition> = {
   [searchGames.name]: searchGames,
   [getEditorPicks.name]: getEditorPicks,
   [suggestFollowUps.name]: suggestFollowUps,
+  [presentAnalysis.name]: presentAnalysis,
 };
 
 /** Get all tool definitions for the agent config. */

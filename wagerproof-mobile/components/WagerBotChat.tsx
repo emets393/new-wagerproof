@@ -23,9 +23,14 @@ import LottieView from 'lottie-react-native';
 import ReanimatedAnimated, { FadeIn } from 'react-native-reanimated';
 import { sendMessage as sendChatMessage, loadThread } from '../services/wagerBotChatService';
 import { chatThreadService } from '../services/chatThreadService';
-import type { ChatMessage, ContentBlock, WagerBotSSEEvent } from '../types/chatTypes';
+import type { ChatMessage, ContentBlock, ChatGameCardData, ChatWidgetData, WagerBotSSEEvent } from '../types/chatTypes';
 import MessageBubble from './chat/MessageBubble';
 import ThinkingIndicator from './chat/ThinkingIndicator';
+import { useNBAGameSheet } from '../contexts/NBAGameSheetContext';
+import { useNFLGameSheet } from '../contexts/NFLGameSheetContext';
+import { useCFBGameSheet } from '../contexts/CFBGameSheetContext';
+import { useNCAABGameSheet } from '../contexts/NCAABGameSheetContext';
+import { useMLBGameSheet } from '../contexts/MLBGameSheetContext';
 
 const SUGGESTED_MESSAGES = [
   { label: '🎯 Best bets today', message: "What are the best value bets across all sports today?" },
@@ -54,6 +59,13 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const insets = useSafeAreaInsets();
+
+  // Game sheet hooks for inline card tap-through
+  const { openGameSheet: openNBASheet } = useNBAGameSheet();
+  const { openGameSheet: openNFLSheet } = useNFLGameSheet();
+  const { openGameSheet: openCFBSheet } = useCFBGameSheet();
+  const { openGameSheet: openNCAABSheet } = useNCAABGameSheet();
+  const { openGameSheet: openMLBSheet } = useMLBGameSheet();
   const scrollViewRef = useRef<ScrollView>(null);
   const welcomeScrollViewRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
@@ -326,7 +338,27 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               break;
             }
             case 'thinking_done': {
-              // Thinking complete — no UI action needed, the block is already populated
+              break;
+            }
+            case 'game_cards': {
+              // Game cards are no longer rendered — widgets from present_analysis replace them
+              break;
+            }
+            case 'chat_widgets': {
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.role !== 'assistant') return prev;
+                last.blocks.push({ type: 'chat_widgets', widgets: event.data.widgets });
+                return [...updated];
+              });
+              if (isAtBottomRef.current) {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }
+              break;
+            }
+            case 'game_analyses': {
+              // Legacy: superseded by chat_widgets
               break;
             }
             case 'follow_ups': {
@@ -348,7 +380,18 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
               break;
             }
             case 'error': {
-              console.error('[WagerBotChat] Stream error:', event.data);
+              console.warn('[WagerBotChat] Stream error:', event.data);
+              // Show error as assistant text so user sees something instead of blank
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.role !== 'assistant') return prev;
+                const hasText = last.blocks.some((b) => b.type === 'text' && b.text.length > 0);
+                if (!hasText) {
+                  last.blocks.push({ type: 'text', text: 'Sorry, something went wrong. Please try again.' });
+                }
+                return [...updated];
+              });
               break;
             }
           }
@@ -415,6 +458,32 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
       handleSendMessage(text);
     }
   }, [messages, handleSendMessage]);
+
+  // Open the sport-specific game bottom sheet from an inline game card
+  const handleGameCardPress = useCallback((card: ChatGameCardData) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const game = card.raw_game as any;
+    switch (card.sport) {
+      case 'nba': openNBASheet(game); break;
+      case 'nfl': openNFLSheet(game); break;
+      case 'cfb': openCFBSheet(game); break;
+      case 'ncaab': openNCAABSheet(game); break;
+      case 'mlb': openMLBSheet(game); break;
+    }
+  }, [openNBASheet, openNFLSheet, openCFBSheet, openNCAABSheet, openMLBSheet]);
+
+  // Open bottom sheet from an inline widget tap
+  const handleWidgetPress = useCallback((widget: ChatWidgetData) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const game = widget.raw_game as any;
+    switch (widget.sport) {
+      case 'nba': openNBASheet(game); break;
+      case 'nfl': openNFLSheet(game); break;
+      case 'cfb': openCFBSheet(game); break;
+      case 'ncaab': openNCAABSheet(game); break;
+      case 'mlb': openMLBSheet(game); break;
+    }
+  }, [openNBASheet, openNFLSheet, openCFBSheet, openNCAABSheet, openMLBSheet]);
 
   // Check if assistant is still "thinking" (streaming but no blocks yet)
   const lastMessage = messages[messages.length - 1];
@@ -589,6 +658,8 @@ const WagerBotChat = forwardRef<any, WagerBotChatProps>(({
                       isStreaming={isStreamingThis}
                       onFollowUpSelect={handleFollowUpSelect}
                       onRegenerate={isLast && !isStreaming ? handleRegenerate : undefined}
+                      onGameCardPress={handleGameCardPress}
+                      onWidgetPress={handleWidgetPress}
                     />
                   </ReanimatedAnimated.View>
                 );

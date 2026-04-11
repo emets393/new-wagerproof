@@ -163,6 +163,15 @@ function parseCustomEvent(eventName: string, data: string, onEvent: (e: WagerBot
       case 'wagerbot.thinking_done':
         onEvent({ type: 'thinking_done', data: { summary: parsed.summary } });
         break;
+      case 'wagerbot.game_cards':
+        onEvent({ type: 'game_cards', data: { cards: parsed.cards || [] } });
+        break;
+      case 'wagerbot.game_analyses':
+        onEvent({ type: 'game_analyses', data: { summary: parsed.summary || '', analyses: parsed.analyses || [] } });
+        break;
+      case 'wagerbot.chat_widgets':
+        onEvent({ type: 'chat_widgets', data: { widgets: parsed.widgets || [] } });
+        break;
     }
   } catch {
     // Malformed JSON in custom event — skip
@@ -219,6 +228,10 @@ export async function loadThread(threadId: string): Promise<ChatMessage[]> {
       for (const block of parsed) {
         if (block.type === 'text' && block.text) {
           blocks.push({ type: 'text', text: block.text });
+        } else if (block.type === 'game_cards' && block.cards) {
+          blocks.push({ type: 'game_cards', cards: block.cards });
+        } else if (block.type === 'chat_widgets' && block.widgets) {
+          blocks.push({ type: 'chat_widgets', widgets: block.widgets });
         } else if (block.type === 'tool_use') {
           blocks.push({
             type: 'tool_use',

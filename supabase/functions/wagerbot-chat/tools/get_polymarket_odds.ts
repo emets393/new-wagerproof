@@ -56,10 +56,9 @@ export const tool: ToolDefinition = {
       grouped.get(key)!.push({
         question: market.question,
         market_type: market.market_type,
-        outcome_yes: market.outcome_yes_price,
-        outcome_no: market.outcome_no_price,
-        volume: market.volume,
-        last_updated: market.updated_at,
+        outcome_yes: market.current_away_odds,
+        outcome_no: market.current_home_odds,
+        last_updated: market.last_updated,
       });
     }
 

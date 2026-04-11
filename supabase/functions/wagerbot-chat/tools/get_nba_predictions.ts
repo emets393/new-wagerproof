@@ -5,6 +5,7 @@
 
 import type { ToolDefinition, ToolContext } from "./registry.ts";
 import { getTodayInET } from "../../shared/dateUtils.ts";
+import { normalizeNBA } from "./gameCardNormalizer.ts";
 
 export const tool: ToolDefinition = {
   name: "get_nba_predictions",
@@ -216,7 +217,21 @@ export const tool: ToolDefinition = {
       };
     });
 
-    return { games: formatted, date: targetDate, count: formatted.length };
+    // Build game cards sorted by edge — emit top 5 for inline display
+    // Inject injury data into raw_game for widget rendering
+    const gameCards = filtered
+      .map((g: any) => {
+        const card = normalizeNBA(g, predictionMap.get(g.game_id) || null);
+        const awayInj = injuryData.get(g.away_team?.toLowerCase()) || [];
+        const homeInj = injuryData.get(g.home_team?.toLowerCase()) || [];
+        if (awayInj.length > 0) (card.raw_game as any).away_injuries = awayInj;
+        if (homeInj.length > 0) (card.raw_game as any).home_injuries = homeInj;
+        return card;
+      })
+      .sort((a, b) => Math.abs(b.spread_edge || 0) - Math.abs(a.spread_edge || 0))
+      .slice(0, 5);
+
+    return { games: formatted, date: targetDate, count: formatted.length, game_cards: gameCards };
   },
 };
 

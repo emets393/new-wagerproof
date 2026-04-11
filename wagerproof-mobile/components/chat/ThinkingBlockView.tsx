@@ -12,8 +12,6 @@ import LottieView from 'lottie-react-native';
 import Animated, {
   FadeIn,
   FadeOut,
-  Layout,
-  SlideInUp,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useThinkingSprite } from '../../hooks/useThinkingSprite';
@@ -55,7 +53,6 @@ export default function ThinkingBlockView({
   return (
     <Animated.View
       entering={FadeIn.duration(200)}
-      layout={Layout.springify().damping(20).stiffness(300)}
       style={styles.container}
     >
       <TouchableOpacity
@@ -93,7 +90,7 @@ export default function ThinkingBlockView({
 
       {expanded && (
         <Animated.View
-          entering={SlideInUp.duration(200).withInitialValues({ opacity: 0 })}
+          entering={FadeIn.duration(250)}
           exiting={FadeOut.duration(150)}
           style={styles.expandedContent}
         >

@@ -9,7 +9,6 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, {
   FadeIn,
-  Layout,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -70,7 +69,6 @@ export default function ToolCallsPill({ toolBlocks }: ToolCallsPillProps) {
   return (
     <Animated.View
       entering={FadeIn.duration(200)}
-      layout={Layout.springify()}
       style={styles.container}
     >
       <Animated.View style={[styles.pillBorder, shimmerBorderStyle]}>

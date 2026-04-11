@@ -46,9 +46,15 @@ export async function runAgentLoop(opts: {
   turns: number;
   blocks: any[];
 }> {
-  const { config, sink, toolContext, apiKey } = opts;
+  const { config, sink, apiKey } = opts;
   let allAssistantText = "";
   const blocks: any[] = [];
+
+  // Augment tool context with blocks access for present_analysis
+  const toolContext: ToolContext = {
+    ...opts.toolContext,
+    getBlocks: () => blocks,
+  };
 
   // Build tools array once — custom functions + built-in web_search
   const tools: any[] = config.tools.map((t) => ({
@@ -179,10 +185,29 @@ export async function runAgentLoop(opts: {
             content: resultStr,
           });
 
+          // Emit + persist game cards from prediction tools (top 5 by edge)
+          if (out && typeof out === "object" && "game_cards" in (out as any)) {
+            const cards = (out as any).game_cards;
+            blocks.push({ type: "game_cards", cards });
+            sink.emit("wagerbot.game_cards", { cards });
+          }
+
+          // Persist chat widgets from present_analysis (already emitted via ctx.emit)
+          if (out && typeof out === "object" && "chat_widgets" in (out as any)) {
+            const widgets = (out as any).chat_widgets;
+            if (Array.isArray(widgets) && widgets.length > 0) {
+              blocks.push({ type: "chat_widgets", widgets });
+            }
+          }
+
+          // Compact tool output sent to OpenAI to avoid context overflow.
+          // Full data stays in blocks for present_analysis to use.
+          const compactOutput = compactToolOutput(out, resultStr);
+
           return {
             type: "function_call_output" as const,
             call_id: call.callId,
-            output: resultStr,
+            output: compactOutput,
           };
         } catch (e) {
           const ms = Date.now() - startedAt;
@@ -255,6 +280,7 @@ async function consumeResponsesStream(
   const webSearchCalls: Array<{ id: string }> = [];
 
   let currentEventName = "";
+  let streamError: string | null = null;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -279,6 +305,11 @@ async function consumeResponsesStream(
         let data: any;
         try { data = JSON.parse(dataStr); } catch { continue; }
 
+        // Track fatal errors from OpenAI
+        if (currentEventName === "response.failed" || currentEventName === "error") {
+          streamError = data?.error?.message || JSON.stringify(data).slice(0, 200);
+        }
+
         handleEvent(currentEventName, data, {
           sink,
           setResponseId: (id) => { responseId = id; },
@@ -296,6 +327,11 @@ async function consumeResponsesStream(
         currentEventName = "";
       }
     }
+  }
+
+  // If OpenAI returned response.failed, throw so the agent loop handles it
+  if (streamError) {
+    throw new Error(`OpenAI stream failed: ${streamError}`);
   }
 
   return {
@@ -428,4 +464,52 @@ function handleEvent(eventName: string, data: any, h: EventHandlers) {
 function summarize(out: string): string {
   if (!out) return "";
   return out.length > 200 ? out.slice(0, 200) + "..." : out;
+}
+
+/** Compact tool output for OpenAI context. Strips game_cards and raw_game
+ *  (kept in blocks for present_analysis), and reduces each game to essential
+ *  fields only. Target: <8K chars per tool output. */
+function compactToolOutput(out: unknown, fullStr: string): string {
+  if (typeof out !== "object" || out === null) {
+    return fullStr.length > 8000 ? fullStr.slice(0, 8000) + "...(truncated)" : fullStr;
+  }
+  try {
+    const obj = out as Record<string, unknown>;
+    const { game_cards, ...rest } = obj;
+
+    if (Array.isArray(rest.games)) {
+      rest.games = (rest.games as any[]).map((g: any) => {
+        // For prediction tools: keep only what the model needs for analysis
+        return {
+          game_id: g.game_id,
+          matchup: g.matchup,
+          game_date: g.game_date,
+          vegas_lines: g.vegas_lines,
+          model_predictions: g.model_predictions,
+          // Flatten betting trends to key numbers
+          betting_trends: g.betting_trends ? {
+            home_ats_pct: g.betting_trends?.home?.ats_pct,
+            away_ats_pct: g.betting_trends?.away?.ats_pct,
+            home_over_pct: g.betting_trends?.home?.over_pct,
+            away_over_pct: g.betting_trends?.away?.over_pct,
+            home_streak: g.betting_trends?.home?.win_streak,
+            away_streak: g.betting_trends?.away?.win_streak,
+          } : undefined,
+          // Flatten injuries to names only
+          injuries: g.injuries ? {
+            away: g.injuries?.away?.map((i: any) => `${i.player} (${i.status})`) ?? null,
+            home: g.injuries?.home?.map((i: any) => `${i.player} (${i.status})`) ?? null,
+          } : undefined,
+          // For polymarket: keep market data compact
+          game_key: g.game_key,
+          markets: g.markets,
+        };
+      });
+    }
+
+    const compacted = JSON.stringify(rest);
+    return compacted.length > 8000 ? compacted.slice(0, 8000) + "...(truncated)" : compacted;
+  } catch {
+    return fullStr.length > 8000 ? fullStr.slice(0, 8000) + "...(truncated)" : fullStr;
+  }
 }

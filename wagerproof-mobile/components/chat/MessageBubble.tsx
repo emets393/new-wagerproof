@@ -4,19 +4,23 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import type { ChatMessage, ContentBlock } from '../../types/chatTypes';
+import type { ChatMessage, ContentBlock, ChatGameCardData, ChatWidgetData } from '../../types/chatTypes';
 import { TOOL_DISPLAY_NAMES } from '../../types/chatTypes';
 import StreamingText from './StreamingText';
 import ToolCallsPill from './ToolCallsPill';
 import FollowUpPills from './FollowUpPills';
 import ThinkingBlockView from './ThinkingBlockView';
 import AssistantActionRow from './AssistantActionRow';
+import ChatGameCardList from './ChatGameCardList';
+import ChatWidgetList from './widgets/ChatWidgetList';
 
 interface MessageBubbleProps {
   message: ChatMessage;
   isStreaming: boolean;
   onFollowUpSelect: (question: string) => void;
   onRegenerate?: () => void;
+  onGameCardPress?: (card: ChatGameCardData) => void;
+  onWidgetPress?: (widget: ChatWidgetData) => void;
 }
 
 export default function MessageBubble({
@@ -24,6 +28,8 @@ export default function MessageBubble({
   isStreaming,
   onFollowUpSelect,
   onRegenerate,
+  onGameCardPress,
+  onWidgetPress,
 }: MessageBubbleProps) {
   if (message.role === 'user') {
     const text = message.blocks
@@ -54,11 +60,18 @@ export default function MessageBubble({
   const thinkingBlocks = message.blocks.filter(
     (b): b is Extract<ContentBlock, { type: 'thinking' }> => b.type === 'thinking',
   );
+  const gameCardBlocks = message.blocks.filter(
+    (b): b is Extract<ContentBlock, { type: 'game_cards' }> => b.type === 'game_cards',
+  );
+  const widgetBlocks = message.blocks.filter(
+    (b): b is Extract<ContentBlock, { type: 'chat_widgets' }> => b.type === 'chat_widgets',
+  );
 
   const combinedText = textBlocks.map((b) => b.text).join('');
   const thinkingText = thinkingBlocks.map((b) => b.text).join('');
   const hasContent = combinedText.length > 0 || toolBlocks.length > 0
-    || followUpBlocks.length > 0 || thinkingText.length > 0;
+    || followUpBlocks.length > 0 || thinkingText.length > 0
+    || widgetBlocks.length > 0;
 
   if (!hasContent) return null;
 
@@ -72,13 +85,22 @@ export default function MessageBubble({
 
   return (
     <View style={styles.assistantContainer}>
-      {/* Text content */}
-      {combinedText.length > 0 && (
+      {/* Text content + inline widgets — rendered together for seamless flow */}
+      {(combinedText.length > 0 || widgetBlocks.length > 0) && (
         <View style={styles.assistantTextContainer}>
-          <StreamingText
-            text={combinedText}
-            isStreaming={isStreaming}
-          />
+          {onWidgetPress && widgetBlocks.map((block, i) => (
+            <ChatWidgetList
+              key={`wl-${i}`}
+              widgets={block.widgets}
+              onWidgetPress={onWidgetPress}
+            />
+          ))}
+          {combinedText.length > 0 && (
+            <StreamingText
+              text={combinedText}
+              isStreaming={isStreaming}
+            />
+          )}
         </View>
       )}
 

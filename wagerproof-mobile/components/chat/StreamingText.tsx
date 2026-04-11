@@ -2,14 +2,16 @@
 // TextBlockView pattern. During streaming, renders markdown with a soft
 // blinking caret at the end. Once streaming stops, renders full markdown.
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withTiming,
+  withSequence,
   Easing,
+  Layout,
 } from 'react-native-reanimated';
 import Markdown from 'react-native-markdown-display';
 
@@ -20,6 +22,24 @@ interface StreamingTextProps {
 }
 
 export default function StreamingText({ text, isStreaming }: StreamingTextProps) {
+  const opacity = useSharedValue(isStreaming ? 0.6 : 1);
+  const prevLenRef = useRef(0);
+
+  // Fade in smoothly when new chunks arrive
+  useEffect(() => {
+    if (isStreaming && text.length > prevLenRef.current) {
+      opacity.value = withTiming(1, { duration: 150, easing: Easing.out(Easing.ease) });
+    }
+    if (!isStreaming) {
+      opacity.value = withTiming(1, { duration: 200 });
+    }
+    prevLenRef.current = text.length;
+  }, [text, isStreaming]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   if (!isStreaming || !text) {
     return (
       <View style={styles.container}>
@@ -28,12 +48,12 @@ export default function StreamingText({ text, isStreaming }: StreamingTextProps)
     );
   }
 
-  // During streaming: markdown + blinking caret
+  // During streaming: animated markdown + blinking caret
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, animStyle]} layout={Layout.duration(100)}>
       <Markdown style={markdownStyles}>{text}</Markdown>
       <BlinkingCaret />
-    </View>
+    </Animated.View>
   );
 }
 

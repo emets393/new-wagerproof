@@ -92,5 +92,8 @@ verify_jwt = false  # Admin function, auth via x-internal-secret header
 [functions.send-agent-pick-ready-notification]
 verify_jwt = false  # Internal function, auth via service role key
 
+[functions.revenuecat-webhook]
+verify_jwt = false  # External webhook from RevenueCat, auth via custom Authorization header
+
 [functions.wagerbot-chat]
 verify_jwt = true  # Client-facing, authenticated via JWT

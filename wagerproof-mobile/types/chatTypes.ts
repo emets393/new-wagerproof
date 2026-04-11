@@ -6,11 +6,56 @@ export type ToolStatus =
   | { state: 'running' }
   | { state: 'done'; ms: number; ok: boolean; summary: string };
 
+// Normalized game card data for inline chat rendering — works across all 5 sports
+export interface ChatGameCardData {
+  sport: 'nba' | 'nfl' | 'cfb' | 'ncaab' | 'mlb';
+  game_id: string;
+  away_team: string;
+  home_team: string;
+  away_abbr: string;
+  home_abbr: string;
+  game_date: string;
+  game_time: string;
+  // Odds
+  home_spread: number | null;
+  away_spread: number | null;
+  home_ml: number | null;
+  away_ml: number | null;
+  over_under: number | null;
+  // Model picks
+  spread_pick: string | null;
+  spread_confidence: number | null;
+  spread_edge: number | null;
+  ou_pick: 'over' | 'under' | null;
+  ou_edge: number | null;
+  ml_pick_team: string | null;
+  ml_prob: number | null;
+  // AI analysis text — injected by present_analysis tool
+  analysis?: string;
+  // Full game object for bottom sheet tap-through
+  raw_game: Record<string, unknown>;
+}
+
+// Flexible widget data for inline chat rendering — one type covers all widget variants
+export type ChatWidgetType = 'matchup' | 'model_projection' | 'polymarket' | 'public_betting' | 'injuries' | 'betting_trends' | 'weather';
+
+export interface ChatWidgetData {
+  widget_type: ChatWidgetType;
+  sport: 'nba' | 'nfl' | 'cfb' | 'ncaab' | 'mlb';
+  game_id: string;
+  title?: string;
+  analysis?: string;
+  data: Record<string, unknown>;
+  raw_game: Record<string, unknown>;
+}
+
 export type ContentBlock =
   | { type: 'text'; text: string }
   | { type: 'thinking'; text: string }
   | { type: 'tool_use'; id: string; name: string; arguments: string; status: ToolStatus }
-  | { type: 'follow_ups'; questions: string[] };
+  | { type: 'follow_ups'; questions: string[] }
+  | { type: 'game_cards'; cards: ChatGameCardData[] }
+  | { type: 'chat_widgets'; widgets: ChatWidgetData[] };
 
 export interface ChatMessage {
   id: string;
@@ -65,6 +110,9 @@ export type WagerBotSSEEvent =
   | { type: 'content_delta'; data: { text: string } }
   | { type: 'thinking_delta'; data: { text: string } }
   | { type: 'thinking_done'; data: { summary: string } }
+  | { type: 'game_cards'; data: { cards: ChatGameCardData[] } }
+  | { type: 'game_analyses'; data: { summary: string; analyses: Array<{ game_id: string; analysis: string }> } }
+  | { type: 'chat_widgets'; data: { widgets: ChatWidgetData[] } }
   | { type: 'done' };
 
 // Tool display name mapping
@@ -79,6 +127,7 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
   search_games: 'Searching Games',
   get_editor_picks: 'Editor Picks',
   suggest_follow_ups: 'Follow-ups',
+  present_analysis: 'Analysis',
   web_search: 'Web Search',
 };
 
@@ -94,5 +143,6 @@ export const TOOL_ICONS: Record<string, string> = {
   search_games: 'magnify',
   get_editor_picks: 'star',
   suggest_follow_ups: 'comment-question',
+  present_analysis: 'chart-box-outline',
   web_search: 'web',
 };

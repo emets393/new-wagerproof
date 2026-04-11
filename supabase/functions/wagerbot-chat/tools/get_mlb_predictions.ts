@@ -4,6 +4,7 @@
 
 import type { ToolDefinition, ToolContext } from "./registry.ts";
 import { getTodayInET } from "../../shared/dateUtils.ts";
+import { normalizeMLB } from "./gameCardNormalizer.ts";
 
 export const tool: ToolDefinition = {
   name: "get_mlb_predictions",
@@ -135,7 +136,14 @@ export const tool: ToolDefinition = {
       };
     });
 
-    return { games: formatted, date: targetDate, count: formatted.length };
+    // Top 5 games by ML edge for inline display
+    const gameCards = games
+      .map((g: any) => normalizeMLB(g))
+      .sort((a, b) => Math.abs(b.ou_edge || 0) + Math.abs(b.ml_prob ? b.ml_prob - 50 : 0)
+                     - Math.abs(a.ou_edge || 0) - Math.abs(a.ml_prob ? a.ml_prob - 50 : 0))
+      .slice(0, 5);
+
+    return { games: formatted, date: targetDate, count: formatted.length, game_cards: gameCards };
   },
 };
 

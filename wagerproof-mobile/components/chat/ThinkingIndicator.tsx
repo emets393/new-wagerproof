@@ -6,11 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
-import Animated, {
-  FadeIn,
-  SlideInDown,
-  SlideOutUp,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { ShimmerText } from './ShimmerText';
 import { useThinkingSprite } from '../../hooks/useThinkingSprite';
 
@@ -71,8 +67,8 @@ export default function ThinkingIndicator() {
       {/* Key forces remount on index change, triggering enter/exit transitions */}
       <Animated.View
         key={verbIndex}
-        entering={SlideInDown.duration(400).springify()}
-        exiting={SlideOutUp.duration(300)}
+        entering={FadeIn.duration(300)}
+        exiting={FadeOut.duration(200)}
       >
         <ShimmerText style={styles.verbText}>
           {THINKING_VERBS[verbIndex]}...

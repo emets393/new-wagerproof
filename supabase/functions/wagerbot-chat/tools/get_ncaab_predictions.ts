@@ -3,6 +3,7 @@
 
 import type { ToolDefinition, ToolContext } from "./registry.ts";
 import { getTodayInET } from "../../shared/dateUtils.ts";
+import { normalizeNCAAB } from "./gameCardNormalizer.ts";
 
 export const tool: ToolDefinition = {
   name: "get_ncaab_predictions",
@@ -115,7 +116,12 @@ export const tool: ToolDefinition = {
       };
     });
 
-    return { games: formatted, date: targetDate, count: formatted.length };
+    const gameCards = filtered
+      .map((g: any) => normalizeNCAAB(g, predictionsMap.get(g.game_id) || null))
+      .sort((a, b) => Math.abs(b.spread_edge || 0) - Math.abs(a.spread_edge || 0))
+      .slice(0, 5);
+
+    return { games: formatted, date: targetDate, count: formatted.length, game_cards: gameCards };
   },
 };
 

@@ -1,6 +1,7 @@
 // get_cfb_predictions — Fetch college football predictions for the current week.
 
 import type { ToolDefinition, ToolContext } from "./registry.ts";
+import { normalizeCFB } from "./gameCardNormalizer.ts";
 
 export const tool: ToolDefinition = {
   name: "get_cfb_predictions",
@@ -68,7 +69,12 @@ export const tool: ToolDefinition = {
       },
     }));
 
-    return { games: formatted, count: formatted.length };
+    const gameCards = filtered
+      .map((g: any) => normalizeCFB(g))
+      .sort((a, b) => Math.abs(b.spread_edge || 0) - Math.abs(a.spread_edge || 0))
+      .slice(0, 5);
+
+    return { games: formatted, count: formatted.length, game_cards: gameCards };
   },
 };
 
