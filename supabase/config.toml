@@ -95,5 +95,8 @@ verify_jwt = false  # Internal function, auth via service role key
 [functions.revenuecat-webhook]
 verify_jwt = false  # External webhook from RevenueCat, auth via custom Authorization header
 
+[functions.backfill-anonymous-rc-ids]
+verify_jwt = false  # Admin/CLI backfill, auth via x-backfill-secret header or admin JWT
+
 [functions.wagerbot-chat]
 verify_jwt = true  # Client-facing, authenticated via JWT

@@ -45,7 +45,7 @@ export async function syncRevenueCatToSupabase(
         subscription_status: subscriptionStatus,
         subscription_active: isActive,
         subscription_expires_at: expiresAt,
-        revenuecat_customer_id: customerInfo.originalAppUserId,
+        revenuecat_customer_id: userId,
       })
       .eq('user_id', userId);
 
@@ -83,4 +83,3 @@ export async function checkSupabaseSubscription(userId: string): Promise<boolean
     return false;
   }
 }
-

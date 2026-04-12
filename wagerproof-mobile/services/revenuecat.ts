@@ -138,6 +138,49 @@ let CustomerInfo: any = null;
 let PurchasesOffering: any = null;
 let PurchasesPackage: any = null;
 let LOG_LEVEL: any = null;
+let expectedAppUserId: string | null = null;
+
+function isAnonymousRevenueCatUserId(userId?: string | null): boolean {
+  if (!userId) return true;
+  return userId.includes('$RCAnonymousID');
+}
+
+async function getCurrentRevenueCatAppUserId(): Promise<string | null> {
+  const PurchasesModule = getPurchasesModule();
+  if (!PurchasesModule || !isConfigured) return null;
+
+  try {
+    if (typeof PurchasesModule.getAppUserID === 'function') {
+      const appUserId = await PurchasesModule.getAppUserID();
+      return appUserId || null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureRevenueCatUserLinked(): Promise<boolean> {
+  const PurchasesModule = getPurchasesModule();
+  if (!PurchasesModule || !isConfigured) return false;
+  if (!expectedAppUserId) return false;
+
+  const currentAppUserId = await getCurrentRevenueCatAppUserId();
+  if (currentAppUserId === expectedAppUserId) {
+    return true;
+  }
+
+  try {
+    await PurchasesModule.logIn(expectedAppUserId);
+    const linkedUserId = await getCurrentRevenueCatAppUserId();
+    return linkedUserId === expectedAppUserId;
+  } catch (error: any) {
+    if (__DEV__) {
+      console.warn('RevenueCat ensure linked failed:', error?.message);
+    }
+    return false;
+  }
+}
 
 function getRevenueCatUIModule() {
   if (Platform.OS === 'web') {
@@ -268,6 +311,7 @@ export async function initializeRevenueCat(userId?: string): Promise<void> {
       apiKey,
       appUserID: userId || null,
     });
+    expectedAppUserId = userId || null;
 
     isConfigured = true;
 
@@ -324,17 +368,24 @@ export async function refreshDeviceIdentifiers(): Promise<void> {
 /**
  * Set the user ID for RevenueCat
  * Call this when user logs in or when user ID changes
- * Returns the CustomerInfo from the login response
+ * Returns { customerInfo, created } from the login response.
+ * `created === true` means RC made a brand-new customer for this userId —
+ * i.e. no anonymous alias merge happened. Combined with a missing entitlement,
+ * this is a strong signal to trigger restorePurchases() to recover a
+ * device-bound StoreKit/Play receipt from a prior anonymous session.
  */
-export async function setRevenueCatUserId(userId: string): Promise<any | null> {
+export async function setRevenueCatUserId(
+  userId: string
+): Promise<{ customerInfo: any; created: boolean } | null> {
   try {
     const PurchasesModule = getPurchasesModule();
     if (!isConfigured || !PurchasesModule) {
       return null;
     }
 
-    const { customerInfo } = await PurchasesModule.logIn(userId);
-    return customerInfo;
+    expectedAppUserId = userId;
+    const { customerInfo, created } = await PurchasesModule.logIn(userId);
+    return { customerInfo, created: created === true };
   } catch (error: any) {
     if (__DEV__) console.warn('RevenueCat logIn failed:', error?.message);
     throw error;
@@ -347,6 +398,7 @@ export async function setRevenueCatUserId(userId: string): Promise<any | null> {
  */
 export async function logOutRevenueCat(): Promise<void> {
   try {
+    expectedAppUserId = null;
     const PurchasesModule = getPurchasesModule();
     if (!isConfigured || !PurchasesModule) {
       console.warn('RevenueCat is not configured. Skipping logout.');
@@ -367,6 +419,9 @@ export async function getCustomerInfo(): Promise<any> {
     if (!isConfigured || !PurchasesModule) {
       throw new Error('RevenueCat is not configured');
     }
+
+    await ensureRevenueCatUserLinked();
+
     const customerInfo = await PurchasesModule.getCustomerInfo();
     return customerInfo;
   } catch (error) {
@@ -384,6 +439,9 @@ export async function hasActiveEntitlement(): Promise<boolean> {
     if (!isConfigured || !PurchasesModule) {
       return false;
     }
+
+    await ensureRevenueCatUserLinked();
+
     const customerInfo = await PurchasesModule.getCustomerInfo();
     return customerInfo.entitlements.active[ENTITLEMENT_IDENTIFIER] !== undefined;
   } catch (error) {
@@ -462,6 +520,7 @@ export async function syncPurchases(): Promise<void> {
     if (!isConfigured || !PurchasesModule) {
       throw new Error('RevenueCat is not configured');
     }
+    await ensureRevenueCatUserLinked();
     await PurchasesModule.syncPurchases();
   } catch (error) {
     console.error('Error syncing purchases:', error);
@@ -497,6 +556,13 @@ export async function purchasePackage(packageToPurchase: any): Promise<any> {
     if (!isConfigured || !PurchasesModule) {
       throw new Error('RevenueCat is not configured');
     }
+
+    const linked = await ensureRevenueCatUserLinked();
+    const currentAppUserId = await getCurrentRevenueCatAppUserId();
+    if (!linked || isAnonymousRevenueCatUserId(currentAppUserId)) {
+      throw new Error('Account not ready for purchase yet. Please wait a moment and try again.');
+    }
+
     const { customerInfo } = await PurchasesModule.purchasePackage(packageToPurchase);
     return customerInfo;
   } catch (error: any) {
@@ -519,6 +585,7 @@ export async function restorePurchases(): Promise<any> {
     if (!isConfigured || !PurchasesModule) {
       throw new Error('RevenueCat is not configured');
     }
+    await ensureRevenueCatUserLinked();
     const customerInfo = await PurchasesModule.restorePurchases();
     return customerInfo;
   } catch (error) {
@@ -586,6 +653,12 @@ export async function presentPaywall(
       throw new Error('RevenueCat UI is not available');
     }
 
+    const linked = await ensureRevenueCatUserLinked();
+    const currentAppUserId = await getCurrentRevenueCatAppUserId();
+    if (!linked || isAnonymousRevenueCatUserId(currentAppUserId)) {
+      throw new Error('Account not ready for purchase yet. Please wait a moment and try again.');
+    }
+
     trackPaywallViewed(source);
 
     // Present paywall using V2 API
@@ -630,6 +703,12 @@ export async function presentPaywallIfNeeded(requiredEntitlementIdentifier: stri
 
     if (!RevenueCatUI) {
       throw new Error('RevenueCat UI is not available');
+    }
+
+    const linked = await ensureRevenueCatUserLinked();
+    const currentAppUserId = await getCurrentRevenueCatAppUserId();
+    if (!linked || isAnonymousRevenueCatUserId(currentAppUserId)) {
+      throw new Error('Account not ready for purchase yet. Please wait a moment and try again.');
     }
 
     // Present paywall if needed using V2 API

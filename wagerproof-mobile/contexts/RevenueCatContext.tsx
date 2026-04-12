@@ -47,9 +47,42 @@ interface CachedEntitlementState {
 
 const ENTITLEMENT_CACHE_KEY_PREFIX = '@wagerproof/entitlement-state/v1/';
 const GRANTED_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const DENIED_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour (was 5 min — short TTL caused unnecessary re-checks)
+// Denied cache is deliberately short. A user who just bought on mobile or
+// was admin-granted on web should see Pro status within minutes, not an hour.
+// The 7d granted cache still protects paying users from login flashes.
+const DENIED_CACHE_TTL_MS = 5 * 60 * 1000;
+// AsyncStorage key used to track whether we've already run the one-time
+// post-login restorePurchases() recovery for this install. Prevents hitting
+// StoreKit / Play receipt validation on every cold start.
+const LOGIN_RESTORE_ATTEMPTED_KEY_PREFIX = '@wagerproof/rc-login-restore-attempted/v1/';
 
 const getEntitlementCacheKey = (userId: string) => `${ENTITLEMENT_CACHE_KEY_PREFIX}${userId}`;
+const getLoginRestoreAttemptedKey = (userId: string) =>
+  `${LOGIN_RESTORE_ATTEMPTED_KEY_PREFIX}${userId}`;
+
+// Classifies where a customer-info update came from. "trusted" sources are
+// explicit network fetches (initial login, purchase, refresh, manual restore)
+// and are allowed to downgrade granted→denied. "cached" sources (SDK
+// addCustomerInfoUpdateListener fires) can upgrade denied→granted but are
+// NOT allowed to downgrade — the SDK listener can fire with stale or
+// anonymous-identity data at boot, which in the deployed build was locking
+// paying users out. Real downgrades always arrive via a trusted refresh
+// within minutes, so this isn't a permanent grant.
+type CustomerInfoSource =
+  | 'login'
+  | 'login-restore'
+  | 'refresh'
+  | 'purchase'
+  | 'restore'
+  | 'listener';
+
+const TRUSTED_CUSTOMER_INFO_SOURCES: ReadonlySet<CustomerInfoSource> = new Set([
+  'login',
+  'login-restore',
+  'refresh',
+  'purchase',
+  'restore',
+]);
 
 interface RevenueCatContextType {
   // State
@@ -140,27 +173,63 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
+  // Ref mirror of entitlementStatus so the callback can read the current
+  // value without being re-created on every status change (which would
+  // detach/re-attach the SDK listener and re-run the login effect).
+  const entitlementStatusRef = useRef<EntitlementStatus>('unknown');
+  useEffect(() => {
+    entitlementStatusRef.current = entitlementStatus;
+  }, [entitlementStatus]);
+
   const applyCustomerInfoState = useCallback(async (
     info: CustomerInfo,
-    source: string,
+    source: CustomerInfoSource,
     userId?: string
   ) => {
-    setCustomerInfo(info);
     const activeEntitlement = info.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
     const hasEntitlement = activeEntitlement !== undefined;
     const nextStatus: Exclude<EntitlementStatus, 'unknown'> = hasEntitlement ? 'granted' : 'denied';
     const nextSubscriptionType = getActiveSubscriptionType(info);
+    const isTrusted = TRUSTED_CUSTOMER_INFO_SOURCES.has(source);
 
+    // Trust-downgrade guard: never overwrite granted→denied from an untrusted
+    // (cached) source. The SDK listener can fire with stale data during the
+    // anonymous→identified login window; honoring it would lock out users
+    // whose purchase RC has since aliased correctly. Real downgrades always
+    // arrive via an explicit trusted-source refresh (foreground, network
+    // recovery, manual refresh) within minutes, so this isn't a permanent lock.
+    const currentStatus = entitlementStatusRef.current;
+    const isRefusedDowngrade =
+      currentStatus === 'granted' && nextStatus === 'denied' && !isTrusted;
+
+    if (isRefusedDowngrade) {
+      console.warn(`📱 RevenueCat: Refusing granted→denied downgrade from untrusted source=${source}`);
+      // Allow listener upgrades to refresh customerInfo even when we refuse a
+      // downgrade here — but since the nextStatus IS denied, there's nothing
+      // to upgrade. Bail before touching any state.
+      return;
+    }
+
+    setCustomerInfo(info);
     setEntitlementStatus(nextStatus);
     setIsProInternal(hasEntitlement);
     setSubscriptionType(nextSubscriptionType);
-    console.log(`📱 RevenueCat: Entitlement resolved from ${source}:`, nextStatus);
+    entitlementStatusRef.current = nextStatus;
+    console.log(`📱 RevenueCat: Entitlement resolved from ${source}:`, nextStatus, isTrusted ? '(trusted)' : '(cached)');
 
     if (userId) {
-      await persistEntitlementState(userId, nextStatus, nextSubscriptionType);
+      // Persist entitlement state to AsyncStorage only from trusted sources.
+      // Untrusted listener fires can upgrade in-memory state but must not
+      // write to the durable cache — otherwise a stale denied flash at boot
+      // would survive app restart.
+      if (isTrusted) {
+        await persistEntitlementState(userId, nextStatus, nextSubscriptionType);
+      }
 
-      // Sync subscription status to Supabase profiles table so RLS policies
-      // (e.g. can_create_agent) see the correct Pro status for this user.
+      // Supabase mirror write. Kept across all sources because more updates
+      // to the mirror are strictly better — the mirror is a secondary record
+      // and the damage untrusted sources can do is already bounded by the
+      // trust-downgrade guard above.
       const expiresAt = activeEntitlement?.expirationDate ?? null;
       supabase
         .from('profiles')
@@ -168,7 +237,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           subscription_active: hasEntitlement,
           subscription_status: nextSubscriptionType ?? (hasEntitlement ? 'active' : 'inactive'),
           subscription_expires_at: expiresAt,
-          revenuecat_customer_id: info.originalAppUserId,
+          revenuecat_customer_id: userId,
         })
         .eq('user_id', userId)
         .then(({ error: syncError }) => {
@@ -309,13 +378,55 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           console.log('📱 RevenueCat: Setting user ID for:', user.id);
           console.log('📱 RevenueCat: User email:', user.email);
 
-          // setRevenueCatUserId now returns the customer info directly from login
-          const loginCustomerInfo = await setRevenueCatUserId(user.id);
+          // setRevenueCatUserId returns { customerInfo, created } from login.
+          // `created === true` means RC made a brand-new customer for this
+          // Supabase user id — i.e. it did NOT alias an existing anonymous
+          // purchase. Combined with no active entitlement, that's the exact
+          // signature of the anonymous-id race bug that stranded 54 paying
+          // users. We recover via restorePurchases(), which re-reads the
+          // device StoreKit / Play receipt and re-attributes any purchase to
+          // the now-identified RC user.
+          const loginResult = await setRevenueCatUserId(user.id);
 
-          if (loginCustomerInfo) {
-            console.log('📱 RevenueCat: Using customer info from login response');
-            console.log('📱 RevenueCat: Active entitlements from login:', Object.keys(loginCustomerInfo.entitlements?.active || {}));
+          if (loginResult) {
+            const { customerInfo: loginCustomerInfo, created } = loginResult;
+            console.log('📱 RevenueCat: Login response:', {
+              created,
+              activeEntitlements: Object.keys(loginCustomerInfo.entitlements?.active || {}),
+            });
             await applyCustomerInfoState(loginCustomerInfo, 'login', user.id);
+
+            // Recovery path for anonymous-id purchases. Conditions:
+            //   1. This is the first login recovery attempt for this install+user
+            //      (tracked in AsyncStorage to avoid running on every cold start).
+            //   2. Either RC created a fresh customer (no alias merge happened)
+            //      OR the login returned no active entitlement.
+            // Running restorePurchases() is idempotent — if there's no device
+            // receipt, it returns the current state unchanged. If there IS a
+            // receipt from an anonymous session, RC re-attributes it to the
+            // identified user id and the next customerInfo fire will show the
+            // entitlement as active.
+            const hasEntitlement =
+              !!loginCustomerInfo.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
+            const restoreKey = getLoginRestoreAttemptedKey(user.id);
+            const alreadyAttempted = await AsyncStorage.getItem(restoreKey);
+
+            if ((created || !hasEntitlement) && !alreadyAttempted) {
+              // Mark the attempt BEFORE running so a crash mid-restore doesn't
+              // trigger another attempt on next launch.
+              await AsyncStorage.setItem(restoreKey, String(Date.now()));
+              console.log('📱 RevenueCat: Running post-login receipt restore recovery');
+              try {
+                const { restorePurchases: restoreFn } = await import('../services/revenuecat');
+                const restored = await restoreFn();
+                await applyCustomerInfoState(restored, 'login-restore', user.id);
+                const recovered =
+                  !!restored.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
+                console.log('📱 RevenueCat: Login restore completed, recovered =', recovered);
+              } catch (restoreError: any) {
+                console.warn('📱 RevenueCat: Login restore failed (non-fatal):', restoreError?.message);
+              }
+            }
 
             // NOW we can set loading to false - entitlements are loaded
             console.log('📱 RevenueCat: Entitlements loaded, setting isLoading = false');
