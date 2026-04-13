@@ -184,10 +184,10 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
         </div>
 
         <Tabs defaultValue="full_ml">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="w-full flex gap-1 sm:gap-2 p-1">
             {betTypes.map(bt => (
-              <TabsTrigger key={bt} value={bt} className="text-[10px] sm:text-xs px-1 sm:px-3">
-                {bt === 'full_ml' ? 'FG ML' : bt === 'full_ou' ? 'FG O/U' : bt === 'f5_ml' ? 'F5 ML' : 'F5 O/U'}
+              <TabsTrigger key={bt} value={bt} className="flex-1 text-[11px] sm:text-xs py-1.5 px-2">
+                {bt === 'full_ml' ? 'Full ML' : bt === 'full_ou' ? 'Full O/U' : bt === 'f5_ml' ? 'F5 ML' : 'F5 O/U'}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -200,39 +200,42 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
 
             return (
               <TabsContent key={bt} value={bt}>
-                <div className="space-y-2">
-                  {buckets.map((b, i) => {
-                    const label = [b.bucket, b.side, b.fav_dog, b.direction]
-                      .filter(Boolean).join(' / ');
-                    const bAny = b as any;
-                    const roi = bAny.roi_pct ?? 0;
-                    return (
-                      <div key={i} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="truncate">{label}</span>
-                          <span className={`ml-2 whitespace-nowrap font-medium ${roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            ROI: {roi > 0 ? '+' : ''}{roi}%
-                          </span>
-                        </div>
-                        <div className="h-5 bg-muted/30 rounded-full overflow-hidden relative">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${Math.min(b.win_pct, 100)}%`,
-                              backgroundColor: winPctColor(b.win_pct),
-                            }}
-                          />
-                          <span className="absolute inset-0 flex items-center justify-center text-[10px] sm:text-xs font-medium">
-                            {b.win_pct}% ({b.wins}-{b.games - b.wins})
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {buckets.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No buckets with 3+ games yet</p>
-                  )}
-                </div>
+                {buckets.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead>
+                        <tr className="border-b border-muted/30">
+                          <th className="text-left py-2 pr-2 font-medium text-muted-foreground">Bucket</th>
+                          <th className="text-center py-2 px-2 font-medium text-muted-foreground">Record</th>
+                          <th className="text-center py-2 px-2 font-medium text-muted-foreground">Win%</th>
+                          <th className="text-right py-2 pl-2 font-medium text-muted-foreground">ROI%</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {buckets.map((b, i) => {
+                          const label = [b.bucket, b.side, b.fav_dog, b.direction]
+                            .filter(Boolean).join(' / ');
+                          const bAny = b as any;
+                          const roi = bAny.roi_pct ?? 0;
+                          return (
+                            <tr key={i} className="border-b border-muted/10">
+                              <td className="py-2 pr-2 text-left">{label}</td>
+                              <td className="py-2 px-2 text-center text-muted-foreground">{b.wins}-{b.games - b.wins}</td>
+                              <td className="py-2 px-2 text-center font-medium" style={{ color: winPctColor(b.win_pct) }}>
+                                {b.win_pct}%
+                              </td>
+                              <td className={`py-2 pl-2 text-right font-medium ${roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {roi > 0 ? '+' : ''}{roi}%
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4">No buckets with 3+ games yet</p>
+                )}
               </TabsContent>
             );
           })}
