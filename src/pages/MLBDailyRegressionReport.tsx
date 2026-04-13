@@ -127,35 +127,21 @@ function RecapSection({ recap }: { recap: YesterdayRecap[] }) {
           <Badge variant="outline" className="ml-2">{wins}-{losses}{pushes ? `-${pushes}P` : ''} ({pct}%)</Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Pick</TableHead>
-              <TableHead>Matchup</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Confidence</TableHead>
-              <TableHead>Score</TableHead>
-              <TableHead>Result</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {recap.map((r, i) => (
-              <TableRow key={i}>
-                <TableCell className="font-medium">{r.pick}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">{r.matchup}</TableCell>
-                <TableCell><Badge variant="outline" className="text-xs">{betTypeLabel(r.bet_type)}</Badge></TableCell>
-                <TableCell>{r.confidence ? confidenceBadge(r.confidence) : '-'}</TableCell>
-                <TableCell>{r.actual_score}</TableCell>
-                <TableCell>
-                  <Badge className={r.result === 'won' ? 'bg-green-600' : r.result === 'lost' ? 'bg-red-600' : 'bg-gray-600'}>
-                    {r.result.toUpperCase()}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <CardContent className="p-2 sm:p-6">
+        <div className="space-y-2">
+          {recap.map((r, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 p-2 rounded bg-muted/20">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-sm truncate">{r.pick}</div>
+                <div className="text-[10px] sm:text-xs text-muted-foreground truncate">{r.matchup}</div>
+              </div>
+              <div className="text-xs text-muted-foreground whitespace-nowrap">{r.actual_score}</div>
+              <Badge className={`text-[10px] flex-shrink-0 ${r.result === 'won' ? 'bg-green-600' : r.result === 'lost' ? 'bg-red-600' : 'bg-gray-600'}`}>
+                {r.result.toUpperCase()}
+              </Badge>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
@@ -200,7 +186,9 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
         <Tabs defaultValue="full_ml">
           <TabsList className="grid w-full grid-cols-4">
             {betTypes.map(bt => (
-              <TabsTrigger key={bt} value={bt} className="text-xs">{betTypeLabel(bt)}</TabsTrigger>
+              <TabsTrigger key={bt} value={bt} className="text-[10px] sm:text-xs px-1 sm:px-3">
+                {bt === 'full_ml' ? 'FG ML' : bt === 'full_ou' ? 'FG O/U' : bt === 'f5_ml' ? 'F5 ML' : 'F5 O/U'}
+              </TabsTrigger>
             ))}
           </TabsList>
           {betTypes.map(bt => {
@@ -219,9 +207,14 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
                     const bAny = b as any;
                     const roi = bAny.roi_pct ?? 0;
                     return (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="w-44 text-sm truncate">{label}</div>
-                        <div className="flex-1 h-6 bg-muted/30 rounded-full overflow-hidden relative">
+                      <div key={i} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="truncate">{label}</span>
+                          <span className={`ml-2 whitespace-nowrap font-medium ${roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            ROI: {roi > 0 ? '+' : ''}{roi}%
+                          </span>
+                        </div>
+                        <div className="h-5 bg-muted/30 rounded-full overflow-hidden relative">
                           <div
                             className="h-full rounded-full transition-all"
                             style={{
@@ -229,12 +222,9 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
                               backgroundColor: winPctColor(b.win_pct),
                             }}
                           />
-                          <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px] sm:text-xs font-medium">
                             {b.win_pct}% ({b.wins}-{b.games - b.wins})
                           </span>
-                        </div>
-                        <div className={`w-16 text-xs text-right font-medium ${roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {roi > 0 ? '+' : ''}{roi}%
                         </div>
                       </div>
                     );
@@ -293,24 +283,24 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
         <div className="grid gap-3 md:grid-cols-2">
           {picks.map((p, i) => (
             <Card key={i} className={`border ${p.locked ? 'opacity-70 border-muted' : 'border-primary/30'}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-bold text-lg">{p.pick}</div>
-                  <div className="flex items-center gap-2">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="font-bold text-sm sm:text-lg leading-tight">{p.pick}</div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     {confidenceBadge(p.confidence_at_suggestion)}
-                    <Badge variant="outline" className="text-xs">{betTypeLabel(p.bet_type)}</Badge>
-                    {p.locked && <Badge variant="secondary" className="text-xs">LOCKED</Badge>}
+                    <Badge variant="outline" className="text-[10px] sm:text-xs">{p.bet_type === 'full_ml' ? 'FG ML' : p.bet_type === 'full_ou' ? 'FG O/U' : p.bet_type === 'f5_ml' ? 'F5 ML' : 'F5 O/U'}</Badge>
+                    {p.locked && <Badge variant="secondary" className="text-[10px]">LOCKED</Badge>}
                   </div>
                 </div>
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {teamBadge(p.away_team)}
-                    <span className="text-muted-foreground text-xs">@</span>
+                    <span className="text-muted-foreground text-[10px]">@</span>
                     {teamBadge(p.home_team)}
-                    {(p as any).game_number >= 2 && <Badge variant="secondary" className="text-xs">Game 2</Badge>}
+                    {(p as any).game_number >= 2 && <Badge variant="secondary" className="text-[10px]">G2</Badge>}
                   </div>
                   {p.game_time_et && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {new Date(p.game_time_et).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET
                     </span>
@@ -352,51 +342,56 @@ function PitcherRegressionSection({
   const [showPos, setShowPos] = useState(true);
 
   const renderTable = (pitchers: PitcherRegression[], type: 'negative' | 'positive') => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Pitcher</TableHead>
-          <TableHead>vs</TableHead>
-          <TableHead className="text-right">ERA</TableHead>
-          <TableHead className="text-right">xFIP</TableHead>
-          <TableHead className="text-right">xERA</TableHead>
-          <TableHead className="text-right">Gap</TableHead>
-          <TableHead className="text-right">xwOBA</TableHead>
-          <TableHead className="text-right">K%</TableHead>
-          <TableHead className="text-right">BB%</TableHead>
-          <TableHead>Signal</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {pitchers.map((p: any, i: number) => (
-          <TableRow key={i} className={severityBg(p.severity)}>
-            <TableCell>
-              <div className="font-medium">{p.pitcher_name}</div>
-              <div className="text-xs text-muted-foreground">{p.team_name}</div>
-            </TableCell>
-            <TableCell className="text-muted-foreground text-sm">{p.opponent || '-'}</TableCell>
-            <TableCell className="text-right font-mono">{p.era?.toFixed(2)}</TableCell>
-            <TableCell className="text-right font-mono">{p.xfip?.toFixed(2)}</TableCell>
-            <TableCell className="text-right font-mono">{p.xera?.toFixed(2) || '-'}</TableCell>
-            <TableCell className={`text-right font-mono font-bold ${severityColor(p.severity)}`}>
-              {p.era_minus_xfip > 0 ? '+' : ''}{p.era_minus_xfip?.toFixed(2)}
-            </TableCell>
-            <TableCell className={`text-right font-mono ${(p.xwoba ?? 0) >= 0.340 ? 'text-red-400' : (p.xwoba ?? 0) <= 0.260 ? 'text-green-400' : ''}`}>
-              {p.xwoba?.toFixed(3) || '-'}
-            </TableCell>
-            <TableCell className="text-right font-mono">{p.k_pct?.toFixed(1) || '-'}%</TableCell>
-            <TableCell className={`text-right font-mono ${(p.bb_pct ?? 0) >= 12 ? 'text-red-400' : ''}`}>
-              {p.bb_pct?.toFixed(1) || '-'}%
-            </TableCell>
-            <TableCell>
-              <Badge className={p.severity === 'severe' ? 'bg-red-600' : p.severity === 'moderate' ? 'bg-amber-600' : 'bg-green-600'}>
-                {p.severity}
-              </Badge>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className="space-y-2">
+      {pitchers.map((p: any, i: number) => (
+        <div key={i} className={`p-3 rounded-lg border ${severityBg(p.severity)}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <span className="font-medium text-sm">{p.pitcher_name}</span>
+              <span className="text-xs text-muted-foreground ml-1">({p.team_name})</span>
+            </div>
+            <Badge className={`text-[10px] ${p.severity === 'severe' ? 'bg-red-600' : p.severity === 'moderate' ? 'bg-amber-600' : 'bg-green-600'}`}>
+              {p.severity}
+            </Badge>
+          </div>
+          <div className="text-xs text-muted-foreground mb-2">vs {p.opponent || '-'}</div>
+          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 text-center text-xs">
+            <div>
+              <div className="text-muted-foreground">ERA</div>
+              <div className="font-mono font-medium">{p.era?.toFixed(2)}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">xFIP</div>
+              <div className="font-mono font-medium">{p.xfip?.toFixed(2)}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Gap</div>
+              <div className={`font-mono font-bold ${severityColor(p.severity)}`}>
+                {p.era_minus_xfip > 0 ? '+' : ''}{p.era_minus_xfip?.toFixed(2)}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">xwOBA</div>
+              <div className={`font-mono ${(p.xwoba ?? 0) >= 0.340 ? 'text-red-400' : (p.xwoba ?? 0) <= 0.260 ? 'text-green-400' : ''}`}>
+                {p.xwoba?.toFixed(3) || '-'}
+              </div>
+            </div>
+            <div className="hidden sm:block">
+              <div className="text-muted-foreground">xERA</div>
+              <div className="font-mono">{p.xera?.toFixed(2) || '-'}</div>
+            </div>
+            <div className="hidden sm:block">
+              <div className="text-muted-foreground">K%</div>
+              <div className="font-mono">{p.k_pct?.toFixed(1) || '-'}%</div>
+            </div>
+            <div className="hidden sm:block">
+              <div className="text-muted-foreground">BB%</div>
+              <div className={`font-mono ${(p.bb_pct ?? 0) >= 12 ? 'text-red-400' : ''}`}>{p.bb_pct?.toFixed(1) || '-'}%</div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 
   return (
@@ -667,7 +662,7 @@ export default function MLBDailyRegressionReport() {
 
   if (isLoading) {
     return (
-      <div className="max-w-6xl mx-auto p-4 space-y-4">
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 py-4 space-y-4">
         <Skeleton className="h-12 w-96" />
         <Skeleton className="h-48 w-full" />
         <Skeleton className="h-64 w-full" />
@@ -699,24 +694,24 @@ export default function MLBDailyRegressionReport() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 space-y-4">
+    <div className="max-w-6xl mx-auto px-2 sm:px-4 py-4 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h1 className="text-2xl font-bold">MLB Daily Regression Report</h1>
-          <p className="text-muted-foreground text-sm">
-            {new Date(report.report_date + 'T12:00:00').toLocaleDateString('en-US', {
-              weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-            })}
-          </p>
+      <div className="space-y-1">
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold">MLB Regression Report</h1>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Badge variant="outline" className="flex items-center gap-1 text-[10px] sm:text-xs">
+              <Clock className="h-3 w-3" />
+              {timeAgo(report.generated_at)}
+            </Badge>
+            <Badge variant="secondary" className="text-[10px]">v{report.generation_version}</Badge>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            Updated {timeAgo(report.generated_at)}
-          </Badge>
-          <Badge variant="secondary">v{report.generation_version}</Badge>
-        </div>
+        <p className="text-muted-foreground text-xs sm:text-sm">
+          {new Date(report.report_date + 'T12:00:00').toLocaleDateString('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+          })}
+        </p>
       </div>
 
       {/* AI Narrative */}

@@ -66,6 +66,7 @@ export interface SuggestedPick {
   home_team: string;
   away_team: string;
   game_time_et: string | null;
+  game_number: number;
   model_prob: number | null;
   fair_value: number | null;
   edge_at_suggestion: number;
