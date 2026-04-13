@@ -176,7 +176,10 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
           {betTypes.map(bt => {
             const data = accuracy[bt];
             if (!data) return null;
-            const { games, wins, win_pct } = data.overall;
+            const ov = data.overall as any;
+            const { games, wins, win_pct } = ov;
+            const roi = ov.roi_pct ?? 0;
+            const units = ov.units_won ?? 0;
             return (
               <Card key={bt} className="bg-muted/30">
                 <CardContent className="p-3 text-center">
@@ -185,6 +188,9 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
                     {win_pct}%
                   </div>
                   <div className="text-xs text-muted-foreground">{wins}-{games - wins}</div>
+                  <div className={`text-xs font-medium mt-1 ${roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    ROI: {roi > 0 ? '+' : ''}{roi}% ({units > 0 ? '+' : ''}{units}u)
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -210,9 +216,11 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
                   {buckets.map((b, i) => {
                     const label = [b.bucket, b.side, b.fav_dog, b.direction]
                       .filter(Boolean).join(' / ');
+                    const bAny = b as any;
+                    const roi = bAny.roi_pct ?? 0;
                     return (
                       <div key={i} className="flex items-center gap-3">
-                        <div className="w-48 text-sm truncate">{label}</div>
+                        <div className="w-44 text-sm truncate">{label}</div>
                         <div className="flex-1 h-6 bg-muted/30 rounded-full overflow-hidden relative">
                           <div
                             className="h-full rounded-full transition-all"
@@ -224,6 +232,9 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
                           <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">
                             {b.win_pct}% ({b.wins}-{b.games - b.wins})
                           </span>
+                        </div>
+                        <div className={`w-16 text-xs text-right font-medium ${roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {roi > 0 ? '+' : ''}{roi}%
                         </div>
                       </div>
                     );
