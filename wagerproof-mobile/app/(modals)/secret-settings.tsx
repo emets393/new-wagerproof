@@ -389,23 +389,15 @@ export default function SecretSettingsScreen() {
         </View>
 
         <View style={styles.pagePadding}>
-          {/* Developer Tools */}
-          <SectionCard title="Developer Tools">
+          {/* More Goodies */}
+          <SectionCard title="More Goodies">
             <ActionRow
-              icon="phone"
+              icon="microphone-message"
               iconColor="#22c55e"
-              iconBackground="#e9f8f0"
-              title="Voice Chat"
-              subtitle="Open real-time voice chat with WagerBot"
-              onPress={() => router.push('/voice-chat' as any)}
-            />
-            <ActionRow
-              icon="fire"
-              iconColor="#f97316"
-              iconBackground="#fff3e8"
-              title="Roast Mode"
-              subtitle="Open hidden roast bot mode"
-              onPress={() => router.push('/roast' as any)}
+              iconBackground="#e9faf0"
+              title="WagerBot Voice"
+              subtitle="Talk to WagerBot — real-time voice analysis"
+              onPress={() => router.push('/(drawer)/(tabs)/voice-chat')}
               last
             />
           </SectionCard>
