@@ -148,6 +148,22 @@ export interface WeatherParkFlag {
   flags: string[];
 }
 
+export interface LRSplitEntry {
+  team_name: string;
+  opponent: string;
+  opponent_sp: string | null;
+  opponent_sp_hand: string;
+  facing: string;
+  home_away: string;
+  games: number;
+  avg_runs: number;
+  avg_woba: number;
+  f5_wins: number;
+  f5_losses: number;
+  f5_win_pct: number | null;
+  is_notable: boolean;
+}
+
 export interface MLBRegressionReport {
   report_date: string;
   season: number;
@@ -163,6 +179,7 @@ export interface MLBRegressionReport {
   cumulative_record: CumulativeRecord;
   model_accuracy: ModelAccuracy;
   weather_park_flags: WeatherParkFlag[];
+  lr_splits_today: LRSplitEntry[];
   narrative_text: string | null;
   narrative_model: string | null;
   generated_at: string;

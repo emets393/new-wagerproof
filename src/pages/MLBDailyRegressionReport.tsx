@@ -627,6 +627,72 @@ function PerfectStormSection({ storms }: { storms: PerfectStorm[] }) {
   );
 }
 
+function LRSplitsSection({ splits }: { splits: any[] }) {
+  if (!splits || !splits.length) return null;
+  const notable = splits.filter((s: any) => s.is_notable);
+  const rest = splits.filter((s: any) => !s.is_notable);
+
+  return (
+    <Card>
+      <CardHeader className="py-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Target className="h-5 w-5 text-indigo-500" /> L/R Pitcher Splits
+          <span className="text-xs text-muted-foreground font-normal ml-1">How teams perform vs LHP/RHP this season</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-2 sm:p-6">
+        {notable.length > 0 && (
+          <div className="mb-4">
+            <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Notable Matchups</div>
+            <div className="space-y-2">
+              {notable.map((s: any, i: number) => (
+                <div key={i} className="flex items-center justify-between gap-2 p-2 sm:p-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-sm">{s.team_name} <span className="text-muted-foreground font-normal">{s.facing}</span></div>
+                    <div className="text-[10px] sm:text-xs text-muted-foreground">vs {s.opponent_sp || s.opponent} ({s.opponent_sp_hand}HP)</div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-bold">{s.avg_runs} R/G</div>
+                    <div className={`text-[10px] sm:text-xs font-medium ${(s.f5_win_pct ?? 50) >= 60 ? 'text-green-400' : (s.f5_win_pct ?? 50) <= 40 ? 'text-red-400' : ''}`}>
+                      F5: {s.f5_wins}-{s.f5_losses} {s.f5_win_pct != null ? `(${s.f5_win_pct}%)` : ''}
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">{s.games}G</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {rest.length > 0 && (
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-2 w-full text-left text-xs text-muted-foreground">
+              <ChevronDown className="h-3 w-3" />
+              All splits ({rest.length} more)
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <div className="space-y-1">
+                {rest.map((s: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between gap-2 p-2 rounded bg-muted/10 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium">{s.team_name}</span>
+                      <span className="text-muted-foreground ml-1">{s.facing}</span>
+                      <span className="text-muted-foreground ml-1">vs {s.opponent_sp_hand}HP</span>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className="font-mono">{s.avg_runs} R/G</span>
+                      <span className="text-muted-foreground ml-2">F5: {s.f5_wins}-{s.f5_losses}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function WeatherSection({ flags }: { flags: WeatherParkFlag[] }) {
   if (!flags.length) return null;
 
@@ -743,6 +809,9 @@ export default function MLBDailyRegressionReport() {
 
       {/* Bullpen Fatigue */}
       <BullpenFatigueSection bullpens={report.bullpen_fatigue} />
+
+      {/* L/R Pitcher Splits */}
+      <LRSplitsSection splits={report.lr_splits_today} />
 
       {/* Perfect Storms */}
       <PerfectStormSection storms={report.perfect_storm_matchups} />
