@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
+import type { ModelAccuracy, AccuracyBucket } from '@/hooks/useMLBRegressionReport';
 import {
   Activity,
   AlertCircle,
@@ -511,6 +513,72 @@ export default function MLB() {
     setProjectionViewByGame((prev) => ({ ...prev, [gameKey]: view }));
   };
 
+  // Fetch real model accuracy from today's regression report
+  const { data: regressionReport } = useMLBRegressionReport();
+  const modelAccuracy = regressionReport?.model_accuracy ?? null;
+
+  // Edge bucket thresholds (must match the Python script)
+  const ML_BUCKETS: [number, string][] = [[7, "7%+"], [4, "4-6.9%"], [2, "2-3.9%"], [0, "<2%"]];
+  const OU_BUCKETS: [number, string][] = [[1.5, "1.5+"], [1.0, "1.0-1.49"], [0.5, "0.5-0.99"], [0, "<0.5"]];
+  const F5_ML_BUCKETS: [number, string][] = [[20, "20%+"], [10, "10-19.9%"], [5, "5-9.9%"], [0, "<5%"]];
+  const F5_OU_BUCKETS: [number, string][] = [[1.0, "1.0+"], [0.5, "0.5-0.99"], [0, "<0.5"]];
+
+  const getBucketLabel = useCallback((edge: number, buckets: [number, string][]) => {
+    const absEdge = Math.abs(edge);
+    for (const [threshold, label] of buckets) {
+      if (absEdge >= threshold) return label;
+    }
+    return buckets[buckets.length - 1][1];
+  }, []);
+
+  const lookupBucketAccuracy = useCallback((
+    betType: 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou',
+    edge: number,
+    side?: 'home' | 'away',
+    fav_dog?: 'favorite' | 'underdog',
+    direction?: string,
+  ): { win_pct: number; roi_pct: number; record: string } | null => {
+    if (!modelAccuracy) return null;
+    const data = modelAccuracy[betType];
+    if (!data) return null;
+
+    const buckets = betType === 'full_ml' ? ML_BUCKETS
+      : betType === 'full_ou' ? OU_BUCKETS
+      : betType === 'f5_ml' ? F5_ML_BUCKETS
+      : F5_OU_BUCKETS;
+    const bucketLabel = getBucketLabel(edge, buckets);
+
+    // Find matching bucket in accuracy data
+    for (const b of data.by_bucket) {
+      const bAny = b as any;
+      if (b.bucket !== bucketLabel) continue;
+      if (side && b.side && b.side !== side) continue;
+      if (fav_dog && b.fav_dog && b.fav_dog !== fav_dog) continue;
+      if (direction && b.direction && b.direction !== direction) continue;
+      if (b.games < 3) continue; // minimum sample
+      return {
+        win_pct: b.win_pct,
+        roi_pct: bAny.roi_pct ?? 0,
+        record: `${b.wins}-${b.games - b.wins}`,
+      };
+    }
+    return null;
+  }, [modelAccuracy, getBucketLabel]);
+
+  const accuracyBadge = useCallback((info: { win_pct: number; roi_pct: number; record: string } | null) => {
+    if (!info) return null;
+    const color = info.win_pct >= 65
+      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+      : info.win_pct >= 55
+        ? 'bg-orange-500/20 text-orange-300 border-orange-400/40'
+        : 'bg-red-500/20 text-red-300 border-red-400/40';
+    return (
+      <span className={`font-semibold px-1.5 py-0.5 rounded border text-[10px] sm:text-xs ${color}`}>
+        {info.win_pct}% W ({info.record})
+      </span>
+    );
+  }, []);
+
   const signalStyle = (signal: 'Strong' | 'Moderate' | 'Weak') => {
     if (signal === 'Strong') {
       return 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40';
@@ -948,15 +1016,20 @@ export default function MLB() {
                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
                       {cardView === 'full' ? 'Moneyline Projection' : '1st 5 Moneyline Projection'}
                     </div>
-                    {cardView === 'full' ? (
-                      <>
-                        <div className="text-sm text-white">
-                          Pick: <span className="font-semibold">{mlPickTeam}</span>
-                          {' '}| Edge: <span className="font-semibold">{mlPickEdge !== null ? `${mlPickEdge > 0 ? '+' : ''}${mlPickEdge.toFixed(1)}%` : '-'}</span>
-                          {' '}| Confidence:{' '}
-                          <span className={`font-semibold px-2 py-0.5 rounded border ${signalStyle(mlConfidenceLabel as 'Strong' | 'Weak')}`}>
-                            {mlConfidenceLabel}
-                          </span>
+                    {cardView === 'full' ? (() => {
+                      const mlSide = mlPickIsHome ? 'home' : 'away';
+                      const mlLine = mlPickIsHome ? toNum(prediction.home_ml) : toNum(prediction.away_ml);
+                      const mlFavDog = mlLine !== null ? (mlLine < 0 ? 'favorite' : 'underdog') as 'favorite' | 'underdog' : undefined;
+                      const mlAcc = mlPickEdge !== null ? lookupBucketAccuracy('full_ml', mlPickEdge, mlSide as 'home' | 'away', mlFavDog) : null;
+                      return <>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-white">
+                          <span>Pick: <span className="font-semibold">{mlPickTeam}</span></span>
+                          <span>Edge: <span className="font-semibold">{mlPickEdge !== null ? `${mlPickEdge > 0 ? '+' : ''}${mlPickEdge.toFixed(1)}%` : '-'}</span></span>
+                          {mlAcc ? accuracyBadge(mlAcc) : (
+                            <span className={`font-semibold px-1.5 py-0.5 rounded border text-[10px] sm:text-xs ${signalStyle(mlConfidenceLabel as 'Strong' | 'Weak')}`}>
+                              {mlConfidenceLabel}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {awayAbbrev}: Win Prob {toNum(prediction.ml_away_win_prob) !== null ? `${((toNum(prediction.ml_away_win_prob) as number) * 100).toFixed(1)}%` : '-'} | ML Edge {awayMlEdge !== null ? `${awayMlEdge > 0 ? '+' : ''}${awayMlEdge.toFixed(1)}%` : '-'}
@@ -964,23 +1037,18 @@ export default function MLB() {
                         <div className="text-xs text-muted-foreground">
                           {homeAbbrev}: Win Prob {toNum(prediction.ml_home_win_prob) !== null ? `${((toNum(prediction.ml_home_win_prob) as number) * 100).toFixed(1)}%` : '-'} | ML Edge {homeMlEdge !== null ? `${homeMlEdge > 0 ? '+' : ''}${homeMlEdge.toFixed(1)}%` : '-'}
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-sm text-white">
-                          Pick: <span className="font-semibold">{f5PickTeam}</span>
-                          {' '}| Win Prob: <span className="font-semibold">{(f5HomeProb !== null || f5AwayProb !== null) ? `${(Math.max(f5HomeProb ?? 0, f5AwayProb ?? 0) * 100).toFixed(1)}%` : '-'}</span>
-                          {' '}| Edge:{' '}
-                          <span className="font-semibold">
-                            {f5PickEdge !== null ? `${f5PickEdge > 0 ? '+' : ''}${f5PickEdge.toFixed(1)}%` : '-'}
-                          </span>
-                          {f5PickMlStrong ? (
-                            <>
-                              {' '}|{' '}
-                              <span className={`font-semibold px-2 py-0.5 rounded border ${signalStyle('Strong')}`}>
-                                Strong edge
-                              </span>
-                            </>
+                      </>;
+                    })() : (() => {
+                      const f5Side = f5PickIsHome ? 'home' : 'away';
+                      const f5Acc = f5PickEdge !== null ? lookupBucketAccuracy('f5_ml', f5PickEdge, f5Side as 'home' | 'away') : null;
+                      return <>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-white">
+                          <span>Pick: <span className="font-semibold">{f5PickTeam}</span></span>
+                          <span>Edge: <span className="font-semibold">{f5PickEdge !== null ? `${f5PickEdge > 0 ? '+' : ''}${f5PickEdge.toFixed(1)}%` : '-'}</span></span>
+                          {f5Acc ? accuracyBadge(f5Acc) : f5PickMlStrong ? (
+                            <span className={`font-semibold px-1.5 py-0.5 rounded border text-[10px] sm:text-xs ${signalStyle('Strong')}`}>
+                              Strong
+                            </span>
                           ) : null}
                         </div>
                         <div className="text-xs text-muted-foreground">
@@ -995,37 +1063,41 @@ export default function MLB() {
                           {' '}| F5 ML Edge{' '}
                           {f5HomeMlEdge !== null ? `${f5HomeMlEdge > 0 ? '+' : ''}${f5HomeMlEdge.toFixed(1)}%` : '-'}
                         </div>
-                      </>
-                    )}
+                      </>;
+                    })()}
                   </div>
 
                   <div className={MLB_CARD_INNER}>
                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{cardView === 'full' ? 'Total Projection' : '1st 5 Total Projection'}</div>
-                    {cardView === 'full' ? (
-                      <>
-                        <div className="text-sm text-white">
-                          Pick: <span className="font-semibold">{ouDirection}</span>
-                          {' '}| Edge: <span className="font-semibold">+{ouEdge.toFixed(2)}</span>
-                          {' '}| Confidence:{' '}
-                          <span className={`font-semibold px-2 py-0.5 rounded border ${signalStyle(totalConfidenceLabel as 'Strong' | 'Moderate' | 'Weak')}`}>
-                            {totalConfidenceLabel}
-                          </span>
+                    {cardView === 'full' ? (() => {
+                      const ouAcc = lookupBucketAccuracy('full_ou', toNum(prediction.ou_edge) ?? 0, undefined, undefined, prediction.ou_direction ?? undefined);
+                      return <>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-white">
+                          <span>Pick: <span className="font-semibold">{ouDirection}</span></span>
+                          <span>Edge: <span className="font-semibold">+{ouEdge.toFixed(2)}</span></span>
+                          {ouAcc ? accuracyBadge(ouAcc) : (
+                            <span className={`font-semibold px-1.5 py-0.5 rounded border text-[10px] sm:text-xs ${signalStyle(totalConfidenceLabel as 'Strong' | 'Moderate' | 'Weak')}`}>
+                              {totalConfidenceLabel}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           Fair Total: {toNum(prediction.ou_fair_total)?.toFixed(2) ?? '-'} | Market Total: {toNum(prediction.total_line)?.toFixed(1) ?? '-'}
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-sm text-white">
-                          Pick: <span className="font-semibold">{f5Direction}</span>
-                          {' '}| Edge: <span className="font-semibold">+{f5TotalEdge.toFixed(2)}</span>
+                      </>;
+                    })() : (() => {
+                      const f5OuAcc = lookupBucketAccuracy('f5_ou', toNum(prediction.f5_ou_edge) ?? 0, undefined, undefined, f5Direction.toLowerCase());
+                      return <>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-white">
+                          <span>Pick: <span className="font-semibold">{f5Direction}</span></span>
+                          <span>Edge: <span className="font-semibold">+{f5TotalEdge.toFixed(2)}</span></span>
+                          {f5OuAcc ? accuracyBadge(f5OuAcc) : null}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           F5 Fair Total: {toNum(prediction.f5_fair_total)?.toFixed(2) ?? '-'} | F5 Market Total: {toNum(prediction.f5_total_line)?.toFixed(1) ?? '-'}
                         </div>
-                      </>
-                    )}
+                      </>;
+                    })()}
                   </div>
                 </div>
 
