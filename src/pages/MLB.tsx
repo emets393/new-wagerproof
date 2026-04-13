@@ -525,10 +525,11 @@ export default function MLB() {
 
   const getBucketLabel = useCallback((edge: number, buckets: [number, string][]) => {
     const absEdge = Math.abs(edge);
+    const prefix = edge < 0 ? '-' : '+';
     for (const [threshold, label] of buckets) {
-      if (absEdge >= threshold) return label;
+      if (absEdge >= threshold) return `${prefix}${label}`;
     }
-    return buckets[buckets.length - 1][1];
+    return `${prefix}${buckets[buckets.length - 1][1]}`;
   }, []);
 
   const lookupBucketAccuracy = useCallback((
