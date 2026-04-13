@@ -729,8 +729,8 @@ export default function MLB() {
           const isPostponed = prediction.is_postponed === true;
           const homeMlEdge = toNum(prediction.home_ml_edge_pct);
           const awayMlEdge = toNum(prediction.away_ml_edge_pct);
-          // Pick based on win probability (who we think wins)
-          const mlPickIsHome = (toNum(prediction.ml_home_win_prob) ?? 0) >= (toNum(prediction.ml_away_win_prob) ?? 0);
+          // Pick the team with the higher edge (where the model sees value)
+          const mlPickIsHome = (homeMlEdge ?? -999) >= (awayMlEdge ?? -999);
           const mlPickTeam = mlPickIsHome ? homeAbbrev : awayAbbrev;
           const mlPickEdge = mlPickIsHome ? homeMlEdge : awayMlEdge;
           const mlIsStrong = mlPickIsHome ? prediction.home_ml_strong_signal : prediction.away_ml_strong_signal;
@@ -744,8 +744,8 @@ export default function MLB() {
           const f5Runs = getF5Runs(prediction);
           const f5HomeProb = toNum(prediction.f5_home_win_prob);
           const f5AwayProb = toNum(prediction.f5_away_win_prob);
-          // Pick F5 based on win probability (who we think wins F5)
-          const f5PickIsHome = (f5HomeProb ?? 0) >= (f5AwayProb ?? 0);
+          // Pick F5 based on highest edge (where model sees value)
+          const f5PickIsHome = (toNum(prediction.f5_home_ml_edge_pct) ?? -999) >= (toNum(prediction.f5_away_ml_edge_pct) ?? -999);
           const f5HomeMlEdge = toNum(prediction.f5_home_ml_edge_pct);
           const f5AwayMlEdge = toNum(prediction.f5_away_ml_edge_pct);
           const f5PickTeam = f5PickIsHome ? homeAbbrev : awayAbbrev;
