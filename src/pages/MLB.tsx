@@ -539,10 +539,6 @@ export default function MLB() {
     direction?: string,
   ): { win_pct: number; roi_pct: number; record: string } | null => {
     if (!modelAccuracy) return null;
-    // Only show accuracy for POSITIVE edges (model sees value)
-    // Negative edge = market is ahead, no value, don't show accuracy
-    if (betType.includes('ml') && edge < 0) return null;
-    if (betType.includes('ou') && Math.abs(edge) < 0.01) return null;
     const data = modelAccuracy[betType];
     if (!data) return null;
 
@@ -732,6 +728,7 @@ export default function MLB() {
           const isPostponed = prediction.is_postponed === true;
           const homeMlEdge = toNum(prediction.home_ml_edge_pct);
           const awayMlEdge = toNum(prediction.away_ml_edge_pct);
+          // Pick based on win probability (who we think wins)
           const mlPickIsHome = (toNum(prediction.ml_home_win_prob) ?? 0) >= (toNum(prediction.ml_away_win_prob) ?? 0);
           const mlPickTeam = mlPickIsHome ? homeAbbrev : awayAbbrev;
           const mlPickEdge = mlPickIsHome ? homeMlEdge : awayMlEdge;
@@ -746,10 +743,11 @@ export default function MLB() {
           const f5Runs = getF5Runs(prediction);
           const f5HomeProb = toNum(prediction.f5_home_win_prob);
           const f5AwayProb = toNum(prediction.f5_away_win_prob);
+          // Pick F5 based on win probability (who we think wins F5)
           const f5PickIsHome = (f5HomeProb ?? 0) >= (f5AwayProb ?? 0);
-          const f5PickTeam = f5PickIsHome ? homeAbbrev : awayAbbrev;
           const f5HomeMlEdge = toNum(prediction.f5_home_ml_edge_pct);
           const f5AwayMlEdge = toNum(prediction.f5_away_ml_edge_pct);
+          const f5PickTeam = f5PickIsHome ? homeAbbrev : awayAbbrev;
           const f5PickEdge = f5PickIsHome ? f5HomeMlEdge : f5AwayMlEdge;
           const rSig = prediction as Record<string, unknown>;
           const f5PickMlStrong = f5PickIsHome
