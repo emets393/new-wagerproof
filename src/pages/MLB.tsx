@@ -539,6 +539,10 @@ export default function MLB() {
     direction?: string,
   ): { win_pct: number; roi_pct: number; record: string } | null => {
     if (!modelAccuracy) return null;
+    // Only show accuracy for POSITIVE edges (model sees value)
+    // Negative edge = market is ahead, no value, don't show accuracy
+    if (betType.includes('ml') && edge < 0) return null;
+    if (betType.includes('ou') && Math.abs(edge) < 0.01) return null;
     const data = modelAccuracy[betType];
     if (!data) return null;
 
