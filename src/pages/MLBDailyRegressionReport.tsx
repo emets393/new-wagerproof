@@ -617,7 +617,6 @@ function BullpenFatigueSection({ bullpens }: { bullpens: BullpenFatigue[] }) {
               <TableHead className="text-right cursor-help" title="Expected FIP for bullpen this season — baseline performance">Season xFIP</TableHead>
               <TableHead className="text-right cursor-help" title="Recent xFIP trend. Positive = declining, negative = improving">Trend xFIP</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Note</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -639,9 +638,6 @@ function BullpenFatigueSection({ bullpens }: { bullpens: BullpenFatigue[] }) {
                     ? <Badge className="bg-red-600">OVERWORKED</Badge>
                     : <Badge className="bg-amber-600">DECLINING</Badge>
                   }
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground max-w-48">
-                  {b.flags.join('. ')}
                 </TableCell>
               </TableRow>
             ))}
