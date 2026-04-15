@@ -510,7 +510,6 @@ function BattingRegressionSection({
           <TableHead className="text-right">BABIP</TableHead>
           <TableHead className="text-right">xwOBACon</TableHead>
           <TableHead className="text-right">Gap</TableHead>
-          <TableHead className="text-right">ISO</TableHead>
           <TableHead className="text-right">HH%</TableHead>
           <TableHead className="text-right">Barrel%</TableHead>
           <TableHead className="text-right">EV</TableHead>
@@ -534,7 +533,6 @@ function BattingRegressionSection({
               <TableCell className={`text-right font-mono font-bold ${gap != null ? (gap < -0.03 ? 'text-green-400' : gap > 0.03 ? 'text-red-400' : '') : ''}`}>
                 {gap != null ? (gap > 0 ? '+' : '') + gap.toFixed(3) : '-'}
               </TableCell>
-              <TableCell className="text-right font-mono">{t.iso != null ? t.iso.toFixed(3) : '-'}</TableCell>
               <TableCell className={`text-right font-mono ${(t.hard_hit_pct ?? 0) > 0.38 ? 'text-green-400 font-bold' : (t.hard_hit_pct ?? 1) < 0.30 ? 'text-red-400' : ''}`}>
                 {t.hard_hit_pct ? (t.hard_hit_pct * 100).toFixed(1) + '%' : '-'}
               </TableCell>
