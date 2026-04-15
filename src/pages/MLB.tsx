@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
-import type { ModelAccuracy, AccuracyBucket } from '@/hooks/useMLBRegressionReport';
+import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import {
   Activity,
   AlertCircle,
@@ -513,9 +512,9 @@ export default function MLB() {
     setProjectionViewByGame((prev) => ({ ...prev, [gameKey]: view }));
   };
 
-  // Fetch real model accuracy from today's regression report
-  const { data: regressionReport } = useMLBRegressionReport();
-  const modelAccuracy = regressionReport?.model_accuracy ?? null;
+  // Model accuracy now comes from the dedicated mlb_model_bucket_accuracy table,
+  // so this page no longer waits on the morning regression report run.
+  const { data: modelAccuracy } = useMLBBucketAccuracy();
 
   // Edge bucket thresholds (must match the Python script)
   const ML_BUCKETS: [number, string][] = [[7, "7%+"], [4, "4-6.9%"], [2, "2-3.9%"], [0, "<2%"]];

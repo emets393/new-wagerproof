@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
+import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { MLB_FALLBACK_BY_NAME } from '@/utils/mlbTeamLogos';
 import type {
   PitcherRegression, BattingRegression, BullpenFatigue,
@@ -145,6 +146,15 @@ function RecapSection({ recap }: { recap: YesterdayRecap[] }) {
       </CardContent>
     </Card>
   );
+}
+
+function AccuracyDashboardLive() {
+  const { data: accuracy, isLoading } = useMLBBucketAccuracy();
+  if (isLoading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+  if (!accuracy) return null;
+  return <AccuracyDashboard accuracy={accuracy as unknown as ModelAccuracy} />;
 }
 
 function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
@@ -790,7 +800,7 @@ export default function MLBDailyRegressionReport() {
       <RecapSection recap={report.yesterday_recap} />
 
       {/* Model Accuracy */}
-      <AccuracyDashboard accuracy={report.model_accuracy} />
+      <AccuracyDashboardLive />
 
       {/* Suggested Picks */}
       <PicksSection picks={report.suggested_picks} />
