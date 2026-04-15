@@ -14,7 +14,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -401,119 +400,49 @@ function PitcherRegressionSection({
           <div className="text-xs text-muted-foreground mb-2">vs {p.opponent || '-'}</div>
           <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-10 gap-2 text-center text-xs">
             <div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">ERA</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Earned Run Average — runs allowed per 9 innings</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="Earned Run Average — runs allowed per 9 innings">ERA</div>
               <div className="font-mono font-medium">{p.era?.toFixed(2)}</div>
             </div>
             <div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">xFIP</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Expected FIP based on strikeouts, walks, and home runs (removes luck/defense)</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="Expected FIP based on strikeouts, walks, and home runs (removes luck/defense)">xFIP</div>
               <div className="font-mono font-medium">{p.xfip?.toFixed(2)}</div>
             </div>
             <div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">Gap</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>ERA minus xFIP. Positive = overperforming, negative = underperforming</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="ERA minus xFIP. Positive = overperforming, negative = underperforming">Gap</div>
               <div className={`font-mono font-bold ${severityColor(p.severity)}`}>
                 {p.era_minus_xfip > 0 ? '+' : ''}{p.era_minus_xfip?.toFixed(2)}
               </div>
             </div>
             <div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">xwOBA</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Expected weighted On-Base Average allowed — quality of contact allowed</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="Expected weighted On-Base Average allowed — quality of contact allowed">xwOBA</div>
               <div className={`font-mono ${(p.xwoba ?? 0) >= 0.340 ? 'text-red-400' : (p.xwoba ?? 0) <= 0.260 ? 'text-green-400' : ''}`}>
                 {p.xwoba?.toFixed(3) || '-'}
               </div>
             </div>
             <div className="hidden sm:block">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">xERA</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Expected ERA based on batted ball quality (more stable than actual ERA)</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="Expected ERA based on batted ball quality (more stable than actual ERA)">xERA</div>
               <div className="font-mono">{p.xera?.toFixed(2) || '-'}</div>
             </div>
             <div className="hidden lg:block">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">FIP</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Fielding Independent Pitching — ERA estimate using K, BB, HR only</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="Fielding Independent Pitching — ERA estimate using K, BB, HR only">FIP</div>
               <div className="font-mono">{p.fip?.toFixed(2) || '-'}</div>
             </div>
             <div className="hidden lg:block">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">WHIP</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Walks + Hits per IP. Elite: &lt;1.10, Concerning: &gt;1.35</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="Walks + Hits per IP. Elite: <1.10, Concerning: >1.35">WHIP</div>
               <div className={`font-mono ${(p.whip ?? 0) >= 1.35 ? 'text-red-400' : (p.whip ?? 2) <= 1.10 ? 'text-green-400' : ''}`}>
                 {p.whip?.toFixed(2) || '-'}
               </div>
             </div>
             <div className="hidden lg:block">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">K%</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Strikeout rate — how often pitcher strikes out batter</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="Strikeout rate — how often pitcher strikes out batter">K%</div>
               <div className="font-mono">{p.k_pct?.toFixed(1) || '-'}%</div>
             </div>
             <div className="hidden lg:block">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">BB%</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Walk rate — control indicator. Higher = worse control</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="Walk rate — control indicator. Higher = worse control">BB%</div>
               <div className={`font-mono ${(p.bb_pct ?? 0) >= 12 ? 'text-red-400' : ''}`}>{p.bb_pct?.toFixed(1) || '-'}%</div>
             </div>
             <div className="hidden lg:block">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-muted-foreground cursor-help">xFIP L3</div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>xFIP trend over last 3 starts. Positive = worsening, negative = improving</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="text-muted-foreground cursor-help" title="xFIP trend over last 3 starts. Positive = worsening, negative = improving">xFIP L3</div>
               <div className={`font-mono ${(p.trend_xfip ?? 0) > 0.3 ? 'text-red-400' : (p.trend_xfip ?? 0) < -0.3 ? 'text-green-400' : ''}`}>
                 {p.trend_xfip != null ? (p.trend_xfip > 0 ? '+' : '') + p.trend_xfip.toFixed(2) : '-'}
               </div>
@@ -577,86 +506,14 @@ function BattingRegressionSection({
       <TableHeader>
         <TableRow>
           <TableHead>Team</TableHead>
-          <TableHead className="text-right">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help">wOBA</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Weighted On-Base Average — batting value per plate appearance</p>
-              </TooltipContent>
-            </Tooltip>
-          </TableHead>
-          <TableHead className="text-right">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help">BABIP</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Batting Average on Balls In Play. High/low rates signal regression</p>
-              </TooltipContent>
-            </Tooltip>
-          </TableHead>
-          <TableHead className="text-right">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help">xwOBACon</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Expected weighted OBA from contact — quality independent of results</p>
-              </TooltipContent>
-            </Tooltip>
-          </TableHead>
-          <TableHead className="text-right">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help">Gap</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>wOBA minus xwOBACon. Positive = overperforming, negative = underperforming</p>
-              </TooltipContent>
-            </Tooltip>
-          </TableHead>
-          <TableHead className="text-right">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help">HH%</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Hard Hit% — batted balls ≥95 mph exit velocity</p>
-              </TooltipContent>
-            </Tooltip>
-          </TableHead>
-          <TableHead className="text-right">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help">Barrel%</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>% of batted balls with ideal exit velo and launch angle</p>
-              </TooltipContent>
-            </Tooltip>
-          </TableHead>
-          <TableHead className="text-right">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help">EV</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Average Exit Velocity — average speed of batted balls</p>
-              </TooltipContent>
-            </Tooltip>
-          </TableHead>
-          <TableHead className="text-right">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help">xwC L5</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>xwOBACon trend over last 5 games. Positive = improving, negative = declining</p>
-              </TooltipContent>
-            </Tooltip>
-          </TableHead>
+          <TableHead className="text-right cursor-help" title="Weighted On-Base Average — batting value per plate appearance">wOBA</TableHead>
+          <TableHead className="text-right cursor-help" title="Batting Average on Balls In Play. High/low rates signal regression">BABIP</TableHead>
+          <TableHead className="text-right cursor-help" title="Expected weighted OBA from contact — quality independent of results">xwOBACon</TableHead>
+          <TableHead className="text-right cursor-help" title="wOBA minus xwOBACon. Positive = overperforming, negative = underperforming">Gap</TableHead>
+          <TableHead className="text-right cursor-help" title="Hard Hit% — batted balls ≥95 mph exit velocity">HH%</TableHead>
+          <TableHead className="text-right cursor-help" title="% of batted balls with ideal exit velo and launch angle">Barrel%</TableHead>
+          <TableHead className="text-right cursor-help" title="Average Exit Velocity — average speed of batted balls">EV</TableHead>
+          <TableHead className="text-right cursor-help" title="xwOBACon trend over last 5 games. Positive = improving, negative = declining">xwC L5</TableHead>
           <TableHead>Signal</TableHead>
         </TableRow>
       </TableHeader>
@@ -755,46 +612,10 @@ function BullpenFatigueSection({ bullpens }: { bullpens: BullpenFatigue[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>Team</TableHead>
-              <TableHead className="text-right">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-help">IP Last 3d</span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Bullpen innings pitched in the last 3 days. High usage = fatigue risk</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TableHead>
-              <TableHead className="text-right">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-help">IP Last 5d</span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Bullpen innings pitched in the last 5 days. Cumulative workload</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TableHead>
-              <TableHead className="text-right">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-help">Season xFIP</span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Expected FIP for bullpen this season — baseline performance</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TableHead>
-              <TableHead className="text-right">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-help">Trend xFIP</span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Recent xFIP trend. Positive = declining, negative = improving</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TableHead>
+              <TableHead className="text-right cursor-help" title="Bullpen innings pitched in the last 3 days. High usage = fatigue risk">IP Last 3d</TableHead>
+              <TableHead className="text-right cursor-help" title="Bullpen innings pitched in the last 5 days. Cumulative workload">IP Last 5d</TableHead>
+              <TableHead className="text-right cursor-help" title="Expected FIP for bullpen this season — baseline performance">Season xFIP</TableHead>
+              <TableHead className="text-right cursor-help" title="Recent xFIP trend. Positive = declining, negative = improving">Trend xFIP</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Note</TableHead>
             </TableRow>
