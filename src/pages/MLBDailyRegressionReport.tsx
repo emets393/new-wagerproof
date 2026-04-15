@@ -6,6 +6,7 @@ import type {
   PitcherRegression, BattingRegression, BullpenFatigue,
   SuggestedPick, YesterdayRecap, AccuracyBucket,
   BetTypeAccuracy, PerfectStorm, WeatherParkFlag, ModelAccuracy,
+  CumulativeRecord,
 } from '@/hooks/useMLBRegressionReport';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -112,7 +113,13 @@ function NarrativeSection({ text }: { text: string }) {
   );
 }
 
-function RecapSection({ recap }: { recap: YesterdayRecap[] }) {
+function RecapSection({
+  recap,
+  cumulative,
+}: {
+  recap: YesterdayRecap[];
+  cumulative?: CumulativeRecord | null;
+}) {
   if (!recap.length) return null;
   const wins = recap.filter(r => r.result === 'won').length;
   const losses = recap.filter(r => r.result === 'lost').length;
@@ -120,13 +127,36 @@ function RecapSection({ recap }: { recap: YesterdayRecap[] }) {
   const total = wins + losses;
   const pct = total > 0 ? (wins / total * 100).toFixed(1) : '0.0';
 
+  const cum = cumulative?.total;
+  const cumUnits = cum?.units_won ?? 0;
+  const cumRoi = cum?.roi_pct ?? 0;
+  const cumRecord = cum
+    ? (cum.pushes > 0
+        ? `${cum.wins}-${cum.losses}-${cum.pushes}`
+        : `${cum.wins}-${cum.losses}`)
+    : null;
+
   return (
     <Card>
       <CardHeader className="py-3">
-        <CardTitle className="text-lg flex items-center gap-2">
+        <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
           <Trophy className="h-5 w-5 text-yellow-500" /> Yesterday's Results
-          <Badge variant="outline" className="ml-2">{wins}-{losses}{pushes ? `-${pushes}P` : ''} ({pct}%)</Badge>
+          <Badge variant="outline" className="ml-2">
+            {wins}-{losses}{pushes ? `-${pushes}P` : ''} ({pct}%)
+          </Badge>
         </CardTitle>
+        {cumRecord && (
+          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground mt-1">
+            <span className="font-medium uppercase tracking-wide">All-time:</span>
+            <span className="font-mono text-foreground">{cumRecord}</span>
+            <span className={`font-mono font-medium ${cumUnits >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {cumUnits >= 0 ? '+' : ''}{cumUnits.toFixed(2)}u
+            </span>
+            <span className={`font-mono font-medium ${cumRoi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {cumRoi >= 0 ? '+' : ''}{cumRoi.toFixed(1)}% ROI
+            </span>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-2 sm:p-6">
         <div className="space-y-2">
@@ -368,7 +398,7 @@ function PitcherRegressionSection({
             </Badge>
           </div>
           <div className="text-xs text-muted-foreground mb-2">vs {p.opponent || '-'}</div>
-          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 text-center text-xs">
+          <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-10 gap-2 text-center text-xs">
             <div>
               <div className="text-muted-foreground">ERA</div>
               <div className="font-mono font-medium">{p.era?.toFixed(2)}</div>
@@ -393,13 +423,29 @@ function PitcherRegressionSection({
               <div className="text-muted-foreground">xERA</div>
               <div className="font-mono">{p.xera?.toFixed(2) || '-'}</div>
             </div>
-            <div className="hidden sm:block">
+            <div className="hidden lg:block">
+              <div className="text-muted-foreground">FIP</div>
+              <div className="font-mono">{p.fip?.toFixed(2) || '-'}</div>
+            </div>
+            <div className="hidden lg:block">
+              <div className="text-muted-foreground">WHIP</div>
+              <div className={`font-mono ${(p.whip ?? 0) >= 1.35 ? 'text-red-400' : (p.whip ?? 2) <= 1.10 ? 'text-green-400' : ''}`}>
+                {p.whip?.toFixed(2) || '-'}
+              </div>
+            </div>
+            <div className="hidden lg:block">
               <div className="text-muted-foreground">K%</div>
               <div className="font-mono">{p.k_pct?.toFixed(1) || '-'}%</div>
             </div>
-            <div className="hidden sm:block">
+            <div className="hidden lg:block">
               <div className="text-muted-foreground">BB%</div>
               <div className={`font-mono ${(p.bb_pct ?? 0) >= 12 ? 'text-red-400' : ''}`}>{p.bb_pct?.toFixed(1) || '-'}%</div>
+            </div>
+            <div className="hidden lg:block">
+              <div className="text-muted-foreground">xFIP L3</div>
+              <div className={`font-mono ${(p.trend_xfip ?? 0) > 0.3 ? 'text-red-400' : (p.trend_xfip ?? 0) < -0.3 ? 'text-green-400' : ''}`}>
+                {p.trend_xfip != null ? (p.trend_xfip > 0 ? '+' : '') + p.trend_xfip.toFixed(2) : '-'}
+              </div>
             </div>
           </div>
         </div>
@@ -460,34 +506,35 @@ function BattingRegressionSection({
       <TableHeader>
         <TableRow>
           <TableHead>Team</TableHead>
-          <TableHead className="text-right">R/G</TableHead>
           <TableHead className="text-right">wOBA</TableHead>
           <TableHead className="text-right">BABIP</TableHead>
           <TableHead className="text-right">xwOBACon</TableHead>
           <TableHead className="text-right">Gap</TableHead>
+          <TableHead className="text-right">ISO</TableHead>
           <TableHead className="text-right">HH%</TableHead>
           <TableHead className="text-right">Barrel%</TableHead>
           <TableHead className="text-right">EV</TableHead>
-          <TableHead className="text-right">HR</TableHead>
+          <TableHead className="text-right">xwC L5</TableHead>
           <TableHead>Signal</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {teams.map((t: any, i: number) => {
           const gap = t.woba_gap;
+          const trendXwC = t.trend_xwobacon;
           return (
             <TableRow key={i} className={severityBg(t.severity || 'mild')}>
               <TableCell>
                 <div className="font-medium">{t.team_name}</div>
                 <div className="text-xs text-muted-foreground">{t.games}G</div>
               </TableCell>
-              <TableCell className="text-right font-mono">{t.avg_runs?.toFixed(2)}</TableCell>
               <TableCell className="text-right font-mono">{t.woba?.toFixed(3) || '-'}</TableCell>
               <TableCell className="text-right font-mono font-bold">{t.babip?.toFixed(3)}</TableCell>
               <TableCell className="text-right font-mono">{t.xwobacon?.toFixed(3) || '-'}</TableCell>
               <TableCell className={`text-right font-mono font-bold ${gap != null ? (gap < -0.03 ? 'text-green-400' : gap > 0.03 ? 'text-red-400' : '') : ''}`}>
                 {gap != null ? (gap > 0 ? '+' : '') + gap.toFixed(3) : '-'}
               </TableCell>
+              <TableCell className="text-right font-mono">{t.iso != null ? t.iso.toFixed(3) : '-'}</TableCell>
               <TableCell className={`text-right font-mono ${(t.hard_hit_pct ?? 0) > 0.38 ? 'text-green-400 font-bold' : (t.hard_hit_pct ?? 1) < 0.30 ? 'text-red-400' : ''}`}>
                 {t.hard_hit_pct ? (t.hard_hit_pct * 100).toFixed(1) + '%' : '-'}
               </TableCell>
@@ -497,7 +544,9 @@ function BattingRegressionSection({
               <TableCell className={`text-right font-mono ${(t.avg_ev ?? 0) > 87.5 ? 'text-green-400 font-bold' : (t.avg_ev ?? 100) < 84.5 ? 'text-red-400' : ''}`}>
                 {t.avg_ev?.toFixed(1) || '-'}
               </TableCell>
-              <TableCell className="text-right">{t.hr}</TableCell>
+              <TableCell className={`text-right font-mono ${(trendXwC ?? 0) > 0.015 ? 'text-green-400' : (trendXwC ?? 0) < -0.015 ? 'text-red-400' : ''}`}>
+                {trendXwC != null ? (trendXwC > 0 ? '+' : '') + trendXwC.toFixed(3) : '-'}
+              </TableCell>
               <TableCell>
                 {t.severity && (
                   <Badge className={t.severity === 'severe' ? 'bg-red-600' : t.severity === 'moderate' ? 'bg-amber-600' : 'bg-green-600'}>
@@ -655,21 +704,25 @@ function LRSplitsSection({ splits }: { splits: any[] }) {
           <div className="mb-4">
             <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Notable Matchups</div>
             <div className="space-y-2">
-              {notable.map((s: any, i: number) => (
-                <div key={i} className="flex items-center justify-between gap-2 p-2 sm:p-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm">{s.team_name} <span className="text-muted-foreground font-normal">{s.facing}</span></div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground">vs {s.opponent_sp || s.opponent} ({s.opponent_sp_hand}HP)</div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-sm font-bold">{s.avg_runs} R/G</div>
-                    <div className={`text-[10px] sm:text-xs font-medium ${(s.f5_win_pct ?? 50) >= 60 ? 'text-green-400' : (s.f5_win_pct ?? 50) <= 40 ? 'text-red-400' : ''}`}>
-                      F5: {s.f5_wins}-{s.f5_losses} {s.f5_win_pct != null ? `(${s.f5_win_pct}%)` : ''}
+              {notable.map((s: any, i: number) => {
+                const record = s.f5_ties > 0
+                  ? `F5: ${s.f5_wins}-${s.f5_losses}-${s.f5_ties}`
+                  : `F5: ${s.f5_wins}-${s.f5_losses}`;
+                return (
+                  <div key={i} className="flex items-center justify-between gap-2 p-2 sm:p-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm">{s.team_name} <span className="text-muted-foreground font-normal">{s.facing}</span></div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">vs {s.opponent_sp || s.opponent} ({s.opponent_sp_hand}HP)</div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-sm font-bold">{s.avg_f5_runs} F5 R/G</div>
+                      <div className={`text-[10px] sm:text-xs font-medium ${(s.f5_win_pct ?? 50) >= 60 ? 'text-green-400' : (s.f5_win_pct ?? 50) <= 40 ? 'text-red-400' : ''}`}>
+                        {record} {s.f5_win_pct != null ? `(${s.f5_win_pct}%)` : ''}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-[10px] text-muted-foreground">{s.games}G</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -681,19 +734,24 @@ function LRSplitsSection({ splits }: { splits: any[] }) {
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2">
               <div className="space-y-1">
-                {rest.map((s: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between gap-2 p-2 rounded bg-muted/10 text-xs">
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium">{s.team_name}</span>
-                      <span className="text-muted-foreground ml-1">{s.facing}</span>
-                      <span className="text-muted-foreground ml-1">vs {s.opponent_sp_hand}HP</span>
+                {rest.map((s: any, i: number) => {
+                  const record = s.f5_ties > 0
+                    ? `F5: ${s.f5_wins}-${s.f5_losses}-${s.f5_ties}`
+                    : `F5: ${s.f5_wins}-${s.f5_losses}`;
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-2 p-2 rounded bg-muted/10 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium">{s.team_name}</span>
+                        <span className="text-muted-foreground ml-1">{s.facing}</span>
+                        <span className="text-muted-foreground ml-1">vs {s.opponent_sp_hand}HP</span>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className="font-mono">{s.avg_f5_runs} F5 R/G</span>
+                        <span className="text-muted-foreground ml-2">{record}</span>
+                      </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <span className="font-mono">{s.avg_runs} R/G</span>
-                      <span className="text-muted-foreground ml-2">F5: {s.f5_wins}-{s.f5_losses}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -797,7 +855,7 @@ export default function MLBDailyRegressionReport() {
       {report.narrative_text && <NarrativeSection text={report.narrative_text} />}
 
       {/* Yesterday's Recap */}
-      <RecapSection recap={report.yesterday_recap} />
+      <RecapSection recap={report.yesterday_recap} cumulative={report.cumulative_record} />
 
       {/* Model Accuracy */}
       <AccuracyDashboardLive />

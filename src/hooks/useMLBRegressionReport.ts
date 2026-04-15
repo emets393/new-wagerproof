@@ -7,9 +7,12 @@ export interface PitcherRegression {
   opponent: string | null;
   starts: number;
   ip: number;
+  // Season
   era: number;
   xfip: number;
   xera: number | null;
+  fip: number | null;
+  whip: number | null;
   era_minus_xfip: number;
   xwoba: number | null;
   k_pct: number | null;
@@ -17,6 +20,20 @@ export interface PitcherRegression {
   hard_hit_pct: number | null;
   barrel_pct: number | null;
   hr_per_9: number | null;
+  // Last 3 starts
+  l3_era: number | null;
+  l3_xfip: number | null;
+  l3_xera: number | null;
+  l3_xwoba: number | null;
+  l3_fip: number | null;
+  l3_whip: number | null;
+  // Trends (last3 − season; positive = worse, negative = better)
+  trend_era: number | null;
+  trend_xfip: number | null;
+  trend_xera: number | null;
+  trend_xwoba: number | null;
+  trend_fip: number | null;
+  trend_whip: number | null;
   severity: 'severe' | 'moderate' | 'mild';
   severity_score: number;
 }
@@ -25,7 +42,7 @@ export interface BattingRegression {
   team_name: string;
   today_vs_pitcher: string | null;
   games: number;
-  avg_runs: number;
+  avg_runs?: number;            // legacy — no longer populated by the backend
   batting_avg: number | null;
   babip: number;
   xwobacon: number | null;
@@ -34,12 +51,27 @@ export interface BattingRegression {
   hard_hit_pct: number | null;
   barrel_pct: number | null;
   avg_ev: number | null;
+  iso: number | null;
+  launch_angle: number | null;
   slg: number | null;
   obp: number | null;
   k_pct: number | null;
   bb_pct: number | null;
   hr: number;
   hr_per_game: number | null;
+  // Last 5
+  l5_woba?: number | null;
+  l5_xwobacon?: number | null;
+  l5_hard_hit_pct?: number | null;
+  l5_barrel_pct?: number | null;
+  l5_avg_ev?: number | null;
+  l5_bb_pct?: number | null;
+  // Trends
+  trend_woba?: number | null;
+  trend_xwobacon?: number | null;
+  trend_hard_hit_pct?: number | null;
+  trend_barrel_pct?: number | null;
+  trend_avg_launch_speed?: number | null;
   severity?: 'severe' | 'moderate' | 'mild';
   severity_score?: number;
 }
@@ -115,15 +147,26 @@ export interface ModelAccuracy {
   f5_ou: BetTypeAccuracy;
 }
 
+export interface CumulativeBucket {
+  wins: number;
+  losses: number;
+  pushes: number;
+  units_won: number;
+  win_pct: number;
+  roi_pct: number;
+}
+
 export interface CumulativeRecord {
-  total: { wins: number; losses: number; pushes: number };
-  by_bet_type: Record<string, { wins: number; losses: number; pushes: number }>;
+  total: CumulativeBucket;
+  by_bet_type: Record<string, CumulativeBucket>;
   daily_log: Array<{
     date: string;
     wins: number;
     losses: number;
     pushes: number;
+    units_won?: number;
     cumulative_win_pct: number;
+    cumulative_units?: number;
   }>;
 }
 
@@ -155,11 +198,11 @@ export interface LRSplitEntry {
   opponent_sp_hand: string;
   facing: string;
   home_away: string;
-  games: number;
-  avg_runs: number;
-  avg_woba: number;
+  f5_games: number;
+  avg_f5_runs: number;
   f5_wins: number;
   f5_losses: number;
+  f5_ties: number;
   f5_win_pct: number | null;
   is_notable: boolean;
 }
