@@ -579,7 +579,9 @@ function BattingRegressionSection({
           <TableHead>Team</TableHead>
           <TableHead className="text-right">
             <Tooltip>
-              <TooltipTrigger className="cursor-help">wOBA</TooltipTrigger>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">wOBA</span>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>Weighted On-Base Average — batting value per plate appearance</p>
               </TooltipContent>
@@ -587,7 +589,9 @@ function BattingRegressionSection({
           </TableHead>
           <TableHead className="text-right">
             <Tooltip>
-              <TooltipTrigger className="cursor-help">BABIP</TooltipTrigger>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">BABIP</span>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>Batting Average on Balls In Play. High/low rates signal regression</p>
               </TooltipContent>
@@ -595,7 +599,9 @@ function BattingRegressionSection({
           </TableHead>
           <TableHead className="text-right">
             <Tooltip>
-              <TooltipTrigger className="cursor-help">xwOBACon</TooltipTrigger>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">xwOBACon</span>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>Expected weighted OBA from contact — quality independent of results</p>
               </TooltipContent>
@@ -603,7 +609,9 @@ function BattingRegressionSection({
           </TableHead>
           <TableHead className="text-right">
             <Tooltip>
-              <TooltipTrigger className="cursor-help">Gap</TooltipTrigger>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">Gap</span>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>wOBA minus xwOBACon. Positive = overperforming, negative = underperforming</p>
               </TooltipContent>
@@ -611,7 +619,9 @@ function BattingRegressionSection({
           </TableHead>
           <TableHead className="text-right">
             <Tooltip>
-              <TooltipTrigger className="cursor-help">HH%</TooltipTrigger>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">HH%</span>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>Hard Hit% — batted balls ≥95 mph exit velocity</p>
               </TooltipContent>
@@ -619,7 +629,9 @@ function BattingRegressionSection({
           </TableHead>
           <TableHead className="text-right">
             <Tooltip>
-              <TooltipTrigger className="cursor-help">Barrel%</TooltipTrigger>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">Barrel%</span>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>% of batted balls with ideal exit velo and launch angle</p>
               </TooltipContent>
@@ -627,7 +639,9 @@ function BattingRegressionSection({
           </TableHead>
           <TableHead className="text-right">
             <Tooltip>
-              <TooltipTrigger className="cursor-help">EV</TooltipTrigger>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">EV</span>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>Average Exit Velocity — average speed of batted balls</p>
               </TooltipContent>
@@ -635,7 +649,9 @@ function BattingRegressionSection({
           </TableHead>
           <TableHead className="text-right">
             <Tooltip>
-              <TooltipTrigger className="cursor-help">xwC L5</TooltipTrigger>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">xwC L5</span>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>xwOBACon trend over last 5 games. Positive = improving, negative = declining</p>
               </TooltipContent>
@@ -741,7 +757,9 @@ function BullpenFatigueSection({ bullpens }: { bullpens: BullpenFatigue[] }) {
               <TableHead>Team</TableHead>
               <TableHead className="text-right">
                 <Tooltip>
-                  <TooltipTrigger className="cursor-help">IP Last 3d</TooltipTrigger>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help">IP Last 3d</span>
+                  </TooltipTrigger>
                   <TooltipContent>
                     <p>Bullpen innings pitched in the last 3 days. High usage = fatigue risk</p>
                   </TooltipContent>
@@ -749,7 +767,9 @@ function BullpenFatigueSection({ bullpens }: { bullpens: BullpenFatigue[] }) {
               </TableHead>
               <TableHead className="text-right">
                 <Tooltip>
-                  <TooltipTrigger className="cursor-help">IP Last 5d</TooltipTrigger>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help">IP Last 5d</span>
+                  </TooltipTrigger>
                   <TooltipContent>
                     <p>Bullpen innings pitched in the last 5 days. Cumulative workload</p>
                   </TooltipContent>
@@ -757,7 +777,9 @@ function BullpenFatigueSection({ bullpens }: { bullpens: BullpenFatigue[] }) {
               </TableHead>
               <TableHead className="text-right">
                 <Tooltip>
-                  <TooltipTrigger className="cursor-help">Season xFIP</TooltipTrigger>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help">Season xFIP</span>
+                  </TooltipTrigger>
                   <TooltipContent>
                     <p>Expected FIP for bullpen this season — baseline performance</p>
                   </TooltipContent>
@@ -765,7 +787,9 @@ function BullpenFatigueSection({ bullpens }: { bullpens: BullpenFatigue[] }) {
               </TableHead>
               <TableHead className="text-right">
                 <Tooltip>
-                  <TooltipTrigger className="cursor-help">Trend xFIP</TooltipTrigger>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help">Trend xFIP</span>
+                  </TooltipTrigger>
                   <TooltipContent>
                     <p>Recent xFIP trend. Positive = declining, negative = improving</p>
                   </TooltipContent>
