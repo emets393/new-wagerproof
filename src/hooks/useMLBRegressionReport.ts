@@ -51,7 +51,6 @@ export interface BattingRegression {
   hard_hit_pct: number | null;
   barrel_pct: number | null;
   avg_ev: number | null;
-  iso: number | null;
   launch_angle: number | null;
   slg: number | null;
   obp: number | null;
